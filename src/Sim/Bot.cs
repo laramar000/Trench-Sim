@@ -48,6 +48,10 @@ public sealed class Bot(Random rng)
             DecisionKind.FailedMorale => rng.Next(100) < 25
                 ? legal.OrderByDescending(c => c is ResolveFailedMorale { Choice: MoraleFailureChoice.SoundRetreat })
                 : legal.OrderByDescending(c => c is ResolveFailedMorale { Choice: MoraleFailureChoice.BecomeShaken }),
+            // Most opponents take their free attacks on a retreating model.
+            DecisionKind.FreeFight => rng.Next(100) < 85
+                ? legal.OrderBy(c => c is FreeFight ? 0 : 1)
+                : legal.OrderBy(_ => rng.Next()),
             _ => legal.OrderBy(_ => rng.Next()),
         };
     }
@@ -94,6 +98,22 @@ public sealed class Bot(Random rng)
     {
         var seat = model.Seat;
         var kinds = new List<string>();
+        var melee = state.Setup!.ProfileOf(model.Id)!.HasMeleeWeapon;
+        var engaged = melee && NearestEnemy(state, model) is { } nearest && Gap(state, model, nearest) <= Length.Inch;
+        // Melee actions are only ever proposed for a model that has a Melee Weapon, so a ranged-only warband plays
+        // exactly as it did before Slice B.
+        if (melee && engaged && !state.Actions.HasFlag(ActionsTaken.Fight) && rng.Next(100) < 85)
+        {
+            kinds.Add("fight");
+        }
+        if (melee && engaged && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0 && rng.Next(100) < 35)
+        {
+            kinds.Add("retreat");
+        }
+        if (melee && !engaged && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat | ActionsTaken.Shoot)) == 0 && rng.Next(100) < 70)
+        {
+            kinds.Add("charge");
+        }
         if (!state.Actions.HasFlag(ActionsTaken.Dash) && rng.Next(100) < 30)
         {
             kinds.Add("dash");
@@ -128,6 +148,24 @@ public sealed class Bot(Random rng)
                         yield return new MoveModel(seat, model.Id, path);
                     }
                     break;
+                case "fight":
+                    foreach (var target in Targets(state, model).Take(3))
+                    {
+                        yield return new FightModel(seat, model.Id, target.Id);
+                    }
+                    break;
+                case "charge":
+                    foreach (var target in Targets(state, model).Take(3))
+                    {
+                        yield return new ChargeModel(seat, model.Id, target.Id);
+                    }
+                    break;
+                case "retreat":
+                    foreach (var path in RetreatPaths(state, model))
+                    {
+                        yield return new RetreatModel(seat, model.Id, path);
+                    }
+                    break;
                 default:
                     foreach (var target in Targets(state, model))
                     {
@@ -148,6 +186,44 @@ public sealed class Bot(Random rng)
             .ThenBy(m => m.Id.Value, StringComparer.Ordinal);
     }
 
+    private ModelState? NearestEnemy(MatchState state, ModelState model) => Targets(state, model).FirstOrDefault();
+
+    private static Length Gap(MatchState state, ModelState a, ModelState b) =>
+        Measure.Gap(
+            new ModelBody(a.Id.Value, a.Position!.Value, state.Setup!.ProfileOf(a.Id)!.BaseRadius),
+            new ModelBody(b.Id.Value, b.Position!.Value, state.Setup.ProfileOf(b.Id)!.BaseRadius));
+
+    // Retreat paths: the legal candidates that end farthest from the nearest enemy, best first.
+    private IEnumerable<ImmutableArray<Point2>> RetreatPaths(MatchState state, ModelState model)
+    {
+        var scenario = state.Setup!.Scenario!;
+        var profile = state.Setup.ProfileOf(model.Id)!;
+        var allowance = state.MovementHalved ? Length.FromThousandths(profile.Movement.Thousandths / 2) : profile.Movement;
+        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius);
+        var others = state.Models
+            .Where(m => m.Id != model.Id && m.Position is not null)
+            .Select(m => new Obstacle(
+                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius),
+                m.Seat == model.Seat ? Relation.Friendly : Relation.Enemy))
+            .ToList();
+        var from = model.Position!.Value;
+        var enemy = NearestEnemy(state, model)!.Position!.Value;
+        var candidates = new List<ImmutableArray<Point2>>();
+        foreach (var (dx, dy) in Directions)
+        {
+            foreach (var fraction in Fractions)
+            {
+                var length = allowance.Thousandths * fraction / 1000;
+                candidates.Add([At(from.X.Thousandths + length * dx / 1000, from.Y.Thousandths + length * dy / 1000)]);
+            }
+        }
+        return candidates
+            .OrderByDescending(path => Distance2(path[^1], enemy))
+            .Where(path => Movement.CheckPath(scenario.Battlefield, body, path, allowance, others, retreat: true).IsLegal)
+            .Take(6)
+            .ToList();
+    }
+
     private static long Distance2(Point2 a, Point2 b)
     {
         var dx = a.X.Thousandths - b.X.Thousandths;
@@ -160,7 +236,7 @@ public sealed class Bot(Random rng)
     {
         var scenario = state.Setup!.Scenario!;
         var enemies = Targets(state, model).ToList();
-        if (enemies.Count > 0 && (state.Setup.ProfileOf(model.Id)!.HasRangedWeapon && rng.Next(100) < 40))
+        if (enemies.Count > 0 && ((state.Setup.ProfileOf(model.Id)!.HasRangedWeapon || state.Setup.ProfileOf(model.Id)!.HasMeleeWeapon) && rng.Next(100) < 40))
         {
             return enemies[0].Position!.Value;
         }

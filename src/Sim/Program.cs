@@ -1,7 +1,7 @@
 using Sim;
 
 // dotnet run --project src/Sim -- --seed 42
-// dotnet run --project src/Sim -- --seeds 1-20 [--content path] [--max-commands n] [--events]
+// dotnet run --project src/Sim -- --seeds 1-20 [--melee | --content path] [--max-commands n] [--events]
 var seedFrom = 1;
 var seedTo = 1;
 var path = Content.DefaultPath();
@@ -21,6 +21,9 @@ for (var i = 0; i < args.Length; i++)
             var range = args[++i].Split('-');
             seedFrom = int.Parse(range[0]);
             seedTo = int.Parse(range.Length > 1 ? range[1] : range[0]);
+            break;
+        case "--melee":
+            path = Content.MeleePath();
             break;
         case "--content":
             path = args[++i];

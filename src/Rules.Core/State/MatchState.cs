@@ -12,6 +12,8 @@ public enum DecisionKind
     FailedMorale,
     SpendMarkersOnSuccessRoll, // the rolling model's opponent may spend its Blood Markers for -1 DICE each (p. 28)
     SpendMarkersOnInjuryRoll,  // the attacker may spend the target's Blood Markers for +1 INJURY DICE each (p. 28)
+    FreeFight,                 // a model retreats: its opponent may attack it with each engaged model (p. 37)
+    ChooseFriendlyTarget,      // a shot into melee rolled 1-3: the shooter picks which of its own models is the target (p. 42)
 }
 
 // A choice only one player can make. While one is pending, nothing else may happen.
@@ -45,6 +47,9 @@ public enum ActionsTaken
     Move = 1,
     Dash = 2,
     Shoot = 4,
+    Charge = 8,
+    Retreat = 16,
+    Fight = 32,
 }
 
 public enum RollStage
@@ -52,7 +57,18 @@ public enum RollStage
     DashRoll,    // the Risky Success Roll of a Dash, then the move itself
     DashMove,    // the roll succeeded; the move follows
     ShotRoll,    // the Success Roll of a Ranged Attack
-    InjuryRoll,  // the shot hit; the Injury Roll follows
+    InjuryRoll,  // the attack hit; the Injury Roll follows
+    ChargeRoll,  // the Charge Bonus D6
+    ChargeMove,  // the charge move itself
+    TargetRoll,  // the D6 of a Ranged Attack at a target within 1" of a friendly model (p. 42)
+    TargetChoice, // that D6 was 1-3: the shooter chooses which friendly model is hit
+    FightRoll,   // the Success Roll of a Melee Attack
+}
+
+public enum AttackKind
+{
+    Ranged,
+    Melee,
 }
 
 // A Dash or Ranged Attack that is part-way through, between the player's command and its last die. It exists
@@ -66,7 +82,15 @@ public sealed record RollInProgress(
     int PenaltyDice = 0,
     bool Critical = false,
     ImmutableArray<Point2> DashPath = default,
-    bool MarkersAsked = false);
+    bool MarkersAsked = false,
+    AttackKind Kind = AttackKind.Ranged,
+    bool FreeFight = false,
+    bool FriendlyFire = false,
+    int ChargeDie = 0);
+
+// A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
+// models that have attacked; Closed means the opponent declined the rest.
+public sealed record RetreatInProgress(ModelId Model, ImmutableArray<Point2> Path, ImmutableArray<ModelId> Fought, bool Closed = false);
 
 // The whole match at one moment. Immutable: only Reducer.Apply produces a new one, one event at a time.
 // ImmutableArray fields compare by reference, so compare states by StateHash, not by ==.
@@ -92,6 +116,7 @@ public sealed record MatchState
     public ActionsTaken Actions { get; init; } = ActionsTaken.None;
     public bool MovementHalved { get; init; }
     public RollInProgress? InProgress { get; init; }
+    public RetreatInProgress? Retreat { get; init; }
     public int ScoredTurn { get; init; }
     public MatchOutcome? Outcome { get; init; }
 

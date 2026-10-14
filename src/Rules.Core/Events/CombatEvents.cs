@@ -139,6 +139,9 @@ public sealed record RangedAttackDeclared : GameEvent
     public ModelLevel AttackerLevel { get; }
     public ModelLevel TargetLevel { get; }
     public int PenaltyDice { get; }
+
+    // The target is within 1" of one of the shooter's own models: a D6 decides who is shot (p. 42).
+    public bool IntoMelee { get; init; }
 }
 
 public sealed record RangedSuccessRolled : GameEvent
@@ -187,4 +190,170 @@ public sealed record ObjectivesScored : GameEvent
 
     public int Turn { get; }
     public ImmutableArray<ObjectiveResult> Results { get; }
+}
+
+// ---- M4 Slice B ----
+
+// A Charge ACTION was taken against this target (pp. 36-37). The Charge Bonus is rolled next.
+public sealed record ChargeDeclared(ModelId Model, ModelId Target) : GameEvent;
+
+public sealed record ChargeRolled : GameEvent
+{
+    public ChargeRolled(ModelId model, ModelId target, int die)
+    {
+        if (die is < 1 or > 6)
+        {
+            throw new ArgumentOutOfRangeException(nameof(die), "The Charge Bonus is a D6.");
+        }
+        Model = model;
+        Target = target;
+        Die = die;
+    }
+
+    public ModelId Model { get; }
+    public ModelId Target { get; }
+    public int Die { get; }
+}
+
+// The charge move. Path is empty when the model could not move at all; Reached says it finished within 1" of its
+// target. The reducer plans the same move from the state and the die and requires the same path and cost.
+public sealed record ChargeMoved : GameEvent
+{
+    public ChargeMoved(ModelId model, ModelId target, ImmutableArray<Point2> path, Length cost, bool reached)
+    {
+        if (path.IsDefault || path.Length > 2 || (path.IsEmpty && (reached || cost != Length.Zero)))
+        {
+            throw new ArgumentException("A charge move has at most two legs; no legs cost nothing and do not reach.", nameof(path));
+        }
+        Model = model;
+        Target = target;
+        Path = path;
+        Cost = cost;
+        Reached = reached;
+    }
+
+    public ModelId Model { get; }
+    public ModelId Target { get; }
+    public ImmutableArray<Point2> Path { get; }
+    public Length Cost { get; }
+    public bool Reached { get; }
+}
+
+// A Retreat ACTION was taken. Nothing moves yet: the opponent's free attacks come first (p. 37).
+public sealed record RetreatDeclared : GameEvent
+{
+    public RetreatDeclared(ModelId model, ImmutableArray<Point2> path)
+    {
+        if (path.IsDefault || path.IsEmpty || path.Length > ModelMoved.MaxWaypoints)
+        {
+            throw new ArgumentException($"A move has 1 to {ModelMoved.MaxWaypoints} waypoints.", nameof(path));
+        }
+        Model = model;
+        Path = path;
+    }
+
+    public ModelId Model { get; }
+    public ImmutableArray<Point2> Path { get; }
+}
+
+// The opponent gave up its remaining free attacks.
+public sealed record FreeFightsDeclined(Seat Seat) : GameEvent;
+
+// The end of a Retreat: the model moved along its path, unless it was taken Down or Out of Action by the free
+// attacks, in which case Path is empty and the model stays where it was (p. 37).
+public sealed record RetreatResolved : GameEvent
+{
+    public RetreatResolved(ModelId model, ImmutableArray<Point2> path, Length cost)
+    {
+        if (path.IsDefault || path.Length > ModelMoved.MaxWaypoints || (path.IsEmpty && cost != Length.Zero))
+        {
+            throw new ArgumentException("A retreat that did not move costs nothing.", nameof(path));
+        }
+        Model = model;
+        Path = path;
+        Cost = cost;
+    }
+
+    public ModelId Model { get; }
+    public ImmutableArray<Point2> Path { get; }
+    public Length Cost { get; }
+    public bool Moved => !Path.IsEmpty;
+}
+
+// A Melee Attack was declared with the facts its modifiers depend on (pp. 45-46). FreeFight marks an attack made
+// by the opponent of a retreating model. Penalty dice are the Defended Obstacle modifier before any markers are spent.
+public sealed record MeleeAttackDeclared : GameEvent
+{
+    public MeleeAttackDeclared(ModelId attacker, ModelId target, bool freeFight, string? defendedObstacleId)
+    {
+        Attacker = attacker;
+        Target = target;
+        FreeFight = freeFight;
+        DefendedObstacleId = defendedObstacleId;
+    }
+
+    public ModelId Attacker { get; }
+    public ModelId Target { get; }
+    public bool FreeFight { get; }
+    public string? DefendedObstacleId { get; }
+    public int PenaltyDice => DefendedObstacleId is null ? 0 : 1;
+}
+
+public sealed record MeleeSuccessRolled : GameEvent
+{
+    public MeleeSuccessRolled(ModelId attacker, ModelId target, SuccessRollResult check)
+    {
+        ArgumentNullException.ThrowIfNull(check);
+        Attacker = attacker;
+        Target = target;
+        Check = check;
+    }
+
+    public ModelId Attacker { get; }
+    public ModelId Target { get; }
+    public SuccessRollResult Check { get; }
+}
+
+// The D6 for a Ranged Attack at a target within 1" of one of the shooter's own models (p. 42): 1-3 the shooter must
+// target one of its own models, 4-6 it may target the enemy model.
+public sealed record ShootingTargetRolled : GameEvent
+{
+    public ShootingTargetRolled(ModelId attacker, ModelId target, int die)
+    {
+        if (die is < 1 or > 6)
+        {
+            throw new ArgumentOutOfRangeException(nameof(die), "A D6 is 1 to 6.");
+        }
+        Attacker = attacker;
+        Target = target;
+        Die = die;
+    }
+
+    public ModelId Attacker { get; }
+    public ModelId Target { get; }
+    public int Die { get; }
+    public bool HitsFriend => Die <= 3;
+}
+
+// The shooter chose which of its own models the shot is aimed at, with the modifiers that model's position gives.
+public sealed record FriendlyTargetChosen : GameEvent
+{
+    public FriendlyTargetChosen(ModelId attacker, ModelId victim, bool longRange, bool inCover, string? coverTerrainId)
+    {
+        if (inCover != (coverTerrainId is not null))
+        {
+            throw new ArgumentException("Inconsistent cover.");
+        }
+        Attacker = attacker;
+        Victim = victim;
+        LongRange = longRange;
+        InCover = inCover;
+        CoverTerrainId = coverTerrainId;
+    }
+
+    public ModelId Attacker { get; }
+    public ModelId Victim { get; }
+    public bool LongRange { get; }
+    public bool InCover { get; }
+    public string? CoverTerrainId { get; }
 }

@@ -50,6 +50,10 @@ public static class Invariants
                 }
             }
         }
+        if (after.Retreat is not null && after.Pending is null)
+        {
+            return "a retreat is waiting with no decision pending";
+        }
         if (after.InProgress is not null && after.Pending is null)
         {
             return "a roll is in progress with no decision pending";

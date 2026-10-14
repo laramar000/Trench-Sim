@@ -40,7 +40,11 @@ Page images of the 1.0.2 PDF were supplied on 14 October 2026 and read directly.
 | 30 | Measure distances base edge to base edge; "within" means the nearest points are no further apart than the distance. A model can see a target if it can see any part of it (base, hands, feet and carried items do not count); sight is all-round; seeing only some of the target is partial line of sight. | Visually checked; used by M3 |
 | 31 | Model Placement: a base may not overlap Impassable terrain or another base, and more than half of it must be on the battlefield or in terrain. | Visually checked; used by M3 |
 | 35 | Move: the path may be no longer than Movement; a model cannot move within 1" of an enemy unless charging; one that starts within 1" of an enemy must stay within it or retreat; it cannot leave the battlefield; friendly models may be passed once fully cleared. | Visually checked; used by M3 |
-| 36-37 | Charge and retreat geometry. | Visually read; deferred to M4 |
+| 34 | Actions: once each per activation in any order; Move or Charge or Retreat (one); Dash alongside any; no Shoot with Charge or Fight (no ASSAULT). | Visually checked; used by M4 Slice B |
+| 36-37 | Charging (declare, interposing models, Charge Bonus, charge moves) and Retreating (free Fight attacks, move unless Down/Out of Action, end more than 1" away). | Visually checked; used by M4 Slice B |
+| 42 | Ranged Attack sequence and the Shooting into Melee box (D6: 1-3 own model, 4-6 enemy; only randomisation in the game). | Visually checked; used by M4 Slice B |
+| 45 | Melee Attack sequence and modifiers (Defended Obstacle, Off-Hand, Diving Charge); Critical Success. | Visually checked; used by M4 Slice B |
+| 49 | Down Results: ends activation if taken Down in it; +1 INJURY DICE for Melee Attacks on a Down target; Movement halved including Charge Bonus; may measure to any part of a Down model. | Visually checked; used by M4 Slice B |
 | 38 | Terrain types and Cover: cover needs a piece at least 1/2" high, at least as wide as the base, between the models and partially blocking sight; "in" terrain means more than half the base is within it. | Visually checked; used by M3 |
 | 39-40 | Terrain up to 1" high (and trench walls up to 3") count as Open for walking; climbing and jumping are separate rules. | Visually read; climbing and jumping deferred |
 | 46 | Injury Rolls use INJURY DICE and INJURY MODIFIERS. The maximum -INJURY MODIFIER cannot be more than -3 in total. A worked example gives 9 minus 1 = 8, Down. | Visually checked; matches the notes |
@@ -147,6 +151,21 @@ Confirmed from the rulebook (1.0.2, in our words):
 - Scenario I: four Turns; each Turn's end scores 2 VPs for each Objective a player controls (the Objective is the whole terrain piece); a player controls it with more friendly models on, in or within 1" than enemy models, and models on the piece beat greater numbers merely within 1"; a player wins at once when no enemy models are on the battlefield or the enemy Warband flees; otherwise more VPs wins (pp. 152 to 153).
 
 Provisional choices are listed in `docs/interpretations.md` (U30 to U45); what is missing is in `docs/known-gaps.md`.
+
+### Charge, Retreat, Fight and shooting into melee (M4, Slice B)
+
+Code: `Geometry/Charging.cs`, `Board.cs`, `TurnSequence.Board.cs`, `Reducer.cs`, `Events/CombatEvents.cs`, `Commands/Command.cs`. Tests: `tests/Rules.Tests/Match/{Charge,Fight,Retreat,ShootingIntoMelee,ForgedMeleeEvent,MeleeSimulation}Tests.cs` and `Geometry/ChargeAndRetreatGeometryTests.cs`. Confirmed rules are C15 to C21 in `docs/interpretations.md`, each with its page, read from the page images (pp. 34, 36, 37, 42, 43, 45, 49; Core pp. 16 and 17 and Comprehensive pp. 27 to 28, 46 to 48 from text and earlier visual checks). Provisional choices are U46 to U56.
+
+Architecture (all through the existing command, event, reducer and staged-roll machinery; no dice before a decision):
+
+- Commands: `ChargeModel`, `RetreatModel`, `FightModel`, `FreeFight`, `DeclineFreeFights`, `ChooseFriendlyTarget`. Decisions added: `FreeFight` (offered to the retreating model's opponent) and `ChooseFriendlyTarget` (the shooter).
+- Charge: `ChargeDeclared`, `ChargeRolled` (the D6), `ChargeMoved` (path, cost, reached). Declaration is fully checked first, so a refused charge rolls nothing. The reducer replans the move from the state and the die and requires the same path.
+- Retreat: `RetreatDeclared` (path fixed), then `FreeFight` offers and `MeleeAttackDeclared(FreeFight)` attacks, `FreeFightsDeclined`, and `RetreatResolved` (moved, or stayed and `ActivationEnded(TakenDown)`).
+- Fight: `MeleeAttackDeclared`, `MeleeSuccessRolled`, then the shared `InjuryRolled` (melee modifier, +1 INJURY DICE for a Critical Success and for a Down target).
+- Shooting into melee: `RangedAttackDeclared.IntoMelee`, `ShootingTargetRolled`, `FriendlyTargetChosen`, then the ordinary roll stages.
+- State: `ActionsTaken` gains Charge, Retreat, Fight; `RollInProgress` gains attack kind, free-fight, friendly-fire and charge-die fields; `MatchState.Retreat`. `StateHash` is Version 3.
+
+Not rules-confirmed, so flagged: see U46 to U56, in particular the straight-line charge route (U46), the contact stop (U47), free-attack sequencing (U50), and the choice of friendly victim and its modifiers (U51, U52). Question for a person to settle: whether Down models may make free attacks, and how a model forced to retreat by an effect (not an ACTION) behaves.
 
 ## Rulebook wording discrepancies
 

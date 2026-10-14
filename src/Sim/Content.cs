@@ -30,7 +30,9 @@ public static class Content
                         radius,
                         Length.Parse(m.GetProperty("rangeInches").GetString()!),
                         m.GetProperty("weaponInjuryModifier").GetInt32(),
-                        m.GetProperty("armour").GetInt32())));
+                        m.GetProperty("armour").GetInt32(),
+                        m.TryGetProperty("meleeInjuryModifier", out var melee),
+                        melee.ValueKind == JsonValueKind.Number ? melee.GetInt32() : 0)));
             }
             warbands.Add(new Warband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));
         }
@@ -38,6 +40,8 @@ public static class Content
     }
 
     public static IReadOnlyList<Warband> Load(string path) => Parse(File.ReadAllText(path));
+
+    public static string MeleePath() => Path.Combine(AppContext.BaseDirectory, "content", "melee-warbands.json");
 
     public static string DefaultPath() => Path.Combine(AppContext.BaseDirectory, "content", "test-warbands.json");
 }

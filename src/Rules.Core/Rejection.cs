@@ -32,10 +32,19 @@ public enum ReasonCode
     TargetNotEnemy,
     TargetNotOnTable,
     AttackerEngaged,
-    ShootingIntoMeleeUnsupported,
     TargetOutOfRange,
     NoLineOfSight,
     InvalidMarkerCount,
+    // M4 Slice B
+    AlreadyEngaged,
+    NotEngaged,
+    NoMeleeWeapon,
+    TargetNotInMelee,
+    ChargeRouteBlocked,
+    RetreatEndsEngaged,
+    ActionExcluded,
+    NotAFreeFighter,
+    NotACandidate,
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.

@@ -99,6 +99,10 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, $"A {action} ACTION can be taken only once per activation.", RefActions);
         }
+        if (action == ActionsTaken.Move && (state.Actions & (ActionsTaken.Charge | ActionsTaken.Retreat)) != 0)
+        {
+            return new(ReasonCode.ActionAlreadyTaken, "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.", RefActions);
+        }
         if (!path.IsDefault && path.Length > ModelMoved.MaxWaypoints)
         {
             return new(ReasonCode.TooManyWaypoints, $"A move has at most {ModelMoved.MaxWaypoints} waypoints.", Board.RefMove);
@@ -117,6 +121,10 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Shoot ACTION can be taken only once per activation.", RefActions);
         }
+        if ((state.Actions & (ActionsTaken.Charge | ActionsTaken.Fight)) != 0)
+        {
+            return new(ReasonCode.ActionExcluded, "A model cannot take a Shoot ACTION and a Charge or Fight ACTION in the same activation (no ASSAULT weapons yet).", "1.0.2 pp. 34, 42");
+        }
         var target = state.FindModel(c.Target);
         if (target is null)
         {
@@ -124,6 +132,104 @@ public static partial class TurnSequence
         }
         var assessment = Board.Assess(state, attacker!, target);
         return assessment.IsLegal ? null : new(assessment.Refusal!.Value, assessment.Text, assessment.RuleRef);
+    }
+
+    private static Rejection? ValidateCharge(MatchState state, ChargeModel c)
+    {
+        if (ValidateActing(state, c.Seat, c.Model, out var charger) is { } rejection)
+        {
+            return rejection;
+        }
+        if ((state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) != 0)
+        {
+            return new(ReasonCode.ActionAlreadyTaken, "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.", RefActions);
+        }
+        if (state.Actions.HasFlag(ActionsTaken.Shoot))
+        {
+            return new(ReasonCode.ActionExcluded, "A model cannot take a Shoot ACTION and a Charge or Fight ACTION in the same activation (no ASSAULT weapons yet).", "1.0.2 pp. 34, 42");
+        }
+        var target = state.FindModel(c.Target);
+        return target is null ? new(ReasonCode.UnknownModel, "There is no such target.", Board.RefCharge) : Board.AssessCharge(state, charger!, target);
+    }
+
+    private static Rejection? ValidateRetreat(MatchState state, RetreatModel c)
+    {
+        if (ValidateActing(state, c.Seat, c.Model, out var model) is { } rejection)
+        {
+            return rejection;
+        }
+        if ((state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) != 0)
+        {
+            return new(ReasonCode.ActionAlreadyTaken, "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.", RefActions);
+        }
+        if (c.Path.IsDefaultOrEmpty)
+        {
+            return new(ReasonCode.MoveIllegal, "A retreat needs at least one point to move to.", Board.RefRetreat);
+        }
+        if (c.Path.Length > ModelMoved.MaxWaypoints)
+        {
+            return new(ReasonCode.TooManyWaypoints, $"A move has at most {ModelMoved.MaxWaypoints} waypoints.", Board.RefMove);
+        }
+        return Board.CheckRetreat(state, model!, c.Path);
+    }
+
+    private static Rejection? ValidateFight(MatchState state, FightModel c)
+    {
+        if (ValidateActing(state, c.Seat, c.Model, out var attacker) is { } rejection)
+        {
+            return rejection;
+        }
+        if (state.Actions.HasFlag(ActionsTaken.Fight))
+        {
+            return new(ReasonCode.ActionAlreadyTaken, "A Fight ACTION can be taken only once per activation.", RefActions);
+        }
+        if (state.Actions.HasFlag(ActionsTaken.Shoot))
+        {
+            return new(ReasonCode.ActionExcluded, "A model cannot take a Shoot ACTION and a Charge or Fight ACTION in the same activation (no ASSAULT weapons yet).", "1.0.2 pp. 34, 42");
+        }
+        var target = state.FindModel(c.Target);
+        return target is null ? new(ReasonCode.UnknownModel, "There is no such target.", Board.RefMelee) : Board.AssessMelee(state, attacker!, target).Refusal;
+    }
+
+    // The three answers that are not Blood Marker spends: free attacks on a retreating model, and the friendly model a
+    // shot into melee was forced onto.
+    private static Rejection? ValidateChoice(MatchState state, Command command)
+    {
+        var (kind, seat) = command switch
+        {
+            FreeFight c => (DecisionKind.FreeFight, c.Seat),
+            DeclineFreeFights c => (DecisionKind.FreeFight, c.Seat),
+            ChooseFriendlyTarget c => (DecisionKind.ChooseFriendlyTarget, c.Seat),
+            _ => throw new ArgumentException("Not a choice."),
+        };
+        if (state.Pending is not { } pending)
+        {
+            return new(ReasonCode.NoDecisionPending, "There is no decision to make right now.", Board.RefRetreat);
+        }
+        if (pending.Kind != kind)
+        {
+            return new(ReasonCode.WrongDecision, $"A different decision is pending ({pending.Kind}).", Board.RefRetreat);
+        }
+        if (pending.Seat != seat)
+        {
+            return new(ReasonCode.NotYourTurn, "That decision belongs to the other player.", Board.RefRetreat);
+        }
+        switch (command)
+        {
+            case FreeFight c:
+                return Board.FreeFighters(state, state.Retreat!).Any(m => m.Id == c.Attacker)
+                    ? null
+                    : new(ReasonCode.NotAFreeFighter, "That model cannot attack the retreating model: it must be a standing enemy with a Melee Weapon within 1\" that has not attacked yet.", "1.0.2 p. 37");
+            case ChooseFriendlyTarget c:
+                var progress = state.InProgress!;
+                var shooter = state.FindModel(progress.Actor)!;
+                var intended = Board.BodyOf(state, state.FindModel(progress.Target!.Value)!)!;
+                return Board.FriendsNear(state, shooter, intended).Any(m => m.Id == c.Victim)
+                    ? null
+                    : new(ReasonCode.NotACandidate, "The shot must be aimed at one of your own models within 1\" of the target.", Board.RefIntoMelee);
+            default:
+                return null;
+        }
     }
 
     private static int MarkersAvailable(MatchState state, DecisionKind kind)
@@ -188,10 +294,47 @@ public static partial class TurnSequence
                     facts.CoverTerrainId,
                     facts.AttackerLevel,
                     facts.TargetLevel,
-                    (facts.LongRange ? 1 : 0) + (facts.InCover ? 1 : 0)));
-                if (attacker.BloodMarkers > 0)
+                    (facts.LongRange ? 1 : 0) + (facts.InCover ? 1 : 0))
+                { IntoMelee = facts.IntoMelee });
+                // A shot into melee asks about markers only once the D6 has settled who is shot (p. 42).
+                if (attacker.BloodMarkers > 0 && !facts.IntoMelee)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
+                }
+                break;
+            case ChargeModel c:
+                run.Emit(new ChargeDeclared(c.Model, c.Target));
+                break;
+            case RetreatModel c:
+                run.Emit(new RetreatDeclared(c.Model, c.Path));
+                break;
+            case FightModel c:
+                var fighter = state.FindModel(c.Model)!;
+                run.Emit(new MeleeAttackDeclared(c.Model, c.Target, false, Board.AssessMelee(state, fighter, state.FindModel(c.Target)!).CoverTerrainId));
+                if (fighter.BloodMarkers > 0)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
+                }
+                break;
+            case FreeFight c:
+                var free = state.FindModel(c.Attacker)!;
+                var victim = state.FindModel(state.Retreat!.Model)!;
+                run.Emit(new MeleeAttackDeclared(c.Attacker, victim.Id, true, Board.AssessMelee(state, free, victim).CoverTerrainId));
+                if (free.BloodMarkers > 0)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, free.Seat.Opponent()));
+                }
+                break;
+            case DeclineFreeFights c:
+                run.Emit(new FreeFightsDeclined(c.Seat));
+                break;
+            case ChooseFriendlyTarget c:
+                var shooter = state.FindModel(state.InProgress!.Actor)!;
+                var forced = Board.ForcedShotFacts(state, shooter, state.FindModel(c.Victim)!);
+                run.Emit(new FriendlyTargetChosen(shooter.Id, c.Victim, forced.LongRange, forced.InCover, forced.CoverTerrainId));
+                if (shooter.BloodMarkers > 0)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, shooter.Seat.Opponent()));
                 }
                 break;
             case SpendMarkers c:
@@ -241,26 +384,92 @@ public static partial class TurnSequence
                 {
                     run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
                 }
+                else if (check.Outcome != SuccessOutcome.Failure && !progress.FriendlyFire && run.State.FindModel(progress.Target.Value)!.BloodMarkers > 0)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
+                }
+                return true;
+            }
+            case RollStage.TargetRoll:
+            {
+                var die = Roll(dice);
+                run.Emit(new ShootingTargetRolled(progress.Actor, progress.Target!.Value, die));
+                if (die <= 3)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.ChooseFriendlyTarget, actor.Seat));
+                }
+                else if (actor.BloodMarkers > 0)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, actor.Seat.Opponent()));
+                }
+                return true;
+            }
+            case RollStage.FightRoll:
+            {
+                var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: s.IsShaken(actor.Seat));
+                run.Emit(new MeleeSuccessRolled(progress.Actor, progress.Target!.Value, check));
+                if (check.RiskyFailure)
+                {
+                    // Only the active model has an activation to lose; a free attack that fails simply misses (U49).
+                    if (!progress.FreeFight)
+                    {
+                        run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                    }
+                }
                 else if (check.Outcome != SuccessOutcome.Failure && run.State.FindModel(progress.Target.Value)!.BloodMarkers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
                 }
                 return true;
             }
+            case RollStage.ChargeRoll:
+            {
+                run.Emit(new ChargeRolled(progress.Actor, progress.Target!.Value, Roll(dice)));
+                return true;
+            }
+            case RollStage.ChargeMove:
+            {
+                var plan = Board.PlanCharge(s, actor, s.FindModel(progress.Target!.Value)!, progress.ChargeDie);
+                run.Emit(new ChargeMoved(progress.Actor, progress.Target.Value, plan.Path, plan.Cost, plan.Reached));
+                return true;
+            }
             case RollStage.InjuryRoll:
             {
                 var target = s.FindModel(progress.Target!.Value)!;
-                var modifiers = new[] { s.Setup!.ProfileOf(actor.Id)!.RangedInjuryModifier, s.Setup.ProfileOf(target.Id)!.Armour };
+                var weapon = s.Setup!.ProfileOf(actor.Id)!;
+                var modifiers = new[] { progress.Kind == AttackKind.Melee ? weapon.MeleeInjuryModifier : weapon.RangedInjuryModifier, s.Setup.ProfileOf(target.Id)!.Armour };
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down);
                 run.Emit(new InjuryRolled(actor.Id, target.Id, injury));
                 if (injury.Outcome == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
                 {
-                    run.Emit(new MatchEnded(actor.Seat, OutcomeReason.AllEnemiesOutOfAction));
+                    run.Emit(new MatchEnded(target.Seat.Opponent(), OutcomeReason.AllEnemiesOutOfAction));
                 }
                 return true;
             }
             default:
                 throw new InvalidOperationException("Unknown roll stage.");
         }
+    }
+
+    // After a Retreat is declared and each free attack: offer the next free attack, or finish the retreat (p. 37).
+    private static bool AdvanceRetreat(Run run, MatchState s, RetreatInProgress retreat)
+    {
+        var retreater = s.FindModel(retreat.Model)!;
+        if (!retreat.Closed && Board.FreeFighters(s, retreat).Count > 0)
+        {
+            run.Emit(new DecisionRequested(DecisionKind.FreeFight, retreater.Seat.Opponent()));
+            return true;
+        }
+        if (retreater.Status == ModelStatus.Standing)
+        {
+            run.Emit(new RetreatResolved(retreat.Model, retreat.Path, Board.RetreatCost(s, retreater, retreat.Path)));
+        }
+        else
+        {
+            // Taken Down or Out of Action by a free attack: no move, and a model taken Down in its own activation ends it (p. 49).
+            run.Emit(new RetreatResolved(retreat.Model, [], Length.Zero));
+            run.Emit(new ActivationEnded(retreat.Model, ActivationEndReason.TakenDown));
+        }
+        return true;
     }
 }
