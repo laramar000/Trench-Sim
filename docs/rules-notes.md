@@ -1,6 +1,6 @@
 # Rules notes
 
-Where each rule used in the first match lives in the official rules. Later milestones add a short summary, in our own words, beside each item as it is implemented. Rulebook text is never pasted here.
+Where each rule used in the first match lives in the official rules. Each item gets a short summary in our own words, under "Summaries of implemented rules", when a milestone implements it. Rulebook text is never pasted here.
 
 - **Rules version targeted:** 1.0.2
 - **Source:** Trench Crusade Digital Rulebook 1.0.2, the free PDF on the publisher's rules page (https://www.trenchcrusade.com/rules/)
@@ -34,6 +34,33 @@ The rulebook has a short "Core Rules" chapter (pages 14 to 21) and a longer "Com
 | Morale | 3. Morale Phase, p. 50 | Morale Phase and Shaken Warbands, p. 21 (Core Rules) | M2 | No |
 | Deployment | Scenario Format: Deployment, p. 146 | Scenario Format: The Battlefield, p. 146 | M4 | No |
 | Scenario | I. Claim No Man's Land, p. 151 | Scenario Format: Game Length and Victory Conditions, p. 148; Winning The Game, p. 51 | M4 | No |
+
+## Summaries of implemented rules
+
+In our own words. Each names the code that implements it and the open questions a person should check against the PDF.
+
+### Dice (M1)
+
+Code: `src/Rules.Core/Dice/SuccessRoll.cs`, `RollRecord.cs`. Tests: `SuccessRollTests.cs`.
+
+- A Success Roll is two six-sided dice added together.
+- Each bonus die (+DICE) and each penalty die (-DICE) adds one extra die to the roll. Bonus and penalty dice cancel one for one first. With bonus dice left over, keep the two highest; with penalty dice left over, keep the two lowest.
+- Results: 6 or less fails, 7 to 11 succeeds, 12 or more is a Critical Success.
+- A Risky roll is made the same way; if it fails, the model's activation ends (or the ACTION ends, if taken outside the model's activation). The roll only reports this; ending the activation belongs to the turn sequence (M2).
+- The rulebook states no limit on how many bonus or penalty dice can apply. The tests cover net -3 to +3, as the plan asks; the code accepts any count.
+
+Not in M1: re-rolls (p. 31), rolling off (p. 31), and making every roll Risky when a warband is Shaken (M2).
+
+### Injuries (M1)
+
+Code: `src/Rules.Core/Dice/InjuryRoll.cs`. Tests: `InjuryRollTests.cs`.
+
+- An Injury Roll is two six-sided dice, with bonus and penalty injury dice handled exactly as for Success Rolls, plus any flat injury modifiers.
+- Negative injury modifiers together count for no less than -3. Positive modifiers have no limit. The code applies the -3 floor to the negatives first, then adds the positives (so +2 and -5 give -1). This reading should be confirmed by a person.
+- Results: 1 or less, no effect; 2 to 6, a minor hit and 1 Blood Marker; 7 or 8, the model goes Down and takes 1 Blood Marker, or 2 if it was already Down; 9 or more, the model is out of action.
+- Extra injury dice from a Critical Success, or from a melee attack on a Down model, are added by the attack that causes the roll (M4). The rulebook's wording on the critical bonus differs between pp. 44 to 45 and p. 48; p. 48 is the reading to confirm.
+
+Not in M1: Bloodbath Rolls (p. 47) and spending Blood Markers (M4); the effects of being Down (p. 49, M4).
 
 ## Scenario chosen for the first match
 
