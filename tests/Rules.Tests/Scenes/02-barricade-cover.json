@@ -1,0 +1,42 @@
+{
+  "id": "02-barricade-cover",
+  "title": "Barricade the target stands against",
+  "description": "A 1-inch-wide cover piece lies between the models and touches the target's base.",
+  "fieldSize": 24,
+  "terrain": [
+    {
+      "id": "barricade",
+      "profile": "Cover",
+      "rect": [
+        6,
+        11.5,
+        7,
+        12.5
+      ],
+      "surface": "Ground",
+      "kind": "Open"
+    }
+  ],
+  "attacker": {
+    "x": 3,
+    "y": 12,
+    "radius": 0.5
+  },
+  "target": {
+    "x": 7.5,
+    "y": 12,
+    "radius": 0.5
+  },
+  "expect": {
+    "attackerLevel": "Ground",
+    "targetLevel": "Ground",
+    "visibility": "Full",
+    "visible": 4,
+    "total": 4,
+    "cover": true,
+    "coverBy": "barricade"
+  },
+  "status": "provisional",
+  "basis": "Cover conditions p. 38 (confirmed wording); readings U4, U5, U14, U15",
+  "ruling": "A Cover-profile piece never blocks sight, so the target is fully visible, and it gives cover because it is between, touching, and as wide as the base."
+}

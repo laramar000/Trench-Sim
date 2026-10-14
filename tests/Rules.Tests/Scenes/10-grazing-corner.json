@@ -1,0 +1,48 @@
+{
+  "id": "10-grazing-corner",
+  "title": "Ray touching only a wall corner",
+  "description": "A single explicit sight ray meets a wall at one corner and leaves again.",
+  "fieldSize": 24,
+  "terrain": [
+    {
+      "id": "wall",
+      "profile": "Wall",
+      "rect": [
+        6,
+        13,
+        7,
+        14
+      ],
+      "surface": "Ground",
+      "kind": "Open"
+    }
+  ],
+  "attacker": {
+    "x": 4,
+    "y": 12,
+    "radius": 0.5
+  },
+  "target": {
+    "x": 10,
+    "y": 18,
+    "radius": 0.5
+  },
+  "expect": {
+    "attackerLevel": "Ground",
+    "targetLevel": "Ground",
+    "visibility": "Full",
+    "visible": 1,
+    "total": 1,
+    "cover": false,
+    "coverBy": null
+  },
+  "status": "provisional",
+  "basis": "U13: grazing an edge or corner does not block",
+  "ruling": "The ray from (4,12) to (10,18) touches the wall only at (6,14), so it is not blocked.",
+  "samplePoints": [
+    [
+      10,
+      18
+    ]
+  ]
+}

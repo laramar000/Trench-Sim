@@ -1,0 +1,54 @@
+{
+  "id": "06-high-ground-over-wall",
+  "title": "High-ground attacker over a ground wall",
+  "description": "The attacker stands on a platform; a ground Wall lies between it and a target touching the wall.",
+  "fieldSize": 24,
+  "terrain": [
+    {
+      "id": "platform",
+      "profile": "Wall",
+      "rect": [
+        2,
+        13,
+        4,
+        15
+      ],
+      "surface": "High",
+      "kind": "Open"
+    },
+    {
+      "id": "wall",
+      "profile": "Wall",
+      "rect": [
+        6,
+        12,
+        9,
+        16
+      ],
+      "surface": "Ground",
+      "kind": "Open"
+    }
+  ],
+  "attacker": {
+    "x": 3,
+    "y": 14,
+    "radius": 0.5
+  },
+  "target": {
+    "x": 7.5,
+    "y": 11.5,
+    "radius": 0.5
+  },
+  "expect": {
+    "attackerLevel": "High",
+    "targetLevel": "Ground",
+    "visibility": "Full",
+    "visible": 5,
+    "total": 5,
+    "cover": false,
+    "coverBy": null
+  },
+  "status": "provisional",
+  "basis": "U17 high ground, U19 own platform, U20 sees over ground Walls (XCOM-style abstraction), U22",
+  "ruling": "The same layout as scene 3, but the high-ground attacker sees over the ground wall, so sight is Full and the wall does not give cover."
+}

@@ -1,0 +1,42 @@
+{
+  "id": "09-roof-edge-boundary",
+  "title": "Target one thousandth over the half-base line of a roof",
+  "description": "More than half of the target's base is on the platform, so it has high ground; its own platform does not block the attacker.",
+  "fieldSize": 24,
+  "terrain": [
+    {
+      "id": "platform",
+      "profile": "Wall",
+      "rect": [
+        10,
+        10,
+        14,
+        14
+      ],
+      "surface": "High",
+      "kind": "Open"
+    }
+  ],
+  "attacker": {
+    "x": 4,
+    "y": 12,
+    "radius": 0.5
+  },
+  "target": {
+    "x": 10.001,
+    "y": 12,
+    "radius": 0.5
+  },
+  "expect": {
+    "attackerLevel": "Ground",
+    "targetLevel": "High",
+    "visibility": "Full",
+    "visible": 4,
+    "total": 4,
+    "cover": false,
+    "coverBy": null
+  },
+  "status": "provisional",
+  "basis": "p. 38 'in terrain' means more than half the base (confirmed); U17, U19",
+  "ruling": "At x = 10.000 the same target would be on the ground (exactly half); one thousandth inside it has high ground. The unit tests cover both sides."
+}

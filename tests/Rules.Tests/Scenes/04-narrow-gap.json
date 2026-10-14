@@ -1,0 +1,54 @@
+{
+  "id": "04-narrow-gap",
+  "title": "Narrow gap in a wall line",
+  "description": "Two Walls leave a 0.1-inch slit; the target stands in line with it.",
+  "fieldSize": 24,
+  "terrain": [
+    {
+      "id": "wall-north",
+      "profile": "Wall",
+      "rect": [
+        6,
+        12.05,
+        7,
+        18
+      ],
+      "surface": "Ground",
+      "kind": "Open"
+    },
+    {
+      "id": "wall-south",
+      "profile": "Wall",
+      "rect": [
+        6,
+        6,
+        7,
+        11.95
+      ],
+      "surface": "Ground",
+      "kind": "Open"
+    }
+  ],
+  "attacker": {
+    "x": 3,
+    "y": 12,
+    "radius": 0.5
+  },
+  "target": {
+    "x": 10,
+    "y": 12,
+    "radius": 0.5
+  },
+  "expect": {
+    "attackerLevel": "Ground",
+    "targetLevel": "Ground",
+    "visibility": "Partial",
+    "visible": 2,
+    "total": 4,
+    "cover": false,
+    "coverBy": null
+  },
+  "status": "provisional",
+  "basis": "p. 30 partial line of sight (confirmed); sampling U2/U16",
+  "ruling": "The two central rays pass through the slit and the two outer rays hit the walls: Partial. Neither wall touches the target, so there is no cover. Limitation: a real sliver of a wider target could be visible through a gap the fixed rays miss."
+}
