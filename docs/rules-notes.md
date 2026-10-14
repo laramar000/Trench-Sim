@@ -95,6 +95,34 @@ Code: `src/Rules.Core/Dice/InjuryRoll.cs`. Tests: `InjuryRollTests.cs`.
 
 Not in M1: Bloodbath Rolls (p. 47) and spending Blood Markers (M4); the effects of being Down (p. 49, M4).
 
+### Turn sequence (M2)
+
+Code: `src/Rules.Core/State/`, `Events/`, `Commands/`, `TurnSequence.cs`, `Reducer.cs`, `StateHash.cs`, `TurnRules.cs`. Tests: `TurnSequenceTests.cs`, `ReplayAndHashTests.cs`, `RandomPlayTests.cs`.
+
+How it works: `TurnSequence.Decide(state, command, dice)` checks a command, rolls any dice the rules call for (roll-offs, Morale Checks), and returns the events it produced plus the new state. A refused command returns a reason and no events, rolls no dice and leaves the state alone. Every state change is an event applied by the pure `Reducer`, so replaying a log rebuilds the state without any dice. `StateHash` writes the state as canonical text (fixed field order, models sorted by id) and hashes it with SHA-256; two golden tests pin the format.
+
+Confirmed from the rulebook (1.0.2, in our words):
+
+- A Turn has three Phases in order: Initiative, Activation, Morale (p. 32).
+- The Initiative goes to the player with fewer models; equal counts are settled by a roll-off, where each player rolls a D6, the higher wins and a tie is rolled again (pp. 31, 32).
+- The Initiative holder decides who activates first. Players then alternate activating one model each, each model once per Turn, and the player with more models finishes theirs (p. 33).
+- An activation ends when the player stops, or when a Risky roll fails (pp. 20, 24 in the Core Rules; the failure is reported by the dice code, M1).
+- In the Morale Phase a warband with at least half its models Down or out of action (rounded up) takes a Morale Check, a Success Roll. A failed check either makes the warband Shaken or sounds the retreat (p. 50). A Shaken warband makes its rolls Risky, checks again next Turn, and flees if it fails (pp. 21, 50). A fleeing warband loses (p. 51).
+- Scenario I: four Turns, the deployment-zone roll-off winner picks a zone, and players alternate deploying starting with the side that has more models (p. 152).
+
+Provisional rulings (our own; each marked in code and tests, to be confirmed or replaced):
+
+- R1. Initiative counts models that are not Down or out of action. The Core Rules (p. 14) word this differently; a `RulesProfile` setting selects the count and is part of the state hash.
+- R2. A roll-off tie is simply rolled again.
+- R3. A Morale Check is a plain Success Roll with no modifiers.
+- R4. There is no Pass command: a player with an unactivated model must activate one, and may end that activation without taking any action.
+- R5. When both warbands must check, the Initiative holder chooses who checks first (Option B, chosen by the project owner on 14 October 2026). Reasoning: the rulebook does not say, and the simultaneous-activities box on p. 32 gives that player the call when order matters, so we reasoned by analogy. This is a guess, not a printed rule; a `RulesProfile` setting offers "Initiative holder first" without asking. If the first-checking warband flees, the match ends before the other checks.
+- R6. Warband size for the half test is every model in the force, including those out of action.
+- R7. When both sides have the same number of models, the zone roll-off winner deploys first.
+- R8. After the final Turn the match ends with no winner recorded; victory points belong to M4.
+
+Not in M2: geometry and positions (deployment uses opaque zone ids), attacks, injuries, Bloodbath, scenario scoring, and the Godot client.
+
 ## Open rules questions
 
 Questions found while checking the rulebook. None is settled; each needs a decision before the milestone named. The injury modifier cap is not in this list because the project owner decided it (see Injuries above).
@@ -135,11 +163,11 @@ Questions found while checking the rulebook. None is settled; each needs a decis
 
 Bloodbath Rolls (p. 47) say to apply +/- INJURY DICE as for an Injury Roll, but keep the three highest or three lowest dice. The rulebook does not say outright that each extra die is added to the three-die roll; that is only implied. This is not implemented and should not be assumed. Visually checked on p. 47: it says INJURY DICE and modifiers apply "in the same way" with 3 dice kept, and the DEADLY entry on p. 54 says the same for its 3D6. How extra dice combine with the base three still has to be decided.
 
-### 4. Morale Check modifiers and passing (decide before M2 relies on them)
+### 4. Morale Check modifiers and passing (provisional in M2 as R3 and R4)
 
 - **Morale Check:** pp. 21 and 50 call it a Success Roll taken "for a model" or "in the same way as a Success Roll for a model". No model and no modifier is named (p. 50 visually checked; the Core Rules Morale text on p. 21 was read from an unnumbered screenshot).
 - **Passing:** neither the Core nor the Comprehensive chapter describes passing an Activation.
-- **Provisional interpretation, not official:** a Morale Check takes no modifiers, and a player with unactivated models must activate one. Neither is printed; both need a decision or an official clarification.
+- **Provisional interpretation, not official (implemented in M2 as R3 and R4):** a Morale Check takes no modifiers, and a player with unactivated models must activate one. Neither is printed; both need a decision or an official clarification.
 
 ## Scenario chosen for the first match
 

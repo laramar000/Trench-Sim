@@ -18,6 +18,7 @@ public class RulesCoreDependencyTest
         "System.Collections",
         "System.Linq",
         "System.Memory", // span helpers, e.g. comparing dice arrays in RollRecord
+        "System.Collections.Immutable", // ImmutableArray in the M2 match state (approved 14 October 2026)
         "System.Security.Cryptography",
     ];
 
