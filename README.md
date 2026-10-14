@@ -6,7 +6,7 @@ This is an unofficial fan project, not affiliated with or endorsed by any game p
 
 ## Status
 
-Milestone M0 (setup and rules notes). The project follows a plan of nine milestones, M0 to M8. Each milestone is finished and verified before the next starts.
+Milestone M1 (dice: Success Rolls and Injury Rolls). The project follows a plan of nine milestones, M0 to M8. Each milestone is finished and verified before the next starts.
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ dotnet --version
 dotnet test
 ```
 
-`dotnet test` should report five passing tests: a smoke test, and four checks that the rules engine uses no Godot, networking, UI or other framework, package or project (its project file, imported build files, restored packages and compiled references).
+`dotnet test` should report every test passing (105 at M1), including four checks that the rules engine uses no Godot, networking, UI or other framework, package or project (its project file, imported build files, restored packages and compiled references).
 
 ## Layout
 
@@ -36,6 +36,6 @@ docs/rules-notes.md  where each rule lives in the 1.0.2 rulebook
 ## Repository rules
 
 - No publisher-owned artwork, logos, extracted game assets or copied proprietary code.
-- No pasted rulebook text. `docs/rules-notes.md` gives section references; summaries in our own words are added as each rule is implemented.
+- No pasted rulebook text. `docs/rules-notes.md` gives section references; it also holds summaries in our own words of each rule implemented so far.
 - Original placeholder content (names, units, equipment, descriptions, art) wherever practical.
 - The repository is public, so everything committed here is published.

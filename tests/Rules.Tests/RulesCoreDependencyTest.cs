@@ -17,6 +17,7 @@ public class RulesCoreDependencyTest
         "System.Runtime",
         "System.Collections",
         "System.Linq",
+        "System.Memory", // span helpers, e.g. comparing dice arrays in RollRecord
         "System.Security.Cryptography",
     ];
 
