@@ -22,7 +22,7 @@ dotnet --version
 dotnet test
 ```
 
-`dotnet test` should report every test passing (104 at M1), including four checks that the rules engine uses no Godot, networking, UI or other framework, package or project (its project file, imported build files, restored packages and compiled references).
+`dotnet test` should report every test passing (105 at M1), including four checks that the rules engine uses no Godot, networking, UI or other framework, package or project (its project file, imported build files, restored packages and compiled references).
 
 ## Layout
 

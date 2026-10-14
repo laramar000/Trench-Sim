@@ -81,6 +81,22 @@ public class InjuryRollTests
         Assert.Equal(InjuryOutcome.Down, result.Outcome);
     }
 
+    // The worked example printed on p. 48: 2D6 plus two bonus injury dice from spent Blood Markers
+    // rolls 2, 5, 4 and 1; the two highest (5 and 4) make 9, and a -1 armour modifier makes 8, Down.
+    [Fact]
+    [Trait("Rule", "1.0.2 Injury Roll Table p.48")]
+    public void PrintedExampleWithTwoBonusInjuryDiceIsDown()
+    {
+        var result = InjuryRoll.Roll(new FixedDice(2, 5, 4, 1), bonusDice: 2, modifiers: [-1]);
+
+        Assert.Equal(new[] { 2, 5, 4, 1 }, result.Dice.Rolled);
+        Assert.Equal(new[] { 5, 4 }, result.Dice.Kept.OrderByDescending(d => d));
+        Assert.Equal(9, result.Dice.Total);
+        Assert.Equal(-1, result.Modifier);
+        Assert.Equal(8, result.Total);
+        Assert.Equal(InjuryOutcome.Down, result.Outcome);
+    }
+
     [Fact]
     [Trait("Rule", "1.0.2 Injuries p.46")]
     public void CappedModifierIsAppliedToTheRoll()
