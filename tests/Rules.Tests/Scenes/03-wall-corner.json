@@ -1,0 +1,42 @@
+{
+  "id": "03-wall-corner",
+  "title": "Wall corner with a target tucked behind it",
+  "description": "A ground Wall to the target's north; the attacker looks across its corner.",
+  "fieldSize": 24,
+  "terrain": [
+    {
+      "id": "wall",
+      "profile": "Wall",
+      "rect": [
+        6,
+        12,
+        9,
+        16
+      ],
+      "surface": "Ground",
+      "kind": "Open"
+    }
+  ],
+  "attacker": {
+    "x": 3,
+    "y": 14,
+    "radius": 0.5
+  },
+  "target": {
+    "x": 7.5,
+    "y": 11.5,
+    "radius": 0.5
+  },
+  "expect": {
+    "attackerLevel": "Ground",
+    "targetLevel": "Ground",
+    "visibility": "Partial",
+    "visible": 1,
+    "total": 5,
+    "cover": true,
+    "coverBy": "wall"
+  },
+  "status": "provisional",
+  "basis": "p. 30 partial line of sight (confirmed); p. 38 cover; sampling U2/U16, readings U4, U5",
+  "ruling": "Four of five test rays are stopped by the wall and one gets past its corner, so sight is Partial; the wall is between, touches the target and is wide enough, so it gives cover."
+}

@@ -1,0 +1,42 @@
+{
+  "id": "05-behind-long-wall",
+  "title": "Target behind a long wall",
+  "description": "A ground Wall spans the whole line of sight and more.",
+  "fieldSize": 24,
+  "terrain": [
+    {
+      "id": "wall",
+      "profile": "Wall",
+      "rect": [
+        6,
+        2,
+        7,
+        22
+      ],
+      "surface": "Ground",
+      "kind": "Open"
+    }
+  ],
+  "attacker": {
+    "x": 3,
+    "y": 12,
+    "radius": 0.5
+  },
+  "target": {
+    "x": 10,
+    "y": 12,
+    "radius": 0.5
+  },
+  "expect": {
+    "attackerLevel": "Ground",
+    "targetLevel": "Ground",
+    "visibility": "None",
+    "visible": 0,
+    "total": 4,
+    "cover": false,
+    "coverBy": null
+  },
+  "status": "provisional",
+  "basis": "p. 30 (confirmed: no visible part means no line of sight); Wall profile U14",
+  "ruling": "Every ray is stopped, so there is no line of sight, and without line of sight there is no cover."
+}

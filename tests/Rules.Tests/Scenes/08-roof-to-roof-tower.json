@@ -1,0 +1,67 @@
+{
+  "id": "08-roof-to-roof-tower",
+  "title": "Roof to roof with a tower between",
+  "description": "Both models are on platforms; a tall unclimbable tower stands between them.",
+  "fieldSize": 24,
+  "terrain": [
+    {
+      "id": "platform-west",
+      "profile": "Wall",
+      "rect": [
+        2,
+        10,
+        5,
+        14
+      ],
+      "surface": "High",
+      "kind": "Open"
+    },
+    {
+      "id": "platform-east",
+      "profile": "Wall",
+      "rect": [
+        15,
+        10,
+        18,
+        14
+      ],
+      "surface": "High",
+      "kind": "Open"
+    },
+    {
+      "id": "tower",
+      "profile": "Wall",
+      "rect": [
+        9,
+        8,
+        12,
+        16
+      ],
+      "surface": "High",
+      "kind": "Open",
+      "walkable": false
+    }
+  ],
+  "attacker": {
+    "x": 3.5,
+    "y": 12,
+    "radius": 0.5
+  },
+  "target": {
+    "x": 16.5,
+    "y": 12,
+    "radius": 0.5
+  },
+  "expect": {
+    "attackerLevel": "High",
+    "targetLevel": "High",
+    "visibility": "None",
+    "visible": 0,
+    "total": 4,
+    "cover": false,
+    "coverBy": null
+  },
+  "status": "provisional",
+  "basis": "U20: high ground sees over Ground walls only, not towers",
+  "ruling": "A High wall that nobody stands on still obstructs a high-ground attacker."
+}

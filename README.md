@@ -6,7 +6,7 @@ This is an unofficial fan project, not affiliated with or endorsed by any game p
 
 ## Status
 
-Milestone M1 (dice: Success Rolls and Injury Rolls). The project follows a plan of nine milestones, M0 to M8. Each milestone is finished and verified before the next starts.
+Milestone M3 (battlefield geometry: measurement, placement, movement paths, line of sight and cover, in 2D). The project follows a plan of nine milestones, M0 to M8. Each milestone is finished and verified before the next starts.
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ dotnet --version
 dotnet test
 ```
 
-`dotnet test` should report every test passing (197 at M2), including four checks that the rules engine uses no Godot, networking, UI or other framework, package or project (its project file, imported build files, restored packages and compiled references).
+`dotnet test` should report every test passing (331 at M3), including four checks that the rules engine uses no Godot, networking, UI or other framework, package or project (its project file, imported build files, restored packages and compiled references).
 
 ## Layout
 
@@ -31,6 +31,7 @@ TrenchSim.sln
 src/Rules.Core/      rules engine: no Godot, no networking, no game-specific names
 tests/Rules.Tests/   xUnit tests for the rules engine
 docs/rules-notes.md  where each rule lives in the 1.0.2 rulebook
+docs/interpretations.md  rulebook-confirmed requirements versus software interpretations (geometry)
 ```
 
 ## Repository rules

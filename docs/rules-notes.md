@@ -37,6 +37,12 @@ Page images of the 1.0.2 PDF were supplied on 14 October 2026 and read directly.
 | 15 | Success Roll: 2D6, one extra die per +DICE or -DICE, keep the 2 highest or 2 lowest, +/- cancel in pairs. Bands 2-6 / 7-11 / 12+. A Critical Success adds +1 INJURY DICE to Ranged or Melee Attacks. | Visually checked; matches the notes |
 | 24 | Same bands and procedure. A critical hit makes the Injury Roll with +1 INJURY DICE. A failed Risky roll ends the Activation, or the ACTION when taken outside one. | Visually checked; matches the notes |
 | 25 | +DICE and -DICE add dice and cancel in pairs, with no cap stated. INJURY DICE work the same way on Injury Rolls. A +/- DICE Keyword applies only to Success Rolls, and a +/- INJURY DICE Keyword only to Injury Rolls. | Visually checked; matches the notes |
+| 30 | Measure distances base edge to base edge; "within" means the nearest points are no further apart than the distance. A model can see a target if it can see any part of it (base, hands, feet and carried items do not count); sight is all-round; seeing only some of the target is partial line of sight. | Visually checked; used by M3 |
+| 31 | Model Placement: a base may not overlap Impassable terrain or another base, and more than half of it must be on the battlefield or in terrain. | Visually checked; used by M3 |
+| 35 | Move: the path may be no longer than Movement; a model cannot move within 1" of an enemy unless charging; one that starts within 1" of an enemy must stay within it or retreat; it cannot leave the battlefield; friendly models may be passed once fully cleared. | Visually checked; used by M3 |
+| 36-37 | Charge and retreat geometry. | Visually read; deferred to M4 |
+| 38 | Terrain types and Cover: cover needs a piece at least 1/2" high, at least as wide as the base, between the models and partially blocking sight; "in" terrain means more than half the base is within it. | Visually checked; used by M3 |
+| 39-40 | Terrain up to 1" high (and trench walls up to 3") count as Open for walking; climbing and jumping are separate rules. | Visually read; climbing and jumping deferred |
 | 46 | Injury Rolls use INJURY DICE and INJURY MODIFIERS. The maximum -INJURY MODIFIER cannot be more than -3 in total. A worked example gives 9 minus 1 = 8, Down. | Visually checked; matches the notes |
 | 47 | Bloodbath Roll: spend 6 Blood Markers (3 if the target is Down), roll 3D6, add +/- INJURY DICE and modifiers "in the same way", keep the 3 highest or lowest. DEADLY uses 4D6. | Visually checked; matches the notes; dice interaction still open (question 3) |
 | 54 | CRITICAL keyword: +2 INJURY DICE instead of +1 on a Critical Success. DEADLY: 3D6, pick the 3 highest or lowest, +/- INJURY DICE added normally. | Visually checked; new information, see question 1 |
@@ -122,6 +128,10 @@ Provisional rulings (our own; each marked in code and tests, to be confirmed or 
 - R8. After the final Turn the match ends with no winner recorded; victory points belong to M4.
 
 Not in M2: geometry and positions (deployment uses opaque zone ids), attacks, injuries, Bloodbath, scenario scoring, and the Godot client.
+
+### Geometry (M3)
+
+Pure geometry in `src/Rules.Core/Geometry`, with no positions in the match state until M4. Lengths are integers in thousandths of an inch; every decision is integer arithmetic. Confirmed rulebook requirements: measuring and "within" (p. 30), any-part and partial line of sight (p. 30), placement and the more-than-half rule (p. 31), the Move path limits and the 1" enemy rules (p. 35), and the cover conditions (p. 38). Everything the software had to choose, including how the 2D footprint stands in for a model, the Low/Cover/Wall terrain profiles, high ground, and how movement cost is rounded, is listed as provisional in `docs/interpretations.md`. Not in M3: charge and retreat actions, climbing, jumping, falling, the elevation attack bonus, polygon footprints, and applying cover as -1 DICE (M4).
 
 ## Open rules questions
 

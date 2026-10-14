@@ -1,0 +1,54 @@
+{
+  "id": "07-roof-target-behind-wall",
+  "title": "Ground attacker, target on a roof behind a ground wall",
+  "description": "The target stands on a platform; a ground Wall lies between it and the attacker.",
+  "fieldSize": 24,
+  "terrain": [
+    {
+      "id": "platform",
+      "profile": "Wall",
+      "rect": [
+        10,
+        10,
+        14,
+        14
+      ],
+      "surface": "High",
+      "kind": "Open"
+    },
+    {
+      "id": "wall",
+      "profile": "Wall",
+      "rect": [
+        6,
+        8,
+        7,
+        16
+      ],
+      "surface": "Ground",
+      "kind": "Open"
+    }
+  ],
+  "attacker": {
+    "x": 3,
+    "y": 12,
+    "radius": 0.5
+  },
+  "target": {
+    "x": 12,
+    "y": 12,
+    "radius": 0.5
+  },
+  "expect": {
+    "attackerLevel": "Ground",
+    "targetLevel": "High",
+    "visibility": "None",
+    "visible": 0,
+    "total": 4,
+    "cover": false,
+    "coverBy": null
+  },
+  "status": "provisional",
+  "basis": "U17, U21: sight is deliberately asymmetric",
+  "ruling": "A target's high ground adds no shelter, but the ground wall still blocks the ground attacker; the platform itself does not block its own occupant."
+}

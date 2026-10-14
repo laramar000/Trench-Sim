@@ -1,0 +1,29 @@
+{
+  "id": "01-open-field",
+  "title": "Open field",
+  "description": "Two models with nothing between them.",
+  "fieldSize": 24,
+  "terrain": [],
+  "attacker": {
+    "x": 4,
+    "y": 12,
+    "radius": 0.5
+  },
+  "target": {
+    "x": 10,
+    "y": 12,
+    "radius": 0.5
+  },
+  "expect": {
+    "attackerLevel": "Ground",
+    "targetLevel": "Ground",
+    "visibility": "Full",
+    "visible": 4,
+    "total": 4,
+    "cover": false,
+    "coverBy": null
+  },
+  "status": "confirmed",
+  "basis": "1.0.2 p. 30 (any part of the target visible, 360 degrees)",
+  "ruling": "The attacker sees the target in full; nothing is between them."
+}
