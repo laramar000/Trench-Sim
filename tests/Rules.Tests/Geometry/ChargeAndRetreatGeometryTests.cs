@@ -111,8 +111,8 @@ public class ChargeAndRetreatGeometryTests
     }
 
     [Fact]
-    [Trait("Rule", "Movement p. 35: a blocking wall in the way refuses the charge before any die")]
-    public void ATerrainWallOnTheRouteRefusesTheDeclaration()
+    [Trait("Rule", "Charge Moves p. 37: a wall with no way round within 12\" refuses the charge before any die")]
+    public void ATerrainWallWithNoWayRoundRefusesTheDeclaration()
     {
         var wall = Wall("w", "7", "0", "8", "10");
         var field = Field("36", wall);
@@ -120,6 +120,6 @@ public class ChargeAndRetreatGeometryTests
         var target = Body("t", "12", "2");
         var route = Charging.CheckRoute(field, mover, target, [Enemy(target)]);
         Assert.False(route.IsLegal);
-        Assert.Equal(MoveRefusal.CrossesBlockingTerrain, route.Reason);
+        Assert.Equal(MoveRefusal.NoRoute, route.Reason);
     }
 }

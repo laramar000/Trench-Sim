@@ -3,7 +3,7 @@
 What the simulated match does not do after Slice B. Each item is a decision to defer, not an oversight. Rule references are to the Digital Rulebook 1.0.2.
 
 ## Rules not implemented
-- **Melee extras** (Slice B implements Charge, Retreat, Fight and shooting into melee, U46 to U56): no Off-Hand or second Melee Weapon, CLEAVE, BLOCK, Fear, Diving Charge, ASSAULT, climbing or jumping charges, detour charge routes (the charge route is a straight line), or the optional charge continuation. Down models are measured from the base only (U55).
+- **Melee extras** (Slice B implements Charge, Retreat, Fight and shooting into melee, U46 to U64): no Off-Hand or second Melee Weapon, CLEAVE, BLOCK, Fear, Diving Charge, ASSAULT, climbing or jumping charges, or the optional charge continuation. Charge routes go round obstacles (U57 to U64), with these limits: curves are a 32-gon approximation (gaps narrower than a base plus about 0.005" count as closed), contact is sought at 128 points round the target, only routes of 12" or less are searched, and the planner does not detour to avoid the 1" zones of other enemies. Down models are measured from the base only (U55).
 - **Bloodbath Rolls** (p. 47): not implemented; the dice interaction is open (question 3 in `rules-notes.md`). Spending 6 markers (3 if Down) is not offered.
 - **Glorious Deeds** (p. 153, one VP each at the end of the game): none are scored; Victory Points come from Objectives only. This can change who wins a close game.
 - **Elevation attack bonus** (+1 DICE when 3" or more higher, p. 43): not applied (U35).

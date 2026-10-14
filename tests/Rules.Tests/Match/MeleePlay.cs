@@ -26,6 +26,27 @@ public static class MeleePlay
         return play;
     }
 
+    // Claim No Man's Land with extra pieces of terrain added to the table.
+    public static Scenario WithTerrain(params TerrainBlock[] extra)
+    {
+        var plain = Rules.Core.Scenarios.ClaimNoMansLand.Create();
+        var field = plain.Battlefield;
+        var battlefield = new Battlefield(field.Width, field.Height, field.Terrain.Concat(extra), field.Zones);
+        return new Scenario(battlefield, plain.ObjectiveIds);
+    }
+
+    // Like Skirmish, on a table with extra terrain. Impassable low wire stops a charge without blocking sight.
+    public static BoardPlay SkirmishWith(Scenario scenario, string ax, string ay, string bx, string by, ModelProfile? profile = null, int perSide = 2)
+    {
+        var play = new BoardPlay(perSide, Everyone(profile ?? Brawler), scenario: scenario).ToActivation();
+        play.Put(A(1), ax, ay).Put(B(1), bx, by);
+        play.Do(new Rules.Core.Commands.ActivateModel(Seat.One, BoardPlay.A(1)));
+        return play;
+    }
+
+    public static TerrainBlock Wire(string id, string x1, string y1, string x2, string y2) =>
+        new(id, F(x1, y1, x2, y2), TerrainProfile.Low, TerrainKind.Impassable);
+
     public static ModelBody BodyOf(BoardPlay play, ModelId id) =>
         new(id.Value, play.M(id).Position!.Value, play.Setup.ProfileOf(id)!.BaseRadius);
 
