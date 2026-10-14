@@ -1,4 +1,6 @@
+using System.Collections.Immutable;
 using Rules.Core.Dice;
+using Rules.Core.Geometry;
 using Rules.Core.State;
 
 namespace Rules.Core.Events;
@@ -12,7 +14,8 @@ public sealed record DeploymentZoneChosen(Seat Seat, string ZoneId) : GameEvent;
 // Who deploys first: the seat with more models, or the roll-off winner when equal (p. 152).
 public sealed record DeploymentOrderSet(Seat First) : GameEvent;
 
-public sealed record ModelDeployed(Seat Seat, ModelId Model) : GameEvent;
+// Position is set exactly when the match has a battlefield (M4): the model's base is centred there.
+public sealed record ModelDeployed(Seat Seat, ModelId Model, Point2? Position = null) : GameEvent;
 
 public sealed record PhaseEntered(Phase Phase) : GameEvent;
 

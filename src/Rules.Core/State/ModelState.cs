@@ -1,3 +1,5 @@
+using Rules.Core.Geometry;
+
 namespace Rules.Core.State;
 
 public enum ModelStatus
@@ -7,11 +9,13 @@ public enum ModelStatus
     OutOfAction,
 }
 
-// One model. M2 tracks only what the turn sequence needs; positions (M3) and markers (M4) come later.
-// Out-of-Action models stay in the list: the Morale Phase counts them (p. 50).
+// One model. Position is null before deployment, in M2 setups (no battlefield) and once Out of Action (taken off
+// the table). Out-of-Action models stay in the list: the Morale Phase counts them (p. 50).
 public sealed record ModelState(
     ModelId Id,
     Seat Seat,
     ModelStatus Status = ModelStatus.Standing,
     bool Deployed = false,
-    bool ActivatedThisTurn = false);
+    bool ActivatedThisTurn = false,
+    Point2? Position = null,
+    int BloodMarkers = 0);

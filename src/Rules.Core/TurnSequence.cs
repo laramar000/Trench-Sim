@@ -31,7 +31,7 @@ public sealed class DecideResult
 // command does to a match. It checks the command against the state, rolls any dice the sequence needs
 // (roll-offs, Morale Checks) from the injected source, and returns the events. It never changes a state itself:
 // every change goes through Reducer.Apply. A rejected command rolls no dice and returns no events.
-public static class TurnSequence
+public static partial class TurnSequence
 {
     private const string RefTurn = "1.0.2 p. 32";
     private const string RefActivation = "1.0.2 p. 33";
@@ -78,7 +78,7 @@ public static class TurnSequence
                 {
                     AddDecisionCommands(state, pending, commands);
                 }
-                else if (state.Phase == Phase.Deployment && TurnRules.NextDeployer(state) is { } deployer)
+                else if (state.Phase == Phase.Deployment && TurnRules.NextDeployer(state) is { } deployer && state.Setup!.Scenario is null)
                 {
                     commands.AddRange(TurnRules.ModelsOf(state, deployer).Where(m => !m.Deployed).Select(m => new DeployModel(deployer, m.Id)));
                 }
@@ -117,6 +117,10 @@ public static class TurnSequence
                 commands.Add(new ResolveFailedMorale(pending.Seat, MoraleFailureChoice.BecomeShaken));
                 commands.Add(new ResolveFailedMorale(pending.Seat, MoraleFailureChoice.SoundRetreat));
                 break;
+            case DecisionKind.SpendMarkersOnSuccessRoll or DecisionKind.SpendMarkersOnInjuryRoll:
+                var available = MarkersAvailable(state, pending.Kind);
+                commands.AddRange(Enumerable.Range(0, available + 1).Select(n => new SpendMarkers(pending.Seat, n)));
+                break;
         }
     }
 
@@ -139,6 +143,11 @@ public static class TurnSequence
         if (state.Phase == Phase.PreGame)
         {
             return new(ReasonCode.MatchNotStarted, "The match has not been started.", RefTurn);
+        }
+
+        if (command is SpendMarkers spend)
+        {
+            return ValidateSpend(state, spend);
         }
 
         var expected = ExpectedDecision(command);
@@ -172,7 +181,12 @@ public static class TurnSequence
 
         return command switch
         {
+            DeployModel c when state.Setup!.Scenario is not null => new(ReasonCode.PositionRequired, "This scenario has a battlefield: set a model up with PlaceModel at a point.", RefDeployment),
             DeployModel c => ValidateDeploy(state, c),
+            PlaceModel c => ValidatePlace(state, c),
+            MoveModel c => ValidateMove(state, c.Seat, c.Model, c.Path, ActionsTaken.Move),
+            DashModel c => ValidateMove(state, c.Seat, c.Model, c.Path, ActionsTaken.Dash),
+            Shoot c => ValidateShoot(state, c),
             ActivateModel c => ValidateActivate(state, c),
             EndActivation c => ValidateEnd(state, c),
             _ => throw new ArgumentException($"Unknown command {command.GetType().Name}.", nameof(command)),
@@ -298,6 +312,13 @@ public static class TurnSequence
                 break;
             case ActivateModel c:
                 run.Emit(new ActivationStarted(c.Seat, c.Model));
+                if (run.State.Setup!.Scenario is not null && run.State.FindModel(c.Model)!.Status == ModelStatus.Down)
+                {
+                    run.Emit(new ModelStoodUp(c.Model));
+                }
+                break;
+            case PlaceModel or MoveModel or DashModel or Shoot or SpendMarkers:
+                ExecuteBoard(run, command);
                 break;
             case EndActivation:
                 run.Emit(new ActivationEnded(run.State.ActiveModel!.Value, ActivationEndReason.Voluntary));
@@ -323,6 +344,11 @@ public static class TurnSequence
         if (s.Pending is not null)
         {
             return false;
+        }
+
+        if (s.InProgress is not null)
+        {
+            return AdvanceRoll(run, s, dice);
         }
 
         switch (s.Phase)
@@ -407,8 +433,11 @@ public static class TurnSequence
         {
             if (s.Turn >= s.Setup!.TurnLimit)
             {
-                // The winner comes from the scenario's Victory Points (pp. 152-153), which M4 will score.
-                run.Emit(new MatchEnded(null, OutcomeReason.FinalTurnComplete));
+                // With a battlefield the Victory Points decide (p. 153); equal points are a draw (provisional, U40).
+                // Without one (the M2 setups) nothing scores and there is no winner.
+                run.Emit(s.Setup.Scenario is null
+                    ? new MatchEnded(null, OutcomeReason.FinalTurnComplete)
+                    : new MatchEnded(Reducer.WinnerByPoints(s), OutcomeReason.VictoryPoints));
             }
             else
             {
@@ -420,7 +449,16 @@ public static class TurnSequence
         var remaining = TurnRules.MoraleRemaining(s);
         if (remaining.Count == 0)
         {
-            // End-of-turn tasks would happen here (p. 50); M2 has none.
+            // End-of-turn tasks (p. 50): in a scenario with Objectives, score them (p. 153).
+            if (s.Setup!.Scenario is { ObjectiveIds.Length: > 0 } scenario && s.ScoredTurn < s.Turn)
+            {
+                run.Emit(new ObjectivesScored(s.Turn, scenario.ObjectiveIds.Select(id =>
+                {
+                    var controller = Board.Controller(s, id);
+                    return new ObjectiveResult(id, controller, controller is null ? 0 : Scoring.PointsPerObjective);
+                })));
+                return true;
+            }
             run.Emit(new TurnEnded(s.Turn));
             return true;
         }

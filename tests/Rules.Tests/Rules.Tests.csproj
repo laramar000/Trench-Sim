@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Rules.Core\Rules.Core.csproj" />
+    <ProjectReference Include="..\..\src\Sim\Sim.csproj" />
   </ItemGroup>
 
 </Project>
