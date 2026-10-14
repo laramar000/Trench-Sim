@@ -22,7 +22,7 @@ dotnet --version
 dotnet test
 ```
 
-`dotnet test` should report every test passing (64 at M1), including a check that the rules engine references no Godot, networking framework or other project.
+`dotnet test` should report every test passing (66 at M1), including a check that the rules engine references no Godot, networking framework or other project.
 
 ## Layout
 

@@ -39,6 +39,8 @@ public class SuccessRollTests
 
     // Net DICE from -3 to +3, all from the same fixed dice: 2 + |net| dice are rolled,
     // and the highest two (bonus) or lowest two (penalty) are kept.
+    // -3 to +3 is the range the plan asks tests to cover. It is not a rules limit:
+    // the rulebook states no cap, so NetDiceAreNotCapped checks beyond it.
     [Theory]
     [Trait("Rule", "1.0.2 +Dice And -Dice p.25")]
     [InlineData(0, 3, new[] { 2, 5, 1, 6, 4 }, new[] { 1, 2 }, SuccessOutcome.Failure)]
@@ -59,6 +61,22 @@ public class SuccessRollTests
         Assert.Equal(rolls, result.Dice.Rolled);
         Assert.Equal(expectedKept, result.Dice.Kept);
         Assert.Equal(expected, result.Outcome);
+        Assert.Equal(0, dice.Remaining);
+    }
+
+    // No cap on bonus or penalty dice was found in the 1.0.2 rulebook, so none is applied.
+    [Theory]
+    [Trait("Rule", "1.0.2 +Dice And -Dice p.25")]
+    [InlineData(5, 0, new[] { 6, 5 })]
+    [InlineData(0, 5, new[] { 1, 1 })]
+    public void NetDiceAreNotCapped(int bonus, int penalty, int[] expectedKept)
+    {
+        var dice = new FixedDice(1, 2, 3, 4, 5, 6, 1);
+
+        var result = SuccessRoll.Roll(dice, bonus, penalty);
+
+        Assert.Equal(7, result.Dice.Rolled.Count);
+        Assert.Equal(expectedKept, result.Dice.Kept);
         Assert.Equal(0, dice.Remaining);
     }
 
