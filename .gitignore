@@ -9,3 +9,7 @@ TestResults/
 .idea/
 *.user
 *.suo
+
+# OS files
+.DS_Store
+Thumbs.db

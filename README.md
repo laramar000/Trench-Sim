@@ -22,12 +22,12 @@ dotnet --version
 dotnet test
 ```
 
-`dotnet test` should report one passing test.
+`dotnet test` should report two passing tests: a smoke test, and a check that the rules engine references no Godot, networking framework or other project.
 
 ## Layout
 
 ```text
-TrenchPvP.sln
+TrenchSim.sln
 src/Rules.Core/      rules engine: no Godot, no networking, no game-specific names
 tests/Rules.Tests/   xUnit tests for the rules engine
 docs/rules-notes.md  where each rule lives in the 1.0.2 rulebook
@@ -36,6 +36,6 @@ docs/rules-notes.md  where each rule lives in the 1.0.2 rulebook
 ## Repository rules
 
 - No publisher-owned artwork, logos, extracted game assets or copied proprietary code.
-- No pasted rulebook text. `docs/rules-notes.md` gives section references and summaries in our own words.
+- No pasted rulebook text. `docs/rules-notes.md` gives section references; summaries in our own words are added as each rule is implemented.
 - Original placeholder content (names, units, equipment, descriptions, art) wherever practical.
 - The repository is public, so everything committed here is published.
