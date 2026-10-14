@@ -12,46 +12,48 @@ public sealed record ChargePlan(ImmutableArray<Point2> Path, Length Cost, bool R
 // for those words; the U-numbers are in docs/interpretations.md.
 //
 // The route. On open ground the shortest route is the straight line from the charger's centre towards the target's
-// centre (U46), cut into two legs at the first point within 1" of the target so that the first leg is judged against
+// centre, cut into two legs at the first point within 1" of the target so that the first leg is judged against
 // every enemy (Interposing Enemy Models, p. 36) and the tail only against bases and terrain. When terrain that cannot
-// be crossed lies in the way (or a friendly base the model cannot move entirely past, U57), the route is the shortest
-// path of the model's centre around it, found by a visibility-graph search (U58): the model's base is swept along
+// be crossed lies in the way (or a friendly base the model cannot move entirely past, U59), the route is the shortest
+// path of the model's centre around it that a visibility-graph search finds (U57, U58): the model's base is swept along
 // straight legs between the corners of the blocking terrain and the edges of the blocking bases, each inflated by the
 // base's radius. Round shapes are replaced by a 32-sided polygon placed just outside the true outline, so every
-// route is legal by the exact tests of Movement.CheckPath and is within about 0.5% of the true geodesic length.
+// route is legal by the exact tests of Movement.CheckPath; it is longer than the true geodesic by a fraction of a
+// percent (U58), so it is the shortest route only to within that tolerance, not provably the global shortest.
+// The whole table is searched, because only the distance moved (not the route) is capped at 12" (U62).
 // Enemy models are not obstacles to the routing before the target's 1": a route that passes within 1" of another
-// enemy is refused as interposed (p. 36) rather than bent around it (U59). Inside the target's 1" the other enemies'
-// bases are avoided by ending the route at one of 32 contact points around the target (U60).
+// enemy is refused as interposed (p. 36) rather than bent around it (U61). Inside the target's 1" the other enemies'
+// bases are avoided by ending the route at one of 128 contact points around the target.
 //
 // Everything is integer arithmetic, with Int128 intermediates and fixed-point constants; the same functions plan the
 // move and check the recorded event. Ties between equal-cost routes go to the route through the lower point in
-// (X, Y) order, so the result never depends on the order the obstacles were supplied in (U61).
+// (X, Y) order, so the result never depends on the order the obstacles were supplied in (U60).
 public static class Charging
 {
     // A charging model's Movement cannot be raised above 12" by the Charge Bonus (p. 36).
     public static readonly Length MaxMovement = Length.FromInches(12);
 
-    // A routed charge is at most this many legs. A shortest route wraps each obstacle once, and a wrap is at most
-    // 17 legs around a 32-gon, so 64 legs is more than any route inside the 12" a charge can cover; a route that
-    // would need more is treated as having no route.
+    // A charge move is at most this many legs. It is the first 12" of the route, and a shortest route wraps each
+    // obstacle once, at most 17 legs around a 32-gon (8 round a corner of terrain), so 64 legs covers any route met in
+    // practice. Instead of assuming it, CheckRoute counts the legs of the first 12" of the route it found and refuses
+    // the declaration if they exceed this, so no accepted declaration can need more.
     public const int MaxLegs = 64;
 
     private static readonly Length Unlimited = Length.FromInches(1000);
 
-    // Movement.LegCostMicro counts millionths of an inch; the most a charge can pay.
-    private static readonly Int128 BudgetMicro = (Int128)MaxMovement.Thousandths * Movement.MicroPerThousandth;
-
-    // Can the model reach the target at all, whatever the Charge Bonus turns out to be? A refusal here is a refusal of
-    // the declaration: no die is rolled for it. Friendly models are passable here (they cannot end a move on a base,
-    // but whether one blocks depends on how far the model gets, which the die decides).
+    // Is there a route to the target at all, however long? Declaring a charge needs only a target within 12" that is
+    // visible (p. 36); how far the Charge Bonus carries the model along the shortest route is for the die to decide, and
+    // a route far longer than 12" is a charge that falls short, not one that cannot be declared. A refusal here is a
+    // refusal of the declaration: no die is rolled for it. Friendly models are passable here (they cannot end a move
+    // on a base, but whether one blocks depends on how far the model gets, which the die decides).
     public static MoveResult CheckRoute(Battlefield battlefield, ModelBody mover, ModelBody target, IReadOnlyList<Obstacle> others)
     {
         var scene = new Scene(battlefield, mover, target, others);
         var route = scene.FindRoute(friendsBlock: false);
-        if (route is null)
+        if (route is null || scene.Farthest(route, MaxMovement).Length > MaxLegs)
         {
             return new MoveResult(false, MoveRefusal.NoRoute,
-                "No route of 12\" or less reaches the target around the terrain in the way.", "1.0.2 pp. 35, 37", Length.Zero, null);
+                "No route reaches the target around the terrain in the way.", "1.0.2 pp. 35, 37", Length.Zero, null);
         }
         return scene.Interposition(route);
     }
@@ -67,7 +69,7 @@ public static class Charging
             return none;
         }
         var pathA = scene.Farthest(routeA, reach);
-        if (pathA.IsEmpty)
+        if (pathA.IsEmpty || pathA.Length > MaxLegs)
         {
             return none;
         }
@@ -317,10 +319,6 @@ public static class Charging
                         continue;
                     }
                     var alt = dist[u] + LegsCost(nodes[u], legs);
-                    if (alt > BudgetMicro)
-                    {
-                        continue;
-                    }
                     if (alt < dist[v] || alt == dist[v] && u < previous[v])
                     {
                         dist[v] = alt;
@@ -350,7 +348,7 @@ public static class Charging
                 foreach (var (key, tail) in Goals(nodes[a], friendsBlock))
                 {
                     var total = dist[a] + LegsCost(nodes[a], tail);
-                    if (total <= BudgetMicro && (total < best || total == best && (a, key).CompareTo((bestNode, bestKey)) < 0))
+                    if (total < best || total == best && (a, key).CompareTo((bestNode, bestKey)) < 0)
                     {
                         best = total;
                         bestNode = a;
@@ -369,7 +367,7 @@ public static class Charging
             {
                 path.InsertRange(0, legsInto[n]);
             }
-            return path.Count > MaxLegs ? null : new Route([.. path], null);
+            return new Route([.. path], null);
         }
 
         private Int128 LegsCost(Point2 from, ImmutableArray<Point2> legs)
@@ -469,7 +467,7 @@ public static class Charging
             return entry == contact ? [contact] : [entry, contact];
         }
 
-        // The start, then the corners of everything the model has to go round, nearest 12" only, in (X, Y) order.
+        // The start, then the corners of everything the model has to go round, on the whole table, in (X, Y) order.
         private List<Point2> Vertices(bool friendsBlock)
         {
             var radius = _mover.Radius.Thousandths;
@@ -520,13 +518,12 @@ public static class Charging
             return nodes;
         }
 
-        // May the model's centre be here between legs: on the table, within 12" of the start, clear of blocking
+        // May the model's centre be here between legs: on the table, clear of blocking
         // terrain, not on the target's base, clear of the other enemies' bases inside the target's 1", and (when
         // friends block) clear of friendly bases?
         private bool ValidWaypoint(Point2 p, bool friendsBlock)
         {
-            if (!ExactMath.Near(p, _mover.Centre, MaxMovement, strict: false)
-                || _field.Area.MoreThanHalfInside(p, _mover.Radius) != AreaDecision.MoreThanHalf
+            if (_field.Area.MoreThanHalfInside(p, _mover.Radius) != AreaDecision.MoreThanHalf
                 || ExactMath.Near(p, _target.Centre, _mover.Radius + _target.Radius, strict: true))
             {
                 return false;

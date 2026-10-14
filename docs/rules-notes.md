@@ -220,6 +220,14 @@ Bloodbath Rolls (p. 47) say to apply +/- INJURY DICE as for an Injury Roll, but 
 - **Passing:** neither the Core nor the Comprehensive chapter describes passing an Activation.
 - **Provisional interpretation, not official (implemented in M2 as R3 and R4):** a Morale Check takes no modifiers, and a player with unactivated models must activate one. Neither is printed; both need a decision or an official clarification.
 
+### 5. Charge routes: is "shortest" a distance or a Movement cost? (provisional in the M4 Slice B follow-up, U58)
+
+p. 37 says to move by "the shortest route available" and, round obstacles, a route "as short as possible". Difficult terrain doubles the Movement spent (p. 35). The rulebook does not say whether the shortest route minimises distance or Movement cost. Implemented: among the routes the planner builds (through the corners of Impassable terrain and friendly bases), the cheapest in Movement is taken, but no route is bent round a patch of Difficult ground. A scene where the shorter way round crosses Difficult terrain and a slightly longer way is clear shows the difference; the audit test pins the current choice (the clear way). Question for a judge: where one way round crosses Difficult terrain, must the charger take the shorter-distance route, or may it take the cheaper one, or must it bend round Difficult ground?
+
+### 6. Charge routes: a very long detour, and friends that cannot be crossed (provisional, U62 and U65)
+
+p. 37 asks for "the shortest route available that takes it directly towards the target". The planner follows the shortest route however long, so a charger behind a long wall walks the first 12" of a 24" detour and fails, and a charger whose Charge Bonus cannot carry it past a friend in a corridor walks the long way round rather than stopping in front of the friend. Question for a judge: is a charge whose shortest route is far longer than the distance to the target a legal declaration, and when a friend cannot be crossed should the model stop short of it or take the route round it?
+
 ## Scenario chosen for the first match
 
 **I. Claim No Man's Land** (pp. 151 to 153; visually checked). The rulebook recommends this scenario for a first game (p. 23). In our own words:

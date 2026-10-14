@@ -114,7 +114,7 @@ public class ChargeAndRetreatGeometryTests
     [Trait("Rule", "Charge Moves p. 37: a wall with no way round within 12\" refuses the charge before any die")]
     public void ATerrainWallWithNoWayRoundRefusesTheDeclaration()
     {
-        var wall = Wall("w", "7", "0", "8", "10");
+        var wall = Wall("w", "7", "0", "8", "36");   // the whole height of the table
         var field = Field("36", wall);
         var mover = Body("m", "4", "2");
         var target = Body("t", "12", "2");

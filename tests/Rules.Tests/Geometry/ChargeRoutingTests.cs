@@ -265,7 +265,7 @@ public class ChargeRoutingTests
     public void WithNoWayRoundAFriendTheChargeStopsInFrontOfIt()
     {
         // A corridor 1.4" wide with a friend in it: the base cannot go round, and 6" would end on the friend.
-        var field = Field("36", Wall("south", "6", "3", "14", "4"), Wall("north", "6", "5.4", "14", "6.4"));
+        var field = Field("36", Wall("south", "6", "0", "14", "4"), Wall("north", "6", "5.4", "14", "36"));
         var mover = Body("m", "3", "4.7");
         var target = Body("t", "16", "4.7");
         var friend = Body("f", "9", "4.7");
@@ -279,6 +279,35 @@ public class ChargeRoutingTests
         // It stops where its base touches the friend's: 1" between centres.
         Assert.True(plan.Path[^1].X >= L("7.99") && plan.Path[^1].X <= L("8"), plan.Path[^1].ToString());
         Assert.Equal(L("4.7"), plan.Path[^1].Y);
+    }
+
+    [Fact]
+    [Trait("Rule", "Movement p. 35 / Charge Moves p. 37: stopping short of a friend counts as a successful charge only if it ends within 1\" of the target")]
+    public void StoppingShortOfAFriendIsASuccessOnlyWhenTheStopIsWithinAnInchOfTheTarget()
+    {
+        // The same sealed corridor, with a friend touching the target: the model cannot touch the target or go round the
+        // friend, and stops 1" from the friend's centre, which leaves it exactly 1" from the target's base.
+        var field = Field("36", Wall("south", "6", "0", "14", "4"), Wall("north", "6", "5.4", "14", "36"));
+        var mover = Body("m", "3", "4.7");
+        var target = Body("t", "12", "4.7");
+        var friend = Body("f", "11", "4.7");
+        var others = new[] { Enemy(target), Friend(friend) };
+
+        var plan = Charging.Plan(field, mover, target, L("9"), others);
+        AssertSound(field, mover, target, L("9"), others, plan);
+        Assert.False(Measure.Overlap(mover.At(plan.Path[^1]), friend));
+        Assert.False(Measure.Overlap(mover.At(plan.Path[^1]), target));
+        Assert.True(Measure.IsWithin(mover.At(plan.Path[^1]), target, Length.Inch));
+        Assert.True(plan.Reached, "ending 1\" from the target is a successful charge (p. 37), even though the base is not in contact");
+
+        // A friend 0.4" farther back still overlaps the contact point, so the model stops 2.4" from the target's centre
+        // (1.4" from its base): the charge fails.
+        var back = Body("f", "10.6", "4.7");
+        var farther = new[] { Enemy(target), Friend(back) };
+        var short_ = Charging.Plan(field, mover, target, L("9"), farther);
+        AssertSound(field, mover, target, L("9"), farther, short_);
+        Assert.False(short_.Reached);
+        Assert.False(Measure.IsWithin(mover.At(short_.Path[^1]), target, Length.Inch));
     }
 
     // ---- 4. cost and insufficient movement on a detour ----
@@ -415,16 +444,41 @@ public class ChargeRoutingTests
     }
 
     [Fact]
-    [Trait("Rule", "Charging p. 36: a route longer than the 12\" a charge can cover cannot be declared")]
-    public void ARouteLongerThanTwelveInchesHasNoDeclaration()
+    [Trait("Rule", "Charging p. 36: only a target within 12\" and in sight is needed; the way round may be longer than any Charge Bonus")]
+    public void ARouteLongerThanTwelveInchesCanStillBeDeclaredAndFallsShort()
     {
-        var wall = Wall("w", "7", "0.9", "8", "20");   // a long wall: the way round is far over 12"
+        var wall = Wall("w", "7", "0.9", "8", "20");   // a long wall: either way round is well over 12"
         var field = Field("36", wall);
         var mover = Body("m", "4", "10");
         var target = Body("t", "12", "10");
-        var route = Charging.CheckRoute(field, mover, target, [Enemy(target)]);
-        Assert.False(route.IsLegal);
-        Assert.Equal(MoveRefusal.NoRoute, route.Reason);
+        var others = new[] { Enemy(target) };
+        var route = Charging.CheckRoute(field, mover, target, others);
+        Assert.True(route.IsLegal, route.Text);
+        var plan = Charging.Plan(field, mover, target, Twelve, others);
+        AssertSound(field, mover, target, Twelve, others, plan);
+        Assert.False(plan.Reached);
+        Assert.False(plan.Path.IsEmpty);
+        // It follows the shortest way round for the whole allowance (here under the wall, which a base may do while
+        // more than half of it stays on the table, U6).
+        Assert.True(plan.Cost >= L("11.99") && plan.Cost <= Twelve, plan.Cost.ToString());
+    }
+
+    [Fact]
+    [Trait("Rule", "Charging p. 36-37: a route that needs more than 12\" to touch can still end within 1\" of the target")]
+    public void ARouteJustOverTwelveInchesToContactCanStillSucceed()
+    {
+        // The way round costs a little more than 12" to touch the target, but 12" ends within 1" of it.
+        var wall = Wall("w", "7", "3.5", "8", "10.5");
+        var field = Field("36", wall);
+        var mover = Body("m", "3", "7");
+        var target = Body("t", "13", "7");
+        var others = new[] { Enemy(target) };
+        var routeLength = ReferenceRouter.ShortestToContact(3, 7, [ReferenceRouter.RoundedRect(7, 3.5, 8, 10.5, 0.5)], 13, 7, 1.0);
+        Assert.InRange(routeLength, 12.0, 13.0);   // the premise: over 12" to touch, under 13"
+        Assert.True(Charging.CheckRoute(field, mover, target, others).IsLegal);
+        var plan = Charging.Plan(field, mover, target, Twelve, others);
+        AssertSound(field, mover, target, Twelve, others, plan);
+        Assert.True(plan.Reached, plan.Path.IsEmpty ? "no move" : plan.Path[^1].ToString());
     }
 
     [Fact]

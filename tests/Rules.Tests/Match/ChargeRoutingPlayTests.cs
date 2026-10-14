@@ -61,6 +61,29 @@ public class ChargeRoutingPlayTests
     }
 
     [Fact]
+    [Trait("Rule", "Charging p. 36: a target within 12\" and in sight can be declared even if the way round is longer than any charge")]
+    public void ADetourLongerThanAnyChargeIsDeclaredAndFallsShort()
+    {
+        // A wire 14" long between them: round it is well over the 12" a charge can cover.
+        var longWire = WithTerrain(Wire("long", "7", "0", "8", "14"));
+        var play = SkirmishWith(longWire, "4", "2", "12", "2");
+        var before = play.State;
+        var result = play.Do(Charge(), 6);   // Movement plus a Charge Bonus of 6, capped at 12"
+        var moved = result.Events.OfType<ChargeMoved>().Single();
+        Assert.False(moved.Reached);
+        Assert.False(moved.Path.IsEmpty);
+        Assert.True(moved.Cost <= L("12") && moved.Cost > L("11"), moved.Cost.ToString());
+        Assert.True(play.State.Actions.HasFlag(ActionsTaken.Charge));
+        Assert.Equal(play.M(A(1)).Position, moved.Path[^1]);
+        // The recorded move replays, from the state before it, to the same hash.
+        Assert.Equal(StateHash.Compute(play.State), StateHash.Compute(Apply(before, result.Events)));
+        // The path is the first 12" of the route, short of the wire's top: the model is still on its side of the wire.
+        var field = play.Setup.Scenario!.Battlefield;
+        var body = BodyOf(Skirmish("4", "2", "12", "2"), A(1));
+        Assert.True(Movement.CheckPath(field, body, moved.Path, L("12"), [Enemy(BodyOf(play, B(1)))], "B1").IsLegal);
+    }
+
+    [Fact]
     [Trait("Rule", "Charge Moves p. 37: a target with no route cannot be declared, and no die is rolled")]
     public void ATargetWithNoRouteIsRefusedBeforeTheDie()
     {
@@ -110,6 +133,13 @@ public class ChargeRoutingPlayTests
         Assert.True(Movement.CheckPath(field, body, detour, L("12"), [Enemy(BodyOf(play, B(1)))], "B1").IsLegal, "the forged path should be legal");
         var detoured = ImmutableArray.CreateRange(detour);
         Rejects(afterRoll, new ChargeMoved(A(1), B(1), detoured, CostOf(detoured), true));
+
+        // The same route with an extra point on a straight leg: same shape, same cost, but not the planner's own path.
+        var start = P("4", "2");
+        var midpoint = new Point2(Length.FromThousandths((start.X.Thousandths + moved.Path[0].X.Thousandths) / 2), Length.FromThousandths((start.Y.Thousandths + moved.Path[0].Y.Thousandths) / 2));
+        var padded = moved.Path.Insert(0, midpoint);
+        Assert.Equal(moved.Cost, CostOf(padded));
+        Rejects(afterRoll, new ChargeMoved(A(1), B(1), padded, moved.Cost, true));
 
         // A path that stops early, or one that reports another cost or outcome.
         var early = moved.Path.RemoveAt(moved.Path.Length - 1);
