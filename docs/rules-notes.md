@@ -56,7 +56,9 @@ Not in M1: re-rolls (p. 31), rolling off (p. 31), and making every roll Risky wh
 Code: `src/Rules.Core/Dice/InjuryRoll.cs`. Tests: `InjuryRollTests.cs`.
 
 - An Injury Roll is two six-sided dice, with bonus and penalty injury dice handled exactly as for Success Rolls, plus any flat injury modifiers.
-- Negative injury modifiers together count for no less than -3. Positive modifiers have no limit. The code applies the -3 floor to the negatives first, then adds the positives (so +2 and -5 give -1). This reading should be confirmed by a person.
+- Negative injury modifiers together count for no less than -3. Positive modifiers have no limit. The -3 floor applies to the negatives first, then the positives are added, so +2 and -5 give -1 (not -3).
+  - Rationale: the rulebook (Injuries, p. 46; Injury Roll Table, p. 48; Core Rules, p. 18) places the limit on the combined negative modifiers only, and states no limit on positive ones. Flooring the net total instead would let negatives beyond -3 cancel positive modifiers, which the stated limit does not allow.
+  - Decision: interpretation chosen by the project owner on 14 October 2026. Regression test: `InjuryRollTests.PlusTwoAndMinusFiveGiveMinusOne`.
 - Results: 1 or less, no effect; 2 to 6, a minor hit and 1 Blood Marker; 7 or 8, the model goes Down and takes 1 Blood Marker, or 2 if it was already Down; 9 or more, the model is out of action.
 - Extra injury dice from a Critical Success, or from a melee attack on a Down model, are added by the attack that causes the roll (M4). The rulebook's wording on the critical bonus differs between pp. 44 to 45 and p. 48; p. 48 is the reading to confirm.
 

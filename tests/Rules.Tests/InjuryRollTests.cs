@@ -64,6 +64,19 @@ public class InjuryRollTests
         Assert.Equal(expected, InjuryRoll.CombineModifiers(modifiers));
     }
 
+    // Regression for the owner's decision of 14 October 2026: the -3 floor applies to the
+    // negative modifiers before positive ones are added, so +2 and -5 give -1, not -3.
+    [Fact]
+    [Trait("Rule", "1.0.2 Injuries p.46")]
+    public void PlusTwoAndMinusFiveGiveMinusOne()
+    {
+        var result = InjuryRoll.Roll(new FixedDice(4, 4), modifiers: [2, -5]);
+
+        Assert.Equal(-1, result.Modifier);
+        Assert.Equal(7, result.Total);
+        Assert.Equal(InjuryOutcome.Down, result.Outcome);
+    }
+
     [Fact]
     [Trait("Rule", "1.0.2 Injuries p.46")]
     public void CappedModifierIsAppliedToTheRoll()
