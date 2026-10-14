@@ -19,6 +19,9 @@ public enum MoveRefusal
     EntersEnemyZone,
     LeavesEnemyZone,
     EndsOnBase,
+
+    // A charge only: no route within the 12" a charge can cover reaches the target around the terrain in the way.
+    NoRoute,
 }
 
 public sealed record MoveResult(bool IsLegal, MoveRefusal? Reason, string Text, string RuleRef, Length Cost, string? SubjectId);

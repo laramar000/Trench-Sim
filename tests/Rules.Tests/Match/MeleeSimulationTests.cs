@@ -15,21 +15,21 @@ public class MeleeSimulationTests
     // Regression pins of this implementation's own behaviour under StateHash version 3, not an independent oracle.
     private static readonly Dictionary<int, string> PinnedFinalHashes = new()
     {
-        [1] = "95cbed23307d7ac018525204e24484fe12ef923bcc7b7254cb8582addd952181",
+        [1] = "fd3356e8948966b1e1855643fdb6a8ae8c93b1251acdfbf2010422b0c2df0727",
         [2] = "a549e42a699ba1d90c4e2e1bbdbe858ede9b29255a3ee61fc11ec2b2c059580b",
         [3] = "f6a9e3da6669985fc134044d9bf51de12947475508f498b442bf53543e2b75fa",
-        [4] = "940c9ca230e73355a36dda25af0556b8800f296b1acdddd7785cd14aa128bbc5",
-        [5] = "5cd77d1b969d4989ec0858cd9100292783526d602f445454ac5c648d4647a4dd",
+        [4] = "0dbcad72ce944e4223c6394f95d55834d253f01e75e2a50fdf9a6d7e44b7dae2",
+        [5] = "75cb961ffb007a72a1db9cead3a84f72ae98e2172f7eb9b32fcd3149649afd7d",
         [6] = "c79b603647e56d3389e11d2c1aee201fe18130cb23bbe8d8c129a99bfe3c9eec",
-        [7] = "5b71693099e09c5fc0a3a097cb99a2c5a826c4952179a33c89b6b989495da85f",
+        [7] = "edec0b11df3f45fbededaa6bc76134c449e623180f01519faf77730a7554657b",
         [8] = "318c1b1b25e2f838b5dea0f069c61e7aef267a872634281e16cb52ef58f7a755",
-        [9] = "37d306f10e9eef20ed0b42dc30fa1d4ac967e9098c4e3cc1549e5ceb9b69a016",
+        [9] = "8726ec1b1c7adb58961cc5bb35dcbf788d65286eb58300a8ca96524feaad56e6",
         [10] = "7514f7d72a0efcf206d11fd5dc75c9bb19e2e7e9c1f66b4a25c4abc3ce963a70",
         [11] = "c16ae08fe00eedd1ba7bd9f6d8beadeb5b6f2409fb1cba625e7b280b6c98872e",
         [12] = "8559333fb48b4b8f3b2e3ab1f604c45b4a3c87bee759de8f72c52546b20e3c8d",
         [13] = "e1ea1cc2750f122dac8c5f77236701fb92adaae439bd2fe2ec03d9e9b9283f20",
-        [14] = "bd0868d1dd7b2eae83792cb7bbaf811d74496283793ffba74b4dad3431b26418",
-        [15] = "939c4fa9e828322cedbb44cb5cf3485d3742038547953e73a371e38ba3c07120",
+        [14] = "5f478383b856eecb4091229a6668a05f6823143f41b3261afe2ac0c7fd87b4c9",
+        [15] = "994eae6fe4fc5fdaf3e3d034a885bf292fb9db3f6cec69d3a65dd96fb2b8bad7",
         [16] = "0583013f22d605489d651bfc19a771cc651be3fa9c3a42a5445560c7429c3f7d",
         [17] = "1c157a219d6eae96fc9ce541f50ddc4d55f438226ec788f6349e1da42d31befa",
         [18] = "37813431ae0d92584967c7f863363f1601ac1aa8ca42c9cab2fc1c434637af86",
@@ -39,12 +39,12 @@ public class MeleeSimulationTests
         [22] = "fcf17bac654bbd9c275b92dd592e23ad695a08fa328424f344317c3be673b43c",
         [23] = "8ddf2a1c838cd7ff53408334da759c91e296d9e89cafa95e2c667193b5831875",
         [24] = "4ca36fdda97de0e97532b27dbcf1cd91cbff89ef8b58cb853eb5ed319cea80a5",
-        [25] = "466fa4114410c522ac73910343e60fe4edee2f16e42136bfc978376eebc0b5c5",
-        [26] = "d607e7ede62039f5a1e8b858cace7008802db2f27f0b42d55c092d9a28376ddb",
-        [27] = "d17887cf41a918f8437e949e5ffb467c5ccea31fbb9922c5e97d9a71ac3254fb",
+        [25] = "76c896c9cc9ab8b706238a45e49308526248aeac3b98caad907db613054b9236",
+        [26] = "9513dd1ddfa29954d4fcfe54757a24a04172007ffd3545dab19faf1080ebd11e",
+        [27] = "fe22e639c99fce42cbc80df3de7f9b45ffbaa5e800dd22a0a4ba9b2e654fece9",
         [28] = "6cafd4c0c538694591701a522f129021805df02879965bfe6bfc74c7f19d115c",
-        [29] = "c5125caaad42c8fa7465eba0debc2b5c2a9dff10694477699cf5437ad6b99d0b",
-        [30] = "1be0b46b44532d8516be80a55e9fcc26d05dfc3e1b408a31b239de3341602461"
+        [29] = "8180f181741d015bdf09983f0f6ae203d2e43aa0b2cc12492280b7fc468982c7",
+        [30] = "22fd95511103ce6065dcc3488b431e2b46299023b82adbb6829034ed15004f22"
     };
 
     public static TheoryData<int> Seeds() => [.. Enumerable.Range(1, 30)];
@@ -86,6 +86,21 @@ public class MeleeSimulationTests
     }
 
     [Fact]
+    [Trait("Rule", "Charge Moves p. 37: the simulated players take routes round terrain, and every such charge replays")]
+    public void ManySeedsIncludeChargesThatGoRoundTerrain()
+    {
+        var results = Enumerable.Range(1, 150).Select(s => Runner.Run(s, Warbands)).ToList();
+
+        var routed = results.SelectMany(r => r.Log.OfType<ChargeMoved>()).Where(c => c.Path.Length > 2).ToList();
+        Assert.True(routed.Count >= 10, $"only {routed.Count} charges went round something");
+        Assert.Contains(routed, c => c.Reached);
+        Assert.Contains(routed, c => !c.Reached);
+        Assert.All(routed, c => Assert.True(c.Path.Length <= Rules.Core.Geometry.Charging.MaxLegs));
+        // Runner replays every log and compares hashes, so a routed charge the reducer did not agree with would have failed.
+        Assert.All(results, r => Assert.True(r.Terminal, r.Describe()));
+    }
+
+    [Fact]
     [Trait("Rule", "Architecture: deterministic replay")]
     public void RunningAMeleeSeedTwiceGivesTheSameMatchEventForEvent()
     {
@@ -102,7 +117,7 @@ public class MeleeSimulationTests
     [Trait("Rule", "Architecture: replaying any prefix of the log gives the state at that moment")]
     public void EveryPrefixOfAMeleeLogReplaysToTheHashSeenWhileItWasPlayed()
     {
-        var result = Runner.Run(1, Warbands);
+        var result = Runner.Run(10, Warbands);
         Assert.True(result.Melee.Charges > 0 && result.Melee.Retreats > 0 && result.Melee.FreeFights > 0 && result.Melee.ShotsIntoMelee > 0 && result.Melee.TakenDown > 0);
 
         var state = MatchState.None;

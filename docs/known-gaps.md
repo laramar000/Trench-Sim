@@ -3,7 +3,7 @@
 What the simulated match does not do after Slice B. Each item is a decision to defer, not an oversight. Rule references are to the Digital Rulebook 1.0.2.
 
 ## Rules not implemented
-- **Melee extras** (Slice B implements Charge, Retreat, Fight and shooting into melee, U46 to U56): no Off-Hand or second Melee Weapon, CLEAVE, BLOCK, Fear, Diving Charge, ASSAULT, climbing or jumping charges, detour charge routes (the charge route is a straight line), or the optional charge continuation. Down models are measured from the base only (U55).
+- **Melee extras** (Slice B implements Charge, Retreat, Fight and shooting into melee, U46 to U65): no Off-Hand or second Melee Weapon, CLEAVE, BLOCK, Fear, Diving Charge, ASSAULT, climbing or jumping charges, or the optional charge continuation. Charge routes go round obstacles (U57 to U65), with these limits: the route is a deterministic approximation, not a proved global shortest (curves are 32-gons, within about 0.6% plus 0.012" of a brute-force search in testing; a doorway up to about 0.01" wider than the base may count as closed; contact is sought at 128 points round the target), the planner does not bend round Difficult terrain (open question 5) or detour to avoid the 1" zones of other enemies, and a declaration needing more than 64 legs within 12" of Movement is refused. Down models are measured from the base only (U55).
 - **Bloodbath Rolls** (p. 47): not implemented; the dice interaction is open (question 3 in `rules-notes.md`). Spending 6 markers (3 if Down) is not offered.
 - **Glorious Deeds** (p. 153, one VP each at the end of the game): none are scored; Victory Points come from Objectives only. This can change who wins a close game.
 - **Elevation attack bonus** (+1 DICE when 3" or more higher, p. 43): not applied (U35).
@@ -20,3 +20,13 @@ Rules R1 to R8 (turn sequence, `rules-notes.md`) and U30 to U56 (`interpretation
 - The two simulated players are simple (random choice among legal-looking options, integer geometry); they exist to prove that whole matches finish and replay identically, not to play well.
 - The sight sampler can miss a very narrow gap (see `interpretations.md`, golden scenes).
 - Only one scenario exists.
+
+## What the routing tests establish (and what they cannot)
+
+The charge planner is checked three ways, none of which proves it finds the true shortest route:
+
+- **Legality** (`ChargeRoutingAuditTests`): every leg of every tested route keeps the base clear of every wall, friend and the target, measured by plain Euclidean distance in floating point with no polygon outlines. This is independent of the planner's own geometry. It shows no tested route cuts a corner; it says nothing about routes that were not produced.
+- **Taut string**: no stretch of a route can be replaced by a legal straight chord that is shorter by more than the tolerance. This needs no reference route. It catches routes with slack; it cannot catch a route that is taut but in the wrong corridor.
+- **Brute-force reference** (`ReferenceRouter`): a finely sampled outline search written without any Rules.Core code. It shares the planner's *modelling* assumptions (the route is a polyline over the corners of obstacles widened by the base's radius, and the goal is contact with the target's base), so agreement shows the planner implements that model correctly within the tolerance, not that the model is the rulebook's. The reference was itself checked against the closed form for one disc (within 0.05%), against finer sampling (it converges and never rises), and against the table edge (a base may not be placed beyond it).
+
+Over 1,500 random multi-wall scenes and 1,000 scenes with a friend beside the target, run by hand with `AUDIT_SCENES` and `AUDIT_SEED`, no disagreement was found; the checked-in tests use 120 and 80 scenes. Measured: the planner was at most 0.016" longer than the reference and never shorter by more than 0.0012". Not tested: obstacles other than rectangles and discs, routes through more than three walls, and Difficult terrain as a reason to choose a different route.

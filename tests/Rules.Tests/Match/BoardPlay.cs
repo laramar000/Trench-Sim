@@ -16,7 +16,7 @@ public sealed class BoardPlay
 {
     public static readonly ModelProfile Rifleman = new(L("6"), L("0.5"), L("18"));
 
-    public BoardPlay(int perSide = 2, Func<ModelId, ModelProfile>? profileFor = null, int turnLimit = ClaimNoMansLand.TurnLimit)
+    public BoardPlay(int perSide = 2, Func<ModelId, ModelProfile>? profileFor = null, int turnLimit = ClaimNoMansLand.TurnLimit, Scenario? scenario = null)
     {
         profileFor ??= _ => Rifleman;
         var models = Enumerable.Range(1, perSide).Select(i => new ModelId($"A{i}"))
@@ -24,7 +24,7 @@ public sealed class BoardPlay
             .Select(id => new SetupModel(id, id.Value[0] == 'A' ? Seat.One : Seat.Two, profileFor(id)))
             .ToList();
         var template = ClaimNoMansLand.CreateSetup(models);
-        Setup = new MatchSetup(template.RulesVersion, template.ScenarioId, turnLimit, template.Profile, template.ZoneIds, models, template.Scenario);
+        Setup = new MatchSetup(template.RulesVersion, template.ScenarioId, turnLimit, template.Profile, template.ZoneIds, models, scenario ?? template.Scenario);
         var created = new MatchCreated(Setup);
         State = Reducer.Apply(MatchState.None, created);
         Log.Add(created);

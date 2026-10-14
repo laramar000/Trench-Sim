@@ -162,16 +162,17 @@ public class ChargeTests
     }
 
     [Fact]
-    [Trait("Rule", "Moves p. 35: a model may not finish on another model's base")]
-    public void AChargeStopsShortOfAFriendlyBaseInItsWay()
+    [Trait("Rule", "Moves p. 35: a model may not finish on another model's base, so the route goes round a friend at the point of contact")]
+    public void AChargeGoesRoundAFriendlyBaseInItsWay()
     {
         var play = Skirmish("4", "2", "12", "2");
-        play.Put(A(2), "10.6", "2");
+        play.Put(A(2), "10.6", "2");   // on the straight route's point of contact
         var moved = play.Do(Charge(), 6).Events.OfType<ChargeMoved>().Single();
         Assert.False(Measure.Overlap(BodyOf(play, A(1)), BodyOf(play, A(2))));
-        Assert.False(moved.Reached);
-        Assert.True(play.M(A(1)).Position!.Value.X <= L("9.6"));
-        Assert.True(play.M(A(1)).Position!.Value.X > L("9.59"));
+        Assert.True(moved.Reached);
+        Assert.True(Within(play, A(1), B(1), "1"));
+        Assert.True(moved.Path.Length > 2, "the route bends round the friend");
+        Assert.NotEqual(L("2"), play.M(A(1)).Position!.Value.Y);
     }
 
     [Fact]

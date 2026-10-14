@@ -221,9 +221,9 @@ public sealed record ChargeMoved : GameEvent
 {
     public ChargeMoved(ModelId model, ModelId target, ImmutableArray<Point2> path, Length cost, bool reached)
     {
-        if (path.IsDefault || path.Length > 2 || (path.IsEmpty && (reached || cost != Length.Zero)))
+        if (path.IsDefault || path.Length > Charging.MaxLegs || (path.IsEmpty && (reached || cost != Length.Zero)))
         {
-            throw new ArgumentException("A charge move has at most two legs; no legs cost nothing and do not reach.", nameof(path));
+            throw new ArgumentException($"A charge move has at most {Charging.MaxLegs} legs; no legs cost nothing and do not reach.", nameof(path));
         }
         Model = model;
         Target = target;

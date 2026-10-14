@@ -154,7 +154,7 @@ Provisional choices are listed in `docs/interpretations.md` (U30 to U45); what i
 
 ### Charge, Retreat, Fight and shooting into melee (M4, Slice B)
 
-Code: `Geometry/Charging.cs`, `Board.cs`, `TurnSequence.Board.cs`, `Reducer.cs`, `Events/CombatEvents.cs`, `Commands/Command.cs`. Tests: `tests/Rules.Tests/Match/{Charge,Fight,Retreat,ShootingIntoMelee,ForgedMeleeEvent,MeleeSimulation}Tests.cs` and `Geometry/ChargeAndRetreatGeometryTests.cs`. Confirmed rules are C15 to C21 in `docs/interpretations.md`, each with its page, read from the page images (pp. 34, 36, 37, 42, 43, 45, 49; Core pp. 16 and 17 and Comprehensive pp. 27 to 28, 46 to 48 from text and earlier visual checks). Provisional choices are U46 to U56.
+Code: `Geometry/Charging.cs`, `Board.cs`, `TurnSequence.Board.cs`, `Reducer.cs`, `Events/CombatEvents.cs`, `Commands/Command.cs`. Tests: `tests/Rules.Tests/Match/{Charge,Fight,Retreat,ShootingIntoMelee,ForgedMeleeEvent,MeleeSimulation}Tests.cs` and `Geometry/ChargeAndRetreatGeometryTests.cs`; the shortest-route follow-up adds `Geometry/{ChargeRouting,ChargeRoutingAudit}Tests.cs`, `Geometry/ReferenceRouter.cs` and `Match/ChargeRoutingPlayTests.cs`. Confirmed rules are C15 to C21 in `docs/interpretations.md`, each with its page, read from the page images (pp. 34, 36, 37, 42, 43, 45, 49; Core pp. 16 and 17 and Comprehensive pp. 27 to 28, 46 to 48 from text and earlier visual checks). Provisional choices are U46 to U65.
 
 Architecture (all through the existing command, event, reducer and staged-roll machinery; no dice before a decision):
 
@@ -165,7 +165,7 @@ Architecture (all through the existing command, event, reducer and staged-roll m
 - Shooting into melee: `RangedAttackDeclared.IntoMelee`, `ShootingTargetRolled`, `FriendlyTargetChosen`, then the ordinary roll stages.
 - State: `ActionsTaken` gains Charge, Retreat, Fight; `RollInProgress` gains attack kind, free-fight, friendly-fire and charge-die fields; `MatchState.Retreat`. `StateHash` is Version 3.
 
-Not rules-confirmed, so flagged: see U46 to U56, in particular the straight-line charge route (U46), the contact stop (U47), free-attack sequencing (U50), and the choice of friendly victim and its modifiers (U51, U52). Question for a person to settle: whether Down models may make free attacks, and how a model forced to retreat by an effect (not an ACTION) behaves.
+Not rules-confirmed, so flagged: see U46 to U65, in particular the shortest-route charge planner and its conventions (U57 to U65), the contact stop (U47), free-attack sequencing (U50), and the choice of friendly victim and its modifiers (U51, U52). Question for a person to settle: whether Down models may make free attacks, and how a model forced to retreat by an effect (not an ACTION) behaves.
 
 ## Rulebook wording discrepancies
 
@@ -219,6 +219,14 @@ Bloodbath Rolls (p. 47) say to apply +/- INJURY DICE as for an Injury Roll, but 
 - **Morale Check:** pp. 21 and 50 call it a Success Roll taken "for a model" or "in the same way as a Success Roll for a model". No model and no modifier is named (p. 50 visually checked; the Core Rules Morale text on p. 21 was read from an unnumbered screenshot).
 - **Passing:** neither the Core nor the Comprehensive chapter describes passing an Activation.
 - **Provisional interpretation, not official (implemented in M2 as R3 and R4):** a Morale Check takes no modifiers, and a player with unactivated models must activate one. Neither is printed; both need a decision or an official clarification.
+
+### 5. Charge routes: is "shortest" a distance or a Movement cost? (provisional in the M4 Slice B follow-up, U58)
+
+p. 37 says to move by "the shortest route available" and, round obstacles, a route "as short as possible". Difficult terrain doubles the Movement spent (p. 35). The rulebook does not say whether the shortest route minimises distance or Movement cost. Implemented: among the routes the planner builds (through the corners of Impassable terrain and friendly bases), the cheapest in Movement is taken, but no route is bent round a patch of Difficult ground. A scene where the shorter way round crosses Difficult terrain and a slightly longer way is clear shows the difference; the audit test pins the current choice (the clear way). Question for a judge: where one way round crosses Difficult terrain, must the charger take the shorter-distance route, or may it take the cheaper one, or must it bend round Difficult ground?
+
+### 6. Charge routes: a very long detour, and friends that cannot be crossed (provisional, U62 and U65)
+
+p. 37 asks for "the shortest route available that takes it directly towards the target". The planner follows the shortest route however long, so a charger behind a long wall walks the first 12" of a 24" detour and fails, and a charger whose Charge Bonus cannot carry it past a friend in a corridor walks the long way round rather than stopping in front of the friend. Question for a judge: is a charge whose shortest route is far longer than the distance to the target a legal declaration, and when a friend cannot be crossed should the model stop short of it or take the route round it?
 
 ## Scenario chosen for the first match
 
