@@ -33,6 +33,10 @@ public class InjuryRollTests
     [InlineData(InjuryOutcome.Down, false, 1)]
     [InlineData(InjuryOutcome.Down, true, 2)]
     [InlineData(InjuryOutcome.OutOfAction, false, 0)]
+    // The extra marker for an already-Down model belongs to the Down result only.
+    [InlineData(InjuryOutcome.NoEffect, true, 0)]
+    [InlineData(InjuryOutcome.MinorHit, true, 1)]
+    [InlineData(InjuryOutcome.OutOfAction, true, 0)]
     public void BloodMarkersPerResult(InjuryOutcome outcome, bool alreadyDown, int expected)
     {
         Assert.Equal(expected, InjuryRoll.BloodMarkersFor(outcome, alreadyDown));
