@@ -35,6 +35,11 @@ public sealed class MatchServerOptions
 
     // Messages waiting for a client that is not reading. Past this the connection is dropped.
     public int OutboundQueueLimit { get; init; } = 4096;
+
+    // How long one message may take to send. A client that stops reading fills its TCP window, and the next send then
+    // waits; past this the connection is dropped. Keep-alive cannot catch that case, because pings queue behind the
+    // blocked send.
+    public TimeSpan SendTimeout { get; init; } = TimeSpan.FromSeconds(10);
 }
 
 // The WebSocket transport around the Lobby. One connection is one WebSocket at /match speaking subprotocol
@@ -65,7 +70,12 @@ public sealed class MatchServer : IAsyncDisposable
 
         Lobby = new Lobby(options.Scenarios ?? ScenarioCatalog.FromContent(), options.NewDice, new Outbox(Send), maxMatches: options.MaxMatches);
 
-        _app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = options.KeepAlive, KeepAliveTimeout = options.KeepAlive * 2 });
+        // A client that does not answer a ping within twice the interval is dropped; a zero interval turns pings off.
+        _app.UseWebSockets(new WebSocketOptions
+        {
+            KeepAliveInterval = options.KeepAlive,
+            KeepAliveTimeout = options.KeepAlive > TimeSpan.Zero ? options.KeepAlive * 2 : Timeout.InfiniteTimeSpan,
+        });
         _app.Map(Path, HandleAsync);
         _app.Lifetime.ApplicationStopping.Register(BeginShutdown);
     }
@@ -140,7 +150,7 @@ public sealed class MatchServer : IAsyncDisposable
 
         using var socket = await context.WebSockets.AcceptWebSocketAsync(new WebSocketAcceptContext { SubProtocol = SubProtocol });
         var id = new ConnectionId(Interlocked.Increment(ref _nextConnection));
-        var connection = new Connection(socket, _options.OutboundQueueLimit);
+        var connection = new Connection(socket, _options.OutboundQueueLimit, _options.SendTimeout);
         _connections[id] = connection;
         if (_stopping)
         {
@@ -240,7 +250,7 @@ public sealed class MatchServer : IAsyncDisposable
     }
 
     // One socket: a single writer task sends queued messages in order, then the close.
-    private sealed class Connection(WebSocket socket, int queueLimit)
+    private sealed class Connection(WebSocket socket, int queueLimit, TimeSpan sendTimeout)
     {
         private readonly Channel<ServerMessage> _outbound = Channel.CreateBounded<ServerMessage>(
             new BoundedChannelOptions(queueLimit) { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
@@ -283,7 +293,9 @@ public sealed class MatchServer : IAsyncDisposable
             {
                 await foreach (var message in _outbound.Reader.ReadAllAsync(_abort.Token))
                 {
-                    await Socket.SendAsync(Codec.Encode(message), WebSocketMessageType.Text, endOfMessage: true, _abort.Token);
+                    using var send = CancellationTokenSource.CreateLinkedTokenSource(_abort.Token);
+                    send.CancelAfter(sendTimeout);
+                    await Socket.SendAsync(Codec.Encode(message), WebSocketMessageType.Text, endOfMessage: true, send.Token);
                 }
                 if (Socket.State is WebSocketState.Open or WebSocketState.CloseReceived)
                 {

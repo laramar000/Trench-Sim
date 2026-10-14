@@ -110,7 +110,12 @@ Leaving a `Finished` match aborts nothing; the opponent gets `Notice OpponentDis
 
 - **Creating and starting.** The match log starts with `MatchCreated`. When the second player joins, the server issues `StartMatch`. Its events, including the deployment-zone roll-off, go to both players.
 - **Join timeout.** A connection that has not created or joined a match within the join timeout (30 seconds by default) gets `Rejected JoinTimeout` and is closed with 1008 (PolicyViolation).
-- **Slow clients.** A client that stops reading, so that 4096 messages queue for it, is dropped. Dropping it counts as a disconnect.
+- **Clients that stop reading.** Such a client is dropped, and dropping it counts as a disconnect: its match is aborted with `MatchAborted Disconnected`, which its opponent receives if still connected. The server notices in one of three ways, whichever comes first:
+  - 4096 messages are waiting for the client;
+  - one message has taken 10 seconds to send, because the client's TCP window is full;
+  - the client has not answered a keep-alive ping within 30 seconds, with pings sent every 15 seconds.
+
+  Keep-alive alone is not enough: while a send is blocked, pings cannot be sent, which is why the send timeout exists. Other matches are not affected.
 
 ## Graceful shutdown
 

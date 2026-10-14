@@ -34,11 +34,15 @@ public sealed class NetworkTests : IAsyncLifetime
         _timeout.Dispose();
     }
 
-    private static Task<MatchServer> Start(int seed = 1, TimeSpan? joinTimeout = null) =>
+    private static Task<MatchServer> Start(
+        int seed = 1, TimeSpan? joinTimeout = null, TimeSpan? keepAlive = null, int queueLimit = 4096, TimeSpan? sendTimeout = null) =>
         MatchServer.StartAsync(new MatchServerOptions
         {
             NewDice = () => new SeededDice(seed),
             JoinTimeout = joinTimeout ?? TimeSpan.FromSeconds(30),
+            KeepAlive = keepAlive ?? TimeSpan.FromSeconds(15),
+            OutboundQueueLimit = queueLimit,
+            SendTimeout = sendTimeout ?? TimeSpan.FromSeconds(10),
             ShutdownGrace = TimeSpan.FromSeconds(3),
         });
 
@@ -355,6 +359,126 @@ public sealed class NetworkTests : IAsyncLifetime
         // When the last player leaves, the match is gone.
         await one.CloseAsync(Token);
         await Until(() => _server.Lobby.LogOf(code) is null);
+    }
+
+    // A client that stops reading. It joins a match as Seat Two on a socket with a 4 KB receive buffer and never calls
+    // receive. The server has three ways to notice, and each case leaves only one of them on:
+    // - "queue": the client keeps sending at a steady pace, each message earning an answer it never reads. Once its TCP
+    //   window is full the server's send blocks and its outbound queue for the client fills up.
+    // - "send-timeout": the same traffic, but the queue is too large to fill; the blocked send times out.
+    // - "keep-alive": the client goes quiet after joining. Nothing blocks, but it never answers a ping (a WebSocket
+    //   only answers pings while it is reading).
+    // A control client sends the same traffic at the same pace but reads its answers, and must not be dropped.
+    [Theory]
+    [InlineData("queue")]
+    [InlineData("send-timeout")]
+    [InlineData("keep-alive")]
+    public async Task AClientThatStopsReadingIsDroppedAndOnlyItsMatchIsAborted(string detection)
+    {
+        var off = TimeSpan.FromMinutes(10);
+        await _server.DisposeAsync();
+        _server = detection switch
+        {
+            "queue" => await Start(keepAlive: TimeSpan.Zero, queueLimit: 256, sendTimeout: off),
+            "send-timeout" => await Start(keepAlive: TimeSpan.Zero, queueLimit: 1_000_000, sendTimeout: TimeSpan.FromSeconds(1)),
+            _ => await Start(keepAlive: TimeSpan.FromMilliseconds(250), sendTimeout: off),
+        };
+
+        // Another match, which must carry on untouched.
+        var (other1, other2, otherCode) = await Pair("melee");
+
+        var one = await Connect();
+        var welcome = Assert.IsType<Welcome>(await one.CreateAsync("ranged", Token));
+        var aborts = 0;
+        one.Received += m => { if (m is MatchAborted) Interlocked.Increment(ref aborts); };
+        using var stalled = new ClientWebSocket();
+        stalled.Options.AddSubProtocol(MatchServer.SubProtocol);
+        stalled.Options.KeepAliveInterval = TimeSpan.Zero;
+        using var smallBuffer = new HttpMessageInvoker(new SocketsHttpHandler
+        {
+            ConnectCallback = async (context, cancellationToken) =>
+            {
+                var socket = new System.Net.Sockets.Socket(System.Net.Sockets.SocketType.Stream, System.Net.Sockets.ProtocolType.Tcp)
+                {
+                    ReceiveBufferSize = 4096,
+                    NoDelay = true,
+                };
+                await socket.ConnectAsync(context.DnsEndPoint, cancellationToken);
+                return new System.Net.Sockets.NetworkStream(socket, ownsSocket: true);
+            },
+        });
+        await stalled.ConnectAsync(_server.Endpoint, smallBuffer, Token);
+        var control = await Connect();
+        await stalled.SendAsync(Codec.Encode(new JoinMatch(welcome.Code)), WebSocketMessageType.Text, true, Token);
+        await one.WaitForAsync(c => c.Notices.Any(n => n.Kind == NoticeKind.OpponentJoined) && c.Mirror.Events == _server.Lobby.LogOf(welcome.Code)!.Count, Token);
+        var events = one.Mirror.Events;
+
+        // Until the server gives up on the stalled client: in the traffic cases, 16 messages per tick from each client,
+        // each refused with an answer (the stalled client never reads its own; the control client does). The loop ends
+        // when the server has dropped the stalled connection; the test's own timeout bounds it.
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var junk = Encoding.UTF8.GetBytes("x");
+        var sent = 0;
+        var stalledOpen = true;
+        while (_server.Lobby.StatusOf(welcome.Code) != MatchStatus.Aborted)
+        {
+            for (var i = 0; i < (detection == "keep-alive" ? 0 : 16); i++)
+            {
+                if (stalledOpen)
+                {
+                    try
+                    {
+                        await stalled.SendAsync(junk, WebSocketMessageType.Text, true, Token);
+                    }
+                    catch (WebSocketException)
+                    {
+                        // The server dropped the socket under a send; wait for the Lobby to show the abort.
+                        stalledOpen = false;
+                    }
+                }
+                await control.SendRawAsync(junk, cancellationToken: Token);
+                sent++;
+            }
+            await Task.Delay(1, Token);
+        }
+        await one.WaitForAsync(c => c.Aborted is not null, Token);
+        var detected = watch.Elapsed;
+        Assert.True(detected < TimeSpan.FromSeconds(30), $"{detection}: detection took {detected} ({sent} messages)");
+
+        // The documented aborted state: Seat Two disconnected, no winner, no MatchEnded, no outcome.
+        var log = _server.Lobby.LogOf(welcome.Code)!;
+        Assert.Equal(new MatchAborted(AbortReason.Disconnected, Seat.Two, events, log[^1].Hash), one.Aborted);
+        Assert.Equal(events, log.Count);
+        Assert.DoesNotContain(log, e => e.Event is MatchEnded);
+        Assert.Null(one.Mirror.State.Outcome);
+        Assert.Equal(MatchStatus.Aborted, _server.Lobby.StatusOf(welcome.Code));
+
+        // Exactly once: the answer below is queued after any abort message, so a second one would already be here.
+        Assert.Equal(ProtocolError.MatchAborted, ProtocolCode(await one.SubmitAsync(new EndActivation(Seat.One), Token)));
+        Assert.Equal(1, Volatile.Read(ref aborts));
+        AssertAgreement(welcome.Code, one);
+
+        // The other match plays on, and the server still takes new matches.
+        var pending = other1.Mirror.State.Pending!;
+        var actor = pending.Seat == Seat.One ? other1 : other2;
+        var accepted = Assert.IsType<Accepted>(await actor.SubmitAsync(new ChooseDeploymentZone(pending.Seat, other1.Mirror.State.Setup!.ZoneIds[0]), Token));
+        await other1.WaitForAsync(c => c.Mirror.Events == accepted.LastEvent, Token);
+        await other2.WaitForAsync(c => c.Mirror.Events == accepted.LastEvent, Token);
+        Assert.Equal(MatchStatus.Playing, _server.Lobby.StatusOf(otherCode));
+        Assert.Null(other1.Aborted);
+        Assert.Null(other2.Aborted);
+        AssertAgreement(otherCode, other1, other2);
+        var late = await Connect();
+        Assert.IsType<Welcome>(await late.CreateAsync("ranged", Token));
+
+        // The control client, which sent as much at the same pace but read its answers, is still connected and got an
+        // answer for every message.
+        Assert.False(control.IsClosed);
+        for (var i = 0; i < sent; i++)
+        {
+            Assert.Equal(ProtocolError.Malformed, ProtocolCode(await control.NextAnswerAsync(Token)));
+        }
+        await Until(() => _server.ConnectionCount == 5);
     }
 
     [Fact]
