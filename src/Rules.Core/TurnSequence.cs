@@ -156,6 +156,10 @@ public static class TurnSequence
             {
                 return new(ReasonCode.NotYourTurn, "That decision belongs to the other player.", RefTurn);
             }
+            if (HasUndefinedChoice(command))
+            {
+                return new(ReasonCode.InvalidChoice, "That is not one of the choices on offer.", RefTurn);
+            }
             return command is ChooseDeploymentZone z && !state.Setup!.ZoneIds.Contains(z.ZoneId)
                 ? new(ReasonCode.UnknownZone, "That is not one of the scenario's deployment zones.", RefDeployment)
                 : null;
@@ -243,6 +247,15 @@ public static class TurnSequence
             ? null
             : new(ReasonCode.NotYourTurn, "That is the other player's activation.", RefActivation);
     }
+
+    // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
+    private static bool HasUndefinedChoice(Command command) => command switch
+    {
+        ChooseFirstActivation c => !Enum.IsDefined(c.First),
+        ChooseMoraleOrder c => !Enum.IsDefined(c.First),
+        ResolveFailedMorale c => !Enum.IsDefined(c.Choice),
+        _ => false,
+    };
 
     private static DecisionKind? ExpectedDecision(Command command) => command switch
     {

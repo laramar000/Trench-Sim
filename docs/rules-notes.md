@@ -118,7 +118,7 @@ Provisional rulings (our own; each marked in code and tests, to be confirmed or 
 - R4. There is no Pass command: a player with an unactivated model must activate one, and may end that activation without taking any action.
 - R5. When both warbands must check, the Initiative holder chooses who checks first (Option B, chosen by the project owner on 14 October 2026). Reasoning: the rulebook does not say, and the simultaneous-activities box on p. 32 gives that player the call when order matters, so we reasoned by analogy. This is a guess, not a printed rule; a `RulesProfile` setting offers "Initiative holder first" without asking. If the first-checking warband flees, the match ends before the other checks.
 - R6. Warband size for the half test is every model in the force, including those out of action.
-- R7. When both sides have the same number of models, the zone roll-off winner deploys first.
+- R7. When both sides have the same number of models, a separate deployment-order roll-off (not the zone-choice roll-off) decides who deploys first, and its winner starts. The rulebook gives no tie-break for equal counts, so this is provisional.
 - R8. After the final Turn the match ends with no winner recorded; victory points belong to M4.
 
 Not in M2: geometry and positions (deployment uses opaque zone ids), attacks, injuries, Bloodbath, scenario scoring, and the Godot client.

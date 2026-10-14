@@ -176,6 +176,7 @@ public static class Reducer
     private static MatchState OnFirstActivationChosen(MatchState state, FirstActivationChosen e)
     {
         Require(state.Phase == Phase.Initiative && state.Pending is { Kind: DecisionKind.ChooseFirstActivation }, "No choice of first activator is pending.");
+        Require(Enum.IsDefined(e.FirstActivator), "Unknown seat.");
         return state with { FirstActivator = e.FirstActivator, Pending = null };
     }
 
@@ -199,6 +200,7 @@ public static class Reducer
     {
         Require(state.Phase == Phase.Morale && state.MoraleFirst is null && TurnRules.MoraleRemaining(state).Count == 2,
             "Morale order is set only when both warbands must check.");
+        Require(Enum.IsDefined(e.First), "Unknown seat.");
         if (e.Chosen)
         {
             Require(state.Pending is { Kind: DecisionKind.ChooseMoraleOrder }, "No choice of Morale order is pending.");

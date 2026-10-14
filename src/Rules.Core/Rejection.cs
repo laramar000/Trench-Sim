@@ -18,6 +18,7 @@ public enum ReasonCode
     ActivationInProgress,
     NoActivationInProgress,
     UnknownZone,
+    InvalidChoice,
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.
