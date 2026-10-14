@@ -22,7 +22,7 @@ dotnet --version
 dotnet test
 ```
 
-`dotnet test` should report two passing tests: a smoke test, and a check that the rules engine references no Godot, networking framework or other project.
+`dotnet test` should report five passing tests: a smoke test, and four checks that the rules engine uses no Godot, networking, UI or other framework, package or project (its project file, imported build files, restored packages and compiled references).
 
 ## Layout
 
