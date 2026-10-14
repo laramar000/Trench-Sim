@@ -6,7 +6,7 @@ This is an unofficial fan project, not affiliated with or endorsed by any game p
 
 ## Status
 
-Milestone M4, Slice B (a simulated full match with ranged and melee combat: placement, Move, Dash, Shoot, Charge, Retreat, Fight, shooting into melee, Blood Marker spending, injuries, objectives and victory, with a console simulator; `--melee` uses warbands with Melee Weapons). Slice B is a checkpoint awaiting approval; Bloodbath Rolls, Glorious Deeds and other scenarios are not done. The project follows a plan of nine milestones, M0 to M8. Each milestone is finished and verified before the next starts.
+Milestone M5: an authoritative WebSocket match server and a terminal client, awaiting review. Two players can play a whole match over the network; the server rolls every die and is the only source of events, and each client checks the server's state hash after every event. The protocol is in `docs/protocol.md`. Before that, M4 Slice B (a simulated full match with ranged and melee combat: placement, Move, Dash, Shoot, Charge, Retreat, Fight, shooting into melee, Blood Marker spending, injuries, objectives and victory, with a console simulator; `--melee` uses warbands with Melee Weapons). Slice B is a checkpoint awaiting approval; Bloodbath Rolls, Glorious Deeds and other scenarios are not done. The project follows a plan of nine milestones, M0 to M8. Each milestone is finished and verified before the next starts.
 
 ## Prerequisites
 
@@ -33,14 +33,29 @@ dotnet run --project src/Sim -- --seeds 1-20
 
 Each line shows the outcome, Victory Points and counts; the program exits with an error if a match fails to finish.
 
+To play over the network, start the server and two terminal clients (each in its own terminal):
+
+```sh
+dotnet run --project src/Match.Server -- --port 5080
+dotnet run --project src/Match.Cli -- --server ws://127.0.0.1:5080/match create ranged
+dotnet run --project src/Match.Cli -- --server ws://127.0.0.1:5080/match join <code>
+```
+
+The first client prints the match code for the second. Type `help` for commands, or add `--bot <seed>` to let the simulator's bot play a seat.
+
 ## Layout
 
 ```text
 TrenchSim.sln
 src/Rules.Core/      rules engine: no Godot, no networking, no game-specific names
 src/Sim/             console simulator: two bots play whole matches; reads content/*.json
+src/Match.Protocol/  protocol v1 messages, strict JSON codec, client replay (Rules.Core + System.Text.Json only)
+src/Match.Server/    authoritative match server: transport-free Lobby/MatchHost plus the WebSocket host
+src/Match.Cli/       terminal client (trench-cli): interactive or bot play
 content/             original test warbands (placeholder content)
 tests/Rules.Tests/   xUnit tests for the rules engine
+tests/Server.Tests/  codec, server pipeline and real-WebSocket integration tests
+docs/protocol.md     the match protocol, version 1
 docs/rules-notes.md  where each rule lives in the 1.0.2 rulebook
 docs/interpretations.md  rulebook-confirmed requirements versus software interpretations
 docs/known-gaps.md   what is left out
@@ -59,4 +74,4 @@ The original code and original documentation in this repository are licensed und
 
 That license covers only material written for this project. It does not cover, and does not grant any rights in, the game, its rules text, artwork, logos, names, setting or other intellectual property of any game publisher or other third party, which remain subject to their owners' rights. It gives no permission to distribute a complete playable client of that game or its protected content, and this repository contains none. This project is unofficial and unaffiliated.
 
-The test project uses the third-party packages Microsoft.NET.Test.Sdk, xunit and xunit.runner.visualstudio, which keep their own licenses; they are restored from NuGet and are not included here. The rules engine (`src/Rules.Core`) uses no third-party packages.
+The test project uses the third-party packages Microsoft.NET.Test.Sdk, xunit and xunit.runner.visualstudio, which keep their own licenses; they are restored from NuGet and are not included here. The rules engine (`src/Rules.Core`) and the protocol library (`src/Match.Protocol`) use no third-party packages; the server uses only the ASP.NET Core shared framework that ships with .NET.
