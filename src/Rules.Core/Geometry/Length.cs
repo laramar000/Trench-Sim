@@ -11,6 +11,8 @@ public readonly record struct Length : IComparable<Length>
     // Intermediate arithmetic stays far inside long; coordinates are limited separately (Limits).
     private const long Bound = 1_000_000_000;
 
+    internal const long MaxThousandths = Bound;
+
     private Length(long thousandths) => Thousandths = thousandths;
 
     public long Thousandths { get; }

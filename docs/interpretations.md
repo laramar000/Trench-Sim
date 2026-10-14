@@ -28,25 +28,30 @@ Every place where the software had to pick a reading of the rules. "Confirmed" r
 | U9 | Substantial (Wall) terrain on the ground cannot be entered or crossed, because climbing is out of scope. |
 | U10 | A path may cross a friendly base but may not end overlapping one. |
 | U11 | Down models obstruct like any other base. |
-| U12 | Movement cost: each leg is rounded up to a millionth of an inch, the legs are added, and the total is rounded up once to the next thousandth. A path never costs less than its true length, a single leg of exactly the allowance is legal, and splitting a path into many short legs changes the cost by only a few millionths of an inch per leg. (An earlier plan rounded every leg up to a thousandth, which charged 0.600" for 300 diagonal legs of 0.001" whose true total is 0.4243"; the test `ManyShortLegsCostTheSameAsOneLongLegToTheThousandth` records the comparison.) |
+| U12 | Movement cost: each leg is rounded up to a millionth of an inch, the legs are added, and the total is rounded up once to the next thousandth. A path never costs less than its true length, a single leg of exactly the allowance is legal, and splitting a path into many short legs changes the cost by at most about three millionths of an inch per leg, never downward. The cost is held in an Int128 and is reported clamped to the largest Length, so an absurdly long path is refused as too long rather than throwing. (An earlier plan rounded every leg up to a thousandth, which charged 0.600" for 300 diagonal legs of 0.001" whose true total is 0.4243"; the test `ManyShortLegsCostTheSameAsOneLongLegToTheThousandth` records the comparison.) |
 | U13 | A ray that only grazes an edge or corner does not count as crossing. |
 | U14 | Terrain heights are replaced by profiles chosen at setup: Low (under 1/2"), Cover (1/2" to 1"), Wall (substantial). The thresholds come from pp. 38-39; assigning real terrain to a profile is the scenario author's job. |
 | U15 | "On or in contact": the target's base touches or overlaps the piece's footprint. |
 | U16 | Sample points on the target are a fixed set (centre and facing rim points); the sampler is replaceable. |
 | U17 | High ground: more than half the base is within a walkable High-surface block (lowest id wins). |
 | U18 | Walkable platforms may be entered and left anywhere along their footprint at no extra cost; no climbing, jumping or falling. |
-| U19 | A platform never obstructs sight for a model standing on it, or sight to a model on it. |
+| U19 | A platform never obstructs sight from or to a model standing on it. "Standing on it" means more than half the base is on it (high ground) or the base centre is strictly inside its footprint (a ground model overlapping a corner); touching or overlapping its edge from outside does not count. |
 | U20 | An attacker with high ground is not obstructed by Ground-surface Walls (XCOM-style gameplay abstraction, not 3D). |
 | U21 | Targets on high ground get no extra shelter from ground attackers; sight is asymmetric by design. |
 | U22 | Cover and line of sight share one obstruction rule; a piece that does not obstruct gives no cover as a Wall. |
 | U23 | Cover-profile pieces give cover to attackers on either level, when the cover conditions hold. |
 | U24 | The elevation attack bonus is not implemented in M3. |
+| U25 | Deployment: a base must lie wholly within its zone (touching the edge is allowed). The "wholly within" wording comes from text extraction of p. 146 and was not separately confirmed against the page image. |
+| U26 | Difficult terrain doubling ("every 1\" counts as 2\"") comes from the keyword text, not a visually checked page. Dangerous terrain has no effect in M3 (the flag exists only). |
+| U27 | Leaving the battlefield is checked at the waypoints only. The set of base positions with more than half the base on the table is convex, so a straight leg between two legal waypoints cannot dip below half. |
+| U28 | Cover from a Cover-profile piece needs a sight ray to cross it, and rays end on the target, so a model standing inside the piece gets cover even if most of the piece lies behind it, and a piece merely touching the far side of the base does not. |
+| U29 | CheckPath does not validate the mover's starting position or cap the number of waypoints; callers (the M4 command layer) own both. The start-within-1\" test uses the mover's current position, and retreat is not implemented. |
 
 ## Terrain combinations (checked when a piece is built)
 Low and Cover: ground surface, walkable (non-walkable only if Impassable). Wall on the ground: not walkable. Wall with a High surface: walkable platform or non-walkable tower. Impassable: never walkable. Difficult and Dangerous: walkable only. High surface needs a Wall. Walkable High platforms may not overlap each other. Anything else throws ArgumentException.
 
 ## Golden scenes
-Ten scenes in `tests/Rules.Tests/Scenes/*.json`, each with its written ruling and a `status`: scene 01 is confirmed (p. 30); the other nine rest on provisional readings named in their `basis`. The sight sampler (U16) is the part most likely to change; the scenes are the check on it.
+Ten scenes in `tests/Rules.Tests/Scenes/*.json`, each with its written ruling and a `status`: scene 01 is confirmed (p. 30); the other nine rest on provisional readings named in their `basis`. The sight sampler (U16) is the part most likely to change; the scenes are the check on it. Known sampler limitation, recorded by `AGapNarrowerThanTheRaySpacingCanBeMissedByTheDefaultSampler`: rim points perpendicular to the line of sight are not tried, so a sliver of a wider target visible through a very narrow gap can be missed.
 
 ## Not an interpretation, but a limit
 Rectangles only (no polygons; the `Footprint` type isolates this so polygons can be added later without changing movement or sight code); no climbing, jumping, falling, charge or retreat geometry; positions are not in MatchState until M4.

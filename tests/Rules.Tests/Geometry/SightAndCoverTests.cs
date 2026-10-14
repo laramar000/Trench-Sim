@@ -41,9 +41,10 @@ public class ElevationTests
     {
         var field = Field("24", Platform("p", "10", "10", "14", "14"));
         Assert.Equal(AreaDecision.MoreThanHalf, field.Terrain[0].Footprint.MoreThanHalfInside(P("10.172", "10.172"), L("0.5")));
-        Assert.Equal(ModelPosition.OnGround, Elevation.Of(field, Body("m", "10.17", "10.17")));
+        Assert.Equal(new ModelPosition(ModelLevel.Ground, "p"), Elevation.Of(field, Body("m", "10.17", "10.17")));   // ground, but the centre is inside p
         Assert.Equal(ModelLevel.High, Elevation.Of(field, Body("m", "10.172", "10.172")).Level);
-        Assert.Equal(ModelPosition.OnGround, Elevation.Of(field, Body("m", "10.171", "10.171"))); // too close to call counts as ground
+        Assert.Equal(ModelLevel.Ground, Elevation.Of(field, Body("m", "10.171", "10.171")).Level);                  // too close to call counts as ground
+        Assert.Equal(ModelPosition.OnGround, Elevation.Of(field, Body("m", "10", "10")));                          // centre on the corner: not inside
     }
 }
 

@@ -74,6 +74,10 @@ public sealed record Footprint
         return extent * extent >= needed * needed * lineSquared;
     }
 
+    // Is the point strictly inside the footprint (not on its edge)?
+    internal bool ContainsInside(Point2 p) =>
+        p.X > Bounds.Min.X && p.X < Bounds.Max.X && p.Y > Bounds.Min.Y && p.Y < Bounds.Max.Y;
+
     internal bool OverlapsInside(Footprint other) =>
         Bounds.Min.X < other.Bounds.Max.X && other.Bounds.Min.X < Bounds.Max.X
         && Bounds.Min.Y < other.Bounds.Max.Y && other.Bounds.Min.Y < Bounds.Max.Y;

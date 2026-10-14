@@ -256,6 +256,19 @@ public class MeasureAndPlacementTests
     }
 
     [Fact]
+    [Trait("Rule", "Audit: boundary arithmetic with the largest allowed values (U6)")]
+    public void HugeBasesAtTheLargestCornerDoNotOverflowOrThrow()
+    {
+        var table = R("0", "0", "200", "200");
+        // A 200" radius base centred a thousandth inside the corner has about a quarter of its area on the table.
+        Assert.Equal(AreaDecision.HalfOrLess, BaseArea.MoreThanHalfInside(P("0.001", "0.001"), L("200"), table));
+        // Centred in the middle of the bottom edge it is a half disc: at 100" inside it is clearly more than half.
+        Assert.Equal(AreaDecision.MoreThanHalf, BaseArea.MoreThanHalfInside(P("100", "100"), L("100"), table));
+        Assert.Equal(AreaDecision.HalfOrLess, BaseArea.MoreThanHalfInside(P("100", "0"), L("100"), table));
+        Assert.Equal(AreaDecision.MoreThanHalf, BaseArea.MoreThanHalfInside(P("100", "0.001"), L("100"), table));
+    }
+
+    [Fact]
     public void ExtremeCoordinatesDoNotOverflow()
     {
         var field = new Battlefield(L("200"), L("200"), [], []);

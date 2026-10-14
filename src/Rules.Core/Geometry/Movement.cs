@@ -62,7 +62,8 @@ public static class Movement
         path.AddRange(waypoints);
 
         // Cost of the whole path, so a refusal can report it.
-        var cost = PathCost(battlefield, path);
+        var micro = PathMicro(battlefield, path);
+        var cost = ToLength(micro);
 
         foreach (var waypoint in waypoints)
         {
@@ -72,7 +73,7 @@ public static class Movement
             }
         }
 
-        if (cost > allowance)
+        if (micro > (Int128)allowance.Thousandths * MicroPerThousandth)
         {
             return Refuse(MoveRefusal.PathTooLong, $"The path costs {cost} but the model can move {allowance}.", "1.0.2 p. 35", cost);
         }
@@ -153,7 +154,9 @@ public static class Movement
         return PathCost(battlefield, path);
     }
 
-    private static Length PathCost(Battlefield battlefield, IReadOnlyList<Point2> path)
+    private static Length PathCost(Battlefield battlefield, IReadOnlyList<Point2> path) => ToLength(PathMicro(battlefield, path));
+
+    private static Int128 PathMicro(Battlefield battlefield, IReadOnlyList<Point2> path)
     {
         var difficult = battlefield.Terrain.Where(t => t.IsDifficult).Select(t => t.Footprint).ToList();
         Int128 micro = 0;
@@ -161,15 +164,20 @@ public static class Movement
         {
             micro += LegCostMicro(path[i - 1], path[i], difficult);
         }
-        return Length.FromThousandths((long)ExactMath.CeilDiv(micro, MicroPerThousandth));
+        return micro;
     }
+
+    // Rounds up to a thousandth. A path longer than a Length can hold (1,000,000 inches) reports that largest
+    // Length; it is far above any allowance, so such a path is refused as too long, not thrown at the caller.
+    private static Length ToLength(Int128 micro) =>
+        Length.FromThousandths((long)Int128.Min(ExactMath.CeilDiv(micro, MicroPerThousandth), Length.MaxThousandths));
 
     // Leg costs are carried in millionths of an inch (U12).
     internal const int MicroPerThousandth = 1000;
 
     // The cost of one straight leg in millionths of an inch, rounded up, with the part inside Difficult terrain
     // counting double. Every step rounds in the safe direction, so the cost is never below the true cost and is
-    // above it by under two millionths of an inch per leg.
+    // above it by under three millionths of an inch per leg.
     internal static Int128 LegCostMicro(Point2 a, Point2 b, IReadOnlyList<Footprint> difficult)
     {
         Int128 dx = b.X.Thousandths - a.X.Thousandths;
