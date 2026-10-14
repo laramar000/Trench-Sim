@@ -39,3 +39,11 @@ docs/rules-notes.md  where each rule lives in the 1.0.2 rulebook
 - No pasted rulebook text. `docs/rules-notes.md` gives section references; it also holds summaries in our own words of each rule implemented so far.
 - Original placeholder content (names, units, equipment, descriptions, art) wherever practical.
 - The repository is public, so everything committed here is published.
+
+## License
+
+The original code and original documentation in this repository are licensed under the [Apache License 2.0](LICENSE).
+
+That license covers only material written for this project. It does not cover, and does not grant any rights in, the game, its rules text, artwork, logos, names, setting or other intellectual property of any game publisher or other third party, which remain subject to their owners' rights. It gives no permission to distribute a complete playable client of that game or its protected content, and this repository contains none. This project is unofficial and unaffiliated.
+
+The test project uses the third-party packages Microsoft.NET.Test.Sdk, xunit and xunit.runner.visualstudio, which keep their own licenses; they are restored from NuGet and are not included here. The rules engine (`src/Rules.Core`) uses no third-party packages.
