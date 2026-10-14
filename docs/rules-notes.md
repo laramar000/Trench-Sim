@@ -154,7 +154,7 @@ Provisional choices are listed in `docs/interpretations.md` (U30 to U45); what i
 
 ### Charge, Retreat, Fight and shooting into melee (M4, Slice B)
 
-Code: `Geometry/Charging.cs`, `Board.cs`, `TurnSequence.Board.cs`, `Reducer.cs`, `Events/CombatEvents.cs`, `Commands/Command.cs`. Tests: `tests/Rules.Tests/Match/{Charge,Fight,Retreat,ShootingIntoMelee,ForgedMeleeEvent,MeleeSimulation}Tests.cs` and `Geometry/ChargeAndRetreatGeometryTests.cs`. Confirmed rules are C15 to C21 in `docs/interpretations.md`, each with its page, read from the page images (pp. 34, 36, 37, 42, 43, 45, 49; Core pp. 16 and 17 and Comprehensive pp. 27 to 28, 46 to 48 from text and earlier visual checks). Provisional choices are U46 to U64.
+Code: `Geometry/Charging.cs`, `Board.cs`, `TurnSequence.Board.cs`, `Reducer.cs`, `Events/CombatEvents.cs`, `Commands/Command.cs`. Tests: `tests/Rules.Tests/Match/{Charge,Fight,Retreat,ShootingIntoMelee,ForgedMeleeEvent,MeleeSimulation}Tests.cs` and `Geometry/ChargeAndRetreatGeometryTests.cs`; the shortest-route follow-up adds `Geometry/{ChargeRouting,ChargeRoutingAudit}Tests.cs`, `Geometry/ReferenceRouter.cs` and `Match/ChargeRoutingPlayTests.cs`. Confirmed rules are C15 to C21 in `docs/interpretations.md`, each with its page, read from the page images (pp. 34, 36, 37, 42, 43, 45, 49; Core pp. 16 and 17 and Comprehensive pp. 27 to 28, 46 to 48 from text and earlier visual checks). Provisional choices are U46 to U65.
 
 Architecture (all through the existing command, event, reducer and staged-roll machinery; no dice before a decision):
 
@@ -165,7 +165,7 @@ Architecture (all through the existing command, event, reducer and staged-roll m
 - Shooting into melee: `RangedAttackDeclared.IntoMelee`, `ShootingTargetRolled`, `FriendlyTargetChosen`, then the ordinary roll stages.
 - State: `ActionsTaken` gains Charge, Retreat, Fight; `RollInProgress` gains attack kind, free-fight, friendly-fire and charge-die fields; `MatchState.Retreat`. `StateHash` is Version 3.
 
-Not rules-confirmed, so flagged: see U46 to U64, in particular the shortest-route charge planner and its conventions (U57 to U64), the contact stop (U47), free-attack sequencing (U50), and the choice of friendly victim and its modifiers (U51, U52). Question for a person to settle: whether Down models may make free attacks, and how a model forced to retreat by an effect (not an ACTION) behaves.
+Not rules-confirmed, so flagged: see U46 to U65, in particular the shortest-route charge planner and its conventions (U57 to U65), the contact stop (U47), free-attack sequencing (U50), and the choice of friendly victim and its modifiers (U51, U52). Question for a person to settle: whether Down models may make free attacks, and how a model forced to retreat by an effect (not an ACTION) behaves.
 
 ## Rulebook wording discrepancies
 
