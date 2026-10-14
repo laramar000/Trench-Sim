@@ -1,8 +1,8 @@
 # Trench-Sim
 
-A private, personal-use digital tabletop for playing Trench Crusade with friends: two players, one authoritative server, rules measured in inches.
+A personal-use digital tabletop for a skirmish wargame, played with friends: two players, one authoritative server, rules measured in inches.
 
-This is an unofficial project, not affiliated with or endorsed by Factory Fortress Inc. or Trench Crusade. It is not for distribution.
+This is an unofficial fan project, not affiliated with or endorsed by any game publisher. The source code is public; no game builds are distributed.
 
 ## Status
 
@@ -38,4 +38,4 @@ docs/rules-notes.md  where each rule lives in the 1.0.2 rulebook
 - No publisher-owned artwork, logos, extracted game assets or copied proprietary code.
 - No pasted rulebook text. `docs/rules-notes.md` gives section references and summaries in our own words.
 - Original placeholder content (names, units, equipment, descriptions, art) wherever practical.
-- The repository stays private.
+- The repository is public, so everything committed here is published.
