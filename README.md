@@ -6,7 +6,7 @@ This is an unofficial fan project, not affiliated with or endorsed by any game p
 
 ## Status
 
-Milestone M3 (battlefield geometry: measurement, placement, movement paths, line of sight and cover, in 2D). The project follows a plan of nine milestones, M0 to M8. Each milestone is finished and verified before the next starts.
+Milestone M4, Slice A (a simulated full match, ranged combat only: placement, Move, Dash, Shoot, Blood Marker spending, injuries, objectives and victory, with a console simulator). Slice A is a checkpoint, not the finished milestone: Charge, Retreat, Fight and shooting into melee come in Slice B. The project follows a plan of nine milestones, M0 to M8. Each milestone is finished and verified before the next starts.
 
 ## Prerequisites
 
@@ -22,16 +22,28 @@ dotnet --version
 dotnet test
 ```
 
-`dotnet test` should report every test passing (344 at M3), including four checks that the rules engine uses no Godot, networking, UI or other framework, package or project (its project file, imported build files, restored packages and compiled references).
+`dotnet test` should report every test passing (444 at M4 Slice A), including four checks that the rules engine uses no Godot, networking, UI or other framework, package or project (its project file, imported build files, restored packages and compiled references).
+
+To play one simulated match, or twenty, to the end:
+
+```sh
+dotnet run --project src/Sim -- --seed 42
+dotnet run --project src/Sim -- --seeds 1-20
+```
+
+Each line shows the outcome, Victory Points and counts; the program exits with an error if a match fails to finish.
 
 ## Layout
 
 ```text
 TrenchSim.sln
 src/Rules.Core/      rules engine: no Godot, no networking, no game-specific names
+src/Sim/             console simulator: two bots play whole matches; reads content/*.json
+content/             original test warbands (placeholder content)
 tests/Rules.Tests/   xUnit tests for the rules engine
 docs/rules-notes.md  where each rule lives in the 1.0.2 rulebook
-docs/interpretations.md  rulebook-confirmed requirements versus software interpretations (geometry)
+docs/interpretations.md  rulebook-confirmed requirements versus software interpretations
+docs/known-gaps.md   what Slice A leaves out
 ```
 
 ## Repository rules

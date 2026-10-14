@@ -26,6 +26,11 @@ public sealed record Footprint
     // The base touches or overlaps the footprint.
     internal bool CircleTouches(Point2 centre, Length radius) => Shapes.CircleTouchesRect(centre, radius, Bounds);
 
+    // The nearest point of the base is at most `distance` from the footprint (touching or overlapping counts).
+    // Used for "within 1 inch of a terrain piece" (Scenario I objectives, p. 152).
+    internal bool CircleWithin(Point2 centre, Length radius, Length distance) =>
+        (Int128)Shapes.DistanceSquaredToRect(centre, Bounds) <= (Int128)(radius + distance).Thousandths * (radius + distance).Thousandths;
+
     // The whole base lies within the footprint (touching its edge is allowed).
     internal bool CircleInside(Point2 centre, Length radius) => Shapes.CircleInsideRect(centre, radius, Bounds);
 

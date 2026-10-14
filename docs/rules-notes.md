@@ -45,7 +45,7 @@ Page images of the 1.0.2 PDF were supplied on 14 October 2026 and read directly.
 | 39-40 | Terrain up to 1" high (and trench walls up to 3") count as Open for walking; climbing and jumping are separate rules. | Visually read; climbing and jumping deferred |
 | 46 | Injury Rolls use INJURY DICE and INJURY MODIFIERS. The maximum -INJURY MODIFIER cannot be more than -3 in total. A worked example gives 9 minus 1 = 8, Down. | Visually checked; matches the notes |
 | 47 | Bloodbath Roll: spend 6 Blood Markers (3 if the target is Down), roll 3D6, add +/- INJURY DICE and modifiers "in the same way", keep the 3 highest or lowest. DEADLY uses 4D6. | Visually checked; matches the notes; dice interaction still open (question 3) |
-| 54 | CRITICAL keyword: +2 INJURY DICE instead of +1 on a Critical Success. DEADLY: 3D6, pick the 3 highest or lowest, +/- INJURY DICE added normally. | Visually checked; new information, see question 1 |
+| 54 | CRITICAL keyword: +2 INJURY DICE instead of +1 on a Critical Success. DEADLY: 3D6, pick the 3 highest or lowest, +/- INJURY DICE added normally. | Visually checked; treats +1 INJURY DICE as the base critical bonus (see wording discrepancy W1) |
 | 152 | Claim No Man's Land: five objectives, control rule by models on, in or within 1" of the objective, deployment by roll-off then alternating, Infiltrators deploy normally, lasts four Turns. | Visually checked; resolves the game length |
 | 153 | Immediate win if no enemy models remain or the enemy Warband flees; otherwise more Victory Points wins. 2 VPs per controlled Objective each Turn end, 1 VP per Glorious Deed at game end. Seven Glorious Deeds are listed. | Visually checked; resolves the victory conditions |
 
@@ -97,9 +97,9 @@ Code: `src/Rules.Core/Dice/InjuryRoll.cs`. Tests: `InjuryRollTests.cs`.
   - Rationale: all three statements of the limit (Injury Rolls, p. 18; Injuries, p. 46; Common Injury Roll Modifiers, p. 48) word it as a limit on the total of the negative injury modifiers, and none mentions positive modifiers or the net modifier. So the limit is applied to the negatives on their own, before anything else is added.
   - Decision: interpretation chosen by the project owner on 14 October 2026. Regression test: `InjuryRollTests.PlusTwoAndMinusFiveGiveMinusOne`.
 - Results: 1 or less, no effect; 2 to 6, a minor hit and 1 Blood Marker; 7 or 8, the model goes Down and takes 1 Blood Marker, or 2 if it was already Down; 9 or more, the model is out of action. The "already Down" extra marker belongs to the Down result only; a minor hit on a model that is already Down still gives 1 Blood Marker.
-- Extra injury dice from a Critical Success, or from a melee attack on a Down model (pp. 18, 20, 48 and 49), are added by the attack that causes the roll (M4), not by the Injury Roll code. The critical bonus has a wording conflict; see "Open rules questions".
+- Extra injury dice from a Critical Success, or from a melee attack on a Down model (pp. 18, 20, 48 and 49), are added by the attack that causes the roll (M4), not by the Injury Roll code. A Critical Success adds +1 INJURY DICE (confirmed; see "Rulebook wording discrepancies", W1).
 
-Not in M1: Bloodbath Rolls (p. 47) and spending Blood Markers (M4); the effects of being Down (p. 49, M4).
+Not in M1: Bloodbath Rolls (p. 47, still not implemented) and spending Blood Markers (done in M4 Slice A); the effects of being Down (p. 49, M4).
 
 ### Turn sequence (M2)
 
@@ -125,31 +125,53 @@ Provisional rulings (our own; each marked in code and tests, to be confirmed or 
 - R5. When both warbands must check, the Initiative holder chooses who checks first (Option B, chosen by the project owner on 14 October 2026). Reasoning: the rulebook does not say, and the simultaneous-activities box on p. 32 gives that player the call when order matters, so we reasoned by analogy. This is a guess, not a printed rule; a `RulesProfile` setting offers "Initiative holder first" without asking. If the first-checking warband flees, the match ends before the other checks.
 - R6. Warband size for the half test is every model in the force, including those out of action.
 - R7. When both sides have the same number of models, a separate deployment-order roll-off (not the zone-choice roll-off) decides who deploys first, and its winner starts. The rulebook gives no tie-break for equal counts, so this is provisional.
-- R8. After the final Turn the match ends with no winner recorded; victory points belong to M4.
+- R8. After the final Turn a match without a battlefield (the M2 setups) ends with no winner recorded. With a battlefield (M4) the Victory Points decide; see the M4 section.
 
 Not in M2: geometry and positions (deployment uses opaque zone ids), attacks, injuries, Bloodbath, scenario scoring, and the Godot client.
 
 ### Geometry (M3)
 
-Pure geometry in `src/Rules.Core/Geometry`, with no positions in the match state until M4. Lengths are integers in thousandths of an inch; every decision is integer arithmetic. Confirmed rulebook requirements: measuring and "within" (p. 30), any-part and partial line of sight (p. 30), placement and the more-than-half rule (p. 31), the Move path limits and the 1" enemy rules (p. 35), and the cover conditions (p. 38). Everything the software had to choose, including how the 2D footprint stands in for a model, the Low/Cover/Wall terrain profiles, high ground, and how movement cost is rounded, is listed as provisional in `docs/interpretations.md`. Not in M3: charge and retreat actions, climbing, jumping, falling, the elevation attack bonus, polygon footprints, and applying cover as -1 DICE (M4).
+Pure geometry in `src/Rules.Core/Geometry`, with no positions in the match state in M3 (M4 adds them). Lengths are integers in thousandths of an inch; every decision is integer arithmetic. Confirmed rulebook requirements: measuring and "within" (p. 30), any-part and partial line of sight (p. 30), placement and the more-than-half rule (p. 31), the Move path limits and the 1" enemy rules (p. 35), and the cover conditions (p. 38). Everything the software had to choose, including how the 2D footprint stands in for a model, the Low/Cover/Wall terrain profiles, high ground, and how movement cost is rounded, is listed as provisional in `docs/interpretations.md`. Not in M3: charge and retreat actions, climbing, jumping, falling, the elevation attack bonus, polygon footprints, and applying cover as -1 DICE (M4).
+
+### Ranged combat, Blood Markers and scoring (M4, Slice A)
+
+Code: `src/Rules.Core/Board.cs`, `TurnSequence.Board.cs`, `Reducer.cs`, `Scenarios/ClaimNoMansLand.cs`, `Events/CombatEvents.cs`, `State/`; simulator in `src/Sim`. Tests: `tests/Rules.Tests/Match/`. Slice A is a ranged-only full match; charges, retreats and fighting are Slice B.
+
+Confirmed from the rulebook (1.0.2, in our words):
+
+- Actions: each type of ACTION once per activation; a Dash is a Risky Success Roll taken before moving, may come before or after a Move, and a failed Dash ends the activation (p. 34).
+- A Ranged Attack needs a Ranged Weapon, a model not within 1" of an enemy, and a target in Line of Sight within the weapon's range, measured base edge to base edge. At up to half the range it is Short Range; beyond that Long Range, -1 DICE. A target in cover is -1 DICE (pp. 42 to 44).
+- The attacker makes a Success Roll. A failure misses; a Success hits and an Injury Roll follows; a **Critical Success adds +1 INJURY DICE to that Injury Roll** (confirmed by the project owner on 14 October 2026; see W1).
+- Blood Markers: one per wound, never more than 6 on a model. Whenever a Success Roll is taken for a model with markers, its opponent may spend some or all of them, each as -1 DICE. When an Injury Roll is made against a model with markers, the attacker may spend them, each as +1 INJURY DICE (pp. 27 to 28).
+- A model that is taken Down stays on the table; one that is Out of Action leaves it. A Down model stands back up when next activated, with its Movement halved for the rest of that activation (pp. 20, 49).
+- Scenario I: four Turns; each Turn's end scores 2 VPs for each Objective a player controls (the Objective is the whole terrain piece); a player controls it with more friendly models on, in or within 1" than enemy models, and models on the piece beat greater numbers merely within 1"; a player wins at once when no enemy models are on the battlefield or the enemy Warband flees; otherwise more VPs wins (pp. 152 to 153).
+
+Provisional choices are listed in `docs/interpretations.md` (U30 to U45); what is missing is in `docs/known-gaps.md`.
+
+## Rulebook wording discrepancies
+
+Places where the printed rulebook disagrees with itself. These are not open questions about what to implement: each entry records the ruling in force.
+
+### W1. Critical Success: "+1 INJURY DICE" versus "+1 DICE" (pp. 44 to 45) - RULED
+
+- **Ruling (project owner, 14 October 2026, confirmed):** a Critical Success on a melee or ranged attack grants **+1 INJURY DICE** to the subsequent Injury Roll. It is not an unresolved interpretation.
+- **The discrepancy:** the Ranged Attack Success Roll (p. 44) and the Melee Attack Success Roll (p. 45) print "+1 DICE is added to the Injury Roll". Every other passage (the Success Table p. 15, the Core attack steps pp. 16 and 17, the Core injury modifiers p. 18, the Success Rolls section p. 24, the Common Injury Roll Modifiers p. 48, and the CRITICAL keyword on p. 54) says +1 INJURY DICE. Page 25 defines +/- DICE as Success Roll dice and +/- INJURY DICE as Injury Roll dice, so "+1 DICE" on an Injury Roll has no other defined meaning.
+- **Implementation:** the attack adds one bonus die to the Injury Roll; it cancels against penalty injury dice exactly like any other INJURY DICE and stacks with Blood Markers spent for +1 INJURY DICE. The Success Roll itself is unchanged (two dice, no extra). Regression tests: `RangedAttackTests.ACriticalSuccessAddsOneInjuryDieAndNoExtraSuccessDie` and `CriticalSuccessAndSpentMarkersStack`; the reducer checks the dice count of every Injury Roll against the Critical Success that caused it.
+- The CRITICAL keyword (+2 INJURY DICE instead of +1, p. 54) is not implemented yet because no Slice A content uses keywords.
+
+### W2. Down penalty: "any rolls" (Core p. 20) versus "Success Rolls" (p. 49)
+
+See question 2 below. Adopted: -1 DICE on Success Rolls taken for a Down model.
 
 ## Open rules questions
 
 Questions found while checking the rulebook. None is settled; each needs a decision before the milestone named. The injury modifier cap is not in this list because the project owner decided it (see Injuries above).
 
-### 1. Critical Success bonus: +1 INJURY DICE or +1 DICE? (before M4)
+### 1. (resolved) Critical Success bonus
 
-- **The wording** (automated text check). Eight passages describe the bonus:
-  - Five say a Critical Success adds +1 INJURY DICE to the Injury Roll: the Success Table (p. 15), the Core Rules ranged and melee attack steps (pp. 16 and 17), the Core Rules injury modifier list (p. 18), and the Common Injury Roll Modifiers list (p. 48).
-  - The Comprehensive Rules Success Rolls section (p. 24) says the same thing in a sentence of its own.
-  - The Ranged Attack Success Roll (p. 44) and the Melee Attack Success Roll (p. 45) instead say +1 DICE is added to the Injury Roll.
-  - Visual check: pp. 15, 18, 24 and 48 print "+1 INJURY DICE" and pp. 44 and 45 print "+1 DICE", as above. The CRITICAL keyword entry (p. 54) gives "+2 INJURY DICE instead of +1 INJURY DICE", which treats +1 INJURY DICE as the base bonus and supports interpretation A.
-- **Interpretation A: +1 INJURY DICE.** The bonus is one extra injury die: roll three dice and keep the two highest, with normal cancelling against any -INJURY DICE. This follows six of the eight passages. It also follows p. 25, which says +/- DICE affect Success Rolls and +/- INJURY DICE affect Injury Rolls, so "+1 DICE added to the Injury Roll" has no defined meaning on its own.
-- **Interpretation B: +1 DICE, taken literally.** Taken as written, the bonus would be a Success Roll die, which p. 25 says cannot apply to an Injury Roll. It could also be read as a separate kind of bonus die that does not cancel against -INJURY DICE. Nothing else in the rulebook supports either version.
-- **Practical effect on M4.** Under A, the attack code passes one extra bonus die to `InjuryRoll.Roll`, and it cancels against penalty injury dice; the M1 code needs no change. Under B, the M4 attack code would need a separate bonus die that does not cancel, which the M1 roll does not support. The difference shows only when the Injury Roll also has -INJURY DICE: under A, a critical can be cancelled out; under the second version of B, it cannot.
-- **Status.** Open. A is the better-supported provisional reading and the one the code assumes, but the printed wording conflict is real and nothing official settles it. It needs an official FAQ or errata. M1 code is unchanged.
+Resolved by the project owner's ruling of 14 October 2026; see W1 above. It is kept here only so the numbering of the other questions stays stable.
 
-### 2. Down: -1 DICE on "any rolls" or on "Success Rolls"? (decide before M4)
+### 2. Down: -1 DICE on "any rolls" or on "Success Rolls"? (adopted provisionally in M4 Slice A)
 
 - **The wording** (automated text check):
   - Down Results in the Core Rules (p. 20) apply -1 DICE to any rolls you take for a Down model. The Quickstart rules (p. 4) use the same wording.
@@ -167,9 +189,9 @@ Questions found while checking the rulebook. None is settled; each needs a decis
 - **Visual check:** Core p. 20 applies the -1 DICE penalty to any rolls taken for a Down model; Comprehensive p. 49 applies it to Success Rolls only. The two chapters differ in print, so the conflict is real.
 - **Authoritative clarification:** the publisher's rules page (checked 14 October 2026) links no FAQ, errata or clarification for 1.0.2.
 - **Confidence:** moderate that the readings are equivalent in play, based on automated text checks only.
-- **Status:** open. Before M4 implements attack and injury resolution, decide whether the Down penalty is applied as a -1 DICE on Success Rolls taken for the Down model (which matches both readings in every case found), and confirm by having a person read pp. 20, 25, 41 and 49.
+- **Status:** provisional (U31). M4 Slice A applies the penalty as -1 DICE on Success Rolls taken for a Down model, which matches both readings in every case found. In Slice A it never changes a roll, because a Down model stands up at the start of its activation, before it can take any roll. A person should still read pp. 20, 25, 41 and 49.
 
-### 3. Bloodbath Rolls and extra injury dice (deferred to M4)
+### 3. Bloodbath Rolls and extra injury dice (not implemented in Slice A)
 
 Bloodbath Rolls (p. 47) say to apply +/- INJURY DICE as for an Injury Roll, but keep the three highest or three lowest dice. The rulebook does not say outright that each extra die is added to the three-die roll; that is only implied. This is not implemented and should not be assumed. Visually checked on p. 47: it says INJURY DICE and modifiers apply "in the same way" with 3 dice kept, and the DEADLY entry on p. 54 says the same for its 3D6. How extra dice combine with the base three still has to be decided.
 
@@ -188,7 +210,7 @@ Bloodbath Rolls (p. 47) say to apply +/- INJURY DICE as for an Injury Roll, but 
 - The roll-off winner picks a deployment zone; players then alternate deploying, starting with the player who has more models. Infiltrators deploy normally (p. 152).
 - The game lasts four Turns (p. 152).
 - Victory: no enemy models left or an enemy Warband that flees wins at once. Otherwise more Victory Points wins: 2 per controlled objective at each Turn end and 1 per completed Glorious Deed at game end. Equal points draw (pp. 148, 153).
-- Seven Glorious Deeds are listed on p. 153. Their exact conditions will be read when M4 implements scoring.
+- Seven Glorious Deeds are listed on p. 153. They are not scored in M4 Slice A (see `docs/known-gaps.md`).
 
 ## Not in the first match
 

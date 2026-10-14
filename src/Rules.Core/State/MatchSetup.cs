@@ -2,9 +2,10 @@ using System.Collections.Immutable;
 
 namespace Rules.Core.State;
 
-public sealed record SetupModel(ModelId Id, Seat Seat);
+// The profile is present for every model of a scenario with a battlefield (M4) and absent in the bare M2 setups.
+public sealed record SetupModel(ModelId Id, Seat Seat, ModelProfile? Profile = null);
 
-// Everything fixed when a match is created. Zone ids are opaque names; their geometry belongs to M3.
+// Everything fixed when a match is created. Zone ids are opaque names; with a Scenario their geometry comes from its battlefield.
 public sealed record MatchSetup
 {
     public MatchSetup(
@@ -13,7 +14,8 @@ public sealed record MatchSetup
         int turnLimit,
         RulesProfile profile,
         IEnumerable<string> zoneIds,
-        IEnumerable<SetupModel> models)
+        IEnumerable<SetupModel> models,
+        Scenario? scenario = null)
     {
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentNullException.ThrowIfNull(zoneIds);
@@ -53,6 +55,19 @@ public sealed record MatchSetup
             throw new ArgumentException("Each seat needs at least one model.", nameof(models));
         }
         Models = list.OrderBy(m => m.Id.Value, StringComparer.Ordinal).ToImmutableArray();
+
+        if (scenario is not null)
+        {
+            if (Models.Any(m => m.Profile is null))
+            {
+                throw new ArgumentException("Every model of a scenario with a battlefield needs a profile.", nameof(models));
+            }
+            if (!scenario.Battlefield.Zones.Select(z => z.ZoneId).Order(StringComparer.Ordinal).SequenceEqual(zones.Order(StringComparer.Ordinal)))
+            {
+                throw new ArgumentException("The battlefield's deployment zones must be the scenario's zone ids.", nameof(scenario));
+            }
+        }
+        Scenario = scenario;
     }
 
     public string RulesVersion { get; }
@@ -61,4 +76,9 @@ public sealed record MatchSetup
     public RulesProfile Profile { get; }
     public ImmutableArray<string> ZoneIds { get; }
     public ImmutableArray<SetupModel> Models { get; }
+
+    // Null for the geometry-free M2 setups, where positions do not exist and DeployModel only marks a model deployed.
+    public Scenario? Scenario { get; }
+
+    public ModelProfile? ProfileOf(ModelId id) => Models.FirstOrDefault(m => m.Id == id)?.Profile;
 }
