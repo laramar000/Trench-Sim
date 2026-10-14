@@ -62,7 +62,7 @@ Code: `src/Rules.Core/Dice/SuccessRoll.cs`, `RollRecord.cs`. Tests: `SuccessRoll
 - A Risky roll is made the same way; if it fails, the model's activation ends (or the ACTION ends, if taken outside the model's activation). The roll only reports this; ending the activation belongs to the turn sequence (M2).
 - The automated text check found no limit on bonus or penalty dice (pp. 15 and 25), so the code has none. The tests cover net -3 to +3 because the plan asks for that range; that is a test range, not a rules limit. A separate test (`NetDiceAreNotCapped`) rolls with net +5 and -5.
 
-Not in M1: re-rolls (p. 31), rolling off (p. 31), and making every roll Risky when a warband is Shaken (M2; that rule was read before this audit and not re-checked, so it is not verified).
+Not in M1: re-rolls (p. 31), rolling off (p. 31), and treating every Success Roll as Risky while a warband is Shaken (M2; pp. 21 and 50, automated text check only).
 
 ### Injuries (M1)
 
