@@ -81,6 +81,21 @@ public sealed record Rejected(
 
 public sealed record Notice(NoticeKind Kind) : ServerMessage;
 
+// The match stopped before the rules ended it. This is not a rules result: the match has no winner and no draw, and its
+// log ends without MatchEnded. Events and Hash are the log length and state hash at the stop, for the client to confirm
+// its copy. Seat is the seat that disconnected, when that is the reason.
+public sealed record MatchAborted(AbortReason Reason, Seat? Seat, int Events, string Hash) : ServerMessage;
+
+public enum AbortReason
+{
+    // A player's connection closed or failed. Rejoining is M6.
+    Disconnected,
+
+    // The server stopped the match after an internal error.
+    Faulted,
+    ServerShutdown,
+}
+
 public enum RejectionKind
 {
     // The message broke the protocol (ProtocolError names why).
@@ -104,22 +119,24 @@ public enum ProtocolError
     MatchFull,
     ServerBusy,
     MatchNotStarted,
-    MatchClosed,
+    MatchAborted,
     SeatMismatch,
     ServerOnlyCommand,
     IdReused,
     OutOfOrder,
     Stale,
     ShuttingDown,
+    JoinTimeout,
 }
 
 public enum NoticeKind
 {
     OpponentJoined,
+
+    // The opponent left a match that had already ended by the rules; the result stands.
     OpponentDisconnected,
 
-    // The server stopped this match after an internal error. The log sent so far is still consistent.
-    MatchFaulted,
+    // The server is stopping. A match in progress gets MatchAborted instead.
     ServerShutdown,
 }
 

@@ -11,22 +11,9 @@ namespace Server.Tests;
 
 internal static class Scenarios
 {
-    public static MatchSetup Setup(string contentPath)
-    {
-        var warbands = Content.Load(contentPath);
-        var models = warbands[0].Models.Select((m, i) => new SetupModel(new ModelId($"a{i + 1}"), Seat.One, m.Profile))
-            .Concat(warbands[1].Models.Select((m, i) => new SetupModel(new ModelId($"b{i + 1}"), Seat.Two, m.Profile)));
-        return ClaimNoMansLand.CreateSetup(models);
-    }
+    public static readonly IReadOnlyDictionary<string, MatchSetup> All = ScenarioCatalog.FromContent();
 
-    public static readonly IReadOnlyDictionary<string, MatchSetup> All = new Dictionary<string, MatchSetup>
-    {
-        ["ranged"] = Setup(Content.DefaultPath()),
-        ["melee"] = Setup(Content.MeleePath()),
-    };
-
-    public static Seat? SeatOf(Command command) =>
-        (Seat?)command.GetType().GetProperty("Seat", typeof(Seat))?.GetValue(command);
+    public static Seat? SeatOf(Command command) => CommandSeats.Of(command);
 }
 
 // A dice source that fails the test's expectations loudly if anything rolls.
@@ -86,6 +73,7 @@ internal sealed class TestClient(Harness harness, ConnectionId id)
     public MatchMirror Mirror { get; } = new();
     public Welcome? Welcome { get; private set; }
     public List<Notice> Notices { get; } = [];
+    public MatchAborted? Aborted { get; private set; }
     public List<ServerMessage> Answers { get; } = [];
 
     public ServerMessage? LastAnswer => Answers.Count == 0 ? null : Answers[^1];
@@ -132,6 +120,11 @@ internal sealed class TestClient(Harness harness, ConnectionId id)
                     break;
                 case Notice n:
                     Notices.Add(n);
+                    break;
+                case MatchAborted a:
+                    Assert.Equal(Mirror.Events, a.Events);
+                    Assert.Equal(Mirror.Hash, a.Hash);
+                    Aborted = a;
                     break;
                 default:
                     Answers.Add(message);

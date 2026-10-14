@@ -79,10 +79,19 @@ public class LobbyTests
         Assert.Equal(log[^1].Hash, StateHash.Compute(Reducer.Replay(log.Select(e => e.Event))));
         Assert.NotNull(one.Mirror.State.Outcome);
 
+        Assert.Equal(MatchStatus.Finished, harness.Lobby.StatusOf(one.Welcome.Code));
+
         // After the end the rules refuse everything, and nothing changes.
         var answer = Assert.IsType<Rejected>(one.Command(new EndActivation(Seat.One)));
         Assert.Equal(RejectionKind.Rules, answer.Kind);
         Assert.Equal(log.Count, harness.Lobby.LogOf(one.Welcome.Code)!.Count);
+
+        // Leaving a finished match does not abort it: the rules' result stands.
+        harness.Lobby.Disconnect(two.Id);
+        one.Pump();
+        Assert.Null(one.Aborted);
+        Assert.Contains(one.Notices, n => n.Kind == NoticeKind.OpponentDisconnected);
+        Assert.Equal(MatchStatus.Finished, harness.Lobby.StatusOf(one.Welcome.Code));
     }
 
     [Fact]
@@ -325,9 +334,12 @@ public class LobbyTests
 
         harness.Lobby.Disconnect(two.Id);
         one.Pump();
-        Assert.Contains(one.Notices, n => n.Kind == NoticeKind.OpponentDisconnected);
-        Assert.Equal(MatchStatus.Closed, harness.Lobby.StatusOf(code));
-        Assert.Equal(ProtocolError.MatchClosed, ProtocolCode(one.Command(new EndActivation(Seat.One))));
+        // Aborted, not a rules result: no MatchEnded, no outcome, and the opponent is told who left.
+        Assert.Equal(new MatchAborted(AbortReason.Disconnected, Seat.Two, events, one.Mirror.Hash), one.Aborted);
+        Assert.Null(one.Mirror.State.Outcome);
+        Assert.NotEqual(Phase.Ended, one.Mirror.State.Phase);
+        Assert.Equal(MatchStatus.Aborted, harness.Lobby.StatusOf(code));
+        Assert.Equal(ProtocolError.MatchAborted, ProtocolCode(one.Command(new EndActivation(Seat.One))));
         Assert.Equal(events, harness.Lobby.LogOf(code)!.Count);
 
         // Nobody can take the empty seat (rejoining is M6).
@@ -364,6 +376,8 @@ public class LobbyTests
         {
             client.Pump();
             Assert.Contains(client.Notices, n => n.Kind == NoticeKind.ServerShutdown);
+            Assert.Equal(AbortReason.ServerShutdown, client.Aborted?.Reason);
+            Assert.Null(client.Mirror.State.Outcome);
         }
         Assert.Equal(ProtocolError.ShuttingDown, ProtocolCode(one.Command(new EndActivation(Seat.One))));
         var late = harness.Connect();
@@ -382,9 +396,9 @@ public class LobbyTests
         two.Send(new JoinMatch(one.Welcome!.Code));
 
         // StartMatch rolls off for deployment zones, which this dice source refuses.
-        Assert.Contains(one.Notices, n => n.Kind == NoticeKind.MatchFaulted);
-        Assert.Contains(two.Notices, n => n.Kind == NoticeKind.MatchFaulted);
-        Assert.Equal(MatchStatus.Closed, harness.Lobby.StatusOf(one.Welcome.Code));
+        Assert.Equal(AbortReason.Faulted, one.Aborted?.Reason);
+        Assert.Equal(AbortReason.Faulted, two.Aborted?.Reason);
+        Assert.Equal(MatchStatus.Aborted, harness.Lobby.StatusOf(one.Welcome.Code));
         Assert.Single(harness.Lobby.LogOf(one.Welcome.Code)!);
         Assert.Equal(1, two.Mirror.Events);
     }

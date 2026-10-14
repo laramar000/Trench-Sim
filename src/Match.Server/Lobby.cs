@@ -93,6 +93,23 @@ public sealed class Lobby
         }
     }
 
+    // A message the transport could not hand over (too large, binary, a timeout): answered in order with the rest.
+    public void RefuseUnread(ConnectionId to, ProtocolError error, string text)
+    {
+        lock (_gate)
+        {
+            Refuse(to, error, text);
+        }
+    }
+
+    public bool IsSeated(ConnectionId connection)
+    {
+        lock (_gate)
+        {
+            return _seated.ContainsKey(connection);
+        }
+    }
+
     public void Disconnect(ConnectionId connection)
     {
         lock (_gate)

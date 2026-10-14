@@ -13,9 +13,12 @@ public enum MatchStatus
     Waiting,
     Playing,
 
-    // No more commands: a player left, the server faulted or is shutting down. A match that reached its end stays
-    // Playing; the rules refuse further commands themselves.
-    Closed,
+    // The rules ended the match (MatchEnded). The rules refuse further commands themselves.
+    Finished,
+
+    // Stopped before the rules ended it: a player left, the server faulted or is shutting down. No winner, no draw;
+    // the log ends without MatchEnded. Every command is refused.
+    Aborted,
 }
 
 // One match: the canonical state and event log, the server's dice, and both seats. Not thread-safe; the Lobby calls it
@@ -88,9 +91,9 @@ internal sealed class MatchHost
             Refuse(from, submit, slot, ProtocolError.MatchNotStarted, "The match starts when the second player joins.");
             return;
         }
-        if (Status == MatchStatus.Closed)
+        if (Status == MatchStatus.Aborted)
         {
-            Refuse(from, submit, slot, ProtocolError.MatchClosed, "This match is closed.");
+            Refuse(from, submit, slot, ProtocolError.MatchAborted, "This match was aborted.");
             return;
         }
 
@@ -164,28 +167,29 @@ internal sealed class MatchHost
     {
         var slot = Slot(seat);
         slot.Connection = null;
-        if (Status == MatchStatus.Closed)
+        switch (Status)
         {
-            return;
-        }
-        // M5 has no rejoin: the match stops where it is, with no result.
-        Status = MatchStatus.Closed;
-        if (Slot(seat.Opponent()).Connection is { } other)
-        {
-            _outbox.Send(other, new Notice(NoticeKind.OpponentDisconnected));
+            case MatchStatus.Finished:
+                // The rules already decided the match; the result stands.
+                if (Slot(seat.Opponent()).Connection is { } other)
+                {
+                    _outbox.Send(other, new Notice(NoticeKind.OpponentDisconnected));
+                }
+                break;
+            case MatchStatus.Waiting or MatchStatus.Playing:
+                // M5 has no rejoin: the match stops where it is, with no result.
+                Abort(AbortReason.Disconnected, seat);
+                break;
         }
     }
 
     public void Shutdown()
     {
-        Status = MatchStatus.Closed;
-        foreach (var slot in _slots)
+        if (Status is MatchStatus.Waiting or MatchStatus.Playing)
         {
-            if (slot.Connection is { } connection)
-            {
-                _outbox.Send(connection, new Notice(NoticeKind.ServerShutdown));
-            }
+            Abort(AbortReason.ServerShutdown, null);
         }
+        Broadcast(new Notice(NoticeKind.ServerShutdown));
     }
 
     public long NextSeq(Seat seat) => Slot(seat).NextSeq;
@@ -235,6 +239,10 @@ internal sealed class MatchHost
             _log.Add(p);
             Broadcast(p);
         }
+        if (_state.Phase == Phase.Ended)
+        {
+            Status = MatchStatus.Finished;
+        }
         return true;
     }
 
@@ -255,11 +263,16 @@ internal sealed class MatchHost
         }
     }
 
-    private void Fault()
+    private void Fault() => Abort(AbortReason.Faulted, null);
+
+    private void Abort(AbortReason reason, Seat? seat)
     {
-        Status = MatchStatus.Closed;
-        Broadcast(new Notice(NoticeKind.MatchFaulted));
+        Status = MatchStatus.Aborted;
+        AbortedBecause = reason;
+        Broadcast(new MatchAborted(reason, seat, _log.Count, _log[^1].Hash));
     }
+
+    public AbortReason? AbortedBecause { get; private set; }
 
     private void Refuse(ConnectionId to, SubmitCommand submit, SeatSlot slot, ProtocolError error, string text) =>
         _outbox.Send(to, new Rejected(submit.CommandId, submit.Seq, RejectionKind.Protocol, error.ToString(), text, null,
