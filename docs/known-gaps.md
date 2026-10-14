@@ -20,6 +20,9 @@ Rules R1 to R8 (turn sequence, `rules-notes.md`) and U30 to U56 (`interpretation
 - The two simulated players are simple (random choice among legal-looking options, integer geometry); they exist to prove that whole matches finish and replay identically, not to play well.
 - The sight sampler can miss a very narrow gap (see `interpretations.md`, golden scenes).
 - Only one scenario exists.
+- Replay checks each event against the state before it, but not whether a log is complete: a log cut off before `MatchEnded` replays as a match in progress. A saved match record (M6) must also be checked to end in `MatchEnded`.
+- `Decide` assumes a state that `Decide` produced. Called on a state no command could reach (for example a log cut between a warband's elimination and its `MatchEnded`), it can throw `InvalidEventException` while emitting the events that state forbids, rather than return a rejection. The server only ever holds states built from its own decisions.
+- Commands with points beyond the table range (±200") or lengths out of range cannot be constructed: `Point2` and `Length` throw in their constructors. A network layer must catch that while reading a message and turn it into a rejection.
 
 ## What the routing tests establish (and what they cannot)
 

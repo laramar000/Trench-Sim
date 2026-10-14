@@ -12,7 +12,7 @@ namespace Rules.Core;
 // compare hashes after every event. Any change to the layout must bump Version.
 public static class StateHash
 {
-    public const int Version = 3;
+    public const int Version = 4;
 
     public static string Canonical(MatchState state)
     {
@@ -60,6 +60,8 @@ public static class StateHash
             ? $"{t.Model.Value}:{Path(t.Path)}:{string.Join(";", t.Fought.Select(f => f.Value))}:{Bool(t.Closed)}"
             : null);
         Line(sb, "outcome", state.Outcome is { } o ? $"{(o.Winner?.ToString() ?? "-")}:{o.Reason}" : null);
+        Line(sb, "rollOff", state.RollOff is { } ro ? $"{ro.Purpose}:{ro.Winner}" : null);
+        Line(sb, "mustEndActivation", state.MustEndActivation);
 
         foreach (var seat in new[] { state.One, state.Two })
         {
@@ -70,7 +72,8 @@ public static class StateHash
                 $"fled={Bool(seat.Fled)}",
                 $"checked={Bool(seat.MoraleChecked)}",
                 $"outcome={seat.MoraleOutcome?.ToString() ?? "-"}",
-                $"vp={seat.VictoryPoints}"));
+                $"vp={seat.VictoryPoints}",
+                $"mustFlee={Bool(seat.MustFlee)}"));
         }
 
         foreach (var m in state.Models.OrderBy(m => m.Id.Value, StringComparer.Ordinal))

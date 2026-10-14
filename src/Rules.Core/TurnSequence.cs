@@ -138,6 +138,10 @@ public static partial class TurnSequence
 
     private static Rejection? Validate(MatchState state, Command command)
     {
+        if (!IsKnown(command))
+        {
+            return new(ReasonCode.UnknownCommand, $"Unknown command {command.GetType().Name}.", RefTurn);
+        }
         if (state.Phase == Phase.None)
         {
             return new(ReasonCode.MatchNotCreated, "No match has been created.", RefTurn);
@@ -206,7 +210,7 @@ public static partial class TurnSequence
             FightModel c => ValidateFight(state, c),
             ActivateModel c => ValidateActivate(state, c),
             EndActivation c => ValidateEnd(state, c),
-            _ => throw new ArgumentException($"Unknown command {command.GetType().Name}.", nameof(command)),
+            _ => new(ReasonCode.UnknownCommand, $"Unknown command {command.GetType().Name}.", RefTurn),
         };
     }
 
@@ -278,6 +282,12 @@ public static partial class TurnSequence
             ? null
             : new(ReasonCode.NotYourTurn, "That is the other player's activation.", RefActivation);
     }
+
+    // A command type the rules do not know (a newer client, a damaged message) is refused before anything else is
+    // looked at, whatever the phase.
+    private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
+        or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
+        or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch

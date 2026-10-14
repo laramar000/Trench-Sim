@@ -522,6 +522,43 @@ public class ChargeRoutingAuditTests(ITestOutputHelper output)
         Assert.True(started.ElapsedMilliseconds < 20000, $"{started.ElapsedMilliseconds} ms");
     }
 
+    [Fact]
+    [Trait("Rule", "U63: no charge plan has more legs than a ChargeMoved event can hold")]
+    public void AWayRoundFriendsThatNeedsTooManyLegsIsTreatedAsNoWayRound()
+    {
+        // A corridor across the table, blocked every 2.2" by a line of three friends that leaves a gap at alternate
+        // ends. Friends can be crossed, so the straight route ignores them, but it ends on a friend; the way round
+        // weaves through every gap, which takes more legs the further the model may go. Before the guard, a reach of
+        // 19.25" or more gave a way round of 65 to 73 legs, and building its ChargeMoved event would have thrown after
+        // the die was rolled.
+        var others = new List<Obstacle>();
+        var target = Body("t", "35", "18");
+        others.Add(Enemy(target));
+        var line = 0;
+        for (var x = 3000L; x < 33000; x += 2200, line++)
+        {
+            foreach (var y in line % 2 == 0 ? new[] { 16600L, 17600, 18600 } : [17600, 18600, 19600])
+            {
+                others.Add(Friend(Body($"f{line}_{y}", Fmt(x), Fmt(y))));
+            }
+        }
+        var field = Field("36", Wall("lo", "0", "14", "36", "15.6"), Wall("hi", "0", "20.6", "36", "22"));
+        var mover = Body("m", "1", "18.1");
+
+        var weaving = Charging.Plan(field, mover, target, L("19"), others);
+        Assert.Equal(Charging.MaxLegs, weaving.Path.Length);   // the scene really does go round, right up to the limit
+        foreach (var reach in new[] { "19.25", "20", "22", "25" })
+        {
+            var plan = Charging.Plan(field, mover, target, L(reach), others);
+            Assert.True(plan.Path.Length <= Charging.MaxLegs, $"reach {reach}: {plan.Path.Length} legs");
+            Assert.False(plan.Reached);
+            if (!plan.Path.IsEmpty)
+            {
+                _ = new Rules.Core.Events.ChargeMoved(new("m"), new("t"), plan.Path, plan.Cost, plan.Reached);
+            }
+        }
+    }
+
     private static string Fmt(long thousandths) => $"{thousandths / 1000.0:0.000}";
 
     // ---- Difficult terrain ----

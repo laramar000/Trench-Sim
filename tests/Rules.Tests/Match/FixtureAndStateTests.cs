@@ -88,6 +88,8 @@ public class ProfileAndHashTests
         var play = new BoardPlay().ToActivation();
         play.Do(new ActivateModel(Seat.One, A(1)));
         var s = play.State;
+        var roll = new RollInProgress(RollStage.ShotRoll, A(1), B(1), 0, 1);
+        var retreat = new RetreatInProgress(A(1), Path(("1.5", "3")), []);
         var variants = new Dictionary<string, MatchState>
         {
             ["position"] = s with { Models = [.. s.Models.Select(m => m.Id == A(1) ? m with { Position = P("3", "3") } : m)] },
@@ -96,9 +98,33 @@ public class ProfileAndHashTests
             ["halved"] = s with { MovementHalved = true },
             ["scoredTurn"] = s with { ScoredTurn = 1 },
             ["vp"] = s with { One = s.One with { VictoryPoints = 2 } },
-            ["inProgress"] = s with { InProgress = new RollInProgress(RollStage.ShotRoll, A(1), B(1), 0, 1) },
+            ["inProgress"] = s with { InProgress = roll },
             ["inProgressPath"] = s with { InProgress = new RollInProgress(RollStage.DashMove, A(1), DashPath: Path(("4", "3"))) },
+            ["inProgress.stage"] = s with { InProgress = roll with { Stage = RollStage.FightRoll } },
+            ["inProgress.actor"] = s with { InProgress = roll with { Actor = A(2) } },
+            ["inProgress.target"] = s with { InProgress = roll with { Target = B(2) } },
+            ["inProgress.noTarget"] = s with { InProgress = roll with { Target = null } },
+            ["inProgress.bonus"] = s with { InProgress = roll with { BonusDice = 1 } },
+            ["inProgress.penalty"] = s with { InProgress = roll with { PenaltyDice = 2 } },
+            ["inProgress.critical"] = s with { InProgress = roll with { Critical = true } },
+            ["inProgress.markersAsked"] = s with { InProgress = roll with { MarkersAsked = true } },
+            ["inProgress.kind"] = s with { InProgress = roll with { Kind = AttackKind.Melee } },
+            ["inProgress.freeFight"] = s with { InProgress = roll with { FreeFight = true } },
+            ["inProgress.friendlyFire"] = s with { InProgress = roll with { FriendlyFire = true } },
+            ["inProgress.chargeDie"] = s with { InProgress = roll with { ChargeDie = 4 } },
+            ["inProgress.dashPath"] = s with { InProgress = roll with { DashPath = Path(("4", "3")) } },
+            ["retreat"] = s with { Retreat = retreat },
+            ["retreat.model"] = s with { Retreat = retreat with { Model = A(2) } },
+            ["retreat.path"] = s with { Retreat = retreat with { Path = Path(("1", "3")) } },
+            ["retreat.fought"] = s with { Retreat = retreat with { Fought = [B(1)] } },
+            ["retreat.closed"] = s with { Retreat = retreat with { Closed = true } },
             ["profile"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("7"), L("0.5"), L("18"))) },
+            ["profile.radius"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.6"), L("18"))) },
+            ["profile.range"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("24"))) },
+            ["profile.weapon"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), rangedInjuryModifier: 1)) },
+            ["profile.armour"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), armour: -1)) },
+            ["profile.melee"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), hasMeleeWeapon: true)) },
+            ["profile.meleeMod"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), hasMeleeWeapon: true, meleeInjuryModifier: 1)) },
             ["terrain"] = s with { Setup = Rebuild(s.Setup!, Rifleman, ClaimNoMansLandWithoutRough()) },
         };
         var baseline = StateHash.Compute(s);

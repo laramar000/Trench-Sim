@@ -86,16 +86,19 @@ public static class Charging
             var routeB = scene.FindRoute(friendsBlock: true);
             if (routeB is not null && scene.Interposition(routeB).IsLegal)
             {
+                // The same leg limit as route A, checked before any plan is returned: an over-long way round is treated as
+                // no way round, so ChargeMoved can always be built once the die has been rolled (U63).
                 var pathB = scene.Farthest(routeB, reach);
-                if (!pathB.IsEmpty && scene.Finish(pathB, reach) is { } around)
+                if (!pathB.IsEmpty && pathB.Length <= MaxLegs && scene.Finish(pathB, reach) is { } around)
                 {
                     return around;
                 }
             }
         }
 
-        // No way round: stop short of the friendly base.
-        return scene.BackOff(routeA, reach) ?? none;
+        // No way round: stop short of the friendly base. Backing off only shortens route A's path, but the limit is
+        // checked again so that no plan of more than MaxLegs legs can leave this method.
+        return scene.BackOff(routeA, reach) is { } shortOf && shortOf.Path.Length <= MaxLegs ? shortOf : none;
     }
 
     // ---- fixed-point trigonometry: cos(k * pi / 16) in billionths, k = 0..8 (sin is the same table reversed) ----

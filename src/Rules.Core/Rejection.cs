@@ -45,6 +45,8 @@ public enum ReasonCode
     ActionExcluded,
     NotAFreeFighter,
     NotACandidate,
+    // M4 reducer hardening
+    UnknownCommand,
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.
