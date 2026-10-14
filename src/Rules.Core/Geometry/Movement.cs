@@ -42,7 +42,9 @@ public static class Movement
         ModelBody mover,
         IReadOnlyList<Point2> waypoints,
         Length allowance,
-        IEnumerable<Obstacle> others)
+        IEnumerable<Obstacle> others,
+        string? chargeTargetId = null,
+        bool retreat = false)
     {
         ArgumentNullException.ThrowIfNull(battlefield);
         ArgumentNullException.ThrowIfNull(mover);
@@ -112,16 +114,33 @@ public static class Movement
             var zone = mover.Radius + enemy.Radius + Length.Inch;
             if (StartedWithin(enemy))
             {
+                if (retreat)
+                {
+                    // A retreat is the one move that may leave the enemies a model starts next to (p. 35, 37).
+                    continue;
+                }
                 // The zone is a disc, which is convex, so staying within at every waypoint keeps the whole path within.
                 if (waypoints.Any(w => !ExactMath.Near(w, enemy.Centre, zone, strict: false)))
                 {
-                    return Refuse(MoveRefusal.LeavesEnemyZone, "A model that starts within 1\" of an enemy must stay within 1\" of it throughout (or retreat, which M3 does not cover).", "1.0.2 p. 35", cost, enemy.Id);
+                    return Refuse(MoveRefusal.LeavesEnemyZone, "A model that starts within 1\" of an enemy must stay within 1\" of it throughout (or retreat).", "1.0.2 p. 35", cost, enemy.Id);
                 }
             }
             else
             {
+                if (enemy.Id == chargeTargetId)
+                {
+                    // A charge is the one move that may enter its target's 1" (p. 36).
+                    continue;
+                }
+                var target = chargeTargetId is null ? null : enemies.FirstOrDefault(e => e.Id == chargeTargetId);
                 for (var i = 1; i < path.Count; i++)
                 {
+                    // Once a charging model is within 1" of its target, other enemy models no longer interpose (p. 36);
+                    // a leg that starts there is the tail of the charge. Their bases still cannot be crossed.
+                    if (target is not null && ExactMath.Near(path[i - 1], target.Centre, mover.Radius + target.Radius + Length.Inch, strict: false))
+                    {
+                        continue;
+                    }
                     if (Shapes.PointNearSegment(enemy.Centre, path[i - 1], path[i], zone, strict: false))
                     {
                         return Refuse(MoveRefusal.EntersEnemyZone, "A model can only move within 1\" of an enemy by charging.", "1.0.2 pp. 35, 36", cost, enemy.Id);

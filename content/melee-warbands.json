@@ -1,0 +1,87 @@
+{
+  "note": "Two original test warbands for the simulator, with Melee Weapons (Slice B). Names and stats are invented for testing and are not from the rulebook. A model with meleeInjuryModifier has one Melee Weapon.",
+  "warbands": [
+    {
+      "id": "ash-company",
+      "name": "Ash Company",
+      "models": [
+        {
+          "name": "Sharpshooter",
+          "movementInches": "6",
+          "baseMm": 25,
+          "rangeInches": "24",
+          "weaponInjuryModifier": 1,
+          "armour": 0
+        },
+        {
+          "name": "Skirmisher",
+          "movementInches": "7",
+          "baseMm": 25,
+          "rangeInches": "12",
+          "weaponInjuryModifier": 0,
+          "armour": 0,
+          "meleeInjuryModifier": 0
+        },
+        {
+          "name": "Bulwark",
+          "movementInches": "5",
+          "baseMm": 32,
+          "rangeInches": "10",
+          "weaponInjuryModifier": 0,
+          "armour": -1,
+          "meleeInjuryModifier": 1
+        },
+        {
+          "name": "Banner Carrier",
+          "movementInches": "6",
+          "baseMm": 25,
+          "rangeInches": "0",
+          "weaponInjuryModifier": 0,
+          "armour": 0,
+          "meleeInjuryModifier": 0
+        }
+      ]
+    },
+    {
+      "id": "lantern-guard",
+      "name": "Lantern Guard",
+      "models": [
+        {
+          "name": "Marksman",
+          "movementInches": "6",
+          "baseMm": 25,
+          "rangeInches": "20",
+          "weaponInjuryModifier": 1,
+          "armour": 0
+        },
+        {
+          "name": "Runner",
+          "movementInches": "8",
+          "baseMm": 25,
+          "rangeInches": "10",
+          "weaponInjuryModifier": 0,
+          "armour": 0,
+          "meleeInjuryModifier": 0
+        },
+        {
+          "name": "Shieldbearer",
+          "movementInches": "5",
+          "baseMm": 32,
+          "rangeInches": "12",
+          "weaponInjuryModifier": 0,
+          "armour": -2,
+          "meleeInjuryModifier": 1
+        },
+        {
+          "name": "Lamp Keeper",
+          "movementInches": "6",
+          "baseMm": 25,
+          "rangeInches": "0",
+          "weaponInjuryModifier": 0,
+          "armour": 0,
+          "meleeInjuryModifier": 0
+        }
+      ]
+    }
+  ]
+}

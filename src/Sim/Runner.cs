@@ -7,6 +7,27 @@ using Rules.Core.State;
 
 namespace Sim;
 
+// What the new actions did in one match (Slice B).
+public sealed record MeleeCounts(int Charges, int ChargesReached, int Retreats, int FreeFights, int Fights, int FightHits, int ShotsIntoMelee, int FriendlyTargets, int FriendlyHits, int TakenDown)
+{
+    public int Total => Charges + Retreats + FreeFights + Fights + ShotsIntoMelee;
+
+    public static MeleeCounts Of(IReadOnlyList<GameEvent> log) => new(
+        log.OfType<ChargeDeclared>().Count(),
+        log.OfType<ChargeMoved>().Count(c => c.Reached),
+        log.OfType<RetreatDeclared>().Count(),
+        log.OfType<MeleeAttackDeclared>().Count(a => a.FreeFight),
+        log.OfType<MeleeAttackDeclared>().Count(a => !a.FreeFight),
+        log.OfType<MeleeSuccessRolled>().Count(r => r.Check.Outcome != Rules.Core.Dice.SuccessOutcome.Failure),
+        log.OfType<RangedAttackDeclared>().Count(a => a.IntoMelee),
+        log.OfType<FriendlyTargetChosen>().Count(),
+        log.OfType<InjuryRolled>().Count(i => log.OfType<FriendlyTargetChosen>().Any(f => f.Victim == i.Target && f.Attacker == i.Attacker)),
+        log.OfType<ActivationEnded>().Count(a => a.Reason == ActivationEndReason.TakenDown));
+
+    public override string ToString() =>
+        $"charges {Charges} ({ChargesReached} reached) retreats {Retreats} free {FreeFights} fights {Fights} ({FightHits} hit) into-melee {ShotsIntoMelee} (friend {FriendlyTargets}) taken-down {TakenDown}";
+}
+
 public sealed record SimResult(
     int Seed,
     bool Terminal,
@@ -22,6 +43,7 @@ public sealed record SimResult(
     int Hits,
     int OutOfAction,
     int Dashes,
+    MeleeCounts Melee,
     string FinalHash,
     string WarbandOne,
     string WarbandTwo,
@@ -31,7 +53,7 @@ public sealed record SimResult(
     {
         var outcome = Outcome is { } o ? $"{(o.Winner is { } w ? $"winner {w}" : "draw")} by {o.Reason}" : "no outcome";
         return $"seed {Seed,3}: {Status,-9} {outcome,-42} turns {Turns} VP {VictoryPointsOne}-{VictoryPointsTwo} " +
-               $"commands {Commands} rejected {Rejections} events {Events} shots {Shots} hits {Hits} OoA {OutOfAction} dashes {Dashes} " +
+               $"commands {Commands} rejected {Rejections} events {Events} shots {Shots} hits {Hits} OoA {OutOfAction} dashes {Dashes} {(Melee.Total > 0 ? Melee + " " : "")}" +
                $"[{WarbandOne} vs {WarbandTwo}] hash {FinalHash[..12]}";
     }
 }
@@ -182,6 +204,7 @@ public static class Runner
             log.OfType<RangedSuccessRolled>().Count(r => r.Check.Outcome != Rules.Core.Dice.SuccessOutcome.Failure),
             state.Models.Count(m => m.Status == ModelStatus.OutOfAction),
             log.OfType<DashDeclared>().Count(),
+            MeleeCounts.Of(log),
             StateHash.Compute(state),
             one.Name,
             two.Name,

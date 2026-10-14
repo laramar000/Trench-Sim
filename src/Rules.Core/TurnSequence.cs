@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Rules.Core.Commands;
 using Rules.Core.Dice;
 using Rules.Core.Events;
+using Rules.Core.Geometry;
 using Rules.Core.State;
 
 namespace Rules.Core;
@@ -117,6 +118,15 @@ public static partial class TurnSequence
                 commands.Add(new ResolveFailedMorale(pending.Seat, MoraleFailureChoice.BecomeShaken));
                 commands.Add(new ResolveFailedMorale(pending.Seat, MoraleFailureChoice.SoundRetreat));
                 break;
+            case DecisionKind.FreeFight:
+                commands.AddRange(Board.FreeFighters(state, state.Retreat!).Select(m => new FreeFight(pending.Seat, m.Id)));
+                commands.Add(new DeclineFreeFights(pending.Seat));
+                break;
+            case DecisionKind.ChooseFriendlyTarget:
+                var shooter = state.FindModel(state.InProgress!.Actor)!;
+                var intended = Board.BodyOf(state, state.FindModel(state.InProgress.Target!.Value)!)!;
+                commands.AddRange(Board.FriendsNear(state, shooter, intended).Select(m => new ChooseFriendlyTarget(pending.Seat, m.Id)));
+                break;
             case DecisionKind.SpendMarkersOnSuccessRoll or DecisionKind.SpendMarkersOnInjuryRoll:
                 var available = MarkersAvailable(state, pending.Kind);
                 commands.AddRange(Enumerable.Range(0, available + 1).Select(n => new SpendMarkers(pending.Seat, n)));
@@ -148,6 +158,10 @@ public static partial class TurnSequence
         if (command is SpendMarkers spend)
         {
             return ValidateSpend(state, spend);
+        }
+        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget)
+        {
+            return ValidateChoice(state, command);
         }
 
         var expected = ExpectedDecision(command);
@@ -187,6 +201,9 @@ public static partial class TurnSequence
             MoveModel c => ValidateMove(state, c.Seat, c.Model, c.Path, ActionsTaken.Move),
             DashModel c => ValidateMove(state, c.Seat, c.Model, c.Path, ActionsTaken.Dash),
             Shoot c => ValidateShoot(state, c),
+            ChargeModel c => ValidateCharge(state, c),
+            RetreatModel c => ValidateRetreat(state, c),
+            FightModel c => ValidateFight(state, c),
             ActivateModel c => ValidateActivate(state, c),
             EndActivation c => ValidateEnd(state, c),
             _ => throw new ArgumentException($"Unknown command {command.GetType().Name}.", nameof(command)),
@@ -317,7 +334,7 @@ public static partial class TurnSequence
                     run.Emit(new ModelStoodUp(c.Model));
                 }
                 break;
-            case PlaceModel or MoveModel or DashModel or Shoot or SpendMarkers:
+            case PlaceModel or MoveModel or DashModel or Shoot or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget:
                 ExecuteBoard(run, command);
                 break;
             case EndActivation:
@@ -349,6 +366,11 @@ public static partial class TurnSequence
         if (s.InProgress is not null)
         {
             return AdvanceRoll(run, s, dice);
+        }
+
+        if (s.Retreat is { } retreat)
+        {
+            return AdvanceRetreat(run, s, retreat);
         }
 
         switch (s.Phase)

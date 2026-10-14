@@ -11,30 +11,30 @@ public class SimulationTests
 {
     private static readonly IReadOnlyList<Warband> Warbands = Content.Load(Content.DefaultPath());
 
-    // Regression pins of this implementation's own behaviour under StateHash version 2, not an independent oracle:
+    // Regression pins of this implementation's own behaviour under StateHash version 3, not an independent oracle:
     // a rule change that alters any of these matches must re-pin them on purpose.
     private static readonly Dictionary<int, string> PinnedFinalHashes = new()
     {
-        [1] = "73058a39a4347776911aa60d0ead96606ce88d01d2f8ab8ca5c56c4e8a8b8a98",
-        [2] = "b27d322e80d9ba56a4c0e0f433b0cebb2f39c081d6356a983ee693a7ce1f2384",
-        [3] = "2dbf25fb83fcd1e3bb3f6f1af2f34e7e3bab75bbf9005ea450b6a11293462516",
-        [4] = "21d79dd3680f01ae5248074120c8b1993965ccaa550edb60ab55ba6eb9d4a5fe",
-        [5] = "13d6a21cea41959fc3fbf299d6c2ac4b25abb0b9fee45b47c3a48b3ef8ff0114",
-        [6] = "8a32e4f6ccae8f024fa2a032213c058dd4262588bb6e330d97550208fa3d95a6",
-        [7] = "a76898d01b98b1e239278fb9d72cd7a07522abdc03462c541531ed0126801bb2",
-        [8] = "68825954023a7f0e41cdca412fccce156b1d66f08d180d227bd62b50c7c8b236",
-        [9] = "a85724395e45e0c24e4dc6560a8545cb60950e0de270f11bb1efd19d66c623a1",
-        [10] = "6b468376ec881f2408320c7bdc3de728ff5564e176cf013540a0a54e1db5accf",
-        [11] = "7780559c9edd69b003b099f18145a7fb9bd0fd523afd706fb765e97d4ac24c6a",
-        [12] = "0bac6bfaa120df00cdf12506bc7f0bf5ccc2bab9bfd8161e3da173dadc5bd81d",
-        [13] = "efd9118c09ed80a9b4ec50bdaa0f945d3cfd246bce9bb037adb0ece56a5ef92d",
-        [14] = "a535064a0dcd085660572d7d0e9d8446786884168242de9d30025d681d6cd8c5",
-        [15] = "f7e73556bdcc014612ff9e4458f385ba8041a77be7049ebf6e77488acda6b717",
-        [16] = "15dec218d44cf054d91d5f4d0d259cb0bd67ab7bf953c9b8ebb4c09320796593",
-        [17] = "51dd716b1b224a781ef17e9153f67611085be416937107bf1389ad1669598462",
-        [18] = "762475e5c4298df0a17bc0ef453c263f23e3dfe79a8037d9815a02fd06891ee9",
-        [19] = "5f50de20e5922a18b6d42935763e6e00547abe3e11c5730ac56a7331cf5563bd",
-        [20] = "959c1340fb35ee0fe691433ede194438ad131be0ff75d3c9938a42124ec95dff"
+        [1] = "6f6306c975ed27c733c1ef7e55bc8b0fd07c71cfe859f63bf7b14df4cab9da73",
+        [2] = "807be46212c9a1920f7efa6d7fc22cb1c5a7c1f95cb2b75bcd10481c69c8de73",
+        [3] = "5c91b33835d1ed66f54a06da051aafc4a1e192fb3b462764012f9c88a4bdde20",
+        [4] = "cfd64bc73e7edb9dcf24666733a4e5110e530f8d7a4501fb9c59ed181af126c4",
+        [5] = "0cd0654b38f5f8bbdb3a690ac80f5c7bb2d71f95606a3595a7270a4953c5dbee",
+        [6] = "9f97edb88bce828ff9cbf501c35671c37ea2c66110c7d317f183d6247832fe50",
+        [7] = "4893431b3d226eb988d993055820aa382ed0f9fd7b19e8c772640a3249ae3170",
+        [8] = "657029844a42271441b9f8886359e93a951114273a95349b2738c03736aee380",
+        [9] = "2d9d9b493927098e976bbdd4565a3506cca5aa7c3b1ceddbec6cdf230646244b",
+        [10] = "20541de3bb7106f4a64e0120e578cde109783134ac2fafd3d26d15c46e89a393",
+        [11] = "b26b3586bbad09f39218fbc02a097c50f93739ad7829675f9a02950ccd7ff122",
+        [12] = "bf1f89d1947cc749c003c19a24344f705d239d4b9975abfe10107a1f3f5ba882",
+        [13] = "f23cf02bc531fec1253dfe0c7f1b9dfbe9bc116362aaa06fdc371d106ac2f1e3",
+        [14] = "258a9e81f1a4b64d2bb4bf6014f6ae8e519e4a7b6a75c7e065bcea0cd8ca9d89",
+        [15] = "b2506bbe54a7d287b2a18e2bf9c00e5c773686d47407fc1e0555bcef8ab37790",
+        [16] = "8d87f68b883d64b80c83b8a7054c440eb78a3faca32ba2305799e61066009f64",
+        [17] = "09ef8ce365279cc6946e84c488d13b30720703e98a5c9c779bdcefecbcf67141",
+        [18] = "e180cc67a78a412308e1883ce2508d7af8bba4dbe3f8421aaa40fa689d2f52be",
+        [19] = "eaad0e347cf463d2e683646bddab95388a8057499e10277582c41347e9517272",
+        [20] = "232e8ebcc28308aa64ef50be6b202b881041cc47807a602ae3f9adead0309826"
     };
 
     public static TheoryData<int> Seeds() => [.. Enumerable.Range(1, 20)];

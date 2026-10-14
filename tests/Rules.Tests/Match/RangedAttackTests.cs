@@ -312,15 +312,6 @@ public class RangedAttackTests
     }
 
     [Fact]
-    [Trait("Rule", "Shooting into Melee p. 43: not supported in Slice A")]
-    public void ShootingAtAModelWithinAnInchOfTheShootersFriendIsRefusedForNow()
-    {
-        var play = Duel();
-        play.Put(A(2), "10", "3.4"); // next to B1 at (10,2)
-        play.Refused(Fire(), ReasonCode.ShootingIntoMeleeUnsupported);
-    }
-
-    [Fact]
     [Trait("Rule", "Actions p. 34: Shoot once per Activation")]
     public void AModelShootsOnlyOncePerActivation()
     {

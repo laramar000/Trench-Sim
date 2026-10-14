@@ -217,7 +217,8 @@ public class ReplayAndHashTests
     // The canonical text and its hash are fixed on purpose: if either changes, StateHash.Version must be
     // bumped and every stored hash recorded under the old version is no longer comparable.
     // Re-pinned once, deliberately, for Version 2 (M4 adds positions, Blood Markers, the action ledger, the roll
-    // in progress, Victory Points and the scenario geometry). This is the only M2 test changed by M4.
+    // in progress, Victory Points and the scenario geometry), and again for Version 3 (Slice B adds the Melee Weapon
+    // to the profile lines, the retreat in progress and the new roll details). The same two M2 tests, nothing else.
     [Fact]
     [Trait("Rule", "Architecture: canonical state hash")]
     public void GoldenCanonicalTextForAFreshMatch()
@@ -239,7 +240,7 @@ public class ReplayAndHashTests
     }
 
     private const string GoldenFreshText = """
-trench-state=2
+trench-state=3
 rules=1.0.2
 scenario=scenario-1
 turnLimit=4
@@ -261,12 +262,13 @@ actions=0
 movementHalved=0
 scoredTurn=0
 inProgress=-
+retreat=-
 outcome=-
 seat.One=zone=-,shaken=0,fled=0,checked=0,outcome=-,vp=0
 seat.Two=zone=-,shaken=0,fled=0,checked=0,outcome=-,vp=0
 model=A1,One,Standing,deployed=0,activated=0,at=-,markers=0
 model=B1,Two,Standing,deployed=0,activated=0,at=-,markers=0
 """ + "\n";
-    private const string GoldenFreshHash = "787bfa21f24b03e078f72f788b2158026e6015e3b7b7d2b7bf77fa5587af1756";
-    private const string GoldenOpeningHash = "fe050d2c3646effc44e1f1d3400589c5e03474a3fe623337ff661b63c8011aa7";
+    private const string GoldenFreshHash = "e562d75158cf151e422e29415ee15a3338dc968c329a77c7de0623471891bf37";
+    private const string GoldenOpeningHash = "3dbdc503ad5ac12311181f9a4cf0414d10d36c22943d4a9b903b96441d64c69b";
 }

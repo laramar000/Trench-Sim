@@ -46,3 +46,23 @@ public sealed record Shoot(Seat Seat, ModelId Attacker, ModelId Target) : Comman
 
 // Answers a pending Blood Marker decision (p. 28): spend this many markers, or none (Count 0).
 public sealed record SpendMarkers(Seat Seat, int Count) : Command;
+
+// ---- M4 Slice B: Charge, Retreat, Fight and the choices around them ----
+
+// A Charge ACTION (pp. 34, 36-37): declare the target; the Charge Bonus D6 and the charge move follow.
+public sealed record ChargeModel(Seat Seat, ModelId Model, ModelId Target) : Command;
+
+// A Retreat ACTION (pp. 35, 37): the path is fixed now, the move happens after the opponent's free attacks.
+public sealed record RetreatModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command;
+
+// A Fight ACTION (pp. 34, 45-46): one Melee Attack with the model's Melee Weapon against one enemy within 1".
+public sealed record FightModel(Seat Seat, ModelId Model, ModelId Target) : Command;
+
+// The opponent of a retreating model attacks it with one engaged model (p. 37). Answers the FreeFight decision.
+public sealed record FreeFight(Seat Seat, ModelId Attacker) : Command;
+
+// The opponent declines the remaining free attacks (p. 37). Answers the FreeFight decision.
+public sealed record DeclineFreeFights(Seat Seat) : Command;
+
+// A shot into melee rolled 1-3: the shooter picks which of its own models within 1" of the target is shot (p. 42).
+public sealed record ChooseFriendlyTarget(Seat Seat, ModelId Victim) : Command;

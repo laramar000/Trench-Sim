@@ -71,6 +71,16 @@ public static class Reducer
             RangedSuccessRolled x => OnRangedSuccessRolled(state, x),
             InjuryRolled x => OnInjuryRolled(state, x),
             ObjectivesScored x => OnObjectivesScored(state, x),
+            ChargeDeclared x => OnChargeDeclared(state, x),
+            ChargeRolled x => OnChargeRolled(state, x),
+            ChargeMoved x => OnChargeMoved(state, x),
+            RetreatDeclared x => OnRetreatDeclared(state, x),
+            FreeFightsDeclined x => OnFreeFightsDeclined(state, x),
+            RetreatResolved x => OnRetreatResolved(state, x),
+            MeleeAttackDeclared x => OnMeleeAttackDeclared(state, x),
+            MeleeSuccessRolled x => OnMeleeSuccessRolled(state, x),
+            ShootingTargetRolled x => OnShootingTargetRolled(state, x),
+            FriendlyTargetChosen x => OnFriendlyTargetChosen(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
     }
@@ -98,7 +108,7 @@ public static class Reducer
                 break;
             case DecisionKind.SpendMarkersOnSuccessRoll:
                 var rolling = state.InProgress;
-                Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll, MarkersAsked: false }
+                Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll, MarkersAsked: false }
                     && state.FindModel(rolling.Actor) is { BloodMarkers: > 0 } holder
                     && holder.Seat.Opponent() == e.Seat, "Only the rolling model's opponent may spend its markers, once, before a Success Roll.");
                 state = state with { InProgress = rolling! with { MarkersAsked = true } };
@@ -109,6 +119,15 @@ public static class Reducer
                     && state.FindModel(injuring.Actor) is { } shooter && shooter.Seat == e.Seat
                     && state.FindModel(victim) is { BloodMarkers: > 0 }, "Only the attacker may spend the target's markers, once, before an Injury Roll.");
                 state = state with { InProgress = injuring! with { MarkersAsked = true } };
+                break;
+            case DecisionKind.FreeFight:
+                Require(state.Retreat is { Closed: false } retreat && state.InProgress is null && state.Phase == Phase.Activation
+                    && state.FindModel(retreat.Model) is { } retreater && retreater.Seat.Opponent() == e.Seat
+                    && Board.FreeFighters(state, retreat).Count > 0, "Free attacks are offered to the opponent of a retreating model while someone can still attack.");
+                break;
+            case DecisionKind.ChooseFriendlyTarget:
+                Require(state.InProgress is { Stage: RollStage.TargetChoice } choosing
+                    && state.FindModel(choosing.Actor) is { } chooser && chooser.Seat == e.Seat, "Only the shooter chooses which of its own models is shot.");
                 break;
             default:
                 throw new InvalidEventException("Unknown decision kind.");
@@ -232,7 +251,11 @@ public static class Reducer
     {
         Require(state.Phase == Phase.Activation && state.ActiveModel == e.Model, "That model is not the one activating.");
         Require(Enum.IsDefined(e.Reason), "Unknown end reason.");
-        Require(state.InProgress is null && state.Pending is null, "An action is still being resolved.");
+        Require(state.InProgress is null && state.Pending is null && state.Retreat is null, "An action is still being resolved.");
+        if (e.Reason == ActivationEndReason.TakenDown)
+        {
+            Require(state.FindModel(e.Model)!.Status != ModelStatus.Standing, "An activation ends as taken Down only when the model is Down or Out of Action.");
+        }
         return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false };
     }
 
@@ -336,7 +359,7 @@ public static class Reducer
             default:
                 throw new InvalidEventException("Unknown outcome reason.");
         }
-        return state with { Phase = Phase.Ended, Pending = null, InProgress = null, Outcome = new MatchOutcome(e.Winner, e.Reason) };
+        return state with { Phase = Phase.Ended, Pending = null, InProgress = null, Retreat = null, Outcome = new MatchOutcome(e.Winner, e.Reason) };
     }
 
     internal static bool HasModelOnBattlefield(MatchState state, Seat seat) =>
@@ -393,7 +416,8 @@ public static class Reducer
         var model = Active(state, e.Model, "A move");
         if (e.Kind == MoveKind.Move)
         {
-            Require(state.InProgress is null && !state.Actions.HasFlag(ActionsTaken.Move), "A Move can be taken once per activation.");
+            Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
+                "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.");
         }
         else
         {
@@ -435,17 +459,19 @@ public static class Reducer
     private static MatchState OnRangedAttackDeclared(MatchState state, RangedAttackDeclared e)
     {
         var attacker = Active(state, e.Attacker, "A Ranged Attack");
-        Require(state.InProgress is null && !state.Actions.HasFlag(ActionsTaken.Shoot), "A Shoot ACTION can be taken once per activation.");
+        Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Shoot | ActionsTaken.Charge | ActionsTaken.Fight)) == 0,
+            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION.");
         var target = state.FindModel(e.Target);
         Require(target is not null, "Unknown target.");
         var facts = Board.Assess(state, attacker, target!);
         Require(facts.IsLegal, "The attack is not legal here.");
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId
             && facts.AttackerLevel == e.AttackerLevel && facts.TargetLevel == e.TargetLevel, "The declared modifiers do not match the positions.");
+        Require(facts.IntoMelee == e.IntoMelee, "A target within 1\" of a friendly model needs the D6 that decides who is shot, and no other does.");
         return state with
         {
             Actions = state.Actions | ActionsTaken.Shoot,
-            InProgress = new RollInProgress(RollStage.ShotRoll, e.Attacker, e.Target, 0, e.PenaltyDice),
+            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, 0, e.PenaltyDice),
         };
     }
 
@@ -472,9 +498,12 @@ public static class Reducer
     {
         Require(state.InProgress is { Stage: RollStage.InjuryRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No Injury Roll is waiting.");
         var progress = state.InProgress!;
+        var attacker = state.FindModel(e.Attacker)!;
         var target = state.FindModel(e.Target)!;
-        Require(target.Seat != state.FindModel(e.Attacker)!.Seat && target.Id != state.ActiveModel, "An attack can only injure an enemy model.");
-        var weapon = state.Setup!.ProfileOf(e.Attacker)!.RangedInjuryModifier;
+        Require(target.Id != attacker.Id && (target.Seat == attacker.Seat) == progress.FriendlyFire,
+            "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one.");
+        var profile = state.Setup!.ProfileOf(e.Attacker)!;
+        var weapon = progress.Kind == AttackKind.Melee ? profile.MeleeInjuryModifier : profile.RangedInjuryModifier;
         var armour = state.Setup.ProfileOf(e.Target)!.Armour;
         Require(e.Injury.NetDice == progress.BonusDice - progress.PenaltyDice
             && e.Injury.Modifier == InjuryRoll.CombineModifiers([weapon, armour])
@@ -488,6 +517,163 @@ public static class Reducer
             _ => target with { BloodMarkers = markers },
         };
         return TurnRules.WithModel(state, hurt) with { InProgress = null };
+    }
+
+    // ---- M4 Slice B: Charge, Retreat, Fight, shooting into melee ----
+
+    private static MatchState OnChargeDeclared(MatchState state, ChargeDeclared e)
+    {
+        var charger = Active(state, e.Model, "A Charge");
+        Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat | ActionsTaken.Shoot)) == 0,
+            "A Charge is one of Move, Charge or Retreat, and cannot follow a Shoot ACTION.");
+        var target = state.FindModel(e.Target);
+        Require(target is not null && Board.AssessCharge(state, charger, target) is null, "The charge is not legal here.");
+        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(RollStage.ChargeRoll, e.Model, e.Target) };
+    }
+
+    private static MatchState OnChargeRolled(MatchState state, ChargeRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.ChargeRoll } p && p.Actor == e.Model && p.Target == e.Target && state.Pending is null, "No Charge Bonus is waiting.");
+        return state with { InProgress = state.InProgress! with { Stage = RollStage.ChargeMove, ChargeDie = e.Die } };
+    }
+
+    private static MatchState OnChargeMoved(MatchState state, ChargeMoved e)
+    {
+        var charger = Active(state, e.Model, "A charge move");
+        Require(state.InProgress is { Stage: RollStage.ChargeMove } p && p.Actor == e.Model && p.Target == e.Target, "No charge move is waiting.");
+        var progress = state.InProgress!;
+        var plan = Board.PlanCharge(state, charger, state.FindModel(e.Target)!, progress.ChargeDie);
+        Require(plan.Path.SequenceEqual(e.Path) && plan.Cost == e.Cost && plan.Reached == e.Reached, "The charge move must be the one the rules plan from the Charge Bonus.");
+        var moved = e.Path.IsEmpty ? charger : charger with { Position = e.Path[^1] };
+        return TurnRules.WithModel(state, moved) with { InProgress = null };
+    }
+
+    private static MatchState OnRetreatDeclared(MatchState state, RetreatDeclared e)
+    {
+        var retreater = Active(state, e.Model, "A Retreat");
+        Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
+            "A Retreat is one of Move, Charge or Retreat.");
+        Require(Board.CheckRetreat(state, retreater, e.Path) is null, "A retreat must follow a legal path and end more than 1\" from every enemy.");
+        return state with { Actions = state.Actions | ActionsTaken.Retreat, Retreat = new RetreatInProgress(e.Model, e.Path, []) };
+    }
+
+    private static MatchState OnFreeFightsDeclined(MatchState state, FreeFightsDeclined e)
+    {
+        Require(state.Pending is { Kind: DecisionKind.FreeFight } p && p.Seat == e.Seat && state.Retreat is { Closed: false }, "No free attack is on offer to that seat.");
+        return state with { Pending = null, Retreat = state.Retreat! with { Closed = true } };
+    }
+
+    private static MatchState OnRetreatResolved(MatchState state, RetreatResolved e)
+    {
+        var current = state.Retreat;
+        Require(state.Phase == Phase.Activation && state.ActiveModel == e.Model && state.Pending is null && state.InProgress is null
+            && current is not null && current.Model == e.Model, "No retreat is waiting to be finished.");
+        var retreat = current!;
+        var retreater = state.FindModel(e.Model)!;
+        Require(retreat.Closed || Board.FreeFighters(state, retreat).Count == 0, "The opponent can still make free attacks.");
+        if (e.Moved)
+        {
+            Require(retreater.Status == ModelStatus.Standing && e.Path.SequenceEqual(retreat.Path) && Board.CheckRetreat(state, retreater, e.Path) is null
+                && Board.RetreatCost(state, retreater, e.Path) == e.Cost, "A standing model finishes its retreat along the declared path at the recorded cost.");
+            retreater = retreater with { Position = e.Path[^1] };
+        }
+        else
+        {
+            Require(retreater.Status != ModelStatus.Standing, "Only a model taken Down or Out of Action by a free attack stays where it is.");
+        }
+        return TurnRules.WithModel(state, retreater) with { Retreat = null };
+    }
+
+    private static MatchState OnMeleeAttackDeclared(MatchState state, MeleeAttackDeclared e)
+    {
+        var attacker = state.FindModel(e.Attacker);
+        var target = state.FindModel(e.Target);
+        Require(attacker is not null && target is not null, "Unknown model.");
+        if (!e.FreeFight)
+        {
+            var fighter = Active(state, e.Attacker, "A Fight");
+            Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Fight | ActionsTaken.Shoot)) == 0,
+                "A Fight ACTION is taken once per activation and not after a Shoot ACTION.");
+            var facts = Board.AssessMelee(state, fighter, target!);
+            Require(facts.Refusal is null && facts.CoverTerrainId == e.DefendedObstacleId, "The Melee Attack is not legal here, or its modifiers do not match the positions.");
+            return state with
+            {
+                Actions = state.Actions | ActionsTaken.Fight,
+                InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, 0, e.PenaltyDice, Kind: AttackKind.Melee),
+            };
+        }
+
+        var retreat = state.Retreat;
+        Require(state.Phase == Phase.Activation && retreat is { Closed: false } && state.InProgress is null && retreat.Model == e.Target
+            && state.Pending == new PendingDecision(DecisionKind.FreeFight, target!.Seat.Opponent()), "A free attack answers the offer made to the opponent of a retreating model.");
+        Require(Board.FreeFighters(state, retreat!).Any(m => m.Id == e.Attacker), "That model cannot make a free attack.");
+        var free = Board.AssessMelee(state, attacker!, target!);
+        Require(free.Refusal is null && free.CoverTerrainId == e.DefendedObstacleId, "The free attack is not legal here, or its modifiers do not match the positions.");
+        return state with
+        {
+            Pending = null,
+            Retreat = retreat! with { Fought = retreat!.Fought.Add(e.Attacker) },
+            InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, 0, e.PenaltyDice, Kind: AttackKind.Melee, FreeFight: true),
+        };
+    }
+
+    private static MatchState OnMeleeSuccessRolled(MatchState state, MeleeSuccessRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.FightRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No Melee Attack roll is waiting.");
+        var progress = state.InProgress!;
+        var attacker = state.FindModel(e.Attacker)!;
+        Require(e.Check.Risky == state.IsShaken(attacker.Seat) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
+            "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken.");
+        if (e.Check.Outcome == SuccessOutcome.Failure)
+        {
+            return state with { InProgress = null };
+        }
+        // +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
+        var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
+        var onDownTarget = state.FindModel(e.Target)!.Status == ModelStatus.Down;
+        return state with
+        {
+            InProgress = progress with
+            {
+                Stage = RollStage.InjuryRoll,
+                BonusDice = (critical ? 1 : 0) + (onDownTarget ? 1 : 0),
+                PenaltyDice = 0,
+                Critical = critical,
+                MarkersAsked = false,
+            },
+        };
+    }
+
+    private static MatchState OnShootingTargetRolled(MatchState state, ShootingTargetRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.TargetRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No target roll is waiting.");
+        return state with { InProgress = state.InProgress! with { Stage = e.HitsFriend ? RollStage.TargetChoice : RollStage.ShotRoll } };
+    }
+
+    private static MatchState OnFriendlyTargetChosen(MatchState state, FriendlyTargetChosen e)
+    {
+        Require(state.InProgress is { Stage: RollStage.TargetChoice } p && p.Actor == e.Attacker && state.Pending is { Kind: DecisionKind.ChooseFriendlyTarget }, "No choice of friendly target is waiting.");
+        var progress = state.InProgress!;
+        var shooter = state.FindModel(e.Attacker)!;
+        Require(state.Pending!.Seat == shooter.Seat, "The shooter makes this choice.");
+        var victim = state.FindModel(e.Victim);
+        var intended = Board.BodyOf(state, state.FindModel(progress.Target!.Value)!)!;
+        Require(victim is not null && Board.FriendsNear(state, shooter, intended).Any(m => m.Id == e.Victim), "The shot must be aimed at one of the shooter's own models within 1\" of the target.");
+        var facts = Board.ForcedShotFacts(state, shooter, victim!);
+        Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId, "The declared modifiers do not match the positions.");
+        return state with
+        {
+            Pending = null,
+            InProgress = progress with
+            {
+                Stage = RollStage.ShotRoll,
+                Target = e.Victim,
+                FriendlyFire = true,
+                BonusDice = 0,
+                PenaltyDice = (e.LongRange ? 1 : 0) + (e.InCover ? 1 : 0),
+                MarkersAsked = false,
+            },
+        };
     }
 
     private static MatchState OnObjectivesScored(MatchState state, ObjectivesScored e)
