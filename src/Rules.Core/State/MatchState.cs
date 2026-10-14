@@ -31,6 +31,8 @@ public enum OutcomeReason
 // Winner is null for a draw, and for FinalTurnComplete where no scoring exists.
 public sealed record MatchOutcome(Seat? Winner, OutcomeReason Reason);
 
+// MustFlee: the warband failed its Morale Check while already Shaken, so it flees next (p. 50). The state cannot
+// show this otherwise: a warband that chose to become Shaken after failing looks the same once it has chosen.
 public sealed record SeatState(
     Seat Seat,
     string? ZoneId = null,
@@ -38,7 +40,12 @@ public sealed record SeatState(
     bool Fled = false,
     bool MoraleChecked = false,
     SuccessOutcome? MoraleOutcome = null,
-    int VictoryPoints = 0);
+    int VictoryPoints = 0,
+    bool MustFlee = false);
+
+// The result of a roll-off, kept until the event it decides has used it: the zone choice, the deployment order or
+// the Initiative. The winner is worked out from the recorded dice, never taken from the event.
+public sealed record RollOffResult(Events.RollOffPurpose Purpose, Seat Winner);
 
 [Flags]
 public enum ActionsTaken
@@ -119,6 +126,12 @@ public sealed record MatchState
     public RetreatInProgress? Retreat { get; init; }
     public int ScoredTurn { get; init; }
     public MatchOutcome? Outcome { get; init; }
+
+    // A roll-off that has been rolled but not yet used (see RollOffResult).
+    public RollOffResult? RollOff { get; init; }
+
+    // A Risky roll of the active model failed (a Dash, or a Shaken warband's attack): its activation ends next.
+    public bool MustEndActivation { get; init; }
 
     public SeatState SeatFor(Seat seat) => seat == Seat.One ? One : Two;
 

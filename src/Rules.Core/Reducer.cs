@@ -41,10 +41,11 @@ public static class Reducer
 
         Require(state.Phase != Phase.None, "No match has been created.");
         Require(state.Phase != Phase.Ended, "The match has ended.");
+        RequireFollowUp(state, e);
 
         return e switch
         {
-            RollOffResolved => state,
+            RollOffResolved x => OnRollOffResolved(state, x),
             DecisionRequested x => OnDecisionRequested(state, x),
             DeploymentZoneChosen x => OnZoneChosen(state, x),
             DeploymentOrderSet x => OnDeploymentOrderSet(state, x),
@@ -85,6 +86,161 @@ public static class Reducer
         };
     }
 
+    // Some states leave exactly one event that can come next, because the rules give nobody a choice: the match is
+    // over, a roll-off has to be used, a Risky roll failed, a Down model stands, a Morale result takes effect, or the
+    // opponent must be asked about Blood Markers. Decide always emits that event; a log that does anything else was
+    // edited. Everything here is worked out from the state, except the two facts it cannot show (MustEndActivation,
+    // SeatState.MustFlee) and the roll-off result.
+    private static void RequireFollowUp(MatchState state, GameEvent e)
+    {
+        if (TerminalReason(state) is { } reason)
+        {
+            Require(e is MatchEnded ended && ended.Reason == reason, $"The match is over ({reason}); only the end of the match can follow.");
+            return;
+        }
+
+        if (state.RollOff is { } rollOff)
+        {
+            var uses = rollOff.Purpose switch
+            {
+                RollOffPurpose.DeploymentZone => e is PhaseEntered { Phase: Phase.Deployment }
+                    || e is DecisionRequested { Kind: DecisionKind.ChooseDeploymentZone },
+                RollOffPurpose.DeploymentOrder => e is DeploymentOrderSet,
+                _ => e is InitiativeDetermined,
+            };
+            Require(uses, $"The {rollOff.Purpose} roll-off has to be used before anything else happens.");
+            return;
+        }
+
+        if (state.MustEndActivation)
+        {
+            Require(e is ActivationEnded { Reason: ActivationEndReason.RiskyFailure } lost && lost.Model == state.ActiveModel,
+                "A failed Risky roll ends the activation at once.");
+            return;
+        }
+
+        foreach (var seat in new[] { Seat.One, Seat.Two })
+        {
+            var s = state.SeatFor(seat);
+            if (s.MustFlee)
+            {
+                Require(e is WarbandFled { Reason: FledReason.FailedWhileShaken } fled && fled.Seat == seat, "A Shaken warband that fails its Morale Check flees.");
+                return;
+            }
+            if (s.MoraleChecked && s.MoraleOutcome == SuccessOutcome.Success && s.Shaken)
+            {
+                Require(e is WarbandRecovered recovered && recovered.Seat == seat, "A Shaken warband that passes its Morale Check recovers.");
+                return;
+            }
+            if (s.MoraleChecked && s.MoraleOutcome == SuccessOutcome.Failure && !s.Shaken && !s.Fled && state.Pending is null)
+            {
+                Require(e is DecisionRequested { Kind: DecisionKind.FailedMorale } asked && asked.Seat == seat,
+                    "A warband that fails its Morale Check chooses at once between becoming Shaken and Sounding the Retreat.");
+                return;
+            }
+        }
+
+        if (state.Phase == Phase.Activation && state.ActiveModel is { } active && state.Pending is null && state.InProgress is null
+            && state.Retreat is null && Board.ScenarioOf(state) is not null && state.FindModel(active) is { } model && model.Status != ModelStatus.Standing)
+        {
+            if (state.Actions == ActionsTaken.None && !state.MovementHalved)
+            {
+                // U30: a Down model stands up as soon as its activation starts.
+                Require(e is ModelStoodUp up && up.Model == active, "A Down model stands up as soon as it activates.");
+            }
+            else
+            {
+                // Taken Down or Out of Action by a free attack during its own Retreat: the activation ends (p. 49).
+                Require(e is ActivationEnded { Reason: ActivationEndReason.TakenDown } down && down.Model == active,
+                    "A model taken Down during its own activation ends it.");
+            }
+            return;
+        }
+
+        if (MarkerOfferOwed(state) is { } owed)
+        {
+            Require(e is DecisionRequested offer && offer.Kind == owed.Kind && offer.Seat == owed.Seat,
+                "The opponent must be asked about Blood Markers before this roll.");
+        }
+    }
+
+    // The match is over once a warband has fled, a warband has no model left on the battlefield, or the final turn
+    // has ended. MatchEnded with this reason is then the only event that can follow.
+    internal static OutcomeReason? TerminalReason(MatchState state)
+    {
+        if (state.Phase is Phase.None or Phase.PreGame or Phase.Ended)
+        {
+            return null;
+        }
+        if (state.One.Fled || state.Two.Fled)
+        {
+            return OutcomeReason.OpponentFled;
+        }
+        var scenario = Board.ScenarioOf(state);
+        if (scenario is not null && state.Phase == Phase.Activation
+            && (!HasModelOnBattlefield(state, Seat.One) || !HasModelOnBattlefield(state, Seat.Two)))
+        {
+            return OutcomeReason.AllEnemiesOutOfAction;
+        }
+        if (state.Phase == Phase.Morale && state.TurnEnded && state.Turn >= state.Setup!.TurnLimit)
+        {
+            return scenario is null ? OutcomeReason.FinalTurnComplete : OutcomeReason.VictoryPoints;
+        }
+        return null;
+    }
+
+    // Decide asks the opponent about Blood Markers whenever the model whose markers count has any and nobody has been
+    // asked yet for this roll (pp. 27-28): before a Success Roll the rolling model's opponent, before an Injury Roll
+    // the attacker (never on a friendly-fire injury, U52).
+    private static PendingDecision? MarkerOfferOwed(MatchState state)
+    {
+        if (state.Pending is not null || state.InProgress is not { MarkersAsked: false } progress || state.FindModel(progress.Actor) is not { } actor)
+        {
+            return null;
+        }
+        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll && actor.BloodMarkers > 0)
+        {
+            return new PendingDecision(DecisionKind.SpendMarkersOnSuccessRoll, actor.Seat.Opponent());
+        }
+        if (progress.Stage == RollStage.InjuryRoll && !progress.FriendlyFire && progress.Target is { } target
+            && state.FindModel(target) is { BloodMarkers: > 0 })
+        {
+            return new PendingDecision(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat);
+        }
+        return null;
+    }
+
+    // Each round is checked again here and the winner is read from the last round's dice, so a log cannot name a
+    // different winner than its dice show. The roll-off must be one the sequence calls for at this point.
+    private static MatchState OnRollOffResolved(MatchState state, RollOffResolved e)
+    {
+        var rounds = e.Rounds;
+        Require(!rounds.IsDefaultOrEmpty && rounds.All(r => r is not null && r.SeatOne is >= 1 and <= 6 && r.SeatTwo is >= 1 and <= 6),
+            "A roll-off has at least one round of two D6.");
+        Require(rounds.Take(rounds.Length - 1).All(r => r.IsTie) && !rounds[^1].IsTie, "Every round but the last is a tie, and the last is not.");
+        var winner = rounds[^1].SeatOne > rounds[^1].SeatTwo ? Seat.One : Seat.Two;
+        Require(e.Winner == winner, "The winner is the seat with the higher die in the last round.");
+        switch (e.Purpose)
+        {
+            case RollOffPurpose.DeploymentZone:
+                Require(state.Phase == Phase.PreGame && state.Pending is null, "The deployment-zone roll-off comes first, before Deployment.");
+                break;
+            case RollOffPurpose.DeploymentOrder:
+                Require(state.Phase == Phase.Deployment && state.Pending is null && state.One.ZoneId is not null && state.DeploymentFirst is null
+                    && TurnRules.WarbandSize(state, Seat.One) == TurnRules.WarbandSize(state, Seat.Two),
+                    "The deployment-order roll-off happens once, after the zones are chosen, and only between equal warbands.");
+                break;
+            case RollOffPurpose.Initiative:
+                Require(state.Phase == Phase.Initiative && state.Pending is null && state.InitiativeHolder is null
+                    && TurnRules.InitiativeCount(state, Seat.One) == TurnRules.InitiativeCount(state, Seat.Two),
+                    "The Initiative roll-off happens once per turn, and only when both sides count the same models.");
+                break;
+            default:
+                throw new InvalidEventException("Unknown roll-off purpose.");
+        }
+        return state with { RollOff = new RollOffResult(e.Purpose, winner) };
+    }
+
     private static MatchState OnDecisionRequested(MatchState state, DecisionRequested e)
     {
         Require(state.Pending is null, "A decision is already pending.");
@@ -92,6 +248,8 @@ public static class Reducer
         {
             case DecisionKind.ChooseDeploymentZone:
                 Require(state.Phase == Phase.Deployment && state.One.ZoneId is null, "Zones are chosen once, at the start of Deployment.");
+                Require(state.RollOff == new RollOffResult(RollOffPurpose.DeploymentZone, e.Seat), "The winner of the deployment-zone roll-off chooses the zone.");
+                state = state with { RollOff = null };
                 break;
             case DecisionKind.ChooseFirstActivation:
                 Require(state.Phase == Phase.Initiative && state.InitiativeHolder == e.Seat && state.FirstActivator is null,
@@ -115,7 +273,8 @@ public static class Reducer
                 break;
             case DecisionKind.SpendMarkersOnInjuryRoll:
                 var injuring = state.InProgress;
-                Require(injuring is { Stage: RollStage.InjuryRoll, MarkersAsked: false, Target: { } victim }
+                // U52: nobody spends a friendly model's markers on a forced shot's Injury Roll.
+                Require(injuring is { Stage: RollStage.InjuryRoll, MarkersAsked: false, FriendlyFire: false, Target: { } victim }
                     && state.FindModel(injuring.Actor) is { } shooter && shooter.Seat == e.Seat
                     && state.FindModel(victim) is { BloodMarkers: > 0 }, "Only the attacker may spend the target's markers, once, before an Injury Roll.");
                 state = state with { InProgress = injuring! with { MarkersAsked = true } };
@@ -150,7 +309,18 @@ public static class Reducer
     {
         Require(state.Phase == Phase.Deployment && state.Pending is null && state.One.ZoneId is not null && state.DeploymentFirst is null,
             "Deployment order is set once, after the zones are chosen.");
-        return state with { DeploymentFirst = e.First };
+        // The warband with more models deploys first; equal warbands roll off and the winner starts (p. 152, R7).
+        var one = TurnRules.WarbandSize(state, Seat.One);
+        var two = TurnRules.WarbandSize(state, Seat.Two);
+        if (one != two)
+        {
+            Require(state.RollOff is null && e.First == (one > two ? Seat.One : Seat.Two), "The warband with more models deploys first.");
+        }
+        else
+        {
+            Require(state.RollOff == new RollOffResult(RollOffPurpose.DeploymentOrder, e.First), "Equal warbands roll off, and the winner deploys first.");
+        }
+        return state with { DeploymentFirst = e.First, RollOff = null };
     }
 
     private static MatchState OnModelDeployed(MatchState state, ModelDeployed e)
@@ -176,6 +346,7 @@ public static class Reducer
         switch ((state.Phase, e.Phase))
         {
             case (Phase.PreGame, Phase.Deployment):
+                Require(state.RollOff is { Purpose: RollOffPurpose.DeploymentZone }, "Deployment starts after the deployment-zone roll-off.");
                 break;
             case (Phase.Initiative, Phase.Activation):
                 Require(state.FirstActivator is not null, "Nobody has chosen who activates first.");
@@ -192,6 +363,7 @@ public static class Reducer
     private static MatchState OnTurnStarted(MatchState state, TurnStarted e)
     {
         Require(e.Turn == state.Turn + 1, "Turns count up by one.");
+        Require(e.Turn <= state.Setup!.TurnLimit, "The match has no more turns.");
         if (state.Phase == Phase.Deployment)
         {
             Require(state.Turn == 0 && state.Models.All(m => m.Deployed) && state.Pending is null, "Deployment is not finished.");
@@ -221,8 +393,15 @@ public static class Reducer
         var one = TurnRules.InitiativeCount(state, Seat.One);
         var two = TurnRules.InitiativeCount(state, Seat.Two);
         Require(e.CountSeatOne == one && e.CountSeatTwo == two, "Counts do not match the state.");
-        Require(one == two || e.Holder == (one < two ? Seat.One : Seat.Two), "The seat with fewer models holds the Initiative.");
-        return state with { InitiativeHolder = e.Holder };
+        if (one != two)
+        {
+            Require(state.RollOff is null && e.Holder == (one < two ? Seat.One : Seat.Two), "The seat with fewer models holds the Initiative.");
+        }
+        else
+        {
+            Require(state.RollOff == new RollOffResult(RollOffPurpose.Initiative, e.Holder), "On equal counts the Initiative roll-off decides who holds it.");
+        }
+        return state with { InitiativeHolder = e.Holder, RollOff = null };
     }
 
     private static MatchState OnFirstActivationChosen(MatchState state, FirstActivationChosen e)
@@ -256,7 +435,11 @@ public static class Reducer
         {
             Require(state.FindModel(e.Model)!.Status != ModelStatus.Standing, "An activation ends as taken Down only when the model is Down or Out of Action.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false };
+        if (e.Reason == ActivationEndReason.RiskyFailure)
+        {
+            Require(state.MustEndActivation, "An activation ends for a failed Risky roll only after one.");
+        }
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -284,10 +467,12 @@ public static class Reducer
         Require(e.ModelsDownOrOut == TurnRules.DownOrOut(state, e.Seat)
             && e.WarbandSize == TurnRules.WarbandSize(state, e.Seat)
             && e.WasShaken == state.SeatFor(e.Seat).Shaken, "Counts do not match the state.");
+        var failed = e.Check.Outcome == Dice.SuccessOutcome.Failure;
         var seat = state.SeatFor(e.Seat) with
         {
             MoraleChecked = true,
-            MoraleOutcome = e.Check.Outcome == Dice.SuccessOutcome.Failure ? Dice.SuccessOutcome.Failure : Dice.SuccessOutcome.Success,
+            MoraleOutcome = failed ? Dice.SuccessOutcome.Failure : Dice.SuccessOutcome.Success,
+            MustFlee = failed && e.WasShaken,
         };
         return TurnRules.WithSeat(state, e.Seat, seat);
     }
@@ -314,7 +499,7 @@ public static class Reducer
         switch (e.Reason)
         {
             case FledReason.FailedWhileShaken:
-                Require(s.Shaken && state.Pending is null, "Only a Shaken warband flees without a choice.");
+                Require(s.Shaken && s.MustFlee && state.Pending is null, "Only a warband that failed while already Shaken flees without a choice.");
                 break;
             case FledReason.SoundedRetreat:
                 Require(!s.Shaken && state.Pending == new PendingDecision(DecisionKind.FailedMorale, e.Seat), "No retreat choice is pending.");
@@ -322,7 +507,7 @@ public static class Reducer
             default:
                 throw new InvalidEventException("Unknown reason.");
         }
-        return TurnRules.WithSeat(state, e.Seat, s with { Fled = true }) with { Pending = null };
+        return TurnRules.WithSeat(state, e.Seat, s with { Fled = true, MustFlee = false }) with { Pending = null };
     }
 
     private static MatchState OnTurnEnded(MatchState state, TurnEnded e)
@@ -336,6 +521,7 @@ public static class Reducer
 
     private static MatchState OnMatchEnded(MatchState state, MatchEnded e)
     {
+        Require(TerminalReason(state) == e.Reason, "The match ends only when that outcome has actually happened.");
         var scenario = Board.ScenarioOf(state);
         switch (e.Reason)
         {
@@ -408,6 +594,7 @@ public static class Reducer
         return state with
         {
             InProgress = e.Check.Outcome == SuccessOutcome.Failure ? null : progress with { Stage = RollStage.DashMove },
+            MustEndActivation = e.Check.Outcome == SuccessOutcome.Failure,
         };
     }
 
@@ -484,7 +671,7 @@ public static class Reducer
             "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken.");
         if (e.Check.Outcome == SuccessOutcome.Failure)
         {
-            return state with { InProgress = null };
+            return state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure };
         }
         // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE").
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
@@ -626,7 +813,8 @@ public static class Reducer
             "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken.");
         if (e.Check.Outcome == SuccessOutcome.Failure)
         {
-            return state with { InProgress = null };
+            // Only the active model has an activation to lose; a free attack that fails simply misses (U49).
+            return state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure && !progress.FreeFight };
         }
         // +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;

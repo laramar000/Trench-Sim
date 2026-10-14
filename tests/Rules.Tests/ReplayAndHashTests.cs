@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Rules.Core;
 using Rules.Core.Commands;
+using Rules.Core.Dice;
 using Rules.Core.Events;
 using Rules.Core.State;
 
@@ -204,6 +205,19 @@ public class ReplayAndHashTests
             ["outcome"] = s with { Outcome = new MatchOutcome(Seat.One, OutcomeReason.OpponentFled) },
             ["profile"] = s with { Setup = Play.Setup(2, 2, new RulesProfile(MoraleOrder: MoraleOrderRule.InitiativeHolderFirst)) },
             ["turnLimit"] = s with { Setup = Play.Setup(2, 2, turnLimit: 5) },
+            ["deploymentFirst"] = s with { DeploymentFirst = s.DeploymentFirst!.Value.Opponent() },
+            ["lastDeployer"] = s with { LastDeployer = s.LastDeployer!.Value.Opponent() },
+            ["lastActivator"] = s with { LastActivator = Seat.Two },
+            ["moraleFirst"] = s with { MoraleFirst = Seat.Two },
+            ["moraleChecked"] = s with { One = s.One with { MoraleChecked = true } },
+            ["moraleOutcome"] = s with { One = s.One with { MoraleOutcome = SuccessOutcome.Failure } },
+            ["mustFlee"] = s with { Two = s.Two with { MustFlee = true } },
+            ["zone"] = s with { One = s.One with { ZoneId = "south" } },
+            ["deployed"] = s with { Models = [.. s.Models.Select(m => m.Id == Play.B(2) ? m with { Deployed = false } : m)] },
+            ["rollOff"] = s with { RollOff = new RollOffResult(RollOffPurpose.Initiative, Seat.One) },
+            ["rollOff.purpose"] = s with { RollOff = new RollOffResult(RollOffPurpose.DeploymentOrder, Seat.One) },
+            ["rollOff.winner"] = s with { RollOff = new RollOffResult(RollOffPurpose.Initiative, Seat.Two) },
+            ["mustEndActivation"] = s with { MustEndActivation = true },
         };
         var baseline = StateHash.Compute(s);
 
@@ -218,7 +232,9 @@ public class ReplayAndHashTests
     // bumped and every stored hash recorded under the old version is no longer comparable.
     // Re-pinned once, deliberately, for Version 2 (M4 adds positions, Blood Markers, the action ledger, the roll
     // in progress, Victory Points and the scenario geometry), and again for Version 3 (Slice B adds the Melee Weapon
-    // to the profile lines, the retreat in progress and the new roll details). The same two M2 tests, nothing else.
+    // to the profile lines, the retreat in progress and the new roll details), and for Version 4 (reducer hardening
+    // adds the unused roll-off result, the forced end of an activation and the forced flee). The Version 4 opening
+    // state, with those three additions taken out, still hashes to the Version 3 pin 3dbdc503...c69b.
     [Fact]
     [Trait("Rule", "Architecture: canonical state hash")]
     public void GoldenCanonicalTextForAFreshMatch()
@@ -240,7 +256,7 @@ public class ReplayAndHashTests
     }
 
     private const string GoldenFreshText = """
-trench-state=3
+trench-state=4
 rules=1.0.2
 scenario=scenario-1
 turnLimit=4
@@ -264,11 +280,13 @@ scoredTurn=0
 inProgress=-
 retreat=-
 outcome=-
-seat.One=zone=-,shaken=0,fled=0,checked=0,outcome=-,vp=0
-seat.Two=zone=-,shaken=0,fled=0,checked=0,outcome=-,vp=0
+rollOff=-
+mustEndActivation=0
+seat.One=zone=-,shaken=0,fled=0,checked=0,outcome=-,vp=0,mustFlee=0
+seat.Two=zone=-,shaken=0,fled=0,checked=0,outcome=-,vp=0,mustFlee=0
 model=A1,One,Standing,deployed=0,activated=0,at=-,markers=0
 model=B1,Two,Standing,deployed=0,activated=0,at=-,markers=0
 """ + "\n";
-    private const string GoldenFreshHash = "e562d75158cf151e422e29415ee15a3338dc968c329a77c7de0623471891bf37";
-    private const string GoldenOpeningHash = "3dbdc503ad5ac12311181f9a4cf0414d10d36c22943d4a9b903b96441d64c69b";
+    private const string GoldenFreshHash = "add5231d5766b5309bb80ceb2551ff927e15d37c7afa4dcaae5240109befdeb3";
+    private const string GoldenOpeningHash = "0142c0261a788e8c698eb5eb358140b21a03767a3cf167512c937bb9d2a721cc";
 }

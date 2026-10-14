@@ -11,30 +11,33 @@ public class SimulationTests
 {
     private static readonly IReadOnlyList<Warband> Warbands = Content.Load(Content.DefaultPath());
 
-    // Regression pins of this implementation's own behaviour under StateHash version 3, not an independent oracle:
+    // Regression pins of this implementation's own behaviour under StateHash version 4, not an independent oracle:
     // a rule change that alters any of these matches must re-pin them on purpose.
+    // Re-pinned for version 4 (reducer hardening adds the roll-off result and the forced follow-ups to the canonical
+    // text): every match is event-for-event the same as under version 3, and its final state with the new lines
+    // removed hashes to the old version-3 pin.
     private static readonly Dictionary<int, string> PinnedFinalHashes = new()
     {
-        [1] = "6f6306c975ed27c733c1ef7e55bc8b0fd07c71cfe859f63bf7b14df4cab9da73",
-        [2] = "807be46212c9a1920f7efa6d7fc22cb1c5a7c1f95cb2b75bcd10481c69c8de73",
-        [3] = "5c91b33835d1ed66f54a06da051aafc4a1e192fb3b462764012f9c88a4bdde20",
-        [4] = "cfd64bc73e7edb9dcf24666733a4e5110e530f8d7a4501fb9c59ed181af126c4",
-        [5] = "0cd0654b38f5f8bbdb3a690ac80f5c7bb2d71f95606a3595a7270a4953c5dbee",
-        [6] = "9f97edb88bce828ff9cbf501c35671c37ea2c66110c7d317f183d6247832fe50",
-        [7] = "4893431b3d226eb988d993055820aa382ed0f9fd7b19e8c772640a3249ae3170",
-        [8] = "657029844a42271441b9f8886359e93a951114273a95349b2738c03736aee380",
-        [9] = "2d9d9b493927098e976bbdd4565a3506cca5aa7c3b1ceddbec6cdf230646244b",
-        [10] = "20541de3bb7106f4a64e0120e578cde109783134ac2fafd3d26d15c46e89a393",
-        [11] = "b26b3586bbad09f39218fbc02a097c50f93739ad7829675f9a02950ccd7ff122",
-        [12] = "bf1f89d1947cc749c003c19a24344f705d239d4b9975abfe10107a1f3f5ba882",
-        [13] = "f23cf02bc531fec1253dfe0c7f1b9dfbe9bc116362aaa06fdc371d106ac2f1e3",
-        [14] = "258a9e81f1a4b64d2bb4bf6014f6ae8e519e4a7b6a75c7e065bcea0cd8ca9d89",
-        [15] = "b2506bbe54a7d287b2a18e2bf9c00e5c773686d47407fc1e0555bcef8ab37790",
-        [16] = "8d87f68b883d64b80c83b8a7054c440eb78a3faca32ba2305799e61066009f64",
-        [17] = "09ef8ce365279cc6946e84c488d13b30720703e98a5c9c779bdcefecbcf67141",
-        [18] = "e180cc67a78a412308e1883ce2508d7af8bba4dbe3f8421aaa40fa689d2f52be",
-        [19] = "eaad0e347cf463d2e683646bddab95388a8057499e10277582c41347e9517272",
-        [20] = "232e8ebcc28308aa64ef50be6b202b881041cc47807a602ae3f9adead0309826"
+        [1] = "280d57a7d67f5fe24d05b6b74bed908511772480fab8bd7904682d78101a8a2e",
+        [2] = "e6ffcfc9464cfa4ce3de8635f9b431de03d922c6b798b80837b59bc50e0f2f84",
+        [3] = "9269c6a9616d310fb26f47faee25ce30e0ed6cb15631398dbd7a1b1e74776744",
+        [4] = "b90436ea7f445a576b940c1bb7d02dc2d555ce375cddd8a9c776acf75ac50c34",
+        [5] = "4355dcfc03968d1468657045876f9e0454255fbd039947c7d6a078edf5962414",
+        [6] = "72de46df8a24cef9bdc275e5f0d95c61c5de060a1cd02298d09b38ce76cc0988",
+        [7] = "a0e3550a2ce427ed0ac64f5aa0684ea47c04a5f7639962544cd0dc27f2bb5f36",
+        [8] = "40a4407a7d36aae36bc10dc8d63be7cec3bc1adb75726360665c84880549f7f8",
+        [9] = "f598b0c1d20442108272c3dc94c7590d48ba27fc314edb0d45aed5ffbf0515fd",
+        [10] = "ab25439c50b362e970458566b7f89ef19ae22b8a33adbae84f17e4730dc58d5b",
+        [11] = "c393c98ba4b0f51b50e99e66a5d0d9b930511ef8f5e0a22c4c08c757e42fd8ea",
+        [12] = "9b790703dc356aafa5acaad67261e7cae248c429a3184a0e3fa2b503c17058f1",
+        [13] = "72bf3f3e7ea568e90f2789a65f6c9f65f532ce35e47ed1d1987f5693a0a322fd",
+        [14] = "237aa37daaec748de76a736c08f486956cafdee24f156a7b2a32279bff998955",
+        [15] = "73c456ba993a3999a52254537d37ddb70764699e8cb0032a24064e313373e7bd",
+        [16] = "9ff750e903af85e7f6986c8ad6176faf5cb85de194f9825fd15d685fe59f84b9",
+        [17] = "639eb6bbd20469dc930fc58497e6f7ed76cfbe82004fe3026bf436b00be1af43",
+        [18] = "848e390e67874e1f5368e1160b7d5b42e1291afc23a7a37d0b495352fc6cb3b8",
+        [19] = "bb9e26d2ba9363a3adacb3811a4142cf1e0cfbbb09d4f22ae06c6918b8ae474b",
+        [20] = "cd84c7326529b5fe956516252cac6418720890c69718effa867516bd83a7f5c7"
     };
 
     public static TheoryData<int> Seeds() => [.. Enumerable.Range(1, 20)];

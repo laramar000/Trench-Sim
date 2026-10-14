@@ -167,6 +167,22 @@ Architecture (all through the existing command, event, reducer and staged-roll m
 
 Not rules-confirmed, so flagged: see U46 to U65, in particular the shortest-route charge planner and its conventions (U57 to U65), the contact stop (U47), free-attack sequencing (U50), and the choice of friendly victim and its modifiers (U51, U52). Question for a person to settle: whether Down models may make free attacks, and how a model forced to retreat by an effect (not an ACTION) behaves.
 
+### Replaying a log: what the reducer re-checks (M4 reducer hardening)
+
+A saved match (M6) is replayed by `Reducer.Apply` alone, so the reducer refuses every event that `Decide` could not have produced at that point. Nothing here changes what `Decide` emits: ranged and melee seeds 1 to 400 give the same events as before, field for field. Tests: `tests/Rules.Tests/Match/ForgedLogTests.cs`.
+
+- **Roll-offs.** `RollOffResolved` is no longer a no-op. The reducer re-checks the rounds (every round but the last a tie, the last not), works out the winner from the last round's dice and refuses an event that names a different one. The roll-off must be one the sequence calls for (the zone roll-off before Deployment; the deployment-order roll-off only between equal warbands, after the zones; the Initiative roll-off only on equal counts, once a turn). Its result is kept in `MatchState.RollOff` until the event it decides uses it: the zone decision must go to its winner, `DeploymentOrderSet` and `InitiativeDetermined` must name its winner on equal counts, and nothing else may happen in between. Unequal counts need no roll-off, and the larger warband deploys first and the smaller holds the Initiative.
+- **Turn limit.** `TurnStarted` beyond the scenario's turn limit is refused.
+- **The end of the match.** The reducer works out when the match is over: a warband has fled, a warband has no model left on the battlefield (during the Activation Phase, with a battlefield), or the final turn has ended. From then on the only event accepted is `MatchEnded` with that reason (and its usual winner checks); `MatchEnded` at any other point is refused. The events `Decide` emits before the formal end (the Injury Roll that takes the last model Out of Action, `WarbandFled`, the final `TurnEnded`) are unaffected.
+- **Compulsory follow-ups.** Where the rules leave no choice, only the event they require may come next:
+  - a failed Risky roll by the active model (a failed Dash, or a Shaken warband's failed shot or Melee Attack) is followed by `ActivationEnded(RiskyFailure)`, and that reason is refused without such a roll (`MatchState.MustEndActivation`; a failed free attack ends nothing, U49);
+  - a Down model whose activation has just started stands up (`ModelStoodUp`, U30);
+  - a model taken Down or Out of Action during its own Retreat ends its activation (`ActivationEnded(TakenDown)`);
+  - a Shaken warband that passes its Morale Check recovers (`WarbandRecovered`); one that fails flees (`WarbandFled`, `SeatState.MustFlee`); an unshaken warband that fails is offered the choice (`DecisionRequested(FailedMorale)`);
+  - before a Success Roll whose model has Blood Markers, and before an Injury Roll whose target has some, the opponent (or attacker) is asked first; no offer is accepted on a friendly-fire Injury Roll (U52).
+- **State and hash.** Three fields were needed because the state could not otherwise show them: the unused roll-off result, the forced end of an activation, and the forced flee. Everything else above is worked out from existing state. `StateHash` is Version 4; with those three additions removed, every Version 4 final state hashes to its Version 3 pin.
+- **Unknown commands.** A `Command` subtype the rules do not know is refused with `ReasonCode.UnknownCommand`, before anything else is looked at, instead of throwing. It rolls no dice and emits no events.
+
 ## Rulebook wording discrepancies
 
 Places where the printed rulebook disagrees with itself. These are not open questions about what to implement: each entry records the ruling in force.
