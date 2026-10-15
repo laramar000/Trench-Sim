@@ -1,0 +1,705 @@
+using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Text.RegularExpressions;
+
+// M7.3 verification runner for the Godot client. It checks the build, launches the project in Godot, then plays a
+// scripted session end to end with real processes: the match server, a proxy it can hold or cut, two Godot clients
+// driven by key presses (client/scripts/UiCheck.cs) and trench-cli bots. Every result is written to <out>/summary.md.
+//
+// dotnet run --project tools/UiCheck -- --godot <path to the Godot 4.7.2 .NET executable> [--out <folder>] [--skip-build] [--opengl]
+// On Linux without a display, run it under xvfb-run so Godot has a window to draw in.
+namespace UiCheck;
+
+public static class Program
+{
+    private static readonly List<(string Id, string Result, string Detail)> Results = [];
+    private static string _out = "";
+    private static string _repo = "";
+    private static string[] _renderer = [];
+
+    public static async Task<int> Main(string[] args)
+    {
+        var godot = Arg(args, "--godot") ?? Environment.GetEnvironmentVariable("GODOT");
+        _repo = FindRepository();
+        _out = Path.GetFullPath(Arg(args, "--out") ?? Path.Combine(_repo, "ui-check-results", DateTime.Now.ToString("yyyyMMdd-HHmmss")));
+        if (godot is null || !File.Exists(godot))
+        {
+            Console.Error.WriteLine("Give the Godot 4.7.2 .NET executable with --godot <path> (or the GODOT environment variable).");
+            return 2;
+        }
+        if (args.Contains("--opengl"))
+        {
+            // For machines without Vulkan (for example a Linux container under xvfb-run).
+            _renderer = ["--rendering-driver", "opengl3"];
+        }
+        Directory.CreateDirectory(_out);
+        Directory.CreateDirectory(Path.Combine(_out, "logs"));
+        Console.WriteLine($"Results in {_out}");
+        Record("environment", "INFO", $"{System.Runtime.InteropServices.RuntimeInformation.OSDescription}; .NET {Environment.Version}; repository {_repo}; Godot {godot}");
+        try
+        {
+            await Checks(godot, args.Contains("--skip-build"));
+        }
+        catch (Exception e)
+        {
+            Record("runner", "FAIL", $"{e.GetType().Name}: {e.Message}");
+        }
+        return WriteSummary();
+    }
+
+    private static async Task Checks(string godot, bool skipBuild)
+    {
+        // 1. Versions and builds.
+        var version = await Run("godot-version", godot, ["--version"], timeout: 60);
+        Record("godot-version", version.Exit == 0 && version.Output.Contains("4.7.2") && version.Output.Contains("mono") ? "PASS" : "FAIL",
+            $"exit {version.Exit}: {version.Output.Trim()}");
+        if (!skipBuild)
+        {
+            foreach (var configuration in new[] { "Debug", "Release" })
+            {
+                var build = await Run($"client-build-{configuration}", "dotnet", ["build", Path.Combine(_repo, "client", "Client.csproj"), "-c", configuration, "-warnaserror", "--no-incremental"], timeout: 600);
+                Record($"client-build-{configuration}", build.Exit == 0 && build.Output.Contains(" 0 Warning(s)") && build.Output.Contains(" 0 Error(s)") ? "PASS" : "FAIL",
+                    $"dotnet build client/Client.csproj -c {configuration} -warnaserror: exit {build.Exit}, {Summary(build.Output)}");
+            }
+            foreach (var project in new[] { "Match.Server", "Match.Cli" })
+            {
+                var build = await Run($"build-{project}", "dotnet", ["build", Path.Combine(_repo, "src", project), "-c", "Debug", "-warnaserror"], timeout: 600);
+                Record($"build-{project}", build.Exit == 0 ? "PASS" : "FAIL", $"exit {build.Exit}, {Summary(build.Output)}");
+            }
+        }
+        var editorBuild = await Run("godot-build-solutions", godot, ["--headless", "--path", Path.Combine(_repo, "client"), "--build-solutions", "--quit"], timeout: 600);
+        Record("godot-build-solutions", editorBuild.Exit == 0 && !editorBuild.Output.Contains("ERROR") ? "PASS" : "FAIL",
+            $"godot --headless --build-solutions --quit: exit {editorBuild.Exit}{Errors(editorBuild.Output)}");
+
+        // 2. The scene itself, launched by Godot in a window (not only built).
+        var launch = await Run("godot-launch", godot, [.. _renderer, "--path", Path.Combine(_repo, "client"), "--quit-after", "120"], timeout: 120);
+        Record("godot-launch-scene", launch.Exit == 0 && launch.Output.Contains("Godot Engine v4.7.2") && EngineErrors([.. launch.Output.Split('\n')]).Count == 0 ? "PASS" : "FAIL",
+            $"godot --path client --quit-after 120 (main scene, real window, 120 frames): exit {launch.Exit}{Errors(launch.Output)}");
+
+        // 3. End to end.
+        await EndToEnd(godot);
+    }
+
+    private static async Task EndToEnd(string godot)
+    {
+        var e2e = Path.Combine(_out, "e2e");
+        Directory.CreateDirectory(e2e);
+        var serverDll = Path.Combine(_repo, "src", "Match.Server", "bin", "Debug", "net10.0", "Match.Server.dll");
+        var cliDll = Path.Combine(_repo, "src", "Match.Cli", "bin", "Debug", "net10.0", "trench-cli.dll");
+        var port = FreePort();
+        var data = Path.Combine(_out, "server-data");
+        var server = Start("server", "dotnet", [serverDll, "--port", port.ToString(), "--data", data], null);
+        await server.WaitFor(l => l.Contains("Listening on"), 60, "server start");
+        using var proxyA = new Proxy(port);
+        using var proxyB = new Proxy(port);
+        var urlA = $"ws://127.0.0.1:{proxyA.Port}/match";
+        var urlB = $"ws://127.0.0.1:{proxyB.Port}/match";
+        var homeA = Path.Combine(_out, "home-a");
+        var homeB = Path.Combine(_out, "home-b");
+        var processes = new List<Child> { server };
+        try
+        {
+            var host = Start("godot-host", godot, GodotArgs("host", e2e, urlA, null), homeA);
+            processes.Add(host);
+            var code = await Mark(e2e, "host", "code", 120);
+            var guest = Start("godot-guest", godot, GodotArgs("guest", e2e, urlB, code), homeB);
+            processes.Add(guest);
+            await Mark(e2e, "host", "joined", 120);
+            await Mark(e2e, "guest", "joined", 120);
+            var decider = await FirstMark(e2e, ["host", "guest"], "decider", 60);
+            proxyA.Hold();
+            proxyB.Hold();
+            Signal(e2e, "hold");
+            await Mark(e2e, decider, "sent", 60);
+            proxyA.Release();
+            proxyB.Release();
+            await Mark(e2e, "host", "zone-done", 60);
+            await Mark(e2e, "guest", "zone-done", 60);
+
+            // Close the second client (it saved its seat), let trench-cli take both seats and play, then stop it.
+            Signal(e2e, "close");
+            var guestExit = await guest.Exit(60);
+            Record("guest-closes-cleanly", guestExit == 0 ? "PASS" : "FAIL", $"second Godot client exit code {guestExit}");
+            var cliB = Start("cli-b-1", "dotnet", [cliDll, "--server", urlB, "rejoin", code, "--seat", "Two", "--bot", "7"], homeB);
+            await cliB.WaitFor(l => l.Contains("You are Seat Two"), 60, "trench-cli rejoins Seat Two");
+            var cliA = Start("cli-a", "dotnet", [cliDll, "--server", urlA, "rejoin", code, "--seat", "One", "--bot", "3"], homeA);
+            processes.AddRange([cliB, cliA]);
+            var ended = new Regex(@"\]\s+a\d ends its activation");
+            await cliA.WaitFor(l => cliA.Lines.Count(x => ended.IsMatch(x)) >= 2 || l.Contains("MATCH ENDED"), 180, "trench-cli plays two activations for Seat One");
+            cliA.Kill();
+            cliB.Kill();
+            var cliEvents = cliA.Lines.Where(l => Regex.IsMatch(l, @"^\s+\[\d+\]")).ToList();
+            Record("cli-played", cliEvents.Count(l => l.Contains(" sets up ")) == 8 ? "PASS" : "FAIL",
+                $"trench-cli (both seats, bots) deployed {cliEvents.Count(l => l.Contains(" sets up "))} models and showed {cliEvents.Count} events");
+            Signal(e2e, "takeback");
+            await Mark(e2e, "host", "took-back", 120);
+
+            var cliB2 = Start("cli-b-2", "dotnet", [cliDll, "--server", urlB, "rejoin", code, "--seat", "Two", "--bot", "7"], homeB);
+            processes.Add(cliB2);
+            await Mark(e2e, "host", "played", 300);
+            cliB2.Kill();
+
+            // Reopen the second client: it should list its saved seat and rejoin Seat Two.
+            var reopen = Start("godot-reopen", godot, GodotArgs("reopen", e2e, urlB, code), homeB);
+            processes.Add(reopen);
+            Signal(e2e, "compare");
+            await Mark(e2e, "host", "compared", 120);
+            await Mark(e2e, "reopen", "compared", 120);
+            Compare(Dumps(e2e, "host", "compare"), Dumps(e2e, "reopen", "compare"));
+            SameAsCli(cliEvents, Dumps(e2e, "host", "compare").GetValueOrDefault("log", ""));
+
+            // Network interruption for the host only.
+            proxyA.Cut();
+            Signal(e2e, "cut");
+            await Mark(e2e, "host", "gave-up", 120);
+            proxyA.Restore();
+            Signal(e2e, "restored");
+            await Mark(e2e, "host", "rejoined", 120);
+            await Mark(e2e, "host", "a11y-done", 180);
+
+            // The server stops and starts again on the same port and data.
+            server.Kill();
+            Signal(e2e, "server-stopped");
+            await Mark(e2e, "host", "server-stop-seen", 60);
+            await Mark(e2e, "reopen", "server-stop-seen", 60);
+            var restarted = Start("server-2", "dotnet", [serverDll, "--port", port.ToString(), "--data", data], null);
+            processes.Add(restarted);
+            await restarted.WaitFor(l => l.Contains("Listening on"), 60, "server restart");
+            Record("server-restart-recovery", "INFO",
+                string.Join(" ", restarted.Lines.Where(l => l.Contains("Recovered") || l.Contains("Listening"))));
+            Signal(e2e, "server-started");
+            Record("host-exit", await host.Exit(240) == 0 ? "PASS" : "FAIL", $"host Godot exit code {host.ExitCode} (0 = all its checks passed)");
+            Record("reopen-exit", await reopen.Exit(120) == 0 ? "PASS" : "FAIL", $"reopened Godot exit code {reopen.ExitCode}");
+        }
+        finally
+        {
+            foreach (var process in processes)
+            {
+                process.Kill();
+            }
+            foreach (var role in new[] { "host", "guest", "reopen" })
+            {
+                var log = Path.Combine(e2e, $"{role}.log");
+                if (File.Exists(log))
+                {
+                    foreach (var line in File.ReadAllLines(log))
+                    {
+                        var check = Regex.Match(line, @"CHECK (\S+) (PASS|FAIL) ?(.*)$");
+                        if (check.Success)
+                        {
+                            Record($"{role}: {check.Groups[1].Value}", check.Groups[2].Value, check.Groups[3].Value);
+                        }
+                        else if (line.Contains("WAIT") && line.Contains("timed out"))
+                        {
+                            Record($"{role}: wait", "INFO", line[13..]);
+                        }
+                    }
+                }
+            }
+            foreach (var process in processes.Where(p => p.Name.StartsWith("godot", StringComparison.Ordinal)))
+            {
+                var errors = EngineErrors(process.Lines);
+                Record($"{process.Name}: engine errors", errors.Count == 0 ? "PASS" : "FAIL", errors.Count == 0 ? "none in the output" : string.Join(" | ", errors.Take(5)));
+            }
+        }
+    }
+
+    // Both clients must show the same match: the same models and events, and the same seats and VP.
+    private static void Compare(Dictionary<string, string> host, Dictionary<string, string> reopen)
+    {
+        Record("both-clients-same-models", host.GetValueOrDefault("models") is { Length: > 0 } m && m == reopen.GetValueOrDefault("models") ? "PASS" : "FAIL",
+            $"host: {host.GetValueOrDefault("models")} || reopened: {reopen.GetValueOrDefault("models")}");
+        Record("both-clients-same-events", host.GetValueOrDefault("log") is { Length: > 0 } l && l == reopen.GetValueOrDefault("log") ? "PASS" : "FAIL",
+            $"{host.GetValueOrDefault("log", "").Split('|').Length} event lines on the host, {reopen.GetValueOrDefault("log", "").Split('|').Length} on the reopened client");
+        static string Seats(string match) => string.Join("|", match.Split('|').Where(x => Regex.IsMatch(x, @"^Seat (One|Two) \[") || x.StartsWith("Turn ", StringComparison.Ordinal)).Select(x => x.Replace(" (you)", "")));
+        var a = Seats(host.GetValueOrDefault("match", ""));
+        var b = Seats(reopen.GetValueOrDefault("match", ""));
+        Record("both-clients-same-seats-vp-turn", a.Length > 0 && a == b ? "PASS" : "FAIL", $"host: {a} || reopened: {b}");
+        Record("letters-match-seats", host.GetValueOrDefault("code", "").Contains("Seat One [A]") && reopen.GetValueOrDefault("code", "").Contains("Seat Two [B]") ? "PASS" : "FAIL",
+            $"{host.GetValueOrDefault("code")} || {reopen.GetValueOrDefault("code")}");
+        var whoseA = host.GetValueOrDefault("match", "").Split('|')[0];
+        var whoseB = reopen.GetValueOrDefault("match", "").Split('|')[0];
+        Record("whose-move-agrees", (whoseA.Contains("Your move") && whoseB.Contains("Opponent's move (Seat One)")) || (whoseB.Contains("Your move") && whoseA.Contains("Opponent's move (Seat Two)"))
+            || (whoseA == whoseB && !whoseA.Contains("move")) ? "PASS" : "FAIL", $"host: {whoseA} || reopened: {whoseB}");
+    }
+
+    // Every event trench-cli printed while it played both seats appears in Godot with the same number and text.
+    private static void SameAsCli(List<string> cliEvents, string godotLog)
+    {
+        var godot = godotLog.Split('|').Select(l => Regex.Match(l, @"^\[(\d+)\] (.*)$")).Where(m => m.Success)
+            .ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value.Trim());
+        var differ = cliEvents.Select(l => Regex.Match(l, @"^\s+\[(\d+)\] (.*)$")).Where(m => m.Success)
+            .Where(m => godot.GetValueOrDefault(m.Groups[1].Value) != m.Groups[2].Value.Trim())
+            .Select(m => $"[{m.Groups[1].Value}] cli \"{m.Groups[2].Value.Trim()}\" Godot \"{godot.GetValueOrDefault(m.Groups[1].Value)}\"").ToList();
+        Record("godot-shows-cli-events", cliEvents.Count > 0 && differ.Count == 0 ? "PASS" : "FAIL",
+            differ.Count == 0 ? $"all {cliEvents.Count} events trench-cli printed are in Godot with the same number and text" : string.Join("; ", differ.Take(5)));
+    }
+
+    private static string[] GodotArgs(string role, string e2e, string url, string? code)
+    {
+        var args = new List<string> { "--audio-driver", "Dummy" };
+        args.AddRange(_renderer);
+        args.AddRange(["--path", Path.Combine(_repo, "client"), "--", "--ui-check", role, "--out", e2e, "--server", url]);
+        if (code is not null)
+        {
+            args.AddRange(["--code", code]);
+        }
+        return [.. args];
+    }
+
+    // ---- marks and signals ----
+
+    private static async Task<string> Mark(string e2e, string role, string name, double seconds)
+    {
+        var path = Path.Combine(e2e, $"{role}.log");
+        var deadline = DateTime.UtcNow.AddSeconds(seconds);
+        var pattern = new Regex($@"^\S+ MARK {Regex.Escape(name)}(?: (.*))?$");
+        while (DateTime.UtcNow < deadline)
+        {
+            if (File.Exists(path))
+            {
+                foreach (var line in ReadShared(path))
+                {
+                    var match = pattern.Match(line);
+                    if (match.Success)
+                    {
+                        Console.WriteLine($"  {role}: {name}");
+                        return match.Groups[1].Value;
+                    }
+                    if (line.Contains("MARK finished"))
+                    {
+                        throw new InvalidOperationException($"{role} finished before '{name}' (see {path})");
+                    }
+                }
+            }
+            await Task.Delay(100);
+        }
+        throw new TimeoutException($"{role} did not reach '{name}' in {seconds}s (see {path})");
+    }
+
+    private static async Task<string> FirstMark(string e2e, string[] roles, string name, double seconds)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(seconds);
+        while (DateTime.UtcNow < deadline)
+        {
+            foreach (var role in roles)
+            {
+                var path = Path.Combine(e2e, $"{role}.log");
+                if (File.Exists(path) && ReadShared(path).Any(l => l.Contains($" MARK {name}")))
+                {
+                    return role;
+                }
+            }
+            await Task.Delay(100);
+        }
+        throw new TimeoutException($"no client reached '{name}'");
+    }
+
+    private static Dictionary<string, string> Dumps(string e2e, string role, string tag)
+    {
+        var result = new Dictionary<string, string>();
+        foreach (var line in ReadShared(Path.Combine(e2e, $"{role}.log")))
+        {
+            var match = Regex.Match(line, $@"^\S+ DUMP {Regex.Escape(tag)} (\w+)=(.*)$");
+            if (match.Success)
+            {
+                result[match.Groups[1].Value] = match.Groups[2].Value;
+            }
+        }
+        return result;
+    }
+
+    private static void Signal(string e2e, string name)
+    {
+        File.WriteAllText(Path.Combine(e2e, $"signal-{name}"), DateTime.UtcNow.ToString("O"));
+        Console.WriteLine($"  signal {name}");
+    }
+
+    private static string[] ReadShared(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries);
+    }
+
+    // ---- processes ----
+
+    private static async Task<(int Exit, string Output)> Run(string name, string file, string[] args, double timeout)
+    {
+        var child = Start(name, file, args, null);
+        var exit = await child.Exit(timeout);
+        return (exit, string.Join("\n", child.Lines));
+    }
+
+    private static Child Start(string name, string file, string[] args, string? home)
+    {
+        var info = new ProcessStartInfo(file) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+        foreach (var arg in args)
+        {
+            info.ArgumentList.Add(arg);
+        }
+        if (home is not null)
+        {
+            info.Environment["TRENCH_SIM_HOME"] = home;
+        }
+        Console.WriteLine($"  start {name}: {file} {string.Join(' ', args)}");
+        return new Child(name, Process.Start(info)!, Path.Combine(_out, "logs", $"{name}.txt"));
+    }
+
+    private sealed class Child
+    {
+        private readonly object _gate = new();
+        private readonly List<string> _lines = [];
+        private readonly StreamWriter _log;
+        private TaskCompletionSource _changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Child(string name, Process process, string log)
+        {
+            Name = name;
+            Process = process;
+            _log = new StreamWriter(log) { AutoFlush = true };
+            process.OutputDataReceived += (_, e) => Add(e.Data);
+            process.ErrorDataReceived += (_, e) => Add(e.Data is null ? null : "stderr: " + e.Data);
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+        }
+
+        public string Name { get; }
+
+        public Process Process { get; }
+
+        public int? ExitCode => Process.HasExited ? Process.ExitCode : null;
+
+        public List<string> Lines
+        {
+            get
+            {
+                lock (_gate)
+                {
+                    return [.. _lines];
+                }
+            }
+        }
+
+        private void Add(string? line)
+        {
+            if (line is null)
+            {
+                return;
+            }
+            lock (_gate)
+            {
+                _lines.Add(line);
+                _log.WriteLine(line);
+                _changed.TrySetResult();
+                _changed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+
+        public async Task WaitFor(Func<string, bool> condition, double seconds, string what)
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(seconds));
+            while (true)
+            {
+                Task changed;
+                lock (_gate)
+                {
+                    if (_lines.Any(condition))
+                    {
+                        return;
+                    }
+                    changed = _changed.Task;
+                }
+                if (Process.HasExited)
+                {
+                    throw new InvalidOperationException($"{Name} exited ({Process.ExitCode}) before: {what}");
+                }
+                try
+                {
+                    await changed.WaitAsync(TimeSpan.FromSeconds(1), timeout.Token);
+                }
+                catch (TimeoutException)
+                {
+                }
+                catch (OperationCanceledException)
+                {
+                    throw new TimeoutException($"{Name}: {what} did not happen in {seconds}s");
+                }
+            }
+        }
+
+        public async Task<int> Exit(double seconds)
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(seconds));
+            try
+            {
+                await Process.WaitForExitAsync(timeout.Token);
+                return Process.ExitCode;
+            }
+            catch (OperationCanceledException)
+            {
+                Kill();
+                return -1;
+            }
+        }
+
+        public void Kill()
+        {
+            try
+            {
+                if (!Process.HasExited)
+                {
+                    Process.Kill(entireProcessTree: true);
+                    Process.WaitForExit(10_000);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+        }
+    }
+
+    // ---- a TCP proxy between a client and the server that can hold the client's traffic or cut it ----
+
+    private sealed class Proxy : IDisposable
+    {
+        private readonly int _target;
+        private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
+        private readonly List<TcpClient> _open = [];
+        private readonly object _gate = new();
+        private TaskCompletionSource _released = Completed();
+        private bool _cut;
+
+        public Proxy(int target)
+        {
+            _target = target;
+            _listener.Start();
+            _ = AcceptAsync();
+        }
+
+        public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
+
+        // Holds what clients send until Release: their commands do not reach the server in the meantime.
+        public void Hold()
+        {
+            lock (_gate)
+            {
+                _released = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+        }
+
+        public void Release()
+        {
+            lock (_gate)
+            {
+                _released.TrySetResult();
+            }
+        }
+
+        // Closes every connection and refuses new ones until Restore.
+        public void Cut()
+        {
+            lock (_gate)
+            {
+                _cut = true;
+                foreach (var client in _open)
+                {
+                    client.Client.Close(0);
+                }
+                _open.Clear();
+            }
+        }
+
+        public void Restore()
+        {
+            lock (_gate)
+            {
+                _cut = false;
+            }
+        }
+
+        public void Dispose()
+        {
+            _listener.Stop();
+            Cut();
+        }
+
+        private async Task AcceptAsync()
+        {
+            while (true)
+            {
+                TcpClient client;
+                try
+                {
+                    client = await _listener.AcceptTcpClientAsync();
+                }
+                catch (Exception e) when (e is SocketException or ObjectDisposedException)
+                {
+                    return;
+                }
+                _ = ServeAsync(client);
+            }
+        }
+
+        private async Task ServeAsync(TcpClient client)
+        {
+            lock (_gate)
+            {
+                if (_cut)
+                {
+                    client.Client.Close(0);
+                    return;
+                }
+            }
+            var server = new TcpClient();
+            try
+            {
+                await server.ConnectAsync(IPAddress.Loopback, _target);
+            }
+            catch (SocketException)
+            {
+                client.Client.Close(0);
+                return;
+            }
+            lock (_gate)
+            {
+                _open.Add(client);
+                _open.Add(server);
+            }
+            await Task.WhenAny(Pump(client.GetStream(), server.GetStream(), hold: true), Pump(server.GetStream(), client.GetStream(), hold: false));
+            client.Client.Close(0);
+            server.Client.Close(0);
+        }
+
+        private async Task Pump(Stream from, Stream to, bool hold)
+        {
+            var buffer = new byte[16384];
+            try
+            {
+                while (true)
+                {
+                    var read = await from.ReadAsync(buffer);
+                    if (read == 0)
+                    {
+                        return;
+                    }
+                    if (hold)
+                    {
+                        Task released;
+                        lock (_gate)
+                        {
+                            released = _released.Task;
+                        }
+                        await released;
+                    }
+                    await to.WriteAsync(buffer.AsMemory(0, read));
+                }
+            }
+            catch (Exception e) when (e is IOException or ObjectDisposedException or SocketException)
+            {
+            }
+        }
+
+        private static TaskCompletionSource Completed()
+        {
+            var done = new TaskCompletionSource();
+            done.SetResult();
+            return done;
+        }
+    }
+
+    // ---- helpers ----
+
+    private static void Record(string id, string result, string detail)
+    {
+        lock (Results)
+        {
+            Results.Add((id, result, detail));
+        }
+        Console.WriteLine($"{result,-5} {id}: {(detail.Length > 300 ? detail[..300] + "…" : detail)}");
+    }
+
+    private static int WriteSummary()
+    {
+        var text = new StringBuilder();
+        text.AppendLine("# M7.3 automated UI check");
+        text.AppendLine();
+        text.AppendLine($"{DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC. Logs and screenshots are in this folder (logs/, e2e/).");
+        text.AppendLine();
+        text.AppendLine("| Result | Check | Detail |");
+        text.AppendLine("|---|---|---|");
+        foreach (var (id, result, detail) in Results)
+        {
+            text.AppendLine($"| {result} | {id} | {detail.Replace("|", "\\|").Replace("\n", " ")} |");
+        }
+        var failed = Results.Count(r => r.Result == "FAIL");
+        text.AppendLine();
+        text.AppendLine($"{Results.Count(r => r.Result == "PASS")} passed, {failed} failed.");
+        File.WriteAllText(Path.Combine(_out, "summary.md"), text.ToString());
+        Console.WriteLine($"{Results.Count(r => r.Result == "PASS")} passed, {failed} failed. Summary: {Path.Combine(_out, "summary.md")}");
+        return failed == 0 ? 0 : 1;
+    }
+
+    private static string Summary(string output) =>
+        string.Join(", ", output.Split('\n').Select(l => l.Trim()).Where(l => Regex.IsMatch(l, @"^\d+ (Warning|Error)\(s\)$")));
+
+    private static string Errors(string output)
+    {
+        var errors = EngineErrors(output.Split('\n').ToList());
+        var audio = output.Contains("falling back to the dummy driver") ? "; no audio device, Godot used its silent audio driver (known, harmless)" : "";
+        return (errors.Count == 0 ? "; no errors in the output" : "; " + string.Join(" | ", errors.Take(5))) + audio;
+    }
+
+    // Engine error lines, except the one Godot prints when the machine has no audio output device: it then uses its
+    // silent audio driver (ERR_CANT_OPEN at init_output_device, then "falling back to the dummy driver").
+    private static List<string> EngineErrors(List<string> lines)
+    {
+        var errors = new List<string>();
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (!(lines[i].Contains("ERROR") || lines[i].Contains("SCRIPT ERROR") || lines[i].Contains("Unhandled exception")))
+            {
+                continue;
+            }
+            var next = i + 1 < lines.Count ? lines[i + 1] : "";
+            if (lines[i].Contains("ERR_CANT_OPEN") && next.Contains("init_output_device") && next.Contains("audio_driver"))
+            {
+                continue;
+            }
+            errors.Add(lines[i].Trim());
+        }
+        return [.. errors.Distinct()];
+    }
+
+    private static int FreePort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
+    }
+
+    private static string FindRepository()
+    {
+        foreach (var start in new[] { Environment.CurrentDirectory, AppContext.BaseDirectory })
+        {
+            for (var dir = new DirectoryInfo(start); dir is not null; dir = dir.Parent)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "TrenchSim.sln")))
+                {
+                    return dir.FullName;
+                }
+            }
+        }
+        throw new InvalidOperationException("Run this from inside the Trench Sim repository.");
+    }
+
+    private static string? Arg(string[] args, string name)
+    {
+        var at = Array.IndexOf(args, name);
+        return at >= 0 && at + 1 < args.Length ? args[at + 1] : null;
+    }
+}

@@ -243,7 +243,29 @@ public sealed partial class TransportTests
     [Fact]
     public async Task ADropShowsReconnectingAndTheOpponentSeesThePause()
     {
-        var (one, two, code) = await ControllerPair("melee", policy: Quick with { Delays = [TimeSpan.FromMilliseconds(300)] });
+        // One's reconnect waits until the opponent has seen the pause: otherwise, on a busy machine, the rejoin can reach
+        // the server before it has noticed the drop, and there is no pause to see.
+        var opponentSawPause = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var first = true;
+        var one = Controller(connect: async (uri, mirror, ct) =>
+        {
+            if (!first)
+            {
+                await opponentSawPause.Task.WaitAsync(ct);
+            }
+            first = false;
+            var session = await ClientSession.ConnectAsync(uri, ct, mirror: mirror);
+            lock (_clients)
+            {
+                _clients.Add(session);
+            }
+            return session;
+        });
+        var welcome = Assert.IsType<Welcome>(await one.CreateAsync("melee", Token));
+        var code = welcome.Code;
+        var two = Controller();
+        Assert.IsType<Welcome>(await two.JoinAsync(code, Token));
+        await Settle(_server, code, one.Session!, two.Session!);
         var states = new List<ConnectionState>();
         one.Changed += () =>
         {
@@ -264,6 +286,7 @@ public sealed partial class TransportTests
         var dropped = one.Session!;
         dropped.Abort();
         var paused = await pause.Task.WaitAsync(Token);
+        opponentSawPause.SetResult();
         Assert.Contains("paused", paused.OpponentAway);
         Assert.Equal("the match is paused while your opponent is away.", paused.InputLocked);
         Assert.Empty(paused.Hints);
@@ -314,6 +337,44 @@ public sealed partial class TransportTests
         var result = await one.RejoinNowAsync(cancellationToken: Token);
         Assert.Equal(ReconnectOutcome.Rejoined, result.Outcome);
         Assert.Equal(ConnectionState.Connected, (await Until(one, s => s.Connection == ConnectionState.Connected)).Connection);
+    }
+
+    // Rejoining while the opponent is away: the server sends the pause right after the Welcome, often before the
+    // controller has switched to the new connection. The screen must still say the opponent is away.
+    [Fact]
+    public async Task ARejoinWhileTheOpponentIsAwayShowsThePause()
+    {
+        var blocked = false;
+        var one = Controller();
+        var two = Controller(policy: Quick with { GiveUpAfter = TimeSpan.FromMilliseconds(300) }, connect: async (uri, mirror, ct) =>
+        {
+            if (Volatile.Read(ref blocked))
+            {
+                throw new System.Net.WebSockets.WebSocketException("unreachable");
+            }
+            var session = await ClientSession.ConnectAsync(uri, ct, mirror: mirror);
+            lock (_clients)
+            {
+                _clients.Add(session);
+            }
+            return session;
+        });
+        var welcome = Assert.IsType<Welcome>(await one.CreateAsync("melee", Token));
+        Assert.IsType<Welcome>(await two.JoinAsync(welcome.Code, Token));
+        await Settle(_server, welcome.Code, one.Session!, two.Session!);
+
+        Volatile.Write(ref blocked, true);
+        two.Session!.Abort();
+        await Until(two, s => s.Connection == ConnectionState.GaveUp);
+        await Until(one, s => s.OpponentAway is not null);
+
+        var dropped = one.Session!;
+        dropped.Abort();
+        await Until(one, s => s.Connection == ConnectionState.Connected && !ReferenceEquals(one.Session, dropped));
+        await one.Session!.WaitForAsync(s => s.IsPaused, Token);
+        var screen = one.Snapshot();
+        Assert.NotNull(screen.OpponentAway);
+        Assert.Equal("the match is paused while your opponent is away.", screen.InputLocked);
     }
 
     // A seat taken over from another window is never taken back without the player's confirmation.

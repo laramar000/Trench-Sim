@@ -38,6 +38,7 @@ The Godot client is two screens built in code (`client/scripts/Main.cs`).
 - **Connect:** the server address; the server's rejoin window in seconds (default 300, see below), which sets how long automatic reconnecting lasts; create a match for a scenario, join one by its code, or rejoin a seat saved on this computer.
 - **Match:** the connection line, with **Rejoin now** when automatic attempts have stopped, **Take the seat back…** (with a confirmation) after another window took the seat, and **Resync** after an unresolved Stale refusal; the match code with **Copy code**; MATCH (turn, phase, whose move, both seats with VP, the pending decision, the outcome); MODELS; YOUR ACTIONS (hint buttons, marked "the server decides", or why there is nothing to do); LAST COMMAND (sending, done, refused by the rules with the rule reference, not taken by the server, out of date); and EVENTS, numbered, with the dice for every roll.
 - **Rules in this build** opens on the first match and with F1.
+- **Keyboard focus:** the connect screen starts in the server field, the match screen on the first action (or the connection buttons). Buttons are rebuilt whenever the match changes, and the focus stays on the same button (or moves to the first action if it is gone), so it is never lost. The event list takes focus too: arrows, Page Up/Down, Home and End scroll it; it follows new events unless the player has scrolled up, and End follows them again.
 - **Readable without colour:** seats are told apart by letters ([A], [B]) and words, never by colour alone. Text size is 100, 125 or 150 %, and there is a high-contrast switch. Every control works with the keyboard (Tab, Shift+Tab, Enter or Space; Esc closes a dialog), and the hints line says so.
 - The scripts only render the controller's `ScreenState` and pass on button presses. They never resolve commands, roll dice, apply events or read match records; `ClientAuthorityTest` checks the compiled scripts.
 
@@ -88,8 +89,30 @@ Godot keeps its cache in `client/.godot/` and may create `client/Client.sln`; bo
 - `ClientAuthorityTest`: `Match.Client` uses the plain SDK and references only `Match.Protocol`; its compiled code references no resolver (`TurnSequence.Decide`), dice source, `Reducer` or record verifier. The Godot client is checked the same way on its **compiled** scripts: the test builds `client/Client.csproj` with the Godot .NET SDK from NuGet (no Godot install needed) into a temporary folder and scans `Client.dll`. Its assembly references must be on an allow-list (never `Match.Server`, `Sim` or `Match.Cli`), and it must not touch the copy of the match directly (`MatchMirror.Apply`/`Reset`, `Codec.ParseServer`) or load code by reflection. If the client cannot be built, the test fails. The scan is itself checked against the server and `Match.Client`, which do use these. A text scan of the Godot sources remains as a quick extra check.
 - `ClientAuthorityTest` also checks `Client.Core`: plain SDK, references only `Match.Client`, and its compiled code uses no resolver, dice source, `Reducer`, record verifier or direct change to the copy of the match, and does use the read-only `TurnSequence.LegalCommands` and `Reconnector`. The compiled Godot scripts must use `Client.Core.MatchController`.
 - `ClientCoreTests`: event text and content parsing agree with `Sim` over 80 simulated matches; every event has a line and every roll its dice; names and the fallback; hints equal the legal commands for the seat; the view agrees with the state; outcome wording; the rules gaps.
-- `ControllerTests` (part of `TransportTests`): two controllers play a whole match against the server; one command at a time; protocol refusals; Stale refusals wait for the events and never reconnect on their own, and Resync recovers; a drop shows Reconnecting and the opponent sees the pause; "Rejoin now" after automatic attempts stop; taking a seat back after a takeover needs confirmation; an aborted match is shown and its saved seats are forgotten.
+- `ControllerTests` (part of `TransportTests`): two controllers play a whole match against the server; one command at a time; protocol refusals; Stale refusals wait for the events and never reconnect on their own, and Resync recovers; a drop shows Reconnecting and the opponent sees the pause; a rejoin while the opponent is away shows the pause; "Rejoin now" after automatic attempts stop; taking a seat back after a takeover needs confirmation; an aborted match is shown and its saved seats are forgotten.
 - `TransportTests`: real matches over WebSockets against an in-process server: connection on v2, command numbering, duplicate resends, saved and rotated tokens, reconnecting after a drop, and the cases where it must not reconnect. Reconnect cases also use a fake host that never answers the handshake, never answers the rejoin, or answers busy or shutting down: one run per seat, deadlines, cancellation, "Rejoin now", and the takeover limitation above.
+
+## Automated UI check (`tools/UiCheck`)
+
+One command checks the client the way a player would use it, with real processes and real key presses:
+
+```
+dotnet run --project tools/UiCheck -- --godot <path to the Godot 4.7.2 .NET executable>
+```
+
+It builds `client/` (Debug and Release, warnings as errors), builds the server and `trench-cli`, has Godot build and launch the project, then plays a scripted session: a server, a proxy in front of it that can hold or cut traffic, two Godot clients (`--ui-check host|guest|reopen`, driven by `client/scripts/UiCheck.cs` through key presses only) and `trench-cli` bots. It covers creating and joining, the rules dialog (Esc, F1, Enter, Space), Tab and Shift+Tab order, hint buttons (SENT then DONE, one at a time), a seat taken over by `trench-cli` and taken back, events arriving live and after a rejoin, both clients showing the same models, events, seats and VP, the same event text as `trench-cli`, a cut connection (Reconnecting, then Rejoin now), reopening a saved seat after closing the client, a server restart, text at 150 % and high contrast. Results, logs and screenshots go to `ui-check-results/<time>/` (`summary.md` lists every check as PASS or FAIL); the exit code is 0 only when all pass. Saved seats live in that folder too (`TRENCH_SIM_HOME`), never in the player's own. On Linux without a display run it under `xvfb-run -a`, and add `--opengl` where there is no Vulkan.
+
+The UI-check code only runs with `--ui-check`; it reads the screen (labels, buttons, dialogs, focus) and never the match controller.
+
+What it found and what changed in M7.3:
+- Nothing had keyboard focus when the client started; buttons rebuilt on each change dropped the focus.
+- After a rejoin while the opponent was away, the screen could miss the pause notice (the server sends it right after the Welcome, before the controller switched to the new connection). Fixed in `MatchController`; `ARejoinWhileTheOpponentIsAwayShowsThePause` covers it.
+- At 150 % text, long section titles and hint buttons widened the page beyond the window; they now wrap.
+- The event list could not be scrolled with the keyboard.
+
+A server restart does not keep matches: the server records an unfinished match as Unrecorded when it starts again, and a client that rejoins is told the match is gone (`UnknownMatch`); the screen says so and offers nothing to send.
+
+`ERROR: Condition "status < 0" is true. Returning: ERR_CANT_OPEN` (at `init_output_device`, `drivers/alsa/audio_driver_alsa.cpp`) appears when the machine has no audio output, as in a Linux container. Godot then says "All audio drivers failed, falling back to the dummy driver" and runs without sound; the client plays no sound, so nothing is lost. `--audio-driver Dummy` avoids the message.
 
 ## Headless check
 

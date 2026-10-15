@@ -94,6 +94,10 @@ public sealed class MatchController : IAsyncDisposable
     private string _connectionText = "Not connected.";
     private ProtocolError? _refusedCode;
     private DateTimeOffset? _opponentAwayUntil;
+
+    // The connection that reported the opponent away. The server sends the pause right after a Welcome, often before
+    // that connection is attached, so attaching keeps a pause its own connection reported.
+    private ClientSession? _awayFrom;
     private Feedback? _feedback;
     private string? _warning;
     private bool _sending;
@@ -402,11 +406,13 @@ public sealed class MatchController : IAsyncDisposable
                         _log.RemoveAt(0);
                     }
                     break;
-                case MatchPaused p when p.Seat != _welcome?.Seat:
+                case MatchPaused p when p.Seat != (session.Welcome?.Seat ?? _welcome?.Seat):
                     _opponentAwayUntil = p.RejoinBy;
+                    _awayFrom = session;
                     break;
                 case MatchResumed:
                     _opponentAwayUntil = null;
+                    _awayFrom = null;
                     break;
             }
             _version++;
@@ -422,7 +428,11 @@ public sealed class MatchController : IAsyncDisposable
             _session = session;
             _welcome = session.Welcome;
             _names = ContentNames.For(session.Welcome!.Scenario, session.Mirror.State.Setup);
-            _opponentAwayUntil = null;
+            if (!ReferenceEquals(_awayFrom, session))
+            {
+                _opponentAwayUntil = null;
+                _awayFrom = null;
+            }
             if (session.Welcome.Status == MatchStatus.Aborted)
             {
                 SetConnection(ConnectionState.Aborted, "Match aborted. No result was recorded as a win or loss.");

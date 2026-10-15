@@ -24,6 +24,7 @@ public partial class Main : Control
     private bool _gapsShown;
     private float _scale = 1f;
     private bool _highContrast;
+    private bool _followLog = true;
 
     // Connect screen.
     private VBoxContainer _connect = null!;
@@ -79,7 +80,13 @@ public partial class Main : Control
         ShowConnect();
 
         var args = OS.GetCmdlineUserArgs();
-        if (Arg(args, "--smoke-server") is { } smoke)
+        if (Arg(args, "--ui-check") is { } role)
+        {
+            // Verification only (tools/UiCheck): drives this screen with key presses and reports what it shows.
+            AddChild(new UiCheck(this, role, Arg(args, "--out") ?? "ui-check", Arg(args, "--server") ?? "ws://127.0.0.1:5080/match",
+                Arg(args, "--code"), Arg(args, "--scenario") ?? "ranged"));
+        }
+        else if (Arg(args, "--smoke-server") is { } smoke)
         {
             Print(await Smoke(new Uri(smoke)));
             GetTree().Quit();
@@ -150,6 +157,8 @@ public partial class Main : Control
         _match.Visible = false;
         _status.Text = "Connect to a server: create a match, join one with its code, or rejoin a saved seat.";
         RefreshSaved();
+        // Keyboard users start in the first field rather than with nothing focused.
+        _server.CallDeferred(Control.MethodName.GrabFocus);
     }
 
     private void RefreshSaved()
@@ -218,6 +227,7 @@ public partial class Main : Control
         _match.Visible = true;
         _shown = -1;
         Render(controller.Snapshot());
+        FocusDefault();
         if (!_gapsShown)
         {
             // Playtesters see the rules gaps once per session at the first match, and any time with F1.
@@ -276,10 +286,20 @@ public partial class Main : Control
         _feedback = Text("");
         right.AddChild(Section("Last command", _feedback));
         _log = Text("");
-        _logScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 260), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        // The event list takes focus (Tab), so it can be scrolled with the keyboard: arrows, Page Up/Down, Home, End.
+        _logScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 260), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FocusMode = FocusModeEnum.All };
         _logScroll.AddChild(_log);
         _log.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        right.AddChild(Section("Events (newest at the bottom)", _logScroll));
+        _logScroll.GuiInput += ScrollLogWithKeys;
+        // New events scroll into view unless the player has scrolled up to read (End or scrolling to the bottom resumes).
+        _logScroll.GetVScrollBar().Changed += () =>
+        {
+            if (_followLog)
+            {
+                _logScroll.ScrollVertical = (int)_logScroll.GetVScrollBar().MaxValue;
+            }
+        };
+        right.AddChild(Section("Events (newest at the bottom; Tab here, then arrows or Page Up/Down to scroll)", _logScroll));
         _root.AddChild(_match);
 
         _gaps = new AcceptDialog { Title = RulesGaps.Title, DialogText = RulesGaps.Text, DialogAutowrap = true, Size = new Vector2I(760, 480) };
@@ -305,6 +325,9 @@ public partial class Main : Control
         _status.Text = $"{view.Status}";
         _banner.Text = $"Connection: {s.ConnectionText}{(s.OpponentAway is null ? "" : "\n" + s.OpponentAway)}{(s.Warning is null ? "" : "\nWarning: " + s.Warning)}";
 
+        // Buttons are rebuilt on every change; keep the keyboard focus on the same button (or a sensible one).
+        var focused = GetViewport().GuiGetFocusOwner();
+        var refocus = focused is Button b && (_bannerButtons.IsAncestorOf(b) || _hints.IsAncestorOf(b)) ? b.Text : null;
         foreach (var child in _bannerButtons.GetChildren())
         {
             child.QueueFree();
@@ -333,7 +356,12 @@ public partial class Main : Control
         foreach (var hint in s.Hints)
         {
             var chosen = hint;
-            _hints.AddChild(Button(chosen.Label + "  (hint; the server decides)", () => Send(chosen)));
+            var button = Button(chosen.Label + "  (hint; the server decides)", () => Send(chosen));
+            // Long labels wrap instead of widening the page (text at 150 % must still fit the window).
+            button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            button.Alignment = HorizontalAlignment.Left;
+            button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            _hints.AddChild(button);
         }
         if (s.Hints.Count == 0)
         {
@@ -342,7 +370,60 @@ public partial class Main : Control
         _notYet.Text = s.NotYetOffered ?? "";
         _feedback.Text = s.Feedback is { } f ? $"{FeedbackWord(f.Kind)}: {f.Text}{(f.RuleRef is null ? "" : $" (rule: {f.RuleRef})")}" : "None yet.";
         _log.Text = string.Join("\n", s.Log.Select(l => $"[{l.Seq}] {l.Text.Trim()}{(l.Dice is null ? "" : $"\n      {l.Dice}")}"));
-        _logScroll.CallDeferred(ScrollContainer.MethodName.SetVScroll, int.MaxValue);
+        if (refocus is not null)
+        {
+            var same = _bannerButtons.GetChildren().Concat(_hints.GetChildren()).OfType<Button>().FirstOrDefault(n => !n.IsQueuedForDeletion() && n.Text == refocus);
+            if (same is not null)
+            {
+                same.GrabFocus();
+            }
+            else
+            {
+                FocusDefault();
+            }
+        }
+    }
+
+    // The first hint, or else the first connection button (Rejoin now, Leave): where a keyboard user wants to be.
+    private void FocusDefault()
+    {
+        var target = _hints.GetChildren().Concat(_bannerButtons.GetChildren()).OfType<Button>().FirstOrDefault(n => !n.IsQueuedForDeletion());
+        target?.GrabFocus();
+    }
+
+    private void ScrollLogWithKeys(InputEvent @event)
+    {
+        var bar = _logScroll.GetVScrollBar();
+        if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp })
+        {
+            _followLog = false;
+        }
+        else if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelDown })
+        {
+            _followLog = bar.Value + bar.Page >= bar.MaxValue - line();
+        }
+        int line() => (int)(_theme.DefaultFontSize * 1.5f);
+        if (@event is not InputEventKey { Pressed: true } key)
+        {
+            return;
+        }
+        var page = (int)_logScroll.Size.Y - line();
+        int? to = key.Keycode switch
+        {
+            Key.Up => _logScroll.ScrollVertical - line(),
+            Key.Down => _logScroll.ScrollVertical + line(),
+            Key.Pageup => _logScroll.ScrollVertical - page,
+            Key.Pagedown => _logScroll.ScrollVertical + page,
+            Key.Home => 0,
+            Key.End => int.MaxValue,
+            _ => null,
+        };
+        if (to is { } value)
+        {
+            _logScroll.ScrollVertical = (int)Math.Clamp(value, 0, Math.Max(0, bar.MaxValue - bar.Page));
+            _followLog = _logScroll.ScrollVertical >= bar.MaxValue - bar.Page - 2;
+            _logScroll.AcceptEvent();
+        }
     }
 
     private static string FeedbackWord(FeedbackKind kind) => kind switch
@@ -513,7 +594,7 @@ public partial class Main : Control
     private static VBoxContainer Section(string title, Control body)
     {
         var box = new VBoxContainer();
-        box.AddChild(new Label { Text = title.ToUpperInvariant() });
+        box.AddChild(Text(title.ToUpperInvariant()));
         box.AddChild(body);
         box.AddChild(new HSeparator());
         return box;
