@@ -13,3 +13,8 @@ TestResults/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Godot editor cache and generated files (client/)
+.godot/
+*.translation
+client/Client.sln
