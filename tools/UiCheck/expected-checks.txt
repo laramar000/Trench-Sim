@@ -1,0 +1,96 @@
+# Checks the UI check runner reports (93), from the Linux run of 3ba61db. Run-WindowsUiCheck.ps1 marks any of these
+# that a run did not report as NOT TESTED. One check id per line, as in the runner's summary.md.
+# "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide.
+godot-version
+client-build-Debug
+client-build-Release
+build-Match.Server
+build-Match.Cli
+godot-build-solutions
+godot-launch-scene
+guest-closes-cleanly
+cli-played
+both-clients-same-models
+both-clients-same-events
+both-clients-same-seats-vp-turn
+letters-match-seats
+whose-move-agrees
+godot-shows-cli-events
+host-exit
+reopen-exit
+host: focus-start
+host: tab-reaches-every-control-connect
+host: shift-tab-reverses-connect
+host: type-server
+host: set-window
+host: set-window-value
+host: choose-scenario
+host: create-enter
+host: create
+host: gaps-shown-at-first-match
+host: gaps-lists-rules
+host: gaps-escape-closes
+host: gaps-f1-opens
+host: gaps-enter-closes
+host: rules-button-space
+host: gaps-button-space-opens
+host: gaps-escape-closes-again
+host: tab-reaches-every-control-match
+host: shift-tab-reverses-match
+host: zone-event-shown
+host: positional-not-offered-explained
+host: takeover-shown
+host: takeback-enter
+host: takeback-confirm-shown
+host: takeback-confirm-focus
+host: takeback
+host: catch-up-deploys
+host: catch-up-models
+host: opponent-away-shown-after-rejoin
+host: focus-after-hint-answered
+host: activation-hints-used
+host: live-opponent-events
+host: turn-scored
+host: vp-shown
+host: event-list-shows-newest
+host: reconnecting-shown
+host: focus-kept-on-redraw
+host: gave-up-offers-rejoin-now
+host: rejoin-now-enter
+host: rejoin-now-works
+host: text-150
+host: text-150-applied
+host: text-150-fits-width
+host: contrast-space
+host: high-contrast-applied
+host: event-list-scrolls-with-keys
+host: event-list-end-returns-to-newest
+host: seats-by-letter-not-colour
+host: feedback-in-words
+host: connection-in-words
+host: server-stop-shown
+host: server-restart-clear
+guest: type-server
+guest: type-code
+guest: join-space
+guest: join
+guest: gaps-shown-on-join
+host|guest: hint-enter
+host|guest: hint-sent-shown
+host|guest: one-command-at-a-time
+host|guest: hint-done-shown
+guest: zone-event-shown
+guest: positional-not-offered-explained
+reopen: type-server
+reopen: refresh-enter
+reopen: saved-seat-listed
+reopen: rejoin-saved-enter
+reopen: reopen-same-seat
+reopen: opponent-away-on-cut
+reopen: focus-kept-on-redraw
+reopen: opponent-back-after-rejoin
+reopen: server-stop-shown
+reopen: server-restart-clear
+godot-host: engine errors
+godot-guest: engine errors
+godot-reopen: engine errors

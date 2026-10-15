@@ -114,6 +114,33 @@ A server restart does not keep matches: the server records an unfinished match a
 
 `ERROR: Condition "status < 0" is true. Returning: ERR_CANT_OPEN` (at `init_output_device`, `drivers/alsa/audio_driver_alsa.cpp`) appears when the machine has no audio output, as in a Linux container. Godot then says "All audio drivers failed, falling back to the dummy driver" and runs without sound; the client plays no sound, so nothing is lost. `--audio-driver Dummy` avoids the message.
 
+### Unattended run on Windows (`Run-WindowsUiCheck.ps1`)
+
+From the repository folder, in Windows PowerShell 5.1 or PowerShell 7:
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\UiCheck\Run-WindowsUiCheck.ps1 -GodotPath "C:\...\Godot_v4.7.2-stable_mono_win64_console.exe"
+```
+
+The script never prompts. It:
+- finds Godot from `-GodotPath`, then `$env:GODOT`, then the exact file name `Godot_v4.7.2-stable_mono_win64_console.exe` (up to 4 folders deep) in Downloads, Desktop, Documents, `%LOCALAPPDATA%`, Program Files, `C:\Godot` and `C:\Tools`. A candidate counts only if `--version` reports `4.7.2.stable.mono.`; if different builds are found it stops rather than choosing;
+- runs the UI check above (limit `-TimeoutMinutes`, default 30), then opens the project in the real Godot editor with `--editor --quit` (limit `-EditorTimeoutSeconds`, default 300) and fails on any engine error. The editor reformats `client/project.godot` when it opens it; the script restores the original file;
+- keeps the PC awake while it runs, and stops only the processes it started (found by parent process and start time, or by the run folder in their command line), on a time limit, an error, or at the end. Godot windows it did not start are left alone;
+- writes `ui-check-results\windows-<time>\`: `summary.md` (the verdict, PASS / FAIL / NOT TESTED, start and end time, commands and exit codes), `console.log` (the runner's complete output), `run.log`, the editor's output and `detail\` (the runner's own `summary.md`, client logs and screenshots, unchanged).
+
+Exit codes: 0 every automated check passed; 1 a check failed; 2 incomplete (a time limit, or a check in `expected-checks.txt` did not report); 3 it could not start (no desktop session, Godot not found or not 4.7.2 .NET, no .NET 10 SDK). Checks that did not run are listed as NOT TESTED, never as PASS.
+
+It needs a signed-in Windows desktop session. Godot opens real windows, so the script refuses to run from a service, or a scheduled task set to run whether the user is logged on or not (FAIL `preflight-desktop`). The key presses are sent inside Godot, so the windows need no focus and nobody needs to click anything. A locked screen is recorded in `summary.md`; turn off the screen lock (or keep the PC awake and unlocked) for the run, since some graphics drivers stop drawing to locked sessions.
+
+What stays manual, and why it is not automated:
+- **Editor Build and Play buttons.** The editor draws its own interface, so Windows UI Automation sees one window with no buttons in it; only clicks at screen positions could press them, which break with DPI, layout and editor version. The same work is checked from the command line (`godot-build-solutions`, `godot-launch-scene`, `editor-opens-project`).
+- **Mouse.** Same reason, and real mouse input (SendInput) also needs the window in front on an unlocked screen. Every automated check uses the keyboard.
+- **Copy code to the clipboard.** Reading the clipboard is easy; pressing Copy code needs a click or a new check inside the client.
+- **Closing a window with its title-bar X.** Posting `WM_CLOSE` to the right window at the right moment needs the runner's phases to coordinate with it; the check closes the client from inside instead.
+- **150 % text and high contrast, judged by eye.** Size, width and colours are checked automatically; whether it reads well is a judgement. Compare the screenshots in `detail\e2e\`.
+
+None of these needs remote access: they are a few minutes in front of the PC (see the M7.3 checklist).
+
 ## Headless check
 
 With a server running, `godot --headless --path client --build-solutions --quit`, then
