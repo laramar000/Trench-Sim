@@ -9,6 +9,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\Match.Protocol\Match.Protocol.csproj" />
+    <ProjectReference Include="..\src\Match.Client\Match.Client.csproj" />
   </ItemGroup>
 </Project>

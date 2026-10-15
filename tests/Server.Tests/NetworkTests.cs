@@ -1,6 +1,7 @@
 using System.Net.WebSockets;
 using System.Text;
 using Match.Cli;
+using Match.Client;
 using Match.Protocol;
 using Match.Server;
 using Rules.Core;

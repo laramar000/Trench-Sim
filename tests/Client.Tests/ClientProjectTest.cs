@@ -1,15 +1,16 @@
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
-namespace Server.Tests;
+namespace Client.Tests;
 
 // M7 (D6): the Godot client in client/ stays outside TrenchSim.sln, so the solution builds and tests without Godot, and
 // it may reference only the shared client-side libraries. It never references the server, the simulator (which rolls
-// dice) or the terminal client. The deeper authority guard over compiled client code arrives with Client.Core (M7.3).
+// dice) or the terminal client. ClientAuthorityTest checks the code itself.
 public class ClientProjectTest
 {
     private static readonly HashSet<string> AllowedProjectReferences =
     [
+        @"..\src\Match.Client\Match.Client.csproj",
         @"..\src\Match.Protocol\Match.Protocol.csproj",
     ];
 
@@ -19,8 +20,8 @@ public class ClientProjectTest
         var root = RepositoryRoot();
         Assert.True(File.Exists(Path.Combine(root, "client", "Client.csproj")));
         var solution = File.ReadAllText(Path.Combine(root, "TrenchSim.sln"));
-        Assert.DoesNotContain("Client.csproj", solution, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotMatch(new Regex(@"""client\\", RegexOptions.IgnoreCase), solution);
+        // No project in the solution lives under client/ (Match.Client and Client.Tests live under src/ and tests/).
+        Assert.DoesNotMatch(new Regex(@"""client[\\/]", RegexOptions.IgnoreCase), solution);
     }
 
     [Fact]
