@@ -259,8 +259,12 @@ public partial class UiCheck : Node
             }
             seen = Math.Max(seen, lines.Count);
         }
+        // Play until a turn is scored after taking the seat back. trench-cli may already have finished the turn it played
+        // for this seat (it is stopped from outside, so how far it gets depends on the machine); then the next turn counts.
+        var start = seen;
+        bool TurnScoredSinceStart() => Lines(LogText()).Skip(start).Any(l => l.Contains("scoring") || l.Contains("MATCH ENDED"));
         var deadline = Time.GetTicksMsec() + 240_000;
-        while (Time.GetTicksMsec() < deadline && !LogText().Contains("scoring") && !LogText().Contains("MATCH ENDED") && presses < 60)
+        while (Time.GetTicksMsec() < deadline && !TurnScoredSinceStart() && presses < 60)
         {
             var before = Lines(LogText()).Count;
             if (Hint() is { } hint)
@@ -295,7 +299,7 @@ public partial class UiCheck : Node
         }
         Check("activation-hints-used", presses >= 2, $"{presses} hint buttons pressed (activate / end activation)");
         Check("live-opponent-events", liveEvents > 0 && connections == 0, $"{liveEvents} opponent event lines arrived while connected; {connections} times not connected");
-        Check("turn-scored", LogText().Contains("scoring") || LogText().Contains("MATCH ENDED"), Lines(LogText()).LastOrDefault() ?? "");
+        Check("turn-scored", TurnScoredSinceStart(), Lines(LogText()).LastOrDefault() ?? "");
         Check("vp-shown", Section("MATCH").Contains("VP "), Section("MATCH").Replace('\n', '|'));
         Check("event-list-shows-newest", EventListAtBottom(), $"event list scrolled to {EventList()?.ScrollVertical} of {EventList()?.GetVScrollBar().MaxValue}");
         await Shot("host-played");
