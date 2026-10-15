@@ -357,9 +357,13 @@ finally {
         }
         if ($rows.Count -gt 0) { Log "The runner wrote no summary; $($rows.Count) results were recovered from its output and the client logs." }
     }
-    $expected = @(Get-Content (Join-Path $PSScriptRoot 'expected-checks.txt') -Encoding UTF8 | Where-Object { $_ -and -not $_.StartsWith('#') })
+    $lines = @(Get-Content (Join-Path $PSScriptRoot 'expected-checks.txt') -Encoding UTF8 | Where-Object { $_ -and -not $_.StartsWith('#') })
+    # "optional <id>": reported only when the match offers the chance (for example a legal charge target); when it is
+    # not reported it is NOT TESTED, but the run is still complete.
+    $optional = @($lines | Where-Object { $_.StartsWith('optional ') } | ForEach-Object { $_.Substring(9) })
+    $expected = @($lines | ForEach-Object { if ($_.StartsWith('optional ')) { $_.Substring(9) } else { $_ } })
     $reported = @($rows | ForEach-Object { $_.Id })
-    $missing = @($expected | Where-Object {
+    $absent = @($expected | Where-Object {
         $entry = $_
         if ($entry -match '^([^:]+\|[^:]+): (.*)$') {
             $check = $Matches[2]
@@ -367,6 +371,8 @@ finally {
         }
         else { $reported -notcontains $entry }
     })
+    $missing = @($absent | Where-Object { $optional -notcontains $_ })
+    $noChance = @($absent | Where-Object { $optional -contains $_ })
     $manual = @(
         @('editor-build-button', 'Pressing Build in the Godot editor (the same build ran from the command line: godot-build-solutions).'),
         @('editor-play-button', 'Pressing Play (F5) in the Godot editor (the main scene was launched from the command line: godot-launch-scene).'),
@@ -380,13 +386,13 @@ finally {
     foreach ($r in $own) { $all.Add($r) }
     $pass = @($all | Where-Object { $_.Result -eq 'PASS' }).Count
     $fail = @($all | Where-Object { $_.Result -eq 'FAIL' }).Count
-    $notTested = $missing.Count + $manual.Count
+    $notTested = $missing.Count + $noChance.Count + $manual.Count
     $verdict = if ($fail -gt 0) { 'FAIL' } elseif (-not $finished -or $null -eq $runnerExit -or $missing.Count -gt 0) { 'INCOMPLETE' } elseif ($runnerExit -ne 0) { 'FAIL' } else { 'PASS' }
 
     $md = New-Object System.Collections.Generic.List[string]
     $md.Add('# M7.3 Windows UI check')
     $md.Add('')
-    $md.Add("**Verdict: $verdict.** $pass PASS, $fail FAIL, $notTested NOT TESTED ($($missing.Count) automated checks that did not run, $($manual.Count) manual checks).")
+    $md.Add("**Verdict: $verdict.** $pass PASS, $fail FAIL, $notTested NOT TESTED ($($missing.Count) automated checks that did not run, $($noChance.Count) optional checks the match gave no chance for, $($manual.Count) manual checks).")
     if ($verdict -eq 'PASS') { $md.Add('Every automated check passed on this PC. The manual checks below were not tested by this script.') }
     $md.Add('')
     $md.Add('| Run | |')
@@ -402,6 +408,7 @@ finally {
     $md.Add('## NOT TESTED')
     $md.Add('')
     foreach ($m in $missing) { $md.Add("- **$m**: automated check that did not report in this run (the run stopped before it, or it was not reached).") }
+    foreach ($m in $noChance) { $md.Add("- **$m** (optional): the match gave no chance for it in this run (for example no legal target); the Client.Core tests send every action through a real server.") }
     foreach ($m in $manual) { $md.Add("- **$($m[0])** (manual): $($m[1])") }
     $md.Add('')
     $md.Add('## PASS')

@@ -663,7 +663,8 @@ public static class Program
             {
                 continue;
             }
-            var next = i + 1 < lines.Count ? lines[i + 1] : "";
+            // The "at:" line can come after a blank line when stdout and stderr interleave.
+            var next = lines.Skip(i + 1).FirstOrDefault(l => !string.IsNullOrWhiteSpace(l)) ?? "";
             if (lines[i].Contains("ERR_CANT_OPEN") && next.Contains("init_output_device") && next.Contains("audio_driver"))
             {
                 continue;

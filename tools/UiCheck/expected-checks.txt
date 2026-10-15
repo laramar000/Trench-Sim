@@ -1,7 +1,7 @@
 # Checks the UI check runner reports (123): the 93 of M7.3 (Linux run of 3ba61db), 12 battlefield checks of M7.4 stage 4a, 11 preview checks of stage 4b
-# and 7 sending checks of stage 4c. board-send-shoot, board-send-charge and board-send-fight are reported only when the match offers a legal
-# target at that moment; otherwise they are NOT TESTED (the Client.Core tests send every action through a real server). Run-WindowsUiCheck.ps1 marks any of these
-# that a run did not report as NOT TESTED. One check id per line, as in the runner's summary.md.
+# and 7 sending checks of stage 4c. Lines marked "optional" (board-send-shoot, board-send-charge, board-send-fight) are reported only when the
+# match offers a legal target at that moment; otherwise Run-WindowsUiCheck.ps1 lists them as NOT TESTED without making the run incomplete (the
+# Client.Core tests send every action through a real server). Any other check a run did not report makes the verdict INCOMPLETE. One check id per line, as in the runner's summary.md.
 # "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide, and the
 # placement previews are checked by whichever seat deploys first.
 godot-version
@@ -76,10 +76,10 @@ host|guest: board-escape-cancels
 host|guest: board-send-refused-shown
 host|guest: board-send-place
 host: board-send-move
-host: board-send-shoot
+optional host: board-send-shoot
 host: board-activate-key
-host: board-send-charge
-host: board-send-fight
+optional host: board-send-charge
+optional host: board-send-fight
 host: focus-after-hint-answered
 host: activation-hints-used
 host: live-opponent-events
