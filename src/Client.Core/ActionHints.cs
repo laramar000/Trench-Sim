@@ -9,8 +9,8 @@ namespace Client.Core;
 public sealed record ActionHint(string Label, Command Command);
 
 // What the player's seat can try now, from the read-only rules query TurnSequence.LegalCommands over the server's
-// state (D3). M7.3 offers only the choices that need no position on the table; moving, shooting, charging, fighting
-// and placing models arrive with the battlefield in M7.4.
+// state (D3). These hints are the choices that need no position on the table; placing, moving, shooting, charging
+// and fighting are previewed on the battlefield (M7.4 stage 4b) and sent from it in stage 4c.
 public static class ActionHints
 {
     public static IReadOnlyList<ActionHint> For(MatchState state, Seat? seat, ContentNames names)
@@ -36,11 +36,11 @@ public static class ActionHints
         }
         if (state.Phase == Phase.Deployment && state.Setup?.Scenario is not null && MatchView.NextDeployer(state) == mine)
         {
-            return "Your models are placed on the battlefield, which arrives in M7.4. Use trench-cli to deploy for now.";
+            return "You can preview placing your models on the battlefield (key L there). Sending a placement from it arrives in stage 4c; use trench-cli to deploy for now.";
         }
         if (state.Phase == Phase.Activation && state.ActiveModel is { } active && state.FindModel(active)?.Seat == mine)
         {
-            return "Move, Dash, Shoot, Charge, Retreat and Fight arrive with the battlefield in M7.4. Use trench-cli for them for now.";
+            return "You can preview Move, Dash, Retreat, Shoot, Charge and Fight on the battlefield (keys M, D, R, S, C and X there). Sending them from it arrives in stage 4c; use trench-cli for them for now.";
         }
         return null;
     }

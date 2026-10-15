@@ -53,7 +53,8 @@ public sealed record ScreenState(
     Feedback? Feedback,
     string? Warning,
     IReadOnlyList<LogLine> Log,
-    BoardScene? Board);
+    BoardScene? Board,
+    MatchState State);
 
 public sealed class MatchControllerOptions
 {
@@ -302,7 +303,8 @@ public sealed class MatchController : IAsyncDisposable
                 _feedback,
                 _warning,
                 _log.Values.TakeLast(_options.LogLines).ToList(),
-                BoardScene.Of(state, seat, _names));
+                BoardScene.Of(state, seat, _names),
+                state);
         }
     }
 

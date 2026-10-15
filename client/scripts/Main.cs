@@ -359,7 +359,7 @@ public partial class Main : Control
         _code2.Text = s.Code is null ? "" : $"Match code {s.Code}. You are {(s.Seat is { } seat ? $"{Words.Seat(seat)} [{Words.SeatLetter(seat)}]" : "not seated")}." +
             (view.Phase == Words.Phase(Rules.Core.State.Phase.PreGame) || view.Models.Count == 0 ? " Give the code to your opponent." : "");
         _boardSection.Visible = s.Board is not null;
-        _board.Show(s.Board);
+        _board.Show(s.Board, s.State, s.Seat);
         _state.Text = string.Join("\n", view.Lines());
         _models.Text = view.Models.Count == 0 ? "No models yet." : string.Join("\n", view.Models.Select(m => m.Text));
 
@@ -408,7 +408,8 @@ public partial class Main : Control
         _boardInfo.Text = $"Table {scene.Size}; camera {_board.CameraText}. Selected: {_board.Selected?.Text ?? "none"}\n" +
             "Keys on the battlefield (Tab to it or click it): arrows pan, + and - zoom, Q and E turn 90°, F fits the table, T top-down or angled, " +
             "N and P next and previous model. Mouse: click selects, right-drag pans, wheel zooms. Distances are in inches. " +
-            "This view shows the server's state and decides nothing; heights are for display only.";
+            "This view shows the server's state and decides nothing; heights are for display only.\n" +
+            "PREVIEWS (preview; the server decides; nothing is sent yet): " + string.Join("\n", _board.Interaction.Lines());
     }
 
     // The first hint, or else the first connection button (Rejoin now, Leave): where a keyboard user wants to be.

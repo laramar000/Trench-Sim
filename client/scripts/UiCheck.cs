@@ -226,9 +226,10 @@ public partial class UiCheck : Node
         await Frames(5);
         Check($"zone-event-shown", LogText().Contains(" zone."), Lines(LogText()).LastOrDefault() ?? "");
         var actions = Section("YOUR ACTIONS");
-        Check("positional-not-offered-explained", actions.Contains("M7.4") || actions.Contains("Nothing to do until the opponent moves"), actions.Replace('\n', '|'));
+        Check("positional-not-offered-explained", actions.Contains("stage 4c") || actions.Contains("Nothing to do until the opponent moves"), actions.Replace('\n', '|'));
         await Shot($"{_role}-zone");
         Dump("zone");
+        await PlacementPreviewChecks();
         Mark("zone-done");
     }
 
@@ -249,6 +250,7 @@ public partial class UiCheck : Node
         var presses = 0;
         var liveEvents = 0;
         var focusChecked = false;
+        var previewsChecked = false;
         // The opponent's events (Seat Two and its models b1..b4) seen arriving while connected, whenever they arrive:
         // while the host waits for the opponent, and while it waits for the answer to its own command.
         var seen = Lines(LogText()).Count;
@@ -269,6 +271,13 @@ public partial class UiCheck : Node
         while (Time.GetTicksMsec() < deadline && !TurnScoredSinceStart() && presses < 60)
         {
             var before = Lines(LogText()).Count;
+            if (!previewsChecked && Hint() is not null && Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } board
+                && board.Interaction.Available.Contains(InteractionMode.Move))
+            {
+                previewsChecked = true;
+                await ActionPreviewChecks(board);
+                continue;
+            }
             if (Hint() is { } hint)
             {
                 await Press(hint, Key.Enter, null);
@@ -414,6 +423,179 @@ public partial class UiCheck : Node
         Check("board-click-selects", clicked, $"clicked at {local} for {target.Name}; selected {board.Selected?.Name ?? "nothing"}");
         Dump("board");
     }
+
+    // M7.4 stage 4b, on the deploying seat's turn: placing a model is previewed with the keyboard cursor, inside and
+    // outside the deployment zone, with the rule's reason when refused; getting it ready sends nothing.
+    private async Task PlacementPreviewChecks()
+    {
+        // Who deploys first is settled by a roll-off after the zone is chosen; wait until this client has seen it.
+        await Until(() => LogText().Contains(" deploys first.", StringComparison.Ordinal) ? "ok" : null, 20, "deployment-order");
+        await Frames(3);
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        if (board is null || !board.Interaction.Available.Contains(InteractionMode.Place))
+        {
+            Mark("not-deploying");
+            return;
+        }
+        Mark("deploying");
+        var lastCommand = Section("LAST COMMAND");
+        var events = Lines(LogText()).Count;
+        if (!await FocusByTab(board, 80))
+        {
+            Check("board-place-preview", false, $"Tab never reached the battlefield; focus on {Describe(Focused())}");
+            return;
+        }
+        var interaction = board.Interaction;
+        await KeyPress(Key.L);
+        var preview = interaction.Preview;
+        Check("board-place-preview", interaction.Mode == InteractionMode.Place && preview is { Legal: true } && OverlayHas(board, $"PLACE LOOKS LEGAL ({Preview.Caveat})")
+            && Section("BATTLEFIELD").Contains(preview.Headline, StringComparison.Ordinal),
+            $"cursor {interaction.Cursor}; {preview?.Headline}; labels: {string.Join(" / ", board.OverlayTexts)}");
+        await Shot($"{_role}-place-preview");
+
+        var start = interaction.Cursor;
+        await KeyPress(Key.Right);
+        var half = interaction.Cursor;
+        await KeyPress(Key.Right, shift: true);
+        var two = interaction.Cursor;
+        Check("board-cursor-steps", Near(half, start.X + 0.5, start.Y) && Near(two, start.X + 2.5, start.Y) && Section("BATTLEFIELD").Contains($"Cursor at {two}.", StringComparison.Ordinal),
+            $"start {start}; Right {half}; Shift+Right {two}");
+
+        // Towards the middle of the table, 2" at a time, until the preview refuses (outside the zone).
+        var (towards, back) = Math.Abs(18 - start.X) > Math.Abs(18 - start.Y)
+            ? (start.X < 18 ? (Key.Right, Key.Left) : (Key.Left, Key.Right))
+            : (start.Y < 18 ? (Key.Down, Key.Up) : (Key.Up, Key.Down));
+        var steps = 0;
+        while (steps < 14 && interaction.Preview is { Legal: true })
+        {
+            await KeyPress(towards, shift: true);
+            steps++;
+        }
+        var refused = interaction.Preview;
+        Check("board-place-refused-reason", refused?.Refusal is { } r && OverlayHas(board, $"PLACE REFUSED ({Preview.Caveat})") && OverlayHas(board, r.Text)
+            && Section("BATTLEFIELD").Contains($"{r.Text} ({r.RuleRef}; {Preview.Caveat})", StringComparison.Ordinal),
+            $"after {steps} steps of 2\" to {interaction.Cursor}: {refused?.Headline}");
+        await Shot($"{_role}-place-refused");
+        await KeyPress(Key.Space);
+        var notReady = interaction.Ready is null && (interaction.Notice ?? "").StartsWith("Not ready", StringComparison.Ordinal);
+        // Back to the zone centre, where the preview was legal: undo the 2" steps, then the 2.5" of the cursor-step check.
+        for (var i = 0; i < steps; i++)
+        {
+            await KeyPress(back, shift: true);
+        }
+        await KeyPress(Key.Left, shift: true);
+        await KeyPress(Key.Left);
+        await KeyPress(Key.Space);
+        Check("board-confirm-sends-nothing", notReady && interaction.Ready is not null && Section("BATTLEFIELD").Contains(Interaction.NotSentYet, StringComparison.Ordinal)
+            && Section("LAST COMMAND") == lastCommand && Lines(LogText()).Count == events,
+            $"refused preview not made ready: {notReady}; back at {interaction.Cursor} (start {start}), legal one ready: {interaction.Ready}; last command unchanged: {Section("LAST COMMAND") == lastCommand}; events {events} -> {Lines(LogText()).Count}");
+        await KeyPress(Key.Escape);
+        Check("board-escape-cancels", interaction.Mode == InteractionMode.None && board.OverlayTexts.Count == 0 && !All(board).OfType<Label3D>().Any(l => !l.IsQueuedForDeletion() && l.Text.Contains(Preview.Caveat, StringComparison.Ordinal)),
+            $"mode {interaction.Mode}; {board.OverlayTexts.Count} preview labels left");
+    }
+
+    // M7.4 stage 4b, during the host's own activation: Move with waypoints (keys and mouse), Shoot with the rules' sight
+    // rays and target cycling (keys and mouse), and Charge with its reach. Nothing is sent.
+    private async Task ActionPreviewChecks(BoardView board)
+    {
+        var lastCommand = Section("LAST COMMAND");
+        var interaction = board.Interaction;
+        if (!await FocusByTab(board, 80) || board.Scene is not { } scene)
+        {
+            Check("board-move-preview", false, $"Tab never reached the battlefield; focus on {Describe(Focused())}");
+            return;
+        }
+        await KeyPress(Key.M);
+        var actor = scene.Find(interaction.Actor);
+        var startOk = actor is not null && Near(interaction.Cursor, actor.X, actor.Y);
+        await KeyPress(Key.Right);
+        await KeyPress(Key.Right);
+        await KeyPress(Key.Enter);
+        await KeyPress(Key.Down);
+        await KeyPress(Key.Down);
+        var move = interaction.Preview;
+        var verdict = move is { Legal: true } ? "LOOKS LEGAL" : "REFUSED";
+        Check("board-move-preview", startOk && move is { Kind: PreviewKind.Move } && move.Path.Count == 3 && interaction.Waypoints.Count == 1
+            && OverlayHas(board, $"MOVE {verdict} ({Preview.Caveat})") && OverlayHas(board, $"{BoardScene.Inch(move.Path[^1].Inches)} used")
+            && board.OverlayTexts.Contains(BoardScene.Inch(move.Path[1].Inches)) && Section("BATTLEFIELD").Contains(move.Headline, StringComparison.Ordinal),
+            $"from {actor?.Text}; {move?.Headline}; path {string.Join(" -> ", move?.Path.Select(p => $"{p.At} {BoardScene.Inch(p.Inches)}") ?? [])}; labels: {string.Join(" / ", board.OverlayTexts)}");
+        await Shot("host-move-preview");
+        await KeyPress(Key.Backspace);
+        var removed = interaction.Waypoints.Count == 0;
+
+        // The mouse: moving over the table moves the cursor (throttled), and a click fixes a waypoint there.
+        var hoverAt = (X: Math.Clamp((actor?.X ?? 18) + 1.5, 1, 35), Y: Math.Clamp((actor?.Y ?? 18) - 1.0, 1, 35));
+        var hovered = false;
+        var clickedPoint = false;
+        if (board.ScreenOf(hoverAt.X, hoverAt.Y) is { } local)
+        {
+            var global = board.GetGlobalTransformWithCanvas() * local;
+            Input.ParseInputEvent(new InputEventMouseMotion { Position = global, GlobalPosition = global });
+            hovered = await Until(() => Near(interaction.Cursor, hoverAt.X, hoverAt.Y, 0.15) ? "ok" : null, 3, "hover") is not null;
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
+                await Frames(2);
+            }
+            clickedPoint = interaction.Waypoints.Count == 1 && Near(interaction.Waypoints[0], hoverAt.X, hoverAt.Y, 0.15);
+        }
+        Check("board-mouse-path", removed && hovered && clickedPoint, $"Backspace removed the waypoint: {removed}; hover moved the cursor to {interaction.Cursor} (wanted ({hoverAt.X:0.0}, {hoverAt.Y:0.0})): {hovered}; click fixed a waypoint: {clickedPoint}");
+        await KeyPress(Key.Escape);
+
+        // Shoot: the rules' own sight rays, distance and cover, on the battlefield and in the text.
+        await KeyPress(Key.S);
+        var targets = interaction.Targets();
+        Preview? shot = null;
+        for (var i = 0; i < targets.Count; i++)
+        {
+            shot = interaction.Preview;
+            if (shot is { Rays.Count: > 0 })
+            {
+                break;
+            }
+            await KeyPress(Key.N);
+        }
+        var early = shot?.Refusal?.Code is Rules.Core.ReasonCode.AttackerEngaged or Rules.Core.ReasonCode.NoRangedWeapon;
+        var sightShown = shot is { Rays.Count: > 0 } && OverlayHas(board, $"SHOOT {(shot.Legal ? "LOOKS LEGAL" : "REFUSED")} ({Preview.Caveat})")
+            && OverlayHas(board, $"of {shot.Rays.Count} sight rays clear") && OverlayHas(board, "Distance ") && Section("BATTLEFIELD").Contains(shot.Headline, StringComparison.Ordinal);
+        Check("board-shoot-preview", sightShown || (early && OverlayHas(board, shot!.Refusal!.Text)),
+            $"{shot?.Headline}; {shot?.Rays.Count} rays, {shot?.Rays.Count(r => r.Clear)} clear; labels: {string.Join(" / ", board.OverlayTexts)}");
+        await Shot("host-shoot-preview");
+        var current = interaction.Target;
+        await KeyPress(Key.N);
+        var expected = current is { } c && targets.IndexOf(c) is var at && at >= 0 ? targets[(at + 1) % targets.Count] : (Rules.Core.State.ModelId?)null;
+        var cycled = targets.Count < 2 || interaction.Target == expected;
+        var other = targets.Where(t => t != interaction.Target).Select(t => scene.Find(t)).FirstOrDefault(m => m is not null && board.ScreenOf(m.X, m.Y, m.Standing) is not null);
+        var picked = targets.Count < 2;
+        if (other is not null && board.ScreenOf(other.X, other.Y, other.Standing) is { } spot)
+        {
+            var global = board.GetGlobalTransformWithCanvas() * spot;
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
+                await Frames(2);
+            }
+            picked = interaction.Target == other.Id;
+        }
+        Check("board-target-cycle-and-click", targets.Count > 0 && cycled && picked, $"{targets.Count} enemy targets; N went to the next: {cycled}; a click picked {other?.Name ?? "nobody"}: {picked}");
+
+        await KeyPress(Key.C);
+        var charge = interaction.Preview;
+        var chargeShown = charge is not null && OverlayHas(board, $"CHARGE {(charge.Legal ? "LOOKS LEGAL" : "REFUSED")} ({Preview.Caveat})")
+            && (charge.Legal ? OverlayHas(board, "Charge path ") && OverlayHas(board, ": reaches on ") : OverlayHas(board, charge.Refusal!.Text));
+        Check("board-charge-preview", chargeShown, $"{charge?.Headline}; {string.Join(" ", charge?.Facts ?? [])}; labels: {string.Join(" / ", board.OverlayTexts)}");
+        await Shot("host-charge-preview");
+        await KeyPress(Key.Escape);
+        Check("board-previews-send-nothing", interaction.Mode == InteractionMode.None && board.OverlayTexts.Count == 0 && Section("LAST COMMAND") == lastCommand && Hint() is not null,
+            $"mode {interaction.Mode}; last command unchanged: {Section("LAST COMMAND") == lastCommand}; hint still offered: {Hint()?.Text}");
+        Dump("previews");
+    }
+
+    private static bool Near(TablePoint p, double x, double y, double within = 0.001) => Math.Abs(p.X - x) <= within && Math.Abs(p.Y - y) <= within;
+
+    private bool OverlayHas(BoardView board, string text) =>
+        board.OverlayTexts.Any(t => t.Contains(text, StringComparison.Ordinal))
+        && All(board).OfType<Label3D>().Any(l => !l.IsQueuedForDeletion() && l.Text.Contains(text, StringComparison.Ordinal));
 
     private static bool AllModelsInView(BoardView board, BoardScene scene) => scene.Models.All(m => board.InView(board.ScreenOf(m.X, m.Y, m.Standing)));
 
