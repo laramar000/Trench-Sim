@@ -218,13 +218,16 @@ public static class Reconnector
     // makes one attempt of at most policy.AttemptTimeout. Unlike the automatic path it also rejoins after a takeover or a
     // policy close (the player chose to take the seat back) and after a failed copy, which it rebuilds from an empty copy.
     // It never rejoins a finished or aborted match, a session that never had a seat, or one a newer session superseded.
+    // seatToken overrides the dropped session's token, for a newer one the player's other window saved (after a takeover
+    // the old token no longer opens the seat once the newer window confirmed its own).
     public static Task<ReconnectResult> RejoinNowAsync(
         ClientSession dropped,
         Func<MatchMirror, CancellationToken, Task<ClientSession>> connect,
         Action<ClientSession>? configure = null,
         ReconnectPolicy? policy = null,
         TimeProvider? time = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? seatToken = null)
     {
         ArgumentNullException.ThrowIfNull(dropped);
         ArgumentNullException.ThrowIfNull(connect);
@@ -235,7 +238,7 @@ public static class Reconnector
             throw new InvalidOperationException($"This session cannot be rejoined ({decision}).");
         }
         var copy = decision == ReconnectDecision.CopyFailed ? new MatchMirror() : dropped.Mirror;
-        return Start(dropped, dropped.Welcome.Code, dropped.SeatToken, dropped.Mirror, copy, connect, configure, policy, time, automatic: false, cancellationToken);
+        return Start(dropped, dropped.Welcome.Code, seatToken ?? dropped.SeatToken, dropped.Mirror, copy, connect, configure, policy, time, automatic: false, cancellationToken);
     }
 
     private static Task<ReconnectResult> Start(

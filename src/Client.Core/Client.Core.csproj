@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- What the Godot client shows and how it reacts, as plain C# that is tested without Godot (M7.3): the view of the
+       match, event text, model names, advisory action hints, command feedback and connection status. It reads the
+       server's state through Match.Client; it never resolves commands, rolls dice or applies events itself. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Client.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Match.Client\Match.Client.csproj" />
+  </ItemGroup>
+
+  <!-- The same content files the server reads, so names shown come from content (D5). Embedded, so the Godot client
+       finds them wherever it runs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\content\test-warbands.json" LogicalName="content/test-warbands.json" />
+    <EmbeddedResource Include="..\..\content\melee-warbands.json" LogicalName="content/melee-warbands.json" />
+  </ItemGroup>
+
+</Project>

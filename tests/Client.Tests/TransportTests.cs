@@ -32,6 +32,10 @@ public sealed partial class TransportTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        foreach (var controller in _controllers)
+        {
+            await controller.DisposeAsync();
+        }
         foreach (var fake in _fakes)
         {
             await fake.DisposeAsync();

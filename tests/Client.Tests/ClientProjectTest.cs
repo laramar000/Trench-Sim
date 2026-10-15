@@ -10,6 +10,7 @@ public class ClientProjectTest
 {
     private static readonly HashSet<string> AllowedProjectReferences =
     [
+        @"..\src\Client.Core\Client.Core.csproj",
         @"..\src\Match.Client\Match.Client.csproj",
         @"..\src\Match.Protocol\Match.Protocol.csproj",
     ];

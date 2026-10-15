@@ -8,6 +8,7 @@ The client shows what the server says and sends commands. It never resolves a co
 
 - M7.1 (bootstrap): the project opens and runs, and shows that our .NET 10 libraries load inside Godot.
 - M7.2 (shared client library): the client reaches the server through `Match.Client`. There is no match screen yet; the battlefield and HUD arrive in M7.3 to M7.5. Accepted 2026-10-15 at `276876e`, after Jason built and ran the client in the Godot 4.7.2 .NET editor on Windows 11.
+- M7.3 (match state): a minimal match screen that shows the server's state of the match, as text, through the new `Client.Core` library. There is no battlefield yet: placing, moving and every command that needs a position or a target arrive in M7.4, so for now a match is deployed and played through `trench-cli`. Waiting for Jason's Windows check.
 
 ## The shared client library (`src/Match.Client`)
 
@@ -17,6 +18,28 @@ Plain C#, used by both `trench-cli` and the Godot client, so protocol handling e
 - `Reconnector` (decision D7): after a transient drop it rejoins the seat with its token and the copy it already holds, waiting 1, 2, 4 and 8 seconds, then every 15. It never retries on its own after a seat takeover, a refused or invalid token, a policy close, or a finished or aborted match, and a copy that failed its hash check is left for a manual rejoin. See below.
 
 It references only `Match.Protocol` (which brings `Rules.Core`). It never resolves commands, rolls dice, applies events except through `MatchMirror`, or reads match records.
+
+## The presentation library (`src/Client.Core`, M7.3)
+
+Plain C#, tested without Godot. It references only `Match.Client`. The Godot scripts use it to turn the server's state into text and to send the player's choices; it decides nothing.
+- `MatchController`: one seat in one match. It creates, joins or rejoins a saved seat, sends one command at a time and reports the answer, follows the connection (drops, automatic reconnects through `Reconnector`, takeovers, the match ending or being aborted), and keeps the recent events. `Snapshot()` gives a `ScreenState` with everything the screen shows; `Changed` says when to read it again.
+- `MatchView`: status, turn, phase, whose move it is, both seats, every model, the current activation, the pending decision, the outcome. Whose move it is is display-only: the server alone decides whether a command is taken.
+- `ActionHints`: the commands the rules engine's read-only query (`TurnSequence.LegalCommands`) lists for your seat, labelled. They are hints; the server accepts or refuses every command. Commands that need a position or a target are not offered until M7.4, and the screen says so (`NotYetOffered`).
+- `EventText`: a line of text and the dice for every event. Its event text is a copy of the simulator's narrator (`Sim.Narrator`), because the client must not reference `Sim`, which holds a dice source; a test runs 80 simulated matches and checks the two give the same text for every event. `ContentNames` (a copy of `Sim.Content.Parse`, also checked by a test) names models from the warband files built into the library, and falls back to model ids, with a note on screen, when the files do not match the server's match.
+- `RulesGaps`: the rules this build does not yet implement (design §10), shown to playtesters.
+
+### Out-of-date commands (Stale)
+
+The server refuses a command sent against an older state of the match (`Stale`). The missing events are already on their way on the same connection, so the client waits for them (five seconds at most, `StaleWait`), without polling and without reconnecting, then says "Nothing was done; choose again" and shows the current actions. Repeated refusals are counted ("3 times in a row") and each waits for its own events, so there is no busy loop. If the events do not arrive in time, the screen says so and offers **Resync**, which only the player can choose: it closes the connection and takes the seat back with the copy it already holds.
+
+## The match screen (M7.3)
+
+The Godot client is two screens built in code (`client/scripts/Main.cs`).
+- **Connect:** the server address; the server's rejoin window in seconds (default 300, see below), which sets how long automatic reconnecting lasts; create a match for a scenario, join one by its code, or rejoin a seat saved on this computer.
+- **Match:** the connection line, with **Rejoin now** when automatic attempts have stopped, **Take the seat back…** (with a confirmation) after another window took the seat, and **Resync** after an unresolved Stale refusal; the match code with **Copy code**; MATCH (turn, phase, whose move, both seats with VP, the pending decision, the outcome); MODELS; YOUR ACTIONS (hint buttons, marked "the server decides", or why there is nothing to do); LAST COMMAND (sending, done, refused by the rules with the rule reference, not taken by the server, out of date); and EVENTS, numbered, with the dice for every roll.
+- **Rules in this build** opens on the first match and with F1.
+- **Readable without colour:** seats are told apart by letters ([A], [B]) and words, never by colour alone. Text size is 100, 125 or 150 %, and there is a high-contrast switch. Every control works with the keyboard (Tab, Shift+Tab, Enter or Space; Esc closes a dialog), and the hints line says so.
+- The scripts only render the controller's `ScreenState` and pass on button presses. They never resolve commands, roll dice, apply events or read match records; `ClientAuthorityTest` checks the compiled scripts.
 
 ## Reconnecting
 
@@ -39,6 +62,12 @@ When the player opens a newer window and it takes the seat with the saved token,
 
 Fixing that would need the server to tell a rejoining client that its seat was taken over in the meantime, which is a protocol change and is not part of M7. Both cases are covered by tests.
 
+"Rejoin now" after a takeover uses the newest token saved on this computer, so the player can take the seat back from the newer window's token.
+
+### Known limitation: intermittent M5 network tests
+
+Some M5 server network tests (`tests/Server.Tests`) fail now and then on timing. They failed the same way before M7 began; fixing them is a separate, test-only change. The M7.3 client tests do not depend on them.
+
 ## What you need
 
 - The **.NET** build of Godot, version in `client/GODOT_VERSION` (4.7.2). The standard build has no C# and cannot open this project: it reports a missing dependency on the C# script.
@@ -55,14 +84,19 @@ Godot keeps its cache in `client/.godot/` and may create `client/Client.sln`; bo
 ## Tests
 
 `dotnet test TrenchSim.sln` runs everything that does not need Godot. In `tests/Client.Tests`:
-- `ClientProjectTest`: the Godot client is outside the solution, its SDK matches `GODOT_VERSION`, and it may reference only `Match.Client` and `Match.Protocol` (never `Match.Server`, `Sim` or `Match.Cli`).
+- `ClientProjectTest`: the Godot client is outside the solution, its SDK matches `GODOT_VERSION`, and it may reference only `Client.Core`, `Match.Client` and `Match.Protocol` (never `Match.Server`, `Sim` or `Match.Cli`).
 - `ClientAuthorityTest`: `Match.Client` uses the plain SDK and references only `Match.Protocol`; its compiled code references no resolver (`TurnSequence.Decide`), dice source, `Reducer` or record verifier. The Godot client is checked the same way on its **compiled** scripts: the test builds `client/Client.csproj` with the Godot .NET SDK from NuGet (no Godot install needed) into a temporary folder and scans `Client.dll`. Its assembly references must be on an allow-list (never `Match.Server`, `Sim` or `Match.Cli`), and it must not touch the copy of the match directly (`MatchMirror.Apply`/`Reset`, `Codec.ParseServer`) or load code by reflection. If the client cannot be built, the test fails. The scan is itself checked against the server and `Match.Client`, which do use these. A text scan of the Godot sources remains as a quick extra check.
+- `ClientAuthorityTest` also checks `Client.Core`: plain SDK, references only `Match.Client`, and its compiled code uses no resolver, dice source, `Reducer`, record verifier or direct change to the copy of the match, and does use the read-only `TurnSequence.LegalCommands` and `Reconnector`. The compiled Godot scripts must use `Client.Core.MatchController`.
+- `ClientCoreTests`: event text and content parsing agree with `Sim` over 80 simulated matches; every event has a line and every roll its dice; names and the fallback; hints equal the legal commands for the seat; the view agrees with the state; outcome wording; the rules gaps.
+- `ControllerTests` (part of `TransportTests`): two controllers play a whole match against the server; one command at a time; protocol refusals; Stale refusals wait for the events and never reconnect on their own, and Resync recovers; a drop shows Reconnecting and the opponent sees the pause; "Rejoin now" after automatic attempts stop; taking a seat back after a takeover needs confirmation; an aborted match is shown and its saved seats are forgotten.
 - `TransportTests`: real matches over WebSockets against an in-process server: connection on v2, command numbering, duplicate resends, saved and rotated tokens, reconnecting after a drop, and the cases where it must not reconnect. Reconnect cases also use a fake host that never answers the handshake, never answers the rejoin, or answers busy or shutting down: one run per seat, deadlines, cancellation, "Rejoin now", and the takeover limitation above.
 
 ## Headless check
 
 With a server running, `godot --headless --path client --build-solutions --quit`, then
 `godot --headless --path client -- --smoke-server ws://127.0.0.1:5080/match` creates a match through `Match.Client` and prints `SMOKE OK: Welcome seat=One …`.
+
+`godot --path client -- --smoke-view ws://127.0.0.1:5080/match --screenshot screen.png` opens the match screen on a new match (an in-process opponent joins it), prints `SMOKE VIEW OK: …` and saves a screenshot. It needs a display; on Linux without one, run it under `xvfb-run` with `--rendering-driver opengl3`.
 
 ## Compatibility gate (M7.1, passed 2026-10-15)
 

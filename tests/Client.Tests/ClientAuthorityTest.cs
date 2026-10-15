@@ -57,6 +57,7 @@ public class ClientAuthorityTest
     private static readonly HashSet<string> AllowedGodotAssemblyReferences =
     [
         "GodotSharp",
+        "Client.Core",
         "Match.Client",
         "Match.Protocol",
         "Rules.Core",
@@ -139,6 +140,39 @@ public class ClientAuthorityTest
         Assert.Contains("Rules.Core.TurnSequence.Decide", members);
     }
 
+    // Client.Core (M7.3): what the Godot client shows, as plain C#. It reads state and rules queries; it never resolves,
+    // rolls, feeds the copy of the match itself or loads code by reflection.
+    [Fact]
+    public void ClientCoreUsesThePlainSdkAndOnlyReferencesMatchClient()
+    {
+        var project = XDocument.Load(Path.Combine(Repository.Root, "src", "Client.Core", "Client.Core.csproj"));
+        Assert.Equal("Microsoft.NET.Sdk", (string?)project.Root?.Attribute("Sdk"));
+        var references = project.Descendants()
+            .Where(e => e.Name.LocalName is "PackageReference" or "Reference" or "FrameworkReference" or "ProjectReference" or "Import")
+            .Select(e => $"{e.Name.LocalName} {(string?)e.Attribute("Include") ?? (string?)e.Attribute("Project")}");
+        Assert.Equal([@"ProjectReference ..\Match.Client\Match.Client.csproj"], references);
+    }
+
+    [Fact]
+    public void CompiledClientCoreUsesOnlyAllowedAssemblies()
+    {
+        var references = ReferencedAssemblies(Path.Combine(AppContext.BaseDirectory, "Client.Core.dll"));
+        Assert.DoesNotContain(references, n => !AllowedAssemblyReferences.Contains(n) && n != "Match.Client");
+    }
+
+    [Fact]
+    public void CompiledClientCoreNeverResolvesRollsDiceOrFeedsTheCopy()
+    {
+        var (types, members) = References(Path.Combine(AppContext.BaseDirectory, "Client.Core.dll"));
+        Assert.Empty(types.Intersect(ForbiddenTypes));
+        Assert.Empty(types.Intersect(ForbiddenGodotTypes));
+        Assert.Empty(members.Intersect(ForbiddenMembers));
+        Assert.Empty(members.Intersect(ForbiddenGodotMembers));
+        // Hints come from the read-only rules query, and connections from Match.Client.
+        Assert.Contains("Rules.Core.TurnSequence.LegalCommands", members);
+        Assert.Contains("Match.Client.Reconnector", types);
+    }
+
     // The scan sees member references too: Match.Client applies events through the mirror, which a Godot script may not.
     [Fact]
     public void TheScanFindsMirrorUpdatesInMatchClient()
@@ -169,8 +203,8 @@ public class ClientAuthorityTest
         Assert.DoesNotContain(types, t => t.StartsWith("Match.Server.", StringComparison.Ordinal) || t.StartsWith("Sim.", StringComparison.Ordinal));
         Assert.Empty(members.Intersect(ForbiddenMembers));
         Assert.Empty(members.Intersect(ForbiddenGodotMembers));
-        // It does reach the server through Match.Client, so the scan is looking at the real scripts.
-        Assert.Contains("Match.Client.ClientSession", types);
+        // It does use the client libraries, so the scan is looking at the real scripts.
+        Assert.Contains("Client.Core.MatchController", types);
     }
 
     [Fact]

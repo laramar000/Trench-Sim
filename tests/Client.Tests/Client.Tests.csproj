@@ -19,6 +19,7 @@
 
   <!-- The tests may use the server and the simulator to drive real matches; the client libraries under test may not. -->
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Client.Core\Client.Core.csproj" />
     <ProjectReference Include="..\..\src\Match.Client\Match.Client.csproj" />
     <ProjectReference Include="..\..\src\Match.Protocol\Match.Protocol.csproj" />
     <ProjectReference Include="..\..\src\Match.Server\Match.Server.csproj" />
