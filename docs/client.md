@@ -8,7 +8,7 @@ The client shows what the server says and sends commands. It never resolves a co
 
 - M7.1 (bootstrap): the project opens and runs, and shows that our .NET 10 libraries load inside Godot.
 - M7.2 (shared client library): the client reaches the server through `Match.Client`. There is no match screen yet; the battlefield and HUD arrive in M7.3 to M7.5. Accepted 2026-10-15 at `276876e`, after Jason built and ran the client in the Godot 4.7.2 .NET editor on Windows 11.
-- M7.3 (match state): a minimal match screen that shows the server's state of the match, as text, through the new `Client.Core` library. There is no battlefield yet: placing, moving and every command that needs a position or a target arrive in M7.4, so for now a match is deployed and played through `trench-cli`. Waiting for Jason's Windows check.
+- M7.3 (match state): a minimal match screen that shows the server's state of the match, as text, through the new `Client.Core` library. There is no battlefield yet: placing, moving and every command that needs a position or a target arrive in M7.4, so for now a match is deployed and played through `trench-cli`. Accepted 2026-10-15 at `23f133a`: on Jason's Windows 11 PC, `Run-WindowsUiCheck.ps1` exited 0 (all 93 UI checks, plus the project opening in the Godot 4.7.2 .NET editor without errors). The manual checks (editor Build and Play buttons, mouse, Copy code, title-bar close, readability by eye) were deferred by Jason and have not been done.
 
 ## The shared client library (`src/Match.Client`)
 
