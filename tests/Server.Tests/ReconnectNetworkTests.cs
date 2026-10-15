@@ -93,9 +93,10 @@ public sealed class ReconnectNetworkTests : IAsyncLifetime
         {
             await BotPlayer.PlayAsync(session, seed, Token);
         }
-        catch (Exception e) when (e is WebSocketException or InvalidOperationException or System.Threading.Channels.ChannelClosedException or IOException)
+        catch (Exception e) when (e is WebSocketException or InvalidOperationException or System.Threading.Channels.ChannelClosedException or IOException
+            || (e is OperationCanceledException && !Token.IsCancellationRequested))
         {
-            // The connection was cut under the bot: that is the test.
+            // The connection was cut under the bot (a send in flight is cancelled): that is the test. A test timeout is not.
         }
     }
 
