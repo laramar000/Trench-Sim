@@ -268,8 +268,12 @@ public partial class UiCheck : Node
         // for this seat (it is stopped from outside, so how far it gets depends on the machine); then the next turn counts.
         var start = seen;
         bool TurnScoredSinceStart() => Lines(LogText()).Skip(start).Any(l => l.Contains("scoring") || l.Contains("MATCH ENDED"));
+        bool MatchEnded() => Lines(LogText()).Skip(start).Any(l => l.Contains("MATCH ENDED"));
+        var earlier = Lines(LogText()).Count(IsOpponentEvent);
+        // On a fast machine trench-cli can finish the opponent's activations of this turn before the host takes its seat
+        // back; then the turn is scored with no opponent event to see, so play on into the next turn until one arrives.
         var deadline = Time.GetTicksMsec() + 240_000;
-        while (Time.GetTicksMsec() < deadline && !TurnScoredSinceStart() && presses < 60)
+        while (Time.GetTicksMsec() < deadline && !(TurnScoredSinceStart() && (liveEvents > 0 || MatchEnded())) && presses < 60)
         {
             var before = Lines(LogText()).Count;
             if (!previewsChecked && Hint() is not null && Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } board
@@ -329,7 +333,7 @@ public partial class UiCheck : Node
             }
         }
         Check("activation-hints-used", presses >= 2, $"{presses} hint buttons pressed (activate / end activation)");
-        Check("live-opponent-events", liveEvents > 0 && connections == 0, $"{liveEvents} opponent event lines arrived while connected; {connections} times not connected");
+        Check("live-opponent-events", liveEvents > 0 && connections == 0, $"{liveEvents} opponent event lines arrived while connected; {connections} times not connected; {earlier} opponent event lines before the host played");
         Check("turn-scored", TurnScoredSinceStart(), Lines(LogText()).LastOrDefault() ?? "");
         Check("vp-shown", Section("MATCH").Contains("VP "), Section("MATCH").Replace('\n', '|'));
         Check("event-list-shows-newest", EventListAtBottom(), $"event list scrolled to {EventList()?.ScrollVertical} of {EventList()?.GetVScrollBar().MaxValue}");
