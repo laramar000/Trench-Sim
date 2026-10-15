@@ -230,6 +230,15 @@ public partial class UiCheck : Node
         Mark("zone-done");
     }
 
+    // An event line by the opponent of the host (the host is always Seat One): "[22] Two activates b1." or "[23] b1 moves …".
+    // "Two activates first." is left out: the initiative holder, possibly the host, chooses it.
+    private static bool IsOpponentEvent(string line)
+    {
+        var text = line[(line.IndexOf("] ", StringComparison.Ordinal) + 2)..];
+        return (text.StartsWith("Two ", StringComparison.Ordinal) && text != "Two activates first.")
+            || (text.Length > 2 && text[0] == 'b' && char.IsAsciiDigit(text[1]) && text[2] == ' ');
+    }
+
     // The host activates and ends activations with hint buttons while trench-cli plays the other seat, until the first
     // turn is scored. The other seat's events arrive without a reconnect. Focus must survive the redraws they cause.
     private async Task PlayActivations()
@@ -238,6 +247,18 @@ public partial class UiCheck : Node
         var presses = 0;
         var liveEvents = 0;
         var focusChecked = false;
+        // The opponent's events (Seat Two and its models b1..b4) seen arriving while connected, whenever they arrive:
+        // while the host waits for the opponent, and while it waits for the answer to its own command.
+        var seen = Lines(LogText()).Count;
+        void CountOpponentEvents()
+        {
+            var lines = Lines(LogText());
+            if (Banner().StartsWith("Connection: Connected", StringComparison.Ordinal))
+            {
+                liveEvents += lines.Skip(seen).Count(IsOpponentEvent);
+            }
+            seen = Math.Max(seen, lines.Count);
+        }
         var deadline = Time.GetTicksMsec() + 240_000;
         while (Time.GetTicksMsec() < deadline && !LogText().Contains("scoring") && !LogText().Contains("MATCH ENDED") && presses < 60)
         {
@@ -247,6 +268,7 @@ public partial class UiCheck : Node
                 await Press(hint, Key.Enter, null);
                 presses++;
                 await Until(() => Section("LAST COMMAND").StartsWith("SENT:", StringComparison.Ordinal) ? null : "answered", 20, "answer");
+                CountOpponentEvents();
                 if (!Section("LAST COMMAND").StartsWith("DONE:", StringComparison.Ordinal))
                 {
                     Check("activation-hint-done", false, Section("LAST COMMAND"));
@@ -261,10 +283,7 @@ public partial class UiCheck : Node
                 continue;
             }
             var changed = await Until(() => Lines(LogText()).Count > before || Hint() is not null ? "changed" : null, 30, "opponent");
-            if (Lines(LogText()).Count > before && Banner().StartsWith("Connection: Connected", StringComparison.Ordinal))
-            {
-                liveEvents += Lines(LogText()).Count - before;
-            }
+            CountOpponentEvents();
             if (changed is null)
             {
                 break;
@@ -275,7 +294,7 @@ public partial class UiCheck : Node
             }
         }
         Check("activation-hints-used", presses >= 2, $"{presses} hint buttons pressed (activate / end activation)");
-        Check("live-opponent-events", liveEvents > 0 && connections == 0, $"{liveEvents} event lines arrived while connected; {connections} times not connected");
+        Check("live-opponent-events", liveEvents > 0 && connections == 0, $"{liveEvents} opponent event lines arrived while connected; {connections} times not connected");
         Check("turn-scored", LogText().Contains("scoring") || LogText().Contains("MATCH ENDED"), Lines(LogText()).LastOrDefault() ?? "");
         Check("vp-shown", Section("MATCH").Contains("VP "), Section("MATCH").Replace('\n', '|'));
         Check("event-list-shows-newest", EventListAtBottom(), $"event list scrolled to {EventList()?.ScrollVertical} of {EventList()?.GetVScrollBar().MaxValue}");
