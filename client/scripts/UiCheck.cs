@@ -1,3 +1,4 @@
+using Client.Core;
 using Godot;
 
 // M7.3 verification only: drives the real screens with real key presses, as a keyboard user would, and reports what
@@ -106,6 +107,7 @@ public partial class UiCheck : Node
         Check("opponent-away-shown-after-rejoin", away is not null, Banner());
         await Shot("host-took-back");
         Dump("took-back");
+        await BoardChecks();
         Mark("took-back");
 
         await PlayActivations();
@@ -321,6 +323,121 @@ public partial class UiCheck : Node
         Check("gaps-button-space-opens", gaps?.Visible == true, $"visible={gaps?.Visible}");
         await KeyPress(Key.Escape);
         Check("gaps-escape-closes-again", gaps?.Visible == false, $"visible={gaps?.Visible}");
+    }
+
+    // M7.4 stage 4a: the 3D battlefield shows the deployed match, its camera keeps the table in view, screen points map
+    // back to the right inches, and models can be selected with keys and the mouse. Read-only: nothing is sent.
+    private async Task BoardChecks()
+    {
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        var scene = board?.Scene;
+        // Every model the MODELS column lists as on the table (deployed, not out of action) is on the battlefield.
+        var onTable = Section("MODELS").Split('\n').Where(l => l.StartsWith('[') && !l.Contains("not deployed") && !l.Contains("Out of action")).ToList();
+        Check("board-shown", scene is { Terrain.Count: 9, Zones.Count: 2 } && scene.Models.Count == onTable.Count && onTable.Count > 0
+            && onTable.All(l => scene.Models.Any(m => l.StartsWith($"[{m.SeatLetter}] {m.Name}:", StringComparison.Ordinal)))
+            && Section("BATTLEFIELD").Contains("Table 36.0\" x 36.0\""),
+            scene is null ? "no battlefield" : $"{scene.Models.Count} models ({onTable.Count} on the table in MODELS), {scene.Terrain.Count} terrain pieces, {scene.Zones.Count} zones; {Section("BATTLEFIELD").Split('\n')[0]}");
+        if (board is null || scene is null)
+        {
+            return;
+        }
+        var labels = All(board).OfType<Label3D>().Where(l => !l.IsQueuedForDeletion()).Select(l => l.Text).ToList();
+        var unlabelled = scene.Models.Where(m => !labels.Any(t => t.Contains(m.Label, StringComparison.Ordinal))).Select(m => m.Name).ToList();
+        Check("board-models-labelled", unlabelled.Count == 0 && scene.Models.All(m => m.Label.StartsWith($"[{m.SeatLetter}] ", StringComparison.Ordinal)),
+            unlabelled.Count == 0 ? string.Join(" | ", scene.Models.Select(m => m.Label)) : $"no label for {string.Join(", ", unlabelled)}");
+        var reached = await FocusByTab(board, 80);
+        Check("board-tab-focus", reached, $"focus on {Describe(Focused())}");
+        if (!reached)
+        {
+            return;
+        }
+
+        await KeyPress(Key.F);
+        await Frames(3);
+        Check("board-fit-angled", !board.TopDown && board.TableInView(0.01f) && AllModelsInView(board, scene), $"camera {board.CameraText}");
+        await Shot("board-angled");
+        Check("board-pick-roundtrip", PickRoundTrip(board, scene, out var angled), angled);
+
+        var before = board.Camera.Position;
+        await KeyPress(Key.Equal);
+        await Frames(2);
+        var zoomed = board.Camera.Position.DistanceTo(new Vector3(18, 0, 18)) < before.DistanceTo(new Vector3(18, 0, 18));
+        await KeyPress(Key.Left);
+        await Frames(2);
+        var panned = board.Camera.Position.X < before.X - 0.5f;
+        await KeyPress(Key.F);
+        await Frames(3);
+        Check("board-zoom-pan-fit-keys", zoomed && panned && board.TableInView(0.01f), $"zoomed in: {zoomed}; panned left: {panned}; F fits again: {board.TableInView(0.01f)}");
+
+        await KeyPress(Key.E);
+        await Frames(3);
+        var turned = board.Yaw == 90 && board.CameraText.Contains("facing west", StringComparison.Ordinal) && board.TableInView(0.01f) && AllModelsInView(board, scene);
+        await KeyPress(Key.Q);
+        await Frames(3);
+        Check("board-turn-keys", turned && board.Yaw == 0, $"E turned to 90 and kept the table in view: {turned}; Q back to {board.Yaw}");
+
+        await KeyPress(Key.T);
+        await Frames(3);
+        var top = board.TopDown && board.TableInView(0.01f) && AllModelsInView(board, scene) && Section("BATTLEFIELD").Contains("camera top-down", StringComparison.Ordinal);
+        Check("board-top-down", top, $"camera {board.CameraText}");
+        await Shot("board-top-down");
+        Check("board-pick-roundtrip-top-down", PickRoundTrip(board, scene, out var flat), flat);
+        await KeyPress(Key.T);
+        await Frames(3);
+
+        await KeyPress(Key.N);
+        await Frames(2);
+        var first = board.Selected;
+        var info = Section("BATTLEFIELD");
+        Check("board-select-key", first is { Yours: true } && info.Contains($"Selected: {first.Text}", StringComparison.Ordinal)
+            && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
+            && All(board).OfType<Label3D>().Any(l => !l.IsQueuedForDeletion() && l.Text.StartsWith("SELECTED ", StringComparison.Ordinal)),
+            first is null ? "nothing selected" : $"N selected {first.Name}; {info.Split('\n')[0]}");
+        await KeyPress(Key.P);
+        await Frames(2);
+        Check("board-previous-key", board.Selected?.Id == scene.Next(first?.Id, forward: false)?.Id && board.Selected?.Id != first?.Id, $"P selected {board.Selected?.Name}");
+
+        // A real mouse click (left button) on an opponent's model selects it.
+        var target = scene.Models.First(m => !m.Yours);
+        var local = board.ScreenOf(target.X, target.Y, target.Standing);
+        var clicked = false;
+        if (local is { } at)
+        {
+            var global = board.GetGlobalTransformWithCanvas() * at;
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
+                await Frames(2);
+            }
+            clicked = board.Selected?.Id == target.Id;
+        }
+        Check("board-click-selects", clicked, $"clicked at {local} for {target.Name}; selected {board.Selected?.Name ?? "nothing"}");
+        Dump("board");
+    }
+
+    private static bool AllModelsInView(BoardView board, BoardScene scene) => scene.Models.All(m => board.InView(board.ScreenOf(m.X, m.Y, m.Standing)));
+
+    // Each model's centre, shown on screen and turned back into a table point, lands within 0.05" and picks that model.
+    private static bool PickRoundTrip(BoardView board, BoardScene scene, out string detail)
+    {
+        var worst = 0.0;
+        var wrong = new List<string>();
+        foreach (var m in scene.Models)
+        {
+            if (board.ScreenOf(m.X, m.Y, m.Standing) is not { } screen)
+            {
+                wrong.Add($"{m.Name} behind the camera");
+                continue;
+            }
+            var back = board.TableAt(screen, m.Standing);
+            worst = Math.Max(worst, back is { } p ? Math.Sqrt((p.X - m.X) * (p.X - m.X) + (p.Y - m.Y) * (p.Y - m.Y)) : 99);
+            if (board.ModelAt(screen)?.Id != m.Id)
+            {
+                wrong.Add($"{m.Name} picked {board.ModelAt(screen)?.Name ?? "nothing"}");
+            }
+        }
+        detail = $"{scene.Models.Count} models; largest error {worst.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)}\"{(wrong.Count == 0 ? "" : "; " + string.Join(", ", wrong))}";
+        return worst <= 0.05 && wrong.Count == 0;
     }
 
     private async Task Accessibility()
@@ -566,6 +683,7 @@ public partial class UiCheck : Node
         LineEdit { PlaceholderText.Length: > 0 } l => $"LineEdit \"{l.PlaceholderText}\"",
         LineEdit l when l.GetParent() is SpinBox => "SpinBox",
         LineEdit l => $"LineEdit \"{l.Text}\"",
+        BoardView => "Battlefield",
         Godot.Label l => $"Label \"{(l.Text.Length > 40 ? l.Text[..40] + "…" : l.Text)}\"",
         _ => control.GetType().Name,
     };

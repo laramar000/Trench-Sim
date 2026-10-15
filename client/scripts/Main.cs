@@ -42,6 +42,9 @@ public partial class Main : Control
     private Label _code2 = null!;
     private Label _state = null!;
     private Label _models = null!;
+    private VBoxContainer _boardSection = null!;
+    private BoardView _board = null!;
+    private Label _boardInfo = null!;
     private VBoxContainer _hints = null!;
     private Label _notYet = null!;
     private Label _feedback = null!;
@@ -68,7 +71,7 @@ public partial class Main : Control
         _root.AddThemeConstantOverride("separation", 10);
         scroll.AddChild(_root);
 
-        _root.AddChild(Text($"Trench Sim client (M7.3: match state). Godot {Engine.GetVersionInfo()["string"]}, " +
+        _root.AddChild(Text($"Trench Sim client (M7.4: battlefield, in progress). Godot {Engine.GetVersionInfo()["string"]}, " +
             $"{System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}. Rules version {ClaimNoMansLand.RulesVersion}; protocol {ClientSession.SubProtocol}."));
         _root.AddChild(Settings());
         _root.AddChild(Text(Hints));
@@ -264,6 +267,15 @@ public partial class Main : Control
                 DisplayServer.ClipboardSet(code);
             }
         }), Button("Rules in this build (F1)", () => _gaps.PopupCentered())));
+        // The battlefield (M7.4): a 3D view of the server's state, with the camera keys and the selected model in words.
+        _board = new BoardView();
+        _boardInfo = Text("");
+        var boardBox = new VBoxContainer();
+        boardBox.AddChild(_board);
+        boardBox.AddChild(_boardInfo);
+        _board.Changed += ShowBoardInfo;
+        _boardSection = Section("Battlefield", boardBox);
+        _match.AddChild(_boardSection);
         // Two columns: the match on the left, what you can do and what happened on the right.
         var columns = new HBoxContainer();
         columns.AddThemeConstantOverride("separation", 24);
@@ -346,6 +358,8 @@ public partial class Main : Control
 
         _code2.Text = s.Code is null ? "" : $"Match code {s.Code}. You are {(s.Seat is { } seat ? $"{Words.Seat(seat)} [{Words.SeatLetter(seat)}]" : "not seated")}." +
             (view.Phase == Words.Phase(Rules.Core.State.Phase.PreGame) || view.Models.Count == 0 ? " Give the code to your opponent." : "");
+        _boardSection.Visible = s.Board is not null;
+        _board.Show(s.Board);
         _state.Text = string.Join("\n", view.Lines());
         _models.Text = view.Models.Count == 0 ? "No models yet." : string.Join("\n", view.Models.Select(m => m.Text));
 
@@ -382,6 +396,19 @@ public partial class Main : Control
                 FocusDefault();
             }
         }
+    }
+
+    private void ShowBoardInfo()
+    {
+        if (_board.Scene is not { } scene)
+        {
+            _boardInfo.Text = "";
+            return;
+        }
+        _boardInfo.Text = $"Table {scene.Size}; camera {_board.CameraText}. Selected: {_board.Selected?.Text ?? "none"}\n" +
+            "Keys on the battlefield (Tab to it or click it): arrows pan, + and - zoom, Q and E turn 90°, F fits the table, T top-down or angled, " +
+            "N and P next and previous model. Mouse: click selects, right-drag pans, wheel zooms. Distances are in inches. " +
+            "This view shows the server's state and decides nothing; heights are for display only.";
     }
 
     // The first hint, or else the first connection button (Rejoin now, Leave): where a keyboard user wants to be.
@@ -501,6 +528,7 @@ public partial class Main : Control
             _theme.SetColor("font_color", type, text);
         }
         _theme.SetColor("font_focus_color", "Button", _highContrast ? Colors.Yellow : Colors.White);
+        _board?.SetLook(_scale, _highContrast);
     }
 
     // ---- headless checks ----

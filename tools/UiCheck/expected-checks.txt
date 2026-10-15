@@ -1,4 +1,4 @@
-# Checks the UI check runner reports (93), from the Linux run of 3ba61db. Run-WindowsUiCheck.ps1 marks any of these
+# Checks the UI check runner reports (105): the 93 of M7.3 (Linux run of 3ba61db) and 12 battlefield checks of M7.4 stage 4a. Run-WindowsUiCheck.ps1 marks any of these
 # that a run did not report as NOT TESTED. One check id per line, as in the runner's summary.md.
 # "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide.
 godot-version
@@ -47,6 +47,18 @@ host: takeback
 host: catch-up-deploys
 host: catch-up-models
 host: opponent-away-shown-after-rejoin
+host: board-shown
+host: board-models-labelled
+host: board-tab-focus
+host: board-fit-angled
+host: board-pick-roundtrip
+host: board-zoom-pan-fit-keys
+host: board-turn-keys
+host: board-top-down
+host: board-pick-roundtrip-top-down
+host: board-select-key
+host: board-previous-key
+host: board-click-selects
 host: focus-after-hint-answered
 host: activation-hints-used
 host: live-opponent-events
