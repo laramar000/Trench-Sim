@@ -103,6 +103,10 @@ public sealed class MatchController : IAsyncDisposable
     private Feedback? _feedback;
     private string? _warning;
     private bool _sending;
+
+    // The command whose answer was lost with the connection, and its label. After a rejoin the server's Welcome says what
+    // happened to it: its LastAnswer when that answers this command id, otherwise (NextSeq not past it) it was not taken.
+    private (SubmitCommand Submit, string Label)? _lost;
     private bool _staleUnresolved;
     private int _staleInARow;
     private long _version;
@@ -159,6 +163,7 @@ public sealed class MatchController : IAsyncDisposable
             }
             session = _session!;
             _sending = true;
+            _lost = null;
             _feedback = new Feedback(FeedbackKind.Sending, $"Sent: {label}. Waiting for the server…");
         }
         Raise();
@@ -188,6 +193,15 @@ public sealed class MatchController : IAsyncDisposable
         {
             // The answer was lost with the connection. After a rejoin the server says what happened to it.
             result = new Feedback(FeedbackKind.Unknown, $"The connection dropped before the server answered \"{label}\". After reconnecting, the server reports what happened.");
+            lock (_gate)
+            {
+                _lost = session.LastSubmit is { } submit && ReferenceEquals(submit.Command, command) ? (submit, label) : null;
+                // A rejoin can already have happened (a fast reconnect): its Welcome answers now.
+                if (!ReferenceEquals(_session, session) && _session?.Welcome is { } newer && AfterRejoin(newer) is { } known)
+                {
+                    result = known;
+                }
+            }
         }
         finally
         {
@@ -202,6 +216,31 @@ public sealed class MatchController : IAsyncDisposable
         }
         Raise();
         return result;
+    }
+
+    // What happened to the command whose answer was lost, from the Welcome of a rejoin; null when it says nothing about
+    // it. Only the server's own answer to that command id counts as accepted or refused (never an older command's).
+    private Feedback? AfterRejoin(Welcome welcome)
+    {
+        if (_lost is not { } lost)
+        {
+            return null;
+        }
+        Feedback? known = welcome.LastAnswer switch
+        {
+            Accepted a when a.CommandId == lost.Submit.CommandId =>
+                new Feedback(FeedbackKind.Accepted, $"Done: {lost.Label}. (The answer was lost with the connection; after reconnecting, the server says it accepted it.)"),
+            Rejected r when r.CommandId == lost.Submit.CommandId =>
+                new Feedback(FeedbackKind.RulesRefused, $"Refused by the rules: {r.Text} (\"{lost.Label}\": the answer was lost with the connection; after reconnecting, the server says it refused it.)", r.RuleRef),
+            _ when welcome.NextSeq <= lost.Submit.Seq =>
+                new Feedback(FeedbackKind.ProtocolRefused, $"Not taken: the server never received \"{lost.Label}\" before the connection dropped, so nothing happened. Send it again if you still want it."),
+            _ => null,
+        };
+        if (known is not null)
+        {
+            _lost = null;
+        }
+        return known;
     }
 
     // "Rejoin now": one deliberate attempt (or joining the automatic run already in progress), never a second
@@ -450,10 +489,9 @@ public sealed class MatchController : IAsyncDisposable
             {
                 SetConnection(ConnectionState.Connected, "Connected.");
             }
-            if (session.Welcome.LastAnswer is { } last && _feedback is { Kind: FeedbackKind.Unknown })
+            if (_feedback is { Kind: FeedbackKind.Unknown } && AfterRejoin(session.Welcome) is { } known)
             {
-                _feedback = new Feedback(FeedbackKind.Accepted,
-                    $"After reconnecting: your last command was {(last is Accepted ? "accepted" : "refused by the rules")}.");
+                _feedback = known;
             }
         }
         _ = Task.Run(() => WatchAsync(session));

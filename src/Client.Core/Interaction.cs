@@ -168,7 +168,8 @@ public sealed class Interaction
 
     public void SetCursor(double x, double y)
     {
-        if (!UsesCursor || _state.Setup?.Scenario is not { } scenario)
+        // While a command is on its way the choice stays exactly what was sent (Pending), until the server answers.
+        if (Pending is not null || !UsesCursor || _state.Setup?.Scenario is not { } scenario)
         {
             return;
         }
@@ -187,7 +188,7 @@ public sealed class Interaction
     // Path modes: the cursor becomes a fixed waypoint, and the next leg starts there.
     public bool AddPoint()
     {
-        if (!IsPath || (_waypoints.Count > 0 && _waypoints[^1] == Cursor) || _waypoints.Count >= Rules.Core.Events.ModelMoved.MaxWaypoints)
+        if (Pending is not null || !IsPath || (_waypoints.Count > 0 && _waypoints[^1] == Cursor) || _waypoints.Count >= Rules.Core.Events.ModelMoved.MaxWaypoints)
         {
             return false;
         }
@@ -199,7 +200,7 @@ public sealed class Interaction
 
     public bool RemovePoint()
     {
-        if (!IsPath || _waypoints.Count == 0)
+        if (Pending is not null || !IsPath || _waypoints.Count == 0)
         {
             return false;
         }
@@ -214,7 +215,7 @@ public sealed class Interaction
     {
         var choices = Mode == InteractionMode.Place ? Undeployed().Select(m => m.Id).ToList() : IsTarget ? Targets() : [];
         var current = Mode == InteractionMode.Place ? Actor : Target;
-        if (choices.Count == 0)
+        if (Pending is not null || choices.Count == 0)
         {
             return;
         }
@@ -235,7 +236,7 @@ public sealed class Interaction
     // Target modes: pick a model directly (a click). Any model may be picked; the preview says if the server would refuse.
     public void SetTarget(ModelId id)
     {
-        if (!IsTarget || Target == id)
+        if (Pending is not null || !IsTarget || Target == id)
         {
             return;
         }
@@ -354,8 +355,10 @@ public sealed class Interaction
         {
             answer = await send(command, label);
         }
-        catch (Exception e) when (e is not OperationCanceledException)
+        catch (Exception e)
         {
+            // Whatever went wrong (a cancelled or failed send), the command may or may not have reached the server: report
+            // it as unknown and never leave the battlefield stuck waiting.
             answer = new Feedback(FeedbackKind.Unknown, $"Sending failed ({e.GetType().Name}); the server reports what happened after reconnecting.");
         }
         Pending = null;

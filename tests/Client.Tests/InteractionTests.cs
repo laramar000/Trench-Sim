@@ -206,6 +206,93 @@ public class InteractionTests
         Assert.Equal(1, calls);
     }
 
+    // Review fix: a cancelled send (OperationCanceledException) used to escape and leave the battlefield waiting forever.
+    [Fact]
+    public async Task ACancelledSendIsReportedAsUnknownAndNeverLeavesTheBattlefieldWaiting()
+    {
+        var (state, seat) = Deploying();
+        var calls = 0;
+        var interaction = new Interaction { Send = (_, _) => { calls++; return Task.FromCanceled<Feedback>(new CancellationToken(true)); } };
+        interaction.Update(state, seat);
+        interaction.Start(InteractionMode.Place);
+        Assert.Equal(FeedbackKind.Unknown, (await interaction.ConfirmAsync())!.Kind);
+        Assert.Equal(1, calls);
+        Assert.Null(interaction.Pending);
+        Assert.StartsWith("UNKNOWN: ", interaction.Notice);
+        Assert.True(interaction.Start(InteractionMode.Place));
+    }
+
+    // Review fix: while a command is on its way, the choice stays exactly the command that was sent: cursor moves,
+    // waypoints and target or model changes are ignored until the server answers.
+    [Fact]
+    public async Task WhileACommandIsOnItsWayTheChoiceCannotBeChanged()
+    {
+        var index = States.FindIndex(s => s.Phase == Phase.Activation && s.Pending is null && s.ActiveModel is not null);
+        var state = States[index];
+        var seat = state.FindModel(state.ActiveModel!.Value)!.Seat;
+        var sender = new FakeSender();
+        var interaction = new Interaction { Send = sender.Send };
+        interaction.Update(state, seat);
+        Assert.True(interaction.Start(InteractionMode.Move));
+        interaction.MoveCursor(0.5, 0);
+        Assert.True(interaction.AddPoint());
+        interaction.MoveCursor(0.5, 0);
+        var sent = interaction.Preview!.Command;
+        var cursor = interaction.Cursor;
+        var confirming = interaction.ConfirmAsync();
+        Assert.NotNull(interaction.Pending);
+
+        interaction.MoveCursor(2, 2);
+        interaction.SetCursor(1, 1);
+        Assert.False(interaction.AddPoint());
+        Assert.False(interaction.RemovePoint());
+        Assert.False(interaction.Start(InteractionMode.Dash));
+        interaction.Cancel();
+        Assert.Equal(cursor, interaction.Cursor);
+        Assert.Equal(InteractionMode.Move, interaction.Mode);
+        Assert.True(Same(sent, interaction.Preview!.Command));
+        Assert.StartsWith("Waiting for the server's answer", interaction.Notice);
+        Assert.Null(await interaction.ConfirmAsync());
+        Assert.Single(sender.Sent);
+
+        sender.Answer!.SetResult(new Feedback(FeedbackKind.RulesRefused, "Refused by the rules: no.", "p. 1"));
+        await confirming;
+        // After the answer the choice can be changed again.
+        interaction.MoveCursor(0.5, 0);
+        Assert.NotEqual(cursor, interaction.Cursor);
+    }
+
+    // Review fix: the same for targets.
+    [Fact]
+    public async Task WhileAShotIsOnItsWayTheTargetCannotBeChanged()
+    {
+        var state = States.First(s => s.Phase == Phase.Activation && s.Pending is null && s.ActiveModel is { } a
+            && s.Models.Count(m => m.Seat != s.FindModel(a)!.Seat && m.Position is not null) >= 2);
+        var seat = state.FindModel(state.ActiveModel!.Value)!.Seat;
+        var sender = new FakeSender();
+        var interaction = new Interaction { Send = sender.Send };
+        interaction.Update(state, seat);
+        Assert.True(interaction.Start(InteractionMode.Shoot));
+        interaction.NextChoice();
+        var target = interaction.Target;
+        Assert.NotNull(target);
+        var confirming = interaction.ConfirmAsync() is var first && interaction.Pending is null ? interaction.ConfirmAsync() : first;
+        Assert.NotNull(interaction.Pending);
+        interaction.NextChoice();
+        interaction.SetTarget(state.Models.First(m => m.Id != target).Id);
+        Assert.Equal(target, interaction.Target);
+        Assert.Single(sender.Sent);
+        sender.Answer!.SetResult(new Feedback(FeedbackKind.Accepted, "Done."));
+        await confirming;
+        Assert.Equal(InteractionMode.None, interaction.Mode);
+    }
+
+    private static bool Same(Command a, Command b) => (a, b) switch
+    {
+        (MoveModel x, MoveModel y) => x with { Path = default } == y with { Path = default } && x.Path.SequenceEqual(y.Path),
+        _ => a == b,
+    };
+
     [Fact]
     public async Task ANewStateWhileACommandIsOnItsWayKeepsTheChoiceUntilTheAnswer()
     {
