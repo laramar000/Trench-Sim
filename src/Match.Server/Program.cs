@@ -2,10 +2,14 @@ using System.Globalization;
 using System.Net;
 using Match.Server;
 
-// trench-server [--address 127.0.0.1] [--port 5080] [--join-timeout 30]
+// trench-server [--address 127.0.0.1] [--port 5080] [--join-timeout 30] [--rejoin-window 300] [--data <folder>] [--new-signing-key]
+const string Usage = "usage: trench-server [--address 127.0.0.1] [--port 5080] [--join-timeout 30] [--rejoin-window 300] [--data <folder>] [--new-signing-key]";
 var address = IPAddress.Loopback;
 var port = 5080;
 var joinTimeout = TimeSpan.FromSeconds(30);
+var rejoinWindow = Lobby.DefaultRejoinWindow;
+var data = ServerData.DefaultDirectory();
+var newKey = false;
 for (var i = 0; i < args.Length; i++)
 {
     switch (args[i])
@@ -19,14 +23,59 @@ for (var i = 0; i < args.Length; i++)
         case "--join-timeout" when i + 1 < args.Length:
             joinTimeout = TimeSpan.FromSeconds(int.Parse(args[++i], CultureInfo.InvariantCulture));
             break;
+        case "--rejoin-window" when i + 1 < args.Length:
+            rejoinWindow = TimeSpan.FromSeconds(int.Parse(args[++i], CultureInfo.InvariantCulture));
+            break;
+        case "--data" when i + 1 < args.Length:
+            data = args[++i];
+            break;
+        case "--new-signing-key":
+            newKey = true;
+            break;
         default:
-            Console.Error.WriteLine("usage: trench-server [--address 127.0.0.1] [--port 5080] [--join-timeout 30]");
+            Console.Error.WriteLine(Usage);
             return 2;
     }
 }
 
-await using var server = await MatchServer.StartAsync(new MatchServerOptions { Address = address, Port = port, JoinTimeout = joinTimeout });
-Console.WriteLine($"Listening on {server.Endpoint} (protocol {MatchServer.SubProtocol}). Ctrl+C stops.");
-await server.WaitForShutdownAsync();
+MatchServer server;
+try
+{
+    server = await MatchServer.StartAsync(new MatchServerOptions
+    {
+        Address = address,
+        Port = port,
+        JoinTimeout = joinTimeout,
+        RejoinWindow = rejoinWindow,
+        DataDirectory = data,
+        NewSigningKey = newKey,
+        Log = line => Console.WriteLine($"[{DateTimeOffset.UtcNow:HH:mm:ss}] {line}"),
+    });
+}
+catch (ServerDataException e)
+{
+    Console.Error.WriteLine($"Cannot start: {e.Message}");
+    return 1;
+}
+
+await using (server)
+{
+    var key = server.SigningKey!;
+    Console.WriteLine($"Records in {Path.GetFullPath(data)}. Signing key {key.KeyId}{(key.Created ? " (new)" : "")}.");
+    if (key.Created)
+    {
+        Console.WriteLine("Give players this public key so they can verify records (trench-cli verify --key <file>):");
+        Console.Write(key.PublicPem);
+        Console.WriteLine();
+    }
+    var recovery = server.Recovery!;
+    if (recovery.Unrecorded.Count + recovery.BadRecords.Count + recovery.TempFilesRemoved + recovery.BadMarkers > 0)
+    {
+        Console.WriteLine($"Recovered from an earlier stop: {recovery.Unrecorded.Count} match(es) recorded as Unrecorded, " +
+            $"{recovery.BadRecords.Count} bad record(s) set aside, {recovery.TempFilesRemoved} temporary file(s) removed.");
+    }
+    Console.WriteLine($"Listening on {server.Endpoint} (protocol {MatchServer.SubProtocol}). Ctrl+C stops.");
+    await server.WaitForShutdownAsync();
+}
 Console.WriteLine("Stopped.");
 return 0;

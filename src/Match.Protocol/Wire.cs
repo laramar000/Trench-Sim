@@ -310,7 +310,6 @@ public static class Wire
         };
 
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();
-        private static readonly NullabilityInfoContext Nullability = new();
 
         private readonly ConstructorInfo _constructor;
         private readonly List<Member> _members;
@@ -332,13 +331,15 @@ public static class Wire
                 throw new NotSupportedException($"{type.Name} needs exactly one widest public constructor to travel on the wire.");
             }
             _constructor = candidates[0];
+            // NullabilityInfoContext is not thread-safe, and shapes can be built on several threads at once.
+            var nullability = new NullabilityInfoContext();
             _members = _constructor.GetParameters().Select(p =>
             {
                 var propertyName = PropertyFor.GetValueOrDefault((type, p.Name!), p.Name!);
                 var property = type.GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase)
                     ?? throw new NotSupportedException($"{type.Name}.{p.Name} has no public property to write.");
                 var name = JsonNamingPolicy.CamelCase.ConvertName(p.Name!);
-                var notNull = !p.ParameterType.IsValueType && Nullability.Create(p).WriteState == NullabilityState.NotNull;
+                var notNull = !p.ParameterType.IsValueType && nullability.Create(p).WriteState == NullabilityState.NotNull;
                 return new Member(name, System.Text.Encoding.UTF8.GetBytes(name), p, property, notNull);
             }).ToList();
             var taken = _members.Select(m => m.Property).ToHashSet();
@@ -347,7 +348,7 @@ public static class Wire
                          .OrderBy(p => p.Name, StringComparer.Ordinal))
             {
                 var name = JsonNamingPolicy.CamelCase.ConvertName(property.Name);
-                var notNull = !property.PropertyType.IsValueType && Nullability.Create(property).WriteState == NullabilityState.NotNull;
+                var notNull = !property.PropertyType.IsValueType && nullability.Create(property).WriteState == NullabilityState.NotNull;
                 _members.Add(new Member(name, System.Text.Encoding.UTF8.GetBytes(name), null, property, notNull));
             }
             _parameterCount = _constructor.GetParameters().Length;

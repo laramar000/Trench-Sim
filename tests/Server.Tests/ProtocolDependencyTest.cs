@@ -16,6 +16,8 @@ public class ProtocolDependencyTest
         "System.Linq",
         "System.Memory",
         "System.Text.Json",
+        // M6: ECDSA signatures and SHA-256 for match records.
+        "System.Security.Cryptography",
         "Rules.Core",
     ];
 
@@ -48,5 +50,23 @@ public class ProtocolDependencyTest
             }
         }
         throw new InvalidOperationException("TrenchSim.sln not found above the test output directory.");
+    }
+
+    // D6: records are for checking only. Nothing public in Match.Server takes a record or a record body, so there is no
+    // way to load one into a live match.
+    [Fact]
+    public void TheServerHasNoPublicWayToLoadARecordIntoAMatch()
+    {
+        var recordTypes = new[] { typeof(Match.Protocol.MatchRecordBody), typeof(Match.Protocol.RecordedEvent), typeof(Match.Protocol.RecordVerdict) };
+        var offenders = typeof(Match.Server.Lobby).Assembly.GetExportedTypes()
+            // The store and the writer take a record only to write it to disk.
+            .Where(t => t != typeof(Match.Server.RecordStore) && !typeof(Match.Server.IMatchRecorder).IsAssignableFrom(t))
+            .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                .Cast<MethodBase>()
+                .Concat(t.GetConstructors())
+                .Where(m => m.GetParameters().Any(p => recordTypes.Contains(p.ParameterType)))
+                .Select(m => $"{t.Name}.{m.Name}"))
+            .ToList();
+        Assert.Empty(offenders);
     }
 }

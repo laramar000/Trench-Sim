@@ -13,6 +13,14 @@ public sealed class MatchMirror
 
     public string Hash { get; private set; } = StateHash.Compute(MatchState.None);
 
+    // Starts again from an empty copy (the server said this copy is not a prefix of the match).
+    public void Reset()
+    {
+        State = MatchState.None;
+        Events = 0;
+        Hash = StateHash.Compute(MatchState.None);
+    }
+
     public void Apply(EventPublished published)
     {
         ArgumentNullException.ThrowIfNull(published);
