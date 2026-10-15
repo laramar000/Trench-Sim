@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
@@ -8,8 +9,9 @@ namespace Client.Tests;
 
 // M7: the client holds no authority. The server resolves every command, rolls every die and decides every outcome; a
 // client only applies the server's events (through MatchMirror, which checks each hash) and sends commands. These checks
-// replace the plan's "Rules.Core.Resolution" check (that namespace does not exist): they look at the project file, the
-// compiled Match.Client assembly and the Godot client's C# sources.
+// replace the plan's "Rules.Core.Resolution" check (that namespace does not exist): they look at the project files and
+// at the compiled code of Match.Client and of the Godot client's scripts. A text scan of the Godot sources is kept only
+// as a quick extra check; the compiled scan is the guard.
 public class ClientAuthorityTest
 {
     private static readonly HashSet<string> AllowedAssemblyReferences =
@@ -50,7 +52,50 @@ public class ClientAuthorityTest
         "Rules.Core.TurnSequence.Decide",
     ];
 
-    // The same rules, as text, for the Godot client's sources (which are not built in this solution).
+    // The Godot client's scripts: Godot's own assembly, the shared client libraries and basic runtime assemblies only.
+    // Never Match.Server, Sim or Match.Cli.
+    private static readonly HashSet<string> AllowedGodotAssemblyReferences =
+    [
+        "GodotSharp",
+        "Match.Client",
+        "Match.Protocol",
+        "Rules.Core",
+        "System.Runtime",
+        "System.Runtime.InteropServices",
+        "System.Collections",
+        "System.Collections.Concurrent",
+        "System.Console",
+        "System.Linq",
+        "System.Memory",
+        "System.Threading",
+    ];
+
+    // On top of the rules for Match.Client: scripts must not feed the copy of the match themselves (only ClientSession
+    // applies the server's events, after reading them in order), and must not reach forbidden code by reflection.
+    private static readonly HashSet<string> ForbiddenGodotTypes =
+    [
+        "System.Activator",
+        "System.Runtime.Loader.AssemblyLoadContext",
+        "System.Reflection.Emit.DynamicMethod",
+    ];
+
+    private static readonly HashSet<string> ForbiddenGodotMembers =
+    [
+        "Match.Protocol.MatchMirror.Apply",
+        "Match.Protocol.MatchMirror.Reset",
+        "Match.Protocol.Codec.ParseServer",
+        "System.Type.GetType",
+        "System.Type.GetMethod",
+        "System.Type.GetMethods",
+        "System.Type.InvokeMember",
+        "System.Reflection.MethodBase.Invoke",
+        "System.Reflection.Assembly.Load",
+        "System.Reflection.Assembly.LoadFrom",
+        "System.Reflection.Assembly.LoadFile",
+        "System.Reflection.Assembly.GetType",
+    ];
+
+    // The same rules, as text, for the Godot client's sources: a quick extra check, not the guard.
     private static readonly Regex ForbiddenSource = new(
         @"\bTurnSequence\s*\.\s*Decide\b|\bIDiceSource\b|\bRandomDice\b|\bSeededDice\b|\bReducer\s*\.|\bRecordVerifier\b|\bMatchRecordBody\b"
         + @"|\busing\s+Sim\b|\bSim\s*\.|\bMatch\.Server\b|\bMatch\.Cli\b",
@@ -94,6 +139,40 @@ public class ClientAuthorityTest
         Assert.Contains("Rules.Core.TurnSequence.Decide", members);
     }
 
+    // The scan sees member references too: Match.Client applies events through the mirror, which a Godot script may not.
+    [Fact]
+    public void TheScanFindsMirrorUpdatesInMatchClient()
+    {
+        var (_, members) = References(Path.Combine(AppContext.BaseDirectory, "Match.Client.dll"));
+        Assert.Contains("Match.Protocol.MatchMirror.Apply", members);
+        Assert.Contains("Match.Protocol.MatchMirror.Reset", members);
+    }
+
+    // The Godot client is built here, outside the solution, with the Godot .NET SDK from NuGet (no Godot install is
+    // needed), and its compiled scripts are scanned like Match.Client. If it cannot be built, the test fails.
+    [Fact]
+    public void CompiledGodotClientUsesOnlyAllowedAssemblies()
+    {
+        var assembly = GodotClient.Dll;
+        var references = ReferencedAssemblies(assembly);
+        Assert.Contains("GodotSharp", references);
+        Assert.Contains("Match.Client", references);
+        Assert.DoesNotContain(references, n => !AllowedGodotAssemblyReferences.Contains(n));
+    }
+
+    [Fact]
+    public void CompiledGodotClientNeverResolvesRollsDiceFeedsTheCopyOrReachesTheServer()
+    {
+        var (types, members) = References(GodotClient.Dll);
+        Assert.Empty(types.Intersect(ForbiddenTypes));
+        Assert.Empty(types.Intersect(ForbiddenGodotTypes));
+        Assert.DoesNotContain(types, t => t.StartsWith("Match.Server.", StringComparison.Ordinal) || t.StartsWith("Sim.", StringComparison.Ordinal));
+        Assert.Empty(members.Intersect(ForbiddenMembers));
+        Assert.Empty(members.Intersect(ForbiddenGodotMembers));
+        // It does reach the server through Match.Client, so the scan is looking at the real scripts.
+        Assert.Contains("Match.Client.ClientSession", types);
+    }
+
     [Fact]
     public void GodotClientSourcesNeverResolveRollDiceOrReachTheServer()
     {
@@ -117,6 +196,14 @@ public class ClientAuthorityTest
     [InlineData("var record = RecordVerifier.Verify(bytes, keys);")]
     [InlineData("using Match.Server;")]
     public void TheSourceScanCatchesForbiddenCode(string line) => Assert.Matches(ForbiddenSource, line);
+
+    private static List<string> ReferencedAssemblies(string path)
+    {
+        using var stream = File.OpenRead(path);
+        using var pe = new PEReader(stream);
+        var reader = pe.GetMetadataReader();
+        return reader.AssemblyReferences.Select(h => reader.GetString(reader.GetAssemblyReference(h).Name)).ToList();
+    }
 
     // Every type and member the assembly references from other assemblies, as "Namespace.Type" and "Namespace.Type.Member".
     private static (HashSet<string> Types, HashSet<string> Members) References(string path)
@@ -157,6 +244,52 @@ public class ClientAuthorityTest
         }
         var ns = reader.GetString(type.Namespace);
         return ns.Length == 0 ? name : $"{ns}.{name}";
+    }
+}
+
+// Builds client/Client.csproj once per test run, in this test project's configuration, into a temporary folder. The
+// shared libraries it references are taken as the solution build left them (BuildProjectReferences=false), so this
+// build never rewrites the solution's own outputs.
+internal static class GodotClient
+{
+    private static readonly Lazy<string> Built = new(Build, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    public static string Dll => Built.Value;
+
+    private static string Build()
+    {
+        var configuration = typeof(GodotClient).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration ?? "Debug";
+        var output = Directory.CreateTempSubdirectory("trench-godot-client-").FullName;
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Directory.Delete(output, recursive: true);
+        var start = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (var argument in new[]
+        {
+            "build", Path.Combine(Repository.Root, "client", "Client.csproj"), "-c", configuration, "-o", output,
+            "-warnaserror", "-nodeReuse:false", "-p:UseSharedCompilation=false", "-p:BuildProjectReferences=false",
+        })
+        {
+            start.ArgumentList.Add(argument);
+        }
+        using var process = Process.Start(start)!;
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit(TimeSpan.FromMinutes(5)))
+        {
+            process.Kill(entireProcessTree: true);
+            throw new InvalidOperationException("Building the Godot client took more than five minutes.");
+        }
+        var log = stdout.Result + stderr.Result;
+        var dll = Path.Combine(output, "Client.dll");
+        if (process.ExitCode != 0 || !File.Exists(dll))
+        {
+            throw new InvalidOperationException($"The Godot client did not build (exit {process.ExitCode}):\n{log[Math.Max(0, log.Length - 4000)..]}");
+        }
+        return dll;
     }
 }
 

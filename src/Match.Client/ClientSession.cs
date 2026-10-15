@@ -29,6 +29,7 @@ public sealed class ClientSession : IAsyncDisposable
     private long _seq;
     private int _ids;
     private Task _receiving = Task.CompletedTask;
+    private HttpMessageInvoker? _invoker;
 
     private ClientSession(ClientWebSocket socket, MatchMirror mirror)
     {
@@ -110,8 +111,27 @@ public sealed class ClientSession : IAsyncDisposable
     {
         var socket = new ClientWebSocket();
         socket.Options.AddSubProtocol(subProtocol);
-        await socket.ConnectAsync(endpoint, cancellationToken);
-        var session = new ClientSession(socket, mirror ?? new MatchMirror());
+        // Each connection has its own HTTP handler, disposed with it. With the shared default handler, a TCP connect
+        // that was still under way when the attempt was cancelled could finish later and linger in its pool. Settings
+        // as for a plain ClientWebSocket: no cookies, no redirects, no connection kept for reuse.
+        var invoker = new HttpMessageInvoker(new SocketsHttpHandler
+        {
+            UseCookies = false,
+            AllowAutoRedirect = false,
+            PooledConnectionLifetime = TimeSpan.Zero,
+        });
+        try
+        {
+            await socket.ConnectAsync(endpoint, invoker, cancellationToken);
+        }
+        catch
+        {
+            // A connect that failed, timed out or was cancelled leaves nothing open.
+            socket.Dispose();
+            invoker.Dispose();
+            throw;
+        }
+        var session = new ClientSession(socket, mirror ?? new MatchMirror()) { _invoker = invoker };
         session._receiving = Task.Run(session.ReceiveLoopAsync);
         return session;
     }
@@ -281,6 +301,7 @@ public sealed class ClientSession : IAsyncDisposable
         {
         }
         _socket.Dispose();
+        _invoker?.Dispose();
     }
 
     private async Task ReceiveLoopAsync()

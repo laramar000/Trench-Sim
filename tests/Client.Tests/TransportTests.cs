@@ -10,7 +10,7 @@ namespace Client.Tests;
 
 // M7.2: the shared client library over real WebSockets against a real in-process server: protocol v2, command
 // sequencing, saved seat tokens and reconnecting (D7). The server decides everything; these tests only drive clients.
-public sealed class TransportTests : IAsyncLifetime
+public sealed partial class TransportTests : IAsyncLifetime
 {
     private static readonly ReconnectPolicy Quick = new()
     {
@@ -32,6 +32,10 @@ public sealed class TransportTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        foreach (var fake in _fakes)
+        {
+            await fake.DisposeAsync();
+        }
         foreach (var client in _clients)
         {
             await client.DisposeAsync();
