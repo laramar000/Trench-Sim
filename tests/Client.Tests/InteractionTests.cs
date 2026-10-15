@@ -77,26 +77,189 @@ public class InteractionTests
         Assert.Equal(undeployed[^1], interaction.Actor);
     }
 
+    // Stands in for MatchController.SendAsync: records every command and answers when the test says so.
+    private sealed class FakeSender
+    {
+        public List<(Command Command, string Label)> Sent { get; } = [];
+
+        public TaskCompletionSource<Feedback>? Answer { get; private set; }
+
+        public Task<Feedback> Send(Command command, string label)
+        {
+            Sent.Add((command, label));
+            Answer = new TaskCompletionSource<Feedback>(TaskCreationOptions.RunContinuationsAsynchronously);
+            return Answer.Task;
+        }
+    }
+
+    private static Interaction Placing(out MatchState state, out Seat seat, out FakeSender sender)
+    {
+        (state, seat) = Deploying();
+        sender = new FakeSender();
+        var interaction = new Interaction { Send = sender.Send };
+        interaction.Update(state, seat);
+        interaction.Start(InteractionMode.Place);
+        return interaction;
+    }
+
     [Fact]
-    public void ConfirmGetsALegalCommandReadyButSendsNothingAndRefusesAnIllegalOne()
+    public async Task ConfirmSendsTheCommandOnceAndOnlyTheServersAcceptanceIsDone()
+    {
+        var interaction = Placing(out _, out var seat, out var sender);
+        var preview = interaction.Preview!;
+        Assert.True(preview.Legal);
+
+        var confirming = interaction.ConfirmAsync();
+        Assert.Equal(preview.Command, interaction.Pending);
+        Assert.StartsWith($"SENT: Place {preview.Model.Value} at ", interaction.Notice);
+        Assert.Null(interaction.Answer);
+        Assert.Equal(InteractionMode.Place, interaction.Mode);
+
+        // Pressing again, or starting something else, while the answer is on its way sends nothing more.
+        Assert.Null(await interaction.ConfirmAsync());
+        Assert.False(interaction.Start(InteractionMode.Place));
+        Assert.Null(await interaction.ActivateAsync(preview.Model));
+        Assert.Contains("nothing else was sent", interaction.Notice);
+        Assert.Single(sender.Sent);
+        Assert.Equal(new PlaceModel(seat, preview.Model, Previews.PointAt(interaction.Cursor.X, interaction.Cursor.Y)), sender.Sent[0].Command);
+
+        sender.Answer!.SetResult(new Feedback(FeedbackKind.Accepted, "Done: placed."));
+        var answer = await confirming;
+        Assert.Equal(FeedbackKind.Accepted, answer!.Kind);
+        Assert.Null(interaction.Pending);
+        Assert.Equal(InteractionMode.None, interaction.Mode);
+        Assert.StartsWith("DONE: Place ", interaction.Notice);
+        Assert.Single(sender.Sent);
+    }
+
+    [Fact]
+    public async Task ALegalPreviewIsNeverSuccessWithoutTheServer()
     {
         var (state, seat) = Deploying();
         var interaction = new Interaction();
         interaction.Update(state, seat);
         interaction.Start(InteractionMode.Place);
-        var command = interaction.Confirm();
-        Assert.NotNull(command);
-        Assert.Equal(command, interaction.Ready);
-        Assert.Contains("nothing was sent", interaction.Notice);
+        Assert.True(interaction.Preview!.Legal);
+        Assert.Null(await interaction.ConfirmAsync());
+        Assert.Equal("Not connected to a match: nothing was sent.", interaction.Notice);
+        Assert.Null(interaction.Answer);
+        Assert.Equal(InteractionMode.Place, interaction.Mode);
+    }
 
-        // Mirrored across the table, outside your zone: the preview refuses, and so does confirm.
+    [Fact]
+    public async Task ARefusingPreviewIsSentOnlyOnASecondConfirmationAndTheServersRefusalIsShown()
+    {
+        var interaction = Placing(out var state, out var seat, out var sender);
         var zone = TableRect.Of(state.Setup!.Scenario!.Battlefield.Zone(state.SeatFor(seat).ZoneId!)!.Area.Bounds);
         interaction.SetCursor(36 - zone.CentreX, 36 - zone.CentreY);
-        Assert.Null(interaction.Ready);
-        Assert.False(interaction.Preview!.Legal);
-        Assert.Null(interaction.Confirm());
-        Assert.StartsWith("Not ready: the preview says the server would refuse.", interaction.Notice);
-        Assert.Contains(interaction.Preview!.Refusal!.Text, interaction.Lines()[2]);
+        var refusal = interaction.Preview!.Refusal!;
+
+        Assert.Null(await interaction.ConfirmAsync());
+        Assert.StartsWith("Not sent: the preview says the server would refuse.", interaction.Notice);
+        Assert.Contains("Confirm again to send it anyway; the server decides.", interaction.Notice);
+        // Changing the choice disarms it: a single confirmation still sends nothing.
+        interaction.MoveCursor(0, Interaction.Step);
+        Assert.Null(await interaction.ConfirmAsync());
+        Assert.Empty(sender.Sent);
+
+        var confirming = interaction.ConfirmAsync();
+        Assert.Single(sender.Sent);
+        sender.Answer!.SetResult(new Feedback(FeedbackKind.RulesRefused, $"Refused by the rules: {refusal.Text}", refusal.RuleRef));
+        Assert.Equal(FeedbackKind.RulesRefused, (await confirming)!.Kind);
+        Assert.Equal($"REFUSED BY THE RULES: Refused by the rules: {refusal.Text} ({refusal.RuleRef})", interaction.Notice);
+        Assert.Equal(InteractionMode.Place, interaction.Mode);
+        Assert.Contains(interaction.Notice, interaction.Lines());
+
+        // After a refusal the next send needs the full confirmation again.
+        Assert.Null(await interaction.ConfirmAsync());
+        Assert.Single(sender.Sent);
+    }
+
+    [Theory]
+    [InlineData(FeedbackKind.Stale, "OUT OF DATE: ", true)]
+    [InlineData(FeedbackKind.ProtocolRefused, "NOT TAKEN: ", true)]
+    [InlineData(FeedbackKind.Unknown, "UNKNOWN: ", false)]
+    public async Task EveryOtherAnswerIsShownAndALostAnswerClearsTheChoice(FeedbackKind kind, string word, bool kept)
+    {
+        var interaction = Placing(out _, out _, out var sender);
+        var confirming = interaction.ConfirmAsync();
+        sender.Answer!.SetResult(new Feedback(kind, "the words"));
+        Assert.Equal(kind, (await confirming)!.Kind);
+        Assert.StartsWith(word + "the words", interaction.Notice);
+        Assert.Equal(kept, interaction.Mode == InteractionMode.Place);
+        Assert.Equal(kind, interaction.Answer!.Kind);
+        Assert.Single(sender.Sent);
+    }
+
+    [Fact]
+    public async Task ASendThatThrowsIsReportedAsUnknownAndNotRepeated()
+    {
+        var (state, seat) = Deploying();
+        var calls = 0;
+        var interaction = new Interaction { Send = (_, _) => { calls++; throw new InvalidOperationException("gone"); } };
+        interaction.Update(state, seat);
+        interaction.Start(InteractionMode.Place);
+        Assert.Equal(FeedbackKind.Unknown, (await interaction.ConfirmAsync())!.Kind);
+        Assert.Equal(1, calls);
+        Assert.Equal(InteractionMode.None, interaction.Mode);
+        Assert.Null(await interaction.ConfirmAsync());
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task ANewStateWhileACommandIsOnItsWayKeepsTheChoiceUntilTheAnswer()
+    {
+        var index = States.FindIndex(s => s.Phase == Phase.Activation && s.Pending is null && s.ActiveModel is not null);
+        var state = States[index];
+        var seat = state.FindModel(state.ActiveModel!.Value)!.Seat;
+        var later = States.Skip(index).First(s => s.ActiveModel is { } a && a != state.ActiveModel);
+        var sender = new FakeSender();
+        var interaction = new Interaction { Send = sender.Send };
+        interaction.Update(state, seat);
+        interaction.Start(InteractionMode.Move);
+        interaction.MoveCursor(0.5, 0);
+        var confirming = interaction.ConfirmAsync();
+        interaction.Update(later, seat);
+        Assert.Equal(InteractionMode.Move, interaction.Mode);
+        sender.Answer!.SetResult(new Feedback(FeedbackKind.RulesRefused, "Refused by the rules: no.", "p. 1"));
+        await confirming;
+        // The match has moved on, so the choice is cleared, but the refusal stays on screen.
+        Assert.Equal(InteractionMode.None, interaction.Mode);
+        Assert.Equal("REFUSED BY THE RULES: Refused by the rules: no. (p. 1)", interaction.Notice);
+        Assert.Contains(interaction.Notice, interaction.Lines());
+    }
+
+    [Fact]
+    public async Task ActivateSendsTheSameCommandAsTheHintButton()
+    {
+        var index = States.FindIndex(s => s.Phase == Phase.Activation && s.Pending is null && s.ActiveModel is null);
+        var state = States[index];
+        var sender = new FakeSender();
+        var interaction = new Interaction { Send = sender.Send };
+        interaction.Update(state, Seat.Two);
+        var model = state.Models.First(m => m.Seat == Seat.Two).Id;
+        var activating = interaction.ActivateAsync(model);
+        Assert.Equal(new ActivateModel(Seat.Two, model), interaction.Pending);
+        sender.Answer!.SetResult(new Feedback(FeedbackKind.Accepted, "Done."));
+        await activating;
+        Assert.Equal((new ActivateModel(Seat.Two, model), $"Activate {model.Value}"), sender.Sent.Single());
+        Assert.StartsWith($"DONE: Activate {model.Value}.", interaction.Notice);
+    }
+
+    [Fact]
+    public void EachCommandIsDescribedInWords()
+    {
+        var (state, seat) = Activating();
+        var actor = state.ActiveModel!.Value;
+        var enemy = state.Models.First(m => m.Seat != seat).Id;
+        var to = Previews.PointAt(3, 4);
+        Assert.Equal($"Move {actor.Value} to (3.0\", 4.0\")", Interaction.Describe(Previews.Path(state, seat, PreviewKind.Move, actor, [to])));
+        Assert.Equal($"Dash {actor.Value} to (3.0\", 4.0\")", Interaction.Describe(Previews.Path(state, seat, PreviewKind.Dash, actor, [to])));
+        Assert.Equal($"Retreat {actor.Value} to (3.0\", 4.0\")", Interaction.Describe(Previews.Path(state, seat, PreviewKind.Retreat, actor, [to])));
+        Assert.Equal($"Shoot {enemy.Value} with {actor.Value}", Interaction.Describe(Previews.Target(state, seat, PreviewKind.Shoot, actor, enemy)));
+        Assert.Equal($"Charge {enemy.Value} with {actor.Value}", Interaction.Describe(Previews.Target(state, seat, PreviewKind.Charge, actor, enemy)));
+        Assert.Equal($"Fight {enemy.Value} with {actor.Value}", Interaction.Describe(Previews.Target(state, seat, PreviewKind.Fight, actor, enemy)));
+        Assert.Equal($"Place {actor.Value} at (3.0\", 4.0\")", Interaction.Describe(Previews.Place(state, seat, actor, to)));
     }
 
     [Fact]

@@ -6,15 +6,18 @@ using Rules.Core.State;
 // M7.4: the battlefield in 3D. It draws Client.Core's BoardScene with placeholder shapes (1 scene unit = 1 inch; table x
 // is scene X, table y is scene Z) and lets the player move the camera and select a model (stage 4a). Stage 4b adds
 // previews: the player picks a placement point, a path or a target, Client.Core's Interaction and Previews work out
-// what the server would probably say, and this view draws it. It shows the server's state and decides nothing:
+// what the server would probably say, and this view draws it. Stage 4c sends a confirmed command through the screen's
+// MatchController (Space; Enter for a placement or a target; A activates the selected model). It shows the server's state and decides nothing:
 // heights are display conventions (DisplayHeight), line of sight and cover come from the rules geometry (the sight
-// rays drawn are the rules' own), and every preview says "preview; the server decides". Nothing is sent from here yet.
+// rays drawn are the rules' own), and every preview says "preview; the server decides". Only the server's answer says
+// whether a command was taken.
 //
 // Keys while the battlefield has focus (Tab to it, or click it): arrows pan, + and - zoom, Q and E turn 90 degrees,
 // F fits the table, T switches between the angled and the top-down camera, N and P select the next and previous model.
 // Previews: L place a model, M move, D dash, R retreat, S shoot, C charge, X fight. Then arrows move the cursor (half
-// an inch, 2 inches with Shift), Enter fixes a waypoint (or gets a placement or target ready), Backspace removes a
-// waypoint, N and P choose the target or the model to place, Space gets the command ready, Esc cancels.
+// an inch, 2 inches with Shift), Enter fixes a waypoint (or sends a placement or a target), Backspace removes a
+// waypoint, N and P choose the target or the model to place, Space sends the command, Esc cancels. A activates the
+// selected model.
 // Tab and Shift+Tab still move to the next control. Mouse: click selects (or picks the target, or fixes a waypoint),
 // moving over the table moves the cursor, right or middle drag pans, the wheel zooms.
 public partial class BoardView : SubViewportContainer
@@ -391,6 +394,11 @@ public partial class BoardView : SubViewportContainer
             Sync();
             return true;
         }
+        if (key.Keycode == Key.A && Interaction.Mode == InteractionMode.None)
+        {
+            ActivateSelected();
+            return true;
+        }
         if (key.Keycode == Key.Escape && Interaction.Notice is not null)
         {
             Interaction.Cancel();
@@ -430,11 +438,11 @@ public partial class BoardView : SubViewportContainer
                 }
                 else
                 {
-                    Interaction.Confirm();
+                    Confirm();
                 }
                 return true;
             case Key.Space:
-                Interaction.Confirm();
+                Confirm();
                 return true;
             case Key.Backspace:
                 Interaction.RemovePoint();
@@ -450,6 +458,24 @@ public partial class BoardView : SubViewportContainer
                 return true;
             default:
                 return false;
+        }
+    }
+
+    // Sends the previewed command (an explicit key press: Space, or Enter for a placement or a target). The answer comes
+    // back through the same MatchController as the hint buttons; _Process redraws when it arrives.
+    public async void Confirm()
+    {
+        await Interaction.ConfirmAsync();
+        Sync();
+    }
+
+    // A: activate the selected model (yours), as its hint button does.
+    public async void ActivateSelected()
+    {
+        if (Selected is { Yours: true } model)
+        {
+            await Interaction.ActivateAsync(model.Id);
+            Sync();
         }
     }
 
@@ -479,6 +505,8 @@ public partial class BoardView : SubViewportContainer
             return;
         }
         var preview = Interaction.Preview;
+        // What happened to the last confirmation (SENT, REFUSED BY THE RULES, NOT SENT ...), under the preview's own tag.
+        var state = Interaction.Notice is { } notice ? $"\n{notice}" : "";
         var good = _highContrast ? Colors.White : new Color(0.35f, 1f, 0.45f);
         var bad = _highContrast ? Colors.Yellow : new Color(1f, 0.35f, 0.3f);
         var colour = preview is { Legal: false } ? bad : good;
@@ -502,7 +530,7 @@ public partial class BoardView : SubViewportContainer
             case PreviewKind.Place:
                 var at = preview.Path[0];
                 Ring(at.At, preview.Radius, colour);
-                Overlay($"{preview.Tag}\n{preview.Model.Value} at {at.At}{refusal}", at.At, 2.8f, 0.95f);
+                Overlay($"{preview.Tag}\n{preview.Model.Value} at {at.At}{refusal}{state}", at.At, 2.8f, 0.95f);
                 break;
             case PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat:
                 for (var i = 1; i < preview.Path.Count; i++)
@@ -515,7 +543,7 @@ public partial class BoardView : SubViewportContainer
                 }
                 var end = preview.Path[^1];
                 Ring(end.At, preview.Radius, colour);
-                Overlay($"{preview.Tag}\n{BoardScene.Inch(end.Inches)} used{refusal}", end.At, 2.8f, 0.95f);
+                Overlay($"{preview.Tag}\n{BoardScene.Inch(end.Inches)} used{refusal}{state}", end.At, 2.8f, 0.95f);
                 break;
             default:
                 foreach (var ray in preview.Rays)
@@ -528,7 +556,7 @@ public partial class BoardView : SubViewportContainer
                     Ring(spot, target.Radius, colour);
                     var sight = preview.Facts.FirstOrDefault(f => f.StartsWith("Line of sight", StringComparison.Ordinal));
                     var distance = preview.Facts.FirstOrDefault(f => f.StartsWith("Distance", StringComparison.Ordinal));
-                    Overlay($"{preview.Tag}\n{target.Label}{(distance is null ? "" : "\n" + distance)}{(sight is null ? "" : "\n" + sight)}{refusal}", spot, 3.6f, 0.95f);
+                    Overlay($"{preview.Tag}\n{target.Label}{(distance is null ? "" : "\n" + distance)}{(sight is null ? "" : "\n" + sight)}{refusal}{state}", spot, 3.6f, 0.95f);
                 }
                 for (var i = 1; i < preview.ChargePath.Count; i++)
                 {

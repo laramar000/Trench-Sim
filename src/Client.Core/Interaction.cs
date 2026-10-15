@@ -4,10 +4,11 @@ using Rules.Core.State;
 
 namespace Client.Core;
 
-// M7.4 stage 4b: what the player is pointing at on the battlefield, as plain C# the Godot client forwards input to.
+// M7.4: what the player is pointing at on the battlefield, as plain C# the Godot client forwards input to (stage 4b).
 // Choose an action, then a placement point, a path of waypoints or a target; the preview (Previews) says what the
-// server would probably answer. Confirming only gets the command ready: sending it arrives in stage 4c, so nothing
-// here talks to the server, and the server's own check is what counts.
+// server would probably answer. Confirming sends the command through Send (stage 4c: the screen's MatchController), once
+// per confirmation, and the server's answer is what counts: DONE only when it accepted the command, never because a
+// preview looked legal. A preview that says the server would refuse needs a second confirmation to be sent anyway.
 public enum InteractionMode
 {
     None,
@@ -25,7 +26,6 @@ public sealed class Interaction
     // Keyboard cursor steps, in inches: half an inch, two inches with Shift.
     public const double Step = 0.5;
     public const double BigStep = 2.0;
-    public const string NotSentYet = "Sending commands from the battlefield arrives in stage 4c; nothing was sent.";
 
     private static readonly InteractionMode[] ActionModes =
         [InteractionMode.Move, InteractionMode.Dash, InteractionMode.Retreat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight];
@@ -47,8 +47,18 @@ public sealed class Interaction
 
     public ModelId? Target { get; private set; }
 
-    // The command confirmed from a legal preview. Stage 4b stops here: it is not sent.
-    public Command? Ready { get; private set; }
+    // How a confirmed command reaches the server: the screen's MatchController.SendAsync, which sends one command at a
+    // time, refuses while the match is paused, over or not connected, and reports the server's answer. Null: no match.
+    public Func<Command, string, Task<Feedback>>? Send { get; set; }
+
+    // The command sent and not yet answered; null when nothing is waiting.
+    public Command? Pending { get; private set; }
+
+    // The server's answer to the last command sent from the battlefield.
+    public Feedback? Answer { get; private set; }
+
+    // The preview refuses and the player confirmed once: the next confirmation sends it anyway.
+    private bool _armed;
 
     // The last thing worth telling the player (a refused confirm, a cleared preview); null when there is none.
     public string? Notice { get; private set; }
@@ -73,7 +83,9 @@ public sealed class Interaction
         }
         _state = state;
         _seat = seat;
-        if (Mode != InteractionMode.None && !StillPossible())
+        _armed = false;
+        // While a command is on its way, the server's answer decides what happens to the choice.
+        if (Pending is null && Mode != InteractionMode.None && !StillPossible())
         {
             Clear();
             Notice = "The match moved on, so the preview was cleared.";
@@ -105,6 +117,12 @@ public sealed class Interaction
 
     public bool Start(InteractionMode mode)
     {
+        if (Pending is not null)
+        {
+            Notice = WaitingNotice;
+            Changed();
+            return false;
+        }
         if (mode == InteractionMode.None)
         {
             Cancel();
@@ -137,7 +155,7 @@ public sealed class Interaction
 
     public void Cancel()
     {
-        if (Mode == InteractionMode.None && Notice is null && Ready is null)
+        if (Pending is not null || (Mode == InteractionMode.None && Notice is null))
         {
             return;
         }
@@ -162,7 +180,7 @@ public sealed class Interaction
             return;
         }
         Cursor = next;
-        Ready = null;
+        _armed = false;
         Changed();
     }
 
@@ -174,7 +192,7 @@ public sealed class Interaction
             return false;
         }
         _waypoints.Add(Cursor);
-        Ready = null;
+        _armed = false;
         Changed();
         return true;
     }
@@ -186,7 +204,7 @@ public sealed class Interaction
             return false;
         }
         _waypoints.RemoveAt(_waypoints.Count - 1);
-        Ready = null;
+        _armed = false;
         Changed();
         return true;
     }
@@ -210,7 +228,7 @@ public sealed class Interaction
         {
             Target = next;
         }
-        Ready = null;
+        _armed = false;
         Changed();
     }
 
@@ -222,7 +240,7 @@ public sealed class Interaction
             return;
         }
         Target = id;
-        Ready = null;
+        _armed = false;
         Changed();
     }
 
@@ -271,27 +289,121 @@ public sealed class Interaction
         return points;
     }
 
-    // Gets the command ready when the preview looks legal. Stage 4b does not send it.
-    public Command? Confirm()
+    private const string WaitingNotice = "Waiting for the server's answer to the command already sent; nothing else was sent.";
+
+    // Sends the previewed command to the server, once, and reports the server's answer. Returns that answer, or null when
+    // nothing was sent (no preview, already waiting, a refusing preview confirmed only once, no match).
+    public async Task<Feedback?> ConfirmAsync()
     {
+        if (Pending is not null)
+        {
+            Notice = WaitingNotice;
+            Changed();
+            return null;
+        }
         if (Preview is not { } preview)
         {
-            Notice = Mode == InteractionMode.None ? "Choose an action first." : "Nothing to confirm yet: choose a point or a target.";
+            Notice = Mode == InteractionMode.None ? "Choose an action first." : "Nothing to send yet: choose a point or a target.";
             Changed();
             return null;
         }
-        if (preview.Refusal is { } refusal)
+        if (preview.Refusal is { } refusal && !_armed)
         {
-            Ready = null;
-            Notice = $"Not ready: the preview says the server would refuse. {refusal.Text} ({refusal.RuleRef})";
+            _armed = true;
+            Notice = $"Not sent: the preview says the server would refuse. {refusal.Text} ({refusal.RuleRef}) Confirm again to send it anyway; the server decides.";
             Changed();
             return null;
         }
-        Ready = preview.Command;
-        Notice = $"Ready: {preview.Verb}. {NotSentYet}";
-        Changed();
-        return Ready;
+        return await SendNow(preview.Command, Describe(preview));
     }
+
+    // Activates one of your models: the same command as its "Activate" hint button, sent the same way.
+    public async Task<Feedback?> ActivateAsync(ModelId model)
+    {
+        if (Pending is not null)
+        {
+            Notice = WaitingNotice;
+            Changed();
+            return null;
+        }
+        if (_seat is not { } seat)
+        {
+            Notice = "Not in a match: nothing was sent.";
+            Changed();
+            return null;
+        }
+        Clear();
+        return await SendNow(new ActivateModel(seat, model), $"Activate {model.Value}");
+    }
+
+    private async Task<Feedback?> SendNow(Command command, string label)
+    {
+        if (Send is not { } send)
+        {
+            Notice = "Not connected to a match: nothing was sent.";
+            Changed();
+            return null;
+        }
+        Pending = command;
+        _armed = false;
+        Answer = null;
+        Notice = $"SENT: {label}. Waiting for the server's answer.";
+        Changed();
+        Feedback answer;
+        try
+        {
+            answer = await send(command, label);
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            answer = new Feedback(FeedbackKind.Unknown, $"Sending failed ({e.GetType().Name}); the server reports what happened after reconnecting.");
+        }
+        Pending = null;
+        Answer = answer;
+        switch (answer.Kind)
+        {
+            case FeedbackKind.Accepted:
+                Clear();
+                Answer = answer;
+                Notice = $"DONE: {label}. The server accepted it; the battlefield shows its result.";
+                break;
+            case FeedbackKind.Unknown:
+                // The answer was lost: drop the choice so a second key press cannot send it twice.
+                Clear();
+                Answer = answer;
+                Notice = $"UNKNOWN: {answer.Text} The choice was cleared so it is not sent twice.";
+                break;
+            default:
+                var word = answer.Kind switch
+                {
+                    FeedbackKind.RulesRefused => "REFUSED BY THE RULES",
+                    FeedbackKind.Stale => "OUT OF DATE",
+                    _ => "NOT TAKEN",
+                };
+                if (Mode != InteractionMode.None && !StillPossible())
+                {
+                    Clear();
+                    Answer = answer;
+                }
+                Notice = $"{word}: {answer.Text}{(answer.RuleRef is { } rule ? $" ({rule})" : "")}";
+                break;
+        }
+        Changed();
+        return answer;
+    }
+
+    // The command in words, for the player and for the screen's "last command".
+    public static string Describe(Preview preview) => preview.Command switch
+    {
+        PlaceModel p => $"Place {p.Model.Value} at {TablePoint.Of(p.At)}",
+        MoveModel m => $"Move {m.Model.Value} to {TablePoint.Of(m.Path[^1])}",
+        DashModel d => $"Dash {d.Model.Value} to {TablePoint.Of(d.Path[^1])}",
+        RetreatModel r => $"Retreat {r.Model.Value} to {TablePoint.Of(r.Path[^1])}",
+        Shoot s => $"Shoot {s.Target.Value} with {s.Attacker.Value}",
+        ChargeModel c => $"Charge {c.Target.Value} with {c.Model.Value}",
+        FightModel f => $"Fight {f.Target.Value} with {f.Model.Value}",
+        _ => preview.Verb,
+    };
 
     // What the player needs to read: the action, the keys, and the preview's lines.
     public IReadOnlyList<string> Lines()
@@ -354,9 +466,9 @@ public sealed class Interaction
 
     private string Help() => Mode switch
     {
-        InteractionMode.Place => "Arrows move the cursor (half an inch, 2\" with Shift), N and P choose the model, Enter or Space gets it ready, Esc cancels.",
-        _ when IsPath => "Arrows move the cursor (half an inch, 2\" with Shift), Enter fixes a waypoint, Backspace removes one, Space gets it ready, Esc cancels.",
-        _ => "N and P choose the target (or click it), Enter or Space gets it ready, Esc cancels.",
+        InteractionMode.Place => "Arrows move the cursor (half an inch, 2\" with Shift), N and P choose the model, Enter or Space sends it, Esc cancels.",
+        _ when IsPath => "Arrows move the cursor (half an inch, 2\" with Shift), Enter fixes a waypoint, Backspace removes one, Space sends it, Esc cancels.",
+        _ => "N and P choose the target (or click it), Enter or Space sends it, Esc cancels.",
     };
 
     private Preview? Compute()
@@ -429,8 +541,9 @@ public sealed class Interaction
         Mode = InteractionMode.None;
         Actor = null;
         Target = null;
-        Ready = null;
+        _armed = false;
         Notice = null;
+        Answer = null;
         _waypoints.Clear();
     }
 

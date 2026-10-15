@@ -10,7 +10,7 @@ public sealed record ActionHint(string Label, Command Command);
 
 // What the player's seat can try now, from the read-only rules query TurnSequence.LegalCommands over the server's
 // state (D3). These hints are the choices that need no position on the table; placing, moving, shooting, charging
-// and fighting are previewed on the battlefield (M7.4 stage 4b) and sent from it in stage 4c.
+// and fighting are previewed and sent on the battlefield (M7.4).
 public static class ActionHints
 {
     public static IReadOnlyList<ActionHint> For(MatchState state, Seat? seat, ContentNames names)
@@ -27,7 +27,7 @@ public static class ActionHints
             .ToList();
     }
 
-    // When it is this seat's turn to do something the M7.3 screen cannot offer yet, says so; otherwise null.
+    // When it is this seat's turn to do something that is done on the battlefield rather than with a hint, says how.
     public static string? NotYetOffered(MatchState state, Seat? seat)
     {
         if (seat is not { } mine || state.Pending is not null || state.Outcome is not null)
@@ -36,11 +36,11 @@ public static class ActionHints
         }
         if (state.Phase == Phase.Deployment && state.Setup?.Scenario is not null && MatchView.NextDeployer(state) == mine)
         {
-            return "You can preview placing your models on the battlefield (key L there). Sending a placement from it arrives in stage 4c; use trench-cli to deploy for now.";
+            return "Place your models on the battlefield: click it, press L, point with the arrows or the mouse, then Space sends the placement. N and P choose the model.";
         }
         if (state.Phase == Phase.Activation && state.ActiveModel is { } active && state.FindModel(active)?.Seat == mine)
         {
-            return "You can preview Move, Dash, Retreat, Shoot, Charge and Fight on the battlefield (keys M, D, R, S, C and X there). Sending them from it arrives in stage 4c; use trench-cli for them for now.";
+            return "Move, Dash, Retreat, Shoot, Charge and Fight are on the battlefield: click it, press M, D, R, S, C or X, choose the path or target, then Space sends it. End the activation with its button.";
         }
         return null;
     }

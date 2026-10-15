@@ -274,6 +274,10 @@ public partial class Main : Control
         boardBox.AddChild(_board);
         boardBox.AddChild(_boardInfo);
         _board.Changed += ShowBoardInfo;
+        // A confirmed battlefield command goes the same way as a hint button: one at a time, answered by the server.
+        _board.Interaction.Send = (command, label) => _controller is { } controller
+            ? controller.SendAsync(command, label)
+            : Task.FromResult(new Feedback(FeedbackKind.ProtocolRefused, "Not sent: not in a match."));
         _boardSection = Section("Battlefield", boardBox);
         _match.AddChild(_boardSection);
         // Two columns: the match on the left, what you can do and what happened on the right.
@@ -407,9 +411,10 @@ public partial class Main : Control
         }
         _boardInfo.Text = $"Table {scene.Size}; camera {_board.CameraText}. Selected: {_board.Selected?.Text ?? "none"}\n" +
             "Keys on the battlefield (Tab to it or click it): arrows pan, + and - zoom, Q and E turn 90°, F fits the table, T top-down or angled, " +
-            "N and P next and previous model. Mouse: click selects, right-drag pans, wheel zooms. Distances are in inches. " +
+            "N and P next and previous model, A activates the selected model. Actions: L place, M move, D dash, R retreat, S shoot, C charge, X fight; " +
+            "then arrows (Shift: 2\") move the cursor, Enter fixes a waypoint, Space sends, Esc cancels. Mouse: click selects (or picks the target or a waypoint), right-drag pans, wheel zooms. Distances are in inches. " +
             "This view shows the server's state and decides nothing; heights are for display only.\n" +
-            "PREVIEWS (preview; the server decides; nothing is sent yet): " + string.Join("\n", _board.Interaction.Lines());
+            "ACTIONS ON THE BATTLEFIELD (previews say what the server would probably answer; the server decides): " + string.Join("\n", _board.Interaction.Lines());
     }
 
     // The first hint, or else the first connection button (Rejoin now, Leave): where a keyboard user wants to be.

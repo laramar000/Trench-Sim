@@ -226,7 +226,7 @@ public partial class UiCheck : Node
         await Frames(5);
         Check($"zone-event-shown", LogText().Contains(" zone."), Lines(LogText()).LastOrDefault() ?? "");
         var actions = Section("YOUR ACTIONS");
-        Check("positional-not-offered-explained", actions.Contains("stage 4c") || actions.Contains("Nothing to do until the opponent moves"), actions.Replace('\n', '|'));
+        Check("positional-not-offered-explained", actions.Contains("on the battlefield") || actions.Contains("Nothing to do until the opponent moves"), actions.Replace('\n', '|'));
         await Shot($"{_role}-zone");
         Dump("zone");
         await PlacementPreviewChecks();
@@ -251,6 +251,7 @@ public partial class UiCheck : Node
         var liveEvents = 0;
         var focusChecked = false;
         var previewsChecked = false;
+        var meleeTried = new HashSet<string>();
         // The opponent's events (Seat Two and its models b1..b4) seen arriving while connected, whenever they arrive:
         // while the host waits for the opponent, and while it waits for the answer to its own command.
         var seen = Lines(LogText()).Count;
@@ -276,6 +277,25 @@ public partial class UiCheck : Node
             {
                 previewsChecked = true;
                 await ActionPreviewChecks(board);
+                CountOpponentEvents();
+                continue;
+            }
+            if (previewsChecked && Hint() is not null && Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } later)
+            {
+                if (later.Interaction.Available.Contains(InteractionMode.Charge) && !(_shootSent && _chargeSent && _fightSent) && !meleeTried.Contains(later.Interaction.Available.Count + ":" + Section("MATCH")))
+                {
+                    meleeTried.Add(later.Interaction.Available.Count + ":" + Section("MATCH"));
+                    await MeleeFromTheBattlefield(later);
+                    CountOpponentEvents();
+                    continue;
+                }
+            }
+            // A on the battlefield activates the selected model, at the first chance (before or after the previews).
+            if (!_activateChecked && Hint() is { } activate && activate.Text.StartsWith("Activate ", StringComparison.Ordinal)
+                && Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } chooser && await ActivateByKey(chooser))
+            {
+                presses++;
+                CountOpponentEvents();
                 continue;
             }
             if (Hint() is { } hint)
@@ -476,23 +496,55 @@ public partial class UiCheck : Node
             && Section("BATTLEFIELD").Contains($"{r.Text} ({r.RuleRef}; {Preview.Caveat})", StringComparison.Ordinal),
             $"after {steps} steps of 2\" to {interaction.Cursor}: {refused?.Headline}");
         await Shot($"{_role}-place-refused");
+        // Stage 4c: a refusing preview is not sent on the first confirmation.
         await KeyPress(Key.Space);
-        var notReady = interaction.Ready is null && (interaction.Notice ?? "").StartsWith("Not ready", StringComparison.Ordinal);
-        // Back to the zone centre, where the preview was legal: undo the 2" steps, then the 2.5" of the cursor-step check.
+        Check("board-refused-preview-not-sent", interaction.Pending is null && interaction.Answer is null
+            && (interaction.Notice ?? "").StartsWith("Not sent: the preview says the server would refuse.", StringComparison.Ordinal)
+            && Section("LAST COMMAND") == lastCommand && Lines(LogText()).Count == events,
+            $"notice: {interaction.Notice}; last command unchanged: {Section("LAST COMMAND") == lastCommand}; events {events} -> {Lines(LogText()).Count}");
+        await KeyPress(Key.Escape);
+        Check("board-escape-cancels", interaction.Mode == InteractionMode.None && board.OverlayTexts.Count == 0 && !All(board).OfType<Label3D>().Any(l => !l.IsQueuedForDeletion() && l.Text.Contains(Preview.Caveat, StringComparison.Ordinal)),
+            $"mode {interaction.Mode}; {board.OverlayTexts.Count} preview labels left");
+
+        // Confirmed twice, it is sent anyway, and the server's refusal is shown (the server decides, not the preview).
+        await KeyPress(Key.L);
+        steps = 0;
+        while (steps < 14 && interaction.Preview is { Legal: true })
+        {
+            await KeyPress(towards, shift: true);
+            steps++;
+        }
+        await KeyPress(Key.Space);
+        await KeyPress(Key.Space);
+        var refusedAnswer = await Answered(lastCommand);
+        Check("board-send-refused-shown", refusedAnswer.StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal)
+            && (interaction.Notice ?? "").StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal) && Section("BATTLEFIELD").Contains(interaction.Notice!, StringComparison.Ordinal)
+            && OverlayHas(board, "REFUSED BY THE RULES:") && interaction.Mode == InteractionMode.Place && Lines(LogText()).Count == events,
+            $"last command: {refusedAnswer}; battlefield: {interaction.Notice}; events {events} -> {Lines(LogText()).Count}");
+        await Shot($"{_role}-place-refused-by-server");
+
+        // Back to the zone centre: one confirmation sends the legal placement once, and the server's events place it.
         for (var i = 0; i < steps; i++)
         {
             await KeyPress(back, shift: true);
         }
-        await KeyPress(Key.Left, shift: true);
-        await KeyPress(Key.Left);
+        var placing = interaction.Preview;
+        var before = Section("LAST COMMAND");
         await KeyPress(Key.Space);
-        Check("board-confirm-sends-nothing", notReady && interaction.Ready is not null && Section("BATTLEFIELD").Contains(Interaction.NotSentYet, StringComparison.Ordinal)
-            && Section("LAST COMMAND") == lastCommand && Lines(LogText()).Count == events,
-            $"refused preview not made ready: {notReady}; back at {interaction.Cursor} (start {start}), legal one ready: {interaction.Ready}; last command unchanged: {Section("LAST COMMAND") == lastCommand}; events {events} -> {Lines(LogText()).Count}");
-        await KeyPress(Key.Escape);
-        Check("board-escape-cancels", interaction.Mode == InteractionMode.None && board.OverlayTexts.Count == 0 && !All(board).OfType<Label3D>().Any(l => !l.IsQueuedForDeletion() && l.Text.Contains(Preview.Caveat, StringComparison.Ordinal)),
-            $"mode {interaction.Mode}; {board.OverlayTexts.Count} preview labels left");
+        var placed = await Answered(before);
+        var deployedLine = await Until(() => Lines(LogText()).Skip(events).FirstOrDefault(l => l.Contains(" sets up ", StringComparison.Ordinal)), 10, "placed");
+        await Frames(3);
+        var shape = placing is null ? null : board.Scene?.Find(placing.Model);
+        Check("board-send-place", placing is { Legal: true } && placed.StartsWith("DONE:", StringComparison.Ordinal) && placed.Contains(Interaction.Describe(placing), StringComparison.Ordinal) && deployedLine is not null
+            && shape is not null && Near(new TablePoint(shape.X, shape.Y), placing.Path[0].At.X, placing.Path[0].At.Y)
+            && (interaction.Notice ?? "").StartsWith("DONE: Place ", StringComparison.Ordinal) && Lines(LogText()).Skip(events).Count(l => l.Contains(" sets up ", StringComparison.Ordinal)) == 1,
+            $"last command: {placed}; event: {deployedLine}; on the battlefield: {shape?.Text ?? "missing"}; notice: {interaction.Notice}");
+        await Shot($"{_role}-placed");
     }
+
+    // The server's answer to the command just sent: the LAST COMMAND text once it is neither the old text nor SENT.
+    private async Task<string> Answered(string before) =>
+        await Until(() => Section("LAST COMMAND") is var now && now != before && !now.StartsWith("SENT:", StringComparison.Ordinal) ? now : null, 20, "answer") ?? Section("LAST COMMAND");
 
     // M7.4 stage 4b, during the host's own activation: Move with waypoints (keys and mouse), Shoot with the rules' sight
     // rays and target cycling (keys and mouse), and Charge with its reach. Nothing is sent.
@@ -589,6 +641,161 @@ public partial class UiCheck : Node
         Check("board-previews-send-nothing", interaction.Mode == InteractionMode.None && board.OverlayTexts.Count == 0 && Section("LAST COMMAND") == lastCommand && Hint() is not null,
             $"mode {interaction.Mode}; last command unchanged: {Section("LAST COMMAND") == lastCommand}; hint still offered: {Hint()?.Text}");
         Dump("previews");
+
+        // Stage 4c: a Move with the keyboard cursor, sent once with Space; the server's events move the model.
+        var moved = await SendFirstLegalMove(board);
+        Check("board-send-move", moved.Pass, moved.Detail);
+        await Shot("host-moved");
+
+        // Then a Shoot at the first target the preview says is legal (if any), sent with Space.
+        _shootSent = await SendFirstLegalTarget(board, Key.S, "board-send-shoot");
+    }
+
+    // M (Move), then half-inch steps towards the nearest enemy for as long as the preview looks legal (so a shot may come
+    // into range), or else a short step in any direction that looks legal; Space sends it.
+    private async Task<(bool Pass, string Detail)> SendFirstLegalMove(BoardView board)
+    {
+        var interaction = board.Interaction;
+        var tries = new List<(Key Key, int Presses, bool Furthest)>();
+        if (board.Scene is { } scene && scene.Models.FirstOrDefault(m => m.Active) is { } me
+            && scene.Models.Where(m => !m.Yours).OrderBy(m => (m.X - me.X) * (m.X - me.X) + (m.Y - me.Y) * (m.Y - me.Y)).FirstOrDefault() is { } enemy)
+        {
+            // The camera faces north (yaw 0): Right is +x and Up is -y on the table.
+            var key = Math.Abs(enemy.X - me.X) >= Math.Abs(enemy.Y - me.Y) ? (enemy.X > me.X ? Key.Right : Key.Left) : (enemy.Y > me.Y ? Key.Down : Key.Up);
+            tries.Add((key, 16, true));
+        }
+        tries.AddRange(new[] { (Key.Right, 2, false), (Key.Left, 2, false), (Key.Up, 2, false), (Key.Down, 2, false), (Key.Right, 4, false), (Key.Left, 4, false), (Key.Up, 4, false), (Key.Down, 4, false) });
+        foreach (var (key, presses, furthest) in tries)
+        {
+            await KeyPress(Key.M);
+            var legal = 0;
+            for (var i = 0; i < presses; i++)
+            {
+                await KeyPress(key);
+                if (furthest)
+                {
+                    if (interaction.Preview is not { Legal: true })
+                    {
+                        break;
+                    }
+                    legal++;
+                }
+            }
+            if (furthest && legal > 0 && interaction.Preview is not { Legal: true })
+            {
+                // One step back to the last point the preview called legal.
+                await KeyPress(key switch { Key.Right => Key.Left, Key.Left => Key.Right, Key.Up => Key.Down, _ => Key.Up });
+            }
+            if (interaction.Preview is not { Legal: true } preview)
+            {
+                await KeyPress(Key.Escape);
+                continue;
+            }
+            var events = Lines(LogText()).Count;
+            var before = Section("LAST COMMAND");
+            await KeyPress(Key.Space);
+            var answer = await Answered(before);
+            var line = await Until(() => Lines(LogText()).Skip(events).FirstOrDefault(l => l.Contains(" moves ", StringComparison.Ordinal)), 10, "moved");
+            await Frames(3);
+            var end = preview.Path[^1].At;
+            var shape = board.Scene?.Find(preview.Model);
+            var pass = answer.StartsWith("DONE:", StringComparison.Ordinal) && answer.Contains(Interaction.Describe(preview), StringComparison.Ordinal) && line is not null && shape is not null && Near(new TablePoint(shape.X, shape.Y), end.X, end.Y)
+                && (interaction.Notice ?? "").StartsWith("DONE: Move ", StringComparison.Ordinal) && interaction.Mode == InteractionMode.None;
+            return (pass, $"{preview.Headline}; last command: {answer}; event: {line}; now {shape?.Text}; notice: {interaction.Notice}");
+        }
+        return (false, "no direction gave a legal Move preview within 2\"");
+    }
+
+    // The action key, then N through the targets until the preview looks legal; Space sends it. Reports the check only
+    // when some target is legal (otherwise the scenario offers nothing to send, and the check stays NOT TESTED).
+    private async Task<bool> SendFirstLegalTarget(BoardView board, Key action, string id)
+    {
+        var interaction = board.Interaction;
+        await KeyPress(action);
+        var count = interaction.Targets().Count;
+        for (var i = 0; i < count && interaction.Preview is not { Legal: true }; i++)
+        {
+            await KeyPress(Key.N);
+        }
+        if (interaction.Preview is not { Legal: true } preview)
+        {
+            Mark($"{id}-nothing-legal", interaction.Preview?.Headline ?? "no target");
+            await KeyPress(Key.Escape);
+            return false;
+        }
+        var events = Lines(LogText()).Count;
+        var before = Section("LAST COMMAND");
+        await KeyPress(Key.Space);
+        var answer = await Answered(before);
+        await Until(() => Lines(LogText()).Count > events ? "ok" : null, 10, "events");
+        var word = $"DONE: {Interaction.Describe(preview)}";
+        Check(id, answer.StartsWith("DONE:", StringComparison.Ordinal) && answer.Contains(Interaction.Describe(preview), StringComparison.Ordinal)
+            && (interaction.Notice ?? "").StartsWith(word, StringComparison.Ordinal) && Lines(LogText()).Count > events,
+            $"{preview.Headline}; last command: {answer}; new events: {string.Join(" / ", Lines(LogText()).Skip(events).Take(4))}");
+        await Shot($"host-{id}");
+        return true;
+    }
+
+    // Stage 4c, in later activations of the host: A activates the selected model (once), and a Charge or a Fight is sent
+    // when the preview says one is legal (only when the match offers one).
+    private bool _activateChecked;
+    private bool _shootSent;
+    private bool _chargeSent;
+    private bool _fightSent;
+
+    private async Task<bool> ActivateByKey(BoardView board)
+    {
+        if (_activateChecked || board.Scene is not { } scene || !await FocusByTab(board, 80))
+        {
+            return false;
+        }
+        var hints = Controls<Button>().Where(b => b.IsVisibleInTree() && b.Text.StartsWith("Activate ", StringComparison.Ordinal)).Select(b => b.Text).ToList();
+        for (var i = 0; i < scene.Models.Count && !(board.Selected is { Yours: true } m && hints.Any(h => h.StartsWith($"Activate {m.Name} ", StringComparison.Ordinal))); i++)
+        {
+            await KeyPress(Key.N);
+        }
+        if (board.Selected is not { Yours: true } chosen || !hints.Any(h => h.StartsWith($"Activate {chosen.Name} ", StringComparison.Ordinal)))
+        {
+            return false;
+        }
+        _activateChecked = true;
+        var before = Section("LAST COMMAND");
+        await KeyPress(Key.A);
+        var answer = await Answered(before);
+        await Until(() => board.Interaction.Available.Contains(InteractionMode.Move) ? "ok" : null, 10, "active");
+        Check("board-activate-key", answer.StartsWith("DONE:", StringComparison.Ordinal) && answer.Contains($"Activate {chosen.Id.Value}", StringComparison.Ordinal) && board.Interaction.Available.Contains(InteractionMode.Move),
+            $"N selected {chosen.Name}; A: {answer}");
+        return true;
+    }
+
+    private async Task MeleeFromTheBattlefield(BoardView board)
+    {
+        if (!await FocusByTab(board, 80))
+        {
+            return;
+        }
+        if (!_shootSent)
+        {
+            // A Shoot excludes a Charge or a Fight in the same activation, so the melee actions wait for another one.
+            _shootSent = await SendFirstLegalTarget(board, Key.S, "board-send-shoot");
+            if (_shootSent)
+            {
+                return;
+            }
+        }
+        if (!_chargeSent)
+        {
+            _chargeSent = await SendFirstLegalTarget(board, Key.C, "board-send-charge");
+            if (_chargeSent)
+            {
+                // The charge is resolved by the server (rolls, then the move); wait for it before fighting.
+                await Until(() => (LogText().Contains(" charges to ", StringComparison.Ordinal) || LogText().Contains("the charge fails", StringComparison.Ordinal)) && Hint() is not null ? "ok" : null, 20, "charge-resolved");
+            }
+        }
+        if (!_fightSent && board.Interaction.Available.Contains(InteractionMode.Fight))
+        {
+            _fightSent = await SendFirstLegalTarget(board, Key.X, "board-send-fight");
+        }
     }
 
     private static bool Near(TablePoint p, double x, double y, double within = 0.001) => Math.Abs(p.X - x) <= within && Math.Abs(p.Y - y) <= within;
