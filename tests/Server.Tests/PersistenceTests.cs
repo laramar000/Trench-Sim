@@ -267,30 +267,254 @@ public sealed class PersistenceTests : IDisposable
         }
     }
 
+    // Writes a key file owner-only, as the server does, so a test fails for the reason it is about.
+    private static void WriteOwnerOnly(string path, string text)
+    {
+        File.Delete(path);
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
+        if (!OperatingSystem.IsWindows())
+        {
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        }
+        using var stream = new FileStream(path, options);
+        stream.Write(Encoding.ASCII.GetBytes(text));
+    }
+
+    private ServerDataException Refused(bool createNew = false) =>
+        Assert.Throws<ServerDataException>(() => SigningKey.Load(Data, createNew));
+
+    // Diagnostics name paths and modes, never the key: no PEM armour and no line of the key's base64.
+    private static void AssertNoKeyIn(string message, string privatePem)
+    {
+        Assert.DoesNotContain("PRIVATE KEY", message, StringComparison.Ordinal);
+        foreach (var line in privatePem.Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(l => !l.StartsWith("-----", StringComparison.Ordinal)))
+        {
+            Assert.DoesNotContain(line, message, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public void AMissingCorruptOrMismatchedKeyStopsTheServer()
     {
         SigningKey.Load(Data).Dispose();
         var keys = Path.Combine(Data, "keys");
-        var privatePem = File.ReadAllText(Path.Combine(keys, "signing.key"));
+        var keyPath = Path.Combine(keys, "signing.key");
+        var privatePem = File.ReadAllText(keyPath);
 
-        File.Move(Path.Combine(keys, "signing.key"), Path.Combine(keys, "elsewhere"));
-        Assert.Throws<ServerDataException>(() => SigningKey.Load(Data));
+        File.Move(keyPath, Path.Combine(keys, "elsewhere"));
+        var missing = Refused();
+        Assert.Contains("is missing", missing.Message, StringComparison.Ordinal);
+        Assert.False(File.Exists(keyPath)); // no replacement key was made
 
-        File.WriteAllText(Path.Combine(keys, "signing.key"), "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n");
-        Assert.Throws<ServerDataException>(() => SigningKey.Load(Data));
+        const string corruptPem = "-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n";
+        WriteOwnerOnly(keyPath, corruptPem);
+        var corrupt = Refused();
+        Assert.Contains("not a readable PKCS#8 PEM key", corrupt.Message, StringComparison.Ordinal);
+        Assert.Null(corrupt.InnerException);
+        AssertNoKeyIn(corrupt.Message, corruptPem);
 
         using var p384 = ECDsa.Create(ECCurve.NamedCurves.nistP384);
-        File.WriteAllText(Path.Combine(keys, "signing.key"), p384.ExportPkcs8PrivateKeyPem());
-        Assert.Throws<ServerDataException>(() => SigningKey.Load(Data));
+        WriteOwnerOnly(keyPath, p384.ExportPkcs8PrivateKeyPem());
+        Assert.Contains("not a P-256 key", Refused().Message, StringComparison.Ordinal);
 
         using var other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        File.WriteAllText(Path.Combine(keys, "signing.key"), other.ExportPkcs8PrivateKeyPem());
-        Assert.Throws<ServerDataException>(() => SigningKey.Load(Data));
+        var otherPem = other.ExportPkcs8PrivateKeyPem();
+        WriteOwnerOnly(keyPath, otherPem);
+        var mismatched = Refused();
+        Assert.Contains("does not match", mismatched.Message, StringComparison.Ordinal);
+        AssertNoKeyIn(mismatched.Message, otherPem);
 
-        File.WriteAllText(Path.Combine(keys, "signing.key"), privatePem);
+        WriteOwnerOnly(keyPath, privatePem);
         using var restored = SigningKey.Load(Data);
         Assert.False(restored.Created);
+        Assert.Equal(privatePem, File.ReadAllText(keyPath));
+    }
+
+    // Owner-only modes, including stricter ones than the server creates, are accepted.
+    [Theory]
+    [InlineData("600", "700")]
+    [InlineData("400", "700")]
+    [InlineData("600", "500")]
+    [InlineData("400", "500")]
+    public void AnOwnerOnlyKeyLoads(string fileMode, string folderMode)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+        string id;
+        using (var first = SigningKey.Load(Data))
+        {
+            id = first.KeyId;
+        }
+        var keys = Path.Combine(Data, "keys");
+        File.SetUnixFileMode(Path.Combine(keys, "signing.key"), (UnixFileMode)Convert.ToInt32(fileMode, 8));
+        File.SetUnixFileMode(keys, (UnixFileMode)Convert.ToInt32(folderMode, 8));
+        try
+        {
+            using var loaded = SigningKey.Load(Data);
+            Assert.False(loaded.Created);
+            Assert.Equal(id, loaded.KeyId);
+        }
+        finally
+        {
+            File.SetUnixFileMode(keys, (UnixFileMode)Convert.ToInt32("700", 8));
+        }
+    }
+
+    // Any group or other permission on the key stops the server. Nothing is repaired or replaced: the mode and the key
+    // are left as they were, and once the owner fixes the mode the same key loads.
+    [Theory]
+    [InlineData("640")]
+    [InlineData("644")]
+    [InlineData("604")]
+    [InlineData("620")]
+    [InlineData("602")]
+    [InlineData("610")]
+    [InlineData("660")]
+    [InlineData("666")]
+    public void AKeyOthersCanReachStopsTheServerAndIsLeftAlone(string fileMode)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+        string id;
+        using (var first = SigningKey.Load(Data))
+        {
+            id = first.KeyId;
+        }
+        var keyPath = Path.Combine(Data, "keys", "signing.key");
+        var privatePem = File.ReadAllText(keyPath);
+        var mode = (UnixFileMode)Convert.ToInt32(fileMode, 8);
+        File.SetUnixFileMode(keyPath, mode);
+
+        var refused = Refused();
+        Assert.Contains(keyPath, refused.Message, StringComparison.Ordinal);
+        Assert.Contains($"mode 0{fileMode}", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("chmod 600", refused.Message, StringComparison.Ordinal);
+        AssertNoKeyIn(refused.Message, privatePem);
+        // --new-signing-key does not get round it either.
+        Assert.Throws<ServerDataException>(() => SigningKey.Load(Data, createNew: true));
+        Assert.Throws<ServerDataException>(() => ServerData.Open(Data));
+
+        Assert.Equal(mode, File.GetUnixFileMode(keyPath));
+        Assert.Equal(privatePem, File.ReadAllText(keyPath));
+        Assert.Equal(["signing.key", "signing.pub"], Directory.EnumerateFiles(Path.Combine(Data, "keys")).Select(Path.GetFileName).Order());
+
+        File.SetUnixFileMode(keyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        using var fixedKey = SigningKey.Load(Data);
+        Assert.Equal(id, fixedKey.KeyId);
+    }
+
+    [Theory]
+    [InlineData("750")]
+    [InlineData("755")]
+    [InlineData("705")]
+    [InlineData("701")]
+    [InlineData("710")]
+    [InlineData("770")]
+    [InlineData("777")]
+    public void AKeysFolderOthersCanReachStopsTheServer(string folderMode)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+        SigningKey.Load(Data).Dispose();
+        var keys = Path.Combine(Data, "keys");
+        var mode = (UnixFileMode)Convert.ToInt32(folderMode, 8);
+        File.SetUnixFileMode(keys, mode);
+        try
+        {
+            var refused = Refused();
+            Assert.Contains($"{keys} has mode 0{folderMode}", refused.Message, StringComparison.Ordinal);
+            Assert.Contains("chmod 700", refused.Message, StringComparison.Ordinal);
+            Assert.Equal(mode, File.GetUnixFileMode(keys));
+
+            // Retiring the key does not let a new one be made in a folder others can reach.
+            File.Move(Path.Combine(keys, "signing.key"), Path.Combine(Data, "retired.key"));
+            File.Move(Path.Combine(keys, "signing.pub"), Path.Combine(Data, "retired.pub"));
+            Assert.Throws<ServerDataException>(() => SigningKey.Load(Data, createNew: true));
+            Assert.False(File.Exists(Path.Combine(keys, "signing.key")));
+        }
+        finally
+        {
+            File.SetUnixFileMode(keys, (UnixFileMode)Convert.ToInt32("700", 8));
+        }
+    }
+
+    // A link could hand the server a key, or a folder, that someone else controls. Every link is refused, even one to a
+    // valid owner-only key, and a dangling link is not taken for a first start.
+    [Fact]
+    public void LinksToTheKeyOrItsFolderAreRefused()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+        var real = Path.Combine(_dir.FullName, "real");
+        Directory.CreateDirectory(real);
+        string id;
+        using (var created = SigningKey.Load(real))
+        {
+            id = created.KeyId;
+        }
+        var realKeys = Path.Combine(real, "keys");
+
+        // keys/ is a link to a valid, owner-only keys folder.
+        var linkedFolder = Path.Combine(_dir.FullName, "linked-folder");
+        Directory.CreateDirectory(linkedFolder);
+        Directory.CreateSymbolicLink(Path.Combine(linkedFolder, "keys"), realKeys);
+        Assert.Contains("symbolic link", Assert.Throws<ServerDataException>(() => SigningKey.Load(linkedFolder)).Message, StringComparison.Ordinal);
+
+        // signing.key is a link to a valid, owner-only key.
+        var linkedFile = Path.Combine(_dir.FullName, "linked-file");
+        var linkedKeys = Path.Combine(linkedFile, "keys");
+        Directory.CreateDirectory(linkedKeys, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        File.Copy(Path.Combine(realKeys, "signing.pub"), Path.Combine(linkedKeys, "signing.pub"));
+        File.CreateSymbolicLink(Path.Combine(linkedKeys, "signing.key"), Path.Combine(realKeys, "signing.key"));
+        Assert.Contains("symbolic link", Assert.Throws<ServerDataException>(() => SigningKey.Load(linkedFile)).Message, StringComparison.Ordinal);
+
+        // A dangling signing.key link is refused, not reported as missing (and not replaced).
+        File.Delete(Path.Combine(linkedKeys, "signing.key"));
+        File.CreateSymbolicLink(Path.Combine(linkedKeys, "signing.key"), Path.Combine(_dir.FullName, "nowhere.key"));
+        Assert.Contains("symbolic link", Assert.Throws<ServerDataException>(() => SigningKey.Load(linkedFile, createNew: true)).Message, StringComparison.Ordinal);
+
+        // A dangling keys/ link is refused, not taken as a first start that would make a new identity.
+        var dangling = Path.Combine(_dir.FullName, "dangling");
+        Directory.CreateDirectory(dangling);
+        Directory.CreateSymbolicLink(Path.Combine(dangling, "keys"), Path.Combine(_dir.FullName, "no-such-folder"));
+        Assert.Contains("symbolic link", Assert.Throws<ServerDataException>(() => SigningKey.Load(dangling)).Message, StringComparison.Ordinal);
+        Assert.False(Directory.Exists(Path.Combine(_dir.FullName, "no-such-folder")));
+
+        // The real key is untouched.
+        using var reloaded = SigningKey.Load(real);
+        Assert.Equal(id, reloaded.KeyId);
+    }
+
+    // The identity survives restarts: the same key is loaded, the file is not rewritten, and no other key appears.
+    [Fact]
+    public void TheSigningKeyIsStableAcrossRestarts()
+    {
+        string id;
+        using (var first = ServerData.Open(Data))
+        {
+            Assert.True(first.Key.Created);
+            id = first.Key.KeyId;
+        }
+        var keyPath = Path.Combine(Data, "keys", "signing.key");
+        var bytes = File.ReadAllBytes(keyPath);
+        var written = File.GetLastWriteTimeUtc(keyPath);
+        for (var restart = 0; restart < 3; restart++)
+        {
+            using var again = ServerData.Open(Data);
+            Assert.False(again.Key.Created);
+            Assert.Equal(id, again.Key.KeyId);
+        }
+        Assert.Equal(bytes, File.ReadAllBytes(keyPath));
+        Assert.Equal(written, File.GetLastWriteTimeUtc(keyPath));
+        Assert.Equal(["signing.key", "signing.pub"], Directory.EnumerateFiles(Path.Combine(Data, "keys")).Select(Path.GetFileName).Order());
     }
 
     [Fact]

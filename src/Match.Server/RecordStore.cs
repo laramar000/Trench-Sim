@@ -20,8 +20,16 @@ public sealed class ServerDataException(string message, Exception? inner = null)
 
 // The server's signing key, in <data>/keys. It is created only on the first start (no keys folder yet) or when asked
 // for explicitly; a missing or damaged key otherwise stops the server, so it never quietly takes on a new identity.
+//
+// Permissions (where Unix file modes exist; guaranteed and tested on Linux, best effort on macOS, not checked on
+// Windows): keys/ and keys/signing.key must grant no group or other permission (0700 and 0600 as created, or
+// stricter), and neither may be a symbolic link. Anything else stops the server; it never repairs the modes, and the
+// message names the path and mode only, never the key.
 public sealed class SigningKey : IDisposable
 {
+    private const UnixFileMode GroupOrOther = UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute
+        | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute;
+
     private SigningKey(ECDsa key)
     {
         Key = key;
@@ -41,7 +49,16 @@ public sealed class SigningKey : IDisposable
         var keys = Path.Combine(dataDirectory, "keys");
         var privatePath = Path.Combine(keys, "signing.key");
         var publicPath = Path.Combine(keys, "signing.pub");
+        RefuseLink(keys);
         var firstStart = !Directory.Exists(keys);
+        if (!firstStart)
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                RefuseShared(keys, File.GetUnixFileMode(keys));
+            }
+            RefuseLink(privatePath);
+        }
         if (firstStart || (createNew && !File.Exists(privatePath)))
         {
             if (!firstStart && File.Exists(publicPath))
@@ -64,16 +81,35 @@ public sealed class SigningKey : IDisposable
             throw new ServerDataException($"The signing key {privatePath} is missing. Restore it, or retire the old key and start with --new-signing-key.");
         }
 
+        string pem;
+        try
+        {
+            using var handle = File.OpenHandle(privatePath, FileMode.Open, FileAccess.Read);
+            if (!OperatingSystem.IsWindows())
+            {
+                // Checked on the open file, so the mode is the mode of what is read.
+                RefuseShared(privatePath, File.GetUnixFileMode(handle));
+            }
+            using var stream = new FileStream(handle, FileAccess.Read);
+            using var reader = new StreamReader(stream, System.Text.Encoding.ASCII);
+            pem = reader.ReadToEnd();
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new ServerDataException($"The signing key {privatePath} cannot be read ({e.GetType().Name}).");
+        }
+
         var loaded = ECDsa.Create();
         try
         {
-            loaded.ImportFromPem(File.ReadAllText(privatePath));
+            loaded.ImportFromPem(pem);
             _ = loaded.ExportParameters(includePrivateParameters: true);
         }
         catch (Exception e) when (e is ArgumentException or CryptographicException or IOException or UnauthorizedAccessException)
         {
             loaded.Dispose();
-            throw new ServerDataException($"The signing key {privatePath} cannot be read.", e);
+            // The parser's message is not passed on: it is about the key's contents.
+            throw new ServerDataException($"The signing key {privatePath} is not a readable PKCS#8 PEM key ({e.GetType().Name}).");
         }
         if (!RecordKeys.IsP256(loaded))
         {
@@ -88,6 +124,25 @@ public sealed class SigningKey : IDisposable
             throw new ServerDataException($"{publicPath} is missing or does not match the signing key.");
         }
         return signing;
+    }
+
+    // A link could point the server at a key, or a folder, that someone else controls.
+    private static void RefuseLink(string path)
+    {
+        if (new FileInfo(path).LinkTarget is not null)
+        {
+            throw new ServerDataException($"{path} is a symbolic link. The signing key and its folder must be real files; replace the link with the file it points to.");
+        }
+    }
+
+    private static void RefuseShared(string path, UnixFileMode mode)
+    {
+        if ((mode & GroupOrOther) != 0)
+        {
+            throw new ServerDataException(
+                $"{path} has mode {Convert.ToString((int)mode, 8).PadLeft(4, '0')}, which lets other users reach the signing key. " +
+                $"It must grant no group or other permission (chmod {(Directory.Exists(path) ? "700" : "600")}). The server does not change it for you.");
+        }
     }
 
     internal static void CreateDirectory(string path)

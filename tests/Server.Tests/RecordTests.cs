@@ -43,6 +43,90 @@ public class RecordTests
         Assert.Equal(StateHash.Compute(Reducer.Replay(body.Events.Select(e => e.Event))), verdict.FinalHash);
     }
 
+    // 40 ranged and 40 melee seeds, each a real match played through the Lobby and aborted mid-match by one of the
+    // three abort paths a live match can take, chosen by the seed.
+    public static TheoryData<string, int> AbortedSeeds()
+    {
+        var data = new TheoryData<string, int>();
+        foreach (var scenario in new[] { "ranged", "melee" })
+        {
+            for (var seed = 1; seed <= 40; seed++)
+            {
+                data.Add(scenario, seed);
+            }
+        }
+        return data;
+    }
+
+    // Plays seed-dependent commands (never to the end), then aborts: a disconnect with no rejoin window, an expired
+    // five-minute rejoin window, or a server shutdown. Returns the record and the abort both seats were told about.
+    private static (MatchRecordBody Record, AbortReason Reason, MatchAborted Told) AbortedMatch(string scenario, int seed)
+    {
+        var reason = (seed % 3) switch
+        {
+            0 => AbortReason.Disconnected,
+            1 => AbortReason.RejoinExpired,
+            _ => AbortReason.ServerShutdown,
+        };
+        var recorder = new CapturingRecorder();
+        var time = new ManualTime();
+        var window = reason == AbortReason.Disconnected ? TimeSpan.Zero : TimeSpan.FromMinutes(5);
+        var harness = new Harness(seed, rejoinWindow: window, time: time, recorder: recorder);
+        var (one, two) = harness.Pair(scenario);
+        Play.Commands(one, two, seed, 3 + seed * 7 % 45);
+        Assert.NotEqual(Phase.Ended, one.Mirror.State.Phase); // the abort really is mid-match
+        switch (reason)
+        {
+            case AbortReason.Disconnected:
+                harness.Lobby.Disconnect(two.Id);
+                break;
+            case AbortReason.RejoinExpired:
+                harness.Lobby.Disconnect(two.Id);
+                one.Pump();
+                Assert.Empty(recorder.Closed); // paused, not aborted
+                time.Advance(TimeSpan.FromMinutes(5));
+                harness.Lobby.Tick();
+                break;
+            default:
+                harness.Lobby.Shutdown();
+                break;
+        }
+        one.Pump();
+        var told = Assert.IsType<MatchAborted>(one.Aborted);
+        return (Assert.Single(recorder.Closed), reason, told);
+    }
+
+    [Theory]
+    [MemberData(nameof(AbortedSeeds))]
+    public void AbortedRecordsVerifyAsAbortedAndNeverAsAResult(string scenario, int seed)
+    {
+        var (body, reason, told) = AbortedMatch(scenario, seed);
+        Assert.Equal(reason, told.Reason);
+        Assert.Equal(RecordKind.Aborted, body.Result.Kind);
+        Assert.Equal(reason.ToString(), body.Result.Reason);
+        Assert.Null(body.Result.Winner);
+        Assert.Equal(told.Events, body.Result.Events);
+        Assert.Equal(told.Hash, body.Result.Hash);
+        Assert.DoesNotContain(body.Events, e => e.Event is MatchEnded);
+        Assert.Null(Reducer.Replay(body.Events.Select(e => e.Event)).Outcome);
+
+        var verdict = Check(body);
+        Assert.Equal(VerdictKind.Aborted, verdict.Kind);
+        Assert.Equal(VerdictReason.None, verdict.Reason);
+        Assert.False(verdict.IsCompletedMatch);
+        Assert.Equal(told.Hash, verdict.FinalHash);
+        Assert.Null(verdict.Body!.Result.Winner);
+
+        // Re-signed by the key holder as a victory for either seat, or as a draw: never Completed.
+        foreach (var winner in new Seat?[] { Seat.One, Seat.Two, null })
+        {
+            var claimed = body.Result with { Kind = RecordKind.Completed, Winner = winner, Reason = nameof(OutcomeReason.VictoryPoints), Seat = null };
+            AssertInvalid(VerdictReason.NotCompleted, Check(TestRecords.With(body, result: claimed)));
+        }
+        // Still labelled Aborted, but with a winner: a mismatch.
+        AssertInvalid(VerdictReason.ResultMismatch, Check(TestRecords.With(body, result: body.Result with { Winner = Seat.One })));
+    }
+
     [Fact]
     public void AnAbortedRecordVerifiesAsAbortedAndNeverAsCompleted()
     {

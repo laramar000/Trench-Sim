@@ -63,7 +63,12 @@ matches/<id>.json    one record per match
 matches/open/<id>.json  open-match markers
 ```
 
-**Signing key.** On first start (no `keys/` folder) the server creates the key, written 0600, and prints its id and the public PEM. Afterwards a missing, unreadable, non-P-256 or mismatched key stops the server rather than signing with a new one. The server does not check the permissions of an existing key file. `--new-signing-key` creates a key only after both old key files have been moved away (for example to `keys/retired/`); records signed with the old key still verify with its `.pub`.
+**Signing key.** On first start (no `keys/` folder) the server creates the key, written 0600 in a 0700 `keys/` folder, and prints its id and the public PEM. Afterwards it loads that key and keeps the same identity across restarts; it never makes a new one on its own. It refuses to start, with a message naming the path and the problem and never any of the key, when:
+- `signing.key` is missing, unreadable, not a PKCS#8 PEM key, not P-256, or does not match `signing.pub`;
+- `signing.key` or `keys/` grants any group or other permission (any owner-only mode is accepted, such as 0600 or 0400 for the key and 0700 or 0500 for the folder). The server does not change the modes; the owner runs `chmod 600` or `chmod 700`;
+- `signing.key` or `keys/` is a symbolic link, including a dangling one (which is not taken as a first start).
+
+The key's mode is read from the open file, so it is the mode of what is read. These checks are guaranteed and tested on Linux. On macOS the same checks run but are best effort; on Windows file modes do not exist and the key relies on the user profile's permissions. `--new-signing-key` creates a key only after both old key files have been moved away (for example to `keys/retired/`), and only in a `keys/` folder that passes the same checks; records signed with the old key still verify with its `.pub`.
 
 **Writing a record.** When a match starts, the server writes an open-match marker. When the match ends (finished or aborted), one background writer:
 1. signs the record;

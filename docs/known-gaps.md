@@ -43,4 +43,4 @@ Over 1,500 random multi-wall scenes and 1,000 scenes with a friend beside the ta
 - **No retry of a failed record write.** The match is left with an open marker and becomes `Unrecorded` on the next start.
 - **No cumulative pause cap.** Each disconnect has its own five-minute deadline, but separate disconnects can pause one match many times.
 - **One rules version** is verifiable at a time; records from other versions are `Unverifiable`.
-- **The signing key** is checked for being present, readable, P-256 and matching its public key, but not for its file permissions after it was created.
+- **The signing key's owner** is not checked: the key and `keys/` must be owner-only and not links, but the server does not check that the owner is the user it runs as (another user's owner-only key cannot be read by a non-root server anyway). The data folder above `keys/` is not checked.

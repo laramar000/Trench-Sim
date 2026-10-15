@@ -499,6 +499,52 @@ public sealed class ReconnectNetworkTests : IAsyncLifetime
         Assert.Empty(Directory.EnumerateFiles(Path.Combine(data, "matches", "open")));
     }
 
+    // The real server binary keeps one identity across restarts, and refuses to start, without touching the key, when the
+    // key can be read by others. The refusal names the path and mode and prints nothing of the key.
+    [Fact]
+    public async Task TheRealServerKeepsItsKeyAndRefusesAKeyOthersCanRead()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+        await _server.DisposeAsync();
+        var data = Path.Combine(_dir.FullName, "process");
+        string firstLine;
+        using (var first = ServerProcess.Start(data))
+        {
+            await first.EndpointAsync(Token);
+            firstLine = first.Output.Split('\n').Single(l => l.StartsWith("Records in ", StringComparison.Ordinal)).Trim();
+            Assert.EndsWith("(new).", firstLine, StringComparison.Ordinal);
+            first.Kill();
+        }
+        var keyPath = Path.Combine(data, "keys", "signing.key");
+        var privatePem = File.ReadAllText(keyPath);
+        using (var second = ServerProcess.Start(data))
+        {
+            await second.EndpointAsync(Token);
+            Assert.Contains(firstLine.Replace(" (new).", ".", StringComparison.Ordinal), second.Output, StringComparison.Ordinal);
+            Assert.DoesNotContain("(new)", second.Output, StringComparison.Ordinal);
+            second.Kill();
+        }
+
+        File.SetUnixFileMode(keyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+        using (var refused = ServerProcess.Start(data))
+        {
+            await refused.ExitAsync(Token);
+            Assert.Equal(1, refused.ExitCode);
+            Assert.Contains($"Cannot start: {keyPath} has mode 0644", refused.Output, StringComparison.Ordinal);
+            Assert.DoesNotContain("Listening on", refused.Output, StringComparison.Ordinal);
+            Assert.DoesNotContain("PRIVATE KEY", refused.Output, StringComparison.Ordinal);
+            foreach (var line in privatePem.Split('\n', StringSplitOptions.RemoveEmptyEntries).Where(l => !l.StartsWith("-----", StringComparison.Ordinal)))
+            {
+                Assert.DoesNotContain(line, refused.Output, StringComparison.Ordinal);
+            }
+        }
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead, File.GetUnixFileMode(keyPath));
+        Assert.Equal(privatePem, File.ReadAllText(keyPath));
+    }
+
     private async Task WaitUntil(Func<bool> condition)
     {
         while (!condition())
@@ -569,6 +615,8 @@ internal sealed class ServerProcess : IDisposable
     }
 
     public Task ExitAsync(CancellationToken cancellationToken) => _process.WaitForExitAsync(cancellationToken);
+
+    public int ExitCode => _process.ExitCode;
 
     public void Dispose()
     {
