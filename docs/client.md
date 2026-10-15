@@ -7,7 +7,7 @@ The client shows what the server says and sends commands. It never resolves a co
 ## Status
 
 - M7.1 (bootstrap): the project opens and runs, and shows that our .NET 10 libraries load inside Godot.
-- M7.2 (shared client library): the client reaches the server through `Match.Client`. There is no match screen yet; the battlefield and HUD arrive in M7.3 to M7.5.
+- M7.2 (shared client library): the client reaches the server through `Match.Client`. There is no match screen yet; the battlefield and HUD arrive in M7.3 to M7.5. Accepted 2026-10-15 at `276876e`, after Jason built and ran the client in the Godot 4.7.2 .NET editor on Windows 11.
 
 ## The shared client library (`src/Match.Client`)
 
