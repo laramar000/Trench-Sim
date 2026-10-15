@@ -86,7 +86,7 @@ function Invoke-Limited([string]$file, [string[]]$arguments, [string]$stdout, [s
     $quoted = ($arguments | ForEach-Object { if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ } }) -join ' '
     $process = Start-Process -FilePath $file -ArgumentList $quoted -RedirectStandardOutput $stdout -RedirectStandardError $stderr -NoNewWindow -PassThru
     $null = $process.Handle   # keeps ExitCode readable after exit (Windows PowerShell 5.1)
-    $roots.Add($process.Id)
+    $script:roots.Add($process.Id)
     $deadline = (Get-Date).AddSeconds($seconds)
     $shown = 0
     while (-not $process.WaitForExit(2000)) {
@@ -127,7 +127,7 @@ function Get-OwnProcesses {
     }
     $all = @($all | Where-Object { $_.Id -ne $PID -and $_.Start -ge $started })
     $ours = @{}
-    foreach ($id in $roots) { $ours[$id] = $true }
+    foreach ($id in $script:roots) { $ours[$id] = $true }
     do {
         $added = $false
         foreach ($p in $all) {
@@ -168,16 +168,16 @@ function Find-Godot {
     if ($GodotPath) { return @{ Path = $GodotPath; How = 'given with -GodotPath' } }
     if ($env:GODOT) { return @{ Path = $env:GODOT; How = 'from the GODOT environment variable' } }
     if (-not $onWindows) { return $null }
-    $roots = @(
+    $searchRoots = @(
         (Join-Path $env:USERPROFILE 'Downloads'), (Join-Path $env:USERPROFILE 'Desktop'), (Join-Path $env:USERPROFILE 'Documents'),
         $env:LOCALAPPDATA, ${env:ProgramFiles}, ${env:ProgramFiles(x86)}, 'C:\Godot', 'C:\Tools'
     ) | Where-Object { $_ -and (Test-Path $_) }
     $found = @()
-    foreach ($root in $roots) {
+    foreach ($root in $searchRoots) {
         $found += @(Get-ChildItem -Path $root -Filter $name -File -Recurse -Depth 4 -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
     }
     $found = @($found | Sort-Object -Unique)
-    Log ("Search for $name in $($roots -join '; '): " + $(if ($found.Count -eq 0) { 'none found' } else { $found -join '; ' }))
+    Log ("Search for $name in $($searchRoots -join '; '): " + $(if ($found.Count -eq 0) { 'none found' } else { $found -join '; ' }))
     $verified = @()
     foreach ($candidate in $found) {
         $version = Get-GodotVersion $candidate
