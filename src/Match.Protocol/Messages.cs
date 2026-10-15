@@ -4,7 +4,7 @@ using Rules.Core.State;
 
 namespace Match.Protocol;
 
-// Protocol version 1. Every message is one JSON object, {"v":1,"type":"<class name>", ...fields}, sent as one WebSocket
+// Protocol version 2. Every message is one JSON object, {"v":2,"type":"<class name>", ...fields}, sent as one WebSocket
 // text message. Clients send commands only; dice, outcomes, events and hashes come from the server.
 
 // ---- Client to server ----
@@ -53,12 +53,83 @@ public sealed record SubmitCommand : ClientMessage
     public Command Command { get; }
 }
 
+// Takes a seat back with its seat token, after the connection was lost. KnownEvents and KnownHash say how far the
+// client's copy got (0 and null for a fresh copy); the server sends only the events after that, if the copy is a true
+// prefix of the match, and otherwise everything from event 1.
+public sealed record Rejoin : ClientMessage
+{
+    public Rejoin(string code, string seatToken, int knownEvents, string? knownHash)
+    {
+        Code = Ids.Check(code, nameof(code));
+        SeatToken = SeatTokens.Check(seatToken, nameof(seatToken));
+        KnownEvents = knownEvents >= 0 ? knownEvents : throw new ArgumentOutOfRangeException(nameof(knownEvents));
+        if ((knownEvents == 0) != (knownHash is null))
+        {
+            throw new ArgumentException("A known hash is given exactly when known events is above 0.", nameof(knownHash));
+        }
+        KnownHash = knownHash is null ? null : Ids.Check(knownHash, nameof(knownHash));
+    }
+
+    public string Code { get; }
+    public string SeatToken { get; }
+    public int KnownEvents { get; }
+    public string? KnownHash { get; }
+}
+
+// The client has durably saved the seat token from its last Welcome. Only then does the server stop accepting the
+// token before it. No answer is sent unless the message is refused.
+public sealed record TokenSaved : ClientMessage;
+
 // ---- Server to client ----
 
 public abstract record ServerMessage;
 
-// The sender is in the match, in this seat. The match's events so far follow, in order.
-public sealed record Welcome(string Code, Seat Seat, string Scenario) : ServerMessage;
+// The sender holds this seat. The events from ReplayFrom + 1 to Events follow, in order; the client's copy is in step
+// once it holds Events events and its hash is Hash. ReplayFrom 0 means the client must start again from an empty copy.
+// SeatToken is the seat's new token (null on a read-only rejoin to a match that is over). NextSeq is the seat's next
+// command number and LastAnswer its most recent answer, so a client that lost an answer learns what happened.
+public sealed record Welcome : ServerMessage
+{
+    public Welcome(
+        string code,
+        string matchId,
+        Seat seat,
+        string scenario,
+        string? seatToken,
+        int replayFrom,
+        int events,
+        string hash,
+        long nextSeq,
+        ServerMessage? lastAnswer,
+        MatchStatus status)
+    {
+        Code = Ids.Check(code, nameof(code));
+        MatchId = Ids.Check(matchId, nameof(matchId));
+        Seat = seat;
+        Scenario = Ids.Check(scenario, nameof(scenario));
+        SeatToken = seatToken is null ? null : SeatTokens.Check(seatToken, nameof(seatToken));
+        Events = events >= 1 ? events : throw new ArgumentOutOfRangeException(nameof(events));
+        ReplayFrom = replayFrom >= 0 && replayFrom <= events ? replayFrom : throw new ArgumentOutOfRangeException(nameof(replayFrom));
+        Hash = Ids.Check(hash, nameof(hash));
+        NextSeq = nextSeq >= 1 ? nextSeq : throw new ArgumentOutOfRangeException(nameof(nextSeq));
+        LastAnswer = lastAnswer is null or Accepted or Rejected { Kind: RejectionKind.Rules }
+            ? lastAnswer
+            : throw new ArgumentException("The last answer is an Accepted or a rules Rejected.", nameof(lastAnswer));
+        Status = status;
+    }
+
+    public string Code { get; }
+    public string MatchId { get; }
+    public Seat Seat { get; }
+    public string Scenario { get; }
+    public string? SeatToken { get; }
+    public int ReplayFrom { get; }
+    public int Events { get; }
+    public string Hash { get; }
+    public long NextSeq { get; }
+    public ServerMessage? LastAnswer { get; }
+    public MatchStatus Status { get; }
+}
 
 // One event of the match, numbered from 1, with the state hash after applying it. Sent to both seats in log order.
 public sealed record EventPublished(int Seq, GameEvent Event, string Hash) : ServerMessage;
@@ -81,6 +152,13 @@ public sealed record Rejected(
 
 public sealed record Notice(NoticeKind Kind) : ServerMessage;
 
+// A seat's connection was lost. The match is paused: nothing can happen until that seat rejoins, and if it has not by
+// RejoinBy the match is aborted (RejoinExpired).
+public sealed record MatchPaused(Seat Seat, DateTimeOffset RejoinBy) : ServerMessage;
+
+// The seat rejoined and no seat is away: play goes on.
+public sealed record MatchResumed(Seat Seat) : ServerMessage;
+
 // The match stopped before the rules ended it. This is not a rules result: the match has no winner and no draw, and its
 // log ends without MatchEnded. Events and Hash are the log length and state hash at the stop, for the client to confirm
 // its copy. Seat is the seat that disconnected, when that is the reason.
@@ -88,8 +166,11 @@ public sealed record MatchAborted(AbortReason Reason, Seat? Seat, int Events, st
 
 public enum AbortReason
 {
-    // A player's connection closed or failed. Rejoining is M6.
+    // A player's connection closed or failed, and the server does not wait for a rejoin.
     Disconnected,
+
+    // A player's connection was lost and the seat was not taken back before its rejoin deadline.
+    RejoinExpired,
 
     // The server stopped the match after an internal error.
     Faulted,
@@ -127,6 +208,27 @@ public enum ProtocolError
     Stale,
     ShuttingDown,
     JoinTimeout,
+    InvalidToken,
+    MatchPaused,
+    MatchFinished,
+    SeatTakenOver,
+}
+
+// Where a match is, as Welcome reports it.
+public enum MatchStatus
+{
+    // Created, waiting for the second player.
+    Waiting,
+    Playing,
+
+    // A seat's connection was lost; nothing happens until it rejoins or its deadline passes.
+    Paused,
+
+    // The rules ended the match (MatchEnded). Nothing more can happen.
+    Finished,
+
+    // Stopped before the rules ended it: no winner, no draw, and the log ends without MatchEnded.
+    Aborted,
 }
 
 public enum NoticeKind
@@ -138,6 +240,19 @@ public enum NoticeKind
 
     // The server is stopping. A match in progress gets MatchAborted instead.
     ServerShutdown,
+}
+
+public static class SeatTokens
+{
+    public static string Check(string value, string name)
+    {
+        ArgumentNullException.ThrowIfNull(value, name);
+        if (value.Length != ProtocolLimits.SeatTokenLength || !value.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
+        {
+            throw new ArgumentException($"{name} is {ProtocolLimits.SeatTokenLength} base64url characters.", name);
+        }
+        return value;
+    }
 }
 
 // Codes, scenario names and command ids: 1 to 64 printable ASCII characters, no spaces.

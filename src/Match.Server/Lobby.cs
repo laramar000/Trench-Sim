@@ -9,16 +9,40 @@ public readonly record struct ConnectionId(long Value);
 
 // Where the Lobby sends messages. Called under the Lobby's lock, in order, so it must only enqueue (never block or call
 // back into the Lobby). The transport gives each connection one ordered outbound queue.
-public sealed class Outbox(Action<ConnectionId, ServerMessage> send)
+public sealed class Outbox(
+    Action<ConnectionId, ServerMessage> send,
+    Action<ConnectionId>? close = null,
+    Action<ConnectionId, IReadOnlyList<ServerMessage>>? sendBacklog = null)
 {
     public void Send(ConnectionId to, ServerMessage message) => send(to, message);
+
+    // A match's backlog (bounded by the match's own length), queued in one go after a Welcome.
+    public void SendBacklog(ConnectionId to, IReadOnlyList<ServerMessage> messages)
+    {
+        if (sendBacklog is not null)
+        {
+            sendBacklog(to, messages);
+            return;
+        }
+        foreach (var message in messages)
+        {
+            send(to, message);
+        }
+    }
+
+    // Closes a connection after what is queued for it (a policy close: a seat taken over, too many bad tokens).
+    public void Close(ConnectionId connection) => close?.Invoke(connection);
 }
 
 // The server's matches and which connection holds which seat. Transport-free: the transport passes in each received
 // message and each disconnect, and delivers what the Lobby sends through the Outbox. One lock serialises everything, so
-// every match sees its commands one at a time and its events go out in log order.
+// every match sees its commands one at a time, its events go out in log order, and a rejoin's backlog is queued in
+// the same hold of the lock as the seat is attached.
 public sealed class Lobby
 {
+    // A connection that offers this many bad seat tokens is closed.
+    public const int MaxTokenFailures = 3;
+
     private const string CodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
     private readonly object _gate = new();
@@ -27,8 +51,12 @@ public sealed class Lobby
     private readonly Func<string> _newCode;
     private readonly Outbox _outbox;
     private readonly int _maxMatches;
+    private readonly TimeProvider _time;
+    private readonly TimeSpan _rejoinWindow;
+    private readonly IMatchRecorder _recorder;
     private readonly Dictionary<string, MatchHost> _matches = new(StringComparer.Ordinal);
     private readonly Dictionary<ConnectionId, (MatchHost Host, Seat Seat)> _seated = [];
+    private readonly Dictionary<ConnectionId, int> _tokenFailures = [];
     private bool _shutDown;
 
     public Lobby(
@@ -36,14 +64,24 @@ public sealed class Lobby
         Func<IDiceSource> newDice,
         Outbox outbox,
         Func<string>? newCode = null,
-        int maxMatches = 64)
+        int maxMatches = 64,
+        TimeProvider? time = null,
+        TimeSpan? rejoinWindow = null,
+        IMatchRecorder? recorder = null)
     {
         _scenarios = scenarios;
         _newDice = newDice;
         _outbox = outbox;
         _newCode = newCode ?? RandomCode;
         _maxMatches = maxMatches;
+        _time = time ?? TimeProvider.System;
+        _rejoinWindow = rejoinWindow ?? DefaultRejoinWindow;
+        _recorder = recorder ?? NullRecorder.Instance;
     }
+
+    public static TimeSpan DefaultRejoinWindow { get; } = TimeSpan.FromMinutes(5);
+
+    public TimeSpan RejoinWindow => _rejoinWindow;
 
     public int MatchCount
     {
@@ -73,13 +111,20 @@ public sealed class Lobby
                 Refuse(from, failure!.Error, failure.Text);
                 return;
             }
+            var now = _time.GetUtcNow();
             switch (message)
             {
                 case CreateMatch create:
-                    Create(from, create);
+                    Create(from, create, now);
                     break;
                 case JoinMatch join:
-                    Join(from, join);
+                    Join(from, join, now);
+                    break;
+                case Rejoin rejoin:
+                    RejoinSeat(from, rejoin, now);
+                    break;
+                case TokenSaved:
+                    SaveToken(from);
                     break;
                 case SubmitCommand submit:
                     if (!_seated.TryGetValue(from, out var seated))
@@ -87,7 +132,7 @@ public sealed class Lobby
                         Refuse(from, ProtocolError.NotJoined, "Create or join a match first.", submit);
                         return;
                     }
-                    seated.Host.Submit(seated.Seat, from, submit);
+                    seated.Host.Submit(seated.Seat, from, submit, now);
                     break;
             }
         }
@@ -114,14 +159,28 @@ public sealed class Lobby
     {
         lock (_gate)
         {
+            _tokenFailures.Remove(connection);
             if (!_seated.Remove(connection, out var seated))
             {
                 return;
             }
-            seated.Host.Disconnect(seated.Seat);
-            if (!seated.Host.HasConnections)
+            var now = _time.GetUtcNow();
+            seated.Host.Disconnect(seated.Seat, now);
+            RemoveIfDone(seated.Host, now);
+        }
+    }
+
+    // Expires paused matches whose earliest rejoin deadline has passed, and drops matches nobody can come back to. The
+    // transport calls it on a timer; tests call it after moving their clock.
+    public void Tick()
+    {
+        lock (_gate)
+        {
+            var now = _time.GetUtcNow();
+            foreach (var host in _matches.Values.ToList())
             {
-                _matches.Remove(seated.Host.Code);
+                host.Tick(now);
+                RemoveIfDone(host, now);
             }
         }
     }
@@ -132,9 +191,10 @@ public sealed class Lobby
         lock (_gate)
         {
             _shutDown = true;
+            var now = _time.GetUtcNow();
             foreach (var host in _matches.Values)
             {
-                host.Shutdown();
+                host.Shutdown(now);
             }
         }
     }
@@ -156,7 +216,23 @@ public sealed class Lobby
         }
     }
 
-    private void Create(ConnectionId from, CreateMatch create)
+    public ConnectionId? ConnectionOf(string code, Seat seat)
+    {
+        lock (_gate)
+        {
+            return _matches.TryGetValue(code, out var host) ? host.ConnectionOf(seat) : null;
+        }
+    }
+
+    public DateTimeOffset? DeadlineOf(string code, Seat seat)
+    {
+        lock (_gate)
+        {
+            return _matches.TryGetValue(code, out var host) ? host.DeadlineOf(seat) : null;
+        }
+    }
+
+    private void Create(ConnectionId from, CreateMatch create, DateTimeOffset now)
     {
         if (_seated.ContainsKey(from))
         {
@@ -180,13 +256,13 @@ public sealed class Lobby
         }
         while (_matches.ContainsKey(code));
 
-        var host = new MatchHost(code, create.Scenario, setup, _newDice(), _outbox);
+        var host = new MatchHost(code, MatchIds.New(), create.Scenario, setup, _newDice(), _outbox, _recorder, _rejoinWindow, now);
         _matches.Add(code, host);
         _seated.Add(from, (host, Seat.One));
-        host.Seat(Seat.One, from);
+        host.Seat(Seat.One, from, now);
     }
 
-    private void Join(ConnectionId from, JoinMatch join)
+    private void Join(ConnectionId from, JoinMatch join, DateTimeOffset now)
     {
         if (_seated.ContainsKey(from))
         {
@@ -204,7 +280,69 @@ public sealed class Lobby
             return;
         }
         _seated.Add(from, (host, Seat.Two));
-        host.Seat(Seat.Two, from);
+        host.Seat(Seat.Two, from, now);
+    }
+
+    // Takes a seat back with its token. A valid rejoin takes the seat from whatever connection holds it, which is told
+    // and closed; the last valid rejoin wins, and a seat is never held by two connections.
+    private void RejoinSeat(ConnectionId from, Rejoin rejoin, DateTimeOffset now)
+    {
+        if (_seated.ContainsKey(from))
+        {
+            Refuse(from, ProtocolError.AlreadyJoined, "This connection already has a seat.");
+            return;
+        }
+        if (!_matches.TryGetValue(rejoin.Code, out var host))
+        {
+            Refuse(from, ProtocolError.UnknownMatch, "No match has this code.");
+            return;
+        }
+        if (host.SeatOfToken(rejoin.SeatToken) is not { } seat)
+        {
+            var failures = _tokenFailures[from] = _tokenFailures.GetValueOrDefault(from) + 1;
+            Refuse(from, ProtocolError.InvalidToken, "That seat token is not valid for this match.");
+            if (failures >= MaxTokenFailures)
+            {
+                _outbox.Close(from);
+            }
+            return;
+        }
+        _tokenFailures.Remove(from);
+        if (host.ConnectionOf(seat) is { } previous)
+        {
+            Refuse(previous, ProtocolError.SeatTakenOver, "Another connection took this seat back with its token.");
+            _seated.Remove(previous);
+            _outbox.Close(previous);
+        }
+        _seated.Add(from, (host, seat));
+        host.Rejoin(seat, from, rejoin, now);
+    }
+
+    private void SaveToken(ConnectionId from)
+    {
+        if (!_seated.TryGetValue(from, out var seated))
+        {
+            Refuse(from, ProtocolError.NotJoined, "Create, join or rejoin a match first.");
+            return;
+        }
+        if (seated.Host.IsOver)
+        {
+            Refuse(from, seated.Host.Status == MatchStatus.Aborted ? ProtocolError.MatchAborted : ProtocolError.MatchFinished,
+                "This match is over; its seat tokens no longer change.");
+            return;
+        }
+        if (!seated.Host.TokenSaved(seated.Seat, from))
+        {
+            Refuse(from, ProtocolError.InvalidToken, "No token was sent on this connection to confirm.");
+        }
+    }
+
+    private void RemoveIfDone(MatchHost host, DateTimeOffset now)
+    {
+        if (host.CanRemove(now))
+        {
+            _matches.Remove(host.Code);
+        }
     }
 
     private void Refuse(ConnectionId to, ProtocolError error, string text, SubmitCommand? submit = null)

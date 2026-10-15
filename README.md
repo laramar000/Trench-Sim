@@ -6,7 +6,7 @@ This is an unofficial fan project, not affiliated with or endorsed by any game p
 
 ## Status
 
-Milestone M5: an authoritative WebSocket match server and a terminal client, awaiting review. Two players can play a whole match over the network; the server rolls every die and is the only source of events, and each client checks the server's state hash after every event. The protocol is in `docs/protocol.md`. Before that, M4 Slice B (a simulated full match with ranged and melee combat: placement, Move, Dash, Shoot, Charge, Retreat, Fight, shooting into melee, Blood Marker spending, injuries, objectives and victory, with a console simulator; `--melee` uses warbands with Melee Weapons). Slice B is a checkpoint awaiting approval; Bloodbath Rolls, Glorious Deeds and other scenarios are not done. The project follows a plan of nine milestones, M0 to M8. Each milestone is finished and verified before the next starts.
+Milestone M6: reconnects and signed match records, awaiting review. A player who loses their connection can rejoin within five minutes with a saved seat token, and the match pauses meanwhile. Every match that started is saved as a signed record that `trench-cli verify` checks offline (`docs/records.md`); a valid signature does not prove the dice were fair. Before that, M5: an authoritative WebSocket match server and a terminal client. Two players can play a whole match over the network; the server rolls every die and is the only source of events, and each client checks the server's state hash after every event. The protocol (version 2) is in `docs/protocol.md`. Before that, M4 Slice B (a simulated full match with ranged and melee combat: placement, Move, Dash, Shoot, Charge, Retreat, Fight, shooting into melee, Blood Marker spending, injuries, objectives and victory, with a console simulator; `--melee` uses warbands with Melee Weapons). Slice B is a checkpoint awaiting approval; Bloodbath Rolls, Glorious Deeds and other scenarios are not done. The project follows a plan of nine milestones, M0 to M8. Each milestone is finished and verified before the next starts.
 
 ## Prerequisites
 
@@ -43,19 +43,39 @@ dotnet run --project src/Match.Cli -- --server ws://127.0.0.1:5080/match join <c
 
 The first client prints the match code for the second. Type `help` for commands, or add `--bot <seed>` to let the simulator's bot play a seat.
 
+Server options: `--address`, `--port`, `--join-timeout <seconds>`, `--rejoin-window <seconds>` (300 by default; 0 aborts a match at once when a player drops), `--data <folder>` (records and the signing key, `~/.trench-sim/server` by default) and `--new-signing-key`. On first start the server prints its signing key id and public key.
+
+If a client loses its connection, rejoin with the seat saved in `~/.trench-sim/sessions/`:
+
+```sh
+dotnet run --project src/Match.Cli -- --server ws://127.0.0.1:5080/match rejoin <code>
+```
+
+Add `--seat One` or `--seat Two` if both seats of that match were played from this machine.
+
+To check a saved match record (copy the server's `keys/signing.pub` to `~/.trench-sim/trusted-keys/`, or pass `--key`):
+
+```sh
+dotnet run --project src/Match.Cli -- verify ~/.trench-sim/server/matches/<id>.json --key ~/.trench-sim/server/keys/signing.pub
+```
+
+It exits 0 only for a completed match whose signature and every event check out; see `docs/records.md` for the other verdicts.
+
 ## Layout
 
 ```text
 TrenchSim.sln
 src/Rules.Core/      rules engine: no Godot, no networking, no game-specific names
 src/Sim/             console simulator: two bots play whole matches; reads content/*.json
-src/Match.Protocol/  protocol v1 messages, strict JSON codec, client replay (Rules.Core + System.Text.Json only)
-src/Match.Server/    authoritative match server: transport-free Lobby/MatchHost plus the WebSocket host
-src/Match.Cli/       terminal client (trench-cli): interactive or bot play
+src/Match.Protocol/  protocol v2 messages, strict JSON codec, client replay, match records and their verifier
+                     (Rules.Core, System.Text.Json and System.Security.Cryptography only)
+src/Match.Server/    authoritative match server: transport-free Lobby/MatchHost, the WebSocket host, record storage
+src/Match.Cli/       terminal client (trench-cli): interactive or bot play, rejoin, verify
 content/             original test warbands (placeholder content)
 tests/Rules.Tests/   xUnit tests for the rules engine
-tests/Server.Tests/  codec, server pipeline and real-WebSocket integration tests
-docs/protocol.md     the match protocol, version 1
+tests/Server.Tests/  codec, server pipeline, records, reconnect and real-WebSocket integration tests
+docs/protocol.md     the match protocol, version 2
+docs/records.md      signed match records, the verifier and the server's data folder
 docs/rules-notes.md  where each rule lives in the 1.0.2 rulebook
 docs/interpretations.md  rulebook-confirmed requirements versus software interpretations
 docs/known-gaps.md   what is left out

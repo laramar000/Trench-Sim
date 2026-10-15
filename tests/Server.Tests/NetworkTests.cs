@@ -44,6 +44,8 @@ public sealed class NetworkTests : IAsyncLifetime
             OutboundQueueLimit = queueLimit,
             SendTimeout = sendTimeout ?? TimeSpan.FromSeconds(10),
             ShutdownGrace = TimeSpan.FromSeconds(3),
+            // These are the M5 tests: a disconnect aborts at once, as M5 did. M6's pause is tested in ReconnectTests.
+            RejoinWindow = TimeSpan.Zero,
         });
 
     private async Task<ClientSession> Connect(MatchServer? server = null)
@@ -139,7 +141,7 @@ public sealed class NetworkTests : IAsyncLifetime
 
         // Nobody can ask for a seat, take a full match, or hold two seats.
         var third = await Connect();
-        await third.SendRawAsync(Encoding.UTF8.GetBytes($$"""{"v":1,"type":"JoinMatch","code":"{{code}}","seat":"One"}"""), cancellationToken: Token);
+        await third.SendRawAsync(Encoding.UTF8.GetBytes($$"""{"v":2,"type":"JoinMatch","code":"{{code}}","seat":"One"}"""), cancellationToken: Token);
         Assert.Equal(ProtocolError.Malformed, ProtocolCode(await third.NextAnswerAsync(Token)));
         Assert.Equal(ProtocolError.MatchFull, ProtocolCode(await third.JoinAsync(code, Token)));
         Assert.Equal(ProtocolError.AlreadyJoined, ProtocolCode(await two.CreateAsync("melee", Token)));
@@ -179,8 +181,8 @@ public sealed class NetworkTests : IAsyncLifetime
     [Fact]
     public async Task VersionsAreNegotiatedAtTheHandshakeAndCheckedOnEveryMessage()
     {
-        // A client that does not offer trench-sim.v1 never gets a socket.
-        await Assert.ThrowsAnyAsync<WebSocketException>(() => ClientSession.ConnectAsync(_server.Endpoint, Token, subProtocol: "trench-sim.v2"));
+        // A client that offers only the old protocol, trench-sim.v1, never gets a socket (v2 is the only version).
+        await Assert.ThrowsAnyAsync<WebSocketException>(() => ClientSession.ConnectAsync(_server.Endpoint, Token, subProtocol: "trench-sim.v1"));
         using (var http = new HttpClient())
         {
             var response = await http.GetAsync(new UriBuilder(_server.Endpoint) { Scheme = "http" }.Uri, Token);
@@ -188,7 +190,7 @@ public sealed class NetworkTests : IAsyncLifetime
         }
 
         var client = await Connect();
-        await client.SendRawAsync(Encoding.UTF8.GetBytes("""{"v":2,"type":"CreateMatch","scenario":"ranged"}"""), cancellationToken: Token);
+        await client.SendRawAsync(Encoding.UTF8.GetBytes("""{"v":1,"type":"CreateMatch","scenario":"ranged"}"""), cancellationToken: Token);
         Assert.Equal(ProtocolError.UnsupportedVersion, ProtocolCode(await client.NextAnswerAsync(Token)));
         Assert.IsType<Welcome>(await client.CreateAsync("ranged", Token));
     }
@@ -200,10 +202,10 @@ public sealed class NetworkTests : IAsyncLifetime
         var cases = new (byte[] Bytes, WebSocketMessageType Type, ProtocolError Expected)[]
         {
             (Encoding.UTF8.GetBytes("not json"), WebSocketMessageType.Text, ProtocolError.Malformed),
-            (Encoding.UTF8.GetBytes("""{"v":1,"type":"CreateMatch","scenario":"ranged","""), WebSocketMessageType.Text, ProtocolError.Malformed),
-            (Encoding.UTF8.GetBytes("""{"v":1,"type":"CreateMatch","scenario":"ranged"}"""), WebSocketMessageType.Binary, ProtocolError.Malformed),
-            (Encoding.UTF8.GetBytes("""{"v":1,"type":"Teleport"}"""), WebSocketMessageType.Text, ProtocolError.UnknownType),
-            (Encoding.UTF8.GetBytes("""{"v":1,"type":"CreateMatch","scenario":"ranged","dice":[6]}"""), WebSocketMessageType.Text, ProtocolError.Malformed),
+            (Encoding.UTF8.GetBytes("""{"v":2,"type":"CreateMatch","scenario":"ranged","""), WebSocketMessageType.Text, ProtocolError.Malformed),
+            (Encoding.UTF8.GetBytes("""{"v":2,"type":"CreateMatch","scenario":"ranged"}"""), WebSocketMessageType.Binary, ProtocolError.Malformed),
+            (Encoding.UTF8.GetBytes("""{"v":2,"type":"Teleport"}"""), WebSocketMessageType.Text, ProtocolError.UnknownType),
+            (Encoding.UTF8.GetBytes("""{"v":2,"type":"CreateMatch","scenario":"ranged","dice":[6]}"""), WebSocketMessageType.Text, ProtocolError.Malformed),
             (new byte[ProtocolLimits.MaxClientMessageBytes + 1], WebSocketMessageType.Text, ProtocolError.TooLarge),
             (Encoding.UTF8.GetBytes(new string(' ', 200_000)), WebSocketMessageType.Text, ProtocolError.TooLarge),
         };
@@ -242,7 +244,7 @@ public sealed class NetworkTests : IAsyncLifetime
     public async Task OutOfRangeValuesAreRefused()
     {
         var (one, _, _) = await Pair();
-        var json = """{"v":1,"type":"SubmitCommand","commandId":"x","seq":1,"knownEvents":""" + one.Mirror.Events
+        var json = """{"v":2,"type":"SubmitCommand","commandId":"x","seq":1,"knownEvents":""" + one.Mirror.Events
             + ""","command":{"type":"PlaceModel","seat":"One","model":"a1","at":{"x":999999999,"y":0}}}""";
         await one.SendRawAsync(Encoding.UTF8.GetBytes(json), cancellationToken: Token);
         Assert.Equal(ProtocolError.InvalidValue, ProtocolCode(await one.NextAnswerAsync(Token)));

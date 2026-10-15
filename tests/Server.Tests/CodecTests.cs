@@ -106,12 +106,12 @@ public class CodecTests
     {
         var submit = new SubmitCommand("c1", 1, 7, new DeployModel(Seat.One, new ModelId("a1")));
         Assert.Equal(
-            """{"v":1,"type":"SubmitCommand","commandId":"c1","seq":1,"knownEvents":7,"command":{"type":"DeployModel","seat":"One","model":"a1"}}""",
+            """{"v":2,"type":"SubmitCommand","commandId":"c1","seq":1,"knownEvents":7,"command":{"type":"DeployModel","seat":"One","model":"a1"}}""",
             Encoding.UTF8.GetString(Codec.Encode(submit)));
     }
 
     private const string Move =
-        """{"v":1,"type":"SubmitCommand","commandId":"c1","seq":1,"knownEvents":0,"command":{"type":"MoveModel","seat":"One","model":"a1","path":[{"x":1000,"y":2000}]}}""";
+        """{"v":2,"type":"SubmitCommand","commandId":"c1","seq":1,"knownEvents":0,"command":{"type":"MoveModel","seat":"One","model":"a1","path":[{"x":1000,"y":2000}]}}""";
 
     public static TheoryData<string, ProtocolError> BadMessages => new()
     {
@@ -129,16 +129,16 @@ public class CodecTests
         { Move.Replace("}]}}", "}],}}"), ProtocolError.Malformed },
 
         // Version and type.
-        { Move.Replace("\"v\":1", "\"v\":2"), ProtocolError.UnsupportedVersion },
-        { Move.Replace("\"v\":1", "\"v\":\"1\""), ProtocolError.UnsupportedVersion },
-        { Move.Replace("{\"v\":1,", "{"), ProtocolError.Malformed },
-        { Move.Replace("\"v\":1,\"type\":\"SubmitCommand\"", "\"type\":\"SubmitCommand\",\"v\":1"), ProtocolError.Malformed },
+        { Move.Replace("\"v\":2", "\"v\":1"), ProtocolError.UnsupportedVersion },
+        { Move.Replace("\"v\":2", "\"v\":\"1\""), ProtocolError.UnsupportedVersion },
+        { Move.Replace("{\"v\":2,", "{"), ProtocolError.Malformed },
+        { Move.Replace("\"v\":2,\"type\":\"SubmitCommand\"", "\"type\":\"SubmitCommand\",\"v\":2"), ProtocolError.Malformed },
         { Move.Replace("SubmitCommand", "SubmitOrder"), ProtocolError.UnknownType },
         { Move.Replace("MoveModel", "TeleportModel"), ProtocolError.UnknownType },
         { Move.Replace("\"type\":\"MoveModel\",", ""), ProtocolError.Malformed },
 
         // A client cannot send server messages, events or outcomes.
-        { """{"v":1,"type":"EventPublished","seq":1,"hash":"x","event":{"type":"TurnEnded","turn":1}}""", ProtocolError.UnknownType },
+        { """{"v":2,"type":"EventPublished","seq":1,"hash":"x","event":{"type":"TurnEnded","turn":1}}""", ProtocolError.UnknownType },
         { Move.Replace("MoveModel", "ModelMoved"), ProtocolError.UnknownType },
         { Move.Replace("\"seat\":\"One\",", "\"seat\":\"One\",\"dice\":[6,6],"), ProtocolError.Malformed },
         { Move.Replace("\"knownEvents\":0,", "\"knownEvents\":0,\"hash\":\"abc\","), ProtocolError.Malformed },
@@ -170,8 +170,8 @@ public class CodecTests
         { Move.Replace("\"commandId\":\"c1\"", "\"commandId\":\"c 1\""), ProtocolError.InvalidValue },
         { Move.Replace("\"commandId\":\"c1\"", $"\"commandId\":\"{new string('c', 65)}\""), ProtocolError.InvalidValue },
         { Move.Replace("\"model\":\"a1\"", "\"model\":\"\""), ProtocolError.InvalidValue },
-        { """{"v":1,"type":"JoinMatch","code":"é"}""", ProtocolError.InvalidValue },
-        { """{"v":1,"type":"SubmitCommand","commandId":"c1","seq":1,"knownEvents":0,"command":{"type":"SpendMarkers","seat":"One","count":2147483648}}""", ProtocolError.Malformed },
+        { """{"v":2,"type":"JoinMatch","code":"é"}""", ProtocolError.InvalidValue },
+        { """{"v":2,"type":"SubmitCommand","commandId":"c1","seq":1,"knownEvents":0,"command":{"type":"SpendMarkers","seat":"One","count":2147483648}}""", ProtocolError.Malformed },
     };
 
     [Theory]
@@ -224,8 +224,8 @@ public class CodecTests
         var samples = new[]
         {
             Move,
-            """{"v":1,"type":"CreateMatch","scenario":"ranged"}""",
-            """{"v":1,"type":"JoinMatch","code":"ABCD"}""",
+            """{"v":2,"type":"CreateMatch","scenario":"ranged"}""",
+            """{"v":2,"type":"JoinMatch","code":"ABCD"}""",
             Encoding.UTF8.GetString(Codec.Encode(new SubmitCommand("x", 3, 9, new ChooseFirstActivation(Seat.Two, Seat.One)))),
         };
         for (var i = 0; i < 20000; i++)
@@ -261,7 +261,7 @@ public class CodecTests
     [Fact]
     public void TheWireUsesTheRulesConstructors()
     {
-        var json = """{"v":1,"type":"SubmitCommand","commandId":"c1","seq":1,"knownEvents":0,"command":{"type":"PlaceModel","seat":"One","model":"a1","at":{"x":300000,"y":0}}}""";
+        var json = """{"v":2,"type":"SubmitCommand","commandId":"c1","seq":1,"knownEvents":0,"command":{"type":"PlaceModel","seat":"One","model":"a1","at":{"x":300000,"y":0}}}""";
         Assert.Null(Codec.ParseClient(Encoding.UTF8.GetBytes(json), out var failure));
         Assert.Equal(ProtocolError.InvalidValue, failure!.Error);
         _ = JsonSerializer.Serialize(0);

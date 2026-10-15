@@ -81,9 +81,11 @@ public class LobbyTests
 
         Assert.Equal(MatchStatus.Finished, harness.Lobby.StatusOf(one.Welcome.Code));
 
-        // After the end the rules refuse everything, and nothing changes.
+        // After the end nothing is decided any more and nothing changes. (M5 let the rules refuse it, which used up a
+        // command number; M6 refuses it before the rules, so a finished match changes in no way at all.)
         var answer = Assert.IsType<Rejected>(one.Command(new EndActivation(Seat.One)));
-        Assert.Equal(RejectionKind.Rules, answer.Kind);
+        Assert.Equal(RejectionKind.Protocol, answer.Kind);
+        Assert.Equal(nameof(ProtocolError.MatchFinished), answer.Code);
         Assert.Equal(log.Count, harness.Lobby.LogOf(one.Welcome.Code)!.Count);
 
         // Leaving a finished match does not abort it: the rules' result stands.
@@ -252,7 +254,7 @@ public class LobbyTests
         Assert.Equal(ProtocolError.AlreadyJoined, ProtocolCode(one.LastAnswer));
 
         // There is no field to ask for a seat with.
-        third.SendRaw($$"""{"v":1,"type":"JoinMatch","code":"{{code}}","seat":"One"}""");
+        third.SendRaw($$"""{"v":2,"type":"JoinMatch","code":"{{code}}","seat":"One"}""");
         Assert.Equal(ProtocolError.Malformed, ProtocolCode(third.LastAnswer));
     }
 
@@ -309,11 +311,11 @@ public class LobbyTests
         var rolls = harness.Dice!.Rolls;
         var forgeries = new[]
         {
-            $$$"""{"v":1,"type":"SubmitCommand","commandId":"f1","seq":1,"knownEvents":{{{events}}},"command":{"type":"InjuryRolled","target":"b1"}}""",
-            """{"v":1,"type":"SubmitCommand","commandId":"f2","seq":1,"knownEvents":""" + events + ""","command":{"type":"DashModel","seat":"One","model":"a1","path":[],"roll":{"rolled":[6,6],"kept":[6,6]}}}""",
-            $$$"""{"v":1,"type":"SubmitCommand","commandId":"f3","seq":1,"knownEvents":{{{events}}},"hash":"00","command":{"type":"EndActivation","seat":"One"}}""",
-            $$$"""{"v":1,"type":"EventPublished","seq":{{{events + 1}}},"hash":"00","event":{"type":"TurnEnded","turn":1}}""",
-            $$"""{"v":1,"type":"Accepted","commandId":"f4","seq":1,"firstEvent":1,"lastEvent":1,"duplicate":false}""",
+            $$$"""{"v":2,"type":"SubmitCommand","commandId":"f1","seq":1,"knownEvents":{{{events}}},"command":{"type":"InjuryRolled","target":"b1"}}""",
+            """{"v":2,"type":"SubmitCommand","commandId":"f2","seq":1,"knownEvents":""" + events + ""","command":{"type":"DashModel","seat":"One","model":"a1","path":[],"roll":{"rolled":[6,6],"kept":[6,6]}}}""",
+            $$$"""{"v":2,"type":"SubmitCommand","commandId":"f3","seq":1,"knownEvents":{{{events}}},"hash":"00","command":{"type":"EndActivation","seat":"One"}}""",
+            $$$"""{"v":2,"type":"EventPublished","seq":{{{events + 1}}},"hash":"00","event":{"type":"TurnEnded","turn":1}}""",
+            $$"""{"v":2,"type":"Accepted","commandId":"f4","seq":1,"firstEvent":1,"lastEvent":1,"duplicate":false}""",
         };
         foreach (var json in forgeries)
         {

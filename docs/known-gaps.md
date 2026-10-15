@@ -1,4 +1,4 @@
-# Known gaps (M4 Slice B)
+# Known gaps (M4 Slice B, M6)
 
 What the simulated match does not do after Slice B. Each item is a decision to defer, not an oversight. Rule references are to the Digital Rulebook 1.0.2.
 
@@ -33,3 +33,14 @@ The charge planner is checked three ways, none of which proves it finds the true
 - **Brute-force reference** (`ReferenceRouter`): a finely sampled outline search written without any Rules.Core code. It shares the planner's *modelling* assumptions (the route is a polyline over the corners of obstacles widened by the base's radius, and the goal is contact with the target's base), so agreement shows the planner implements that model correctly within the tolerance, not that the model is the rulebook's. The reference was itself checked against the closed form for one disc (within 0.05%), against finer sampling (it converges and never rises), and against the table edge (a base may not be placed beyond it).
 
 Over 1,500 random multi-wall scenes and 1,000 scenes with a friend beside the target, run by hand with `AUDIT_SCENES` and `AUDIT_SEED`, no disagreement was found; the checked-in tests use 120 and 80 scenes. Measured: the planner was at most 0.016" longer than the reference and never shorter by more than 0.0012". Not tested: obstacles other than rectangles and discs, routes through more than three walls, and Difficult terrain as a reason to choose a different route.
+
+## Server and records (M6)
+
+- **Dice fairness.** A signed record proves who wrote it and that its events follow the rules from the recorded dice. It does not prove the dice were fair; there is no commit-reveal scheme.
+- **Durability** is guaranteed on Linux only. On macOS and Windows, records are flushed but folder flushes are best effort. The CLI's session files are replaced atomically, but their folder is not flushed.
+- **Plain `ws://`.** Seat tokens travel unencrypted. Someone who can read the traffic can take a seat; with token rotation, a thief who confirms a token first can lock the owner out of that seat. Run the server behind TLS (`wss://`) where that matters.
+- **No restore after a restart.** A match in progress when the server stops is recorded as aborted (graceful stop) or unrecorded (crash), and cannot be continued.
+- **No retry of a failed record write.** The match is left with an open marker and becomes `Unrecorded` on the next start.
+- **No cumulative pause cap.** Each disconnect has its own five-minute deadline, but separate disconnects can pause one match many times.
+- **One rules version** is verifiable at a time; records from other versions are `Unverifiable`.
+- **The signing key's owner** is not checked: the key and `keys/` must be owner-only and not links, but the server does not check that the owner is the user it runs as (another user's owner-only key cannot be read by a non-root server anyway). The data folder above `keys/` is not checked.

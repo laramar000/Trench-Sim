@@ -20,6 +20,11 @@ public static class BotPlayer
             {
                 return;
             }
+            if (session.IsPaused)
+            {
+                await session.WaitForAsync(s => !s.IsPaused || s.Aborted is not null || s.IsClosed, cancellationToken);
+                continue;
+            }
             var seen = session.Mirror.Events;
             var accepted = false;
             foreach (var command in Propose(bot, session.Mirror.State).Where(c => CommandSeats.Of(c) == seat))
@@ -30,6 +35,17 @@ public static class BotPlayer
                     log?.Invoke($"{seat}: {Describe(command)}");
                     accepted = true;
                     break;
+                }
+                if (answer is Rejected { Kind: RejectionKind.Protocol, Code: nameof(ProtocolError.MatchPaused) })
+                {
+                    // Nothing can happen until the other seat rejoins (or the match is aborted).
+                    await session.WaitForAsync(s => !s.IsPaused || s.Aborted is not null || s.IsClosed, cancellationToken);
+                    accepted = true;
+                    break;
+                }
+                if (answer is Rejected { Kind: RejectionKind.Protocol, Code: nameof(ProtocolError.SeatTakenOver) or nameof(ProtocolError.MatchFinished) or nameof(ProtocolError.MatchAborted) })
+                {
+                    return;
                 }
                 if (answer is Rejected { Kind: RejectionKind.Protocol } || session.Mirror.Events != seen)
                 {

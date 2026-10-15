@@ -40,13 +40,33 @@ public sealed class MatchServerOptions
     // waits; past this the connection is dropped. Keep-alive cannot catch that case, because pings queue behind the
     // blocked send.
     public TimeSpan SendTimeout { get; init; } = TimeSpan.FromSeconds(10);
+
+    // How long a lost seat has to rejoin before its paused match is aborted, and how long a match that is over stays
+    // open for a read-only rejoin. Zero aborts at once on a disconnect, as M5 did.
+    public TimeSpan RejoinWindow { get; init; } = Lobby.DefaultRejoinWindow;
+
+    public TimeProvider Time { get; init; } = TimeProvider.System;
+
+    // How often rejoin deadlines are checked.
+    public TimeSpan TickInterval { get; init; } = TimeSpan.FromMilliseconds(250);
+
+    // Where records, markers and the signing key live. Null keeps nothing on disk (tests that do not need records).
+    public string? DataDirectory { get; init; }
+
+    // Creates a signing key even though the keys folder exists (only after the old key was retired).
+    public bool NewSigningKey { get; init; }
+
+    // Test hook for record and marker writes.
+    public IWriteFaults? WriteFaults { get; init; }
+
+    public Action<string>? Log { get; init; }
 }
 
 // The WebSocket transport around the Lobby. One connection is one WebSocket at /match speaking subprotocol
-// "trench-sim.v1". The transport only moves whole text messages: every decision is the Lobby's.
+// "trench-sim.v2". The transport only moves whole text messages: every decision is the Lobby's.
 public sealed class MatchServer : IAsyncDisposable
 {
-    public const string SubProtocol = "trench-sim.v1";
+    public const string SubProtocol = "trench-sim.v2";
     public const string Path = "/match";
 
     // A message over the size limit is read and thrown away, and refused as TooLarge. One that goes on past this many
@@ -58,9 +78,12 @@ public sealed class MatchServer : IAsyncDisposable
     private readonly ConcurrentDictionary<ConnectionId, Connection> _connections = new();
     private long _nextConnection;
     private volatile bool _stopping;
+    private readonly ServerData? _data;
+    private readonly ITimer _ticker;
 
-    private MatchServer(MatchServerOptions options)
+    private MatchServer(MatchServerOptions options, ServerData? data)
     {
+        _data = data;
         _options = options;
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.SetMinimumLevel(LogLevel.Warning);
@@ -68,7 +91,15 @@ public sealed class MatchServer : IAsyncDisposable
         builder.Services.Configure<HostOptions>(host => host.ShutdownTimeout = options.ShutdownGrace);
         _app = builder.Build();
 
-        Lobby = new Lobby(options.Scenarios ?? ScenarioCatalog.FromContent(), options.NewDice, new Outbox(Send), maxMatches: options.MaxMatches);
+        Lobby = new Lobby(
+            options.Scenarios ?? ScenarioCatalog.FromContent(),
+            options.NewDice,
+            new Outbox(Send, CloseForPolicy, SendBacklog),
+            maxMatches: options.MaxMatches,
+            time: options.Time,
+            rejoinWindow: options.RejoinWindow,
+            recorder: (IMatchRecorder?)data?.Writer ?? NullRecorder.Instance);
+        _ticker = options.Time.CreateTimer(_ => Lobby.Tick(), null, options.TickInterval, options.TickInterval);
 
         // A client that does not answer a ping within twice the interval is dropped; a zero interval turns pings off.
         _app.UseWebSockets(new WebSocketOptions
@@ -82,13 +113,28 @@ public sealed class MatchServer : IAsyncDisposable
 
     public Lobby Lobby { get; }
 
+    // Null when the server keeps nothing on disk.
+    public RecordWriter? Records => _data?.Writer;
+    public SigningKey? SigningKey => _data?.Key;
+    public RecoveryReport? Recovery => _data?.Recovery;
+
     public Uri Endpoint { get; private set; } = null!;
 
     public int ConnectionCount => _connections.Count;
 
     public static async Task<MatchServer> StartAsync(MatchServerOptions options, CancellationToken cancellationToken = default)
     {
-        var server = new MatchServer(options);
+        var data = options.DataDirectory is null ? null : ServerData.Open(options.DataDirectory, options.NewSigningKey, options.WriteFaults, options.Log, options.Time);
+        MatchServer server;
+        try
+        {
+            server = new MatchServer(options, data);
+        }
+        catch
+        {
+            data?.Dispose();
+            throw;
+        }
         await server._app.StartAsync(cancellationToken);
         var address = new Uri(server._app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First());
         server.Endpoint = new UriBuilder("ws", address.Host, address.Port, Path).Uri;
@@ -106,15 +152,25 @@ public sealed class MatchServer : IAsyncDisposable
     {
         await _app.StopAsync();
         await _app.DisposeAsync();
+        await _ticker.DisposeAsync();
+        _data?.Dispose();
     }
 
+    // Aborts what is in progress (each started match queues its Aborted record), closes every connection, and gives
+    // the record writer the shutdown grace to make those records durable. What it cannot finish keeps its marker, and
+    // the next start records it as Unrecorded.
     private void BeginShutdown()
     {
         _stopping = true;
+        _ticker.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         Lobby.Shutdown();
         foreach (var connection in _connections.Values)
         {
             connection.Close(WebSocketCloseStatus.EndpointUnavailable, "server shutting down");
+        }
+        if (_data is not null && !_data.Writer.CompleteAsync(_options.ShutdownGrace).GetAwaiter().GetResult())
+        {
+            _options.Log?.Invoke("shutdown: some records were not written in time; they will be recorded as Unrecorded at the next start");
         }
     }
 
@@ -123,6 +179,22 @@ public sealed class MatchServer : IAsyncDisposable
         if (_connections.TryGetValue(to, out var connection))
         {
             connection.Send(message);
+        }
+    }
+
+    private void SendBacklog(ConnectionId to, IReadOnlyList<ServerMessage> messages)
+    {
+        if (_connections.TryGetValue(to, out var connection))
+        {
+            connection.SendBacklog(messages);
+        }
+    }
+
+    private void CloseForPolicy(ConnectionId to)
+    {
+        if (_connections.TryGetValue(to, out var connection))
+        {
+            connection.Close(WebSocketCloseStatus.PolicyViolation, "seat token");
         }
     }
 
@@ -252,8 +324,9 @@ public sealed class MatchServer : IAsyncDisposable
     // One socket: a single writer task sends queued messages in order, then the close.
     private sealed class Connection(WebSocket socket, int queueLimit, TimeSpan sendTimeout)
     {
-        private readonly Channel<ServerMessage> _outbound = Channel.CreateBounded<ServerMessage>(
-            new BoundedChannelOptions(queueLimit) { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
+        // Live messages count against the limit; a rejoin's backlog (bounded by the match's own length) does not.
+        private readonly Channel<(ServerMessage Message, bool Counted)> _outbound = Channel.CreateUnbounded<(ServerMessage, bool)>(new UnboundedChannelOptions { SingleReader = true });
+        private int _pending;
         private readonly CancellationTokenSource _closing = new();
         private readonly CancellationTokenSource _abort = new();
         private WebSocketCloseStatus _closeStatus = WebSocketCloseStatus.NormalClosure;
@@ -266,11 +339,27 @@ public sealed class MatchServer : IAsyncDisposable
 
         public void Send(ServerMessage message)
         {
-            if (!_outbound.Writer.TryWrite(message) && !IsClosing)
+            if (Volatile.Read(ref _pending) >= queueLimit)
             {
                 // The client stopped reading. Dropping it is the only safe choice: its copy would fall behind. This runs
                 // under the Lobby's lock, so the cancellation (which can run the reader's code inline) goes elsewhere.
-                _ = Task.Run(_abort.Cancel);
+                if (!IsClosing)
+                {
+                    _ = Task.Run(_abort.Cancel);
+                }
+                return;
+            }
+            if (_outbound.Writer.TryWrite((message, true)))
+            {
+                Interlocked.Increment(ref _pending);
+            }
+        }
+
+        public void SendBacklog(IReadOnlyList<ServerMessage> messages)
+        {
+            foreach (var message in messages)
+            {
+                _outbound.Writer.TryWrite((message, false));
             }
         }
 
@@ -291,8 +380,12 @@ public sealed class MatchServer : IAsyncDisposable
         {
             try
             {
-                await foreach (var message in _outbound.Reader.ReadAllAsync(_abort.Token))
+                await foreach (var (message, counted) in _outbound.Reader.ReadAllAsync(_abort.Token))
                 {
+                    if (counted)
+                    {
+                        Interlocked.Decrement(ref _pending);
+                    }
                     using var send = CancellationTokenSource.CreateLinkedTokenSource(_abort.Token);
                     send.CancelAfter(sendTimeout);
                     await Socket.SendAsync(Codec.Encode(message), WebSocketMessageType.Text, endOfMessage: true, send.Token);

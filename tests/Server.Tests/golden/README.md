@@ -1,0 +1,1 @@
+Golden match records for `RecordTests.GoldenRecordsStillVerify`, signed with a throwaway test key. Only the public key (`test-signing.pub`) is committed; the private key was discarded, so nothing real can ever be signed with it. Regenerating (`TRENCH_SIM_UPDATE_GOLDEN=1`) signs with a fresh key and replaces `test-signing.pub`.
