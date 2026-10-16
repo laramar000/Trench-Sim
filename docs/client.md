@@ -149,7 +149,7 @@ It builds `client/` (Debug and Release, warnings as errors), builds the server a
 
 The UI-check code only runs with `--ui-check`; it reads the screen (labels, buttons, dialogs, focus) and never the match controller.
 
-Since M7.5 stage 5a, after the server restart the host and the reopened client each check the RESULT OF THE MATCH section (`match-result-shown`: result, a 64-digit hash, an event count equal to the last event's number, and the note when the abort message never arrived) and press **Copy final hash** (`copy-final-hash`: the clipboard holds exactly that hash); the runner then checks that both windows show the same final hash (`both-clients-same-final-hash`). A completed match is not yet played to the end in Godot: that is stage 5b.
+Since M7.5 stage 5a, after the server restart the host and the reopened client each check the RESULT OF THE MATCH section (`match-result-shown`: result, a 64-digit hash, an event count equal to the last event's number, and the note when the abort message never arrived) and press **Copy final hash** (`copy-final-hash`: the clipboard holds exactly that hash), one window after the other because Windows lets only one program open the clipboard at a time; the runner then checks that both windows show the same final hash (`both-clients-same-final-hash`). A completed match is not yet played to the end in Godot: that is stage 5b.
 
 What it found and what changed in M7.3:
 - Nothing had keyboard focus when the client started; buttons rebuilt on each change dropped the focus.

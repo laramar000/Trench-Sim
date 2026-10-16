@@ -920,12 +920,22 @@ public partial class UiCheck : Node
             && (!lost || result.Contains("did not receive the server's abort message", StringComparison.Ordinal)),
             $"{result.Replace('\n', '|')} || last event [{lastSeq}]");
         await Shot($"{_role}-match-result");
+        // The Windows clipboard can be opened by one program at a time ("Unable to open clipboard" otherwise), so the
+        // two windows take turns: the host copies first, then the reopened client.
+        if (_role == "reopen")
+        {
+            await Signal("host-copied", 60);
+        }
         DisplayServer.ClipboardSet("");
         await Press(ButtonNamed("Copy final hash"), Key.Enter, "copy-final-hash-enter");
         await Frames(3);
         var copied = DisplayServer.ClipboardGet();
         Check("copy-final-hash", hash is not null && copied == hash, $"clipboard: {copied}; shown: {hash ?? "none"}");
         Write($"DUMP server-restart final_hash={hash ?? ""}");
+        if (_role == "host")
+        {
+            Mark("final-hash-copied");
+        }
     }
 
     // ---- single player (hot-seat) ----

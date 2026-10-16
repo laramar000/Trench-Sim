@@ -247,6 +247,9 @@ public static class Program
             Record("server-restart-recovery", "INFO",
                 string.Join(" ", restarted.Lines.Where(l => l.Contains("Recovered") || l.Contains("Listening"))));
             Signal(e2e, "server-started");
+            // The windows use the clipboard one after the other (Windows lets one program open it at a time).
+            await Mark(e2e, "host", "final-hash-copied", 120);
+            Signal(e2e, "host-copied");
             Record("host-exit", await host.Exit(240) == 0 ? "PASS" : "FAIL", $"host Godot exit code {host.ExitCode} (0 = all its checks passed)");
             Record("reopen-exit", await reopen.Exit(120) == 0 ? "PASS" : "FAIL", $"reopened Godot exit code {reopen.ExitCode}");
             // M7.5 stage 5a: both windows lost the same match at the same event, so they show the same final state hash.
