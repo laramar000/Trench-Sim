@@ -55,9 +55,10 @@ public static class EditorCheck
                     .FirstOrDefault(c => c.Contains("dotnet", StringComparison.OrdinalIgnoreCase) && c.Split(' ').Contains("build"));
                 if (game is null)
                 {
-                    // The game Play starts is a Godot process started by the editor without --editor.
+                    // The game Play starts is a Godot program started by the editor without --editor (not the build, whose
+                    // command line also names Godot).
                     game = children
-                        .Where(p => p.CommandLine.Contains("Godot", StringComparison.OrdinalIgnoreCase) && !p.CommandLine.Split(' ').Contains("--editor"))
+                        .Where(p => IsGodot(p.CommandLine) && !p.CommandLine.Split(' ').Contains("--editor"))
                         .Select(p => p.CommandLine).FirstOrDefault();
                     if (game is not null)
                     {
@@ -110,5 +111,13 @@ public static class EditorCheck
             report.Missed("Play button (the editor started the game)", "the editor did not start the game while it was open");
         }
         return report.Finish();
+    }
+
+    // True when the program a command line runs is Godot itself (Godot_v4.7.2-stable_mono_win64.exe and the like).
+    public static bool IsGodot(string commandLine)
+    {
+        var line = commandLine.TrimStart();
+        var program = line.StartsWith('"') ? line[1..].Split('"')[0] : line.Split(' ')[0];
+        return Path.GetFileName(program.Replace('\\', '/')).StartsWith("godot", StringComparison.OrdinalIgnoreCase);
     }
 }
