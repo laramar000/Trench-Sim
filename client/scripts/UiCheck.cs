@@ -437,6 +437,7 @@ public partial class UiCheck : Node
         var target = scene.Models.First(m => !m.Yours);
         var local = board.ScreenOf(target.X, target.Y, target.Standing);
         var clicked = false;
+        await MouseOn(board);
         if (local is { } at)
         {
             var global = board.GetGlobalTransformWithCanvas() * at;
@@ -473,7 +474,7 @@ public partial class UiCheck : Node
             return;
         }
         var interaction = board.Interaction;
-        await ParkMouse(board);
+        await MouseOff(board);
         await KeyPress(Key.L);
         var preview = interaction.Preview;
         Check("board-place-preview", interaction.Mode == InteractionMode.Place && preview is { Legal: true } && OverlayHas(board, $"PLACE LOOKS LEGAL ({Preview.Caveat})")
@@ -515,7 +516,7 @@ public partial class UiCheck : Node
             $"mode {interaction.Mode}; {board.OverlayTexts.Count} preview labels left");
 
         // Confirmed twice, it is sent anyway, and the server's refusal is shown (the server decides, not the preview).
-        await ParkMouse(board);
+        await MouseOff(board);
         await KeyPress(Key.L);
         steps = 0;
         while (steps < 14 && interaction.Preview is { Legal: true })
@@ -533,7 +534,7 @@ public partial class UiCheck : Node
         await Shot($"{_role}-place-refused-by-server");
 
         // Back to the zone centre: one confirmation sends the legal placement once, and the server's events place it.
-        await ParkMouse(board);
+        await MouseOff(board);
         for (var i = 0; i < steps; i++)
         {
             await KeyPress(back, shift: true);
@@ -567,7 +568,7 @@ public partial class UiCheck : Node
             Check("board-move-preview", false, $"Tab never reached the battlefield; focus on {Describe(Focused())}");
             return;
         }
-        await ParkMouse(board);
+        await MouseOff(board);
         await KeyPress(Key.M);
         var actor = scene.Find(interaction.Actor);
         var startOk = actor is not null && Near(interaction.Cursor, actor.X, actor.Y);
@@ -590,6 +591,7 @@ public partial class UiCheck : Node
         var hoverAt = (X: Math.Clamp((actor?.X ?? 18) + 1.5, 1, 35), Y: Math.Clamp((actor?.Y ?? 18) - 1.0, 1, 35));
         var hovered = false;
         var clickedPoint = false;
+        await MouseOn(board);
         if (board.ScreenOf(hoverAt.X, hoverAt.Y) is { } local)
         {
             var global = board.GetGlobalTransformWithCanvas() * local;
@@ -604,7 +606,7 @@ public partial class UiCheck : Node
         }
         Check("board-mouse-path", removed && hovered && clickedPoint, $"Backspace removed the waypoint: {removed}; hover moved the cursor to {interaction.Cursor} (wanted ({hoverAt.X:0.0}, {hoverAt.Y:0.0})): {hovered}; click fixed a waypoint: {clickedPoint}");
         await KeyPress(Key.Escape);
-        await ParkMouse(board);
+        await MouseOff(board);
 
         // Shoot: the rules' own sight rays, distance and cover, on the battlefield and in the text.
         await KeyPress(Key.S);
@@ -631,6 +633,7 @@ public partial class UiCheck : Node
         var cycled = targets.Count < 2 || interaction.Target == expected;
         var other = targets.Where(t => t != interaction.Target).Select(t => scene.Find(t)).FirstOrDefault(m => m is not null && board.ScreenOf(m.X, m.Y, m.Standing) is not null);
         var picked = targets.Count < 2;
+        await MouseOn(board);
         if (other is not null && board.ScreenOf(other.X, other.Y, other.Standing) is { } spot)
         {
             var global = board.GetGlobalTransformWithCanvas() * spot;
@@ -641,6 +644,7 @@ public partial class UiCheck : Node
             }
             picked = interaction.Target == other.Id;
         }
+        await MouseOff(board);
         Check("board-target-cycle-and-click", targets.Count > 0 && cycled && picked, $"{targets.Count} enemy targets; N went to the next: {cycled}; a click picked {other?.Name ?? "nobody"}: {picked}");
 
         await KeyPress(Key.C);
@@ -677,7 +681,7 @@ public partial class UiCheck : Node
             tries.Add((key, 16, true));
         }
         tries.AddRange(new[] { (Key.Right, 2, false), (Key.Left, 2, false), (Key.Up, 2, false), (Key.Down, 2, false), (Key.Right, 4, false), (Key.Left, 4, false), (Key.Up, 4, false), (Key.Down, 4, false) });
-        await ParkMouse(board);
+        await MouseOff(board);
         foreach (var (key, presses, furthest) in tries)
         {
             await KeyPress(Key.M);
@@ -724,7 +728,7 @@ public partial class UiCheck : Node
     private async Task<bool> SendFirstLegalTarget(BoardView board, Key action, string id)
     {
         var interaction = board.Interaction;
-        await ParkMouse(board);
+        await MouseOff(board);
         await KeyPress(action);
         var count = interaction.Targets().Count;
         for (var i = 0; i < count && interaction.Preview is not { Legal: true }; i++)
@@ -1037,7 +1041,7 @@ public partial class UiCheck : Node
         {
             return false;
         }
-        await ParkMouse(board);
+        await MouseOff(board);
         await KeyPress(Key.L);
         Key[] turns = [Key.Right, Key.Down, Key.Left, Key.Up];
         for (var leg = 0; leg < 24 && interaction.Preview is not { Legal: true }; leg++)
@@ -1253,16 +1257,19 @@ public partial class UiCheck : Node
 
     // ---- waiting, reporting ----
 
-    // The real mouse pointer may rest over the window, and moving it there moves the battlefield's cursor (hover). The
-    // keyboard checks park it off the battlefield first, so only their keys move the cursor.
-    private async Task ParkMouse(BoardView board)
+    // The real mouse pointer may rest over (or cross) the window, and hovering over the battlefield moves its cursor.
+    // The keyboard checks make the battlefield ignore the mouse first, so only their keys move the cursor; the mouse
+    // checks turn it back on. The real pointer is never moved.
+    private async Task MouseOff(BoardView board)
     {
-        var rect = board.GetGlobalRect();
-        var size = GetViewport().GetVisibleRect().Size;
-        var spot = new[] { new Vector2(2, 2), new Vector2(size.X - 2, 2), new Vector2(2, size.Y - 2), new Vector2(size.X - 2, size.Y - 2) }
-            .FirstOrDefault(p => !rect.HasPoint(p), new Vector2(-50, -50));
-        Input.WarpMouse(spot);
-        await Frames(3);
+        board.MouseFilter = Control.MouseFilterEnum.Ignore;
+        await Frames(2);
+    }
+
+    private async Task MouseOn(BoardView board)
+    {
+        board.MouseFilter = Control.MouseFilterEnum.Stop;
+        await Frames(2);
     }
 
     private async Task Frames(int count)
