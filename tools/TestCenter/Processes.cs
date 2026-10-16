@@ -28,6 +28,10 @@ public sealed class Processes : IDisposable
         }
         info.Environment["DOTNET_NOLOGO"] = "1";
         info.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+        // Builds started by anything here (also Godot's own build) leave no compiler server or build nodes running:
+        // MSBuild reads these as settings, and a leftover holds on to the output it inherited.
+        info.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+        info.Environment["UseSharedCompilation"] = "false";
         foreach (var (key, value) in environment ?? new Dictionary<string, string>())
         {
             info.Environment[key] = value;
@@ -279,20 +283,23 @@ public sealed class Processes : IDisposable
             return null;
         }
 
+        // Waits for the program itself to end, not for its output to close: a program it started that keeps running
+        // (such as the C# compiler server after a build) still holds that output open.
         public async Task<int?> Exit(double seconds)
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(seconds));
-            try
+            var deadline = DateTime.UtcNow.AddSeconds(seconds);
+            while (!HasExited)
             {
-                await Process.WaitForExitAsync(timeout.Token);
-                Process.WaitForExit();
-                return Process.ExitCode;
+                if (DateTime.UtcNow > deadline)
+                {
+                    Kill();
+                    return null;
+                }
+                await Task.Delay(100);
             }
-            catch (OperationCanceledException)
-            {
-                Kill();
-                return null;
-            }
+            // Its last lines, if they are still on their way.
+            Process.WaitForExit(2000);
+            return Process.ExitCode;
         }
 
         public void Kill()
