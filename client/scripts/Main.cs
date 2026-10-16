@@ -149,6 +149,14 @@ public partial class Main : Control
         {
             SwitchSeat();
         }
+        // Esc cancels the action being chosen also when the board does not have the keyboard (after a click on the side
+        // panel or the action bar). It only cancels; it never sends anything.
+        else if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape } && _board is not null
+            && _board.Interaction.Mode != InteractionMode.None && _board.Interaction.Pending is null)
+        {
+            _board.CancelPreview();
+            GetViewport().SetInputAsHandled();
+        }
     }
 
     // Closing the window (or quitting) stops the hot-seat server at once, so no server process is left behind.

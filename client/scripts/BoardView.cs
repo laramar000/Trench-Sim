@@ -20,6 +20,13 @@ using Rules.Core.State;
 // selected model.
 // Tab and Shift+Tab still move to the next control. Mouse: click selects (or picks the target, or fixes a waypoint),
 // moving over the table moves the cursor, right or middle drag pans, the wheel zooms.
+//
+// Action bar (XCOM-style, mouse first): click one of your models and a small bar of buttons appears next to it with
+// only what it can do now (Activate; then Move, Dash, Retreat, Shoot, Charge, Fight as the preview checks allow, and End
+// activation). Clicking an action starts its preview: click points (or a target; valid targets are marked) and click the
+// last one again, or press the bar's send button. A right-click (without dragging) or Esc cancels. The bar never covers
+// a model. It offers what Client.Core's Interaction.Bar says; the server still decides every command. The keys above
+// remain as optional shortcuts.
 public partial class BoardView : SubViewportContainer
 {
     private const float AngledPitch = 55f;
@@ -44,6 +51,14 @@ public partial class BoardView : SubViewportContainer
     private bool _dragging;
     private float _textScale = 1f;
     private bool _highContrast;
+    // The action bar: buttons next to the selected or activating model (never focusable, so Tab order is unchanged).
+    private readonly PanelContainer _bar = new() { Visible = false, MouseFilter = MouseFilterEnum.Stop };
+    private readonly HBoxContainer _barRow = new();
+    private string _barShown = "";
+    private ActionBar _barNow = ActionBar.Empty;
+    private ModelId? _lastActive;
+    // A right-click that does not drag cancels; one that drags pans.
+    private Vector2? _rightFrom;
 
     public event Action? Changed;
 
@@ -77,6 +92,9 @@ public partial class BoardView : SubViewportContainer
         _viewport.AddChild(_overlay);
         _viewport.AddChild(_camera);
         _camera.MakeCurrent();
+        _barRow.AddThemeConstantOverride("separation", 6);
+        _bar.AddChild(_barRow);
+        AddChild(_bar);
         FocusEntered += QueueRedraw;
         FocusExited += QueueRedraw;
         Resized += () =>
@@ -100,6 +118,16 @@ public partial class BoardView : SubViewportContainer
             _selected = null;
         }
         Interaction.Update(state ?? MatchState.None, seat);
+        // When one of your models starts its activation, it becomes the selected model, so its action bar shows at once.
+        var active = state?.ActiveModel is { } a && state.FindModel(a)?.Seat == seat ? a : (ModelId?)null;
+        if (active != _lastActive)
+        {
+            _lastActive = active;
+            if (active is not null && _scene?.Find(active) is not null)
+            {
+                _selected = active;
+            }
+        }
         Rebuild();
         DrawPreview();
         if (first)
@@ -206,6 +234,7 @@ public partial class BoardView : SubViewportContainer
     {
         _selected = _scene?.Find(id)?.Id;
         Rebuild();
+        UpdateBar();
         Changed?.Invoke();
     }
 
@@ -295,6 +324,7 @@ public partial class BoardView : SubViewportContainer
             Interaction.SetCursor(point.X, point.Y);
         }
         Sync();
+        UpdateBar();
     }
 
     public override void _GuiInput(InputEvent @event)
@@ -306,7 +336,25 @@ public partial class BoardView : SubViewportContainer
                 Click(click.Position);
                 AcceptEvent();
                 break;
-            case InputEventMouseButton { ButtonIndex: MouseButton.Right or MouseButton.Middle } drag:
+            case InputEventMouseButton { ButtonIndex: MouseButton.Right } right:
+                // A right-click without dragging cancels the action being chosen; dragging pans.
+                if (right.Pressed)
+                {
+                    _rightFrom = right.Position;
+                    _dragging = true;
+                }
+                else
+                {
+                    if (_rightFrom is { } from && from.DistanceTo(right.Position) < 6)
+                    {
+                        CancelPreview();
+                    }
+                    _rightFrom = null;
+                    _dragging = false;
+                }
+                AcceptEvent();
+                break;
+            case InputEventMouseButton { ButtonIndex: MouseButton.Middle } drag:
                 _dragging = drag.Pressed;
                 AcceptEvent();
                 break;
@@ -343,24 +391,27 @@ public partial class BoardView : SubViewportContainer
 
     // A left click: picks the target in Shoot, Charge and Fight; puts the cursor there (and fixes a waypoint on a path)
     // when placing or moving; otherwise selects the model under it.
+    // A second click on the chosen target, or on the last point of a path or placement, sends it (as Space does).
     public void Click(Vector2 local)
     {
         if (Interaction.IsTarget)
         {
             if (ModelAt(local) is { } model)
             {
+                if (Interaction.Target == model.Id)
+                {
+                    Confirm();
+                    return;
+                }
                 Interaction.SetTarget(model.Id);
             }
         }
         else if (Interaction.UsesCursor)
         {
-            if (TableAt(local) is { } p)
+            if (TableAt(local) is { } p && Interaction.ClickAt(Math.Round(p.X * 10) / 10, Math.Round(p.Y * 10) / 10))
             {
-                Interaction.SetCursor(Math.Round(p.X * 10) / 10, Math.Round(p.Y * 10) / 10);
-                if (Interaction.IsPath)
-                {
-                    Interaction.AddPoint();
-                }
+                Confirm();
+                return;
             }
         }
         else
@@ -368,6 +419,14 @@ public partial class BoardView : SubViewportContainer
             Select(ModelAt(local)?.Id);
         }
         Sync();
+    }
+
+    // Esc, a right-click or the bar's Cancel: stops choosing; nothing is sent.
+    public void CancelPreview()
+    {
+        Interaction.Cancel();
+        Sync();
+        UpdateBar();
     }
 
     private static InteractionMode? ModeKey(Key key) => key switch
@@ -479,6 +538,109 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
+    // The labels of the action bar's buttons now (for the UI check), empty when it is hidden.
+    public IReadOnlyList<string> BarLabels => _bar.Visible ? _barNow.Items.Select(i => i.Label).ToList() : [];
+
+    // Presses a button of the action bar, as a click on it does.
+    public void PressBar(string label)
+    {
+        if (_bar.Visible && _barNow.Items.FirstOrDefault(i => i.Label == label && i.Enabled) is { } item)
+        {
+            Run(item);
+        }
+    }
+
+    private async void Run(BarItem item)
+    {
+        switch (item.Kind)
+        {
+            case BarKind.Start:
+                GrabFocus();
+                StartPreview(item.Mode);
+                break;
+            case BarKind.Confirm:
+                Confirm();
+                break;
+            case BarKind.Undo:
+                Interaction.RemovePoint();
+                Sync();
+                break;
+            case BarKind.Cancel:
+                CancelPreview();
+                break;
+            case BarKind.Activate or BarKind.EndActivation when item.Command is { } command:
+                var name = _scene?.Find(_selected)?.Name ?? "the model";
+                await Interaction.SendCommandAsync(command, item.Kind == BarKind.Activate ? $"Activate {name}" : $"End {name}'s activation");
+                Sync();
+                break;
+        }
+        UpdateBar();
+    }
+
+    // Rebuilds the bar's buttons when what it offers changed, and keeps it next to its model without covering any model.
+    private void UpdateBar()
+    {
+        var bar = _scene is null ? ActionBar.Empty : Interaction.Bar(_selected);
+        var shown = $"{bar.Anchor?.Value}|{string.Join("|", bar.Items.Select(i => $"{i.Kind}:{i.Label}:{i.Enabled}:{i.Tip}"))}|{_textScale}";
+        if (shown != _barShown)
+        {
+            _barShown = shown;
+            _barNow = bar;
+            foreach (var child in _barRow.GetChildren())
+            {
+                _barRow.RemoveChild(child);
+                child.QueueFree();
+            }
+            foreach (var item in bar.Items)
+            {
+                var button = new Button
+                {
+                    Text = item.Label,
+                    TooltipText = item.Tip,
+                    Disabled = !item.Enabled,
+                    FocusMode = FocusModeEnum.None,
+                    MouseDefaultCursorShape = CursorShape.PointingHand,
+                };
+                button.AddThemeFontSizeOverride("font_size", (int)(16 * _textScale));
+                var captured = item;
+                button.Pressed += () => Run(captured);
+                _barRow.AddChild(button);
+            }
+            _bar.Visible = bar.Items.Count > 0;
+            _bar.ResetSize();
+        }
+        if (_bar.Visible)
+        {
+            PlaceBar();
+        }
+    }
+
+    // Next to the anchor model (above it, else below, left or right), or in a corner while placing; never over a model's
+    // base, so clicks on models always reach the battlefield.
+    private void PlaceBar()
+    {
+        var size = _bar.GetCombinedMinimumSize();
+        var models = _scene?.Models.Select(m => ScreenOf(m.X, m.Y, m.Standing)).OfType<Vector2>().ToList() ?? [];
+        var candidates = new List<Vector2>();
+        if (_scene?.Find(_barNow.Anchor) is { } anchor && ScreenOf(anchor.X, anchor.Y, anchor.Standing + 1.6) is { } top
+            && ScreenOf(anchor.X, anchor.Y, anchor.Standing) is { } foot)
+        {
+            candidates.Add(new Vector2(top.X - size.X / 2, top.Y - size.Y - 28));
+            candidates.Add(new Vector2(foot.X - size.X / 2, foot.Y + 34));
+            candidates.Add(new Vector2(foot.X + 40, foot.Y - size.Y / 2));
+            candidates.Add(new Vector2(foot.X - 40 - size.X, foot.Y - size.Y / 2));
+        }
+        candidates.Add(new Vector2(8, 8));
+        candidates.Add(new Vector2(Size.X - size.X - 8, 8));
+        candidates.Add(new Vector2(8, Size.Y - size.Y - 8));
+        candidates.Add(new Vector2(Size.X - size.X - 8, Size.Y - size.Y - 8));
+        Vector2 Clamp(Vector2 at) => new(Math.Clamp(at.X, 4, Math.Max(4, Size.X - size.X - 4)), Math.Clamp(at.Y, 4, Math.Max(4, Size.Y - size.Y - 4)));
+        bool Clear(Vector2 at) => !models.Any(m => new Rect2(at, size).Grow(22).HasPoint(m));
+        var chosen = candidates.Select(Clamp).FirstOrDefault(Clear, Clamp(candidates[0]));
+        _bar.Position = chosen;
+        _bar.Size = size;
+    }
+
     // Redraws the preview when the interaction changed since it was last drawn, and tells the screen.
     private void Sync()
     {
@@ -510,6 +672,10 @@ public partial class BoardView : SubViewportContainer
         var good = _highContrast ? Colors.White : new Color(0.35f, 1f, 0.45f);
         var bad = _highContrast ? Colors.Yellow : new Color(1f, 0.35f, 0.3f);
         var colour = preview is { Legal: false } ? bad : good;
+        if (preview is null)
+        {
+            Hints(good);
+        }
         if (Interaction.UsesCursor)
         {
             var c = Interaction.Cursor;
@@ -525,6 +691,7 @@ public partial class BoardView : SubViewportContainer
             return;
         }
         var refusal = preview.Refusal is { } r ? $"\n{r.Text}" : "";
+        Hints(good);
         switch (preview.Kind)
         {
             case PreviewKind.Place:
@@ -571,6 +738,44 @@ public partial class BoardView : SubViewportContainer
                 break;
         }
     }
+
+    // What can be chosen, marked on the battlefield: in Shoot, Charge and Fight every enemy as a valid target (a ring and
+    // "valid target") or not (a thin grey ring and why not, in short); on a path, how far the model can move.
+    private void Hints(Color good)
+    {
+        if (_scene is null)
+        {
+            return;
+        }
+        foreach (var (id, refusal) in Interaction.TargetVerdicts())
+        {
+            if (id == Interaction.Target || _scene.Find(id) is not { } model)
+            {
+                continue;
+            }
+            var spot = new TablePoint(model.X, model.Y);
+            Ring(spot, model.Radius + 0.25, refusal is null ? good : new Color(0.55f, 0.55f, 0.55f));
+            Overlay(refusal is null ? "valid target" : $"not valid: {Short(refusal.Code)}", spot, 2.2f, 0.7f);
+        }
+        if (Interaction.IsPath && Interaction.Actor is { } actor && _scene.Find(actor) is { } me && Interaction.Reach() is { } reach)
+        {
+            Ring(new TablePoint(me.X, me.Y), reach, _highContrast ? Colors.White : new Color(0.55f, 0.8f, 1f));
+        }
+    }
+
+    private static string Short(Rules.Core.ReasonCode code) => code switch
+    {
+        Rules.Core.ReasonCode.TargetOutOfRange => "out of range",
+        Rules.Core.ReasonCode.NoLineOfSight => "not in sight",
+        Rules.Core.ReasonCode.TargetNotInMelee => "not within 1\"",
+        Rules.Core.ReasonCode.ChargeRouteBlocked => "path blocked",
+        Rules.Core.ReasonCode.AttackerEngaged => "you are in melee",
+        Rules.Core.ReasonCode.AlreadyEngaged => "you are in melee",
+        Rules.Core.ReasonCode.NoRangedWeapon => "no ranged weapon",
+        Rules.Core.ReasonCode.NoMeleeWeapon => "no melee weapon",
+        Rules.Core.ReasonCode.ActionAlreadyTaken or Rules.Core.ReasonCode.ActionExcluded => "action not open",
+        _ => "refused",
+    };
 
     // A flat bar between two table points, at a height, drawn through everything.
     private void Segment(TablePoint a, TablePoint b, float height, Color colour, float width = 0.12f)
