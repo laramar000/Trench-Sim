@@ -541,6 +541,12 @@ public partial class BoardView : SubViewportContainer
     // The labels of the action bar's buttons now (for the UI check), empty when it is hidden.
     public IReadOnlyList<string> BarLabels => _bar.Visible ? _barNow.Items.Select(i => i.Label).ToList() : [];
 
+    // Where a button of the action bar is on the screen (window coordinates), for a real mouse click; null when not shown.
+    public Vector2? BarButtonAt(string label) =>
+        _bar.Visible && _barRow.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == label && !b.IsQueuedForDeletion()) is { } button
+            ? button.GetGlobalRect().GetCenter()
+            : null;
+
     // Presses a button of the action bar, as a click on it does.
     public void PressBar(string label)
     {

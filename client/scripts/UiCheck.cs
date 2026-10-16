@@ -679,6 +679,7 @@ public partial class UiCheck : Node
         Check("board-previews-send-nothing", interaction.Mode == InteractionMode.None && board.OverlayTexts.Count == 0 && Section("LAST COMMAND") == lastCommand && Hint() is not null,
             $"mode {interaction.Mode}; last command unchanged: {Section("LAST COMMAND") == lastCommand}; hint still offered: {Hint()?.Text}");
         Dump("previews");
+        await ActionBarChecks(board);
 
         // Stage 4c: a Move with the keyboard cursor, sent once with Space; the server's events move the model.
         var moved = await SendFirstLegalMove(board);
@@ -687,6 +688,70 @@ public partial class UiCheck : Node
 
         // Then a Shoot at the first target the preview says is legal (if any), sent with Space.
         _shootSent = await SendFirstLegalTarget(board, Key.S, "board-send-shoot");
+    }
+
+    // The action bar next to the acting model: it shows exactly the actions the interaction offers plus End activation;
+    // a real mouse click on Move starts choosing a move; a right-click on the battlefield cancels it and sends nothing.
+    private async Task ActionBarChecks(BoardView board)
+    {
+        var interaction = board.Interaction;
+        var lastCommand = Section("LAST COMMAND");
+        await Frames(3);
+        var offered = interaction.Offered.Select(Interaction.Words).ToList();
+        var labels = board.BarLabels;
+        Check("board-action-bar-shown", labels.Count > 0 && labels.Take(offered.Count).SequenceEqual(offered) && labels.Contains("End activation")
+            && interaction.Available.Except(interaction.Offered).All(m => !labels.Contains(Interaction.Words(m))),
+            $"bar: {string.Join(" / ", labels)}; offered: {string.Join(" / ", offered)}; available: {string.Join(" / ", interaction.Available)}");
+        await Shot("host-action-bar");
+
+        var started = false;
+        if (board.BarButtonAt(Interaction.Words(InteractionMode.Move)) is { } at)
+        {
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
+                await Frames(2);
+            }
+            await Frames(2);
+            started = interaction.Mode == InteractionMode.Move && board.BarLabels.SequenceEqual(["Move here", "Cancel"]);
+        }
+        Check("board-bar-click-starts-action", started, $"Move offered: {offered.Contains(Interaction.Words(InteractionMode.Move))}; mode {interaction.Mode}; bar: {string.Join(" / ", board.BarLabels)}");
+
+        var cancelled = false;
+        await MouseOn(board);
+        var free = board.Scene is { } scene ? FreeSpot(board, scene) : null;
+        if (started && free is { } spot)
+        {
+            var global = board.GetGlobalTransformWithCanvas() * spot;
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Right, Pressed = pressed, Position = global, GlobalPosition = global });
+                await Frames(2);
+            }
+            cancelled = interaction.Mode == InteractionMode.None && interaction.Pending is null && board.OverlayTexts.Count == 0 && Section("LAST COMMAND") == lastCommand;
+        }
+        await MouseOff(board);
+        if (interaction.Mode != InteractionMode.None)
+        {
+            await KeyPress(Key.Escape);
+        }
+        Check("board-right-click-cancels", cancelled, $"mode {interaction.Mode}; pending {interaction.Pending}; labels: {string.Join(" / ", board.OverlayTexts)}; last command unchanged: {Section("LAST COMMAND") == lastCommand}");
+    }
+
+    // A point on the battlefield away from every model (board-local), for a click that must not pick a model.
+    private static Vector2? FreeSpot(BoardView board, BoardScene scene)
+    {
+        for (var x = 2.0; x <= 34; x += 4)
+        {
+            for (var y = 2.0; y <= 34; y += 4)
+            {
+                if (scene.Models.All(m => (m.X - x) * (m.X - x) + (m.Y - y) * (m.Y - y) > 9) && board.ScreenOf(x, y) is { } spot)
+                {
+                    return spot;
+                }
+            }
+        }
+        return null;
     }
 
     // M (Move), then half-inch steps towards the nearest enemy for as long as the preview looks legal (so a shot may come
