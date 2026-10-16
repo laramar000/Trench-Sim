@@ -80,6 +80,83 @@ public static class Program
 
         // 3. End to end.
         await EndToEnd(godot);
+
+        // 4. Single player (hot-seat): one Godot window starts its own local server and plays both seats.
+        await HotSeat(godot);
+    }
+
+    private static async Task HotSeat(string godot)
+    {
+        var e2e = Path.Combine(_out, "e2e");
+        Directory.CreateDirectory(e2e);
+        var home = Path.Combine(_out, "home-hotseat");
+        var args = new List<string> { "--audio-driver", "Dummy" };
+        args.AddRange(_renderer);
+        args.AddRange(["--path", Path.Combine(_repo, "client"), "--", "--ui-check", "hotseat", "--out", e2e, "--scenario", "ranged"]);
+        var hot = Start("godot-hotseat", godot, [.. args], home);
+        try
+        {
+            Record("hotseat-exit", await hot.Exit(600) == 0 ? "PASS" : "FAIL", $"hot-seat Godot exit code {hot.ExitCode} (0 = all its checks passed)");
+        }
+        catch (Exception e)
+        {
+            Record("hotseat-exit", "FAIL", $"{e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            hot.Kill();
+            var log = Path.Combine(e2e, "hotseat.log");
+            if (File.Exists(log))
+            {
+                foreach (var line in File.ReadAllLines(log))
+                {
+                    var check = Regex.Match(line, @"CHECK (\S+) (PASS|FAIL) ?(.*)$");
+                    if (check.Success)
+                    {
+                        Record($"hotseat: {check.Groups[1].Value}", check.Groups[2].Value, check.Groups[3].Value);
+                    }
+                }
+            }
+            var errors = EngineErrors(hot.Lines);
+            Record("godot-hotseat: engine errors", errors.Count == 0 ? "PASS" : "FAIL", errors.Count == 0 ? "none in the output" : string.Join(" | ", errors.Take(5)));
+            // The window stopped its own server: no server process is left that uses this run's hot-seat folder.
+            var left = ServersUsing(Path.Combine(home, "hotseat-server"));
+            Record("hotseat-no-server-left", left.Count == 0 ? "PASS" : "FAIL", left.Count == 0 ? "no Match.Server process uses the hot-seat folder" : string.Join("; ", left));
+        }
+    }
+
+    // Running server processes whose command line names the folder (Linux reads /proc; Windows asks WMI through PowerShell).
+    private static List<string> ServersUsing(string folder)
+    {
+        var found = new List<string>();
+        if (OperatingSystem.IsWindows())
+        {
+            var psi = new ProcessStartInfo("powershell", ["-NoProfile", "-Command",
+                "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*Match.Server.dll*' } | ForEach-Object { \"$($_.ProcessId) $($_.CommandLine)\" }"])
+            { RedirectStandardOutput = true, UseShellExecute = false };
+            using var ps = Process.Start(psi)!;
+            var text = ps.StandardOutput.ReadToEnd();
+            ps.WaitForExit();
+            found.AddRange(text.Split('\n').Select(l => l.Trim()).Where(l => l.Contains(folder, StringComparison.OrdinalIgnoreCase)));
+        }
+        else if (Directory.Exists("/proc"))
+        {
+            foreach (var dir in Directory.EnumerateDirectories("/proc"))
+            {
+                try
+                {
+                    var cmd = File.ReadAllText(Path.Combine(dir, "cmdline")).Replace('\0', ' ');
+                    if (cmd.Contains("Match.Server.dll", StringComparison.Ordinal) && cmd.Contains(folder, StringComparison.Ordinal))
+                    {
+                        found.Add($"{Path.GetFileName(dir)} {cmd.Trim()}");
+                    }
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+        return found;
     }
 
     private static async Task EndToEnd(string godot)

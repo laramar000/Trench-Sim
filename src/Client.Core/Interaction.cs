@@ -81,6 +81,12 @@ public sealed class Interaction
         {
             return;
         }
+        // Another seat (hot-seat switching): a choice made for the previous seat never carries over.
+        if (seat != _seat && Pending is null && Mode != InteractionMode.None)
+        {
+            Clear();
+            Notice = "Another seat is shown now, so the preview was cleared.";
+        }
         _state = state;
         _seat = seat;
         _armed = false;

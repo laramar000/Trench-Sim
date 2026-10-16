@@ -1,5 +1,5 @@
-# Checks the UI check runner reports (123): the 93 of M7.3 (Linux run of 3ba61db), 12 battlefield checks of M7.4 stage 4a, 11 preview checks of stage 4b
-# and 7 sending checks of stage 4c. Lines marked "optional" (board-send-shoot, board-send-charge, board-send-fight) are reported only when the
+# Checks the UI check runner reports (138): the 93 of M7.3 (Linux run of 3ba61db), 12 battlefield checks of M7.4 stage 4a, 11 preview checks of stage 4b,
+# 7 sending checks of stage 4c and 15 single-player (hot-seat) checks. Lines marked "optional" (board-send-shoot, board-send-charge, board-send-fight) are reported only when the
 # match offers a legal target at that moment; otherwise Run-WindowsUiCheck.ps1 lists them as NOT TESTED without making the run incomplete (the
 # Client.Core tests send every action through a real server). Any other check a run did not report makes the verdict INCOMPLETE. One check id per line, as in the runner's summary.md.
 # "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide, and the
@@ -127,3 +127,18 @@ reopen: server-restart-clear
 godot-host: engine errors
 godot-guest: engine errors
 godot-reopen: engine errors
+hotseat-exit
+hotseat-no-server-left
+godot-hotseat: engine errors
+hotseat: hotseat-choose-scenario
+hotseat: hotseat-start-enter
+hotseat: hotseat-started
+hotseat: hotseat-server-running
+hotseat: hotseat-one-window-both-seats
+hotseat: hotseat-both-seats-deploy
+hotseat: hotseat-follows-turn
+hotseat: hotseat-whose-move-shown
+hotseat: hotseat-f2-switches
+hotseat: hotseat-f2-kept
+hotseat: hotseat-leave-enter
+hotseat: hotseat-server-stopped

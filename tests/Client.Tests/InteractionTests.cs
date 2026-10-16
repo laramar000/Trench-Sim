@@ -206,6 +206,19 @@ public class InteractionTests
         Assert.Equal(1, calls);
     }
 
+    // Hot-seat: when the window shows the other seat, a choice made for the previous seat is cleared, never carried over.
+    [Fact]
+    public void ShowingAnotherSeatClearsTheChoice()
+    {
+        var interaction = Placing(out var state, out var seat, out var sender);
+        Assert.Equal(InteractionMode.Place, interaction.Mode);
+        interaction.Update(state, seat.Opponent());
+        Assert.Equal(InteractionMode.None, interaction.Mode);
+        Assert.Null(interaction.Preview);
+        Assert.Equal("Another seat is shown now, so the preview was cleared.", interaction.Notice);
+        Assert.Empty(sender.Sent);
+    }
+
     // Review fix: a cancelled send (OperationCanceledException) used to escape and leave the battlefield waiting forever.
     [Fact]
     public async Task ACancelledSendIsReportedAsUnknownAndNeverLeavesTheBattlefieldWaiting()

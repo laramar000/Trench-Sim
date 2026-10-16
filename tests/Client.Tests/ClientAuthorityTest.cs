@@ -153,11 +153,23 @@ public class ClientAuthorityTest
         Assert.Equal([@"ProjectReference ..\Match.Client\Match.Client.csproj"], references);
     }
 
+    // Client.Core only, for hot-seat mode (LocalServer): starting the repository's server as a separate process
+    // ("dotnet Match.Server.dll") and, on Windows, a job object that stops it with the client. It still never references
+    // the server's code (CompiledClientCoreNeverResolvesRollsDiceOrFeedsTheCopy, ClientCoreUsesThePlainSdkAndOnlyReferencesMatchClient).
+    private static readonly HashSet<string> AllowedClientCoreOnly =
+    [
+        "System.Diagnostics.Process",
+        "System.ComponentModel.Primitives",
+        "Microsoft.Win32.Primitives",
+        "System.Runtime.InteropServices",
+    ];
+
     [Fact]
     public void CompiledClientCoreUsesOnlyAllowedAssemblies()
     {
         var references = ReferencedAssemblies(Path.Combine(AppContext.BaseDirectory, "Client.Core.dll"));
-        Assert.DoesNotContain(references, n => !AllowedAssemblyReferences.Contains(n) && n != "Match.Client");
+        Assert.DoesNotContain(references, n => !AllowedAssemblyReferences.Contains(n) && !AllowedClientCoreOnly.Contains(n) && n != "Match.Client");
+        Assert.DoesNotContain(references, n => n is "Match.Server" or "Sim" or "trench-cli");
     }
 
     [Fact]

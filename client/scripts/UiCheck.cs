@@ -48,6 +48,9 @@ public partial class UiCheck : Node
                 case "reopen":
                     await Reopen();
                     break;
+                case "hotseat":
+                    await HotSeatPlay();
+                    break;
                 default:
                     Check("role", false, $"unknown role {_role}");
                     break;
@@ -886,6 +889,165 @@ public partial class UiCheck : Node
         Check("server-restart-clear", settled is not null && !Banner().StartsWith("Connection: Connected", StringComparison.Ordinal) && Hint() is null,
             $"{Banner()} || actions: {Section("YOUR ACTIONS")}");
         Dump("server-restart");
+    }
+
+    // ---- single player (hot-seat) ----
+
+    private const string HotSeatButton = "Hot-seat: play both sides in this window";
+
+    // One window, both seats: the client starts the local server itself, seats you as Seat One and Seat Two, follows
+    // the turn through deployment (placements sent from the battlefield for both seats), switches by hand with F2, and
+    // stops the server when you leave.
+    private async Task HotSeatPlay()
+    {
+        await ChooseOption(Option("ranged"), _scenario, "hotseat-choose-scenario");
+        await Press(ButtonNamed(HotSeatButton), Key.Enter, "hotseat-start-enter");
+        // The first start builds the server, which can take a while.
+        var line = await Until(() => Label("HOT-SEAT:")?.Text, 300, "hotseat");
+        var problem = Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && l.Text.StartsWith("Could not start hot-seat", StringComparison.Ordinal))?.Text;
+        Check("hotseat-started", line is not null && line.Contains("you control Seat One [A]", StringComparison.Ordinal) && line.Contains("Local server ws://127.0.0.1:", StringComparison.Ordinal),
+            (line ?? problem ?? "the hot-seat match screen did not appear").Replace('\n', '|'));
+        if (line is null)
+        {
+            return;
+        }
+        // The local server's address, from the hot-seat line; the runner checks its process separately.
+        var urlText = line[(line.IndexOf("Local server ", StringComparison.Ordinal) + 13)..];
+        var endpoint = new Uri(urlText[..urlText.IndexOf(' ')]);
+        Check("hotseat-server-running", await Reachable(endpoint) && Banner().StartsWith("Connection: Connected", StringComparison.Ordinal), $"local server {endpoint}; {Banner()}");
+        await Frames(5);
+        if (Dialog<AcceptDialog>() is not null)
+        {
+            await KeyPress(Key.Escape);
+        }
+        await Shot("hotseat-started");
+        // The window may already follow the turn to Seat Two; the code line and the hot-seat line name the same seat.
+        var first = HotControlled();
+        var other = first == "Seat One" ? "Seat Two" : "Seat One";
+        Check("hotseat-one-window-both-seats", Label("Match code ")?.Text is { } code && code.Contains($"You are {first} [", StringComparison.Ordinal)
+            && !code.Contains("Give the code", StringComparison.Ordinal) && Label("HOT-SEAT:")!.Text.Contains($"Switch to {other} with F2", StringComparison.Ordinal),
+            $"{Label("Match code ")?.Text ?? "no match code line"} || {Label("HOT-SEAT:")?.Text.Replace('\n', '|')}");
+
+        // Deployment, following the turn: hints (zone, roll-off decisions) and placements on the battlefield, as
+        // whichever seat the window shows.
+        var controlled = new List<string>();
+        var actions = 0;
+        var deadline = Time.GetTicksMsec() + 240_000;
+        int Placed(string seat) => Lines(LogText()).Count(l => l.Contains($"] {seat} sets up ", StringComparison.Ordinal));
+        while (Time.GetTicksMsec() < deadline && actions < 40 && (Placed("One") < 2 || Placed("Two") < 2))
+        {
+            await Frames(3);
+            var seat = HotControlled();
+            if (controlled.LastOrDefault() != seat)
+            {
+                controlled.Add(seat);
+            }
+            var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+            if (Hint() is { } hint)
+            {
+                var before = Section("LAST COMMAND");
+                await Press(hint, Key.Enter, null);
+                // The answer, or the window following the turn to the other seat (whose last command is then shown).
+                await Until(() => HotControlled() != seat || (Section("LAST COMMAND") is var now && now != before && !now.StartsWith("SENT:", StringComparison.Ordinal)) ? "answered" : null, 20, "hotseat-answer");
+                actions++;
+            }
+            else if (board is not null && board.Interaction.Available.Contains(InteractionMode.Place))
+            {
+                if (!await PlaceSomewhere(board))
+                {
+                    Check("hotseat-place", false, $"{seat}: {board.Interaction.Notice} {Section("LAST COMMAND")}");
+                    break;
+                }
+                actions++;
+            }
+            else
+            {
+                var events = Lines(LogText()).Count;
+                await Until(() => Lines(LogText()).Count > events || Hint() is not null || HotControlled() != seat ? "changed" : null, 10, "hotseat-next");
+            }
+        }
+        var one = Placed("One");
+        var two = Placed("Two");
+        Check("hotseat-both-seats-deploy", one >= 2 && two >= 2, $"{one} placements by Seat One and {two} by Seat Two, all sent from the battlefield of the seat shown");
+        Check("hotseat-follows-turn", controlled.Distinct().Count() == 2 && controlled.Count >= 3, $"seats shown in turn: {string.Join(", ", controlled)}");
+        Check("hotseat-whose-move-shown", Label("HOT-SEAT:")?.Text is { } now && now.Contains(" to move.", StringComparison.Ordinal), Label("HOT-SEAT:")?.Text.Replace('\n', '|') ?? "");
+        await Shot("hotseat-deployed");
+
+        // F2 switches by hand, and the switch is kept (following the turn waits for the match to move on).
+        var shown = HotControlled();
+        await KeyPress(Key.F2);
+        await Frames(5);
+        var switched = HotControlled();
+        Check("hotseat-f2-switches", switched != shown && Label("Match code ")?.Text.Contains($"You are {switched}", StringComparison.Ordinal) == true,
+            $"before F2: {shown}; after: {switched}; {Label("Match code ")?.Text}");
+        await Frames(30);
+        Check("hotseat-f2-kept", HotControlled() == switched, $"after 30 frames: {HotControlled()}");
+        await KeyPress(Key.F2);
+        await Frames(5);
+
+        // Leaving ends both seats and stops the local server: no process is left.
+        await Press(ButtonNamed("Leave"), Key.Enter, "hotseat-leave-enter");
+        var stopped = false;
+        for (var i = 0; i < 20 && !stopped; i++)
+        {
+            stopped = !await Reachable(endpoint);
+            if (!stopped)
+            {
+                await Frames(30);
+            }
+        }
+        Check("hotseat-server-stopped", stopped && ButtonNamed(HotSeatButton) is not null, $"local server {endpoint} {(stopped ? "no longer accepts connections" : "still accepts connections")}");
+    }
+
+    // Whether a server answers at the address (a WebSocket connection is accepted).
+    private static async Task<bool> Reachable(Uri endpoint)
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            await using var session = await Match.Client.ClientSession.ConnectAsync(endpoint, timeout.Token);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    // "Seat One" or "Seat Two": the seat the hot-seat line says this window controls.
+    private string HotControlled()
+    {
+        var text = Label("HOT-SEAT:")?.Text ?? "";
+        var at = text.IndexOf("you control ", StringComparison.Ordinal);
+        return at < 0 ? "" : text[(at + 12)..].Split(" [")[0];
+    }
+
+    // L on the battlefield, then 2" steps in a widening square until the preview looks legal; Space sends it.
+    private async Task<bool> PlaceSomewhere(BoardView board)
+    {
+        var interaction = board.Interaction;
+        if (!await FocusByTab(board, 80))
+        {
+            return false;
+        }
+        await KeyPress(Key.L);
+        Key[] turns = [Key.Right, Key.Down, Key.Left, Key.Up];
+        for (var leg = 0; leg < 24 && interaction.Preview is not { Legal: true }; leg++)
+        {
+            for (var i = 0; i < leg / 2 + 1 && interaction.Preview is not { Legal: true }; i++)
+            {
+                await KeyPress(turns[leg % 4], shift: true);
+            }
+        }
+        if (interaction.Preview is not { Legal: true })
+        {
+            await KeyPress(Key.Escape);
+            return false;
+        }
+        await KeyPress(Key.Space);
+        // The battlefield's own answer: it stays when the window then follows the turn to the other seat.
+        var answer = await Until(() => interaction.Pending is null && interaction.Answer is { } a ? a.Kind.ToString() : null, 20, "hotseat-placed");
+        return answer == nameof(FeedbackKind.Accepted);
     }
 
     // ---- keyboard ----

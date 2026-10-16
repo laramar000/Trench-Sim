@@ -19,6 +19,8 @@ public partial class Main : Control
     private Label _status = null!;
     private MatchController? _controller;
     private MatchController? _opponent;
+    // Single-player (hot-seat) mode: both seats of one match, on a local server this window started; null otherwise.
+    private HotSeat? _hotSeat;
     private int _changed;
     private long _shown = -1;
     private bool _gapsShown;
@@ -38,6 +40,7 @@ public partial class Main : Control
     // Match screen.
     private VBoxContainer _match = null!;
     private Label _banner = null!;
+    private Label _hotLine = null!;
     private HBoxContainer _bannerButtons = null!;
     private Label _code2 = null!;
     private Label _state = null!;
@@ -115,6 +118,8 @@ public partial class Main : Control
     {
         if (_controller is not null && System.Threading.Interlocked.Exchange(ref _changed, 0) == 1)
         {
+            // Hot-seat: show the seat that must act when the shown one has nothing to do (unless switching is by hand).
+            _hotSeat?.FollowIfNeeded();
             Render(_controller.Snapshot());
         }
     }
@@ -125,7 +130,22 @@ public partial class Main : Control
         {
             _gaps.PopupCentered();
         }
+        else if (@event is InputEventKey { Pressed: true, Keycode: Key.F2 } && _hotSeat is not null)
+        {
+            SwitchSeat();
+        }
     }
+
+    // Closing the window (or quitting) stops the hot-seat server at once, so no server process is left behind.
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest || what == NotificationPredelete)
+        {
+            _hotSeat?.StopServerNow();
+        }
+    }
+
+    public override void _ExitTree() => _hotSeat?.StopServerNow();
 
     // ---- connect screen ----
 
@@ -143,6 +163,9 @@ public partial class Main : Control
         _scenario.AddItem("ranged");
         _scenario.AddItem("melee");
         _connect.AddChild(Row(Text("Scenario:"), _scenario, Button("Create match", () => Start(c => c.CreateAsync(_scenario.GetItemText(_scenario.Selected))))));
+        _connect.AddChild(Row(Text("Single player:"), Button("Hot-seat: play both sides in this window", StartHotSeat)));
+        _connect.AddChild(Text("Hot-seat starts a local server on this PC (no server address needed) and seats you as Seat One and Seat Two of a " +
+            "match in the scenario above. F2 switches the side you control; by default the window follows the turn."));
         _code = new LineEdit { PlaceholderText = "match code", CustomMinimumSize = new Vector2(160, 0) };
         _connect.AddChild(Row(Text("Join with a code:"), _code, Button("Join match", () => Start(c => c.JoinAsync(_code.Text.Trim().ToUpperInvariant())))));
         _connect.AddChild(Text("Saved seats on this server (Rejoin):"));
@@ -241,12 +264,75 @@ public partial class Main : Control
 
     private async void Leave()
     {
-        if (_controller is { } controller)
+        if (_hotSeat is { } hot)
+        {
+            // Both seats and the local server end together.
+            _hotSeat = null;
+            _controller = null;
+            await hot.DisposeAsync();
+        }
+        else if (_controller is { } controller)
         {
             _controller = null;
             await controller.DisposeAsync();
         }
         ShowConnect();
+    }
+
+    // Starts the local server, creates a match as Seat One and joins it as Seat Two, then shows Seat One.
+    private async void StartHotSeat()
+    {
+        if (_hotSeat is not null || _controller is not null)
+        {
+            return;
+        }
+        var repository = LocalServer.FindRepository(ProjectSettings.GlobalizePath("res://"));
+        if (repository is null)
+        {
+            _connectMessage.Text = "Hot-seat starts the server from the Trench Sim source folder (TrenchSim.sln above client/), which was not found.";
+            return;
+        }
+        var scenario = _scenario.GetItemText(_scenario.Selected);
+        try
+        {
+            var server = await LocalServer.StartAsync(repository, LocalServer.DefaultDataDirectory(),
+                text => Callable.From(() => _connectMessage.Text = text).CallDeferred());
+            _connectMessage.Text = "Creating the match and seating both sides…";
+            var hot = await HotSeat.StartAsync(() => new MatchController(new MatchControllerOptions
+            {
+                Endpoint = server.Endpoint,
+                // The local server runs with its default --rejoin-window of 300 seconds.
+                Policy = ReconnectPolicy.ForRejoinWindow(TimeSpan.FromSeconds(300)),
+            }), scenario, server);
+            _hotSeat = hot;
+            hot.Busy = () => _board.Interaction.Pending is not null;
+            hot.Other.Changed += () => System.Threading.Interlocked.Exchange(ref _changed, 1);
+            hot.Switched += () =>
+            {
+                _controller = hot.Controller;
+                _shown = -1;
+                System.Threading.Interlocked.Exchange(ref _changed, 1);
+            };
+            _connectMessage.Text = "";
+            Attach(hot.Controller);
+        }
+        catch (Exception e)
+        {
+            _connectMessage.Text = $"Could not start hot-seat: {e.Message}";
+        }
+    }
+
+    // F2 or the banner button: show the other seat (not while a command waits for its answer).
+    private void SwitchSeat()
+    {
+        if (_hotSeat is not { } hot)
+        {
+            return;
+        }
+        if (!hot.Switch())
+        {
+            _status.Text = hot.SwitchBlocked() ?? "";
+        }
     }
 
     // ---- match screen ----
@@ -255,6 +341,9 @@ public partial class Main : Control
     {
         _match = new VBoxContainer();
         _match.AddThemeConstantOverride("separation", 8);
+        // Hot-seat only: which seat this window controls, whose move it is, and the local server.
+        _hotLine = Text("");
+        _match.AddChild(_hotLine);
         _banner = Text("");
         _match.AddChild(_banner);
         _bannerButtons = new HBoxContainer();
@@ -339,6 +428,10 @@ public partial class Main : Control
         _shown = s.Version;
         var view = s.View;
         _status.Text = $"{view.Status}";
+        _hotLine.Visible = _hotSeat is not null;
+        _hotLine.Text = _hotSeat is { } h
+            ? $"{h.Banner()}\nLocal server {h.Server?.Endpoint} (process {h.Server?.ProcessId}); it stops when you leave or close this window."
+            : "";
         _banner.Text = $"Connection: {s.ConnectionText}{(s.OpponentAway is null ? "" : "\n" + s.OpponentAway)}{(s.Warning is null ? "" : "\nWarning: " + s.Warning)}";
 
         // Buttons are rebuilt on every change; keep the keyboard focus on the same button (or a sensible one).
@@ -358,10 +451,20 @@ public partial class Main : Control
         {
             _bannerButtons.AddChild(Button("Resync (reconnect to fetch the latest events)", Resync));
         }
+        if (_hotSeat is { } hot)
+        {
+            _bannerButtons.AddChild(Button($"Switch to {Words.Seat(hot.OtherSeat)} (F2)", SwitchSeat));
+            _bannerButtons.AddChild(Button(hot.FollowTurn ? "Follow the turn: on" : "Follow the turn: off", () =>
+            {
+                hot.FollowTurn = !hot.FollowTurn;
+                _shown = -1;
+                System.Threading.Interlocked.Exchange(ref _changed, 1);
+            }));
+        }
         _bannerButtons.AddChild(Button("Leave", Leave));
 
         _code2.Text = s.Code is null ? "" : $"Match code {s.Code}. You are {(s.Seat is { } seat ? $"{Words.Seat(seat)} [{Words.SeatLetter(seat)}]" : "not seated")}." +
-            (view.Phase == Words.Phase(Rules.Core.State.Phase.PreGame) || view.Models.Count == 0 ? " Give the code to your opponent." : "");
+            (_hotSeat is null && (view.Phase == Words.Phase(Rules.Core.State.Phase.PreGame) || view.Models.Count == 0) ? " Give the code to your opponent." : "");
         _boardSection.Visible = s.Board is not null;
         _board.Show(s.Board, s.State, s.Seat);
         _state.Text = string.Join("\n", view.Lines());
