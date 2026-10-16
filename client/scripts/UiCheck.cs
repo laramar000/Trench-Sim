@@ -899,7 +899,33 @@ public partial class UiCheck : Node
         }
         Check("server-restart-clear", settled is not null && !Banner().StartsWith("Connection: Connected", StringComparison.Ordinal) && Hint() is null,
             $"{Banner()} || actions: {Section("YOUR ACTIONS")}");
+        await MatchResultChecks();
         Dump("server-restart");
+    }
+
+    // M7.5 stage 5a: once the match is over (here aborted: the server lost it), the screen shows the result, the final
+    // state hash and the event count, and "Copy final hash" puts exactly that hash on the clipboard.
+    private async Task MatchResultChecks()
+    {
+        var result = await Until(() => Section("RESULT OF THE MATCH") is { Length: > 0 } r ? r : null, 10, "match-result") ?? "";
+        // Plain string parsing: the client's assemblies are limited (ClientAuthorityTest), so no Regex here.
+        string? Value(string prefix) => result.Split('\n').FirstOrDefault(l => l.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..];
+        var hash = Value("Final state hash: ") is { Length: 64 } h && h.All(char.IsAsciiHexDigitLower) ? h : null;
+        var events = Value("Events: ") is { } e && int.TryParse(e, out var n) ? n : -1;
+        var lastLine = Lines(LogText()).LastOrDefault() ?? "";
+        var lastSeq = lastLine.IndexOf(']') is > 1 and var close && int.TryParse(lastLine[1..close], out var seq) ? seq : -2;
+        var lost = Banner().Contains("no longer on the server", StringComparison.Ordinal);
+        Check("match-result-shown", result.StartsWith("Result: ", StringComparison.Ordinal) && result.Contains("No result was recorded as a win or loss.", StringComparison.Ordinal)
+            && hash is not null && events == lastSeq
+            && (!lost || result.Contains("did not receive the server's abort message", StringComparison.Ordinal)),
+            $"{result.Replace('\n', '|')} || last event [{lastSeq}]");
+        await Shot($"{_role}-match-result");
+        DisplayServer.ClipboardSet("");
+        await Press(ButtonNamed("Copy final hash"), Key.Enter, "copy-final-hash-enter");
+        await Frames(3);
+        var copied = DisplayServer.ClipboardGet();
+        Check("copy-final-hash", hash is not null && copied == hash, $"clipboard: {copied}; shown: {hash ?? "none"}");
+        Write($"DUMP server-restart final_hash={hash ?? ""}");
     }
 
     // ---- single player (hot-seat) ----

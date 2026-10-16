@@ -54,7 +54,8 @@ public sealed record ScreenState(
     string? Warning,
     IReadOnlyList<LogLine> Log,
     BoardScene? Board,
-    MatchState State);
+    MatchState State,
+    MatchEnd? End = null);
 
 public sealed class MatchControllerOptions
 {
@@ -343,8 +344,33 @@ public sealed class MatchController : IAsyncDisposable
                 _warning,
                 _log.Values.TakeLast(_options.LogLines).ToList(),
                 BoardScene.Of(state, seat, _names),
-                state);
+                state,
+                EndOf(view));
         }
+    }
+
+    // The result, final hash and event count once the match has ended or been aborted (null before). The hash is the
+    // copy's own: every event in it matched the server's hash, and an abort message must match it too (ClientSession).
+    private MatchEnd? EndOf(MatchView view)
+    {
+        if (_session is not { } session)
+        {
+            return null;
+        }
+        var mirror = session.Mirror;
+        var aborted = _connection == ConnectionState.Aborted || session.Aborted is not null;
+        if (!aborted && _connection != ConnectionState.Finished && mirror.State.Phase != Phase.Ended)
+        {
+            return null;
+        }
+        if (aborted)
+        {
+            var note = session.Aborted is null && session.Welcome?.Status != MatchStatus.Aborted
+                ? "This window did not receive the server's abort message: the hash is this client's copy after the last event it received."
+                : null;
+            return new MatchEnd(true, _connectionText, mirror.Events, mirror.Hash, note);
+        }
+        return new MatchEnd(false, view.Outcome ?? "The match has ended.", mirror.Events, mirror.Hash, null);
     }
 
     public async ValueTask DisposeAsync()

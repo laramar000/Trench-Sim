@@ -43,6 +43,9 @@ public partial class Main : Control
     private Label _hotLine = null!;
     private HBoxContainer _bannerButtons = null!;
     private Label _code2 = null!;
+    private VBoxContainer _endSection = null!;
+    private Label _end = null!;
+    private string? _finalHash;
     private Label _state = null!;
     private Label _models = null!;
     private VBoxContainer _boardSection = null!;
@@ -356,6 +359,21 @@ public partial class Main : Control
                 DisplayServer.ClipboardSet(code);
             }
         }), Button("Rules in this build (F1)", () => _gaps.PopupCentered())));
+        // Once the match has ended or been aborted: the result, the final state hash and the event count (M7.5). The
+        // hash can be compared with the one `trench-cli verify` prints for the server's signed record.
+        _end = Text("");
+        var endBox = new VBoxContainer();
+        endBox.AddChild(_end);
+        endBox.AddChild(Row(Button("Copy final hash", () =>
+        {
+            if (_finalHash is { } hash)
+            {
+                DisplayServer.ClipboardSet(hash);
+            }
+        })));
+        _endSection = Section("Result of the match", endBox);
+        _endSection.Visible = false;
+        _match.AddChild(_endSection);
         // The battlefield (M7.4): a 3D view of the server's state, with the camera keys and the selected model in words.
         _board = new BoardView();
         _boardInfo = Text("");
@@ -465,6 +483,9 @@ public partial class Main : Control
 
         _code2.Text = s.Code is null ? "" : $"Match code {s.Code}. You are {(s.Seat is { } seat ? $"{Words.Seat(seat)} [{Words.SeatLetter(seat)}]" : "not seated")}." +
             (_hotSeat is null && (view.Phase == Words.Phase(Rules.Core.State.Phase.PreGame) || view.Models.Count == 0) ? " Give the code to your opponent." : "");
+        _endSection.Visible = s.End is not null;
+        _finalHash = s.End?.Hash;
+        _end.Text = s.End is { } end ? string.Join("\n", end.Lines()) : "";
         _boardSection.Visible = s.Board is not null;
         _board.Show(s.Board, s.State, s.Seat);
         _state.Text = string.Join("\n", view.Lines());

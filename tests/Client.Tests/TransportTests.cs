@@ -52,10 +52,11 @@ public sealed partial class TransportTests : IAsyncLifetime
         _dir.Delete(recursive: true);
     }
 
-    private async Task<MatchServer> Start(TimeSpan rejoinWindow, int seed = 7)
+    private async Task<MatchServer> Start(TimeSpan rejoinWindow, int seed = 7, string? data = null)
     {
         var server = await MatchServer.StartAsync(new MatchServerOptions
         {
+            DataDirectory = data,
             NewDice = () => new SeededDice(seed),
             ShutdownGrace = TimeSpan.FromSeconds(3),
             RejoinWindow = rejoinWindow,

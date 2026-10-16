@@ -20,7 +20,10 @@ public sealed partial class TransportTests
     [InlineData("ranged", 3)]
     public async Task TheBattlefieldSendsEveryPositionalCommandOfAWholeMatchThroughTheServer(string scenario, int seed)
     {
-        var (one, two, code) = await ControllerPair(scenario);
+        // M7.5 stage 5a: this server keeps signed records, so the match played here can be checked against its record.
+        var data = Path.Combine(_dir.FullName, $"records-{scenario}-{seed}");
+        var server = await Start(TimeSpan.FromMinutes(5), data: data);
+        var (one, two, code) = await ControllerPair(scenario, server);
         var sends = new List<(Seat Seat, Command Command)>();
         Interaction Board(MatchController controller, Seat seat) => new()
         {
@@ -37,7 +40,7 @@ public sealed partial class TransportTests
         var bot = new Bot(new Random(seed));
         for (var round = 0; round < 5000 && one.Session!.Mirror.State.Phase != Phase.Ended; round++)
         {
-            await Settle(_server, code, one.Session!, two.Session!);
+            await Settle(server, code, one.Session!, two.Session!);
             var state = one.Session!.Mirror.State;
             if (state.Phase == Phase.Ended)
             {
@@ -95,12 +98,12 @@ public sealed partial class TransportTests
                 {
                     break;
                 }
-                await Settle(_server, code, one.Session!, two.Session!);
+                await Settle(server, code, one.Session!, two.Session!);
             }
         }
-        await Settle(_server, code, one.Session!, two.Session!);
+        await Settle(server, code, one.Session!, two.Session!);
         Assert.Equal(Phase.Ended, one.Session!.Mirror.State.Phase);
-        AssertSameAsServer(_server, code, one.Session!, two.Session!);
+        AssertSameAsServer(server, code, one.Session!, two.Session!);
 
         Assert.Equal(8, accepted.GetValueOrDefault(nameof(PlaceModel)));
         Assert.True(refused > 0, "no refused command was sent and shown");
@@ -108,6 +111,8 @@ public sealed partial class TransportTests
             ? [nameof(MoveModel), nameof(DashModel), nameof(RetreatModel), nameof(Shoot), nameof(ChargeModel), nameof(FightModel)]
             : [nameof(MoveModel), nameof(DashModel), nameof(Shoot)];
         Assert.All(kinds, k => Assert.True(accepted.GetValueOrDefault(k) > 0, $"no accepted {k}: {string.Join(", ", accepted)}"));
+        // Both screens show the result, final hash and event count, and they are the server's signed record's.
+        AssertEndMatchesRecord(data, one, two, VerdictKind.Completed);
         Console.WriteLine($"{scenario} seed {seed}: accepted {string.Join(", ", accepted.OrderBy(a => a.Key).Select(a => $"{a.Key} {a.Value}"))}; refused {refused}");
     }
 

@@ -249,6 +249,10 @@ public static class Program
             Signal(e2e, "server-started");
             Record("host-exit", await host.Exit(240) == 0 ? "PASS" : "FAIL", $"host Godot exit code {host.ExitCode} (0 = all its checks passed)");
             Record("reopen-exit", await reopen.Exit(120) == 0 ? "PASS" : "FAIL", $"reopened Godot exit code {reopen.ExitCode}");
+            // M7.5 stage 5a: both windows lost the same match at the same event, so they show the same final state hash.
+            var hostHash = Dumps(e2e, "host", "server-restart").GetValueOrDefault("final_hash", "");
+            var reopenHash = Dumps(e2e, "reopen", "server-restart").GetValueOrDefault("final_hash", "");
+            Record("both-clients-same-final-hash", hostHash.Length == 64 && hostHash == reopenHash ? "PASS" : "FAIL", $"host: {hostHash} || reopened: {reopenHash}");
         }
         finally
         {
