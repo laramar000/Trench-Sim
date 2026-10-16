@@ -27,6 +27,9 @@ public partial class Main : Control
     private float _scale = 1f;
     private bool _highContrast;
     private bool _followLog = true;
+    // Started by the test center (tools/TestCenter) for a test match; null for a normal start.
+    private TestMatch? _test;
+    private bool _testReported;
 
     // Connect screen.
     private VBoxContainer _connect = null!;
@@ -89,6 +92,15 @@ public partial class Main : Control
         ShowConnect();
 
         var args = OS.GetCmdlineUserArgs();
+        var (test, testProblem) = TestMatch.Parse(args);
+        if (testProblem is not null)
+        {
+            _connectMessage.Text = $"Test match not started: {testProblem}";
+        }
+        if (test is not null)
+        {
+            StartTestMatch(test);
+        }
         if (Arg(args, "--ui-check") is { } role)
         {
             // Verification only (tools/UiCheck): drives this screen with key presses and reports what it shows.
@@ -325,6 +337,45 @@ public partial class Main : Control
         }
     }
 
+    // Test match: lay the window out beside the other one and press create, join or rejoin for the player, exactly as the
+    // buttons on this screen would. The server answers as for any player.
+    private void StartTestMatch(TestMatch test)
+    {
+        _test = test;
+        DisplayServer.WindowSetTitle(test.Title(null));
+        if (test.Window is "A" or "B")
+        {
+            var screen = DisplayServer.ScreenGetUsableRect(DisplayServer.WindowGetCurrentScreen());
+            var size = new Vector2I(screen.Size.X / 2, screen.Size.Y);
+            DisplayServer.WindowSetSize(size);
+            DisplayServer.WindowSetPosition(screen.Position + new Vector2I(test.Window == "A" ? 0 : size.X, 0));
+        }
+        _server.Text = test.Server;
+        _scenario.Select(test.Scenario == "melee" ? 1 : 0);
+        _code.Text = test.Code ?? "";
+        RefreshSaved();
+        switch (test.Mode)
+        {
+            case "create":
+                Start(c => c.CreateAsync(test.Scenario));
+                break;
+            case "join":
+                Start(c => c.JoinAsync(test.Code!));
+                break;
+            default:
+                var (seats, _) = SavedSeats.For(new SessionStore(SessionStore.DefaultDirectory()), test.Server);
+                if (seats.FirstOrDefault(s => s.Code == test.Code) is { } saved)
+                {
+                    Start(c => c.RejoinSavedAsync(saved));
+                }
+                else
+                {
+                    _connectMessage.Text = $"Test match: no saved seat for match {test.Code} on {test.Server}.";
+                }
+                break;
+        }
+    }
+
     // F2 or the banner button: show the other seat (not while a command waits for its answer).
     private void SwitchSeat()
     {
@@ -486,6 +537,22 @@ public partial class Main : Control
         _endSection.Visible = s.End is not null;
         _finalHash = s.End?.Hash;
         _end.Text = s.End is { } end ? string.Join("\n", end.Lines()) : "";
+        if (_test is { } test)
+        {
+            DisplayServer.WindowSetTitle(test.Title(s.Seat));
+            if (test.Report is { } report && s.End is { } ended && !_testReported)
+            {
+                _testReported = true;
+                try
+                {
+                    TestMatch.WriteReport(report, TestMatch.ReportText(s.Code, s.Seat, ended));
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    Print($"Test match: could not write {report}: {e.Message}");
+                }
+            }
+        }
         _boardSection.Visible = s.Board is not null;
         _board.Show(s.Board, s.State, s.Seat);
         _state.Text = string.Join("\n", view.Lines());

@@ -64,6 +64,11 @@ public partial class UiCheck : Node
                     // M7.5 stage 5c: the same play as pvp-a, against trench-cli --bot.
                     await PvpCreate();
                     break;
+                case "tm-a" or "tm-b":
+                    // The test center's guided test match (tools/TestCenter), played here in place of a person: the
+                    // window connected itself (--test-match); this plays the match from there.
+                    await TestMatchPlay();
+                    break;
                 default:
                     Check("role", false, $"unknown role {_role}");
                     break;
@@ -1158,6 +1163,24 @@ public partial class UiCheck : Node
         await PvpEnd();
     }
 
+    private async Task TestMatchPlay()
+    {
+        var seat = _role == "tm-a" ? "Seat One [A]" : "Seat Two [B]";
+        var shown = await Until(() => Label("Match code ") is { } l && l.Text.Contains(seat) ? l.Text : null, 60, "test-match");
+        Check("tm-connected-itself", shown is not null, shown ?? "the window did not connect to its match by itself");
+        if (shown is null)
+        {
+            return;
+        }
+        await CloseRulesDialog();
+        await PvpPlay();
+        if (!MatchOver())
+        {
+            return;
+        }
+        await PvpEnd();
+    }
+
     private async Task PvpRejoin()
     {
         await TypeInto(Field("ws://"), _server, "pvp-type-server");
@@ -1248,6 +1271,14 @@ public partial class UiCheck : Node
                 var seen = Lines(LogText());
                 Write($"DUMP before-kill log={string.Join("|", seen)}");
                 Mark("turn-2", seen.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            if (_role == "tm-b" && LogText().Contains("--- Turn 2 ---", StringComparison.Ordinal) && !System.IO.File.Exists(System.IO.Path.Combine(_out, "tm-b-closed")))
+            {
+                // Once per match, as a player closing the window: the test center must reopen it and rejoin.
+                System.IO.File.WriteAllText(System.IO.Path.Combine(_out, "tm-b-closed"), "");
+                Mark("closing");
+                GetTree().Quit();
+                return;
             }
             if (_role == "pvp-a" && !pauseSeen && Banner().Contains("paused", StringComparison.OrdinalIgnoreCase))
             {
@@ -1409,7 +1440,7 @@ public partial class UiCheck : Node
         var lines = Lines(LogText());
         var (inOrder, order) = OnceEachInOrder(lines);
         var ended = lines.LastOrDefault(l => l.Contains("MATCH ENDED", StringComparison.Ordinal)) ?? "";
-        var seat = _role is "pvp-a" or "gvt-a" ? "One" : "Two";
+        var seat = _role is "pvp-a" or "gvt-a" or "tm-a" ? "One" : "Two";
         var expected = ended.Contains("MATCH ENDED: draw", StringComparison.Ordinal) ? "Draw" : ended.Contains($"MATCH ENDED: {seat} wins", StringComparison.Ordinal) ? "You won" : "You lost";
         Check("pvp-match-completed", ended.Length > 0 && result.StartsWith($"Result: {expected}", StringComparison.Ordinal) && hash is not null
             && inOrder && lines[^1] == ended && lines[^1].StartsWith($"[{events}] ", StringComparison.Ordinal),
