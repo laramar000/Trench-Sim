@@ -60,6 +60,10 @@ public partial class UiCheck : Node
                 case "pvp-b-rejoin":
                     await PvpRejoin();
                     break;
+                case "gvt-a":
+                    // M7.5 stage 5c: the same play as pvp-a, against trench-cli --bot.
+                    await PvpCreate();
+                    break;
                 default:
                     Check("role", false, $"unknown role {_role}");
                     break;
@@ -1405,7 +1409,7 @@ public partial class UiCheck : Node
         var lines = Lines(LogText());
         var (inOrder, order) = OnceEachInOrder(lines);
         var ended = lines.LastOrDefault(l => l.Contains("MATCH ENDED", StringComparison.Ordinal)) ?? "";
-        var seat = _role == "pvp-a" ? "One" : "Two";
+        var seat = _role is "pvp-a" or "gvt-a" ? "One" : "Two";
         var expected = ended.Contains("MATCH ENDED: draw", StringComparison.Ordinal) ? "Draw" : ended.Contains($"MATCH ENDED: {seat} wins", StringComparison.Ordinal) ? "You won" : "You lost";
         Check("pvp-match-completed", ended.Length > 0 && result.StartsWith($"Result: {expected}", StringComparison.Ordinal) && hash is not null
             && inOrder && lines[^1] == ended && lines[^1].StartsWith($"[{events}] ", StringComparison.Ordinal),

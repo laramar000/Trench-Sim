@@ -347,8 +347,8 @@ finally {
                 $rows.Add([pscustomobject]@{ Result = $Matches[1]; Id = $Matches[2]; Detail = $Matches[3] })
             }
         }
-        foreach ($role in 'host', 'guest', 'reopen', 'pvp-a', 'pvp-b', 'pvp-b-rejoin') {
-            $log = Join-Path (Join-Path $detail $(if ($role.StartsWith('pvp')) { 'pvp' } else { 'e2e' })) "$role.log"
+        foreach ($role in 'host', 'guest', 'reopen', 'pvp-a', 'pvp-b', 'pvp-b-rejoin', 'gvt-a') {
+            $log = Join-Path (Join-Path $detail $(if ($role.StartsWith('pvp')) { 'pvp' } elseif ($role.StartsWith('gvt')) { 'gvt' } else { 'e2e' })) "$role.log"
             foreach ($line in Get-Content $log -Encoding UTF8 -ErrorAction SilentlyContinue) {
                 if ($line -cmatch '^\S+ CHECK (\S+) (PASS|FAIL) ?(.*)$') {
                     $rows.Add([pscustomobject]@{ Result = $Matches[2]; Id = "$role`: $($Matches[1])"; Detail = $Matches[3] })

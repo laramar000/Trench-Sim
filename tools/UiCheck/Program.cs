@@ -87,6 +87,128 @@ public static class Program
         // 5. M7.5 stage 5b: two Godot clients play a whole melee match, one is killed and rejoins, and the signed record
         // is checked with trench-cli verify.
         await PvpMatch(godot);
+
+        // 6. M7.5 stage 5c: a Godot client plays a whole ranged match against trench-cli and its test-only --bot, and the
+        // Godot client, trench-cli and the signed record (trench-cli verify) must agree.
+        await GodotVsTerminal(godot);
+    }
+
+    private static async Task GodotVsTerminal(string godot)
+    {
+        var gvt = Path.Combine(_out, "gvt");
+        Directory.CreateDirectory(gvt);
+        var serverDll = Path.Combine(_repo, "src", "Match.Server", "bin", "Debug", "net10.0", "Match.Server.dll");
+        var cliDll = Path.Combine(_repo, "src", "Match.Cli", "bin", "Debug", "net10.0", "trench-cli.dll");
+        var port = FreePort();
+        var data = Path.Combine(_out, "gvt-server-data");
+        var url = $"ws://127.0.0.1:{port}/match";
+        var started = DateTime.UtcNow;
+        var server = Start("gvt-server", "dotnet", [serverDll, "--port", port.ToString(), "--data", data], null);
+        var processes = new List<Child> { server };
+        try
+        {
+            await server.WaitFor(l => l.Contains("Listening on"), 60, "server start");
+            var godotA = Start("godot-gvt-a", godot, GodotArgs("gvt-a", gvt, url, null, "ranged"), Path.Combine(_out, "home-gvt-a"));
+            processes.Add(godotA);
+            var code = await Mark(gvt, "gvt-a", "code", 120);
+            // The existing test-only bot of trench-cli plays Seat Two (no user-facing bot in the client).
+            var cli = Start("gvt-cli", "dotnet", [cliDll, "--server", url, "join", code, "--bot", "7"], Path.Combine(_out, "home-gvt-cli"));
+            processes.Add(cli);
+            Record("gvt-a-exit", await godotA.Exit(1600) == 0 ? "PASS" : "FAIL", $"Godot client exit code {godotA.ExitCode} (0 = all its checks passed)");
+            Record("gvt-cli-exit", await cli.Exit(120) == 0 ? "PASS" : "FAIL", $"trench-cli --bot exit code {cli.ExitCode}");
+
+            // What each side shows at the end: Godot's result section, and trench-cli's last event and final line.
+            var end = Dumps(gvt, "gvt-a", "pvp-end");
+            var hashGodot = end.GetValueOrDefault("final_hash", "");
+            var eventsGodot = end.GetValueOrDefault("events", "");
+            var ended = end.GetValueOrDefault("ended", "");
+            var cliLines = cli.Lines;
+            var cliEnded = cliLines.LastOrDefault(l => Regex.IsMatch(l, @"^\s+\[\d+\] MATCH ENDED: "))?.Trim() ?? "";
+            var cliFinal = cliLines.Select(l => Regex.Match(l, @"^(\d+) events, every one matched the server's hash\. Final hash ([0-9a-f]{64})\.$")).LastOrDefault(m => m.Success);
+            var hashCli = cliFinal?.Groups[2].Value ?? "";
+            var eventsCli = cliFinal?.Groups[1].Value ?? "";
+            Record("gvt-both-reach-match-ended", ended.Length > 0 && ended == cliEnded ? "PASS" : "FAIL", $"Godot: {ended} || trench-cli: {cliEnded}");
+            var result = end.GetValueOrDefault("result", "");
+            var agree = ended.Contains("MATCH ENDED: draw") ? result.StartsWith("Draw") : ended.Contains("MATCH ENDED: One wins") ? result.StartsWith("You won") : ended.Contains("MATCH ENDED: Two wins") && result.StartsWith("You lost");
+            Record("gvt-outcome-agrees", agree ? "PASS" : "FAIL", $"Godot (Seat One): {result} || trench-cli (Seat Two): {cliEnded}");
+            Record("gvt-same-final-hash", hashGodot.Length == 64 && hashGodot == hashCli ? "PASS" : "FAIL", $"Godot: {hashGodot} || trench-cli: {hashCli}");
+            Record("gvt-same-event-count", eventsGodot.Length > 0 && eventsGodot == eventsCli ? "PASS" : "FAIL", $"Godot: {eventsGodot} || trench-cli: {eventsCli}");
+            // Every event both list (Godot shows the newest 200) has the same number and text.
+            var shown = end.GetValueOrDefault("log", "").Split('|').Select(l => Regex.Match(l, @"^\[(\d+)\] (.*)$")).Where(m => m.Success)
+                .ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value.Trim());
+            var printed = cliLines.Select(l => Regex.Match(l, @"^\s+\[(\d+)\] (.*)$")).Where(m => m.Success && shown.ContainsKey(m.Groups[1].Value)).ToList();
+            var differ = printed.Where(m => shown[m.Groups[1].Value] != m.Groups[2].Value.Trim()).Select(m => $"[{m.Groups[1].Value}] cli \"{m.Groups[2].Value.Trim()}\" Godot \"{shown[m.Groups[1].Value]}\"").ToList();
+            Record("gvt-same-event-text", printed.Count > 0 && differ.Count == 0 ? "PASS" : "FAIL",
+                differ.Count == 0 ? $"{printed.Count} events trench-cli printed are in Godot's list with the same number and text" : string.Join("; ", differ.Take(5)));
+            Record("gvt-commands", "INFO", $"Godot (Seat One): {end.GetValueOrDefault("answers")}");
+
+            // The server's signed record, checked with trench-cli verify (the client never reads it).
+            var matches = Path.Combine(data, "matches");
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            string? record = null;
+            while (record is null && DateTime.UtcNow < deadline)
+            {
+                record = Directory.Exists(matches) ? Directory.GetFiles(matches, "*.json").FirstOrDefault() : null;
+                if (record is null)
+                {
+                    await Task.Delay(200);
+                }
+            }
+            if (record is null)
+            {
+                Record("gvt-record-verifies-completed", "FAIL", $"no record in {matches}");
+                return;
+            }
+            var verify = await Run("gvt-verify", "dotnet", [cliDll, "verify", record, "--key", Path.Combine(data, "keys", "signing.pub")], 120);
+            var verdict = verify.Output.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? "";
+            Record("gvt-record-verifies-completed", verify.Exit == 0 && verdict.StartsWith("Completed: ") ? "PASS" : "FAIL",
+                $"trench-cli verify {Path.GetFileName(record)} --key signing.pub: exit {verify.Exit}: {verify.Output.Trim().Replace('\n', ' ')}");
+            var finalHash = Regex.Match(verify.Output, @"Final hash ([0-9a-f]{64}): hash matches\.");
+            Record("gvt-record-hash-matches", finalHash.Success && finalHash.Groups[1].Value == hashGodot && hashGodot == hashCli ? "PASS" : "FAIL",
+                $"record: {(finalHash.Success ? finalHash.Groups[1].Value : "none")} || Godot: {hashGodot} || trench-cli: {hashCli}");
+            using (var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(record)))
+            {
+                var count = json.RootElement.GetProperty("body").GetProperty("events").GetArrayLength().ToString();
+                Record("gvt-record-event-count-matches", count == eventsGodot && count == eventsCli ? "PASS" : "FAIL",
+                    $"record: {count} events || Godot: {eventsGodot} || trench-cli: {eventsCli}");
+            }
+            var said = Regex.Match(verdict, @"^Completed: Completed: (?:Seat (One|Two) won|a draw) \((\w+)\)\.$");
+            var seen = Regex.Match(ended, @"MATCH ENDED: (?:(One|Two) wins|draw) \((\w+)\)\.$");
+            Record("gvt-record-outcome-matches", said.Success && seen.Success && said.Groups[1].Value == seen.Groups[1].Value && said.Groups[2].Value == seen.Groups[2].Value ? "PASS" : "FAIL",
+                $"record: {verdict} || clients: {ended}");
+            Record("gvt-run-time", "INFO", $"{(DateTime.UtcNow - started).TotalSeconds:0} s from the server start to the record check");
+        }
+        catch (Exception e)
+        {
+            Record("gvt-runner", "FAIL", $"{e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            foreach (var process in processes)
+            {
+                process.Kill();
+            }
+            var log = Path.Combine(gvt, "gvt-a.log");
+            if (File.Exists(log))
+            {
+                foreach (var line in ReadShared(log))
+                {
+                    var check = Regex.Match(line, @"CHECK (\S+) (PASS|FAIL) ?(.*)$");
+                    if (check.Success)
+                    {
+                        Record($"gvt-a: {check.Groups[1].Value}", check.Groups[2].Value, check.Groups[3].Value);
+                    }
+                    else if (line.Contains("WAIT") && line.Contains("timed out"))
+                    {
+                        Record("gvt-a: wait", "INFO", line[13..]);
+                    }
+                }
+            }
+            var errors = EngineErrors(processes.Where(p => p.Name == "godot-gvt-a").SelectMany(p => p.Lines).ToList());
+            Record("godot-gvt-a: engine errors", errors.Count == 0 ? "PASS" : "FAIL", errors.Count == 0 ? "none in the output" : string.Join(" | ", errors.Take(5)));
+            var left = ServersUsing(data);
+            Record("gvt-no-server-left", left.Count == 0 ? "PASS" : "FAIL", left.Count == 0 ? "no Match.Server process uses this match's data folder" : string.Join("; ", left));
+        }
     }
 
     private static async Task PvpMatch(string godot)
