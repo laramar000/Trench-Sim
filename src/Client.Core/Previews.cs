@@ -436,6 +436,84 @@ public static class Previews
             : null;
     }
 
+    // ---- which actions to offer (the action bar) ----
+
+    // Whether the acting model can take this kind of action at all now, before a path or a target is chosen: the same
+    // checks the previews make (and so the server), in the same words. For Shoot, Charge and Fight that means at least
+    // one enemy on the table the preview would accept; the refusal is then the nearest enemy's. Advisory only: it
+    // decides which buttons the action bar shows, never what the server accepts.
+    public static Rejection? ActionOpen(MatchState state, Seat seat, ModelId model, PreviewKind kind)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (Opening(state) is { } closed)
+        {
+            return closed;
+        }
+        if (Acting(state, seat, model, out var acting) is { } rejection)
+        {
+            return rejection;
+        }
+        switch (kind)
+        {
+            case PreviewKind.Move:
+                if (state.Actions.HasFlag(ActionsTaken.Move))
+                {
+                    return new(ReasonCode.ActionAlreadyTaken, "A Move ACTION can be taken only once per activation.", RefActions);
+                }
+                return (state.Actions & (ActionsTaken.Charge | ActionsTaken.Retreat)) != 0 ? new(ReasonCode.ActionAlreadyTaken, OneOfThree, RefActions) : null;
+            case PreviewKind.Dash:
+                return state.Actions.HasFlag(ActionsTaken.Dash) ? new(ReasonCode.ActionAlreadyTaken, "A Dash ACTION can be taken only once per activation.", RefActions) : null;
+            case PreviewKind.Retreat:
+                if ((state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) != 0)
+                {
+                    return new(ReasonCode.ActionAlreadyTaken, OneOfThree, RefActions);
+                }
+                return IsEngaged(state, acting!) ? null : new(ReasonCode.NotEngaged, "Only a model within 1\" of an enemy can Retreat.", RefRetreat);
+            case PreviewKind.Shoot or PreviewKind.Charge or PreviewKind.Fight:
+                Rejection? nearest = null;
+                foreach (var enemy in EnemiesByDistance(state, acting!))
+                {
+                    if (Target(state, seat, kind, model, enemy.Id).Refusal is not { } refusal)
+                    {
+                        return null;
+                    }
+                    nearest ??= refusal;
+                }
+                return nearest ?? new(ReasonCode.TargetNotOnTable, "No enemy model is on the battlefield.", RefAttack);
+            default:
+                throw new ArgumentOutOfRangeException(nameof(kind), "Move, Dash, Retreat, Shoot, Charge or Fight.");
+        }
+    }
+
+    // How far the acting model may move in a Move, Dash or Retreat (inches), to draw its reach; null when it cannot act.
+    public static double? Reach(MatchState state, Seat seat, ModelId model)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return Opening(state) is null && Acting(state, seat, model, out var acting) is null ? TableRect.Inches(Allowance(state, acting!)) : null;
+    }
+
+    // Enemy models on the table that are not Out of Action, nearest first (the order targets are offered in).
+    public static IReadOnlyList<ModelState> EnemiesByDistance(MatchState state, ModelState from)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(from);
+        if (from.Position is not { } at)
+        {
+            return [];
+        }
+        return [.. OnTable(state)
+            .Where(m => m.Seat != from.Seat && m.Status != ModelStatus.OutOfAction)
+            .OrderBy(m => Squared(at, m.Position!.Value))
+            .ThenBy(m => m.Id.Value, StringComparer.Ordinal)];
+    }
+
+    private static double Squared(Point2 a, Point2 b)
+    {
+        var dx = TableRect.Inches(a.X) - TableRect.Inches(b.X);
+        var dy = TableRect.Inches(a.Y) - TableRect.Inches(b.Y);
+        return dx * dx + dy * dy;
+    }
+
     // ---- shared checks ----
 
     // What the server refuses before it looks at the command itself: no match, an ended match, a pending decision.

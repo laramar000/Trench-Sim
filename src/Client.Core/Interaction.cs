@@ -1,3 +1,5 @@
+using Match.Protocol;
+using Rules.Core;
 using Rules.Core.Commands;
 using Rules.Core.Geometry;
 using Rules.Core.State;
@@ -19,6 +21,41 @@ public enum InteractionMode
     Shoot,
     Charge,
     Fight,
+}
+
+// What a button of the battlefield's action bar does.
+public enum BarKind
+{
+    // Starts choosing an action (Mode): Move, Shoot, Place ...
+    Start,
+
+    // Sends ActivateModel for the selected model.
+    Activate,
+
+    // Sends EndActivation.
+    EndActivation,
+
+    // Sends the previewed command (the same as Space).
+    Confirm,
+
+    // Removes the last waypoint.
+    Undo,
+
+    // Stops choosing (Esc, right-click).
+    Cancel,
+
+    // A command is on its way; nothing to press.
+    Waiting,
+}
+
+// One button of the action bar: a short label, a tooltip that says what it does (and its optional key), and the command
+// it sends for Activate and End activation (the rules' own legal command, which the server still decides).
+public sealed record BarItem(BarKind Kind, string Label, string Tip, bool Enabled = true, InteractionMode Mode = InteractionMode.None, Command? Command = null);
+
+// The bar next to a model (Anchor; none while placing): only the choices that make sense now.
+public sealed record ActionBar(ModelId? Anchor, IReadOnlyList<BarItem> Items)
+{
+    public static readonly ActionBar Empty = new(null, []);
 }
 
 public sealed class Interaction
@@ -119,6 +156,170 @@ public sealed class Interaction
             }
             return [];
         }
+    }
+
+    // The actions worth offering as buttons now: those of Available that the preview checks say the acting model can
+    // take at all (Previews.ActionOpen: not already taken, a target in reach, engaged for a Retreat). Advisory, like every
+    // preview: the keys still start any Available action, and the server decides every command.
+    public IReadOnlyList<InteractionMode> Offered
+    {
+        get
+        {
+            var available = Available;
+            if (_seat is not { } seat || _state.ActiveModel is not { } actor || available.Count == 0 || available[0] == InteractionMode.Place)
+            {
+                return available;
+            }
+            return [.. available.Where(mode => Previews.ActionOpen(_state, seat, actor, Kind(mode)) is null)];
+        }
+    }
+
+    // Why an action is not offered now, in the rules' words; null when it is offered (or not an action of this moment).
+    public string? WhyNot(InteractionMode mode) =>
+        _seat is { } seat && _state.ActiveModel is { } actor && Available.Contains(mode) && mode != InteractionMode.Place
+            ? Previews.ActionOpen(_state, seat, actor, Kind(mode))?.Text
+            : null;
+
+    // How far the action being chosen can still take the acting model, in inches (drawn as a ring); null when none.
+    public double? Reach() => _seat is { } s && Actor is { } a ? Previews.Reach(_state, s, a) : null;
+
+    // The action bar for the model the player selected (or the activating one): only what can be done now. While an
+    // action is being chosen it holds that action's send, undo and cancel buttons; while a command is on its way, only
+    // a note that it is waiting.
+    public ActionBar Bar(ModelId? selected)
+    {
+        if (_seat is not { } seat || _state.Phase is Phase.None or Phase.Ended || _state.Setup?.Scenario is null)
+        {
+            return ActionBar.Empty;
+        }
+        if (Pending is not null)
+        {
+            return new(Actor ?? _state.ActiveModel, [new BarItem(BarKind.Waiting, "Waiting for the server…", "The command was sent; the server's answer comes next.", Enabled: false)]);
+        }
+        if (Mode != InteractionMode.None)
+        {
+            var items = new List<BarItem>
+            {
+                new(BarKind.Confirm, ConfirmLabel(Mode), Preview is { Legal: false }
+                    ? "The preview says the server would refuse this (see the battlefield). Click twice to send it anyway; the server decides."
+                    : $"Send it. The server decides. ({(IsPath ? "Or click the last point again" : IsTarget ? "Or click the target again" : "Or click the same spot again")}; key Space.)",
+                    Enabled: Preview is not null, Mode: Mode),
+            };
+            if (IsPath && _waypoints.Count > 0)
+            {
+                items.Add(new(BarKind.Undo, "Undo point", "Remove the last point of the path (key Backspace).", Mode: Mode));
+            }
+            items.Add(new(BarKind.Cancel, "Cancel", "Stop choosing this action; nothing is sent (Esc or right-click).", Mode: Mode));
+            return new(Mode == InteractionMode.Place ? null : Actor, items);
+        }
+        var offered = Offered;
+        if (offered.Count == 1 && offered[0] == InteractionMode.Place)
+        {
+            return new(null, [new(BarKind.Start, "Place a model", Tip(InteractionMode.Place), Mode: InteractionMode.Place)]);
+        }
+        var legal = _state.Pending is null ? TurnSequence.LegalCommands(_state).Where(c => CommandSeats.Of(c) == seat).ToList() : [];
+        if (_state.Phase == Phase.Activation && _state.ActiveModel is { } active && _state.FindModel(active)?.Seat == seat)
+        {
+            var items = offered.Select(m => new BarItem(BarKind.Start, Words(m), Tip(m), Mode: m)).ToList();
+            if (legal.OfType<EndActivation>().FirstOrDefault() is { } end)
+            {
+                items.Add(new(BarKind.EndActivation, "End activation", "Finish this model's activation; then the next activation begins.", Command: end));
+            }
+            return items.Count == 0 ? ActionBar.Empty : new(active, items);
+        }
+        if (selected is { } chosen && legal.OfType<ActivateModel>().FirstOrDefault(a => a.Model == chosen) is { } activate)
+        {
+            return new(chosen, [new(BarKind.Activate, "Activate", "Start this model's activation, then choose its actions (key A).", Command: activate)]);
+        }
+        return ActionBar.Empty;
+    }
+
+    // Target modes: every enemy that could be chosen, and whether the preview would accept it (null) or why not.
+    public IReadOnlyList<(ModelId Model, Rejection? Refusal)> TargetVerdicts()
+    {
+        if (!IsTarget || _seat is not { } seat || Actor is not { } actor)
+        {
+            return [];
+        }
+        if (_verdicts is null || _verdictsVersion != Version)
+        {
+            _verdicts = [.. Targets().Select(t => (t, Previews.Target(_state, seat, Kind(Mode), actor, t).Refusal))];
+            _verdictsVersion = Version;
+        }
+        return _verdicts;
+    }
+
+    private List<(ModelId, Rejection?)>? _verdicts;
+    private long _verdictsVersion = -1;
+
+    // A click on the table while placing or choosing a path: the first click marks the point (a waypoint on a path), a
+    // second click on the same point asks to send. Returns true for that second click; the caller then confirms, which
+    // still asks twice when the preview says the server would refuse.
+    public bool ClickAt(double x, double y)
+    {
+        if (Pending is not null || !UsesCursor)
+        {
+            return false;
+        }
+        var near = IsPath ? (_waypoints.Count > 0 ? _waypoints[^1] : (TablePoint?)null) : _marked;
+        if (near is { } point && Math.Abs(point.X - x) <= SameSpot && Math.Abs(point.Y - y) <= SameSpot)
+        {
+            return true;
+        }
+        SetCursor(x, y);
+        if (IsPath)
+        {
+            AddPoint();
+        }
+        else
+        {
+            _marked = Cursor;
+        }
+        return false;
+    }
+
+    // How close (inches) a second click must be to count as the same spot.
+    public const double SameSpot = 0.3;
+
+    private TablePoint? _marked;
+
+    private static string ConfirmLabel(InteractionMode mode) => mode switch
+    {
+        InteractionMode.Place => "Place here",
+        InteractionMode.Move => "Move here",
+        InteractionMode.Dash => "Dash here",
+        InteractionMode.Retreat => "Retreat here",
+        InteractionMode.Shoot => "Shoot target",
+        InteractionMode.Charge => "Charge target",
+        _ => "Fight target",
+    };
+
+    // What each action does, in a line, with its optional key.
+    public static string Tip(InteractionMode mode) => mode switch
+    {
+        InteractionMode.Place => "Place your next model in your deployment zone: click a spot, then click it again (key L).",
+        InteractionMode.Move => "Move up to the model's Movement: click points on the battlefield, then click the last one again (key M).",
+        InteractionMode.Dash => "Move again with a Risky roll that decides whether it works: click where to go, then click there again (key D).",
+        InteractionMode.Retreat => "Leave melee: end more than 1\" from every enemy; enemies within 1\" may attack first (key R).",
+        InteractionMode.Shoot => "Shoot an enemy in range and in sight: click a target, then click it again (key S).",
+        InteractionMode.Charge => "Charge an enemy within 12\" into melee; a D6 adds reach: click a target, then click it again (key C).",
+        InteractionMode.Fight => "Attack an enemy within 1\": click a target, then click it again (key X).",
+        _ => "",
+    };
+
+    // Sends a command the rules offer outright (Activate, End activation), as its hint button does: once, answered by the
+    // server.
+    public async Task<Feedback?> SendCommandAsync(Command command, string label)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        if (Pending is not null)
+        {
+            Notice = WaitingNotice;
+            Changed();
+            return null;
+        }
+        Clear();
+        return await SendNow(command, label);
     }
 
     public bool Start(InteractionMode mode)
@@ -421,9 +622,12 @@ public sealed class Interaction
         if (Mode == InteractionMode.None)
         {
             var available = Available;
+            var offered = Offered;
             lines.Add(available.Count == 0
                 ? "No action to preview right now."
-                : $"Preview an action: {string.Join(", ", available.Select(m => $"{Key(m)} {Words(m)}"))}.");
+                : offered.Count == 0
+                    ? "No action is open to this model now; end its activation."
+                    : $"Choose an action on the battlefield's bar: {string.Join(", ", offered.Select(Words))} (keys {string.Join(", ", offered.Select(Key))} also work).");
         }
         else
         {
@@ -475,9 +679,9 @@ public sealed class Interaction
 
     private string Help() => Mode switch
     {
-        InteractionMode.Place => "Arrows move the cursor (half an inch, 2\" with Shift), N and P choose the model, Enter or Space sends it, Esc cancels.",
-        _ when IsPath => "Arrows move the cursor (half an inch, 2\" with Shift), Enter fixes a waypoint, Backspace removes one, Space sends it, Esc cancels.",
-        _ => "N and P choose the target (or click it), Enter or Space sends it, Esc cancels.",
+        InteractionMode.Place => "Click a spot, then click it again to place. Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), N and P choose the model, Space sends.",
+        _ when IsPath => "Click points on the battlefield, then click the last one again to go. Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), Enter fixes a point, Backspace removes one, Space sends.",
+        _ => "Click a target (valid ones are marked), then click it again. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
     };
 
     private Preview? Compute()
@@ -553,6 +757,7 @@ public sealed class Interaction
         _armed = false;
         Notice = null;
         Answer = null;
+        _marked = null;
         _waypoints.Clear();
     }
 
