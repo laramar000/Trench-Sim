@@ -276,11 +276,15 @@ public partial class UiCheck : Node
         // On a fast machine trench-cli can finish the opponent's activations of this turn before the host takes its seat
         // back; then the turn is scored with no opponent event to see, so play on into the next turn until one arrives.
         var deadline = Time.GetTicksMsec() + 240_000;
-        while (Time.GetTicksMsec() < deadline && !(TurnScoredSinceStart() && (liveEvents > 0 || MatchEnded())) && presses < 60)
+        // The previews also need one fresh activation of the host's (see below), so play on until it has had one.
+        while (Time.GetTicksMsec() < deadline && !(TurnScoredSinceStart() && (liveEvents > 0 || MatchEnded()) && (previewsChecked || MatchEnded())) && presses < 60)
         {
             var before = Lines(LogText()).Count;
+            // The previews need an activation that has done nothing yet: when the host takes its seat back in the middle
+            // of an activation trench-cli started (it already moved or shot), they wait for the host's next activation.
             if (!previewsChecked && Hint() is not null && Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } board
-                && board.Interaction.Available.Contains(InteractionMode.Move))
+                && board.Interaction.Available.Contains(InteractionMode.Move)
+                && Section("MATCH").Contains("is activating. Done so far: nothing yet", StringComparison.Ordinal))
             {
                 previewsChecked = true;
                 await ActionPreviewChecks(board);
