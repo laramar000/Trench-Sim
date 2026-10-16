@@ -473,6 +473,7 @@ public partial class UiCheck : Node
             return;
         }
         var interaction = board.Interaction;
+        await ParkMouse(board);
         await KeyPress(Key.L);
         var preview = interaction.Preview;
         Check("board-place-preview", interaction.Mode == InteractionMode.Place && preview is { Legal: true } && OverlayHas(board, $"PLACE LOOKS LEGAL ({Preview.Caveat})")
@@ -514,6 +515,7 @@ public partial class UiCheck : Node
             $"mode {interaction.Mode}; {board.OverlayTexts.Count} preview labels left");
 
         // Confirmed twice, it is sent anyway, and the server's refusal is shown (the server decides, not the preview).
+        await ParkMouse(board);
         await KeyPress(Key.L);
         steps = 0;
         while (steps < 14 && interaction.Preview is { Legal: true })
@@ -531,6 +533,7 @@ public partial class UiCheck : Node
         await Shot($"{_role}-place-refused-by-server");
 
         // Back to the zone centre: one confirmation sends the legal placement once, and the server's events place it.
+        await ParkMouse(board);
         for (var i = 0; i < steps; i++)
         {
             await KeyPress(back, shift: true);
@@ -564,6 +567,7 @@ public partial class UiCheck : Node
             Check("board-move-preview", false, $"Tab never reached the battlefield; focus on {Describe(Focused())}");
             return;
         }
+        await ParkMouse(board);
         await KeyPress(Key.M);
         var actor = scene.Find(interaction.Actor);
         var startOk = actor is not null && Near(interaction.Cursor, actor.X, actor.Y);
@@ -600,6 +604,7 @@ public partial class UiCheck : Node
         }
         Check("board-mouse-path", removed && hovered && clickedPoint, $"Backspace removed the waypoint: {removed}; hover moved the cursor to {interaction.Cursor} (wanted ({hoverAt.X:0.0}, {hoverAt.Y:0.0})): {hovered}; click fixed a waypoint: {clickedPoint}");
         await KeyPress(Key.Escape);
+        await ParkMouse(board);
 
         // Shoot: the rules' own sight rays, distance and cover, on the battlefield and in the text.
         await KeyPress(Key.S);
@@ -672,6 +677,7 @@ public partial class UiCheck : Node
             tries.Add((key, 16, true));
         }
         tries.AddRange(new[] { (Key.Right, 2, false), (Key.Left, 2, false), (Key.Up, 2, false), (Key.Down, 2, false), (Key.Right, 4, false), (Key.Left, 4, false), (Key.Up, 4, false), (Key.Down, 4, false) });
+        await ParkMouse(board);
         foreach (var (key, presses, furthest) in tries)
         {
             await KeyPress(Key.M);
@@ -718,6 +724,7 @@ public partial class UiCheck : Node
     private async Task<bool> SendFirstLegalTarget(BoardView board, Key action, string id)
     {
         var interaction = board.Interaction;
+        await ParkMouse(board);
         await KeyPress(action);
         var count = interaction.Targets().Count;
         for (var i = 0; i < count && interaction.Preview is not { Legal: true }; i++)
@@ -1030,6 +1037,7 @@ public partial class UiCheck : Node
         {
             return false;
         }
+        await ParkMouse(board);
         await KeyPress(Key.L);
         Key[] turns = [Key.Right, Key.Down, Key.Left, Key.Up];
         for (var leg = 0; leg < 24 && interaction.Preview is not { Legal: true }; leg++)
@@ -1244,6 +1252,18 @@ public partial class UiCheck : Node
     };
 
     // ---- waiting, reporting ----
+
+    // The real mouse pointer may rest over the window, and moving it there moves the battlefield's cursor (hover). The
+    // keyboard checks park it off the battlefield first, so only their keys move the cursor.
+    private async Task ParkMouse(BoardView board)
+    {
+        var rect = board.GetGlobalRect();
+        var size = GetViewport().GetVisibleRect().Size;
+        var spot = new[] { new Vector2(2, 2), new Vector2(size.X - 2, 2), new Vector2(2, size.Y - 2), new Vector2(size.X - 2, size.Y - 2) }
+            .FirstOrDefault(p => !rect.HasPoint(p), new Vector2(-50, -50));
+        Input.WarpMouse(spot);
+        await Frames(3);
+    }
 
     private async Task Frames(int count)
     {
