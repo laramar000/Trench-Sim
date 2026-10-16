@@ -1,5 +1,6 @@
-# Checks the UI check runner reports (145): the 93 of M7.3 (Linux run of 3ba61db), 12 battlefield checks of M7.4 stage 4a, 11 preview checks of stage 4b,
-# 7 sending checks of stage 4c, 15 single-player (hot-seat) checks and 7 match-result checks of M7.5 stage 5a. Lines marked "optional" (board-send-shoot, board-send-charge, board-send-fight) are reported only when the
+# Checks the UI check runner reports (182): the 93 of M7.3 (Linux run of 3ba61db), 12 battlefield checks of M7.4 stage 4a, 11 preview checks of stage 4b,
+# 7 sending checks of stage 4c, 15 single-player (hot-seat) checks, 7 match-result checks of M7.5 stage 5a and 37 checks of stage 5b (two Godot clients play a
+# whole melee match, one is killed and rejoins, and the signed record is checked with trench-cli verify). Lines marked "optional" (board-send-shoot, board-send-charge, board-send-fight) are reported only when the
 # match offers a legal target at that moment; otherwise Run-WindowsUiCheck.ps1 lists them as NOT TESTED without making the run incomplete (the
 # Client.Core tests send every action through a real server). Any other check a run did not report makes the verdict INCOMPLETE. One check id per line, as in the runner's summary.md.
 # "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide, and the
@@ -149,3 +150,40 @@ hotseat: hotseat-f2-switches
 hotseat: hotseat-f2-kept
 hotseat: hotseat-leave-enter
 hotseat: hotseat-server-stopped
+pvp-b-hard-killed
+pvp-a-exit
+pvp-b-rejoin-exit
+pvp-both-same-final-hash
+pvp-both-same-event-count
+pvp-both-same-events
+pvp-both-agree-on-outcome
+pvp-no-events-lost-or-repeated-across-kill
+pvp-record-verifies-completed
+pvp-record-hash-matches-both-clients
+pvp-record-event-count-matches-both-clients
+pvp-record-outcome-matches
+pvp-a: pvp-type-server
+pvp-a: pvp-choose-scenario
+pvp-a: pvp-create-enter
+pvp-a: pvp-create
+pvp-a: pvp-refused-mid-match
+pvp-a: pvp-opponent-drop-pauses
+pvp-a: pvp-match-completed
+pvp-a: pvp-nothing-to-send
+pvp-b: pvp-type-server
+pvp-b: pvp-type-code
+pvp-b: pvp-join-enter
+pvp-b: pvp-join
+pvp-b-rejoin: pvp-type-server
+pvp-b-rejoin: pvp-refresh-enter
+pvp-b-rejoin: pvp-saved-seat-listed
+pvp-b-rejoin: pvp-rejoin-saved-enter
+pvp-b-rejoin: pvp-rejoin-same-seat
+pvp-b-rejoin: pvp-rejoin-caught-up
+pvp-b-rejoin: pvp-plays-on-after-rejoin
+pvp-b-rejoin: pvp-match-completed
+pvp-b-rejoin: pvp-nothing-to-send
+godot-pvp-a: engine errors
+godot-pvp-b: engine errors
+godot-pvp-b-rejoin: engine errors
+pvp-no-server-left

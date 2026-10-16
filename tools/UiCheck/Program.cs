@@ -83,6 +83,146 @@ public static class Program
 
         // 4. Single player (hot-seat): one Godot window starts its own local server and plays both seats.
         await HotSeat(godot);
+
+        // 5. M7.5 stage 5b: two Godot clients play a whole melee match, one is killed and rejoins, and the signed record
+        // is checked with trench-cli verify.
+        await PvpMatch(godot);
+    }
+
+    private static async Task PvpMatch(string godot)
+    {
+        var pvp = Path.Combine(_out, "pvp");
+        Directory.CreateDirectory(pvp);
+        var serverDll = Path.Combine(_repo, "src", "Match.Server", "bin", "Debug", "net10.0", "Match.Server.dll");
+        var cliDll = Path.Combine(_repo, "src", "Match.Cli", "bin", "Debug", "net10.0", "trench-cli.dll");
+        var port = FreePort();
+        var data = Path.Combine(_out, "pvp-server-data");
+        var url = $"ws://127.0.0.1:{port}/match";
+        var homeB = Path.Combine(_out, "home-pvp-b");
+        var started = DateTime.UtcNow;
+        var server = Start("pvp-server", "dotnet", [serverDll, "--port", port.ToString(), "--data", data], null);
+        var processes = new List<Child> { server };
+        try
+        {
+            await server.WaitFor(l => l.Contains("Listening on"), 60, "server start");
+            var a = Start("godot-pvp-a", godot, GodotArgs("pvp-a", pvp, url, null, "melee"), Path.Combine(_out, "home-pvp-a"));
+            processes.Add(a);
+            var code = await Mark(pvp, "pvp-a", "code", 120);
+            var b = Start("godot-pvp-b", godot, GodotArgs("pvp-b", pvp, url, code), homeB);
+            processes.Add(b);
+
+            // A hard kill (the whole process tree, no clean close) at the start of turn 2, whatever the client is doing.
+            var seen = await Mark(pvp, "pvp-b", "turn-2", 900);
+            b.Kill();
+            Record("pvp-b-hard-killed", b.Process.HasExited && !ReadShared(Path.Combine(pvp, "pvp-b.log")).Any(l => l.Contains("MARK finished")) ? "PASS" : "FAIL",
+                $"second Godot client killed at the start of turn 2 with {seen} events on its screen (exit code {b.ExitCode}; it never finished on its own)");
+            await Mark(pvp, "pvp-a", "saw-pause", 60);
+            var rejoin = Start("godot-pvp-b-rejoin", godot, GodotArgs("pvp-b-rejoin", pvp, url, code), homeB);
+            processes.Add(rejoin);
+            Record("pvp-a-exit", await a.Exit(1600) == 0 ? "PASS" : "FAIL", $"first Godot client exit code {a.ExitCode} (0 = all its checks passed)");
+            Record("pvp-b-rejoin-exit", await rejoin.Exit(120) == 0 ? "PASS" : "FAIL", $"rejoined Godot client exit code {rejoin.ExitCode}");
+
+            // Both windows show the same end of the same match.
+            var endA = Dumps(pvp, "pvp-a", "pvp-end");
+            var endB = Dumps(pvp, "pvp-b-rejoin", "pvp-end");
+            var hashA = endA.GetValueOrDefault("final_hash", "");
+            var hashB = endB.GetValueOrDefault("final_hash", "");
+            var logA = endA.GetValueOrDefault("log", "");
+            var logB = endB.GetValueOrDefault("log", "");
+            Record("pvp-both-same-final-hash", hashA.Length == 64 && hashA == hashB ? "PASS" : "FAIL", $"Seat One: {hashA} || Seat Two: {hashB}");
+            Record("pvp-both-same-event-count", endA.GetValueOrDefault("events") is { } eventsA && int.TryParse(eventsA, out var countA) && countA > 0 && eventsA == endB.GetValueOrDefault("events") ? "PASS" : "FAIL",
+                $"Seat One: {endA.GetValueOrDefault("events")} || Seat Two: {endB.GetValueOrDefault("events")}");
+            Record("pvp-both-same-events", logA.Length > 0 && logA == logB ? "PASS" : "FAIL", $"{logA.Split('|').Length} event lines on Seat One, {logB.Split('|').Length} on Seat Two");
+            var ended = endA.GetValueOrDefault("ended", "");
+            var resultA = endA.GetValueOrDefault("result", "");
+            var resultB = endB.GetValueOrDefault("result", "");
+            var agree = ended.Contains("draw") ? resultA.StartsWith("Draw") && resultB.StartsWith("Draw")
+                : ended.Contains("One wins") ? resultA.StartsWith("You won") && resultB.StartsWith("You lost")
+                : ended.Contains("Two wins") && resultA.StartsWith("You lost") && resultB.StartsWith("You won");
+            Record("pvp-both-agree-on-outcome", ended.Length > 0 && ended == endB.GetValueOrDefault("ended") && agree ? "PASS" : "FAIL", $"{ended} || Seat One: {resultA} || Seat Two: {resultB}");
+            // Nothing seen before the kill was lost or changed, and nothing came twice: the events the rejoined client
+            // caught up on start with exactly what the killed one showed (each list numbers its events consecutively).
+            var beforeKill = Dumps(pvp, "pvp-b", "before-kill").GetValueOrDefault("log", "");
+            var rejoined = Dumps(pvp, "pvp-b-rejoin", "rejoined").GetValueOrDefault("log", "");
+            Record("pvp-no-events-lost-or-repeated-across-kill", beforeKill.Length > 0 && (rejoined == beforeKill || rejoined.StartsWith(beforeKill + "|", StringComparison.Ordinal)) ? "PASS" : "FAIL",
+                $"the {beforeKill.Split('|').Length} events shown before the kill are the first of the {rejoined.Split('|').Length} shown after rejoining");
+            Record("pvp-commands", "INFO", $"Seat One: {endA.GetValueOrDefault("answers")} || Seat Two after rejoining: {endB.GetValueOrDefault("answers")}");
+
+            // The server's signed record, checked with trench-cli verify (the client never reads it).
+            var matches = Path.Combine(data, "matches");
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            string? record = null;
+            while (record is null && DateTime.UtcNow < deadline)
+            {
+                record = Directory.Exists(matches) ? Directory.GetFiles(matches, "*.json").FirstOrDefault() : null;
+                if (record is null)
+                {
+                    await Task.Delay(200);
+                }
+            }
+            if (record is null)
+            {
+                Record("pvp-record-verifies-completed", "FAIL", $"no record in {matches}");
+                return;
+            }
+            var verify = await Run("pvp-verify", "dotnet", [cliDll, "verify", record, "--key", Path.Combine(data, "keys", "signing.pub")], 120);
+            var verdict = verify.Output.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? "";
+            Record("pvp-record-verifies-completed", verify.Exit == 0 && verdict.StartsWith("Completed: ") ? "PASS" : "FAIL",
+                $"trench-cli verify {Path.GetFileName(record)} --key signing.pub: exit {verify.Exit}: {verify.Output.Trim().Replace('\n', ' ')}");
+            var finalHash = Regex.Match(verify.Output, @"Final hash ([0-9a-f]{64}): hash matches\.");
+            Record("pvp-record-hash-matches-both-clients", finalHash.Success && finalHash.Groups[1].Value == hashA && hashA == hashB ? "PASS" : "FAIL",
+                $"record: {(finalHash.Success ? finalHash.Groups[1].Value : "none")} || Seat One: {hashA} || Seat Two: {hashB}");
+            using (var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(record)))
+            {
+                var body = json.RootElement.GetProperty("body");
+                var count = body.GetProperty("events").GetArrayLength();
+                Record("pvp-record-event-count-matches-both-clients", count.ToString() == endA.GetValueOrDefault("events") && count.ToString() == endB.GetValueOrDefault("events") ? "PASS" : "FAIL",
+                    $"record: {count} events || Seat One: {endA.GetValueOrDefault("events")} || Seat Two: {endB.GetValueOrDefault("events")}");
+            }
+            // "Completed: Seat One won (Reason)." and "MATCH ENDED: One wins (Reason)." name the same result.
+            var said = Regex.Match(verdict, @"^Completed: Completed: (?:Seat (One|Two) won|a draw) \((\w+)\)\.$");
+            var shown = Regex.Match(ended, @"MATCH ENDED: (?:(One|Two) wins|draw) \((\w+)\)\.$");
+            Record("pvp-record-outcome-matches", said.Success && shown.Success && said.Groups[1].Value == shown.Groups[1].Value && said.Groups[2].Value == shown.Groups[2].Value ? "PASS" : "FAIL",
+                $"record: {verdict} || clients: {ended}");
+            Record("pvp-run-time", "INFO", $"{(DateTime.UtcNow - started).TotalSeconds:0} s from the server start to the record check");
+        }
+        catch (Exception e)
+        {
+            Record("pvp-runner", "FAIL", $"{e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            foreach (var process in processes)
+            {
+                process.Kill();
+            }
+            foreach (var role in new[] { "pvp-a", "pvp-b", "pvp-b-rejoin" })
+            {
+                var log = Path.Combine(pvp, $"{role}.log");
+                if (File.Exists(log))
+                {
+                    foreach (var line in ReadShared(log))
+                    {
+                        var check = Regex.Match(line, @"CHECK (\S+) (PASS|FAIL) ?(.*)$");
+                        if (check.Success)
+                        {
+                            Record($"{role}: {check.Groups[1].Value}", check.Groups[2].Value, check.Groups[3].Value);
+                        }
+                        else if (line.Contains("WAIT") && line.Contains("timed out"))
+                        {
+                            Record($"{role}: wait", "INFO", line[13..]);
+                        }
+                    }
+                }
+            }
+            foreach (var process in processes.Where(p => p.Name.StartsWith("godot", StringComparison.Ordinal)))
+            {
+                var errors = EngineErrors(process.Lines);
+                Record($"{process.Name}: engine errors", errors.Count == 0 ? "PASS" : "FAIL", errors.Count == 0 ? "none in the output" : string.Join(" | ", errors.Take(5)));
+            }
+            var left = ServersUsing(data);
+            Record("pvp-no-server-left", left.Count == 0 ? "PASS" : "FAIL", left.Count == 0 ? "no Match.Server process uses this match's data folder" : string.Join("; ", left));
+        }
     }
 
     private static async Task HotSeat(string godot)
@@ -321,7 +461,7 @@ public static class Program
             differ.Count == 0 ? $"all {cliEvents.Count} events trench-cli printed are in Godot with the same number and text" : string.Join("; ", differ.Take(5)));
     }
 
-    private static string[] GodotArgs(string role, string e2e, string url, string? code)
+    private static string[] GodotArgs(string role, string e2e, string url, string? code, string? scenario = null)
     {
         var args = new List<string> { "--audio-driver", "Dummy" };
         args.AddRange(_renderer);
@@ -329,6 +469,10 @@ public static class Program
         if (code is not null)
         {
             args.AddRange(["--code", code]);
+        }
+        if (scenario is not null)
+        {
+            args.AddRange(["--scenario", scenario]);
         }
         return [.. args];
     }

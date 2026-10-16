@@ -51,6 +51,15 @@ public partial class UiCheck : Node
                 case "hotseat":
                     await HotSeatPlay();
                     break;
+                case "pvp-a":
+                    await PvpCreate();
+                    break;
+                case "pvp-b":
+                    await PvpJoin();
+                    break;
+                case "pvp-b-rejoin":
+                    await PvpRejoin();
+                    break;
                 default:
                     Check("role", false, $"unknown role {_role}");
                     break;
@@ -1100,6 +1109,318 @@ public partial class UiCheck : Node
         // The battlefield's own answer: it stays when the window then follows the turn to the other seat.
         var answer = await Until(() => interaction.Pending is null && interaction.Answer is { } a ? a.Kind.ToString() : null, 20, "hotseat-placed");
         return answer == nameof(FeedbackKind.Accepted);
+    }
+
+    // ---- M7.5 stage 5b: two Godot clients play one whole melee match ----
+    //
+    // pvp-a creates the match (Seat One) and pvp-b joins it (Seat Two); both play it to the end with the keyboard. The
+    // runner hard-kills pvp-b at the start of turn 2 and starts pvp-b-rejoin in the same home folder, which rejoins from
+    // the saved seat and plays on. What they press is a fixed, test-only sequence, not a game feature and not an AI: the
+    // first hint shown; every placement found by stepping the cursor; and in each activation of its own, Fight, else
+    // Charge (then Fight), else Shoot, else a Move towards the nearest enemy, the first target or point whose preview
+    // looks legal, then the first hint again (ending the activation). The server decides everything.
+
+    private readonly Dictionary<string, int> _pvpAnswers = [];
+    private int _pvpDone;
+    private bool _pvpRefusalChecked;
+
+    private async Task PvpCreate()
+    {
+        await TypeInto(Field("ws://"), _server, "pvp-type-server");
+        await ChooseOption(Option("ranged"), _scenario, "pvp-choose-scenario");
+        await Press(ButtonNamed("Create match"), Key.Enter, "pvp-create-enter");
+        var code = await Until(() => Label("Match code ") is { } l && l.Text.Contains("Seat One [A]") ? l.Text : null, 20, "create");
+        Check("pvp-create", code is not null, code ?? "match screen with the code did not appear");
+        if (code is null)
+        {
+            return;
+        }
+        await CloseRulesDialog();
+        Mark("code", code.Split(' ')[2].TrimEnd('.'));
+        await PvpPlay();
+        await PvpEnd();
+    }
+
+    private async Task PvpJoin()
+    {
+        await TypeInto(Field("ws://"), _server, "pvp-type-server");
+        await TypeInto(Field("", placeholder: "match code"), _code ?? "", "pvp-type-code");
+        await Press(ButtonNamed("Join match"), Key.Enter, "pvp-join-enter");
+        var joined = await Until(() => Label("Match code ") is { } l && l.Text.Contains("Seat Two [B]") ? l.Text : null, 20, "join");
+        Check("pvp-join", joined is not null && joined.Contains(_code ?? "?"), joined ?? "no match screen");
+        await CloseRulesDialog();
+        // Killed by the runner during play: this role never ends on its own.
+        await PvpPlay();
+        await PvpEnd();
+    }
+
+    private async Task PvpRejoin()
+    {
+        await TypeInto(Field("ws://"), _server, "pvp-type-server");
+        await Press(ButtonNamed("Refresh saved seats"), Key.Enter, "pvp-refresh-enter");
+        var saved = await Until(() => ButtonStarting("Rejoin match "), 10, "saved");
+        Check("pvp-saved-seat-listed", saved is not null && saved.Text.Contains(_code ?? "?") && saved.Text.EndsWith("Seat Two", StringComparison.Ordinal),
+            saved?.Text ?? "no saved seat button");
+        await Press(saved, Key.Enter, "pvp-rejoin-saved-enter");
+        var joined = await Until(() => Label("Match code ") is { } l && l.Text.Contains("Seat Two [B]") ? l.Text : null, 20, "rejoin");
+        Check("pvp-rejoin-same-seat", joined is not null && joined.Contains(_code ?? "?"), joined ?? "no match screen");
+        await CloseRulesDialog();
+        // Caught up: connected, and every event from the first to the newest, once each and in order.
+        var synced = await Until(() => Banner().StartsWith("Connection: Connected", StringComparison.Ordinal) && LogText().Contains("--- Turn 2 ---", StringComparison.Ordinal)
+            && !LogText().EndsWith('…') ? "ok" : null, 30, "rejoin-synced");
+        await Frames(5);
+        var lines = Lines(LogText());
+        var (inOrder, order) = OnceEachInOrder(lines);
+        Check("pvp-rejoin-caught-up", synced is not null && inOrder, $"{Banner()} || {lines.Count} events after rejoining; {order}");
+        Write($"DUMP rejoined log={string.Join("|", lines)}");
+        var done = _pvpDone;
+        await PvpPlay();
+        Check("pvp-plays-on-after-rejoin", _pvpDone > done, $"{_pvpDone - done} commands answered DONE after rejoining");
+        await PvpEnd();
+    }
+
+    // The rules dialog opens on a client's first match; Escape closes it.
+    private async Task CloseRulesDialog()
+    {
+        await Until(() => GapsDialog()?.Visible == true ? "ok" : null, 3, "rules-dialog");
+        if (GapsDialog()?.Visible == true)
+        {
+            await KeyPress(Key.Escape);
+            await Frames(3);
+        }
+    }
+
+    private bool MatchOver() => LogText().Contains("MATCH ENDED", StringComparison.Ordinal) || Section("RESULT OF THE MATCH").Length > 0;
+
+    // "[12] One activates a2." (not "One activates first.").
+    private static bool IsActivationStart(string line) =>
+        (line.Contains("] One activates ", StringComparison.Ordinal) || line.Contains("] Two activates ", StringComparison.Ordinal)) && !line.EndsWith(" activates first.", StringComparison.Ordinal);
+
+    // Consecutive event numbers with none missing and none twice, ending at the newest. The screen lists the newest
+    // 200 events (MatchControllerOptions.LogLines), so a longer match starts its list later than event 1.
+    private static (bool Pass, string Detail) OnceEachInOrder(List<string> lines)
+    {
+        static int Seq(string line) => line.IndexOf(']') is > 1 and var close && int.TryParse(line[1..close], out var seq) ? seq : -1;
+        var first = lines.Count == 0 ? -1 : Seq(lines[0]);
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (Seq(lines[i]) != first + i)
+            {
+                return (false, $"line {i + 1} is {lines[i]}");
+            }
+        }
+        return (lines.Count > 0 && (first == 1 || lines.Count == 200), $"events {first} to {first + lines.Count - 1}, each once and in order");
+    }
+
+    private void Answer(string action, string answer)
+    {
+        var kind = answer.Split(':')[0];
+        _pvpAnswers[$"{action} {kind}"] = _pvpAnswers.GetValueOrDefault($"{action} {kind}") + 1;
+        if (kind == "DONE")
+        {
+            _pvpDone++;
+        }
+    }
+
+    // The answer to a command just sent: a new LAST COMMAND text, or new events once nothing is waiting (an accepted
+    // command always adds events, and its DONE text can equal the previous one).
+    private async Task<string> AnswerAfter(string before, int events) =>
+        await Until(() => Section("LAST COMMAND") is var now && !now.StartsWith("SENT:", StringComparison.Ordinal) && (now != before || Lines(LogText()).Count > events) ? now : null, 20, "pvp-answer")
+        ?? Section("LAST COMMAND");
+
+    private async Task PvpPlay()
+    {
+        var deadline = Time.GetTicksMsec() + 1_500_000;
+        var tried = new HashSet<int>();
+        var turnTwo = false;
+        var pauseSeen = false;
+        var placeFailures = 0;
+        while (Time.GetTicksMsec() < deadline && !MatchOver())
+        {
+            if (_role == "pvp-b" && !turnTwo && LogText().Contains("--- Turn 2 ---", StringComparison.Ordinal))
+            {
+                // The runner kills this process now, whatever it is doing; what it has seen so far must survive.
+                turnTwo = true;
+                var seen = Lines(LogText());
+                Write($"DUMP before-kill log={string.Join("|", seen)}");
+                Mark("turn-2", seen.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            if (_role == "pvp-a" && !pauseSeen && Banner().Contains("paused", StringComparison.OrdinalIgnoreCase))
+            {
+                pauseSeen = true;
+                await Frames(3);
+                Check("pvp-opponent-drop-pauses", Banner().Contains("paused", StringComparison.OrdinalIgnoreCase) && Hint() is null,
+                    $"{Banner()} || actions: {Section("YOUR ACTIONS").Replace('\n', '|')}");
+                Mark("saw-pause");
+                continue;
+            }
+            var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+            var hint = Hint();
+            if (board is not null && board.Interaction.Available.Contains(InteractionMode.Place) && board.Interaction.Pending is null
+                && Banner().StartsWith("Connection: Connected", StringComparison.Ordinal) && !Banner().Contains("paused", StringComparison.OrdinalIgnoreCase))
+            {
+                var placed = await PlaceSomewhere(board);
+                Answer("Place", placed ? "DONE" : "NOT DONE");
+                placeFailures = placed ? 0 : placeFailures + 1;
+                if (placeFailures >= 5)
+                {
+                    Check("pvp-place", false, $"no placement was accepted 5 times in a row: {board.Interaction.Notice} {Section("LAST COMMAND")}");
+                    break;
+                }
+                continue;
+            }
+            var activation = Lines(LogText()).Count(IsActivationStart);
+            if (hint is not null && board is not null && board.Interaction.Available.Contains(InteractionMode.Move) && tried.Add(activation))
+            {
+                if (_role == "pvp-a" && !_pvpRefusalChecked)
+                {
+                    await PvpRefusedMidMatch(board);
+                }
+                await PvpActivation(board);
+                continue;
+            }
+            if (hint is not null)
+            {
+                var label = hint.Text;
+                var before = Section("LAST COMMAND");
+                var events = Lines(LogText()).Count;
+                if (!await FocusByTab(hint, 60))
+                {
+                    continue;
+                }
+                await KeyPress(Key.Enter);
+                Answer(label.StartsWith("End ", StringComparison.Ordinal) ? "End" : label.Split(' ')[0], await AnswerAfter(before, events));
+                continue;
+            }
+            var count = Lines(LogText()).Count;
+            var banner = Banner();
+            await Until(() => Lines(LogText()).Count != count || Hint() is not null || Banner() != banner || MatchOver()
+                || Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } b && b.Interaction.Available.Count > 0 ? "changed" : null, 5, "pvp-wait");
+        }
+    }
+
+    // One own activation: Fight, else Charge (then Fight), else Shoot, else Move; the activation is then ended by its hint.
+    private async Task PvpActivation(BoardView board)
+    {
+        if (!await FocusByTab(board, 80))
+        {
+            return;
+        }
+        if (await PvpTarget(board, Key.X, "Fight") is not null)
+        {
+            return;
+        }
+        if (await PvpTarget(board, Key.C, "Charge") is { } charge)
+        {
+            if (charge.StartsWith("DONE:", StringComparison.Ordinal))
+            {
+                await Until(() => Hint() is not null ? "ok" : null, 20, "charge-resolved");
+                await PvpTarget(board, Key.X, "Fight");
+            }
+            return;
+        }
+        if (await PvpTarget(board, Key.S, "Shoot") is not null)
+        {
+            return;
+        }
+        var events = Lines(LogText()).Count;
+        var (moved, _) = await SendFirstLegalMove(board);
+        Answer("Move", moved ? "DONE" : Lines(LogText()).Count > events ? "OTHER" : "NOT SENT");
+    }
+
+    // The action key, then N through the targets until the preview looks legal; Space sends it. Null when no target
+    // looks legal (nothing is sent).
+    private async Task<string?> PvpTarget(BoardView board, Key action, string name)
+    {
+        if (Hint() is null || !await FocusByTab(board, 80))
+        {
+            return null;
+        }
+        var interaction = board.Interaction;
+        await MouseOff(board);
+        await KeyPress(action);
+        var count = interaction.Mode == InteractionMode.None ? 0 : interaction.Targets().Count;
+        for (var i = 0; i < count && interaction.Preview is not { Legal: true }; i++)
+        {
+            await KeyPress(Key.N);
+        }
+        if (interaction.Preview is not { Legal: true })
+        {
+            await KeyPress(Key.Escape);
+            return null;
+        }
+        var before = Section("LAST COMMAND");
+        var events = Lines(LogText()).Count;
+        await KeyPress(Key.Space);
+        var answer = await AnswerAfter(before, events);
+        Answer(name, answer);
+        await Frames(3);
+        return answer;
+    }
+
+    // Seat One's first activation: a Move far beyond the model's reach. The preview refuses it, the first Space sends
+    // nothing, the second sends it anyway, and the server refuses it: no event, the model stays where it was.
+    private async Task PvpRefusedMidMatch(BoardView board)
+    {
+        _pvpRefusalChecked = true;
+        var interaction = board.Interaction;
+        var me = board.Scene?.Models.FirstOrDefault(m => m.Active);
+        if (me is null || !await FocusByTab(board, 80))
+        {
+            Check("pvp-refused-mid-match", false, $"no active model of this seat on the battlefield, or Tab never reached it; focus on {Describe(Focused())}");
+            return;
+        }
+        await MouseOff(board);
+        await KeyPress(Key.M);
+        var away = me.X < 18 ? Key.Right : Key.Left;
+        for (var i = 0; i < 10; i++)
+        {
+            await KeyPress(away, shift: true);
+        }
+        var preview = interaction.Preview;
+        var before = Section("LAST COMMAND");
+        var events = Lines(LogText()).Count;
+        await KeyPress(Key.Space);
+        var notSent = interaction.Pending is null && (interaction.Notice ?? "").StartsWith("Not sent: the preview says the server would refuse.", StringComparison.Ordinal);
+        await KeyPress(Key.Space);
+        var answer = await Answered(before);
+        await Frames(5);
+        var after = board.Scene?.Find(me.Id);
+        Check("pvp-refused-mid-match", preview?.Refusal is not null && notSent && answer.StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal)
+            && Lines(LogText()).Count == events && after is not null && Near(new TablePoint(after.X, after.Y), me.X, me.Y) && Hint() is not null,
+            $"{preview?.Headline}; first Space: {(notSent ? "not sent" : interaction.Notice)}; answer: {answer}; events {events} -> {Lines(LogText()).Count}; model at {after?.X},{after?.Y} (was {me.X},{me.Y})");
+        await Shot($"{_role}-refused-mid-match");
+        await KeyPress(Key.Escape);
+    }
+
+    // Both seats at the end: the outcome as this seat sees it, the final state hash and the event count, all from the
+    // screen, and nothing left to send. The runner compares the two windows with each other and with the signed record.
+    private async Task PvpEnd()
+    {
+        var result = await Until(() => Section("RESULT OF THE MATCH") is { Length: > 0 } r ? r : null, 30, "pvp-result") ?? "";
+        string? Value(string prefix) => result.Split('\n').FirstOrDefault(l => l.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..];
+        var hash = Value("Final state hash: ") is { Length: 64 } h && h.All(char.IsAsciiHexDigitLower) ? h : null;
+        var events = Value("Events: ") is { } e && int.TryParse(e, out var n) ? n : -1;
+        await Frames(5);
+        var lines = Lines(LogText());
+        var (inOrder, order) = OnceEachInOrder(lines);
+        var ended = lines.LastOrDefault(l => l.Contains("MATCH ENDED", StringComparison.Ordinal)) ?? "";
+        var seat = _role == "pvp-a" ? "One" : "Two";
+        var expected = ended.Contains("MATCH ENDED: draw", StringComparison.Ordinal) ? "Draw" : ended.Contains($"MATCH ENDED: {seat} wins", StringComparison.Ordinal) ? "You won" : "You lost";
+        Check("pvp-match-completed", ended.Length > 0 && result.StartsWith($"Result: {expected}", StringComparison.Ordinal) && hash is not null
+            && inOrder && lines[^1] == ended && lines[^1].StartsWith($"[{events}] ", StringComparison.Ordinal),
+            $"{result.Replace('\n', '|')} || {ended} || {order}");
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        Check("pvp-nothing-to-send", Hint() is null && (board is null || board.Interaction.Available.Count == 0),
+            $"actions: {Section("YOUR ACTIONS").Replace('\n', '|')}");
+        await Shot($"{_role}-match-ended");
+        Write($"DUMP pvp-end final_hash={hash ?? ""}");
+        Write($"DUMP pvp-end events={events}");
+        Write($"DUMP pvp-end result={Value("Result: ") ?? ""}");
+        Write($"DUMP pvp-end ended={ended}");
+        Write($"DUMP pvp-end answers={string.Join(", ", _pvpAnswers.OrderBy(a => a.Key, StringComparer.Ordinal).Select(a => $"{a.Key} {a.Value}"))}");
+        Write($"DUMP pvp-end log={string.Join("|", lines)}");
+        Mark("ended");
     }
 
     // ---- keyboard ----
