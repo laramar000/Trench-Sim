@@ -57,13 +57,32 @@ public sealed record ModelShape(
     double Standing,
     ModelStatus Status,
     bool Active,
-    bool Yours)
+    bool Yours,
+    bool Activated = false,
+    bool Eligible = false)
 {
-    public string Label => $"[{SeatLetter}] {Name}{(Active ? ", ACTIVE" : "")}{(Status == ModelStatus.Standing ? "" : $", {Words.Status(Status)}")}";
+    // Activated: the server's ActivatedThisTurn (the rules clear it at the next turn). Eligible: it can still activate
+    // this turn (the activation phase, deployed, on the table, not activated), the same conditions the rules check for
+    // ActivateModel apart from whose turn it is; for the seat to activate next they are exactly the units the rules offer
+    // (TurnSequence.LegalCommands, a test checks). Both are display only: they never decide anything.
+    public string Label => $"[{SeatLetter}] {Name}{(Active ? ", ACTIVE" : Activated ? ", activated" : "")}{(Status == ModelStatus.Standing ? "" : $", {Words.Status(Status)}")}";
+
+    // How the battlefield draws the model's turn state (colour is never the only sign: the label says it too).
+    public UnitLook Look => Active ? UnitLook.Active : Activated ? UnitLook.Activated : Eligible ? UnitLook.Eligible : UnitLook.Waiting;
 
     // One line for the selected model: what it is, where (in inches) and on which level.
     public string Text => $"[{SeatLetter}] {Name}: {Words.Status(Status)}{(Active ? ", ACTIVE" : "")}, at ({BoardScene.Inch(X)}, {BoardScene.Inch(Y)}), " +
         $"{(HighGround ? "on high ground" : "on the ground")}, base {BoardScene.Inch(Radius * 2)}.";
+}
+
+// A model's turn state on the battlefield: activating now, already activated this turn, can still activate, or neither
+// (deployment, or the match is between phases).
+public enum UnitLook
+{
+    Waiting,
+    Eligible,
+    Active,
+    Activated,
 }
 
 public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneShape> Zones, IReadOnlyList<TerrainShape> Terrain, IReadOnlyList<ModelShape> Models)
@@ -103,10 +122,16 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
                 : 0;
             models.Add(new ModelShape(model.Id, names.Of(model.Id), model.Seat, Words.SeatLetter(model.Seat),
                 TableRect.Inches(body.Centre.X), TableRect.Inches(body.Centre.Y), TableRect.Inches(body.Radius),
-                level.Level == ModelLevel.High, standing, model.Status, state.ActiveModel == model.Id, model.Seat == you));
+                level.Level == ModelLevel.High, standing, model.Status, state.ActiveModel == model.Id, model.Seat == you,
+                model.ActivatedThisTurn, CanStillActivate(state, model)));
         }
         return new BoardScene(TableRect.Inches(field.Width), TableRect.Inches(field.Height), zones, terrain, models);
     }
+
+    // Whether the model can still activate this turn, from the server's state (see ModelShape). Display only.
+    public static bool CanStillActivate(MatchState state, ModelState model) =>
+        state.Phase == Phase.Activation && state.Outcome is null && model.Deployed && model.Status != ModelStatus.OutOfAction
+        && !model.ActivatedThisTurn && state.ActiveModel != model.Id;
 
     public string Size => $"{Inch(Width)} x {Inch(Depth)}";
 
