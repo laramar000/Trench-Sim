@@ -1995,6 +1995,8 @@ public partial class UiCheck : Node
 
     // The action key, then N through the targets until the preview looks legal; Space sends it. Null when no target
     // looks legal (nothing is sent).
+    private bool _diceChecked;
+
     private async Task<string?> PvpTarget(BoardView board, Key action, string name)
     {
         if (Hint() is null || !await FocusByTab(board, 80))
@@ -2013,6 +2015,15 @@ public partial class UiCheck : Node
         {
             await KeyPress(Key.Escape);
             return null;
+        }
+        if (!_diceChecked && interaction.Preview is { Kind: PreviewKind.Shoot or PreviewKind.Fight, Target: { } aimed } attack)
+        {
+            // XCOM-style UX, improvement 1: the first legal attack preview shows its dice in the panel, as the rules
+            // count them (the Client.Core tests check every number against the rules); no odds.
+            _diceChecked = true;
+            var diceLines = attack.Dice?.Lines(attack.Model, aimed) ?? [];
+            Check("pvp-preview-dice", diceLines.Count > 0 && diceLines.All(PanelHas) && PanelHas("Hit roll: ") && PanelHas("Injury roll: ") && !PanelHas("%"),
+                $"{name}: {string.Join(" | ", diceLines)}; panel: {PanelText.Replace('\n', '|')}");
         }
         var before = Section("LAST COMMAND");
         var events = Lines(LogText()).Count;

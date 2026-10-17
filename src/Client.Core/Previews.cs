@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Rules.Core;
 using Rules.Core.Commands;
+using Rules.Core.Dice;
 using Rules.Core.Geometry;
 using Rules.Core.State;
 
@@ -55,7 +56,8 @@ public sealed record Preview(
     IReadOnlyList<PreviewRay> Rays,
     IReadOnlyList<PathMark> ChargePath,
     int? ChargeRollNeeded,
-    double? Allowance = null)
+    double? Allowance = null,
+    DicePreview? Dice = null)
 {
     // For a Move, Dash or Retreat: inches used by the path (the rules' path cost), and inches of the allowance left after it.
     public double? Used => Kind is PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat && Path.Count > 0 ? Path[^1].Inches : null;
@@ -266,17 +268,18 @@ public static class Previews
         var rays = new List<PreviewRay>();
         var charge = new List<PathMark>();
         int? needed = null;
+        DicePreview? dice = null;
         var refusal = Opening(state) ?? kind switch
         {
-            PreviewKind.Shoot => CheckShoot(state, seat, model, target, facts, rays),
+            PreviewKind.Shoot => CheckShoot(state, seat, model, target, facts, rays, ref dice),
             PreviewKind.Charge => CheckCharge(state, seat, model, target, facts, rays, charge, ref needed),
-            _ => CheckFight(state, seat, model, target, facts, rays),
+            _ => CheckFight(state, seat, model, target, facts, rays, ref dice),
         };
         var from = state.FindModel(model) is { } m && BodyOf(state, m) is { } b ? [new PathMark(TablePoint.Of(b.Centre), 0)] : Array.Empty<PathMark>();
-        return new Preview(kind, model, command, refusal, facts, from, RadiusOf(state, model), target, rays, charge, needed);
+        return new Preview(kind, model, command, refusal, facts, from, RadiusOf(state, model), target, rays, charge, needed, Dice: refusal is null ? dice : null);
     }
 
-    private static Rejection? CheckShoot(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays)
+    private static Rejection? CheckShoot(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays, ref DicePreview? dice)
     {
         if (Acting(state, seat, id, out var attacker) is { } rejection)
         {
@@ -325,10 +328,13 @@ public static class Previews
         }
         var longRange = !Measure.IsWithin(from, to, Length.FromThousandths(profile.RangedRange.Thousandths / 2));
         facts.Add(longRange ? "Long range: beyond half the weapon's range (1 penalty die)." : "Short range: within half the weapon's range.");
-        if (OnTable(state).Any(o => o.Seat == attacker.Seat && o.Id != attacker.Id && Measure.IsWithin(to, BodyOf(state, o)!, Engagement)))
+        var intoMelee = OnTable(state).Any(o => o.Seat == attacker.Seat && o.Id != attacker.Id && Measure.IsWithin(to, BodyOf(state, o)!, Engagement));
+        if (intoMelee)
         {
             facts.Add("Shooting into melee: one of your models is within 1\" of the target, so the shot may hit it (the server rolls).");
         }
+        dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, AttackDice.ShotPenalty(longRange, cover.InCover),
+            [.. new[] { longRange ? "long range" : null, cover.InCover ? "cover" : null }.OfType<string>()]);
         return null;
     }
 
@@ -405,7 +411,7 @@ public static class Previews
         return null;
     }
 
-    private static Rejection? CheckFight(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays)
+    private static Rejection? CheckFight(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays, ref DicePreview? dice)
     {
         if (Acting(state, seat, id, out var attacker) is { } rejection)
         {
@@ -443,9 +449,13 @@ public static class Previews
             return new(ReasonCode.TargetNotInMelee, "The target of a Melee Attack must be within 1\".", RefMelee);
         }
         var cover = Sight(state, from, to, facts, rays);
-        return cover.Sight.Visibility == Visibility.None
-            ? new(ReasonCode.NoLineOfSight, "The target must be in the attacker's Line of Sight.", RefMelee)
-            : null;
+        if (cover.Sight.Visibility == Visibility.None)
+        {
+            return new(ReasonCode.NoLineOfSight, "The target must be in the attacker's Line of Sight.", RefMelee);
+        }
+        dice = DicePreview.Of(state, attacker, target, AttackKind.Melee, AttackDice.FightPenalty(cover.InCover),
+            cover.InCover ? ["defended obstacle"] : []);
+        return null;
     }
 
     // ---- which actions to offer (the action bar) ----

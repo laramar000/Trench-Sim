@@ -117,7 +117,7 @@ public sealed record RangedAttackDeclared : GameEvent
         {
             throw new ArgumentException("Inconsistent attack declaration.");
         }
-        if (penaltyDice != (longRange ? 1 : 0) + (inCover ? 1 : 0))
+        if (penaltyDice != AttackDice.ShotPenalty(longRange, inCover))
         {
             throw new ArgumentException("Penalty dice must be the Long Range and Cover modifiers.", nameof(penaltyDice));
         }
@@ -296,7 +296,7 @@ public sealed record MeleeAttackDeclared : GameEvent
     public ModelId Target { get; }
     public bool FreeFight { get; }
     public string? DefendedObstacleId { get; }
-    public int PenaltyDice => DefendedObstacleId is null ? 0 : 1;
+    public int PenaltyDice => AttackDice.FightPenalty(DefendedObstacleId is not null);
 }
 
 public sealed record MeleeSuccessRolled : GameEvent

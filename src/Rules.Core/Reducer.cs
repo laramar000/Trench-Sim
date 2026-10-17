@@ -677,7 +677,7 @@ public static class Reducer
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
         return state with
         {
-            InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = critical ? 1 : 0, PenaltyDice = 0, Critical = critical, MarkersAsked = false },
+            InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = AttackDice.InjuryBonus(critical, meleeOnDownTarget: false), PenaltyDice = 0, Critical = critical, MarkersAsked = false },
         };
     }
 
@@ -824,7 +824,7 @@ public static class Reducer
             InProgress = progress with
             {
                 Stage = RollStage.InjuryRoll,
-                BonusDice = (critical ? 1 : 0) + (onDownTarget ? 1 : 0),
+                BonusDice = AttackDice.InjuryBonus(critical, onDownTarget),
                 PenaltyDice = 0,
                 Critical = critical,
                 MarkersAsked = false,
@@ -858,7 +858,7 @@ public static class Reducer
                 Target = e.Victim,
                 FriendlyFire = true,
                 BonusDice = 0,
-                PenaltyDice = (e.LongRange ? 1 : 0) + (e.InCover ? 1 : 0),
+                PenaltyDice = AttackDice.ShotPenalty(e.LongRange, e.InCover),
                 MarkersAsked = false,
             },
         };

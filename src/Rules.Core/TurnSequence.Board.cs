@@ -294,7 +294,7 @@ public static partial class TurnSequence
                     facts.CoverTerrainId,
                     facts.AttackerLevel,
                     facts.TargetLevel,
-                    (facts.LongRange ? 1 : 0) + (facts.InCover ? 1 : 0))
+                    AttackDice.ShotPenalty(facts.LongRange, facts.InCover))
                 { IntoMelee = facts.IntoMelee });
                 // A shot into melee asks about markers only once the D6 has settled who is shot (p. 42).
                 if (attacker.BloodMarkers > 0 && !facts.IntoMelee)
@@ -437,7 +437,7 @@ public static partial class TurnSequence
             {
                 var target = s.FindModel(progress.Target!.Value)!;
                 var weapon = s.Setup!.ProfileOf(actor.Id)!;
-                var modifiers = new[] { progress.Kind == AttackKind.Melee ? weapon.MeleeInjuryModifier : weapon.RangedInjuryModifier, s.Setup.ProfileOf(target.Id)!.Armour };
+                var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup.ProfileOf(target.Id)!, progress.Kind);
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down);
                 run.Emit(new InjuryRolled(actor.Id, target.Id, injury));
                 if (injury.Outcome == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))

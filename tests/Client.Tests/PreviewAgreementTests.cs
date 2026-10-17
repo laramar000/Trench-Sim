@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Client.Core;
 using Rules.Core;
 using Rules.Core.Events;
@@ -128,6 +129,107 @@ public class PreviewAgreementTests
         tally.Expect(PreviewKind.Shoot, ReasonCode.TargetNotEnemy, ReasonCode.NoLineOfSight, ReasonCode.TargetOutOfRange, ReasonCode.AttackerEngaged, ReasonCode.NoRangedWeapon);
         tally.Expect(PreviewKind.Charge, ReasonCode.TargetNotEnemy, ReasonCode.TargetOutOfRange, ReasonCode.NoLineOfSight, ReasonCode.ChargeRouteBlocked, ReasonCode.AlreadyEngaged);
         tally.Expect(PreviewKind.Fight, ReasonCode.TargetNotEnemy, ReasonCode.TargetNotInMelee, ReasonCode.NoMeleeWeapon);
+    }
+
+    // XCOM-style UX, improvement 1: the dice an attack preview shows are the dice the rules then use. For every legal
+    // Shoot and Fight preview, the rules decide its command with a few seeds: the declared penalty dice, the Success
+    // Roll's dice and Risky, the Injury Roll's dice and modifier, and who is asked to spend Blood Markers all match.
+    [Fact]
+    public void AttackPreviewDiceAreTheRulesOwn()
+    {
+        var seen = new Dictionary<string, int>();
+        void Saw(string what) => seen[what] = seen.GetValueOrDefault(what) + 1;
+        foreach (var state in ActivationStates())
+        {
+            var active = state.FindModel(state.ActiveModel!.Value)!;
+            foreach (var kind in new[] { PreviewKind.Shoot, PreviewKind.Fight })
+            {
+                foreach (var target in state.Models.Where(m => m.Seat != active.Seat))
+                {
+                    CheckDice(state, kind, active, target, Saw);
+                }
+            }
+        }
+        var summary = string.Join(", ", seen.OrderBy(p => p.Key).Select(p => $"{p.Key}: {p.Value}"));
+        Assert.True(seen.GetValueOrDefault("Shoot penalty 0") > 0 && seen.Keys.Any(k => k.StartsWith("Shoot penalty ", StringComparison.Ordinal) && k != "Shoot penalty 0"), summary);
+        Assert.True(seen.GetValueOrDefault("Fight penalty 0") > 0 && seen.GetValueOrDefault("markers on hit asked") > 0 && seen.GetValueOrDefault("markers on hit not asked") > 0, summary);
+        Assert.True(seen.Keys.Count(k => k.StartsWith("injury modifier ", StringComparison.Ordinal)) > 1 && seen.GetValueOrDefault("injury bonus 0") > 0, summary);
+        Console.WriteLine(summary);
+    }
+
+    // The checks for one Shoot or Fight preview against the rules' decisions of its command with a few seeds.
+    private static void CheckDice(MatchState state, PreviewKind kind, ModelState active, ModelState target, Action<string> Saw)
+    {
+        var preview = Previews.Target(state, active.Seat, kind, active.Id, target.Id);
+        if (!preview.Legal)
+        {
+            Assert.Null(preview.Dice);
+            return;
+        }
+        var dice = preview.Dice!;
+        Assert.Contains(dice.Lines(active.Id, target.Id), l => l.StartsWith("Hit roll: ", StringComparison.Ordinal));
+        for (var seed = 1; seed <= 4; seed++)
+        {
+            var events = TurnSequence.Decide(state, preview.Command, new SeededDice(seed)).Events;
+            var intoMelee = events.OfType<RangedAttackDeclared>().SingleOrDefault()?.IntoMelee == true;
+            Assert.Equal(dice.HitPenalty, kind == PreviewKind.Shoot
+                ? events.OfType<RangedAttackDeclared>().Single().PenaltyDice
+                : events.OfType<MeleeAttackDeclared>().Single().PenaltyDice);
+            Saw($"{kind} penalty {dice.HitPenalty}");
+            var askedToSpend = events.OfType<DecisionRequested>().Any(d => d.Kind == DecisionKind.SpendMarkersOnSuccessRoll);
+            if (!intoMelee)
+            {
+                Assert.Equal(dice.AttackerMarkers > 0, askedToSpend);
+                Saw(askedToSpend ? "markers on hit asked" : "markers on hit not asked");
+            }
+            if (events.OfType<RangedSuccessRolled>().Select(r => r.Check).Concat(events.OfType<MeleeSuccessRolled>().Select(m => m.Check)).SingleOrDefault() is { } check
+                && !intoMelee)
+            {
+                Assert.Equal(-dice.HitPenalty, check.NetDice);
+                Assert.Equal(dice.Risky, check.Risky);
+                Saw(dice.Risky ? "risky" : "not risky");
+                var askedForInjury = events.OfType<DecisionRequested>().Any(d => d.Kind == DecisionKind.SpendMarkersOnInjuryRoll);
+                if (check.Outcome != Rules.Core.Dice.SuccessOutcome.Failure && !check.RiskyFailure)
+                {
+                    Assert.Equal(dice.TargetMarkers > 0, askedForInjury);
+                }
+            }
+            if (events.OfType<InjuryRolled>().SingleOrDefault() is { } injury && !intoMelee)
+            {
+                Assert.Equal(dice.InjuryModifier, injury.Injury.Modifier);
+                var critical = events.Any(e => e is RangedSuccessRolled { Check.Outcome: Rules.Core.Dice.SuccessOutcome.CriticalSuccess }
+                    or MeleeSuccessRolled { Check.Outcome: Rules.Core.Dice.SuccessOutcome.CriticalSuccess });
+                Assert.Equal(dice.InjuryBonus + (critical ? 1 : 0), injury.Injury.NetDice);
+                Saw($"injury bonus {dice.InjuryBonus}");
+                Saw($"injury modifier {dice.InjuryModifier}");
+            }
+        }
+    }
+
+    // The same with the cases a simulated match rarely reaches: the attacker's warband Shaken (Risky rolls) and a Down
+    // target in melee (+1 INJURY DICE). Blood Markers are cleared so the rolls are made without stopping to ask.
+    [Fact]
+    public void AttackPreviewDiceCoverShakenAndDownTargets()
+    {
+        var seen = new Dictionary<string, int>();
+        void Saw(string what) => seen[what] = seen.GetValueOrDefault(what) + 1;
+        foreach (var original in ActivationStates().Where((_, i) => i % 3 == 0))
+        {
+            var active = original.FindModel(original.ActiveModel!.Value)!;
+            foreach (var target in original.Models.Where(m => m.Seat != active.Seat && m.Status == ModelStatus.Standing && m.Position is not null))
+            {
+                var models = original.Models.Select(m => m with { BloodMarkers = 0 }).Select(m => m.Id == target.Id ? m with { Status = ModelStatus.Down } : m).ToImmutableArray();
+                var state = original with { Models = models };
+                state = active.Seat == Seat.One ? state with { One = state.One with { Shaken = true } } : state with { Two = state.Two with { Shaken = true } };
+                foreach (var kind in new[] { PreviewKind.Shoot, PreviewKind.Fight })
+                {
+                    CheckDice(state, kind, state.FindModel(active.Id)!, state.FindModel(target.Id)!, Saw);
+                }
+            }
+        }
+        var summary = string.Join(", ", seen.OrderBy(p => p.Key).Select(p => $"{p.Key}: {p.Value}"));
+        Assert.True(seen.GetValueOrDefault("risky") > 50 && seen.GetValueOrDefault("injury bonus 1") > 10 && seen.GetValueOrDefault("Shoot penalty 0") + seen.GetValueOrDefault("Shoot penalty 1") > 0, summary);
+        Console.WriteLine(summary);
     }
 
     [Fact]

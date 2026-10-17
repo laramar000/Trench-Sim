@@ -52,6 +52,10 @@ public static class PreviewCard
                 }
                 if (preview.Legal)
                 {
+                    if (preview.Dice is { } dice && preview.Target is { } aimed)
+                    {
+                        lines.AddRange(dice.Lines(preview.Model, aimed));
+                    }
                     lines.Add("dice: rolled by the server");
                 }
                 break;
