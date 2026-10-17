@@ -54,8 +54,19 @@ public sealed record Preview(
     ModelId? Target,
     IReadOnlyList<PreviewRay> Rays,
     IReadOnlyList<PathMark> ChargePath,
-    int? ChargeRollNeeded)
+    int? ChargeRollNeeded,
+    double? Allowance = null)
 {
+    // For a Move, Dash or Retreat: inches used by the path (the rules' path cost), and inches of the allowance left after it.
+    public double? Used => Kind is PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat && Path.Count > 0 ? Path[^1].Inches : null;
+
+    public double? Left => Allowance is { } a && Used is { } u ? Math.Max(0, a - u) : null;
+
+    // The straight-line distance from the model's centre to the end of the path (the path may be longer).
+    public double? Straight => Used is not null && Path.Count > 1
+        ? Math.Sqrt(Math.Pow(Path[^1].At.X - Path[0].At.X, 2) + Math.Pow(Path[^1].At.Y - Path[0].At.Y, 2))
+        : null;
+
     // Shown with every preview, in words, on the battlefield and beside it.
     public const string Caveat = "preview; the server decides";
 
@@ -172,7 +183,8 @@ public static class Previews
         };
         var facts = new List<string>();
         var refusal = Opening(state) ?? (kind == PreviewKind.Retreat ? CheckRetreat(state, seat, model, path, facts) : CheckMove(state, seat, model, path, kind, facts));
-        return new Preview(kind, model, command, refusal, facts, Marks(state, model, path), RadiusOf(state, model), null, [], [], null);
+        double? allowance = state.FindModel(model) is { } mover && state.Setup?.ProfileOf(model) is not null ? TableRect.Inches(Allowance(state, mover)) : null;
+        return new Preview(kind, model, command, refusal, facts, Marks(state, model, path), RadiusOf(state, model), null, [], [], null, allowance);
     }
 
     private static Rejection? CheckMove(MatchState state, Seat seat, ModelId id, ImmutableArray<Point2> path, PreviewKind kind, List<string> facts)

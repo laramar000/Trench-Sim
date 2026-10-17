@@ -783,11 +783,35 @@ public sealed class Interaction
                     Answer = answer;
                 }
                 Notice = $"{word}: {answer.Text}{(answer.RuleRef is { } rule ? $" ({rule})" : "")}";
+                if (answer.Kind == FeedbackKind.RulesRefused && ActorOf(command) is { } refusedFor)
+                {
+                    ServerNote = new UnitNote(refusedFor, $"REFUSED BY THE SERVER{(answer.RuleRef is { } page ? $" ({page})" : "")}", NoteTone.Failure);
+                    ServerNotes++;
+                }
                 break;
         }
         Changed();
         return answer;
     }
+
+    // The note to show above the model when the server refused its command (the full reason is in Notice), and how many
+    // such notes there have been, so the battlefield shows each once.
+    public UnitNote? ServerNote { get; private set; }
+
+    public int ServerNotes { get; private set; }
+
+    private static ModelId? ActorOf(Command command) => command switch
+    {
+        PlaceModel p => p.Model,
+        MoveModel m => m.Model,
+        DashModel d => d.Model,
+        RetreatModel r => r.Model,
+        Shoot s => s.Attacker,
+        ChargeModel c => c.Model,
+        FightModel f => f.Model,
+        ActivateModel a => a.Model,
+        _ => null,
+    };
 
     // The command in words, for the player and for the screen's "last command".
     public static string Describe(Preview preview) => preview.Command switch
