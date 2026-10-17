@@ -1467,6 +1467,10 @@ public partial class UiCheck : Node
                 }
                 continue;
             }
+            if (_role == "pvp-a" && board?.Scene is { } looking)
+            {
+                await UnitLookChecks(board, looking);
+            }
             // Once, at Seat One's first turn to activate with two units to choose from: choose, switch, act by mouse.
             if (_role == "pvp-a" && !_choiceChecked && hint is not null && hint.Text.StartsWith("Activate ", StringComparison.Ordinal) && board?.Scene is { } choosing
                 && board.Interaction.Pending is null && choosing.Models.Count(m => m.Yours && board.Interaction.CanChoose(m.Id)) >= 2)
@@ -1505,6 +1509,60 @@ public partial class UiCheck : Node
     }
 
     private bool _choiceChecked;
+    private bool _activatedLookChecked;
+    private bool _lookResetChecked;
+    private string? _chosenUnit;
+
+    // Whether every model is drawn as its server state says: a grey wash exactly on the models that activated this turn.
+    private static (bool Pass, string Detail) LooksMatchState(BoardView board, BoardScene scene)
+    {
+        var wrong = new List<string>();
+        foreach (var model in scene.Models)
+        {
+            var seat = board.SeatColourOf(model);
+            var expected = model.Look == UnitLook.Activated ? seat.Lerp(new Color(0.5f, 0.5f, 0.5f), BoardView.ActivatedWash) : seat;
+            if (board.BodyColourOf(model.Id) is not { } drawn || !drawn.IsEqualApprox(expected))
+            {
+                wrong.Add($"{model.Id.Value} ({model.Look})");
+            }
+        }
+        return (wrong.Count == 0, wrong.Count == 0 ? string.Join(", ", scene.Models.Select(m => $"{m.Id.Value} {m.Look}")) : $"drawn wrong: {string.Join(", ", wrong)}");
+    }
+
+    // Stage A: once the chosen unit's activation has ended, it is greyed (and says "activated") while the units yet to
+    // activate keep their seat colour; at the start of turn 2 the grey is gone from every unit that has not activated again.
+    private async Task UnitLookChecks(BoardView board, BoardScene scene)
+    {
+        var log = Lines(LogText());
+        if (!_activatedLookChecked && _chosenUnit is { } unit && log.Any(l => l.Contains($" {unit} ends its activation", StringComparison.Ordinal))
+            && !log.Any(l => l.Contains("--- Turn 2 ---", StringComparison.Ordinal)))
+        {
+            _activatedLookChecked = true;
+            await Frames(3);
+            scene = board.Scene!;
+            var me = scene.Models.FirstOrDefault(m => m.Id.Value == unit);
+            var (pass, detail) = LooksMatchState(board, scene);
+            var grey = me is not null && me.Look == UnitLook.Activated && board.BodyColourOf(me.Id) is { } c && !c.IsEqualApprox(board.SeatColourOf(me));
+            var label = All(board).OfType<Label3D>().Any(l => !l.IsQueuedForDeletion() && l.Text.Contains($"{me?.Name}, activated", StringComparison.Ordinal));
+            Check("pvp-activated-unit-greyed", pass && grey && label && scene.Models.Any(m => m.Yours && m.Look != UnitLook.Activated && board.BodyColourOf(m.Id) is { } s && s.IsEqualApprox(board.SeatColourOf(m))),
+                $"{unit}: greyed {grey}, label says activated {label}; {detail}");
+            await CloseShot(board, me?.Id, "pvp-a-activated-greyed");
+        }
+        var turnTwo = log.FindIndex(l => l.Contains("--- Turn 2 ---", StringComparison.Ordinal));
+        if (!_lookResetChecked && _activatedLookChecked && turnTwo >= 0 && _chosenUnit is { } again)
+        {
+            _lookResetChecked = true;
+            await Frames(3);
+            scene = board.Scene!;
+            // The unit activated in turn 1 is drawn normally again, unless it has already activated in turn 2.
+            var activatedAgain = Lines(LogText()).Skip(turnTwo).Any(l => l.EndsWith($" activates {again}.", StringComparison.Ordinal));
+            var me = scene.Models.FirstOrDefault(m => m.Id.Value == again);
+            var (pass, detail) = LooksMatchState(board, scene);
+            var reset = me is null || activatedAgain || (me.Look != UnitLook.Activated && board.BodyColourOf(me.Id) is { } c && c.IsEqualApprox(board.SeatColourOf(me)));
+            Check("pvp-activated-look-resets", pass && reset, $"{again}: activated again in turn 2 {activatedAgain}, look {me?.Look}; {detail}");
+            await CloseShot(board, me?.Id, "pvp-a-turn-2-look-reset");
+        }
+    }
 
     // A real left-click on a model (board-local position from the scene).
     private async Task ClickModel(BoardView board, Rules.Core.State.ModelId id)
@@ -1537,17 +1595,23 @@ public partial class UiCheck : Node
         var events = Lines(LogText()).Count;
         bool NothingSent() => Section("LAST COMMAND") == lastCommand && Lines(LogText()).Count == events && interaction.Pending is null;
 
+        // Your units the rules let you activate now carry the faint ring, and no other model does.
+        var ringed = board.EligibleRings.Select(i => i.Value).Order(StringComparer.Ordinal).ToList();
+        var wanted = units.Where(u => u != board.Selected?.Id).Select(i => i.Value).Order(StringComparer.Ordinal).ToList();
+        Check("pvp-eligible-units-marked", ringed.Count >= 2 && ringed.SequenceEqual(wanted), $"rings on {string.Join(", ", ringed)}; the rules offer {string.Join(", ", units.Select(u => u.Value))}");
+        await CloseShot(board, first, "pvp-a-eligible-rings");
+
         await ClickModel(board, first);
         await Frames(10);
         Check("pvp-choose-unit-sends-nothing", interaction.Chosen == first && board.BarLabels.Contains("Not activated yet") && NothingSent(),
             $"chosen {interaction.Chosen?.Value}; bar: {string.Join(" / ", board.BarLabels)}; events {events} -> {Lines(LogText()).Count}; last command unchanged: {Section("LAST COMMAND") == lastCommand}");
-        await Shot("pvp-a-chosen");
+        await CloseShot(board, first, "pvp-a-chosen");
 
         await ClickModel(board, second);
         await Frames(10);
         Check("pvp-switch-unit-sends-nothing", interaction.Chosen == second && board.BarLabels.Contains("Not activated yet") && NothingSent(),
             $"chosen {interaction.Chosen?.Value} (wanted {second.Value}); bar: {string.Join(" / ", board.BarLabels)}; events {events} -> {Lines(LogText()).Count}");
-        await Shot("pvp-a-switched");
+        await CloseShot(board, second, "pvp-a-switched");
 
         // The first action: Move by mouse to a free spot about 1" away, else "Take no action".
         var sentMove = false;
@@ -1592,7 +1656,8 @@ public partial class UiCheck : Node
             $"{(sentMove ? "Move" : "Take no action")}; new events: {string.Join(" | ", added.Take(4))}; last command: {Section("LAST COMMAND")}");
         Answer(sentMove ? "Move" : "End", done is not null ? "DONE" : "NOT DONE");
         Write($"DUMP choice activation={(added.Count > 0 ? added[0] : "")}");
-        await Shot("pvp-a-chosen-acted");
+        _chosenUnit = second.Value;
+        await CloseShot(board, second, "pvp-a-chosen-acted");
 
         // Committed now: clicking the first unit again switches nothing, sends nothing, and the note says why.
         if (interaction.Mode != InteractionMode.None)
@@ -1606,7 +1671,7 @@ public partial class UiCheck : Node
         Check("pvp-no-switch-after-action", interaction.Chosen is null && note is not null && interaction.Notice?.Contains("cannot switch", StringComparison.Ordinal) == true
             && NothingSent() && Lines(LogText()).Count(IsActivationStart) == stillActive,
             $"chosen {interaction.Chosen?.Value}; notes: {string.Join(" / ", board.NoteTexts)}; notice: {interaction.Notice}");
-        await Shot("pvp-a-no-switch");
+        await CloseShot(board, first, "pvp-a-no-switch");
         // Back to the acting unit, so the fixed sequence goes on with it.
         board.Select(second);
         await Frames(3);
@@ -1733,6 +1798,7 @@ public partial class UiCheck : Node
         Write($"DUMP pvp-end ended={ended}");
         Write($"DUMP pvp-end answers={string.Join(", ", _pvpAnswers.OrderBy(a => a.Key, StringComparer.Ordinal).Select(a => $"{a.Key} {a.Value}"))}");
         Write($"DUMP pvp-end log={string.Join("|", lines)}");
+        Write($"DUMP pvp-end looks={(board?.Scene is { } final ? string.Join(",", final.Models.Select(m => $"{m.Id.Value}:{m.Look}:{m.Status}")) : "")}");
         Mark("ended");
     }
 
@@ -2005,6 +2071,20 @@ public partial class UiCheck : Node
         Write($"DUMP {tag} match={Section("MATCH").Replace('\n', '|')}");
         Write($"DUMP {tag} models={Section("MODELS").Replace('\n', '|')}");
         Write($"DUMP {tag} log={string.Join("|", Lines(LogText()))}");
+    }
+
+    // A screenshot close to a model, for the reports; the camera fits the table again afterwards.
+    private async Task CloseShot(BoardView board, Rules.Core.State.ModelId? id, string name)
+    {
+        if (!_screens)
+        {
+            return;
+        }
+        board.CentreOn(id, 16);
+        await Frames(4);
+        await Shot(name);
+        board.Fit();
+        await Frames(2);
     }
 
     private async Task Shot(string name)

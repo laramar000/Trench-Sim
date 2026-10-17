@@ -226,6 +226,30 @@ public partial class BoardView : SubViewportContainer
         Changed?.Invoke();
     }
 
+    // Centres the camera on a model, keeping the current zoom unless a distance (inches) is given. Moves nothing else.
+    public void CentreOn(ModelId? id, float? distance = null)
+    {
+        if (_scene?.Find(id) is not { } model)
+        {
+            return;
+        }
+        _autoFit = false;
+        _target = new Vector3((float)model.X, (float)model.Standing, (float)model.Y);
+        if (distance is { } d)
+        {
+            if (_topDown)
+            {
+                _orthoSize = Math.Clamp(d, 4, 200);
+            }
+            else
+            {
+                _distance = Math.Clamp(d, 4, 200);
+            }
+        }
+        PlaceCamera();
+        Changed?.Invoke();
+    }
+
     // Pans by a distance in inches, relative to the way the camera faces (right, and away from the viewer).
     public void Pan(float right, float forward)
     {
@@ -1088,6 +1112,8 @@ public partial class BoardView : SubViewportContainer
         {
             child.QueueFree();
         }
+        _bodyColours.Clear();
+        _eligibleRings.Clear();
         if (_scene is not { } scene)
         {
             return;
@@ -1112,14 +1138,27 @@ public partial class BoardView : SubViewportContainer
         {
             var standing = (float)model.Standing;
             var tall = model.Status == ModelStatus.Standing ? 1.2f : 0.3f;
+            var colour = BodyColour(model);
+            _bodyColours[model.Id] = colour;
             var body = new MeshInstance3D
             {
                 Mesh = new CylinderMesh { TopRadius = (float)model.Radius, BottomRadius = (float)model.Radius, Height = tall, RadialSegments = 24 },
                 Position = new Vector3((float)model.X, standing + tall / 2, (float)model.Y),
-                MaterialOverride = Paint(ModelColour(model)),
+                MaterialOverride = Paint(colour),
             };
             _content.AddChild(body);
             var selected = model.Id == _selected;
+            // Your units the rules let you activate now: a thin, faint ring (the units you can click to choose).
+            if (model.Yours && !selected && Interaction.CanChoose(model.Id))
+            {
+                _eligibleRings.Add(model.Id);
+                BaseRing(model, standing, 0.05f, 0.18f, _highContrast ? new Color(1, 1, 1, 0.8f) : new Color(0.85f, 1f, 0.85f, 0.55f));
+            }
+            // The model activating now: a cyan ring outside the selection ring.
+            if (model.Look == UnitLook.Active)
+            {
+                BaseRing(model, standing, 0.4f, 0.6f, _highContrast ? Colors.White : new Color(0.3f, 0.95f, 1f));
+            }
             if (selected)
             {
                 // A ring on the ground around the selected base, drawn through walls so it is never hidden.
@@ -1138,6 +1177,36 @@ public partial class BoardView : SubViewportContainer
     private Color TerrainColour(TerrainShape piece) => _highContrast
         ? piece.Profile switch { TerrainProfile.Wall => new Color(0.75f, 0.75f, 0.75f), TerrainProfile.Cover => new Color(0.5f, 0.5f, 0.5f), _ => new Color(0.3f, 0.3f, 0.3f) }
         : piece.Profile switch { TerrainProfile.Wall => new Color(0.55f, 0.53f, 0.5f), TerrainProfile.Cover => new Color(0.6f, 0.48f, 0.3f), _ => new Color(0.42f, 0.4f, 0.28f) };
+
+    // The body colour: the seat's colour, with a light grey wash once the model has activated this turn (from the server's
+    // state, ModelShape.Activated). Kept opaque and about 60% of the seat colour, so the seat still reads at a glance.
+    public const float ActivatedWash = 0.4f;
+
+    private Color BodyColour(ModelShape model)
+    {
+        var seat = ModelColour(model);
+        return model.Look == UnitLook.Activated ? seat.Lerp(new Color(0.5f, 0.5f, 0.5f), ActivatedWash) : seat;
+    }
+
+    // The colour each model's body was last drawn with, and the models drawn with an eligible ring (for the UI check).
+    private readonly Dictionary<ModelId, Color> _bodyColours = [];
+    private readonly HashSet<ModelId> _eligibleRings = [];
+
+    public Color? BodyColourOf(ModelId id) => _bodyColours.TryGetValue(id, out var c) ? c : null;
+
+    public Color SeatColourOf(ModelShape model) => ModelColour(model);
+
+    public IReadOnlyCollection<ModelId> EligibleRings => _eligibleRings;
+
+    private void BaseRing(ModelShape model, float standing, float inner, float outer, Color colour)
+    {
+        _content.AddChild(new MeshInstance3D
+        {
+            Mesh = new TorusMesh { InnerRadius = (float)model.Radius + inner, OuterRadius = (float)model.Radius + outer },
+            Position = new Vector3((float)model.X, standing + 0.04f, (float)model.Y),
+            MaterialOverride = Paint(colour, noDepth: true),
+        });
+    }
 
     // Seats differ by colour and by the [A]/[B] letter in every label; colour is never the only sign.
     private Color ModelColour(ModelShape model) => _highContrast
@@ -1173,6 +1242,7 @@ public partial class BoardView : SubViewportContainer
     private static StandardMaterial3D Paint(Color colour, bool noDepth = false) => new()
     {
         AlbedoColor = colour,
+        Transparency = colour.A < 1 ? BaseMaterial3D.TransparencyEnum.Alpha : BaseMaterial3D.TransparencyEnum.Disabled,
         NoDepthTest = noDepth,
         ShadingMode = noDepth ? BaseMaterial3D.ShadingModeEnum.Unshaded : BaseMaterial3D.ShadingModeEnum.PerPixel,
     };

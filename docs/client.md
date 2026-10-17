@@ -41,6 +41,14 @@ A confirmed command goes to the server through the same `MatchController.SendAsy
 - **Answers, in words, on the battlefield and in LAST COMMAND:** SENT while waiting; DONE only when the server accepted it (the choice is then cleared, and the server's events move the models); REFUSED BY THE RULES with the server's reason and page (the choice stays, to adjust); OUT OF DATE or NOT TAKEN (the choice stays); UNKNOWN when the connection dropped before the answer (the choice is cleared, so it is never sent twice). After reconnecting, LAST COMMAND reports what happened from the server's answer to that same command id (the rejoin's `LastAnswer`): DONE or REFUSED BY THE RULES, or NOT TAKEN when the server never received it (`NextSeq` not past it). An older command's answer is never shown as this one's. While a command waits for its answer, the choice cannot be changed (cursor, waypoints, target and model are ignored) and nothing else is sent.
 - **Not on the battlefield:** activating also has its hint button; ending an activation, Blood Marker spends, free attacks and the friendly target of a shot into melee stay hint buttons, as in M7.3. All are commands the server already supports; nothing was added to the protocol.
 
+### Unit states on the battlefield
+
+Each model's turn state comes from the server's state alone (`ModelShape.Look` in `BoardScene`; no flag of the client's own), so both windows draw the same:
+- **Activated this turn** (`ActivatedThisTurn`): a light grey wash on the body (the seat colour mixed 40% towards grey, kept opaque), and ", activated" in its label. It goes when the rules clear the flag at the next turn.
+- **Activating now:** a cyan ring, and ", ACTIVE" in the label.
+- **Yours to choose now:** a thin, faint ring on each of your units the rules offer to activate (`TurnSequence.LegalCommands`).
+- **Selected:** the yellow ring and "SELECTED", as before. **Down:** a flat disc and "Down" in the label; a Down model can also be activated or eligible, and shows both. Out of Action models are not on the table. The rules have no per-model fleeing: Shaken and Fled are warband states, shown in the Match section.
+
 ### Choosing a unit before it acts
 
 When it is your turn to activate and none of your models is activating, a left-click on one of your eligible units **chooses** it: its bar shows its actions with "Not activated yet", and the movement area and targets work as usual. Nothing is sent: no event, no dice, no change of turn, and the opponent sees nothing. A click on another eligible unit switches the choice; a right-click drops it.

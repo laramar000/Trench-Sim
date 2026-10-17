@@ -259,6 +259,9 @@ public static class Program
             // finally chosen, at the same event number (its screen before the kill holds turn 1; the end screen the newest 200).
             var chosen = Dumps(pvp, "pvp-a", "choice").GetValueOrDefault("activation", "");
             var seenByB = Dumps(pvp, "pvp-b", "before-kill").GetValueOrDefault("log", "").Split('|').Concat(logB.Split('|'));
+            var looksA = endA.GetValueOrDefault("looks", "");
+            Record("pvp-both-same-unit-looks", looksA.Length > 0 && looksA == endB.GetValueOrDefault("looks", "") ? "PASS" : "FAIL",
+                $"Seat One: {looksA} || Seat Two: {endB.GetValueOrDefault("looks", "")}");
             Record("pvp-opponent-sees-only-chosen-unit", chosen.Contains(" One activates ", StringComparison.Ordinal) && seenByB.Contains(chosen) ? "PASS" : "FAIL",
                 $"Seat One's activation after switching: {(chosen.Length > 0 ? chosen : "none")}; in Seat Two's window: {seenByB.Contains(chosen)}");
             var ended = endA.GetValueOrDefault("ended", "");
