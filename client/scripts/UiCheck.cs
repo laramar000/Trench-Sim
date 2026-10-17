@@ -609,7 +609,15 @@ public partial class UiCheck : Node
             && OverlayHas(board, $"MOVE {verdict} ({Preview.Caveat})") && OverlayHas(board, $"{BoardScene.Inch(move.Path[^1].Inches)} used")
             && board.OverlayTexts.Contains(BoardScene.Inch(move.Path[1].Inches)) && Section("BATTLEFIELD").Contains(move.Headline, StringComparison.Ordinal),
             $"from {actor?.Text}; {move?.Headline}; path {string.Join(" -> ", move?.Path.Select(p => $"{p.At} {BoardScene.Inch(p.Inches)}") ?? [])}; labels: {string.Join(" / ", board.OverlayTexts)}");
-        await Shot("host-move-preview");
+        // Stage B: the card says how far (the rules' path cost), of how much, what is left and the straight line; a
+        // see-through ghost marks the end while the real model has not moved.
+        IReadOnlyList<string> card = move is null ? [] : PreviewCard.Lines(move);
+        var ghost = board.GhostAt is { } g && move is not null && Near(g, move.Path[^1].At.X, move.Path[^1].At.Y, 0.01);
+        var still = actor is not null && board.Scene?.Find(actor.Id) is { } real && Near(new TablePoint(real.X, real.Y), actor.X, actor.Y, 0.001);
+        Check("board-preview-card-move", move is not null && move.Left is not null && OverlayHas(board, $"used of {BoardScene.Inch(move.Allowance!.Value)} ({BoardScene.Inch(move.Left.Value)} left)")
+            && OverlayHas(board, "straight line ") && card.All(l => OverlayHas(board, l)) && ghost && still,
+            $"card: {string.Join(" | ", card)}; ghost at {board.GhostAt}; real model unmoved: {still}");
+        await CloseShot(board, actor?.Id, "host-move-preview");
         await KeyPress(Key.Backspace);
         var removed = interaction.Waypoints.Count == 0;
 
@@ -632,7 +640,12 @@ public partial class UiCheck : Node
             clickedPoint = interaction.Waypoints.Count == 1 && Near(interaction.Waypoints[0], hoverAt.X, hoverAt.Y, 0.15) && interaction.Pending is null;
         }
         Check("board-mouse-path", removed && hovered && clickedPoint, $"Backspace removed the waypoint: {removed}; hover moved the cursor to {interaction.Cursor} (wanted ({hoverAt.X:0.0}, {hoverAt.Y:0.0})): {hovered}; Shift+click fixed a waypoint and sent nothing: {clickedPoint}");
+        var hadGhost = board.GhostAt is not null;
         await KeyPress(Key.Escape);
+        await Frames(2);
+        Check("board-preview-cancel-clears", hadGhost && board.GhostAt is null && board.OverlayTexts.Count == 0 && interaction.Mode == InteractionMode.None
+            && interaction.Pending is null && Section("LAST COMMAND") == lastCommand,
+            $"ghost before Esc: {hadGhost}, after: {board.GhostAt}; labels: {board.OverlayTexts.Count}; mode {interaction.Mode}; last command unchanged: {Section("LAST COMMAND") == lastCommand}");
         await MouseOff(board);
 
         // Shoot: the rules' own sight rays, distance and cover, on the battlefield and in the text.
@@ -653,7 +666,12 @@ public partial class UiCheck : Node
             && OverlayHas(board, $"of {shot.Rays.Count} sight rays clear") && OverlayHas(board, "Distance ") && Section("BATTLEFIELD").Contains(shot.Headline, StringComparison.Ordinal);
         Check("board-shoot-preview", sightShown || (early && OverlayHas(board, shot!.Refusal!.Text)),
             $"{shot?.Headline}; {shot?.Rays.Count} rays, {shot?.Rays.Count(r => r.Clear)} clear; labels: {string.Join(" / ", board.OverlayTexts)}");
-        await Shot("host-shoot-preview");
+        var aimed = interaction.Target is { } t && scene.Find(t) is { } targetShape ? targetShape : null;
+        IReadOnlyList<string> targetCard = shot is null || aimed is null ? [] : PreviewCard.Lines(shot, aimed);
+        Check("board-preview-card-target", early || (aimed is not null && OverlayHas(board, $"target {aimed.Label}") && OverlayHas(board, "Line of sight: ")
+            && (OverlayHas(board, "Target in cover (") || OverlayHas(board, "Target not in cover")) && targetCard.All(l => OverlayHas(board, l))),
+            $"card: {string.Join(" | ", targetCard)}");
+        await CloseShot(board, interaction.Target, "host-shoot-preview");
         var current = interaction.Target;
         await KeyPress(Key.N);
         var expected = current is { } c && targets.IndexOf(c) is var at && at >= 0 ? targets[(at + 1) % targets.Count] : (Rules.Core.State.ModelId?)null;
@@ -1467,9 +1485,10 @@ public partial class UiCheck : Node
                 }
                 continue;
             }
-            if (_role == "pvp-a" && board?.Scene is { } looking)
+            // After a look check (and its screenshot) the screen may have been redrawn: read the board and hints again.
+            if (_role == "pvp-a" && board?.Scene is { } looking && await UnitLookChecks(board, looking))
             {
-                await UnitLookChecks(board, looking);
+                continue;
             }
             // Once, at Seat One's first turn to activate with two units to choose from: choose, switch, act by mouse.
             if (_role == "pvp-a" && !_choiceChecked && hint is not null && hint.Text.StartsWith("Activate ", StringComparison.Ordinal) && board?.Scene is { } choosing
@@ -1531,13 +1550,15 @@ public partial class UiCheck : Node
 
     // Stage A: once the chosen unit's activation has ended, it is greyed (and says "activated") while the units yet to
     // activate keep their seat colour; at the start of turn 2 the grey is gone from every unit that has not activated again.
-    private async Task UnitLookChecks(BoardView board, BoardScene scene)
+    private async Task<bool> UnitLookChecks(BoardView board, BoardScene scene)
     {
+        var did = false;
         var log = Lines(LogText());
         if (!_activatedLookChecked && _chosenUnit is { } unit && log.Any(l => l.Contains($" {unit} ends its activation", StringComparison.Ordinal))
             && !log.Any(l => l.Contains("--- Turn 2 ---", StringComparison.Ordinal)))
         {
             _activatedLookChecked = true;
+            did = true;
             await Frames(3);
             scene = board.Scene!;
             var me = scene.Models.FirstOrDefault(m => m.Id.Value == unit);
@@ -1552,6 +1573,7 @@ public partial class UiCheck : Node
         if (!_lookResetChecked && _activatedLookChecked && turnTwo >= 0 && _chosenUnit is { } again)
         {
             _lookResetChecked = true;
+            did = true;
             await Frames(3);
             scene = board.Scene!;
             // The unit activated in turn 1 is drawn normally again, unless it has already activated in turn 2.
@@ -1562,6 +1584,7 @@ public partial class UiCheck : Node
             Check("pvp-activated-look-resets", pass && reset, $"{again}: activated again in turn 2 {activatedAgain}, look {me?.Look}; {detail}");
             await CloseShot(board, me?.Id, "pvp-a-turn-2-look-reset");
         }
+        return did;
     }
 
     // A real left-click on a model (board-local position from the scene).
@@ -1767,7 +1790,10 @@ public partial class UiCheck : Node
         Check("pvp-refused-mid-match", preview?.Refusal is not null && notSent && answer.StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal)
             && Lines(LogText()).Count == events && after is not null && Near(new TablePoint(after.X, after.Y), me.X, me.Y) && Hint() is not null,
             $"{preview?.Headline}; first Space: {(notSent ? "not sent" : interaction.Notice)}; answer: {answer}; events {events} -> {Lines(LogText()).Count}; model at {after?.X},{after?.Y} (was {me.X},{me.Y})");
-        await Shot($"{_role}-refused-mid-match");
+        var note = board.NoteTexts.FirstOrDefault(n => n.StartsWith($"{me.Id.Value}: REFUSED BY THE SERVER", StringComparison.Ordinal));
+        Check("pvp-server-refusal-note", note is not null && answer.StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal) && note.Contains(" p. ", StringComparison.Ordinal),
+            $"notes: {string.Join(" / ", board.NoteTexts)}; answer: {answer}");
+        await CloseShot(board, me.Id, $"{_role}-refused-mid-match");
         await KeyPress(Key.Escape);
     }
 

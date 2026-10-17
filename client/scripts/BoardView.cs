@@ -377,8 +377,18 @@ public partial class BoardView : SubViewportContainer
         }
         Sync();
         UpdateBar();
+        if (Interaction.ServerNotes != _serverNotesShown)
+        {
+            _serverNotesShown = Interaction.ServerNotes;
+            if (Interaction.ServerNote is { } refused)
+            {
+                AddNote(refused);
+            }
+        }
         FadeNotes();
     }
+
+    private int _serverNotesShown;
 
     public override void _GuiInput(InputEvent @event)
     {
@@ -783,6 +793,7 @@ public partial class BoardView : SubViewportContainer
         }
         _overlayTexts.Clear();
         AreaPoints = 0;
+        GhostAt = null;
         if (_scene is null || Interaction.Mode == InteractionMode.None)
         {
             return;
@@ -821,9 +832,11 @@ public partial class BoardView : SubViewportContainer
                 Overlay($"{preview.Tag}\n{preview.Model.Value} at {at.At}{refusal}{state}", at.At, 2.8f, 0.95f);
                 break;
             case PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat:
+                // A dashed path and a see-through "ghost" base at its end: a preview never looks like the real model,
+                // which stays where it is until the server's events move it.
                 for (var i = 1; i < preview.Path.Count; i++)
                 {
-                    Segment(preview.Path[i - 1].At, preview.Path[i].At, 0.12f, colour);
+                    Dashed(preview.Path[i - 1].At, preview.Path[i].At, 0.12f, colour);
                     if (i < preview.Path.Count - 1)
                     {
                         Overlay(BoardScene.Inch(preview.Path[i].Inches), preview.Path[i].At, 0.6f, 0.75f);
@@ -831,7 +844,8 @@ public partial class BoardView : SubViewportContainer
                 }
                 var end = preview.Path[^1];
                 Ring(end.At, preview.Radius, colour);
-                Overlay($"{preview.Tag}\n{BoardScene.Inch(end.Inches)} used{refusal}{state}", end.At, 2.8f, 0.95f);
+                Ghost(end.At, preview.Model, preview.Radius, colour);
+                Overlay($"{string.Join("\n", PreviewCard.Lines(preview))}{state}", end.At, 2.8f, 0.95f);
                 break;
             default:
                 foreach (var ray in preview.Rays)
@@ -842,9 +856,7 @@ public partial class BoardView : SubViewportContainer
                 {
                     var spot = new TablePoint(target.X, target.Y);
                     Ring(spot, target.Radius, colour);
-                    var sight = preview.Facts.FirstOrDefault(f => f.StartsWith("Line of sight", StringComparison.Ordinal));
-                    var distance = preview.Facts.FirstOrDefault(f => f.StartsWith("Distance", StringComparison.Ordinal));
-                    Overlay($"{preview.Tag}\n{target.Label}{(distance is null ? "" : "\n" + distance)}{(sight is null ? "" : "\n" + sight)}{refusal}{state}", spot, 3.6f, 0.95f);
+                    Overlay($"{string.Join("\n", PreviewCard.Lines(preview, target))}{state}", spot, 3.6f, 0.95f);
                 }
                 for (var i = 1; i < preview.ChargePath.Count; i++)
                 {
@@ -1061,6 +1073,35 @@ public partial class BoardView : SubViewportContainer
             MaterialOverride = Paint(colour, noDepth: true),
         });
     }
+
+    // A line drawn in dashes (half an inch on, a quarter off), for paths that are only a preview.
+    private void Dashed(TablePoint a, TablePoint b, float height, Color colour)
+    {
+        var length = Math.Sqrt((b.X - a.X) * (b.X - a.X) + (b.Y - a.Y) * (b.Y - a.Y));
+        for (var at = 0.0; at < length; at += 0.75)
+        {
+            var to = Math.Min(length, at + 0.5);
+            Segment(new TablePoint(a.X + (b.X - a.X) * at / length, a.Y + (b.Y - a.Y) * at / length),
+                new TablePoint(a.X + (b.X - a.X) * to / length, a.Y + (b.Y - a.Y) * to / length), height, colour);
+        }
+    }
+
+    // A see-through copy of the model's base where the preview would put it.
+    private void Ghost(TablePoint at, ModelId model, double radius, Color edge)
+    {
+        var seat = _scene?.Find(model) is { } shape ? ModelColour(shape) : edge;
+        var standing = 0f;
+        _overlay.AddChild(new MeshInstance3D
+        {
+            Mesh = new CylinderMesh { TopRadius = (float)radius, BottomRadius = (float)radius, Height = 1.2f, RadialSegments = 24 },
+            Position = new Vector3((float)at.X, standing + 0.6f, (float)at.Y),
+            MaterialOverride = Paint(new Color(seat.R, seat.G, seat.B, 0.35f)),
+        });
+        GhostAt = at;
+    }
+
+    // Where the ghost of the previewed move is drawn now, if any (for the UI check).
+    public TablePoint? GhostAt { get; private set; }
 
     private void Overlay(string text, TablePoint at, float height, float size)
     {

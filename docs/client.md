@@ -41,6 +41,13 @@ A confirmed command goes to the server through the same `MatchController.SendAsy
 - **Answers, in words, on the battlefield and in LAST COMMAND:** SENT while waiting; DONE only when the server accepted it (the choice is then cleared, and the server's events move the models); REFUSED BY THE RULES with the server's reason and page (the choice stays, to adjust); OUT OF DATE or NOT TAKEN (the choice stays); UNKNOWN when the connection dropped before the answer (the choice is cleared, so it is never sent twice). After reconnecting, LAST COMMAND reports what happened from the server's answer to that same command id (the rejoin's `LastAnswer`): DONE or REFUSED BY THE RULES, or NOT TAKEN when the server never received it (`NextSeq` not past it). An older command's answer is never shown as this one's. While a command waits for its answer, the choice cannot be changed (cursor, waypoints, target and model are ignored) and nothing else is sent.
 - **Not on the battlefield:** activating also has its hint button; ending an activation, Blood Marker spends, free attacks and the friendly target of a shot into melee stay hint buttons, as in M7.3. All are commands the server already supports; nothing was added to the protocol.
 
+### Preview cards
+
+A preview draws a short card where the move ends or at the target. Its first line always says it is a preview and that the server decides (`PreviewCard`):
+- **Move, Dash, Retreat:** "3.5" used of 6.0" (2.5" left)", the rules' own path cost and allowance, and "straight line 3.2"". The path is dashed, and a see-through ghost base shows where the model would end; the real model stays solid where it is until the server's events move it. A Dash says the server rolls whether it moves.
+- **Shoot, Charge, Fight:** the target's name, then the rules' own facts word for word: distance (and weapon range), line of sight (rays clear, what blocks them), cover, long or short range, shooting into melee. A preview that looks legal ends with "dice: rolled by the server". No hit chances are shown: the client does not work them out.
+- **Refused:** the rule's reason and page. When the server refuses a sent command, a REFUSED BY THE SERVER note (with the page) appears above the model and LAST COMMAND gives the reason. Right-click or Esc clears the preview, its ghost and its card and sends nothing.
+
 ### Unit states on the battlefield
 
 Each model's turn state comes from the server's state alone (`ModelShape.Look` in `BoardScene`; no flag of the client's own), so both windows draw the same:
