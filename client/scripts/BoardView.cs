@@ -1082,7 +1082,7 @@ public partial class BoardView : SubViewportContainer
         }
         var mine = _shown.Where(n => n.Note.Model == id).ToList();
         _idLabels.TryGetValue(id, out var own);
-        var taken = _idLabels.Where(p => p.Key != id).Select(p => p.Value).Concat(_fixedLabels)
+        var taken = _idLabels.Values.Concat(_fixedLabels)
             .Concat(_shown.Where(n => n.Note.Model != id).Select(n => n.Label)).Select(LabelBox).OfType<Rect2>().ToList();
         // Anchored at the model's label and lifted in screen pixels, so at any zoom the notes sit above that label
         // instead of on it (and follow the id when it was nudged down).
@@ -1091,18 +1091,42 @@ public partial class BoardView : SubViewportContainer
         {
             var label = mine[i].Label;
             label.Position = new Vector3((float)model.X, LabelHeight(model), (float)model.Y);
-            Raise(label, lift);
-            for (var tries = 0; tries < 6 && LabelBox(label) is { } box && taken.Any(t => t.Grow(1).Intersects(box)); tries++)
-            {
-                lift += LineHeight(label);
-                Raise(label, lift);
-            }
+            lift = Place(label, lift, taken);
             if (LabelBox(label) is { } placed)
             {
                 taken.Add(placed);
             }
             lift += LineHeight(label) * Math.Max(1, label.Text.Split('\n').Length);
         }
+    }
+
+    // The first free spot for a note: up from its place a line at a time, then down below the model (a crowded corner,
+    // such as a zone label just above); with no free spot, the one that covers the least.
+    private float Place(Label3D label, float lift, List<Rect2> taken)
+    {
+        var step = LineHeight(label);
+        var tries = Enumerable.Range(0, 16).Select(k => lift + k * step)
+            .Concat(Enumerable.Range(1, 16).Select(k => lift - AboveLabel - k * step));
+        var best = (Lift: lift, Covered: float.MaxValue);
+        foreach (var at in tries)
+        {
+            Raise(label, at);
+            if (LabelBox(label) is not { } box)
+            {
+                return at;
+            }
+            var covered = taken.Where(t => t.Grow(1).Intersects(box)).Sum(t => t.Grow(1).Intersection(box).Area);
+            if (covered <= 0)
+            {
+                return at;
+            }
+            if (covered < best.Covered)
+            {
+                best = (at, covered);
+            }
+        }
+        Raise(label, best.Lift);
+        return best.Lift;
     }
 
     // Every short label that must not cover another, with its box on screen: model ids, zone and objective labels, and
