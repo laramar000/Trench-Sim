@@ -452,6 +452,8 @@ public partial class Main : Control
         _strip.Name = "StatusStrip";
         boardBox.AddChild(_strip);
         boardBox.AddChild(_board);
+        // Camera buttons (QoL stage E), the same as the keys Home and F on the battlefield.
+        boardBox.AddChild(Row(Button("Centre on selected (Home)", () => _board.CentreOn(_board.Selected?.Id)), Button("Fit the table (F)", () => _board.Fit())));
         boardBox.AddChild(_boardInfo);
         _board.Changed += ShowBoardInfo;
         // A confirmed battlefield command goes the same way as a hint button: one at a time, answered by the server.
@@ -640,9 +642,9 @@ public partial class Main : Control
             return;
         }
         _boardInfo.Text = $"Table {scene.Size}; camera {_board.CameraText}. Selected: {_board.Selected?.Text ?? "none"}\n" +
-            "Keys on the battlefield (Tab to it or click it): arrows pan, + and - zoom, Q and E turn 90°, F fits the table, T top-down or angled, " +
+            "Keys on the battlefield (Tab to it or click it): arrows pan, + and - zoom, Q and E turn 90°, F fits the table, Home centres on the selected model, T top-down or angled, " +
             "N and P next and previous model, A activates the selected model. Actions: L place, M move, D dash, R retreat, S shoot, C charge, X fight; " +
-            "then arrows (Shift: 2\") move the cursor, Enter fixes a waypoint, Space sends, Esc cancels. Mouse: click selects (or picks the target or a waypoint), right-drag pans, wheel zooms. Distances are in inches. " +
+            "then arrows (Shift: 2\") move the cursor, Enter fixes a waypoint, Space sends, Esc cancels. Mouse: click selects (or picks the target or a waypoint), right-drag pans, wheel zooms towards the pointer. Distances are in inches. " +
             "This view shows the server's state and decides nothing; heights are for display only.\n" +
             "ACTIONS ON THE BATTLEFIELD (previews say what the server would probably answer; the server decides): " + string.Join("\n", _board.Interaction.Lines());
     }

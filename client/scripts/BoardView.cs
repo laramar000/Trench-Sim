@@ -13,7 +13,8 @@ using Rules.Core.State;
 // whether a command was taken.
 //
 // Keys while the battlefield has focus (Tab to it, or click it): arrows pan, + and - zoom, Q and E turn 90 degrees,
-// F fits the table, T switches between the angled and the top-down camera, N and P select the next and previous model.
+// F fits the table, Home centres on the selected model, T switches between the angled and the top-down camera, N and P
+// select the next and previous model. The wheel zooms towards the pointer.
 // Previews: L place a model, M move, D dash, R retreat, S shoot, C charge, X fight. Then arrows move the cursor (half
 // an inch, 2 inches with Shift), Enter fixes a waypoint (or sends a placement or a target), Backspace removes a
 // waypoint, N and P choose the target or the model to place, Space sends the command, Esc cancels. A activates the
@@ -59,6 +60,7 @@ public partial class BoardView : SubViewportContainer
     private ModelId? _lastActive;
     // A right-click that does not drag cancels; one that drags pans.
     private Vector2? _rightFrom;
+    private bool _panStarted;
 
     // The bar was closed with a right-click; it comes back when a model is selected or the activation changes.
     private bool _barDismissed;
@@ -225,6 +227,26 @@ public partial class BoardView : SubViewportContainer
         PlaceCamera();
         Changed?.Invoke();
     }
+
+    // Zooms keeping the table point under the pointer where it is on screen (the wheel zooms towards the pointer).
+    public void ZoomAt(float factor, Vector2 local)
+    {
+        var before = TableAt(local);
+        Zoom(factor);
+        if (before is { } a && TableAt(local) is { } b)
+        {
+            _target += new Vector3((float)(a.X - b.X), 0, (float)(a.Y - b.Y));
+            if (_scene is not null)
+            {
+                _target = new Vector3(Math.Clamp(_target.X, 0, (float)_scene.Width), _target.Y, Math.Clamp(_target.Z, 0, (float)_scene.Depth));
+            }
+            PlaceCamera();
+            Changed?.Invoke();
+        }
+    }
+
+    // Where the camera looks (table inches; for the UI check).
+    public Vector3 CameraTarget => _target;
 
     // Centres the camera on a model, keeping the current zoom unless a distance (inches) is given. Moves nothing else.
     public void CentreOn(ModelId? id, float? distance = null)
@@ -405,6 +427,7 @@ public partial class BoardView : SubViewportContainer
                 {
                     _rightFrom = right.Position;
                     _dragging = true;
+                    _panStarted = false;
                 }
                 else
                 {
@@ -421,15 +444,22 @@ public partial class BoardView : SubViewportContainer
                 _dragging = drag.Pressed;
                 AcceptEvent();
                 break;
-            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp }:
-                Zoom(0.9f);
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp } wheel:
+                ZoomAt(0.9f, wheel.Position);
                 AcceptEvent();
                 break;
-            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelDown }:
-                Zoom(1.1f);
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelDown } wheel:
+                ZoomAt(1.1f, wheel.Position);
+                AcceptEvent();
+                break;
+            // A right-button drag pans only once the pointer has moved 6 pixels, so a slightly shaky right-click cancels
+            // without moving the camera.
+            case InputEventMouseMotion shaky when _dragging && _rightFrom is { } pressedAt && !_panStarted
+                && pressedAt.DistanceTo(shaky.Position) < 6:
                 AcceptEvent();
                 break;
             case InputEventMouseMotion motion when _dragging:
+                _panStarted = true;
                 var inchesPerPixel = (_topDown ? _orthoSize : _distance * 0.8f) / Math.Max(1, Size.Y);
                 Pan(-motion.Relative.X * inchesPerPixel, motion.Relative.Y * inchesPerPixel);
                 AcceptEvent();
@@ -592,6 +622,7 @@ public partial class BoardView : SubViewportContainer
             case Key.Q: Turn(-1); return true;
             case Key.E: Turn(1); return true;
             case Key.F: Fit(); return true;
+            case Key.Home: CentreOn(_selected); return true;
             case Key.T: ToggleTopDown(); return true;
             case Key.N: SelectNext(!key.ShiftPressed); return true;
             case Key.P: SelectNext(false); return true;

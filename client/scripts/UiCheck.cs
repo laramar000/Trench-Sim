@@ -475,7 +475,59 @@ public partial class UiCheck : Node
             clicked = board.Selected?.Id == target.Id;
         }
         Check("board-click-selects", clicked, $"clicked at {local} for {target.Name}; selected {board.Selected?.Name ?? "nothing"}");
+        await CameraChecks(board, scene);
         Dump("board");
+    }
+
+    // QoL stage E: Home centres on the selected model; the wheel zooms towards the pointer (the table point under it stays
+    // under it); a right-click that shakes a few pixels does not move the camera. F fits the table again after each.
+    private async Task CameraChecks(BoardView board, BoardScene scene)
+    {
+        await MouseOn(board);
+        var selected = board.Selected;
+        await FocusByTab(board, 60);
+        await KeyPress(Key.Home);
+        await Frames(3);
+        var centred = selected is not null && Math.Abs(board.CameraTarget.X - selected.X) < 0.01 && Math.Abs(board.CameraTarget.Z - selected.Y) < 0.01
+            && board.ScreenOf(selected.X, selected.Y, selected.Standing) is { } onScreen && onScreen.DistanceTo(board.Size / 2) < board.Size.Y * 0.1f;
+        Check("board-home-centres", centred, $"selected {selected?.Name} at ({selected?.X:0.0}, {selected?.Y:0.0}); camera looks at ({board.CameraTarget.X:0.0}, {board.CameraTarget.Z:0.0})");
+        await Shot("board-home-centred");
+        await KeyPress(Key.F);
+        await Frames(3);
+
+        // The wheel, a quarter of the way in from the top-left: the table point there stays there.
+        var at = board.Size * 0.3f + new Vector2(board.Size.X * 0.1f, 0);
+        var before = board.TableAt(at);
+        var distance = board.Camera.Position.DistanceTo(board.CameraTarget);
+        var global = board.GetGlobalTransformWithCanvas() * at;
+        // A real wheel notch is a press and a release; a press left unreleased would keep later clicks on the battlefield.
+        foreach (var pressed in new[] { true, false })
+        {
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = pressed, Position = global, GlobalPosition = global });
+            await Frames(2);
+        }
+        await Frames(1);
+        var after = board.TableAt(at);
+        var closer = board.Camera.Position.DistanceTo(board.CameraTarget) < distance - 0.01f;
+        var kept = before is { } a && after is { } b && Math.Abs(a.X - b.X) < 0.3 && Math.Abs(a.Y - b.Y) < 0.3;
+        Check("board-wheel-zooms-to-pointer", closer && kept, $"zoomed in: {closer}; table point under the pointer {before} -> {after}");
+        await KeyPress(Key.F);
+        await Frames(3);
+
+        // A shaky right-click (3 pixels) does not pan.
+        var camera = board.Camera.Position;
+        var press = board.GetGlobalTransformWithCanvas() * (board.Size * 0.5f + new Vector2(0, board.Size.Y * 0.35f));
+        var shake = press + new Vector2(3, 2);
+        Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Right, Pressed = true, Position = press, GlobalPosition = press });
+        await Frames(2);
+        Input.ParseInputEvent(new InputEventMouseMotion { Position = shake, GlobalPosition = shake, Relative = new Vector2(3, 2), ButtonMask = MouseButtonMask.Right });
+        await Frames(2);
+        Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Right, Pressed = false, Position = shake, GlobalPosition = shake });
+        await Frames(3);
+        Check("board-shaky-right-click-no-pan", board.Camera.Position.IsEqualApprox(camera), $"camera {camera} -> {board.Camera.Position}");
+        // The battlefield keeps taking the mouse, as it did after the click check before these camera checks.
+        await KeyPress(Key.F);
+        await Frames(3);
     }
 
     // M7.4 stage 4b, on the deploying seat's turn: placing a model is previewed with the keyboard cursor, inside and
@@ -1824,6 +1876,20 @@ public partial class UiCheck : Node
         Check("pvp-nothing-to-send", Hint() is null && (board is null || board.Interaction.Available.Count == 0),
             $"actions: {Section("YOUR ACTIONS").Replace('\n', '|')}");
         await Shot($"{_role}-match-ended");
+        // The event list, scrolled into view, for the report.
+        if (EventList() is { } eventList)
+        {
+            for (Node? up = eventList.GetParent(); up is not null; up = up.GetParent())
+            {
+                if (up is ScrollContainer outer)
+                {
+                    outer.EnsureControlVisible(eventList);
+                    break;
+                }
+            }
+            await Frames(3);
+            await Shot($"{_role}-event-list");
+        }
         Write($"DUMP pvp-end final_hash={hash ?? ""}");
         Write($"DUMP pvp-end events={events}");
         Write($"DUMP pvp-end result={Value("Result: ") ?? ""}");
