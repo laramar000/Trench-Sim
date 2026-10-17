@@ -475,6 +475,11 @@ public partial class UiCheck : Node
             clicked = board.Selected?.Id == target.Id;
         }
         Check("board-click-selects", clicked, $"clicked at {local} for {target.Name}; selected {board.Selected?.Name ?? "nothing"}");
+        await Frames(2);
+        var panel = ((Main)_main).PanelView;
+        Check("panel-unit", panel is not null && panel.Title == UnitPanel.Heading(target) && PanelHas(Words.Status(target.Status))
+            && (panel.Unavailable is null || panel.Unavailable.StartsWith("Opponent's unit", StringComparison.Ordinal)),
+            $"panel: {PanelText.Replace('\n', '|')}");
         await CameraChecks(board, scene);
         Dump("board");
     }
@@ -555,9 +560,9 @@ public partial class UiCheck : Node
         await MouseOff(board);
         await KeyPress(Key.L);
         var preview = interaction.Preview;
-        Check("board-place-preview", interaction.Mode == InteractionMode.Place && preview is { Legal: true } && OverlayHas(board, $"PLACE LOOKS LEGAL ({Preview.Caveat})")
-            && Section("BATTLEFIELD").Contains(preview.Headline, StringComparison.Ordinal),
-            $"cursor {interaction.Cursor}; {preview?.Headline}; labels: {string.Join(" / ", board.OverlayTexts)}");
+        Check("board-place-preview", interaction.Mode == InteractionMode.Place && preview is { Legal: true } && PanelHas($"PLACE {UnitPanel.ShortId(preview.Model)} → ")
+            && InPanel(board, UnitPanelView.PreviewLine) && OffField(board, Preview.Caveat) && Section("BATTLEFIELD").Contains(preview.Headline, StringComparison.Ordinal),
+            $"cursor {interaction.Cursor}; {preview?.Headline}; panel: {PanelText.Replace('\n', '|')}; labels: {string.Join(" / ", board.OverlayTexts)}");
         await Shot($"{_role}-place-preview");
 
         var start = interaction.Cursor;
@@ -579,7 +584,7 @@ public partial class UiCheck : Node
             steps++;
         }
         var refused = interaction.Preview;
-        Check("board-place-refused-reason", refused?.Refusal is { } r && OverlayHas(board, $"PLACE REFUSED ({Preview.Caveat})") && OverlayHas(board, r.Text)
+        Check("board-place-refused-reason", refused?.Refusal is { } r && InPanel(board, $"REFUSED: {r.Text}")
             && Section("BATTLEFIELD").Contains($"{r.Text} ({r.RuleRef}; {Preview.Caveat})", StringComparison.Ordinal),
             $"after {steps} steps of 2\" to {interaction.Cursor}: {refused?.Headline}");
         await Shot($"{_role}-place-refused");
@@ -607,7 +612,7 @@ public partial class UiCheck : Node
         var refusedAnswer = await Answered(lastCommand);
         Check("board-send-refused-shown", refusedAnswer.StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal)
             && (interaction.Notice ?? "").StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal) && Section("BATTLEFIELD").Contains(interaction.Notice!, StringComparison.Ordinal)
-            && OverlayHas(board, "REFUSED BY THE RULES:") && interaction.Mode == InteractionMode.Place && Lines(LogText()).Count == events,
+            && InPanel(board, "REFUSED BY THE RULES:") && interaction.Mode == InteractionMode.Place && Lines(LogText()).Count == events,
             $"last command: {refusedAnswer}; battlefield: {interaction.Notice}; events {events} -> {Lines(LogText()).Count}");
         await Shot($"{_role}-place-refused-by-server");
 
@@ -658,7 +663,7 @@ public partial class UiCheck : Node
         var move = interaction.Preview;
         var verdict = move is { Legal: true } ? "LOOKS LEGAL" : "REFUSED";
         Check("board-move-preview", startOk && move is { Kind: PreviewKind.Move } && move.Path.Count == 3 && interaction.Waypoints.Count == 1
-            && OverlayHas(board, $"MOVE {verdict} ({Preview.Caveat})") && OverlayHas(board, $"{BoardScene.Inch(move.Path[^1].Inches)} used")
+            && InPanel(board, $"MOVE → {move.Path[^1].At}") && InPanel(board, $"{BoardScene.Inch(move.Path[^1].Inches)} used") && (move.Legal || PanelHas("REFUSED: "))
             && board.OverlayTexts.Contains(BoardScene.Inch(move.Path[1].Inches)) && Section("BATTLEFIELD").Contains(move.Headline, StringComparison.Ordinal),
             $"from {actor?.Text}; {move?.Headline}; path {string.Join(" -> ", move?.Path.Select(p => $"{p.At} {BoardScene.Inch(p.Inches)}") ?? [])}; labels: {string.Join(" / ", board.OverlayTexts)}");
         // Stage B: the card says how far (the rules' path cost), of how much, what is left and the straight line; a
@@ -666,9 +671,11 @@ public partial class UiCheck : Node
         IReadOnlyList<string> card = move is null ? [] : PreviewCard.Lines(move);
         var ghost = board.GhostAt is { } g && move is not null && Near(g, move.Path[^1].At.X, move.Path[^1].At.Y, 0.01);
         var still = actor is not null && board.Scene?.Find(actor.Id) is { } real && Near(new TablePoint(real.X, real.Y), actor.X, actor.Y, 0.001);
-        Check("board-preview-card-move", move is not null && move.Left is not null && OverlayHas(board, $"used of {BoardScene.Inch(move.Allowance!.Value)} ({BoardScene.Inch(move.Left.Value)} left)")
-            && OverlayHas(board, "straight line ") && card.All(l => OverlayHas(board, l)) && ghost && still,
-            $"card: {string.Join(" | ", card)}; ghost at {board.GhostAt}; real model unmoved: {still}");
+        Check("board-preview-card-move", move is not null && move.Left is not null && InPanel(board, $"used of {BoardScene.Inch(move.Allowance!.Value)} ({BoardScene.Inch(move.Left.Value)} left)")
+            && InPanel(board, "straight line ") && card.Skip(1).Where(l => move.Refusal is not { } r || l != $"{r.Text} ({r.RuleRef})").All(l => InPanel(board, l)) && ghost && still,
+            $"card: {string.Join(" | ", card)}; panel: {PanelText.Replace('\n', '|')}; ghost at {board.GhostAt}; real model unmoved: {still}");
+        await PanelDetailsChecks(board);
+        var confirmAtMove = ((Main)_main).PanelConfirm.GetGlobalRect();
         await CloseShot(board, actor?.Id, "host-move-preview");
         await KeyPress(Key.Backspace);
         var removed = interaction.Waypoints.Count == 0;
@@ -714,15 +721,19 @@ public partial class UiCheck : Node
             await KeyPress(Key.N);
         }
         var early = shot?.Refusal?.Code is Rules.Core.ReasonCode.AttackerEngaged or Rules.Core.ReasonCode.NoRangedWeapon;
-        var sightShown = shot is { Rays.Count: > 0 } && OverlayHas(board, $"SHOOT {(shot.Legal ? "LOOKS LEGAL" : "REFUSED")} ({Preview.Caveat})")
-            && OverlayHas(board, $"of {shot.Rays.Count} sight rays clear") && OverlayHas(board, "Distance ") && Section("BATTLEFIELD").Contains(shot.Headline, StringComparison.Ordinal);
-        Check("board-shoot-preview", sightShown || (early && OverlayHas(board, shot!.Refusal!.Text)),
+        var sightShown = shot is { Rays.Count: > 0 } && InPanel(board, "SHOOT → ") && (shot.Legal || InPanel(board, $"REFUSED: {shot.Refusal!.Text}"))
+            && InPanel(board, $"of {shot.Rays.Count} sight rays clear") && InPanel(board, "Distance ") && Section("BATTLEFIELD").Contains(shot.Headline, StringComparison.Ordinal);
+        Check("board-shoot-preview", sightShown || (early && InPanel(board, shot!.Refusal!.Text)),
             $"{shot?.Headline}; {shot?.Rays.Count} rays, {shot?.Rays.Count(r => r.Clear)} clear; labels: {string.Join(" / ", board.OverlayTexts)}");
         var aimed = interaction.Target is { } t && scene.Find(t) is { } targetShape ? targetShape : null;
         IReadOnlyList<string> targetCard = shot is null || aimed is null ? [] : PreviewCard.Lines(shot, aimed);
-        Check("board-preview-card-target", early || (aimed is not null && OverlayHas(board, $"target {aimed.Label}") && OverlayHas(board, "Line of sight: ")
-            && (OverlayHas(board, "Target in cover (") || OverlayHas(board, "Target not in cover")) && targetCard.All(l => OverlayHas(board, l))),
-            $"card: {string.Join(" | ", targetCard)}");
+        Check("board-preview-card-target", early || (aimed is not null && InPanel(board, $"SHOOT → {UnitPanel.Heading(aimed)}") && InPanel(board, "Line of sight: ")
+            && (InPanel(board, "Target in cover (") || InPanel(board, "Target not in cover"))
+            && targetCard.Skip(1).Where(l => !l.StartsWith("target ", StringComparison.Ordinal) && (shot!.Refusal is not { } r || l != $"{r.Text} ({r.RuleRef})")).All(l => InPanel(board, l))),
+            $"card: {string.Join(" | ", targetCard)}; panel: {PanelText.Replace('\n', '|')}");
+        var confirmAtShoot = ((Main)_main).PanelConfirm.GetGlobalRect();
+        Check("panel-confirm-cancel-fixed", confirmAtShoot.IsEqualApprox(confirmAtMove) && ((Main)_main).PanelCancel.GetGlobalRect().Position.Y == confirmAtShoot.Position.Y,
+            $"Confirm at {confirmAtMove} for Move, {confirmAtShoot} for Shoot; Cancel at {((Main)_main).PanelCancel.GetGlobalRect()}");
         await CloseShot(board, interaction.Target, "host-shoot-preview");
         var current = interaction.Target;
         await KeyPress(Key.N);
@@ -746,11 +757,12 @@ public partial class UiCheck : Node
 
         await KeyPress(Key.C);
         var charge = interaction.Preview;
-        var chargeShown = charge is not null && OverlayHas(board, $"CHARGE {(charge.Legal ? "LOOKS LEGAL" : "REFUSED")} ({Preview.Caveat})")
-            && (charge.Legal ? OverlayHas(board, "Charge path ") && OverlayHas(board, ": reaches on ") : OverlayHas(board, charge.Refusal!.Text));
+        var chargeShown = charge is not null && InPanel(board, "CHARGE → ") && OffField(board, Preview.Caveat)
+            && (charge.Legal ? OverlayHas(board, "Charge path ") && OverlayHas(board, ": reaches on ") : InPanel(board, $"REFUSED: {charge.Refusal!.Text}"));
         Check("board-charge-preview", chargeShown, $"{charge?.Headline}; {string.Join(" ", charge?.Facts ?? [])}; labels: {string.Join(" / ", board.OverlayTexts)}");
         await Shot("host-charge-preview");
-        await KeyPress(Key.Escape);
+        // The panel's Cancel, clicked with the mouse, stops choosing and sends nothing (as Esc does).
+        await ClickButton(((Main)_main).PanelCancel);
         Check("board-previews-send-nothing", interaction.Mode == InteractionMode.None && board.OverlayTexts.Count == 0 && Section("LAST COMMAND") == lastCommand && Hint() is not null,
             $"mode {interaction.Mode}; last command unchanged: {Section("LAST COMMAND") == lastCommand}; hint still offered: {Hint()?.Text}");
         Dump("previews");
@@ -766,6 +778,28 @@ public partial class UiCheck : Node
 
         // Then a Dash with the mouse alone, if the activation still offers one.
         await ClickDash(board);
+    }
+
+    // Proposal G: Details opens and closes in place and changes nothing else: the selection, the action, the preview,
+    // LAST COMMAND and the event list stay as they were, and nothing is sent.
+    private async Task PanelDetailsChecks(BoardView board)
+    {
+        var main = (Main)_main;
+        var interaction = board.Interaction;
+        var before = (board.Selected?.Id, interaction.Mode, interaction.Preview?.Command, Section("LAST COMMAND"), Lines(LogText()).Count);
+        var button = All(main).OfType<Button>().FirstOrDefault(b => b.IsVisibleInTree() && b.Text.StartsWith("Details ", StringComparison.Ordinal));
+        var opened = false;
+        var closed = false;
+        if (button is not null)
+        {
+            await ClickButton(button);
+            opened = main.DetailsOpen && main.PanelView is { Details.Count: > 0 } view && view.Details.All(PanelHas);
+            await ClickButton(button);
+            closed = !main.DetailsOpen;
+        }
+        var after = (board.Selected?.Id, interaction.Mode, interaction.Preview?.Command, Section("LAST COMMAND"), Lines(LogText()).Count);
+        Check("panel-details-keeps-preview", opened && closed && before == after && interaction.Pending is null,
+            $"details button: {button?.Text}; opened with every detail shown: {opened}; closed: {closed}; before {before}; after {after}");
     }
 
     // The action bar next to the acting model: it shows exactly the actions the interaction offers plus End activation;
@@ -965,7 +999,17 @@ public partial class UiCheck : Node
             }
             var events = Lines(LogText()).Count;
             var before = Section("LAST COMMAND");
-            await KeyPress(Key.Space);
+            if (_role == "host")
+            {
+                // The panel's Confirm, clicked with the mouse, sends the previewed move (as Space does).
+                var confirm = ((Main)_main).PanelConfirm;
+                Check("panel-confirm-shows-action", !confirm.Disabled && confirm.Text == "Move here", $"Confirm \"{confirm.Text}\", disabled: {confirm.Disabled}");
+                await ClickButton(confirm);
+            }
+            else
+            {
+                await KeyPress(Key.Space);
+            }
             var answer = await Answered(before);
             var line = await Until(() => Lines(LogText()).Skip(events).FirstOrDefault(l => l.Contains(" moves ", StringComparison.Ordinal)), 10, "moved");
             await Frames(3);
@@ -1072,6 +1116,33 @@ public partial class UiCheck : Node
     }
 
     private static bool Near(TablePoint p, double x, double y, double within = 0.001) => Math.Abs(p.X - x) <= within && Math.Abs(p.Y - y) <= within;
+
+    // Proposal G: the selected-unit and action panel beside the battlefield, as shown.
+    private string PanelText => ((Main)_main).PanelText;
+
+    private bool PanelHas(string text) => PanelText.Contains(text, StringComparison.Ordinal);
+
+    // No label floating over the battlefield carries this text (the panel says it instead).
+    private static bool OffField(BoardView board, string text) =>
+        !All(board).OfType<Label3D>().Any(l => !l.IsQueuedForDeletion() && l.Text.Contains(text, StringComparison.Ordinal));
+
+    // In the panel, and not over the battlefield.
+    private bool InPanel(BoardView board, string text) => PanelHas(text) && OffField(board, text);
+
+    // A real mouse click on a button; the keyboard focus goes back where it was, so later key presses still reach the
+    // battlefield, as they would for a player who clicks a panel button and then uses the keys again on the battlefield.
+    private async Task ClickButton(Button button)
+    {
+        var owner = GetViewport().GuiGetFocusOwner();
+        var at = button.GetGlobalRect().GetCenter();
+        foreach (var pressed in new[] { true, false })
+        {
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
+            await Frames(2);
+        }
+        owner?.GrabFocus();
+        await Frames(1);
+    }
 
     private bool OverlayHas(BoardView board, string text) =>
         board.OverlayTexts.Any(t => t.Contains(text, StringComparison.Ordinal))

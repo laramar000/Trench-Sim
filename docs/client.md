@@ -53,12 +53,17 @@ Each event is one row: a coloured tag naming its kind (SETUP, TURN, ACTIVATE, MO
 
 One line over the battlefield (`StatusStrip`), for example "Turn 2 of 4 · Activation · Your move · selected a2: chosen, not activated yet · can still activate: you 2, opponent 3 · VP you 1, opponent 0 · last scoring: obj-1 to One". Every part comes from the server's state, the battlefield's own selection, the last scoring line in the log, or a command waiting for its answer ("command sent, waiting for the server"). "Can still activate" counts deployed models on the table that are not Out of Action and have not activated this turn; for the seat to activate it equals the rules' own list. Which side controls an Objective between scorings is not in the state, so only the last scoring is shown. The Match section below the battlefield is unchanged.
 
-### Preview cards
+### Selected-unit and action panel (proposal G, step G1)
 
-A preview draws a short card above the moving model (the ghost base and ring mark where the move ends) or above the target. Cards and the notes over models are lifted a fixed number of screen pixels above the model's own label, so they do not cover it at any zoom; while a card is shown the action bar goes below the model. Its first line always says it is a preview and that the server decides (`PreviewCard`):
-- **Move, Dash, Retreat:** "3.5" used of 6.0" (2.5" left)", the rules' own path cost and allowance, and "straight line 3.2"". The path is dashed, and a see-through ghost base shows where the model would end; the real model stays solid where it is until the server's events move it. A Dash says the server rolls whether it moves.
-- **Shoot, Charge, Fight:** the target's name, then the rules' own facts word for word: distance (and weapon range), line of sight (rays clear, what blocks them), cover, long or short range, shooting into melee. A preview that looks legal ends with "dice: rolled by the server". No hit chances are shown: the client does not work them out.
-- **Refused:** the rule's reason and page. When the server refuses a sent command, a REFUSED BY THE SERVER note (with the page) appears above the model and LAST COMMAND gives the reason. Right-click or Esc clears the preview, its ghost and its card and sends nothing.
+Beside the battlefield, on the right, a panel says what the battlefield does not (`UnitPanel`, built from the server's state, the scene and the preview only):
+
+- **Unit:** short id and name ("A2 · Skirmisher"), seat, Standing or Down, Blood Markers, its state this turn (activating now, chosen but not activated, activated this turn, can activate) and its actions. A unit you cannot give an order to gets one plain reason: opponent's unit, already activated this turn, another unit is activating, or not your turn. These agree with the rules' own offer of activations (tests).
+- **Action preview:** while an action is being chosen, a title ("MOVE → (14.2, 18.0)", "SHOOT → B4 · Lamp Keeper"), the line "PREVIEW · the server decides", then the card's facts: "3.5" used of 6.0" (2.5" left)" and "straight line 3.2"" for a path ("RISKY: the server rolls whether it moves" for a Dash), or distance and weapon range, line of sight, cover, long range and shooting into melee for a target, and the Charge roll the rules say a charge needs. A preview that looks legal says the dice are rolled by the server. No odds.
+- **Refused:** one short line ("REFUSED: The target is beyond the weapon's range."); the rule's page is under **Details**. A server refusal of a sent command is shown the same way, and LAST COMMAND gives the reason.
+- **Details ▸** opens in place: the rule page, every fact of the preview and the unit's position. Opening or closing it changes nothing else (selection, action, preview).
+- **Confirm and Cancel** are always at the bottom of the panel. Confirm is labelled with what it sends ("Move here", "Shoot target") and is greyed when there is nothing to send; Cancel stops choosing and sends nothing. Space, Esc and a right-click still work.
+
+On the battlefield a preview keeps only what helps positioning: the dashed path, the inches of each leg, the see-through ghost base and the end ring, the reachable area, the target rings and sight rays, and the charge path. The cards that used to float over the models are gone.
 
 ### Unit states on the battlefield
 

@@ -791,8 +791,7 @@ public partial class BoardView : SubViewportContainer
             var notes = _shown.Count(n => n.Note.Model == anchor.Id);
             var above = new Vector2(top.X - size.X / 2, top.Y - size.Y - 28 - notes * 22 * _textScale);
             var below = new Vector2(foot.X - size.X / 2, foot.Y + 34);
-            // A preview card is drawn above the models, so the bar then goes below first and does not cover it.
-            candidates.AddRange(_cardShown ? [below, above] : [above, below]);
+            candidates.AddRange([above, below]);
             candidates.Add(new Vector2(foot.X + 40, foot.Y - size.Y / 2));
             candidates.Add(new Vector2(foot.X - 40 - size.X, foot.Y - size.Y / 2));
         }
@@ -828,7 +827,6 @@ public partial class BoardView : SubViewportContainer
             child.QueueFree();
         }
         _overlayTexts.Clear();
-        _cardShown = false;
         AreaPoints = 0;
         GhostAt = null;
         if (_scene is null || Interaction.Mode == InteractionMode.None)
@@ -837,7 +835,6 @@ public partial class BoardView : SubViewportContainer
         }
         var preview = Interaction.Preview;
         // What happened to the last confirmation (SENT, REFUSED BY THE RULES, NOT SENT ...), under the preview's own tag.
-        var state = Interaction.Notice is { } notice ? $"\n{notice}" : "";
         var good = _highContrast ? Colors.White : new Color(0.35f, 1f, 0.45f);
         var bad = _highContrast ? Colors.Yellow : new Color(1f, 0.35f, 0.3f);
         var colour = preview is { Legal: false } ? bad : good;
@@ -859,14 +856,13 @@ public partial class BoardView : SubViewportContainer
             }
             return;
         }
-        var refusal = preview.Refusal is { } r ? $"\n{r.Text}" : "";
         Hints(good);
         switch (preview.Kind)
         {
             case PreviewKind.Place:
                 var at = preview.Path[0];
+                // Proposal G: what the placement would do is said in the panel beside the battlefield, not over it.
                 Ring(at.At, preview.Radius, colour);
-                Overlay($"{preview.Tag}\n{preview.Model.Value} at {at.At}{refusal}{state}", at.At, 2.8f, 0.95f);
                 break;
             case PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat:
                 // A dashed path and a see-through "ghost" base at its end: a preview never looks like the real model,
@@ -882,13 +878,7 @@ public partial class BoardView : SubViewportContainer
                 var end = preview.Path[^1];
                 Ring(end.At, preview.Radius, colour);
                 Ghost(end.At, preview.Model, preview.Radius, colour);
-                // The card sits above the moving model's own label (and any notes over it), not at the path's end, so
-                // it never lands on that label however short the move; the ghost and ring mark the end.
-                if (_scene.Find(preview.Model) is { } mover)
-                {
-                    var notes = _shown.Where(n => n.Note.Model == mover.Id).Sum(n => LineHeight(n.Label) * n.Label.Text.Split('\n').Length);
-                    Card($"{string.Join("\n", PreviewCard.Lines(preview))}{state}", new TablePoint(mover.X, mover.Y), LabelHeight(mover), notes);
-                }
+                // Proposal G: the distances (used, left, straight line) are in the panel beside the battlefield.
                 break;
             default:
                 foreach (var ray in preview.Rays)
@@ -898,8 +888,8 @@ public partial class BoardView : SubViewportContainer
                 if (preview.Target is { } targetId && _scene.Find(targetId) is { } target)
                 {
                     var spot = new TablePoint(target.X, target.Y);
+                    // Proposal G: distance, sight, cover and any refusal are in the panel beside the battlefield.
                     Ring(spot, target.Radius, colour);
-                    Card($"{string.Join("\n", PreviewCard.Lines(preview, target))}{state}", spot, LabelHeight(target));
                 }
                 for (var i = 1; i < preview.ChargePath.Count; i++)
                 {
@@ -1155,19 +1145,6 @@ public partial class BoardView : SubViewportContainer
         _overlayTexts.Add(text);
         _overlay.AddChild(MakeLabel(text, new Vector3((float)at.X, height, (float)at.Y), size));
     }
-
-    // A preview card: its bottom edge sits just above the label line at that spot, whatever the zoom, so it covers
-    // neither the model's label nor the target's.
-    private void Card(string text, TablePoint at, float labelHeight, float extra = 0)
-    {
-        _overlayTexts.Add(text);
-        var label = MakeLabel(text, new Vector3((float)at.X, labelHeight, (float)at.Y), 0.95f);
-        Raise(label, AboveLabel + extra);
-        _overlay.AddChild(label);
-        _cardShown = true;
-    }
-
-    private bool _cardShown;
 
     // Where a model's own label is drawn: a little above its body.
     private static float LabelHeight(ModelShape model) => (float)model.Standing + (model.Status == ModelStatus.Standing ? 1.2f : 0.3f) + 0.6f;

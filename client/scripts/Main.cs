@@ -451,7 +451,15 @@ public partial class Main : Control
         _strip = Text("");
         _strip.Name = "StatusStrip";
         boardBox.AddChild(_strip);
-        boardBox.AddChild(_board);
+        // Proposal G (step G1): the battlefield and, beside it, the selected-unit and action panel. The battlefield shows
+        // positions; the panel says who the unit is, what it can do and what the chosen action would do.
+        var split = new HBoxContainer { Name = "BattlefieldAndPanel" };
+        split.AddThemeConstantOverride("separation", 10);
+        _board.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _board.SizeFlagsStretchRatio = 7;
+        split.AddChild(_board);
+        split.AddChild(BuildPanel());
+        boardBox.AddChild(split);
         // Camera buttons (QoL stage E), the same as the keys Home and F on the battlefield.
         boardBox.AddChild(Row(Button("Centre on selected (Home)", () => _board.CentreOn(_board.Selected?.Id)), Button("Fit the table (F)", () => _board.Fit())));
         boardBox.AddChild(_boardInfo);
@@ -524,6 +532,7 @@ public partial class Main : Control
         _shown = s.Version;
         _lastScreen = s;
         ShowStrip();
+        ShowPanel();
         var view = s.View;
         _status.Text = $"{view.Status}";
         _hotLine.Visible = _hotSeat is not null;
@@ -630,12 +639,129 @@ public partial class Main : Control
             : "";
     }
 
+    // ---- the selected-unit and action panel (proposal G, step G1) ----
+
+    private PanelContainer _panel = null!;
+    private Label _pTitle = null!;
+    private Label _pUnit = null!;
+    private Label _pUnavailable = null!;
+    private Label _pActionTitle = null!;
+    private Label _pAction = null!;
+    private Label _pRefusal = null!;
+    private Label _pNotice = null!;
+    private Button _pDetailsButton = null!;
+    private Label _pDetails = null!;
+    private Button _pConfirm = null!;
+    private Button _pCancel = null!;
+    private bool _detailsOpen;
+    private UnitPanelView? _panelView;
+
+    private Control BuildPanel()
+    {
+        _panel = new PanelContainer { Name = "UnitPanel", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, CustomMinimumSize = new Vector2(300, 0) };
+        _panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
+        {
+            BgColor = new Color(0.17f, 0.17f, 0.2f),
+            ContentMarginLeft = 12, ContentMarginRight = 12, ContentMarginTop = 10, ContentMarginBottom = 10,
+            CornerRadiusTopLeft = 4, CornerRadiusTopRight = 4, CornerRadiusBottomLeft = 4, CornerRadiusBottomRight = 4,
+        });
+        var column = new VBoxContainer();
+        column.AddThemeConstantOverride("separation", 8);
+        _panel.AddChild(column);
+        // The words scroll on their own; Confirm and Cancel stay at the bottom, always in the same place.
+        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = SizeFlags.ExpandFill };
+        column.AddChild(scroll);
+        var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        body.AddThemeConstantOverride("separation", 4);
+        scroll.AddChild(body);
+        _pTitle = Text("");
+        _pTitle.Name = "PanelTitle";
+        _pUnit = Text("");
+        _pUnavailable = Text("");
+        _pActionTitle = Text("");
+        _pAction = Text("");
+        _pRefusal = Text("");
+        _pNotice = Text("");
+        _pDetails = Text("");
+        _pDetails.Visible = false;
+        _pDetailsButton = Button("Details ▸", () =>
+        {
+            // Opening or closing the details changes nothing else: not the selection, the action or its preview.
+            _detailsOpen = !_detailsOpen;
+            ShowPanel();
+        });
+        _pDetailsButton.Alignment = HorizontalAlignment.Left;
+        foreach (var control in new Control[] { _pTitle, _pUnit, _pUnavailable, _pActionTitle, _pAction, _pRefusal, _pNotice, _pDetailsButton, _pDetails })
+        {
+            body.AddChild(control);
+        }
+        _pConfirm = Button("Confirm", () => _board.Confirm());
+        _pConfirm.Name = "PanelConfirm";
+        _pCancel = Button("Cancel", () => _board.CancelPreview());
+        _pCancel.Name = "PanelCancel";
+        _pConfirm.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _pCancel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        column.AddChild(Row(_pConfirm, _pCancel));
+        return _panel;
+    }
+
+    private void ShowPanel()
+    {
+        if (_controller is null || _lastScreen is null)
+        {
+            return;
+        }
+        var view = UnitPanel.Of(_controller.Snapshot().State, _board.Scene, _board.Interaction, _lastScreen.Seat, _board.Selected);
+        _panelView = view;
+        var scale = _scale;
+        _pTitle.Text = view.Title;
+        _pTitle.AddThemeFontSizeOverride("font_size", (int)(22 * scale));
+        _pUnit.Text = string.Join("\n", view.Unit);
+        _pUnavailable.Text = view.Unavailable ?? "";
+        _pUnavailable.Visible = view.Unavailable is not null;
+        _pUnavailable.Modulate = new Color(1, 1, 1, 0.7f);
+        _pActionTitle.Text = view.ActionTitle ?? "";
+        _pActionTitle.Visible = view.ActionTitle is not null;
+        _pActionTitle.AddThemeFontSizeOverride("font_size", (int)(20 * scale));
+        _pActionTitle.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : new Color(0.55f, 0.85f, 1f));
+        _pAction.Text = string.Join("\n", view.Action);
+        _pAction.Visible = view.Action.Count > 0;
+        _pRefusal.Text = view.Refusal ?? "";
+        _pRefusal.Visible = view.Refusal is not null;
+        _pRefusal.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : new Color(1f, 0.55f, 0.45f));
+        _pNotice.Text = view.Notice ?? "";
+        _pNotice.Visible = view.Notice is not null;
+        _pDetailsButton.Visible = view.Details.Count > 0;
+        _pDetailsButton.Text = _detailsOpen ? "Details ▾" : "Details ▸";
+        _pDetails.Text = string.Join("\n", view.Details);
+        _pDetails.Visible = _detailsOpen && view.Details.Count > 0;
+        _pConfirm.Text = view.ConfirmLabel;
+        _pConfirm.Disabled = !view.CanConfirm;
+        _pCancel.Disabled = !view.CanCancel;
+        ((StyleBoxFlat)_panel.GetThemeStylebox("panel")).BgColor = _highContrast ? new Color(0.05f, 0.05f, 0.05f) : new Color(0.17f, 0.17f, 0.2f);
+    }
+
+    // The panel as shown (for the UI check): every visible line, and its buttons.
+    public UnitPanelView? PanelView => _panelView;
+
+    public string PanelText => string.Join("\n", new[] { _pTitle, _pUnit, _pUnavailable, _pActionTitle, _pAction, _pRefusal, _pNotice, _pDetails }
+        .Where(l => l.IsVisibleInTree()).Select(l => l.Text));
+
+    public bool DetailsOpen => _detailsOpen;
+
+    public void ToggleDetails() => _pDetailsButton.EmitSignal(BaseButton.SignalName.Pressed);
+
+    public Button PanelConfirm => _pConfirm;
+
+    public Button PanelCancel => _pCancel;
+
     // The status line as shown (for the UI check).
     public string StripText => _strip.Text;
 
     private void ShowBoardInfo()
     {
         ShowStrip();
+        ShowPanel();
         if (_board.Scene is not { } scene)
         {
             _boardInfo.Text = "";
@@ -768,6 +894,10 @@ public partial class Main : Control
         }
         _theme.SetColor("font_focus_color", "Button", _highContrast ? Colors.Yellow : Colors.White);
         _board?.SetLook(_scale, _highContrast);
+        if (_pTitle is not null)
+        {
+            ShowPanel();
+        }
     }
 
     // ---- headless checks ----
