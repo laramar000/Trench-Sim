@@ -443,6 +443,10 @@ public partial class UiCheck : Node
         await KeyPress(Key.T);
         await Frames(3);
 
+        // Start from no selection: when the seat is taken back during one of its activations, the activating model is
+        // already selected (so its bar shows), and N would go on from it, possibly past the last model of this seat.
+        board.Select(null);
+        await Frames(2);
         await KeyPress(Key.N);
         await Frames(2);
         var first = board.Selected;
@@ -1463,6 +1467,13 @@ public partial class UiCheck : Node
                 }
                 continue;
             }
+            // Once, at Seat One's first turn to activate with two units to choose from: choose, switch, act by mouse.
+            if (_role == "pvp-a" && !_choiceChecked && hint is not null && hint.Text.StartsWith("Activate ", StringComparison.Ordinal) && board?.Scene is { } choosing
+                && board.Interaction.Pending is null && choosing.Models.Count(m => m.Yours && board.Interaction.CanChoose(m.Id)) >= 2)
+            {
+                await PvpChooseAndSwitch(board);
+                continue;
+            }
             var activation = Lines(LogText()).Count(IsActivationStart);
             if (hint is not null && board is not null && board.Interaction.Available.Contains(InteractionMode.Move) && tried.Add(activation))
             {
@@ -1491,6 +1502,114 @@ public partial class UiCheck : Node
             await Until(() => Lines(LogText()).Count != count || Hint() is not null || Banner() != banner || MatchOver()
                 || Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } b && b.Interaction.Available.Count > 0 ? "changed" : null, 5, "pvp-wait");
         }
+    }
+
+    private bool _choiceChecked;
+
+    // A real left-click on a model (board-local position from the scene).
+    private async Task ClickModel(BoardView board, Rules.Core.State.ModelId id)
+    {
+        await MouseOn(board);
+        if (board.Scene?.Find(id) is { } m && board.ScreenOf(m.X, m.Y, m.Standing) is { } local)
+        {
+            var global = board.GetGlobalTransformWithCanvas() * local;
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
+                await Frames(2);
+            }
+        }
+        await Frames(3);
+        await MouseOff(board);
+    }
+
+    // Choosing a unit sends nothing; switching to another sends nothing; the first action (a mouse Move, else "Take no
+    // action") activates the unit finally chosen and nobody else, then acts; after that, clicking another own unit
+    // switches nothing and says why. Both windows' event lists are compared by the runner (pvp-both-same-events).
+    private async Task PvpChooseAndSwitch(BoardView board)
+    {
+        _choiceChecked = true;
+        var interaction = board.Interaction;
+        var scene = board.Scene!;
+        var units = scene.Models.Where(m => m.Yours && interaction.CanChoose(m.Id)).Select(m => m.Id).ToList();
+        var (first, second) = (units[0], units[1]);
+        var lastCommand = Section("LAST COMMAND");
+        var events = Lines(LogText()).Count;
+        bool NothingSent() => Section("LAST COMMAND") == lastCommand && Lines(LogText()).Count == events && interaction.Pending is null;
+
+        await ClickModel(board, first);
+        await Frames(10);
+        Check("pvp-choose-unit-sends-nothing", interaction.Chosen == first && board.BarLabels.Contains("Not activated yet") && NothingSent(),
+            $"chosen {interaction.Chosen?.Value}; bar: {string.Join(" / ", board.BarLabels)}; events {events} -> {Lines(LogText()).Count}; last command unchanged: {Section("LAST COMMAND") == lastCommand}");
+        await Shot("pvp-a-chosen");
+
+        await ClickModel(board, second);
+        await Frames(10);
+        Check("pvp-switch-unit-sends-nothing", interaction.Chosen == second && board.BarLabels.Contains("Not activated yet") && NothingSent(),
+            $"chosen {interaction.Chosen?.Value} (wanted {second.Value}); bar: {string.Join(" / ", board.BarLabels)}; events {events} -> {Lines(LogText()).Count}");
+        await Shot("pvp-a-switched");
+
+        // The first action: Move by mouse to a free spot about 1" away, else "Take no action".
+        var sentMove = false;
+        if (interaction.Offered.Contains(InteractionMode.Move) && board.BarButtonAt(Interaction.Words(InteractionMode.Move)) is { } move)
+        {
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = move, GlobalPosition = move });
+                await Frames(2);
+            }
+            await Frames(3);
+            var me = scene.Find(second)!;
+            var spot = interaction.ReachArea().Where(p => scene.Models.All(m => (m.X - p.X) * (m.X - p.X) + (m.Y - p.Y) * (m.Y - p.Y) > 2.25))
+                .OrderBy(p => Math.Abs(Math.Sqrt((p.X - me.X) * (p.X - me.X) + (p.Y - me.Y) * (p.Y - me.Y)) - 1)).Select(p => (TablePoint?)p).FirstOrDefault();
+            await MouseOn(board);
+            if (interaction.Mode == InteractionMode.Move && spot is { } at && board.ScreenOf(at.X, at.Y) is { } local)
+            {
+                var global = board.GetGlobalTransformWithCanvas() * local;
+                foreach (var pressed in new[] { true, false })
+                {
+                    Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
+                    await Frames(2);
+                }
+                sentMove = true;
+            }
+            await MouseOff(board);
+        }
+        if (!sentMove)
+        {
+            if (interaction.Mode != InteractionMode.None)
+            {
+                await KeyPress(Key.Escape);
+            }
+            board.PressBar("Take no action");
+        }
+        var acted = sentMove ? $" {second.Value} moves to " : $" {second.Value} ends its activation";
+        var done = await Until(() => Lines(LogText()).Skip(events).Any(l => l.Contains(acted, StringComparison.Ordinal)) && interaction.Pending is null ? "done" : null, 30, "first action");
+        var added = Lines(LogText()).Skip(events).ToList();
+        var activations = added.Where(IsActivationStart).ToList();
+        Check("pvp-first-action-activates-chosen", done is not null && added.Count > 0 && added[0] == $"[{events + 1}] One activates {second.Value}." && activations.Count == 1
+            && interaction.Chosen is null && Section("LAST COMMAND").StartsWith("DONE:", StringComparison.Ordinal),
+            $"{(sentMove ? "Move" : "Take no action")}; new events: {string.Join(" | ", added.Take(4))}; last command: {Section("LAST COMMAND")}");
+        Answer(sentMove ? "Move" : "End", done is not null ? "DONE" : "NOT DONE");
+        Write($"DUMP choice activation={(added.Count > 0 ? added[0] : "")}");
+        await Shot("pvp-a-chosen-acted");
+
+        // Committed now: clicking the first unit again switches nothing, sends nothing, and the note says why.
+        if (interaction.Mode != InteractionMode.None)
+        {
+            await KeyPress(Key.Escape);
+        }
+        (lastCommand, events) = (Section("LAST COMMAND"), Lines(LogText()).Count);
+        var stillActive = Lines(LogText()).Count(IsActivationStart);
+        await ClickModel(board, first);
+        var note = await Until(() => board.NoteTexts.FirstOrDefault(n => n == $"{first.Value}: CAN'T SWITCH: ACTIVATION STARTED"), 3, "switch refused note");
+        Check("pvp-no-switch-after-action", interaction.Chosen is null && note is not null && interaction.Notice?.Contains("cannot switch", StringComparison.Ordinal) == true
+            && NothingSent() && Lines(LogText()).Count(IsActivationStart) == stillActive,
+            $"chosen {interaction.Chosen?.Value}; notes: {string.Join(" / ", board.NoteTexts)}; notice: {interaction.Notice}");
+        await Shot("pvp-a-no-switch");
+        // Back to the acting unit, so the fixed sequence goes on with it.
+        board.Select(second);
+        await Frames(3);
     }
 
     // One own activation: Fight, else Charge (then Fight), else Shoot, else Move; the activation is then ended by its hint.

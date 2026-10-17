@@ -255,6 +255,12 @@ public static class Program
             Record("pvp-both-same-event-count", endA.GetValueOrDefault("events") is { } eventsA && int.TryParse(eventsA, out var countA) && countA > 0 && eventsA == endB.GetValueOrDefault("events") ? "PASS" : "FAIL",
                 $"Seat One: {endA.GetValueOrDefault("events")} || Seat Two: {endB.GetValueOrDefault("events")}");
             Record("pvp-both-same-events", logA.Length > 0 && logA == logB ? "PASS" : "FAIL", $"{logA.Split('|').Length} event lines on Seat One, {logB.Split('|').Length} on Seat Two");
+            // Seat One chose a unit, switched to another, then acted: Seat Two's window shows that one activation, of the unit
+            // finally chosen, at the same event number (its screen before the kill holds turn 1; the end screen the newest 200).
+            var chosen = Dumps(pvp, "pvp-a", "choice").GetValueOrDefault("activation", "");
+            var seenByB = Dumps(pvp, "pvp-b", "before-kill").GetValueOrDefault("log", "").Split('|').Concat(logB.Split('|'));
+            Record("pvp-opponent-sees-only-chosen-unit", chosen.Contains(" One activates ", StringComparison.Ordinal) && seenByB.Contains(chosen) ? "PASS" : "FAIL",
+                $"Seat One's activation after switching: {(chosen.Length > 0 ? chosen : "none")}; in Seat Two's window: {seenByB.Contains(chosen)}");
             var ended = endA.GetValueOrDefault("ended", "");
             var resultA = endA.GetValueOrDefault("result", "");
             var resultB = endB.GetValueOrDefault("result", "");

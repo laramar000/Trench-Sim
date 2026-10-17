@@ -424,6 +424,14 @@ public partial class BoardView : SubViewportContainer
     // Otherwise the click selects the model under it.
     public void Click(Vector2 local, bool shift = false)
     {
+        // While a unit is only chosen (not activated on the server yet), a click on another of your units that may
+        // activate switches to it, whatever action was being chosen.
+        if (Interaction.Chosen is { } chosen && ModelAt(local) is { Yours: true } other && other.Id != chosen && Interaction.CanChoose(other.Id))
+        {
+            ChooseUnit(other.Id);
+            Sync();
+            return;
+        }
         if (Interaction.IsTarget)
         {
             if (ModelAt(local) is { } model)
@@ -453,9 +461,30 @@ public partial class BoardView : SubViewportContainer
         }
         else
         {
-            Select(ModelAt(local)?.Id);
+            ChooseUnit(ModelAt(local)?.Id);
         }
         Sync();
+    }
+
+    // A mouse click on a model: selects it, and when it is one of your units that may activate now, chooses it to
+    // activate (nothing is sent until its first action). A click on another of your units while your activation has
+    // started on the server says why it cannot switch.
+    public void ChooseUnit(ModelId? id)
+    {
+        Select(id);
+        if (id is not { } wanted || _scene?.Find(wanted) is not { Yours: true })
+        {
+            return;
+        }
+        if (Interaction.CanChoose(wanted))
+        {
+            Interaction.Choose(wanted);
+            UpdateBar();
+        }
+        else if (!Interaction.Choose(wanted) && Interaction.Notice?.Contains("cannot switch", StringComparison.Ordinal) == true)
+        {
+            AddNote(new UnitNote(wanted, "CAN'T SWITCH: ACTIVATION STARTED", NoteTone.Failure));
+        }
     }
 
     // A right-click without dragging: cancels the action being chosen; with none, closes the bar and the selection.
@@ -469,6 +498,7 @@ public partial class BoardView : SubViewportContainer
         if (Interaction.Pending is null)
         {
             _barDismissed = true;
+            Interaction.Choose(null);
             Select(null);
         }
     }
