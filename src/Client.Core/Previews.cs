@@ -492,6 +492,26 @@ public static class Previews
         return Opening(state) is null && Acting(state, seat, model, out var acting) is null ? TableRect.Inches(Allowance(state, acting!)) : null;
     }
 
+    // The state as the server would hold it just after ActivateModel(seat, model), for previewing a unit the player has
+    // only chosen (nothing is sent until its first action). A preview-only copy: never sent, never shown as the match.
+    // Null when the rules do not offer that activation now (TurnSequence.LegalCommands). A test checks it has the same
+    // state hash as the server's state after TurnSequence.Decide(ActivateModel) for every activation it offers.
+    public static MatchState? AsIfActivated(MatchState state, Seat seat, ModelId model)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (state.ActiveModel is not null || state.Pending is not null || state.FindModel(model) is not { } found
+            || !TurnSequence.LegalCommands(state).Contains(new ActivateModel(seat, model)))
+        {
+            return null;
+        }
+        // ActivationStarted: the model is activated, it is the active model and its seat activated last (Reducer).
+        var standsUp = state.Setup?.Scenario is not null && found.Status == ModelStatus.Down;
+        var activated = found with { ActivatedThisTurn = true, Status = standsUp ? ModelStatus.Standing : found.Status };
+        var models = state.Models.Select(m => m.Id == model ? activated : m).ToImmutableArray();
+        // ModelStoodUp (U30): a Down model stands up as its activation starts, with its Movement halved.
+        return state with { Models = models, ActiveModel = model, LastActivator = seat, Actions = ActionsTaken.None, MovementHalved = standsUp };
+    }
+
     // Where the acting model could end a Move, Dash or Retreat with one more straight leg after the fixed waypoints: every
     // point of a grid (step inches apart) whose path the preview checks accept, so the area follows the rules' own path
     // check (allowance after the waypoints already used, terrain, other models, a Retreat's end more than 1" from enemies)

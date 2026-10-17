@@ -42,6 +42,10 @@ public static class ActionHints
         {
             return "Your activating model's actions are on its bar on the battlefield: click one, then click where to go (it moves at once) or click a target twice. (Keys: M, D, R, S, C, X, then Space.) End the activation on the bar or with its button.";
         }
+        if (state.Phase == Phase.Activation && state.ActiveModel is null && state.Setup?.Scenario is not null && TurnSequence.NextActivator(state) == mine)
+        {
+            return "Click one of your units on the battlefield to choose it and see its actions. Nothing is sent until its first action, so you can click another unit to switch. (An Activate button below starts an activation at once.)";
+        }
         return null;
     }
 

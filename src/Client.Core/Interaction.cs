@@ -41,6 +41,9 @@ public enum BarKind
     // Sends ActivateModel for the selected model.
     Activate,
 
+    // A line of text, not a button (shown disabled): "Not activated yet".
+    Note,
+
     // Sends an answer to a decision of yours (Command): Blood Markers, free attacks, the own model a shot hits.
     Decide,
 
@@ -80,12 +83,79 @@ public sealed class Interaction
         [InteractionMode.Move, InteractionMode.Dash, InteractionMode.Retreat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight];
 
     private readonly List<TablePoint> _waypoints = [];
+
+    // The server's state, as the mirror holds it.
+    private MatchState _server = MatchState.None;
+
+    // What the previews and the bar work from: the server's state, or while a unit is only chosen, the state as the
+    // server would hold it after that unit's activation (Previews.AsIfActivated). Never sent, never shown as the match.
     private MatchState _state = MatchState.None;
     private Seat? _seat;
     private Preview? _preview;
     private bool _stale = true;
 
     public InteractionMode Mode { get; private set; }
+
+    // A unit of yours chosen to activate but not activated on the server yet: nothing has been sent for it, so another
+    // eligible unit can be chosen instead. Its first action (or "Take no action") sends ActivateModel first.
+    public ModelId? Chosen { get; private set; }
+
+    // Whether this unit of yours could be chosen now (the rules offer its activation: TurnSequence.LegalCommands).
+    public bool CanChoose(ModelId id) => _seat is { } seat && Previews.AsIfActivated(_server, seat, id) is not null;
+
+    // Chooses a unit to activate, or switches to another one, before anything is sent; null drops the choice. Refused
+    // (false, with a notice) while a command is on its way, for a unit the rules do not offer, and once your activation
+    // has started on the server: from then on that activation is fixed until it ends.
+    public bool Choose(ModelId? id)
+    {
+        if (Pending is not null)
+        {
+            return false;
+        }
+        if (id is not { } wanted)
+        {
+            if (Chosen is not null)
+            {
+                Chosen = null;
+                Clear();
+                _state = _server;
+                Changed();
+            }
+            return true;
+        }
+        if (Chosen == wanted || _seat is not { } seat)
+        {
+            return Chosen == wanted;
+        }
+        if (_server.ActiveModel is { } active && active != wanted && _server.FindModel(active)?.Seat == seat && _server.FindModel(wanted)?.Seat == seat)
+        {
+            Notice = $"{NameOf(active)} has already started its activation on the server, so you cannot switch to {NameOf(wanted)}: " +
+                $"an activation is fixed once the server has it. End {NameOf(active)}'s activation first.";
+            Changed();
+            return false;
+        }
+        if (Previews.AsIfActivated(_server, seat, wanted) is not { } view)
+        {
+            return false;
+        }
+        Clear();
+        Chosen = wanted;
+        _state = view;
+        Notice = null;
+        Changed();
+        return true;
+    }
+
+    // The preview state: while a unit is chosen and still eligible, as if it were activating; otherwise the server's.
+    private MatchState Effective()
+    {
+        if (Chosen is { } chosen && _seat is { } seat && Previews.AsIfActivated(_server, seat, chosen) is { } view)
+        {
+            return view;
+        }
+        Chosen = null;
+        return _server;
+    }
 
     // The model placed or acting.
     public ModelId? Actor { get; private set; }
@@ -126,7 +196,7 @@ public sealed class Interaction
     public void Update(MatchState state, Seat? seat)
     {
         ArgumentNullException.ThrowIfNull(state);
-        if (ReferenceEquals(state, _state) && seat == _seat)
+        if (ReferenceEquals(state, _server) && seat == _seat)
         {
             return;
         }
@@ -136,8 +206,13 @@ public sealed class Interaction
             Clear();
             Notice = "Another seat is shown now, so the preview was cleared.";
         }
-        _state = state;
+        if (seat != _seat)
+        {
+            Chosen = null;
+        }
+        _server = state;
         _seat = seat;
+        _state = Effective();
         _armed = false;
         // While a command is on its way, the server's answer decides what happens to the choice.
         if (Pending is null && Mode != InteractionMode.None && !StillPossible())
@@ -239,7 +314,13 @@ public sealed class Interaction
             var items = offered.Select(m => new BarItem(BarKind.Start, Words(m), Tip(m), Mode: m)).ToList();
             if (legal.OfType<EndActivation>().FirstOrDefault() is { } end)
             {
-                items.Add(new(BarKind.EndActivation, "End activation", "Finish this model's activation; then the next activation begins.", Command: end));
+                items.Add(Chosen is null
+                    ? new(BarKind.EndActivation, "End activation", "Finish this model's activation; then the next activation begins.", Command: end)
+                    : new(BarKind.EndActivation, "Take no action", "Activate this unit and end its activation at once, without acting.", Command: end));
+            }
+            if (Chosen is not null)
+            {
+                items.Add(new(BarKind.Note, "Not activated yet", "Nothing is sent yet: click another of your units to switch. Its first action activates this unit.", Enabled: false));
             }
             return items.Count == 0 ? ActionBar.Empty : new(active, items);
         }
@@ -625,10 +706,27 @@ public sealed class Interaction
             return null;
         }
         Clear();
+        Chosen = null;
+        _state = _server;
         return await SendNow(new ActivateModel(seat, model), $"Activate {model.Value}");
     }
 
+    // A command for a unit that is only chosen: ActivateModel first, and the command only once the server has accepted
+    // that activation. A refused (or lost) activation sends nothing more.
     private async Task<Feedback?> SendNow(Command command, string label)
+    {
+        if (Chosen is { } chosen && _seat is { } seat && command is not ActivateModel)
+        {
+            var activated = await SendOne(new ActivateModel(seat, chosen), $"Activate {NameOf(chosen)}", keepChoice: true);
+            if (activated is not { Kind: FeedbackKind.Accepted })
+            {
+                return activated;
+            }
+        }
+        return await SendOne(command, label, keepChoice: false);
+    }
+
+    private async Task<Feedback?> SendOne(Command command, string label, bool keepChoice)
     {
         if (Send is not { } send)
         {
@@ -656,6 +754,11 @@ public sealed class Interaction
         Answer = answer;
         switch (answer.Kind)
         {
+            case FeedbackKind.Accepted when keepChoice:
+                // The activation is on the server now: the unit is no longer only chosen, and its action follows.
+                Chosen = null;
+                Notice = $"DONE: {label}.";
+                break;
             case FeedbackKind.Accepted:
                 Clear();
                 Answer = answer;
@@ -703,6 +806,10 @@ public sealed class Interaction
     public IReadOnlyList<string> Lines()
     {
         var lines = new List<string>();
+        if (Chosen is { } chosen)
+        {
+            lines.Add($"{NameOf(chosen)} is chosen but not activated yet: nothing has been sent. Click another of your units to switch; its first action activates it.");
+        }
         if (Mode == InteractionMode.None)
         {
             var available = Available;
