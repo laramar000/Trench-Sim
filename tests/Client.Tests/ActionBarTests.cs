@@ -148,7 +148,7 @@ public class ActionBarTests
         // Too far: not sent, and the note says why.
         var far = new TablePoint(at.X < 18 ? 35.5 : 0.5, at.Y < 18 ? 35.5 : 0.5);
         Assert.Equal(ClickResult.Refused, interaction.ClickAt(far.X, far.Y));
-        Assert.Equal(new UnitNote(state.ActiveModel!.Value, "NOT ENOUGH MOVEMENT", NoteTone.Failure), interaction.RefusedNote());
+        Assert.Equal(new UnitNote(state.ActiveModel!.Value, "TOO FAR", NoteTone.Failure), interaction.RefusedNote());
         Assert.StartsWith("Not sent: ", interaction.Notice);
         Assert.Null(interaction.Pending);
 

@@ -40,6 +40,7 @@ public partial class BoardView : SubViewportContainer
     private readonly Node3D _overlay = new();
     private readonly HoverThrottle _hover = new(0.08);
     private readonly List<string> _overlayTexts = [];
+    private readonly HashSet<ModelId> _crossed = [];
     private long _drawnVersion = -1;
     private BoardScene? _scene;
     private ModelId? _selected;
@@ -92,6 +93,9 @@ public partial class BoardView : SubViewportContainer
 
     // The words of every preview label drawn now (for the UI check and for screen readers' sake, the same words).
     public IReadOnlyList<string> OverlayTexts => _overlayTexts;
+
+    // Enemies marked with a grey cross as targets the chosen action cannot take (for the UI check).
+    public IReadOnlyCollection<ModelId> Crossed => _crossed;
 
     public override void _Ready()
     {
@@ -399,6 +403,7 @@ public partial class BoardView : SubViewportContainer
         }
         Sync();
         UpdateBar();
+        SeparateLabels();
         if (Interaction.ServerNotes != _serverNotesShown)
         {
             _serverNotesShown = Interaction.ServerNotes;
@@ -547,7 +552,7 @@ public partial class BoardView : SubViewportContainer
         }
         else if (!Interaction.Choose(wanted) && Interaction.Notice?.Contains("cannot switch", StringComparison.Ordinal) == true)
         {
-            AddNote(new UnitNote(wanted, "CAN'T SWITCH: ACTIVATION STARTED", NoteTone.Failure));
+            AddNote(new UnitNote(wanted, "CAN'T SWITCH", NoteTone.Failure));
         }
         Changed?.Invoke();
     }
@@ -568,7 +573,15 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
-    // Esc, a right-click or the bar's Cancel: stops choosing; nothing is sent.
+    // The panel's Undo point (or Backspace): removes the last waypoint.
+    public void UndoPoint()
+    {
+        Interaction.RemovePoint();
+        Sync();
+        UpdateBar();
+    }
+
+    // Esc, a right-click or the panel's Cancel: stops choosing; nothing is sent.
     public void CancelPreview()
     {
         Interaction.Cancel();
@@ -739,6 +752,8 @@ public partial class BoardView : SubViewportContainer
     private void UpdateBar()
     {
         var bar = _scene is null ? ActionBar.Empty : Interaction.Bar(_selected);
+        // Proposal G: the bar next to the unit carries actions only; Confirm, Undo, Cancel and "waiting" are in the panel.
+        bar = bar with { Items = [.. bar.Items.Where(i => i.Kind is not (BarKind.Confirm or BarKind.Undo or BarKind.Cancel or BarKind.Waiting))] };
         if (_barDismissed && Interaction.Mode == InteractionMode.None && Interaction.Pending is null && !bar.Items.Any(i => i.Kind == BarKind.Decide))
         {
             bar = ActionBar.Empty;
@@ -827,6 +842,7 @@ public partial class BoardView : SubViewportContainer
             child.QueueFree();
         }
         _overlayTexts.Clear();
+        _crossed.Clear();
         AreaPoints = 0;
         GhostAt = null;
         if (_scene is null || Interaction.Mode == InteractionMode.None)
@@ -850,10 +866,6 @@ public partial class BoardView : SubViewportContainer
         }
         if (preview is null)
         {
-            if (Interaction.UsesCursor)
-            {
-                Overlay($"cursor {Interaction.Cursor}", Interaction.Cursor, 1.2f, 0.8f);
-            }
             return;
         }
         Hints(good);
@@ -898,8 +910,8 @@ public partial class BoardView : SubViewportContainer
                 if (preview.ChargePath.Count > 1)
                 {
                     var stop = preview.ChargePath[^1];
-                    var roll = preview.ChargeRollNeeded is { } n ? n == 1 ? "any Charge roll" : $"a Charge roll of {n}+" : "no roll (stops short)";
-                    Overlay($"Charge path {BoardScene.Inch(stop.Inches)}: reaches on {roll}", stop.At, 0.9f, 0.75f);
+                    // Proposal G: just the roll the charge needs at the end of its path; the panel says it in words.
+                    Overlay(ChargeMark(preview.ChargeRollNeeded), stop.At, 0.9f, 0.75f);
                 }
                 break;
         }
@@ -921,7 +933,16 @@ public partial class BoardView : SubViewportContainer
             }
             var spot = new TablePoint(model.X, model.Y);
             Ring(spot, model.Radius + 0.25, refusal is null ? good : new Color(0.55f, 0.55f, 0.55f));
-            Overlay(refusal is null ? "valid target" : $"not valid: {Short(refusal.Code)}", spot, 2.2f, 0.7f);
+            // Proposal G: a target that cannot be chosen gets a grey cross as well as its grey ring (not colour alone);
+            // why not is in the panel.
+            if (refusal is not null)
+            {
+                var r = (float)model.Radius * 0.7f;
+                var grey = _highContrast ? Colors.White : new Color(0.7f, 0.7f, 0.7f);
+                Segment(new TablePoint(spot.X - r, spot.Y - r), new TablePoint(spot.X + r, spot.Y + r), (float)model.Standing + 1.5f, grey, 0.08f);
+                Segment(new TablePoint(spot.X - r, spot.Y + r), new TablePoint(spot.X + r, spot.Y - r), (float)model.Standing + 1.5f, grey, 0.08f);
+                _crossed.Add(id);
+            }
         }
         if (Interaction.IsPath)
         {
@@ -929,19 +950,8 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
-    private static string Short(Rules.Core.ReasonCode code) => code switch
-    {
-        Rules.Core.ReasonCode.TargetOutOfRange => "out of range",
-        Rules.Core.ReasonCode.NoLineOfSight => "not in sight",
-        Rules.Core.ReasonCode.TargetNotInMelee => "not within 1\"",
-        Rules.Core.ReasonCode.ChargeRouteBlocked => "path blocked",
-        Rules.Core.ReasonCode.AttackerEngaged => "you are in melee",
-        Rules.Core.ReasonCode.AlreadyEngaged => "you are in melee",
-        Rules.Core.ReasonCode.NoRangedWeapon => "no ranged weapon",
-        Rules.Core.ReasonCode.NoMeleeWeapon => "no melee weapon",
-        Rules.Core.ReasonCode.ActionAlreadyTaken or Rules.Core.ReasonCode.ActionExcluded => "action not open",
-        _ => "refused",
-    };
+    // The roll a charge needs, drawn at the end of its path: "4+", "ANY" or "SHORT" (the panel says it in words).
+    private static string ChargeMark(int? needed) => needed is { } n ? n == 1 ? "ANY" : $"{n}+" : "SHORT";
 
     // A flat bar between two table points, at a height, drawn through everything.
     private void Segment(TablePoint a, TablePoint b, float height, Color colour, float width = 0.12f)
@@ -1043,7 +1053,7 @@ public partial class BoardView : SubViewportContainer
     }
 
     // The battlefield's own refusals (a click not sent) are replaced by the next one rather than piling up.
-    private static bool IsLocal(UnitNote note) => note.Text is "INVALID MOVE" or "INVALID PLACEMENT" or "NOT ENOUGH MOVEMENT" or "MUST END 1\" AWAY";
+    private static bool IsLocal(UnitNote note) => note.Text is "INVALID MOVE" or "INVALID PLACEMENT" or "TOO FAR" or "TOO CLOSE";
 
     // A new action dismisses the battlefield's own stale refusals.
     private void DismissLocalNotes()
@@ -1060,7 +1070,8 @@ public partial class BoardView : SubViewportContainer
         shown.Label.QueueFree();
     }
 
-    // Newest at the bottom, just above the model's head; older ones above it.
+    // Newest at the bottom, just above the model's id; older ones above it. A note that would cover another model's id, a
+    // zone or objective label, or another model's note goes up a line at a time (proposal G: no text over text).
     private void Stack(ModelId id)
     {
         if (_scene?.Find(id) is not { } model)
@@ -1068,16 +1079,35 @@ public partial class BoardView : SubViewportContainer
             return;
         }
         var mine = _shown.Where(n => n.Note.Model == id).ToList();
+        _idLabels.TryGetValue(id, out var own);
+        var taken = _idLabels.Where(p => p.Key != id).Select(p => p.Value).Concat(_fixedLabels)
+            .Concat(_shown.Where(n => n.Note.Model != id).Select(n => n.Label)).Select(LabelBox).OfType<Rect2>().ToList();
         // Anchored at the model's label and lifted in screen pixels, so at any zoom the notes sit above that label
-        // instead of on it.
-        var lift = AboveLabel;
+        // instead of on it (and follow the id when it was nudged down).
+        var lift = AboveLabel + (own is null || own.IsQueuedForDeletion() ? 0 : own.Offset.Y);
         for (var i = mine.Count - 1; i >= 0; i--)
         {
-            mine[i].Label.Position = new Vector3((float)model.X, LabelHeight(model), (float)model.Y);
-            Raise(mine[i].Label, lift);
-            lift += LineHeight(mine[i].Label) * Math.Max(1, mine[i].Label.Text.Split('\n').Length);
+            var label = mine[i].Label;
+            label.Position = new Vector3((float)model.X, LabelHeight(model), (float)model.Y);
+            Raise(label, lift);
+            for (var tries = 0; tries < 6 && LabelBox(label) is { } box && taken.Any(t => t.Grow(1).Intersects(box)); tries++)
+            {
+                lift += LineHeight(label);
+                Raise(label, lift);
+            }
+            if (LabelBox(label) is { } placed)
+            {
+                taken.Add(placed);
+            }
+            lift += LineHeight(label) * Math.Max(1, label.Text.Split('\n').Length);
         }
     }
+
+    // Every short label that must not cover another, with its box on screen: model ids, zone and objective labels, and
+    // the notes over models (for the UI check).
+    public IReadOnlyList<(string Text, Rect2 Box)> ScreenLabelBoxes() =>
+        [.. _idLabels.Values.Concat(_fixedLabels).Concat(_shown.Select(n => n.Label)).Select(l => (l.Text, Box: LabelBox(l)))
+            .Where(b => b.Box is not null).Select(b => (b.Text, b.Box!.Value))];
 
     private void FadeNotes()
     {
@@ -1207,6 +1237,9 @@ public partial class BoardView : SubViewportContainer
         }
         _bodyColours.Clear();
         _eligibleRings.Clear();
+        _idLabels.Clear();
+        _fixedLabels.Clear();
+        _labelsPlaced = "";
         if (_scene is not { } scene)
         {
             return;
@@ -1218,14 +1251,23 @@ public partial class BoardView : SubViewportContainer
             var area = zone.Area;
             Box(new Vector3((float)area.CentreX, 0.01f, (float)area.CentreY), new Vector3((float)area.Width, 0.02f, (float)area.Depth),
                 _highContrast ? new Color(0.36f, 0.36f, 0.36f) : new Color(0.38f, 0.42f, 0.5f));
-            Text(zone.Label, new Vector3((float)area.CentreX, 0.3f, (float)area.CentreY), 0.8f);
+            // Proposal G: "ZONE A" at the zone's outer edge, away from the models deployed in it.
+            var edges = new[] { (X: area.X0 + 1.2, Y: area.CentreY), (X: area.X1 - 1.2, Y: area.CentreY), (X: area.CentreX, Y: area.Y0 + 1.2), (X: area.CentreX, Y: area.Y1 - 1.2) };
+            var edge = edges.OrderByDescending(e => Math.Pow(e.X - scene.Width / 2, 2) + Math.Pow(e.Y - scene.Depth / 2, 2)).First();
+            _fixedLabels.Add(MakeText(zone.Short, new Vector3((float)edge.X, 0.3f, (float)edge.Y), 0.75f));
         }
         foreach (var piece in scene.Terrain)
         {
             var area = piece.Area;
             var h = (float)piece.Height;
             Box(new Vector3((float)area.CentreX, h / 2, (float)area.CentreY), new Vector3((float)area.Width, h, (float)area.Depth), TerrainColour(piece));
-            Text(piece.Label, new Vector3((float)area.CentreX, h + 0.4f, (float)area.CentreY), 0.6f);
+            // Proposal G: only objectives carry text ("OBJ-2"); the kind of terrain shows by its colour and height, and the
+            // panel's Details has the legend.
+            if (piece.Objective)
+            {
+                _fixedLabels.Add(MakeText(piece.Id.StartsWith("obj", StringComparison.OrdinalIgnoreCase) ? piece.Id.ToUpperInvariant() : "OBJ",
+                    new Vector3((float)area.CentreX, h + 0.4f, (float)area.CentreY), 0.65f));
+            }
         }
         foreach (var model in scene.Models)
         {
@@ -1263,7 +1305,14 @@ public partial class BoardView : SubViewportContainer
                 };
                 _content.AddChild(ring);
             }
-            Text((selected ? "SELECTED " : "") + model.Label, new Vector3((float)model.X, LabelHeight(model), (float)model.Y), selected ? 1f : 0.85f);
+            // Proposal G: the short id ("A2", with ✓ once activated and ↓ when Down); the selected one larger, an activated
+            // one dimmed. The full name and state are in the panel beside the battlefield.
+            var id = MakeText(model.ShortLabel(), new Vector3((float)model.X, LabelHeight(model), (float)model.Y), selected ? 1.15f : 0.9f);
+            if (model.Activated && !model.Active)
+            {
+                id.Modulate = new Color(1, 1, 1, 0.6f);
+            }
+            _idLabels[model.Id] = id;
         }
     }
 
@@ -1313,6 +1362,90 @@ public partial class BoardView : SubViewportContainer
 
     // Labels keep their size on screen at any distance, follow the text size setting and show through walls.
     private void Text(string text, Vector3 at, float size) => _content.AddChild(MakeLabel(text, at, size));
+
+    private Label3D MakeText(string text, Vector3 at, float size)
+    {
+        var label = MakeLabel(text, at, size);
+        _content.AddChild(label);
+        return label;
+    }
+
+    // Proposal G: the model ids, and the fixed labels (zones, objectives) they must not cover.
+    private readonly Dictionary<ModelId, Label3D> _idLabels = [];
+    private readonly List<Label3D> _fixedLabels = [];
+    private string _labelsPlaced = "";
+
+    // Screen pixels per Label3D pixel for a fixed-size label (Godot scales it by the depth in perspective, so its size
+    // on screen depends only on the pixel size, the view's height and the projection).
+    private float LabelScale(Label3D label)
+    {
+        var height = _viewport.Size.Y;
+        var projection = _camera.GetCameraProjection();
+        return label.PixelSize * height / 2 * (_camera.Projection == Camera3D.ProjectionType.Orthogonal ? 1 : projection.Y.Y);
+    }
+
+    // Where a label is drawn on the battlefield's screen (control coordinates), as a box; null when off screen.
+    public Rect2? LabelBox(Label3D label)
+    {
+        if (label.IsQueuedForDeletion() || !label.Visible || _camera.IsPositionBehind(label.GlobalPosition))
+        {
+            return null;
+        }
+        var scale = LabelScale(label) * (Size.Y / Math.Max(1, _viewport.Size.Y));
+        var font = label.Font ?? ThemeDB.FallbackFont;
+        var lines = label.Text.Split('\n');
+        var width = lines.Max(l => font.GetStringSize(l, HorizontalAlignment.Left, -1, label.FontSize).X) * scale;
+        var height = font.GetHeight(label.FontSize) * lines.Length * scale;
+        var at = _camera.UnprojectPosition(label.GlobalPosition) * (Size.Y / Math.Max(1, _viewport.Size.Y));
+        // Offset is in the label's pixels, x to the right and y up; the screen's y goes down.
+        at += new Vector2(label.Offset.X, -label.Offset.Y) * scale;
+        var top = label.VerticalAlignment switch
+        {
+            VerticalAlignment.Bottom => at.Y - height,
+            VerticalAlignment.Top => at.Y,
+            _ => at.Y - height / 2,
+        };
+        return new Rect2(at.X - width / 2, top, width, height);
+    }
+
+    // Every short label over the battlefield (ids, zones, objectives, notes, path inches) with its box on screen.
+    public IReadOnlyList<(string Text, Rect2 Box)> LabelBoxes() =>
+        [.. All(this).OfType<Label3D>().Select(l => (l.Text, Box: LabelBox(l))).Where(b => b.Box is not null).Select(b => (b.Text, b.Box!.Value))];
+
+    // The short label drawn on a model ("A2", "A2 ✓"), for the UI check.
+    public string? IdLabelOf(ModelId id) => _idLabels.TryGetValue(id, out var label) && !label.IsQueuedForDeletion() ? label.Text : null;
+
+    private static IEnumerable<Node> All(Node node) => node.GetChildren().SelectMany(c => All(c).Prepend(c));
+
+    // Moves model ids that would overlap another id or a zone or objective label down, a line at a time, so no two
+    // labels cover each other; worked out again whenever the camera or the models change.
+    private void SeparateLabels()
+    {
+        var key = $"{_camera.GlobalTransform}|{_camera.Size}|{Size}|{_idLabels.Count}|{_scene?.GetHashCode()}";
+        if (key == _labelsPlaced)
+        {
+            return;
+        }
+        _labelsPlaced = key;
+        var taken = _fixedLabels.Select(LabelBox).OfType<Rect2>().ToList();
+        foreach (var label in _idLabels.Values.OrderBy(l => _camera.UnprojectPosition(l.GlobalPosition).Y).ThenBy(l => _camera.UnprojectPosition(l.GlobalPosition).X))
+        {
+            label.Offset = Vector2.Zero;
+            if (LabelBox(label) is not { } box)
+            {
+                continue;
+            }
+            var scale = LabelScale(label) * (Size.Y / Math.Max(1, _viewport.Size.Y));
+            for (var tries = 0; tries < 6 && taken.Any(t => t.Grow(1).Intersects(box)); tries++)
+            {
+                // Down by the height of the box it hits, then try again.
+                var step = box.Size.Y + 2;
+                label.Offset -= new Vector2(0, step / Math.Max(0.001f, scale));
+                box = LabelBox(label) ?? box;
+            }
+            taken.Add(box);
+        }
+    }
 
     private Label3D MakeLabel(string text, Vector3 at, float size) =>
         new()

@@ -399,10 +399,11 @@ public partial class UiCheck : Node
         {
             return;
         }
-        var labels = All(board).OfType<Label3D>().Where(l => !l.IsQueuedForDeletion()).Select(l => l.Text).ToList();
-        var unlabelled = scene.Models.Where(m => !labels.Any(t => t.Contains(m.Label, StringComparison.Ordinal))).Select(m => m.Name).ToList();
+        // Proposal G: every model carries its short id ("A2") on the battlefield; the full name is in the panel.
+        var unlabelled = scene.Models.Where(m => board.IdLabelOf(m.Id)?.StartsWith(UnitPanel.ShortId(m.Id), StringComparison.Ordinal) != true).Select(m => m.Name).ToList();
         Check("board-models-labelled", unlabelled.Count == 0 && scene.Models.All(m => m.Label.StartsWith($"[{m.SeatLetter}] ", StringComparison.Ordinal)),
-            unlabelled.Count == 0 ? string.Join(" | ", scene.Models.Select(m => m.Label)) : $"no label for {string.Join(", ", unlabelled)}");
+            unlabelled.Count == 0 ? string.Join(" | ", scene.Models.Select(m => board.IdLabelOf(m.Id))) : $"no short id for {string.Join(", ", unlabelled)}");
+        await LabelLayoutChecks(board, "board");
         var reached = await FocusByTab(board, 80);
         Check("board-tab-focus", reached, $"focus on {Describe(Focused())}");
         if (!reached)
@@ -453,7 +454,7 @@ public partial class UiCheck : Node
         var info = Section("BATTLEFIELD");
         Check("board-select-key", first is { Yours: true } && info.Contains($"Selected: {first.Text}", StringComparison.Ordinal)
             && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
-            && All(board).OfType<Label3D>().Any(l => !l.IsQueuedForDeletion() && l.Text.StartsWith("SELECTED ", StringComparison.Ordinal)),
+            && ((Main)_main).PanelView?.Title == UnitPanel.Heading(first),
             first is null ? "nothing selected" : $"N selected {first.Name}; {info.Split('\n')[0]}");
         await KeyPress(Key.P);
         await Frames(2);
@@ -758,7 +759,8 @@ public partial class UiCheck : Node
         await KeyPress(Key.C);
         var charge = interaction.Preview;
         var chargeShown = charge is not null && InPanel(board, "CHARGE → ") && OffField(board, Preview.Caveat)
-            && (charge.Legal ? OverlayHas(board, "Charge path ") && OverlayHas(board, ": reaches on ") : InPanel(board, $"REFUSED: {charge.Refusal!.Text}"));
+            && (charge.Legal ? (charge.ChargePath.Count < 2 || board.OverlayTexts.Any(t => t is "ANY" or "SHORT" || t.EndsWith('+')))
+                && (charge.ChargePath.Count < 2 || InPanel(board, "Charge roll") || InPanel(board, "stops short")) : InPanel(board, $"REFUSED: {charge.Refusal!.Text}"));
         Check("board-charge-preview", chargeShown, $"{charge?.Headline}; {string.Join(" ", charge?.Facts ?? [])}; labels: {string.Join(" / ", board.OverlayTexts)}");
         await Shot("host-charge-preview");
         // The panel's Cancel, clicked with the mouse, stops choosing and sends nothing (as Esc does).
@@ -825,7 +827,9 @@ public partial class UiCheck : Node
                 await Frames(2);
             }
             await Frames(2);
-            started = interaction.Mode == InteractionMode.Move && board.BarLabels.SequenceEqual(["Move here", "Cancel"]);
+            // Proposal G: the bar next to the unit goes away while choosing; Confirm and Cancel are in the panel.
+            started = interaction.Mode == InteractionMode.Move && board.BarLabels.Count == 0
+                && ((Main)_main).PanelConfirm.Text == "Move here" && !((Main)_main).PanelCancel.Disabled;
         }
         Check("board-bar-click-starts-action", started, $"Move offered: {offered.Contains(Interaction.Words(InteractionMode.Move))}; mode {interaction.Mode}; bar: {string.Join(" / ", board.BarLabels)}");
 
@@ -849,7 +853,7 @@ public partial class UiCheck : Node
             }
             await Frames(2);
             refusedShown = interaction.Mode == InteractionMode.Move && interaction.Pending is null && Section("LAST COMMAND") == lastCommand
-                && board.NoteTexts.Contains($"{me.Id.Value}: NOT ENOUGH MOVEMENT");
+                && board.NoteTexts.Contains($"{me.Id.Value}: TOO FAR");
             refusedDetail = $"mode {interaction.Mode}; pending {interaction.Pending}; notes: {string.Join(" / ", board.NoteTexts)}; last command unchanged: {Section("LAST COMMAND") == lastCommand}";
         }
         Check("board-click-too-far-not-sent", refusedShown, refusedDetail);
@@ -1118,6 +1122,31 @@ public partial class UiCheck : Node
     private static bool Near(TablePoint p, double x, double y, double within = 0.001) => Math.Abs(p.X - x) <= within && Math.Abs(p.Y - y) <= within;
 
     // Proposal G: the selected-unit and action panel beside the battlefield, as shown.
+    // Proposal G: the words over the battlefield are short (ids, zones, objectives, notes of a word or two, inches), and
+    // the model ids and the zone and objective labels do not cover each other on screen.
+    private async Task LabelLayoutChecks(BoardView board, string prefix)
+    {
+        await Frames(3);
+        var texts = All(board).OfType<Label3D>().Where(l => !l.IsQueuedForDeletion() && l.Visible).Select(l => l.Text).ToList();
+        var long_ = texts.Where(t => t.Length > 18 || t.Contains(':') || t.Contains('\n')).ToList();
+        Check($"{prefix}-labels-short", texts.Count > 0 && long_.Count == 0,
+            long_.Count == 0 ? $"{texts.Count} labels: {string.Join(" / ", texts.Take(30))}" : $"long: {string.Join(" / ", long_)}");
+        var boxes = board.ScreenLabelBoxes();
+        var overlaps = new List<string>();
+        for (var i = 0; i < boxes.Count; i++)
+        {
+            for (var j = i + 1; j < boxes.Count; j++)
+            {
+                if (boxes[i].Box.Grow(-1).Intersects(boxes[j].Box.Grow(-1)))
+                {
+                    overlaps.Add($"{boxes[i].Text} {boxes[i].Box} x {boxes[j].Text} {boxes[j].Box}");
+                }
+            }
+        }
+        Check($"{prefix}-labels-no-overlap", boxes.Count > 0 && overlaps.Count == 0,
+            overlaps.Count == 0 ? $"{boxes.Count} id, zone, objective and note labels apart" : string.Join("; ", overlaps));
+    }
+
     private string PanelText => ((Main)_main).PanelText;
 
     private bool PanelHas(string text) => PanelText.Contains(text, StringComparison.Ordinal);
@@ -1687,7 +1716,7 @@ public partial class UiCheck : Node
             var me = scene.Models.FirstOrDefault(m => m.Id.Value == unit);
             var (pass, detail) = LooksMatchState(board, scene);
             var grey = me is not null && me.Look == UnitLook.Activated && board.BodyColourOf(me.Id) is { } c && !c.IsEqualApprox(board.SeatColourOf(me));
-            var label = All(board).OfType<Label3D>().Any(l => !l.IsQueuedForDeletion() && l.Text.Contains($"{me?.Name}, activated", StringComparison.Ordinal));
+            var label = me is not null && board.IdLabelOf(me.Id) is { } idText && idText.EndsWith(" ✓", StringComparison.Ordinal);
             Check("pvp-activated-unit-greyed", pass && grey && label && scene.Models.Any(m => m.Yours && m.Look != UnitLook.Activated && board.BodyColourOf(m.Id) is { } s && s.IsEqualApprox(board.SeatColourOf(m))),
                 $"{unit}: greyed {grey}, label says activated {label}; {detail}");
             await CloseShot(board, me?.Id, "pvp-a-activated-greyed");
@@ -1819,7 +1848,7 @@ public partial class UiCheck : Node
         (lastCommand, events) = (Section("LAST COMMAND"), Lines(LogText()).Count);
         var stillActive = Lines(LogText()).Count(IsActivationStart);
         await ClickModel(board, first);
-        var note = await Until(() => board.NoteTexts.FirstOrDefault(n => n == $"{first.Value}: CAN'T SWITCH: ACTIVATION STARTED"), 3, "switch refused note");
+        var note = await Until(() => board.NoteTexts.FirstOrDefault(n => n == $"{first.Value}: CAN'T SWITCH"), 3, "switch refused note");
         Check("pvp-no-switch-after-action", interaction.Chosen is null && note is not null && interaction.Notice?.Contains("cannot switch", StringComparison.Ordinal) == true
             && NothingSent() && Lines(LogText()).Count(IsActivationStart) == stillActive,
             $"chosen {interaction.Chosen?.Value}; notes: {string.Join(" / ", board.NoteTexts)}; notice: {interaction.Notice}");
@@ -1919,9 +1948,11 @@ public partial class UiCheck : Node
         Check("pvp-refused-mid-match", preview?.Refusal is not null && notSent && answer.StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal)
             && Lines(LogText()).Count == events && after is not null && Near(new TablePoint(after.X, after.Y), me.X, me.Y) && Hint() is not null,
             $"{preview?.Headline}; first Space: {(notSent ? "not sent" : interaction.Notice)}; answer: {answer}; events {events} -> {Lines(LogText()).Count}; model at {after?.X},{after?.Y} (was {me.X},{me.Y})");
-        var note = board.NoteTexts.FirstOrDefault(n => n.StartsWith($"{me.Id.Value}: REFUSED BY THE SERVER", StringComparison.Ordinal));
-        Check("pvp-server-refusal-note", note is not null && answer.StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal) && note.Contains(" p. ", StringComparison.Ordinal),
-            $"notes: {string.Join(" / ", board.NoteTexts)}; answer: {answer}");
+        // Proposal G: a short REFUSED over the model; the reason and its page in the panel.
+        var note = board.NoteTexts.FirstOrDefault(n => n == $"{me.Id.Value}: REFUSED");
+        Check("pvp-server-refusal-note", note is not null && answer.StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal)
+            && InPanel(board, "REFUSED BY THE RULES:") && PanelText.Contains(" p. ", StringComparison.Ordinal),
+            $"notes: {string.Join(" / ", board.NoteTexts)}; answer: {answer}; panel: {PanelText.Replace('\n', '|')}");
         await CloseShot(board, me.Id, $"{_role}-refused-mid-match");
         await KeyPress(Key.Escape);
     }

@@ -33,7 +33,7 @@ public static class UnitNotes
             ChargeRolled c => [new(c.Model, $"CHARGE +{c.Die}\"", NoteTone.Info)],
             ChargeMoved { Reached: false } c => [new(c.Model, "CHARGE FAILED", NoteTone.Failure)],
             ModelStoodUp s => [new(s.Model, "STANDS UP", NoteTone.Info)],
-            ShootingTargetRolled { HitsFriend: true } t => [new(t.Attacker, "SHOT INTO MELEE: OWN MODEL", NoteTone.Failure)],
+            ShootingTargetRolled { HitsFriend: true } t => [new(t.Attacker, "FRIENDLY FIRE", NoteTone.Failure)],
             _ => [],
         };
     }

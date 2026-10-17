@@ -38,7 +38,11 @@ public readonly record struct TableRect(double X0, double Y0, double X1, double 
     public static double Inches(Length length) => length.Thousandths / 1000.0;
 }
 
-public sealed record ZoneShape(string Id, TableRect Area, string Label);
+public sealed record ZoneShape(string Id, TableRect Area, string Label, string? SeatLetter = null)
+{
+    // Proposal G: the short label drawn at the zone's edge ("ZONE A"), or the zone's own id before a seat has it.
+    public string Short => SeatLetter is { } letter ? $"ZONE {letter}" : $"ZONE {Id.ToUpperInvariant()}";
+}
 
 // Words carry every fact (profile, kind, high ground, Objective), so nothing depends on colour or shape alone.
 public sealed record TerrainShape(string Id, TableRect Area, TerrainProfile Profile, double Height, bool Platform, bool Objective, string Label);
@@ -66,6 +70,11 @@ public sealed record ModelShape(
     // ActivateModel apart from whose turn it is; for the seat to activate next they are exactly the units the rules offer
     // (TurnSequence.LegalCommands, a test checks). Both are display only: they never decide anything.
     public string Label => $"[{SeatLetter}] {Name}{(Active ? ", ACTIVE" : Activated ? ", activated" : "")}{(Status == ModelStatus.Standing ? "" : $", {Words.Status(Status)}")}";
+
+    // Proposal G: the label drawn over the model on the battlefield: its short id ("A2"), then a mark when it has
+    // activated this turn (✓) and when it is Down (↓). The full name and state are in the panel beside the battlefield.
+    public string ShortLabel(string activatedMark = "✓", string downMark = "↓") =>
+        $"{Id.Value.ToUpperInvariant()}{(Activated && !Active ? " " + activatedMark : "")}{(Status == ModelStatus.Down ? " " + downMark : "")}";
 
     // How the battlefield draws the model's turn state (colour is never the only sign: the label says it too).
     public UnitLook Look => Active ? UnitLook.Active : Activated ? UnitLook.Activated : Eligible ? UnitLook.Eligible : UnitLook.Waiting;
@@ -100,7 +109,8 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
         var zones = field.Zones.Select(z =>
         {
             var owner = new[] { Seat.One, Seat.Two }.Where(s => state.SeatFor(s).ZoneId == z.ZoneId).Select(s => $", {Words.Seat(s)} [{Words.SeatLetter(s)}]").FirstOrDefault();
-            return new ZoneShape(z.ZoneId, TableRect.Of(z.Area.Bounds), $"Zone {z.ZoneId}{owner}");
+            var letter = new[] { Seat.One, Seat.Two }.Where(s => state.SeatFor(s).ZoneId == z.ZoneId).Select(Words.SeatLetter).FirstOrDefault();
+            return new ZoneShape(z.ZoneId, TableRect.Of(z.Area.Bounds), $"Zone {z.ZoneId}{owner}", letter);
         }).ToList();
         var terrain = field.Terrain.Select(t =>
         {

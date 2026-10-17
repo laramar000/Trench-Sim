@@ -61,26 +61,38 @@ Beside the battlefield, on the right, a panel says what the battlefield does not
 - **Action preview:** while an action is being chosen, a title ("MOVE → (14.2, 18.0)", "SHOOT → B4 · Lamp Keeper"), the line "PREVIEW · the server decides", then the card's facts: "3.5" used of 6.0" (2.5" left)" and "straight line 3.2"" for a path ("RISKY: the server rolls whether it moves" for a Dash), or distance and weapon range, line of sight, cover, long range and shooting into melee for a target, and the Charge roll the rules say a charge needs. A preview that looks legal says the dice are rolled by the server. No odds.
 - **Refused:** one short line ("REFUSED: The target is beyond the weapon's range."); the rule's page is under **Details**. A server refusal of a sent command is shown the same way, and LAST COMMAND gives the reason.
 - **Details ▸** opens in place: the rule page, every fact of the preview and the unit's position. Opening or closing it changes nothing else (selection, action, preview).
-- **Confirm and Cancel** are always at the bottom of the panel. Confirm is labelled with what it sends ("Move here", "Shoot target") and is greyed when there is nothing to send; Cancel stops choosing and sends nothing. Space, Esc and a right-click still work.
+- **Confirm, Undo point and Cancel** are always at the bottom of the panel, and only there (the bar next to the unit carries actions only). Confirm is labelled with what it sends ("Move here", "Shoot target") and is greyed when there is nothing to send; Undo point is greyed until a path has waypoints; Cancel stops choosing and sends nothing. Space, Backspace, Esc and a right-click still work. Once a command is sent the panel says "SENT · waiting for the server".
+- **Not valid targets:** while choosing a target, the enemies the action cannot take are listed with a short reason ("✕ not valid: B3 (out of range), B4 (not in sight)"); on the battlefield they carry a grey ring and a grey cross.
+- **Legend** (under Details): every kind of terrain on this table ("Wall, blocks sight", "Low, difficult"...) and the battlefield marks.
+
+### Short labels on the battlefield (proposal G, step G2)
+
+The battlefield shows positioning; words live in the panel. Over the 3D view there are only:
+- **Model ids:** "A2" (seat letter and number), with "✓" once activated this turn (dimmed) and "↓" when Down; the selected model's id is larger.
+- **Zones:** "ZONE A" / "ZONE B" at the zone's outer edge. **Objectives:** "OBJ-2". Other terrain has no text: its height and colour show the kind, and the legend is under Details.
+- **Notes** of a word or two over a model: DASH FAILED, HIT, MISSED, DOWN +1 BLOOD, REFUSED, TOO FAR, CAN'T SWITCH, FRIENDLY FIRE...
+- **Previews:** the inches of each leg of a path, and at the end of a charge path the roll it needs ("4+", "ANY" or "SHORT").
+
+Model ids that would cover another id, a zone or an objective label are nudged down a line at a time on screen, worked out again when the camera moves (`BoardView.SeparateLabels`); notes sit above their model's id and go up a line at a time when they would cover another label. The UI check measures every label's box on screen and checks that ids, zones and objectives do not overlap (`board-labels-no-overlap`) and that no text over the battlefield is long (`board-labels-short`).
 
 On the battlefield a preview keeps only what helps positioning: the dashed path, the inches of each leg, the see-through ghost base and the end ring, the reachable area, the target rings and sight rays, and the charge path. The cards that used to float over the models are gone.
 
 ### Unit states on the battlefield
 
 Each model's turn state comes from the server's state alone (`ModelShape.Look` in `BoardScene`; no flag of the client's own), so both windows draw the same:
-- **Activated this turn** (`ActivatedThisTurn`): a light grey wash on the body (the seat colour mixed 40% towards grey, kept opaque), and ", activated" in its label. It goes when the rules clear the flag at the next turn.
-- **Activating now:** a cyan ring, and ", ACTIVE" in the label.
+- **Activated this turn** (`ActivatedThisTurn`): a light grey wash on the body (the seat colour mixed 40% towards grey, kept opaque), and "✓" after its id (dimmed). It goes when the rules clear the flag at the next turn.
+- **Activating now:** a cyan ring; the panel says "● Activating now".
 - **Yours to choose now:** a thin, faint ring on each of your units the rules offer to activate (`TurnSequence.LegalCommands`).
-- **Selected:** the yellow ring and "SELECTED", as before. **Down:** a flat disc and "Down" in the label; a Down model can also be activated or eligible, and shows both. Out of Action models are not on the table. The rules have no per-model fleeing: Shaken and Fled are warband states, shown in the Match section.
+- **Selected:** the yellow ring and a larger id. **Down:** a flat disc and "↓" after the id; a Down model can also be activated or eligible, and shows both. Out of Action models are not on the table. The rules have no per-model fleeing: Shaken and Fled are warband states, shown in the Match section.
 
 ### Choosing a unit before it acts
 
 When it is your turn to activate and none of your models is activating, a left-click on one of your eligible units **chooses** it: its bar shows its actions with "Not activated yet", and the movement area and targets work as usual. Nothing is sent: no event, no dice, no change of turn, and the opponent sees nothing. A click on another eligible unit switches the choice; a right-click drops it.
 - **The first action commits it.** The first action of the chosen unit (or "Take no action" on its bar) sends `ActivateModel` for it and, only once the server has accepted that, the action itself (`Interaction.SendCommandAsync`). If the server refuses the activation, nothing more is sent and its reason is shown.
-- **After that, no switch.** Once the server has the activation (an action was sent, or the activation was started with an Activate hint button or key A, which still activate at once), a click on another own unit switches nothing; a note above it says CAN'T SWITCH: ACTIVATION STARTED and the screen says why. The server refuses a second activation anyway (ActivationInProgress).
+- **After that, no switch.** Once the server has the activation (an action was sent, or the activation was started with an Activate hint button or key A, which still activate at once), a click on another own unit switches nothing; a note above it says CAN'T SWITCH and the screen says why. The server refuses a second activation anyway (ActivationInProgress).
 - **Server-authoritative.** Only units the rules offer (`TurnSequence.LegalCommands`) can be chosen, and the server checks the `ActivateModel` as always. The previews of a chosen unit use `Previews.AsIfActivated`, a preview-only copy of the state as the server would have it after the activation (a Down model standing up with Movement halved); a test checks its hash against the server's own state for every eligible model in the simulated sample. No rules, protocol or server change.
 
-Known limits of the placeholder view: labels of models close together overlap; models are small (a 1" base on a 36" table) until zoomed in. Previews of Dash only cover the move: the Risky roll is the server's.
+Known limits of the placeholder view: models are small (a 1" base on a 36" table) until zoomed in. Previews of Dash only cover the move: the Risky roll is the server's.
 
 ## Single player (hot-seat)
 

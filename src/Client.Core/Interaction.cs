@@ -419,8 +419,8 @@ public sealed class Interaction
             return null;
         }
         var text = preview.Kind == PreviewKind.Place ? "INVALID PLACEMENT"
-            : preview.Path.Count > 0 && Reach() is { } reach && preview.Path[^1].Inches > reach + 1e-9 ? "NOT ENOUGH MOVEMENT"
-            : refusal.Code == Rules.Core.ReasonCode.RetreatEndsEngaged ? "MUST END 1\" AWAY"
+            : preview.Path.Count > 0 && Reach() is { } reach && preview.Path[^1].Inches > reach + 1e-9 ? "TOO FAR"
+            : refusal.Code == Rules.Core.ReasonCode.RetreatEndsEngaged ? "TOO CLOSE"
             : "INVALID MOVE";
         return new UnitNote(preview.Model, text, NoteTone.Failure);
     }
@@ -785,7 +785,8 @@ public sealed class Interaction
                 Notice = $"{word}: {answer.Text}{(answer.RuleRef is { } rule ? $" ({rule})" : "")}";
                 if (answer.Kind == FeedbackKind.RulesRefused && ActorOf(command) is { } refusedFor)
                 {
-                    ServerNote = new UnitNote(refusedFor, $"REFUSED BY THE SERVER{(answer.RuleRef is { } page ? $" ({page})" : "")}", NoteTone.Failure);
+                    // Proposal G: a short word over the battlefield; the reason and the page are in the panel (Notice).
+                    ServerNote = new UnitNote(refusedFor, "REFUSED", NoteTone.Failure);
                     ServerNotes++;
                 }
                 break;

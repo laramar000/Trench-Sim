@@ -228,6 +228,58 @@ public partial class UnitPanelTests
         Assert.Equal("No unit selected", panel.Title);
         Assert.False(panel.CanConfirm);
         Assert.False(panel.CanCancel);
-        Assert.Empty(panel.Details);
+        // Only the battlefield legend: no unit text, no rule.
+        Assert.All(panel.Details, d => Assert.True(d.StartsWith("Terrain on this table: ", StringComparison.Ordinal) || d.StartsWith("Battlefield marks: ", StringComparison.Ordinal), d));
+        Assert.Contains(panel.Details, d => d.StartsWith("Battlefield marks: ", StringComparison.Ordinal));
+    }
+
+    // Every terrain piece's kind is in the legend, since the battlefield draws terrain without words.
+    [Fact]
+    public void TheLegendNamesEveryKindOfTerrain()
+    {
+        foreach (var state in ActivationStates().Take(20))
+        {
+            var scene = BoardScene.Of(state, Seat.One, ContentNames.None)!;
+            var interaction = new Interaction();
+            interaction.Update(state, Seat.One);
+            var legend = UnitPanel.Of(state, scene, interaction, Seat.One, null).Details.Single(d => d.StartsWith("Terrain on this table: ", StringComparison.Ordinal));
+            Assert.All(scene.Terrain, t => Assert.Contains(t.Label.Replace(", Objective", "", StringComparison.Ordinal), legend, StringComparison.Ordinal));
+        }
+    }
+
+    // While a target action is chosen, the enemies it cannot take are named with a short reason.
+    [Fact]
+    public void InvalidTargetsAreNamedWithAShortReason()
+    {
+        var named = 0;
+        foreach (var state in ActivationStates().Where(s => s.ActiveModel is not null).Take(300))
+        {
+            var actor = state.FindModel(state.ActiveModel!.Value)!;
+            var scene = BoardScene.Of(state, actor.Seat, ContentNames.None)!;
+            foreach (var mode in new[] { InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight })
+            {
+                var interaction = new Interaction();
+                interaction.Update(state, actor.Seat);
+                if (!interaction.Start(mode))
+                {
+                    continue;
+                }
+                var invalid = interaction.TargetVerdicts().Where(v => v.Refusal is not null && v.Model != interaction.Target).ToList();
+                var panel = UnitPanel.Of(state, scene, interaction, actor.Seat, scene.Find(actor.Id));
+                var line = panel.Action.SingleOrDefault(l => l.StartsWith("✕ not valid: ", StringComparison.Ordinal));
+                if (invalid.Count == 0)
+                {
+                    Assert.Null(line);
+                    continue;
+                }
+                Assert.NotNull(line);
+                foreach (var (model, refusal) in invalid)
+                {
+                    Assert.Contains($"{UnitPanel.ShortId(model)} ({UnitPanel.ShortReason(refusal!.Code)})", line, StringComparison.Ordinal);
+                }
+                named++;
+            }
+        }
+        Assert.True(named > 20, $"{named} target choices with invalid targets");
     }
 }

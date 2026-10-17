@@ -125,7 +125,9 @@ public class PreviewCardTests
         var move = new MoveModel(active.Seat, active.Id, [active.Position!.Value]);
         await interaction.SendCommandAsync(move, "Move");
         Assert.Equal(1, interaction.ServerNotes);
-        Assert.Equal(new UnitNote(active.Id, "REFUSED BY THE SERVER (1.0.2 p. 34)", NoteTone.Failure), interaction.ServerNote);
+        // A short word on the battlefield; the reason and its page are in the notice the panel shows.
+        Assert.Equal(new UnitNote(active.Id, "REFUSED", NoteTone.Failure), interaction.ServerNote);
+        Assert.Equal("REFUSED BY THE RULES: Refused by the rules: no. (1.0.2 p. 34)", interaction.Notice);
         answer = new Feedback(FeedbackKind.Accepted, "Done.");
         await interaction.SendCommandAsync(move, "Move");
         Assert.Equal(1, interaction.ServerNotes);

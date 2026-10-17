@@ -17,9 +17,11 @@ public sealed record UnitPanelView(
     IReadOnlyList<string> Details,
     string ConfirmLabel,
     bool CanConfirm,
-    bool CanCancel)
+    bool CanCancel,
+    bool CanUndo = false)
 {
     public const string PreviewLine = "PREVIEW · the server decides";
+    public const string SentLine = "SENT · waiting for the server";
 
     // Every line shown without opening Details (for tests and the UI check).
     public IEnumerable<string> Shown()
@@ -124,6 +126,10 @@ public static class UnitPanel
                 { Kind: PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat } => $"{verb} → {preview.Path[^1].At}",
                 _ => target is null ? verb : $"{verb} → {Heading(target)}",
             };
+            if (interaction.Pending is not null)
+            {
+                action.Add(UnitPanelView.SentLine);
+            }
             if (preview is not null)
             {
                 action.Add(UnitPanelView.PreviewLine);
@@ -150,19 +156,51 @@ public static class UnitPanel
                 }
                 details.AddRange(preview.Facts.Where(f => !action.Contains(f.TrimEnd('.'))));
             }
-            else if (interaction.UsesCursor)
+            if (interaction.IsTarget)
+            {
+                // The enemies crossed out on the battlefield, and why, in a few words each.
+                var notValid = interaction.TargetVerdicts().Where(v => v.Refusal is not null && v.Model != interaction.Target)
+                    .Select(v => $"{ShortId(v.Model)} ({ShortReason(v.Refusal!.Code)})").ToList();
+                if (notValid.Count > 0)
+                {
+                    action.Add($"✕ not valid: {string.Join(", ", notValid)}");
+                }
+            }
+            if (preview is null && interaction.UsesCursor)
             {
                 details.Add($"Cursor at {interaction.Cursor}.");
             }
         }
-        if (!choosing && interaction.ServerNote is { } note && unit is not null && note.Model == unit.Id && interaction.Notice is null)
+
+        if (scene is not null)
         {
-            refusal = note.Text;
+            // The battlefield draws terrain without words; what each piece is sits here.
+            var kinds = scene.Terrain.Select(p => p.Label.Replace(", Objective", "", StringComparison.Ordinal)).Distinct().Order(StringComparer.Ordinal).ToList();
+            if (kinds.Count > 0)
+            {
+                details.Add($"Terrain on this table: {string.Join("; ", kinds)}.");
+            }
+            details.Add("Battlefield marks: OBJ-n objective, ZONE deployment edge, ✓ activated, ↓ down, ✕ not a valid target.");
         }
 
         return new UnitPanelView(title, lines, unavailable, actionTitle, action, refusal, interaction.Notice, details,
-            confirm?.Label ?? "Confirm", confirm?.Enabled == true, choosing && interaction.Pending is null);
+            confirm?.Label ?? "Confirm", confirm?.Enabled == true, choosing && interaction.Pending is null,
+            bar.Items.Any(i => i.Kind == BarKind.Undo && i.Enabled));
     }
+
+    // Why a target cannot be chosen, in a few words (the full reason and page show once it is the previewed target).
+    public static string ShortReason(Rules.Core.ReasonCode code) => code switch
+    {
+        Rules.Core.ReasonCode.TargetOutOfRange => "out of range",
+        Rules.Core.ReasonCode.NoLineOfSight => "not in sight",
+        Rules.Core.ReasonCode.TargetNotInMelee => "not within 1\"",
+        Rules.Core.ReasonCode.ChargeRouteBlocked => "path blocked",
+        Rules.Core.ReasonCode.AttackerEngaged or Rules.Core.ReasonCode.AlreadyEngaged => "you are in melee",
+        Rules.Core.ReasonCode.NoRangedWeapon => "no ranged weapon",
+        Rules.Core.ReasonCode.NoMeleeWeapon => "no melee weapon",
+        Rules.Core.ReasonCode.ActionAlreadyTaken or Rules.Core.ReasonCode.ActionExcluded => "action not open",
+        _ => "refused",
+    };
 
     // The unit's state this turn, in words (the battlefield shows the same with a ring or a grey wash).
     private static string? State(ModelShape unit, Interaction interaction) =>

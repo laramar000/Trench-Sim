@@ -653,6 +653,7 @@ public partial class Main : Control
     private Label _pDetails = null!;
     private Button _pConfirm = null!;
     private Button _pCancel = null!;
+    private Button _pUndo = null!;
     private bool _detailsOpen;
     private UnitPanelView? _panelView;
 
@@ -701,7 +702,16 @@ public partial class Main : Control
         _pCancel.Name = "PanelCancel";
         _pConfirm.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _pCancel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        column.AddChild(Row(_pConfirm, _pCancel));
+        _pUndo = Button("Undo point", () => _board.UndoPoint());
+        _pUndo.Name = "PanelUndo";
+        _pUndo.TooltipText = "Remove the last waypoint (key Backspace). Shift+click adds one.";
+        // Three equal buttons whose size never depends on their text, so Confirm and Cancel never move.
+        foreach (var button in new[] { _pConfirm, _pUndo, _pCancel })
+        {
+            button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            button.ClipText = true;
+        }
+        column.AddChild(Row(_pConfirm, _pUndo, _pCancel));
         return _panel;
     }
 
@@ -738,6 +748,7 @@ public partial class Main : Control
         _pConfirm.Text = view.ConfirmLabel;
         _pConfirm.Disabled = !view.CanConfirm;
         _pCancel.Disabled = !view.CanCancel;
+        _pUndo.Disabled = !view.CanUndo;
         ((StyleBoxFlat)_panel.GetThemeStylebox("panel")).BgColor = _highContrast ? new Color(0.05f, 0.05f, 0.05f) : new Color(0.17f, 0.17f, 0.2f);
     }
 
@@ -754,6 +765,8 @@ public partial class Main : Control
     public Button PanelConfirm => _pConfirm;
 
     public Button PanelCancel => _pCancel;
+
+    public Button PanelUndo => _pUndo;
 
     // The status line as shown (for the UI check).
     public string StripText => _strip.Text;
