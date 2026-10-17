@@ -60,6 +60,19 @@ public partial class BoardView : SubViewportContainer
     // A right-click that does not drag cancels; one that drags pans.
     private Vector2? _rightFrom;
 
+    // The bar was closed with a right-click; it comes back when a model is selected or the activation changes.
+    private bool _barDismissed;
+
+    // Short notes above models ("MISSED", "DOWN", "INVALID MOVE"), fading out (UnitNotes); drawn apart from the preview.
+    private readonly Node3D _notes = new();
+    private readonly List<(UnitNote Note, double Born, Label3D Label)> _shown = [];
+    private int _lastSeq = -1;
+    public const double NoteSeconds = 2.5;
+    private const int NotesPerModel = 2;
+
+    // The texts of the notes shown now (for the UI check).
+    public IReadOnlyList<string> NoteTexts => [.. _shown.Select(n => $"{n.Note.Model.Value}: {n.Note.Text}")];
+
     public event Action? Changed;
 
     public BoardScene? Scene => _scene;
@@ -90,7 +103,9 @@ public partial class BoardView : SubViewportContainer
         _viewport.AddChild(new DirectionalLight3D { RotationDegrees = new Vector3(-60, 35, 0), LightEnergy = 0.9f });
         _viewport.AddChild(_content);
         _viewport.AddChild(_overlay);
+        _viewport.AddChild(_notes);
         _viewport.AddChild(_camera);
+        Interaction.NameOf = id => _scene?.Find(id)?.Name ?? id.Value;
         _camera.MakeCurrent();
         _barRow.AddThemeConstantOverride("separation", 6);
         _bar.AddChild(_barRow);
@@ -109,7 +124,7 @@ public partial class BoardView : SubViewportContainer
 
     // Redraws the battlefield from the latest state. The selection is kept while that model is still on the table; a
     // preview is kept while it still fits the match (Interaction.Update).
-    public void Show(BoardScene? scene, MatchState? state = null, Seat? seat = null)
+    public void Show(BoardScene? scene, MatchState? state = null, Seat? seat = null, IReadOnlyList<LogLine>? log = null)
     {
         var first = _scene is null && scene is not null;
         _scene = scene;
@@ -127,6 +142,11 @@ public partial class BoardView : SubViewportContainer
             {
                 _selected = active;
             }
+            _barDismissed = false;
+        }
+        if (log is not null)
+        {
+            ShowNotes(log);
         }
         Rebuild();
         DrawPreview();
@@ -232,6 +252,10 @@ public partial class BoardView : SubViewportContainer
 
     public void Select(ModelId? id)
     {
+        if (id is not null)
+        {
+            _barDismissed = false;
+        }
         _selected = _scene?.Find(id)?.Id;
         Rebuild();
         UpdateBar();
@@ -303,6 +327,10 @@ public partial class BoardView : SubViewportContainer
     public bool StartPreview(InteractionMode mode)
     {
         var started = Interaction.Start(mode);
+        if (started)
+        {
+            DismissLocalNotes();
+        }
         Sync();
         return started;
     }
@@ -325,6 +353,7 @@ public partial class BoardView : SubViewportContainer
         }
         Sync();
         UpdateBar();
+        FadeNotes();
     }
 
     public override void _GuiInput(InputEvent @event)
@@ -333,7 +362,7 @@ public partial class BoardView : SubViewportContainer
         {
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click:
                 GrabFocus();
-                Click(click.Position);
+                Click(click.Position, click.ShiftPressed);
                 AcceptEvent();
                 break;
             case InputEventMouseButton { ButtonIndex: MouseButton.Right } right:
@@ -347,7 +376,7 @@ public partial class BoardView : SubViewportContainer
                 {
                     if (_rightFrom is { } from && from.DistanceTo(right.Position) < 6)
                     {
-                        CancelPreview();
+                        RightClick();
                     }
                     _rightFrom = null;
                     _dragging = false;
@@ -389,10 +418,11 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
-    // A left click: picks the target in Shoot, Charge and Fight; puts the cursor there (and fixes a waypoint on a path)
-    // when placing or moving; otherwise selects the model under it.
-    // A second click on the chosen target, or on the last point of a path or placement, sends it (as Space does).
-    public void Click(Vector2 local)
+    // A left click: picks the target in Shoot, Charge and Fight (a second click on it sends, as Space does). When
+    // placing or moving, a click on a spot is the destination: sent at once when the preview says the server would
+    // accept it, otherwise not sent and a note above the model says why. Shift+click adds a waypoint to a path.
+    // Otherwise the click selects the model under it.
+    public void Click(Vector2 local, bool shift = false)
     {
         if (Interaction.IsTarget)
         {
@@ -408,10 +438,17 @@ public partial class BoardView : SubViewportContainer
         }
         else if (Interaction.UsesCursor)
         {
-            if (TableAt(local) is { } p && Interaction.ClickAt(Math.Round(p.X * 10) / 10, Math.Round(p.Y * 10) / 10))
+            if (TableAt(local) is { } p)
             {
-                Confirm();
-                return;
+                switch (Interaction.ClickAt(Math.Round(p.X * 10) / 10, Math.Round(p.Y * 10) / 10, shift))
+                {
+                    case ClickResult.Send:
+                        Confirm();
+                        return;
+                    case ClickResult.Refused when Interaction.RefusedNote() is { } note:
+                        AddNote(note);
+                        break;
+                }
             }
         }
         else
@@ -419,6 +456,21 @@ public partial class BoardView : SubViewportContainer
             Select(ModelAt(local)?.Id);
         }
         Sync();
+    }
+
+    // A right-click without dragging: cancels the action being chosen; with none, closes the bar and the selection.
+    public void RightClick()
+    {
+        if (Interaction.Mode != InteractionMode.None || Interaction.Notice is not null)
+        {
+            CancelPreview();
+            return;
+        }
+        if (Interaction.Pending is null)
+        {
+            _barDismissed = true;
+            Select(null);
+        }
     }
 
     // Esc, a right-click or the bar's Cancel: stops choosing; nothing is sent.
@@ -574,6 +626,10 @@ public partial class BoardView : SubViewportContainer
             case BarKind.Cancel:
                 CancelPreview();
                 break;
+            case BarKind.Decide when item.Command is { } answer:
+                await Interaction.SendCommandAsync(answer, item.Label);
+                Sync();
+                break;
             case BarKind.Activate or BarKind.EndActivation when item.Command is { } command:
                 var name = _scene?.Find(_selected)?.Name ?? "the model";
                 await Interaction.SendCommandAsync(command, item.Kind == BarKind.Activate ? $"Activate {name}" : $"End {name}'s activation");
@@ -587,6 +643,10 @@ public partial class BoardView : SubViewportContainer
     private void UpdateBar()
     {
         var bar = _scene is null ? ActionBar.Empty : Interaction.Bar(_selected);
+        if (_barDismissed && Interaction.Mode == InteractionMode.None && Interaction.Pending is null && !bar.Items.Any(i => i.Kind == BarKind.Decide))
+        {
+            bar = ActionBar.Empty;
+        }
         var shown = $"{bar.Anchor?.Value}|{string.Join("|", bar.Items.Select(i => $"{i.Kind}:{i.Label}:{i.Enabled}:{i.Tip}"))}|{_textScale}";
         if (shown != _barShown)
         {
@@ -668,6 +728,7 @@ public partial class BoardView : SubViewportContainer
             child.QueueFree();
         }
         _overlayTexts.Clear();
+        AreaPoints = 0;
         if (_scene is null || Interaction.Mode == InteractionMode.None)
         {
             return;
@@ -763,9 +824,9 @@ public partial class BoardView : SubViewportContainer
             Ring(spot, model.Radius + 0.25, refusal is null ? good : new Color(0.55f, 0.55f, 0.55f));
             Overlay(refusal is null ? "valid target" : $"not valid: {Short(refusal.Code)}", spot, 2.2f, 0.7f);
         }
-        if (Interaction.IsPath && Interaction.Actor is { } actor && _scene.Find(actor) is { } me && Interaction.Reach() is { } reach)
+        if (Interaction.IsPath)
         {
-            Ring(new TablePoint(me.X, me.Y), reach, _highContrast ? Colors.White : new Color(0.55f, 0.8f, 1f));
+            Area(Interaction.ReachArea(), _highContrast ? new Color(1, 1, 1, 0.35f) : new Color(0.45f, 0.75f, 1f, 0.28f));
         }
     }
 
@@ -800,6 +861,140 @@ public partial class BoardView : SubViewportContainer
             Rotation = new Vector3(0, Mathf.Atan2(to.X - from.X, to.Z - from.Z), 0),
             MaterialOverride = Paint(colour, noDepth: true),
         });
+    }
+
+    // Where the acting model could end its move (Interaction.ReachArea): a translucent tile per grid point.
+    private void Area(IReadOnlyList<TablePoint> points, Color colour)
+    {
+        if (points.Count == 0)
+        {
+            return;
+        }
+        var multi = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, Mesh = new PlaneMesh { Size = new Vector2(0.46f, 0.46f) }, InstanceCount = points.Count };
+        for (var i = 0; i < points.Count; i++)
+        {
+            multi.SetInstanceTransform(i, new Transform3D(Basis.Identity, new Vector3((float)points[i].X, 0.03f, (float)points[i].Y)));
+        }
+        _overlay.AddChild(new MultiMeshInstance3D
+        {
+            Multimesh = multi,
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = colour,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                NoDepthTest = true,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            },
+        });
+        AreaPoints = points.Count;
+    }
+
+    // How many points the movement area drawn now has (for the UI check); 0 when none is drawn.
+    public int AreaPoints { get; private set; }
+
+    // ---- notes above models ----
+
+    // New events' notes. The first time (or after a catch-up of many events) only remembers where the log is, so a
+    // rejoin does not replay old notes.
+    private void ShowNotes(IReadOnlyList<LogLine> log)
+    {
+        var newest = log.Count == 0 ? 0 : log[^1].Seq;
+        if (_lastSeq < 0 || newest < _lastSeq || newest - _lastSeq > 20)
+        {
+            _lastSeq = newest;
+            return;
+        }
+        foreach (var line in log.Where(l => l.Seq > _lastSeq))
+        {
+            foreach (var note in line.Notes ?? [])
+            {
+                AddNote(note);
+            }
+        }
+        _lastSeq = newest;
+    }
+
+    public void AddNote(UnitNote note)
+    {
+        if (_scene?.Find(note.Model) is not { } model)
+        {
+            return;
+        }
+        // The same note again replaces the old one; at most NotesPerModel per model, the oldest goes first.
+        foreach (var old in _shown.Where(n => n.Note.Model == note.Model && (n.Note == note || n.Note.Tone == NoteTone.Failure && note.Tone == NoteTone.Failure && n.Note.Text != note.Text && IsLocal(n.Note))).ToList())
+        {
+            Remove(old);
+        }
+        while (_shown.Count(n => n.Note.Model == note.Model) >= NotesPerModel)
+        {
+            Remove(_shown.First(n => n.Note.Model == note.Model));
+        }
+        var label = MakeLabel(note.Text, Vector3.Zero, 1.0f);
+        label.Modulate = note.Tone switch
+        {
+            NoteTone.Success => new Color(0.55f, 1f, 0.55f),
+            NoteTone.Failure => new Color(1f, 0.8f, 0.3f),
+            NoteTone.Damage => new Color(1f, 0.45f, 0.4f),
+            _ => new Color(0.85f, 0.9f, 1f),
+        };
+        _notes.AddChild(label);
+        _shown.Add((note, Time.GetTicksMsec() / 1000.0, label));
+        Stack(model.Id);
+    }
+
+    // The battlefield's own refusals (a click not sent) are replaced by the next one rather than piling up.
+    private static bool IsLocal(UnitNote note) => note.Text is "INVALID MOVE" or "INVALID PLACEMENT" or "NOT ENOUGH MOVEMENT" or "MUST END 1\" AWAY";
+
+    // A new action dismisses the battlefield's own stale refusals.
+    private void DismissLocalNotes()
+    {
+        foreach (var old in _shown.Where(n => IsLocal(n.Note)).ToList())
+        {
+            Remove(old);
+        }
+    }
+
+    private void Remove((UnitNote Note, double Born, Label3D Label) shown)
+    {
+        _shown.Remove(shown);
+        shown.Label.QueueFree();
+    }
+
+    // Newest at the bottom, just above the model's head; older ones above it.
+    private void Stack(ModelId id)
+    {
+        if (_scene?.Find(id) is not { } model)
+        {
+            return;
+        }
+        var mine = _shown.Where(n => n.Note.Model == id).ToList();
+        var head = (float)model.Standing + (model.Status == ModelStatus.Standing ? 1.9f : 0.9f);
+        for (var i = 0; i < mine.Count; i++)
+        {
+            mine[i].Label.Position = new Vector3((float)model.X, head + (mine.Count - 1 - i) * 0.55f, (float)model.Y);
+        }
+    }
+
+    private void FadeNotes()
+    {
+        var now = Time.GetTicksMsec() / 1000.0;
+        foreach (var shown in _shown.ToList())
+        {
+            var age = now - shown.Born;
+            if (age >= NoteSeconds || _scene?.Find(shown.Note.Model) is null)
+            {
+                Remove(shown);
+                continue;
+            }
+            var alpha = (float)Math.Clamp((NoteSeconds - age) / 0.8, 0, 1);
+            shown.Label.Modulate = shown.Label.Modulate with { A = alpha };
+            shown.Label.OutlineModulate = new Color(0, 0, 0, alpha);
+        }
+        foreach (var id in _shown.Select(n => n.Note.Model).Distinct().ToList())
+        {
+            Stack(id);
+        }
     }
 
     // Where a base would stand.

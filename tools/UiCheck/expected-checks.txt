@@ -1,7 +1,7 @@
-# Checks the UI check runner reports (204): the 93 of M7.3 (Linux run of 3ba61db), 12 battlefield checks of M7.4 stage 4a, 11 preview checks of stage 4b,
+# Checks the UI check runner reports (208): the 93 of M7.3 (Linux run of 3ba61db), 12 battlefield checks of M7.4 stage 4a, 11 preview checks of stage 4b,
 # 7 sending checks of stage 4c, 15 single-player (hot-seat) checks, 7 match-result checks of M7.5 stage 5a and 37 checks of stage 5b (two Godot clients play a
 # whole melee match, one is killed and rejoins, and the signed record is checked with trench-cli verify), 19 of stage 5c (a Godot client plays
-# a whole ranged match against trench-cli --bot; Godot, trench-cli and the verified record must agree) and 3 checks of the action bar (shown, a mouse click starts an action, a right-click cancels). Lines marked "optional" (board-send-shoot, board-send-charge, board-send-fight) are reported only when the
+# a whole ranged match against trench-cli --bot; Godot, trench-cli and the verified record must agree) and 9 checks of the action bar and mouse play (shown, a mouse click starts an action, the movement area, a click too far is not sent, a right-click cancels, a Dash by mouse and its note). Lines marked "optional" (board-send-shoot, board-send-charge, board-send-fight, board-click-dash, board-note-shown) are reported only when the
 # match offers a legal target at that moment; otherwise Run-WindowsUiCheck.ps1 lists them as NOT TESTED without making the run incomplete (the
 # Client.Core tests send every action through a real server). Any other check a run did not report makes the verdict INCOMPLETE. One check id per line, as in the runner's summary.md.
 # "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide, and the
@@ -73,6 +73,8 @@ host: board-charge-preview
 host: board-previews-send-nothing
 host: board-action-bar-shown
 host: board-bar-click-starts-action
+host: board-move-area-shown
+host: board-click-too-far-not-sent
 host: board-right-click-cancels
 host|guest: board-place-preview
 host|guest: board-cursor-steps
@@ -83,6 +85,8 @@ host|guest: board-send-refused-shown
 host|guest: board-send-place
 host: board-send-move
 optional host: board-send-shoot
+optional host: board-click-dash
+optional host: board-note-shown
 host: board-activate-key
 optional host: board-send-charge
 optional host: board-send-fight

@@ -182,10 +182,16 @@ public partial class Main : Control
         _connect.AddChild(Row(Text("Server rejoin window (seconds):"), _window));
         _connect.AddChild(Text("Set this to the server's --rejoin-window (300 by default). The client cannot find it out: it decides how long " +
             "reconnecting keeps trying on its own before offering Rejoin now."));
+        // The normal rosters, then the small test sizes (each side's first 1 to 3 models) for trying mechanics quickly.
         _scenario = new OptionButton();
-        _scenario.AddItem("ranged");
-        _scenario.AddItem("melee");
-        _connect.AddChild(Row(Text("Scenario:"), _scenario, Button("Create match", () => Start(c => c.CreateAsync(_scenario.GetItemText(_scenario.Selected))))));
+        foreach (var choice in ContentNames.Choices)
+        {
+            _scenario.AddItem(ScenarioLabel(choice));
+            _scenario.SetItemMetadata(_scenario.ItemCount - 1, choice);
+        }
+        _connect.AddChild(Row(Text("Scenario:"), _scenario, Button("Create match", () => Start(c => c.CreateAsync(ChosenScenario())))));
+        _connect.AddChild(Text("The 1 v 1, 2 v 2 and 3 v 3 choices are small test rosters (each side's first models) for trying mechanics quickly; " +
+            "the normal roster is the full warbands."));
         _connect.AddChild(Row(Text("Single player:"), Button("Hot-seat: play both sides in this window", StartHotSeat)));
         _connect.AddChild(Text("Hot-seat starts a local server on this PC (no server address needed) and seats you as Seat One and Seat Two of a " +
             "match in the scenario above. F2 switches the side you control; by default the window follows the turn."));
@@ -315,7 +321,7 @@ public partial class Main : Control
             _connectMessage.Text = "Hot-seat starts the server from the Trench Sim source folder (TrenchSim.sln above client/), which was not found.";
             return;
         }
-        var scenario = _scenario.GetItemText(_scenario.Selected);
+        var scenario = ChosenScenario();
         try
         {
             var server = await LocalServer.StartAsync(repository, LocalServer.DefaultDataDirectory(),
@@ -359,7 +365,7 @@ public partial class Main : Control
             DisplayServer.WindowSetPosition(screen.Position + new Vector2I(test.Window == "A" ? 0 : size.X, 0));
         }
         _server.Text = test.Server;
-        _scenario.Select(test.Scenario == "melee" ? 1 : 0);
+        _scenario.Select(Math.Max(0, ContentNames.Choices.ToList().IndexOf(test.Scenario)));
         _code.Text = test.Code ?? "";
         RefreshSaved();
         switch (test.Mode)
@@ -562,7 +568,7 @@ public partial class Main : Control
             }
         }
         _boardSection.Visible = s.Board is not null;
-        _board.Show(s.Board, s.State, s.Seat);
+        _board.Show(s.Board, s.State, s.Seat, s.Log);
         _state.Text = string.Join("\n", view.Lines());
         _models.Text = view.Models.Count == 0 ? "No models yet." : string.Join("\n", view.Models.Select(m => m.Text));
 
@@ -737,6 +743,15 @@ public partial class Main : Control
     }
 
     // ---- headless checks ----
+
+    private string ChosenScenario() => _scenario.GetItemMetadata(_scenario.Selected).AsString();
+
+    private static string ScenarioLabel(string scenario) => scenario switch
+    {
+        "ranged" => "ranged (normal roster)",
+        "melee" => "melee (normal roster)",
+        _ => $"{scenario[..^4]}, {scenario[^3]} v {scenario[^1]} (test roster)",
+    };
 
     // Creates a match on the server and reports the Welcome (M7.2 check, unchanged).
     private static async Task<string> Smoke(Uri server)

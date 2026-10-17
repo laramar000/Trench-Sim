@@ -609,7 +609,8 @@ public partial class UiCheck : Node
         await KeyPress(Key.Backspace);
         var removed = interaction.Waypoints.Count == 0;
 
-        // The mouse: moving over the table moves the cursor (throttled), and a click fixes a waypoint there.
+        // The mouse: moving over the table moves the cursor (throttled), and Shift+click fixes a waypoint there (a plain
+        // click on a spot the preview accepts would send the move).
         var hoverAt = (X: Math.Clamp((actor?.X ?? 18) + 1.5, 1, 35), Y: Math.Clamp((actor?.Y ?? 18) - 1.0, 1, 35));
         var hovered = false;
         var clickedPoint = false;
@@ -621,12 +622,12 @@ public partial class UiCheck : Node
             hovered = await Until(() => Near(interaction.Cursor, hoverAt.X, hoverAt.Y, 0.15) ? "ok" : null, 3, "hover") is not null;
             foreach (var pressed in new[] { true, false })
             {
-                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, ShiftPressed = true, Position = global, GlobalPosition = global });
                 await Frames(2);
             }
-            clickedPoint = interaction.Waypoints.Count == 1 && Near(interaction.Waypoints[0], hoverAt.X, hoverAt.Y, 0.15);
+            clickedPoint = interaction.Waypoints.Count == 1 && Near(interaction.Waypoints[0], hoverAt.X, hoverAt.Y, 0.15) && interaction.Pending is null;
         }
-        Check("board-mouse-path", removed && hovered && clickedPoint, $"Backspace removed the waypoint: {removed}; hover moved the cursor to {interaction.Cursor} (wanted ({hoverAt.X:0.0}, {hoverAt.Y:0.0})): {hovered}; click fixed a waypoint: {clickedPoint}");
+        Check("board-mouse-path", removed && hovered && clickedPoint, $"Backspace removed the waypoint: {removed}; hover moved the cursor to {interaction.Cursor} (wanted ({hoverAt.X:0.0}, {hoverAt.Y:0.0})): {hovered}; Shift+click fixed a waypoint and sent nothing: {clickedPoint}");
         await KeyPress(Key.Escape);
         await MouseOff(board);
 
@@ -688,6 +689,9 @@ public partial class UiCheck : Node
 
         // Then a Shoot at the first target the preview says is legal (if any), sent with Space.
         _shootSent = await SendFirstLegalTarget(board, Key.S, "board-send-shoot");
+
+        // Then a Dash with the mouse alone, if the activation still offers one.
+        await ClickDash(board);
     }
 
     // The action bar next to the acting model: it shows exactly the actions the interaction offers plus End activation;
@@ -717,6 +721,32 @@ public partial class UiCheck : Node
         }
         Check("board-bar-click-starts-action", started, $"Move offered: {offered.Contains(Interaction.Words(InteractionMode.Move))}; mode {interaction.Mode}; bar: {string.Join(" / ", board.BarLabels)}");
 
+        // The area the move can reach is drawn, and it is the rules' area (Interaction.ReachArea).
+        await Frames(3);
+        var area = interaction.ReachArea();
+        Check("board-move-area-shown", started && area.Count > 0 && board.AreaPoints == area.Count, $"{board.AreaPoints} points drawn of {area.Count} in the area; reach {interaction.Reach()}\"");
+
+        // A click beyond the model's movement is not sent: the mode stays, and a note above the model says why.
+        var refusedShown = false;
+        var refusedDetail = "no spot beyond the reach";
+        await MouseOn(board);
+        if (started && board.Scene is { } shown && shown.Find(interaction.Actor) is { } me && interaction.Reach() is { } reach
+            && FarSpot(board, shown, me, reach + 1.5) is { } far)
+        {
+            var global = board.GetGlobalTransformWithCanvas() * far;
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
+                await Frames(2);
+            }
+            await Frames(2);
+            refusedShown = interaction.Mode == InteractionMode.Move && interaction.Pending is null && Section("LAST COMMAND") == lastCommand
+                && board.NoteTexts.Contains($"{me.Id.Value}: NOT ENOUGH MOVEMENT");
+            refusedDetail = $"mode {interaction.Mode}; pending {interaction.Pending}; notes: {string.Join(" / ", board.NoteTexts)}; last command unchanged: {Section("LAST COMMAND") == lastCommand}";
+        }
+        Check("board-click-too-far-not-sent", refusedShown, refusedDetail);
+        await Shot("host-too-far");
+
         var cancelled = false;
         await MouseOn(board);
         var free = board.Scene is { } scene ? FreeSpot(board, scene) : null;
@@ -736,6 +766,70 @@ public partial class UiCheck : Node
             await KeyPress(Key.Escape);
         }
         Check("board-right-click-cancels", cancelled, $"mode {interaction.Mode}; pending {interaction.Pending}; labels: {string.Join(" / ", board.OverlayTexts)}; last command unchanged: {Section("LAST COMMAND") == lastCommand}");
+    }
+
+    // A spot on the battlefield at least this far from the model and away from every model (board-local).
+    private static Vector2? FarSpot(BoardView board, BoardScene scene, ModelShape from, double distance)
+    {
+        for (var x = 1.0; x <= 35; x += 2)
+        {
+            for (var y = 1.0; y <= 35; y += 2)
+            {
+                if ((from.X - x) * (from.X - x) + (from.Y - y) * (from.Y - y) > distance * distance
+                    && scene.Models.All(m => (m.X - x) * (m.X - x) + (m.Y - y) * (m.Y - y) > 9) && board.ScreenOf(x, y) is { } spot)
+                {
+                    return spot;
+                }
+            }
+        }
+        return null;
+    }
+
+    // Dash with the mouse alone: the bar's Dash button, then one click on a spot of the area; the server's answer and the
+    // Dash roll's note above the model follow. Reported only when the match offers a Dash then (optional).
+    private async Task ClickDash(BoardView board)
+    {
+        var interaction = board.Interaction;
+        if (!interaction.Offered.Contains(InteractionMode.Dash) || board.BarButtonAt("Dash") is not { } button)
+        {
+            return;
+        }
+        foreach (var pressed in new[] { true, false })
+        {
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = button, GlobalPosition = button });
+            await Frames(2);
+        }
+        await Frames(3);
+        var area = interaction.ReachArea();
+        var actor = interaction.Actor;
+        if (interaction.Mode != InteractionMode.Dash || board.Scene?.Find(actor) is not { } me || area.Count == 0)
+        {
+            Check("board-click-dash", false, $"mode {interaction.Mode}; area {area.Count} points");
+            return;
+        }
+        // A spot about 2" away that no model stands on.
+        var spot = area.Where(p => board.Scene!.Models.All(m => (m.X - p.X) * (m.X - p.X) + (m.Y - p.Y) * (m.Y - p.Y) > 2.25))
+            .OrderBy(p => Math.Abs(Math.Sqrt((p.X - me.X) * (p.X - me.X) + (p.Y - me.Y) * (p.Y - me.Y)) - 2)).Select(p => (TablePoint?)p).FirstOrDefault();
+        await MouseOn(board);
+        var before = Section("LAST COMMAND");
+        var events = Lines(LogText()).Count;
+        if (spot is { } chosen && board.ScreenOf(chosen.X, chosen.Y) is { } local)
+        {
+            var global = board.GetGlobalTransformWithCanvas() * local;
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
+                await Frames(2);
+            }
+        }
+        await MouseOff(board);
+        var answer = await Answered(before);
+        var rolled = await Until(() => Lines(LogText()).Skip(events).FirstOrDefault(l => l.Contains(" Dash roll ", StringComparison.Ordinal)), 10, "dash rolled");
+        var note = await Until(() => board.NoteTexts.FirstOrDefault(n => n.StartsWith($"{me.Id.Value}: DASH", StringComparison.Ordinal)), 3, "dash note");
+        Check("board-click-dash", answer.StartsWith("DONE:", StringComparison.Ordinal) && answer.Contains("Dash", StringComparison.Ordinal) && rolled is not null,
+            $"clicked {spot}; last command: {answer}; event: {rolled}");
+        Check("board-note-shown", note is not null, $"notes: {string.Join(" / ", board.NoteTexts)} (wanted a DASH note above {me.Id.Value})");
+        await Shot("host-dash-note");
     }
 
     // A point on the battlefield away from every model (board-local), for a click that must not pick a model.
@@ -1598,7 +1692,7 @@ public partial class UiCheck : Node
         {
             await KeyPress(Key.Enter);
             await Frames(3);
-            for (var i = 0; i < option!.ItemCount && option.GetPopup().Visible && option.GetPopup().GetFocusedItem() is var at && (at < 0 || option.GetItemText(at) != item); i++)
+            for (var i = 0; i < option!.ItemCount && option.GetPopup().Visible && option.GetPopup().GetFocusedItem() is var at && (at < 0 || ItemName(option, at) != item); i++)
             {
                 await KeyPress(Key.Down);
             }
@@ -1606,8 +1700,8 @@ public partial class UiCheck : Node
         }
         if (id is not null)
         {
-            Check(id, option is not null && option.GetItemText(option.Selected) == item,
-                $"{Describe(option)} selected \"{(option is null ? "" : option.GetItemText(option.Selected))}\" with Enter, Down, Enter");
+            Check(id, option is not null && ItemName(option, option.Selected) == item,
+                $"{Describe(option)} selected \"{(option is null ? "" : ItemName(option, option.Selected))}\" with Enter, Down, Enter");
         }
     }
 
@@ -1678,7 +1772,11 @@ public partial class UiCheck : Node
 
     private LineEdit? SpinLine() => Spin()?.GetLineEdit();
 
-    private OptionButton? Option(string selected) => Controls<OptionButton>().FirstOrDefault(o => o.IsVisibleInTree() && o.GetItemText(o.Selected) == selected);
+    private OptionButton? Option(string selected) => Controls<OptionButton>().FirstOrDefault(o => o.IsVisibleInTree() && o.Selected >= 0 && ItemName(o, o.Selected) == selected);
+
+    // An item's name: the scenario name kept with it (the scenario list shows a longer label), else its text.
+    private static string ItemName(OptionButton option, int index) =>
+        index >= 0 && option.GetItemMetadata(index).VariantType == Variant.Type.String ? option.GetItemMetadata(index).AsString() : option.GetItemText(index);
 
     private Godot.Label? Label(string startsWith) => Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && l.Text.StartsWith(startsWith, StringComparison.Ordinal));
 
