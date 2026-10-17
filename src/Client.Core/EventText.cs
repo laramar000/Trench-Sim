@@ -1,5 +1,6 @@
 using Rules.Core.Dice;
 using Rules.Core.Events;
+using Rules.Core.State;
 
 namespace Client.Core;
 
@@ -57,6 +58,46 @@ public static class EventText
         _ => e.GetType().Name + ".",
     };
 
+    // Proposal G, step G4: the combat log's compact row, "A4 FIGHTS B3": the actor's short id, a verb in capitals (drawn
+    // bold and coloured) and what follows. Every part comes from the event itself; the narrator's full line stays on the
+    // row's tooltip. Events without an actor (turns, phases, scoring, morale) keep the narrator's line, with no verb.
+    public static CompactRow Compact(GameEvent e) => e switch
+    {
+        ModelDeployed d => new(Id(d.Model), "DEPLOYS", d.Position is { } at ? $"→ {At(at)}" : ""),
+        ActivationStarted a => new(Id(a.Model), "ACTIVATES", ""),
+        ActivationEnded a => new(Id(a.Model), "ENDS", $"activation ({a.Reason})"),
+        ModelStoodUp s => new(Id(s.Model), "STANDS UP", "(Movement halved)"),
+        ModelMoved m => new(Id(m.Model), m.Kind == MoveKind.Dash ? "DASHES" : "MOVES", $"→ {At(m.Path[^1])} (cost {Cost(m.Cost)})"),
+        DashDeclared d => new(Id(d.Model), "DECLARES", "a Dash"),
+        DashRolled d => new(Id(d.Model), "ROLLS", $"Dash {d.Check.Dice.Total}: {d.Check.Outcome}"),
+        RangedAttackDeclared r => new(Id(r.Attacker), "SHOOTS", Id(r.Target) + (r.LongRange ? " (long range)" : "") + (r.InCover ? $" (cover: {r.CoverTerrainId})" : "")),
+        RangedSuccessRolled r => new(Id(r.Attacker), "ROLLS", $"{r.Check.Dice.Total} to hit {Id(r.Target)}: {r.Check.Outcome}"),
+        ChargeDeclared c => new(Id(c.Model), "CHARGES", $"→ {Id(c.Target)}"),
+        ChargeRolled c => new(Id(c.Model), "ROLLS", $"Charge Bonus {c.Die}"),
+        ChargeMoved c => c.Path.IsEmpty ? new(Id(c.Model), "CANNOT MOVE", "(the charge fails)")
+            : c.Reached ? new(Id(c.Model), "REACHES", $"{Id(c.Target)} at {At(c.Path[^1])}") : new(Id(c.Model), "FALLS SHORT", $"of {Id(c.Target)} at {At(c.Path[^1])}"),
+        RetreatDeclared r => new(Id(r.Model), "RETREATS", ""),
+        RetreatResolved r => r.Moved ? new(Id(r.Model), "RETREATS", $"→ {At(r.Path[^1])} (cost {Cost(r.Cost)})") : new(Id(r.Model), "STAYS", "(Down or Out of Action)"),
+        MeleeAttackDeclared m => new(Id(m.Attacker), m.FreeFight ? "ATTACKS" : "FIGHTS", Id(m.Target) + (m.FreeFight ? " (retreating)" : "") + (m.DefendedObstacleId is { } o ? $" (defended obstacle: {o})" : "")),
+        MeleeSuccessRolled r => new(Id(r.Attacker), "ROLLS", $"{r.Check.Dice.Total} to hit {Id(r.Target)}: {r.Check.Outcome}"),
+        FriendlyTargetChosen f => new(Id(f.Attacker), "MUST SHOOT", $"its own {Id(f.Victim)}"),
+        InjuryRolled i => i.Injury.Outcome switch
+        {
+            InjuryOutcome.OutOfAction => new(Id(i.Attacker), "KILLS", $"{Id(i.Target)} (Out of Action)"),
+            InjuryOutcome.Down => new(Id(i.Attacker), "DOWNS", Id(i.Target)),
+            InjuryOutcome.MinorHit => new(Id(i.Attacker), "HITS", $"{Id(i.Target)} (Minor Hit)"),
+            _ => new(Id(i.Attacker), "HITS", $"{Id(i.Target)} (No Effect)"),
+        },
+        _ => new(null, null, Line(e).Trim()),
+    };
+
+    private static string Id(ModelId id) => id.Value.ToUpperInvariant();
+
+    // Points and lengths as the panel writes them: inches to one decimal.
+    private static string At(Rules.Core.Geometry.Point2 p) => TablePoint.Of(p).ToString();
+
+    private static string Cost(Rules.Core.Geometry.Length length) => BoardScene.Inch(TableRect.Inches(length));
+
     // What kind of event it is, for the event list's tag and colour (QoL stage D). Display only.
     public static EventKind Kind(GameEvent e) => e switch
     {
@@ -112,6 +153,12 @@ public static class EventText
         var which = netDice > 0 ? "highest" : netDice < 0 ? "lowest" : "both";
         return $"Dice: rolled {string.Join(", ", dice.Rolled)}; kept {string.Join(", ", dice.Kept)} ({which}), total {dice.Total}";
     }
+}
+
+// One combat log row in short: the actor's short id, a verb in capitals (null for events without an actor) and the rest.
+public sealed record CompactRow(string? Actor, string? Verb, string Rest)
+{
+    public string Text => string.Join(" ", new[] { Actor, Verb, Rest }.Where(p => !string.IsNullOrEmpty(p)));
 }
 
 public enum EventKind

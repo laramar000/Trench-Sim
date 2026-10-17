@@ -2051,11 +2051,15 @@ public partial class UiCheck : Node
         if (_main is Main screen)
         {
             var rows = screen.LogRows;
-            var rowLines = rows.Select(r => r.Line.Split('\n')[0]).ToList();
-            var tags = rows.Select(r => r.Tag.TrimStart('▶', ' ')).ToList();
-            Check("pvp-event-log-tags", rows.Count > 0 && rowLines.SequenceEqual(lines) && tags.All(t => t != "EVENT") && rows[^1].Tag == "▶ END"
-                && rows.Take(rows.Count - 1).All(r => !r.Tag.StartsWith('▶')) && tags.Contains("MOVE") && tags.Contains("ACTIVATE") && tags.Contains("SCORE"),
-                $"{rows.Count} rows, {lines.Count} lines, same order and words: {rowLines.SequenceEqual(lines)}; tags used: {string.Join(", ", tags.Distinct())}; newest: {rows.LastOrDefault().Tag} {rows.LastOrDefault().Line}");
+            var rowLines = rows.Select(r => r.Full.Split('\n')[0]).ToList();
+            // Proposal G4: each row shows the compact line ("[41] A4 FIGHTS B3") under the same number, the narrator's line
+            // on its tooltip; the newest is marked.
+            var numbered = rows.All(r => r.Shown.StartsWith(r.Full[..(r.Full.IndexOf(']') + 1)] + " ", StringComparison.Ordinal));
+            var verbs = new[] { " ACTIVATES", " MOVES ", " ENDS " }.Where(v => rows.Any(r => r.Shown.Contains(v, StringComparison.Ordinal))).ToList();
+            Check("pvp-event-log-tags", rows.Count > 0 && rowLines.SequenceEqual(lines) && numbered && rows.All(r => r.Kind != EventKind.Other)
+                && rows[^1].Marker == "▶" && rows[^1].Full.Contains("MATCH ENDED", StringComparison.Ordinal) && rows.Take(rows.Count - 1).All(r => r.Marker.Length == 0)
+                && verbs.Count == 3,
+                $"{rows.Count} rows, {lines.Count} lines, same order and words: {rowLines.SequenceEqual(lines)}; numbered alike: {numbered}; verbs seen: {string.Join(",", verbs)}; newest: {rows.LastOrDefault().Marker} {rows.LastOrDefault().Shown}");
         }
         else
         {
@@ -2247,7 +2251,8 @@ public partial class UiCheck : Node
         return string.Join("\n", (body is Godot.Label own ? [own] : All(body).OfType<Godot.Label>()).Where(l => l.IsVisibleInTree() && !l.IsQueuedForDeletion()).Select(l => l.Text).Where(t => t.Length > 0));
     }
 
-    private string LogText() => Section("COMBAT LOG");
+    // The combat log's rows in the narrator's full words (each row's tooltip), as the event list showed them before G4.
+    private string LogText() => ((Main)_main).CombatLog.IsVisibleInTree() ? ((Main)_main).LogFullText : "";
 
     // The battlefield's camera and keys, in the Menu (read whether the Menu is open or folded).
     private string BoardInfo() => ((Main)_main).BoardInfoText;

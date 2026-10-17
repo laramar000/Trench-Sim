@@ -66,7 +66,10 @@ public partial class Main : Control
     private Label _notYet = null!;
     private Label _feedback = null!;
     private VBoxContainer _log = null!;
-    private readonly List<(int Seq, Label Tag, Label Line, EventKind Kind)> _logRows = [];
+    // One combat log row: a marker for the newest, the compact line (bold, coloured verb) and the event it shows.
+    private sealed record LogRow(int Seq, Label Marker, RichTextLabel Line, LogLine Source);
+
+    private readonly List<LogRow> _logRows = [];
     private ScrollContainer _logScroll = null!;
     private AcceptDialog _gaps = null!;
     private ConfirmationDialog _takeBack = null!;
@@ -150,6 +153,8 @@ public partial class Main : Control
             _hotSeat?.FollowIfNeeded();
             Render(_controller.Snapshot());
         }
+        // The line above the HUD only takes room when it says something.
+        _status.Visible = _status.Text.Length > 0;
         FitBattlefield();
     }
 
@@ -485,7 +490,8 @@ public partial class Main : Control
         var column = new VBoxContainer { Name = "RightColumn", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, CustomMinimumSize = new Vector2(300, 0) };
         column.AddThemeConstantOverride("separation", 8);
         column.AddChild(BuildPanel());
-        var logBox = Section("Combat log (Tab here, then arrows or Page Up/Down)", _logScroll);
+        var logBox = Section("Combat log", _logScroll);
+        _logScroll.TooltipText = "What the server confirmed, newest at the bottom. Tab here, then arrows or Page Up/Down to scroll; End returns to the newest. Hover a row for its full line.";
         logBox.Name = "CombatLog";
         _logBox = logBox;
         logBox.SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -796,15 +802,16 @@ public partial class Main : Control
         _pCancel.Name = "PanelCancel";
         _pConfirm.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _pCancel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _pUndo = Button("Undo point", () => _board.UndoPoint());
+        _pUndo = Button("Undo", () => _board.UndoPoint());
         _pUndo.Name = "PanelUndo";
         _pUndo.TooltipText = "Remove the last waypoint (key Backspace). Shift+click adds one.";
-        // Three equal buttons whose size never depends on their text, so Confirm and Cancel never move.
+        // Buttons whose size never depends on their text (Confirm twice as wide), so Confirm and Cancel never move.
         foreach (var button in new[] { _pConfirm, _pUndo, _pCancel })
         {
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             button.ClipText = true;
         }
+        _pConfirm.SizeFlagsStretchRatio = 2;
         column.AddChild(Row(_pConfirm, _pUndo, _pCancel));
         return _panel;
     }
@@ -1109,34 +1116,53 @@ public partial class Main : Control
         foreach (var line in log.Where(l => l.Seq > known))
         {
             var row = new HBoxContainer();
-            var tag = new Label { Text = EventText.Tag(line.Kind), CustomMinimumSize = new Vector2(96, 0) };
-            var text = Text($"[{line.Seq}] {line.Text.Trim()}{(line.Dice is null ? "" : $"\n      {line.Dice}")}");
-            row.AddChild(tag);
+            var marker = new Label { Text = "", CustomMinimumSize = new Vector2(22, 0) };
+            // Proposal G4: "[41] A4 FIGHTS B3", the verb bold and coloured, the dice under it; the narrator's full line is
+            // the row's tooltip.
+            var text = new RichTextLabel
+            {
+                BbcodeEnabled = true,
+                FitContent = true,
+                ScrollActive = false,
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                TooltipText = FullText(line),
+                MouseFilter = MouseFilterEnum.Pass,
+            };
+            row.AddChild(marker);
             row.AddChild(text);
             _log.AddChild(row);
-            _logRows.Add((line.Seq, tag, text, line.Kind));
+            _logRows.Add(new LogRow(line.Seq, marker, text, line));
         }
         PaintLog();
     }
 
-    // Tag colours by kind; the newest row and the current turn's header stand out. Every tag is also a word.
+    private static string FullText(LogLine line) => $"[{line.Seq}] {line.Text.Trim()}{(line.Dice is null ? "" : $"\n      {line.Dice}")}";
+
+    private static string Escape(string text) => text.Replace("[", "[lb]", StringComparison.Ordinal);
+
+    // Verb colours by kind (every verb is also a word); the newest row is marked ▶ and it and the current turn's header
+    // stand out.
     private void PaintLog()
     {
-        var lastTurn = _logRows.FindLastIndex(r => r.Kind == EventKind.Turn && r.Line.Text.Contains("--- Turn ", StringComparison.Ordinal));
+        var lastTurn = _logRows.FindLastIndex(r => r.Source.Kind == EventKind.Turn && r.Source.Text.Contains("--- Turn ", StringComparison.Ordinal));
         for (var i = 0; i < _logRows.Count; i++)
         {
-            var (_, tag, line, kind) = _logRows[i];
+            var (seq, marker, line, source) = _logRows[i];
             var newest = i == _logRows.Count - 1;
-            tag.Text = (newest ? "▶ " : "") + EventText.Tag(kind);
-            tag.AddThemeColorOverride("font_color", _highContrast ? (newest ? Colors.Yellow : Colors.White) : KindColour(kind));
-            if (newest || i == lastTurn)
-            {
-                line.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : new Color(1f, 0.95f, 0.6f));
-            }
-            else
-            {
-                line.RemoveThemeColorOverride("font_color");
-            }
+            marker.Text = newest ? "▶" : "";
+            var colour = (_highContrast ? Colors.Yellow : KindColour(source.Kind)).ToHtml(false);
+            var row = source.Row ?? new CompactRow(null, null, source.Text.Trim());
+            var verb = row.Verb is null ? "" : $"[b][color=#{colour}]{Escape(row.Verb)}[/color][/b]";
+            var words = string.Join(" ", new[] { row.Actor is null ? null : Escape(row.Actor), verb, Escape(row.Rest) }.Where(p => !string.IsNullOrEmpty(p)));
+            // An event without a verb (turns, phases, scoring) is drawn in its kind's colour.
+            var body = row.Verb is null ? $"[color=#{colour}]{words}[/color]" : words;
+            var highlight = newest || i == lastTurn;
+            var head = highlight ? $"[b][lb]{seq}][/b] " : $"[lb]{seq}] ";
+            var dice = source.Dice is null ? "" : $"\n[color=#{(_highContrast ? "ffffff" : "a6a6a6")}]      {Escape(source.Dice)}[/color]";
+            line.Text = head + body + dice;
+            line.AddThemeColorOverride("default_color", highlight ? (_highContrast ? Colors.Yellow : new Color(1f, 0.95f, 0.6f)) : (_highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f)));
+            marker.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : new Color(1f, 0.95f, 0.6f));
         }
     }
 
@@ -1155,7 +1181,13 @@ public partial class Main : Control
     };
 
     // The event rows as shown: tag and line (for the UI check).
-    public IReadOnlyList<(string Tag, string Line)> LogRows => [.. _logRows.Select(r => (r.Tag.Text, r.Line.Text))];
+    // The combat log as shown (for the UI check): the marker, the compact line as drawn (without markup), the narrator's
+    // full line (the tooltip) and the kind.
+    public IReadOnlyList<(string Marker, string Shown, string Full, EventKind Kind)> LogRows =>
+        [.. _logRows.Select(r => (r.Marker.Text, r.Line.GetParsedText(), r.Line.TooltipText, r.Source.Kind))];
+
+    // Every row's full line with its dice, in order (the narrator's words, as the event list showed them before G4).
+    public string LogFullText => string.Join("\n", _logRows.Select(r => r.Line.TooltipText));
 
     private static Label Text(string text) => new()
     {

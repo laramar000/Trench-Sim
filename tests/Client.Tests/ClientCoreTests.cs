@@ -12,7 +12,7 @@ namespace Client.Tests;
 // hints against the state and against the simulator's own code. Tests may use Reducer and Sim; Client.Core may not.
 public class ClientCoreTests
 {
-    private static readonly Lazy<List<(string Scenario, List<GameEvent> Log)>> Matches = new(() =>
+    internal static readonly Lazy<List<(string Scenario, List<GameEvent> Log)>> Matches = new(() =>
     {
         var all = new List<(string, List<GameEvent>)>();
         foreach (var (scenario, file) in new[] { ("ranged", "test-warbands.json"), ("melee", "melee-warbands.json") })
