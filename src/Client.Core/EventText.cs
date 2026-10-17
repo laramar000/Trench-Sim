@@ -57,6 +57,42 @@ public static class EventText
         _ => e.GetType().Name + ".",
     };
 
+    // What kind of event it is, for the event list's tag and colour (QoL stage D). Display only.
+    public static EventKind Kind(GameEvent e) => e switch
+    {
+        MatchCreated or RollOffResolved or DeploymentZoneChosen or DeploymentOrderSet or ModelDeployed => EventKind.Setup,
+        TurnStarted or TurnEnded or PhaseEntered or InitiativeDetermined or FirstActivationChosen or MoraleOrderSet => EventKind.Turn,
+        ActivationStarted or ActivationEnded => EventKind.Activation,
+        ModelMoved or DashDeclared or DashRolled or RetreatDeclared or RetreatResolved => EventKind.Movement,
+        RangedAttackDeclared or ShootingTargetRolled or FriendlyTargetChosen or RangedSuccessRolled => EventKind.Shooting,
+        ChargeDeclared or ChargeRolled or ChargeMoved => EventKind.Charge,
+        MeleeAttackDeclared or MeleeSuccessRolled or FreeFightsDeclined => EventKind.Fight,
+        InjuryRolled or MarkersSpent => EventKind.Injury,
+        ModelStoodUp or MoraleCheckRolled or WarbandShaken or WarbandRecovered or WarbandFled => EventKind.Status,
+        DecisionRequested => EventKind.Decision,
+        ObjectivesScored => EventKind.Scoring,
+        MatchEnded => EventKind.MatchEnd,
+        _ => EventKind.Other,
+    };
+
+    // The tag shown before each event line: the kind in one word.
+    public static string Tag(EventKind kind) => kind switch
+    {
+        EventKind.Setup => "SETUP",
+        EventKind.Turn => "TURN",
+        EventKind.Activation => "ACTIVATE",
+        EventKind.Movement => "MOVE",
+        EventKind.Shooting => "SHOOT",
+        EventKind.Charge => "CHARGE",
+        EventKind.Fight => "FIGHT",
+        EventKind.Injury => "INJURY",
+        EventKind.Status => "STATUS",
+        EventKind.Decision => "DECIDE",
+        EventKind.Scoring => "SCORE",
+        EventKind.MatchEnd => "END",
+        _ => "EVENT",
+    };
+
     // The dice behind a roll event, every die as rolled and which were kept; null for an event without dice.
     public static string? Dice(GameEvent e) => e switch
     {
@@ -76,4 +112,21 @@ public static class EventText
         var which = netDice > 0 ? "highest" : netDice < 0 ? "lowest" : "both";
         return $"Dice: rolled {string.Join(", ", dice.Rolled)}; kept {string.Join(", ", dice.Kept)} ({which}), total {dice.Total}";
     }
+}
+
+public enum EventKind
+{
+    Other,
+    Setup,
+    Turn,
+    Activation,
+    Movement,
+    Shooting,
+    Charge,
+    Fight,
+    Injury,
+    Status,
+    Decision,
+    Scoring,
+    MatchEnd,
 }

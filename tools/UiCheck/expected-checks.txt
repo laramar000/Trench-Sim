@@ -1,7 +1,7 @@
-# Checks the UI check runner reports (223): the 93 of M7.3 (Linux run of 3ba61db), 12 battlefield checks of M7.4 stage 4a, 11 preview checks of stage 4b,
+# Checks the UI check runner reports (226): the 93 of M7.3 (Linux run of 3ba61db), 12 battlefield checks of M7.4 stage 4a, 11 preview checks of stage 4b,
 # 7 sending checks of stage 4c, 15 single-player (hot-seat) checks, 7 match-result checks of M7.5 stage 5a and 37 checks of stage 5b (two Godot clients play a
 # whole melee match, one is killed and rejoins, and the signed record is checked with trench-cli verify), 19 of stage 5c (a Godot client plays
-# a whole ranged match against trench-cli --bot; Godot, trench-cli and the verified record must agree) and 9 checks of the action bar and mouse play (shown, a mouse click starts an action, the movement area, a click too far is not sent, a right-click cancels, a Dash by mouse and its note), and 5 of choosing a unit before it acts (choosing and switching send nothing, the first action activates the unit finally chosen, no switch afterwards, and the other window shows only that activation), and 4 of unit states (eligible units ringed, an activated unit greyed and its grey gone next turn, both windows agree), and 4 of previews (the move card and its ghost, Esc clears them, the target card, the note on a server refusal), and 2 of the status line (what it says when a unit is chosen, and both windows agree at the end). Lines marked "optional" (board-send-shoot, board-send-charge, board-send-fight, board-click-dash, board-note-shown) are reported only when the
+# a whole ranged match against trench-cli --bot; Godot, trench-cli and the verified record must agree) and 9 checks of the action bar and mouse play (shown, a mouse click starts an action, the movement area, a click too far is not sent, a right-click cancels, a Dash by mouse and its note), and 5 of choosing a unit before it acts (choosing and switching send nothing, the first action activates the unit finally chosen, no switch afterwards, and the other window shows only that activation), and 4 of unit states (eligible units ringed, an activated unit greyed and its grey gone next turn, both windows agree), and 4 of previews (the move card and its ghost, Esc clears them, the target card, the note on a server refusal), and 2 of the status line (what it says when a unit is chosen, and both windows agree at the end), and 3 of the event list (each Godot window that plays to the end: one tagged row per event, same words and order, newest marked). Lines marked "optional" (board-send-shoot, board-send-charge, board-send-fight, board-click-dash, board-note-shown) are reported only when the
 # match offers a legal target at that moment; otherwise Run-WindowsUiCheck.ps1 lists them as NOT TESTED without making the run incomplete (the
 # Client.Core tests send every action through a real server). Any other check a run did not report makes the verdict INCOMPLETE. One check id per line, as in the runner's summary.md.
 # "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide, and the
@@ -192,6 +192,7 @@ pvp-a: pvp-activated-unit-greyed
 pvp-a: pvp-activated-look-resets
 pvp-a: pvp-opponent-drop-pauses
 pvp-a: pvp-match-completed
+pvp-a: pvp-event-log-tags
 pvp-a: pvp-nothing-to-send
 pvp-b: pvp-type-server
 pvp-b: pvp-type-code
@@ -205,6 +206,7 @@ pvp-b-rejoin: pvp-rejoin-same-seat
 pvp-b-rejoin: pvp-rejoin-caught-up
 pvp-b-rejoin: pvp-plays-on-after-rejoin
 pvp-b-rejoin: pvp-match-completed
+pvp-b-rejoin: pvp-event-log-tags
 pvp-b-rejoin: pvp-nothing-to-send
 godot-pvp-a: engine errors
 godot-pvp-b: engine errors
@@ -226,6 +228,7 @@ gvt-a: pvp-choose-scenario
 gvt-a: pvp-create-enter
 gvt-a: pvp-create
 gvt-a: pvp-match-completed
+gvt-a: pvp-event-log-tags
 gvt-a: pvp-nothing-to-send
 godot-gvt-a: engine errors
 gvt-no-server-left

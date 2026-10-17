@@ -133,6 +133,14 @@ public sealed partial class TransportTests
         var started = server.Lobby.LogOf(code)!.Count(e => e.Event is Rules.Core.Events.ActivationStarted);
         Assert.Equal(commits, started);
         AssertEndMatchesRecord(data, one, two, VerdictKind.Completed);
+        // Each screen's event list: the server's events in order, in the narrator's words, each with its kind.
+        foreach (var screen in new[] { one, two })
+        {
+            var shown = screen.Snapshot().Log;
+            var events = server.Lobby.LogOf(code)!.TakeLast(shown.Count).ToList();
+            Assert.Equal(events.Select(e => e.Seq), shown.Select(l => l.Seq));
+            Assert.Equal(events.Select(e => (EventText.Line(e.Event), EventText.Kind(e.Event))), shown.Select(l => (l.Text, l.Kind)));
+        }
         Console.WriteLine($"{scenario} seed {seed}: {switches} switches, {commits} commits ({takeNoAction} with no action), {started} activations");
     }
 }

@@ -59,7 +59,8 @@ public partial class Main : Control
     private VBoxContainer _hints = null!;
     private Label _notYet = null!;
     private Label _feedback = null!;
-    private Label _log = null!;
+    private VBoxContainer _log = null!;
+    private readonly List<(int Seq, Label Tag, Label Line, EventKind Kind)> _logRows = [];
     private ScrollContainer _logScroll = null!;
     private AcceptDialog _gaps = null!;
     private ConfirmationDialog _takeBack = null!;
@@ -480,7 +481,10 @@ public partial class Main : Control
         right.AddChild(Section("Your actions", actions));
         _feedback = Text("");
         right.AddChild(Section("Last command", _feedback));
-        _log = Text("");
+        // One row per event (QoL stage D): a coloured tag naming its kind, then its line, word for word as before. The
+        // newest row is marked, and so is the current turn's header.
+        _log = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _log.AddThemeConstantOverride("separation", 0);
         // The event list takes focus (Tab), so it can be scrolled with the keyboard: arrows, Page Up/Down, Home, End.
         _logScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 260), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FocusMode = FocusModeEnum.All };
         _logScroll.AddChild(_log);
@@ -601,7 +605,7 @@ public partial class Main : Control
         }
         _notYet.Text = s.NotYetOffered ?? "";
         _feedback.Text = s.Feedback is { } f ? $"{FeedbackWord(f.Kind)}: {f.Text}{(f.RuleRef is null ? "" : $" (rule: {f.RuleRef})")}" : "None yet.";
-        _log.Text = string.Join("\n", s.Log.Select(l => $"[{l.Seq}] {l.Text.Trim()}{(l.Dice is null ? "" : $"\n      {l.Dice}")}"));
+        ShowLog(s.Log);
         if (refocus is not null)
         {
             var same = _bannerButtons.GetChildren().Concat(_hints.GetChildren()).OfType<Button>().FirstOrDefault(n => !n.IsQueuedForDeletion() && n.Text == refocus);
@@ -746,6 +750,7 @@ public partial class Main : Control
         {
             _highContrast = on;
             ApplyTheme();
+            PaintLog();
         };
         return Row(size, contrast);
     }
@@ -834,6 +839,81 @@ public partial class Main : Control
         var at = Array.IndexOf(args, name);
         return at >= 0 && at + 1 < args.Length ? args[at + 1] : null;
     }
+
+    // Brings the event rows up to date with the log: rows that left the list (it keeps the newest 200) are removed and new
+    // events are added at the bottom. The words and the order are the log's; only the tag and colours are added.
+    private void ShowLog(IReadOnlyList<LogLine> log)
+    {
+        var first = log.Count == 0 ? int.MaxValue : log[0].Seq;
+        var known = _logRows.Count == 0 ? 0 : _logRows[^1].Seq;
+        if (log.Count == 0 || log[^1].Seq < known)
+        {
+            // A new match, or the screen went back: start the list again.
+            foreach (var row in _log.GetChildren())
+            {
+                _log.RemoveChild(row);
+                row.QueueFree();
+            }
+            _logRows.Clear();
+            known = 0;
+        }
+        while (_logRows.Count > 0 && _logRows[0].Seq < first)
+        {
+            var gone = _logRows[0].Line.GetParent();
+            _log.RemoveChild(gone);
+            gone.QueueFree();
+            _logRows.RemoveAt(0);
+        }
+        foreach (var line in log.Where(l => l.Seq > known))
+        {
+            var row = new HBoxContainer();
+            var tag = new Label { Text = EventText.Tag(line.Kind), CustomMinimumSize = new Vector2(96, 0) };
+            var text = Text($"[{line.Seq}] {line.Text.Trim()}{(line.Dice is null ? "" : $"\n      {line.Dice}")}");
+            row.AddChild(tag);
+            row.AddChild(text);
+            _log.AddChild(row);
+            _logRows.Add((line.Seq, tag, text, line.Kind));
+        }
+        PaintLog();
+    }
+
+    // Tag colours by kind; the newest row and the current turn's header stand out. Every tag is also a word.
+    private void PaintLog()
+    {
+        var lastTurn = _logRows.FindLastIndex(r => r.Kind == EventKind.Turn && r.Line.Text.Contains("--- Turn ", StringComparison.Ordinal));
+        for (var i = 0; i < _logRows.Count; i++)
+        {
+            var (_, tag, line, kind) = _logRows[i];
+            var newest = i == _logRows.Count - 1;
+            tag.Text = (newest ? "▶ " : "") + EventText.Tag(kind);
+            tag.AddThemeColorOverride("font_color", _highContrast ? (newest ? Colors.Yellow : Colors.White) : KindColour(kind));
+            if (newest || i == lastTurn)
+            {
+                line.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : new Color(1f, 0.95f, 0.6f));
+            }
+            else
+            {
+                line.RemoveThemeColorOverride("font_color");
+            }
+        }
+    }
+
+    private static Color KindColour(EventKind kind) => kind switch
+    {
+        EventKind.Movement => new Color(0.55f, 0.75f, 1f),
+        EventKind.Shooting => new Color(1f, 0.7f, 0.35f),
+        EventKind.Charge => new Color(1f, 0.55f, 0.3f),
+        EventKind.Fight => new Color(1f, 0.45f, 0.45f),
+        EventKind.Injury => new Color(1f, 0.35f, 0.5f),
+        EventKind.Status => new Color(0.85f, 0.6f, 1f),
+        EventKind.Activation => new Color(0.5f, 0.95f, 0.95f),
+        EventKind.Scoring => new Color(0.55f, 1f, 0.55f),
+        EventKind.MatchEnd => new Color(1f, 0.9f, 0.3f),
+        _ => new Color(0.7f, 0.7f, 0.7f),
+    };
+
+    // The event rows as shown: tag and line (for the UI check).
+    public IReadOnlyList<(string Tag, string Line)> LogRows => [.. _logRows.Select(r => (r.Tag.Text, r.Line.Text))];
 
     private static Label Text(string text) => new()
     {

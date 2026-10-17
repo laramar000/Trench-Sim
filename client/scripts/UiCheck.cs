@@ -1831,6 +1831,20 @@ public partial class UiCheck : Node
         Write($"DUMP pvp-end answers={string.Join(", ", _pvpAnswers.OrderBy(a => a.Key, StringComparer.Ordinal).Select(a => $"{a.Key} {a.Value}"))}");
         Write($"DUMP pvp-end log={string.Join("|", lines)}");
         Write($"DUMP pvp-end strip={Strip()}");
+        // Stage D: one row per event line, in the same order and words, each with its kind's tag; the newest is marked.
+        if (_main is Main screen)
+        {
+            var rows = screen.LogRows;
+            var rowLines = rows.Select(r => r.Line.Split('\n')[0]).ToList();
+            var tags = rows.Select(r => r.Tag.TrimStart('▶', ' ')).ToList();
+            Check("pvp-event-log-tags", rows.Count > 0 && rowLines.SequenceEqual(lines) && tags.All(t => t != "EVENT") && rows[^1].Tag == "▶ END"
+                && rows.Take(rows.Count - 1).All(r => !r.Tag.StartsWith('▶')) && tags.Contains("MOVE") && tags.Contains("ACTIVATE") && tags.Contains("SCORE"),
+                $"{rows.Count} rows, {lines.Count} lines, same order and words: {rowLines.SequenceEqual(lines)}; tags used: {string.Join(", ", tags.Distinct())}; newest: {rows.LastOrDefault().Tag} {rows.LastOrDefault().Line}");
+        }
+        else
+        {
+            Check("pvp-event-log-tags", false, "the match screen was not found");
+        }
         Write($"DUMP pvp-end looks={(board?.Scene is { } final ? string.Join(",", final.Models.Select(m => $"{m.Id.Value}:{m.Look}:{m.Status}")) : "")}");
         Mark("ended");
     }
