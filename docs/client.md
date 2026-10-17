@@ -55,7 +55,7 @@ One line over the battlefield (`StatusStrip`), for example "Turn 2 of 4 · Activ
 
 ### Preview cards
 
-A preview draws a short card where the move ends or at the target. Its first line always says it is a preview and that the server decides (`PreviewCard`):
+A preview draws a short card above the moving model (the ghost base and ring mark where the move ends) or above the target. Cards and the notes over models are lifted a fixed number of screen pixels above the model's own label, so they do not cover it at any zoom; while a card is shown the action bar goes below the model. Its first line always says it is a preview and that the server decides (`PreviewCard`):
 - **Move, Dash, Retreat:** "3.5" used of 6.0" (2.5" left)", the rules' own path cost and allowance, and "straight line 3.2"". The path is dashed, and a see-through ghost base shows where the model would end; the real model stays solid where it is until the server's events move it. A Dash says the server rolls whether it moves.
 - **Shoot, Charge, Fight:** the target's name, then the rules' own facts word for word: distance (and weapon range), line of sight (rays clear, what blocks them), cover, long or short range, shooting into melee. A preview that looks legal ends with "dice: rolled by the server". No hit chances are shown: the client does not work them out.
 - **Refused:** the rule's reason and page. When the server refuses a sent command, a REFUSED BY THE SERVER note (with the page) appears above the model and LAST COMMAND gives the reason. Right-click or Esc clears the preview, its ghost and its card and sends nothing.

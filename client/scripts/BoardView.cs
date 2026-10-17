@@ -787,8 +787,12 @@ public partial class BoardView : SubViewportContainer
         if (_scene?.Find(_barNow.Anchor) is { } anchor && ScreenOf(anchor.X, anchor.Y, anchor.Standing + 1.6) is { } top
             && ScreenOf(anchor.X, anchor.Y, anchor.Standing) is { } foot)
         {
-            candidates.Add(new Vector2(top.X - size.X / 2, top.Y - size.Y - 28));
-            candidates.Add(new Vector2(foot.X - size.X / 2, foot.Y + 34));
+            // Above the model, and above any notes floating over it.
+            var notes = _shown.Count(n => n.Note.Model == anchor.Id);
+            var above = new Vector2(top.X - size.X / 2, top.Y - size.Y - 28 - notes * 22 * _textScale);
+            var below = new Vector2(foot.X - size.X / 2, foot.Y + 34);
+            // A preview card is drawn above the models, so the bar then goes below first and does not cover it.
+            candidates.AddRange(_cardShown ? [below, above] : [above, below]);
             candidates.Add(new Vector2(foot.X + 40, foot.Y - size.Y / 2));
             candidates.Add(new Vector2(foot.X - 40 - size.X, foot.Y - size.Y / 2));
         }
@@ -824,6 +828,7 @@ public partial class BoardView : SubViewportContainer
             child.QueueFree();
         }
         _overlayTexts.Clear();
+        _cardShown = false;
         AreaPoints = 0;
         GhostAt = null;
         if (_scene is null || Interaction.Mode == InteractionMode.None)
@@ -877,8 +882,13 @@ public partial class BoardView : SubViewportContainer
                 var end = preview.Path[^1];
                 Ring(end.At, preview.Radius, colour);
                 Ghost(end.At, preview.Model, preview.Radius, colour);
-                // Higher than the model's own label, so a short move's card does not cover it.
-                Overlay($"{string.Join("\n", PreviewCard.Lines(preview))}{state}", end.At, 3.6f, 0.95f);
+                // The card sits above the moving model's own label (and any notes over it), not at the path's end, so
+                // it never lands on that label however short the move; the ghost and ring mark the end.
+                if (_scene.Find(preview.Model) is { } mover)
+                {
+                    var notes = _shown.Where(n => n.Note.Model == mover.Id).Sum(n => LineHeight(n.Label) * n.Label.Text.Split('\n').Length);
+                    Card($"{string.Join("\n", PreviewCard.Lines(preview))}{state}", new TablePoint(mover.X, mover.Y), LabelHeight(mover), notes);
+                }
                 break;
             default:
                 foreach (var ray in preview.Rays)
@@ -889,7 +899,7 @@ public partial class BoardView : SubViewportContainer
                 {
                     var spot = new TablePoint(target.X, target.Y);
                     Ring(spot, target.Radius, colour);
-                    Overlay($"{string.Join("\n", PreviewCard.Lines(preview, target))}{state}", spot, 3.6f, 0.95f);
+                    Card($"{string.Join("\n", PreviewCard.Lines(preview, target))}{state}", spot, LabelHeight(target));
                 }
                 for (var i = 1; i < preview.ChargePath.Count; i++)
                 {
@@ -1068,10 +1078,14 @@ public partial class BoardView : SubViewportContainer
             return;
         }
         var mine = _shown.Where(n => n.Note.Model == id).ToList();
-        var head = (float)model.Standing + (model.Status == ModelStatus.Standing ? 1.9f : 0.9f);
-        for (var i = 0; i < mine.Count; i++)
+        // Anchored at the model's label and lifted in screen pixels, so at any zoom the notes sit above that label
+        // instead of on it.
+        var lift = AboveLabel;
+        for (var i = mine.Count - 1; i >= 0; i--)
         {
-            mine[i].Label.Position = new Vector3((float)model.X, head + (mine.Count - 1 - i) * 0.55f, (float)model.Y);
+            mine[i].Label.Position = new Vector3((float)model.X, LabelHeight(model), (float)model.Y);
+            Raise(mine[i].Label, lift);
+            lift += LineHeight(mine[i].Label) * Math.Max(1, mine[i].Label.Text.Split('\n').Length);
         }
     }
 
@@ -1140,6 +1154,34 @@ public partial class BoardView : SubViewportContainer
     {
         _overlayTexts.Add(text);
         _overlay.AddChild(MakeLabel(text, new Vector3((float)at.X, height, (float)at.Y), size));
+    }
+
+    // A preview card: its bottom edge sits just above the label line at that spot, whatever the zoom, so it covers
+    // neither the model's label nor the target's.
+    private void Card(string text, TablePoint at, float labelHeight, float extra = 0)
+    {
+        _overlayTexts.Add(text);
+        var label = MakeLabel(text, new Vector3((float)at.X, labelHeight, (float)at.Y), 0.95f);
+        Raise(label, AboveLabel + extra);
+        _overlay.AddChild(label);
+        _cardShown = true;
+    }
+
+    private bool _cardShown;
+
+    // Where a model's own label is drawn: a little above its body.
+    private static float LabelHeight(ModelShape model) => (float)model.Standing + (model.Status == ModelStatus.Standing ? 1.2f : 0.3f) + 0.6f;
+
+    // Label3D offsets are in the label's own pixels (the same units as its font size), so these keep their spacing on
+    // screen at any distance. AboveLabel clears a selected model's label (centred on its anchor) with a gap.
+    private float AboveLabel => 32 * _textScale * 1.1f + 8;
+
+    private static float LineHeight(Label3D label) => label.FontSize * 1.25f;
+
+    private static void Raise(Label3D label, float pixels)
+    {
+        label.VerticalAlignment = VerticalAlignment.Bottom;
+        label.Offset = new Vector2(0, pixels);
     }
 
     private string Facing() => _yaw switch
@@ -1244,7 +1286,7 @@ public partial class BoardView : SubViewportContainer
                 };
                 _content.AddChild(ring);
             }
-            Text((selected ? "SELECTED " : "") + model.Label, new Vector3((float)model.X, standing + tall + 0.6f, (float)model.Y), selected ? 1f : 0.85f);
+            Text((selected ? "SELECTED " : "") + model.Label, new Vector3((float)model.X, LabelHeight(model), (float)model.Y), selected ? 1f : 0.85f);
         }
     }
 
