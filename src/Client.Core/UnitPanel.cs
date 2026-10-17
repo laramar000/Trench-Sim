@@ -99,7 +99,8 @@ public static class UnitPanel
                 lines.Add(turnState);
             }
             unavailable = choosing ? null : Unavailable(state, scene, interaction, seat, unit);
-            if (!choosing)
+            // The actions are listed only for the unit they belong to (the bar's own unit, yours).
+            if (!choosing && unit.Yours && (bar.Anchor is null || bar.Anchor == unit.Id))
             {
                 var actions = bar.Items.Where(i => i.Enabled && i.Kind is BarKind.Start or BarKind.Activate or BarKind.EndActivation or BarKind.Decide)
                     .Select(i => i.Label).ToList();

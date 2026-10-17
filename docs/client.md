@@ -57,6 +57,7 @@ The match screen, top to bottom:
 - The hot-seat line and the connection banner (with Rejoin, Resync, Switch seat, Leave) stay on screen, since they need attention.
 - **Battlefield** on the left (about 70% of the width), filling the window's height under the HUD. **Right column:** the selected-unit and action panel, and under it the **combat log**, which scrolls on its own.
 - Below the fold, as before: Match, Models, Your actions and Last command.
+- **Small windows and larger text (step G5):** under 1100 pixels of width the panel and the log move under the battlefield, side by side, and the battlefield keeps the full width; Confirm and Cancel stay on the first screen. The right column widens with the text size (300 px at 100%, 450 px at 150%) so the panel's buttons keep their words. The UI check resizes the window to 1000 x 700 and back to 1280 x 800 and checks both layouts, and checks the panel at 150% text.
 
 ### Selected-unit and action panel (proposal G, step G1)
 

@@ -59,8 +59,11 @@ public partial class Main : Control
     private VBoxContainer _matchMenu = null!;
     private Button _menuButton = null!;
     private bool _menuOpen;
-    private HBoxContainer _split = null!;
+    private BoxContainer _split = null!;
+    private bool _stacked;
     private VBoxContainer _logBox = null!;
+    private BoxContainer _column = null!;
+    public const float StackBelow = 1100;
     private ScreenState? _lastScreen;
     private VBoxContainer _hints = null!;
     private Label _notYet = null!;
@@ -482,12 +485,14 @@ public partial class Main : Control
         // combat log. The battlefield shows positions; the panel says who the unit is, what it can do and what the chosen
         // action would do; the log says what the server confirmed. The battlefield fills the window's height.
         BuildLog();
-        _split = new HBoxContainer { Name = "BattlefieldAndPanel" };
+        // Plain boxes (not HBox/VBox), so they can turn from side by side to one above the other on a narrow window.
+        _split = new BoxContainer { Name = "BattlefieldAndPanel", Vertical = false };
         _split.AddThemeConstantOverride("separation", 10);
         _board.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _board.SizeFlagsStretchRatio = 7;
         _split.AddChild(_board);
-        var column = new VBoxContainer { Name = "RightColumn", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, CustomMinimumSize = new Vector2(300, 0) };
+        var column = new BoxContainer { Name = "RightColumn", Vertical = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, CustomMinimumSize = new Vector2(300, 0) };
+        _column = column;
         column.AddThemeConstantOverride("separation", 8);
         column.AddChild(BuildPanel());
         var logBox = Section("Combat log", _logScroll);
@@ -495,6 +500,7 @@ public partial class Main : Control
         logBox.Name = "CombatLog";
         _logBox = logBox;
         logBox.SizeFlagsVertical = SizeFlags.ExpandFill;
+        logBox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         logBox.SizeFlagsStretchRatio = 2;
         column.AddChild(logBox);
         _split.AddChild(column);
@@ -549,7 +555,10 @@ public partial class Main : Control
         _log = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _log.AddThemeConstantOverride("separation", 0);
         // The event list takes focus (Tab), so it can be scrolled with the keyboard: arrows, Page Up/Down, Home, End.
-        _logScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 120), SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FocusMode = FocusModeEnum.All };
+        // The scroll bar is always shown: a bar that comes and goes changes the rows' width, which rewraps them, which can
+        // bring the bar back, over and over (a layout loop that filled Godot's message queue once).
+        _logScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 120), SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+            VerticalScrollMode = ScrollContainer.ScrollMode.ShowAlways, FocusMode = FocusModeEnum.All };
         _logScroll.AddChild(_log);
         _log.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _logScroll.GuiInput += ScrollLogWithKeys;
@@ -724,20 +733,47 @@ public partial class Main : Control
 
     public float BattlefieldTop => _boardSection.GlobalPosition.Y - _root.GlobalPosition.Y;
 
-    // The battlefield fills the window below the HUD (and any banner); the rest of the page is below the fold.
+    // The battlefield fills the window below the HUD (and any banner); the rest of the page is below the fold. Under
+    // StackBelow pixels of width (proposal G5) the panel and the log move under the battlefield, side by side, so the
+    // battlefield keeps the full width and Confirm and Cancel stay on screen.
     private void FitBattlefield()
     {
         if (!_match.Visible || _split is null)
         {
             return;
         }
+        var size = GetViewportRect().Size;
+        var stacked = size.X < StackBelow;
+        if (_stacked != stacked)
+        {
+            _stacked = stacked;
+            _split.Vertical = stacked;
+            _column.Vertical = !stacked;
+            _board.SizeFlagsVertical = stacked ? SizeFlags.ExpandFill : SizeFlags.Fill;
+            _board.SizeFlagsStretchRatio = stacked ? 11 : 7;
+            _column.SizeFlagsStretchRatio = stacked ? 9 : 3;
+            _board.CustomMinimumSize = new Vector2(0, stacked ? 240 : 440);
+        }
+        // The column is wider with larger text, so the panel's buttons keep their words.
+        var columnMin = stacked ? new Vector2(0, 220 * _scale) : new Vector2(300 * _scale, 0);
+        if (_column.CustomMinimumSize != columnMin)
+        {
+            _column.CustomMinimumSize = columnMin;
+        }
         var top = _boardSection.GlobalPosition.Y - _root.GlobalPosition.Y;
-        var want = Math.Max(440f, GetViewportRect().Size.Y - 24 - top - 4);
+        var want = Math.Max(stacked ? 250f + columnMin.Y : 440f, size.Y - 24 - top - 4);
         if (Math.Abs(_split.CustomMinimumSize.Y - want) > 1)
         {
             _split.CustomMinimumSize = new Vector2(0, want);
         }
     }
+
+    public bool Stacked => _stacked && _split.Vertical;
+
+    // How far down the page a control starts (whatever the page's scroll), for the UI check.
+    public float PageY(Control control) => control.GlobalPosition.Y - _root.GlobalPosition.Y;
+
+    public Control RightColumn => _column;
 
     // ---- the selected-unit and action panel (proposal G, step G1) ----
 
@@ -770,7 +806,7 @@ public partial class Main : Control
         column.AddThemeConstantOverride("separation", 8);
         _panel.AddChild(column);
         // The words scroll on their own; Confirm and Cancel stay at the bottom, always in the same place.
-        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = SizeFlags.ExpandFill };
+        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, VerticalScrollMode = ScrollContainer.ScrollMode.ShowAlways, SizeFlagsVertical = SizeFlags.ExpandFill };
         column.AddChild(scroll);
         var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         body.AddThemeConstantOverride("separation", 4);
@@ -792,7 +828,7 @@ public partial class Main : Control
             ShowPanel();
         });
         _pDetailsButton.Alignment = HorizontalAlignment.Left;
-        foreach (var control in new Control[] { _pTitle, _pUnit, _pUnavailable, _pActionTitle, _pAction, _pRefusal, _pNotice, _pDetailsButton, _pDetails })
+        foreach (var control in new Control[] { _pTitle, _pUnit, _pUnavailable, _pActionTitle, _pAction, _pRefusal, _pNotice, _pDetails })
         {
             body.AddChild(control);
         }
@@ -812,6 +848,8 @@ public partial class Main : Control
             button.ClipText = true;
         }
         _pConfirm.SizeFlagsStretchRatio = 2;
+        // Details ▸ stays in view above the buttons however long the panel's words are; what it opens scrolls with them.
+        column.AddChild(_pDetailsButton);
         column.AddChild(Row(_pConfirm, _pUndo, _pCancel));
         return _panel;
     }

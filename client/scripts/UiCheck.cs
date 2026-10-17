@@ -160,6 +160,7 @@ public partial class UiCheck : Node
         Mark("rejoined");
 
         await Accessibility();
+        await WindowSizeChecks();
         Mark("a11y-done");
 
         // Phase 4: the server itself stops and starts again.
@@ -1201,7 +1202,7 @@ public partial class UiCheck : Node
             await Frames(2);
         }
         // Give the keyboard focus back, as a mouse click does not move it, unless that control is now hidden.
-        if (owner is not null && owner.IsVisibleInTree())
+        if (owner is not null && GodotObject.IsInstanceValid(owner) && !owner.IsQueuedForDeletion() && owner.IsVisibleInTree())
         {
             owner.GrabFocus();
         }
@@ -1249,6 +1250,7 @@ public partial class UiCheck : Node
             .Select(Describe).ToList();
         Check("text-150-fits-width", overflow.Count == 0, overflow.Count == 0 ? $"all text within {width}px" : string.Join("; ", overflow));
         await Shot("host-text-150");
+        Check("layout-text-150", PanelButtonsFit(out var buttons) && Strip().Length > 0 && ((Main)_main).PanelConfirm.IsVisibleInTree(), buttons);
         await Press(Controls<CheckButton>().FirstOrDefault(c => c.Text == "High contrast"), Key.Space, "contrast-space");
         var background = Controls<ColorRect>().FirstOrDefault()?.Color;
         Check("high-contrast-applied", background == Colors.Black && _main.Theme?.GetColor("font_color", "Label") == Colors.White,
@@ -1277,6 +1279,62 @@ public partial class UiCheck : Node
         await Press(Controls<CheckButton>().FirstOrDefault(c => c.Text == "High contrast"), Key.Space, null);
         await ChooseOption(Option("Text 150%"), "Text 100%", null);
         await OpenMenu(false);
+    }
+
+    // Proposal G5: at 1280 x 800 the panel and log sit beside the battlefield; under 1100 pixels of width (1000 x 700) they
+    // move under it, side by side, and the battlefield keeps the full width. Either way Confirm and Cancel are on the
+    // first screen, their words fit, and nothing runs off the right edge.
+    private async Task WindowSizeChecks()
+    {
+        var main = (Main)_main;
+        // Through the window itself: without a window manager (xvfb-run) DisplayServer.WindowSetSize does not resize the view.
+        var window = _main.GetWindow();
+        var original = window.Size;
+        foreach (var (w, h) in new[] { (1000, 700), (1280, 800) })
+        {
+            window.Size = new Vector2I(w, h);
+            for (var i = 0; i < 60 && _main.GetViewportRect().Size != new Vector2(w, h); i++)
+            {
+                await Frames(1);
+            }
+            await Frames(6);
+            var size = _main.GetViewportRect().Size;
+            var board = Controls<BoardView>().First(b => b.IsVisibleInTree()).GetGlobalRect();
+            var column = main.RightColumn.GetGlobalRect();
+            var panel = Controls<PanelContainer>().First(p => p.Name == "UnitPanel").GetGlobalRect();
+            var log = main.CombatLog.GetGlobalRect();
+            bool OnFirstScreen(Control c) => c.IsVisibleInTree() && main.PageY(c) + c.Size.Y <= size.Y - 24 + 2;
+            var fits = PanelButtonsFit(out var words);
+            var buttonsShown = OnFirstScreen(main.PanelConfirm) && OnFirstScreen(main.PanelCancel) && fits;
+            var overflow = Controls<Control>().Where(c => (c is Button or Godot.Label or OptionButton) && c.IsVisibleInTree() && c.GetGlobalRect().End.X > size.X + 1)
+                .Select(Describe).ToList();
+            var placed = w < Main.StackBelow
+                ? main.Stacked && column.Position.Y >= board.End.Y && log.Position.X >= panel.End.X && board.Size.X >= size.X - 40
+                : !main.Stacked && column.Position.X >= board.End.X && log.Position.Y >= panel.End.Y;
+            Check($"layout-{w}x{h}", size == new Vector2(w, h) && placed && buttonsShown && overflow.Count == 0,
+                $"window {size}; stacked {main.Stacked}; battlefield {board}; panel {panel}; log {log}; Confirm and Cancel on the first screen and fit: {buttonsShown} ({words}); "
+                + (overflow.Count == 0 ? "nothing past the right edge" : "past the right edge: " + string.Join("; ", overflow)));
+            await Shot($"host-layout-{w}x{h}");
+        }
+        window.Size = original;
+        await Frames(6);
+    }
+
+    // The panel's Confirm, Undo and Cancel show their whole words.
+    private bool PanelButtonsFit(out string detail)
+    {
+        var main = (Main)_main;
+        var parts = new List<string>();
+        var fit = true;
+        foreach (var button in new[] { main.PanelConfirm, main.PanelUndo, main.PanelCancel })
+        {
+            var font = button.GetThemeFont("font");
+            var need = font.GetStringSize(button.Text, HorizontalAlignment.Left, -1, button.GetThemeFontSize("font_size")).X + 8;
+            fit &= need <= button.Size.X;
+            parts.Add($"{button.Text} {need:0}/{button.Size.X:0}px");
+        }
+        detail = string.Join(", ", parts);
+        return fit;
     }
 
     private async Task OpenMenu(bool open)

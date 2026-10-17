@@ -380,6 +380,8 @@ public partial class BoardView : SubViewportContainer
         if (started)
         {
             DismissLocalNotes();
+            // Choosing an action brings back a bar closed with a right-click (it shows again once the action ends).
+            _barDismissed = false;
         }
         Sync();
         return started;

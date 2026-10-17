@@ -63,6 +63,7 @@ public partial class UnitPanelTests
                 if (!unit.Yours)
                 {
                     Assert.StartsWith("Opponent's unit", panel.Unavailable);
+                    Assert.DoesNotContain(panel.Unit, l => l.StartsWith("Actions:", StringComparison.Ordinal));
                     enemy++;
                 }
                 else if (panel.Unavailable is null)
