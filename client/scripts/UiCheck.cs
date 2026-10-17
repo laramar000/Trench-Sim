@@ -377,10 +377,22 @@ public partial class UiCheck : Node
         Check("gaps-f1-opens", gaps?.Visible == true, $"visible={gaps?.Visible}");
         await KeyPress(Key.Enter);
         Check("gaps-enter-closes", gaps?.Visible == false, $"visible={gaps?.Visible} (Enter on the OK button)");
+        // Proposal G3: the Menu is folded at first (the match code, settings and keys are not on screen), and a click on
+        // Menu shows them; the rules button is pressed from there.
+        var main = (Main)_main;
+        var code = Controls<Godot.Label>().FirstOrDefault(l => l.Text.StartsWith("Match code ", StringComparison.Ordinal));
+        Check("hud-menu-folded", !main.MenuOpen && code is not null && !code.IsVisibleInTree() && Option("Text 100%") is null && Strip().Length > 0,
+            $"menu open {main.MenuOpen}; code line shown {code?.IsVisibleInTree()}; HUD: {Strip()}");
+        await ClickButton(main.MenuButton);
+        await Frames(2);
+        var opened = main.MenuOpen && code?.IsVisibleInTree() == true && Option("Text 100%") is not null && ButtonNamed("Rules in this build (F1)")?.IsVisibleInTree() == true;
         await Press(ButtonNamed("Rules in this build (F1)"), Key.Space, "rules-button-space");
         Check("gaps-button-space-opens", gaps?.Visible == true, $"visible={gaps?.Visible}");
         await KeyPress(Key.Escape);
         Check("gaps-escape-closes-again", gaps?.Visible == false, $"visible={gaps?.Visible}");
+        await ClickButton(main.MenuButton);
+        await Frames(2);
+        Check("hud-menu-opens-and-closes", opened && !main.MenuOpen && code?.IsVisibleInTree() == false, $"opened with everything shown: {opened}; closed again: {!main.MenuOpen}");
     }
 
     // M7.4 stage 4a: the 3D battlefield shows the deployed match, its camera keeps the table in view, screen points map
@@ -393,8 +405,8 @@ public partial class UiCheck : Node
         var onTable = Section("MODELS").Split('\n').Where(l => l.StartsWith('[') && !l.Contains("not deployed") && !l.Contains("Out of action")).ToList();
         Check("board-shown", scene is { Terrain.Count: 9, Zones.Count: 2 } && scene.Models.Count == onTable.Count && onTable.Count > 0
             && onTable.All(l => scene.Models.Any(m => l.StartsWith($"[{m.SeatLetter}] {m.Name}:", StringComparison.Ordinal)))
-            && Section("BATTLEFIELD").Contains("Table 36.0\" x 36.0\""),
-            scene is null ? "no battlefield" : $"{scene.Models.Count} models ({onTable.Count} on the table in MODELS), {scene.Terrain.Count} terrain pieces, {scene.Zones.Count} zones; {Section("BATTLEFIELD").Split('\n')[0]}");
+            && BoardInfo().Contains("Table 36.0\" x 36.0\""),
+            scene is null ? "no battlefield" : $"{scene.Models.Count} models ({onTable.Count} on the table in MODELS), {scene.Terrain.Count} terrain pieces, {scene.Zones.Count} zones; {BoardInfo().Split('\n')[0]}");
         if (board is null || scene is null)
         {
             return;
@@ -404,6 +416,7 @@ public partial class UiCheck : Node
         Check("board-models-labelled", unlabelled.Count == 0 && scene.Models.All(m => m.Label.StartsWith($"[{m.SeatLetter}] ", StringComparison.Ordinal)),
             unlabelled.Count == 0 ? string.Join(" | ", scene.Models.Select(m => board.IdLabelOf(m.Id))) : $"no short id for {string.Join(", ", unlabelled)}");
         await LabelLayoutChecks(board, "board");
+        await LayoutChecks(board);
         var reached = await FocusByTab(board, 80);
         Check("board-tab-focus", reached, $"focus on {Describe(Focused())}");
         if (!reached)
@@ -437,7 +450,7 @@ public partial class UiCheck : Node
 
         await KeyPress(Key.T);
         await Frames(3);
-        var top = board.TopDown && board.TableInView(0.01f) && AllModelsInView(board, scene) && Section("BATTLEFIELD").Contains("camera top-down", StringComparison.Ordinal);
+        var top = board.TopDown && board.TableInView(0.01f) && AllModelsInView(board, scene) && BoardInfo().Contains("camera top-down", StringComparison.Ordinal);
         Check("board-top-down", top, $"camera {board.CameraText}");
         await Shot("board-top-down");
         Check("board-pick-roundtrip-top-down", PickRoundTrip(board, scene, out var flat), flat);
@@ -451,8 +464,8 @@ public partial class UiCheck : Node
         await KeyPress(Key.N);
         await Frames(2);
         var first = board.Selected;
-        var info = Section("BATTLEFIELD");
-        Check("board-select-key", first is { Yours: true } && info.Contains($"Selected: {first.Text}", StringComparison.Ordinal)
+        var info = PanelText;
+        Check("board-select-key", first is { Yours: true }
             && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
             && ((Main)_main).PanelView?.Title == UnitPanel.Heading(first),
             first is null ? "nothing selected" : $"N selected {first.Name}; {info.Split('\n')[0]}");
@@ -562,7 +575,7 @@ public partial class UiCheck : Node
         await KeyPress(Key.L);
         var preview = interaction.Preview;
         Check("board-place-preview", interaction.Mode == InteractionMode.Place && preview is { Legal: true } && PanelHas($"PLACE {UnitPanel.ShortId(preview.Model)} → ")
-            && InPanel(board, UnitPanelView.PreviewLine) && OffField(board, Preview.Caveat) && Section("BATTLEFIELD").Contains(preview.Headline, StringComparison.Ordinal),
+            && InPanel(board, UnitPanelView.PreviewLine) && OffField(board, Preview.Caveat) && PanelHas($"→ {preview.Path[0].At}"),
             $"cursor {interaction.Cursor}; {preview?.Headline}; panel: {PanelText.Replace('\n', '|')}; labels: {string.Join(" / ", board.OverlayTexts)}");
         await Shot($"{_role}-place-preview");
 
@@ -571,7 +584,7 @@ public partial class UiCheck : Node
         var half = interaction.Cursor;
         await KeyPress(Key.Right, shift: true);
         var two = interaction.Cursor;
-        Check("board-cursor-steps", Near(half, start.X + 0.5, start.Y) && Near(two, start.X + 2.5, start.Y) && Section("BATTLEFIELD").Contains($"Cursor at {two}.", StringComparison.Ordinal),
+        Check("board-cursor-steps", Near(half, start.X + 0.5, start.Y) && Near(two, start.X + 2.5, start.Y) && PanelHas($"→ {two}"),
             $"start {start}; Right {half}; Shift+Right {two}");
 
         // Towards the middle of the table, 2" at a time, until the preview refuses (outside the zone).
@@ -586,7 +599,7 @@ public partial class UiCheck : Node
         }
         var refused = interaction.Preview;
         Check("board-place-refused-reason", refused?.Refusal is { } r && InPanel(board, $"REFUSED: {r.Text}")
-            && Section("BATTLEFIELD").Contains($"{r.Text} ({r.RuleRef}; {Preview.Caveat})", StringComparison.Ordinal),
+            && ((Main)_main).PanelView?.Details.Contains($"Rule: {r.RuleRef}") == true,
             $"after {steps} steps of 2\" to {interaction.Cursor}: {refused?.Headline}");
         await Shot($"{_role}-place-refused");
         // Stage 4c: a refusing preview is not sent on the first confirmation.
@@ -612,7 +625,7 @@ public partial class UiCheck : Node
         await KeyPress(Key.Space);
         var refusedAnswer = await Answered(lastCommand);
         Check("board-send-refused-shown", refusedAnswer.StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal)
-            && (interaction.Notice ?? "").StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal) && Section("BATTLEFIELD").Contains(interaction.Notice!, StringComparison.Ordinal)
+            && (interaction.Notice ?? "").StartsWith("REFUSED BY THE RULES:", StringComparison.Ordinal) && PanelHas(interaction.Notice!)
             && InPanel(board, "REFUSED BY THE RULES:") && interaction.Mode == InteractionMode.Place && Lines(LogText()).Count == events,
             $"last command: {refusedAnswer}; battlefield: {interaction.Notice}; events {events} -> {Lines(LogText()).Count}");
         await Shot($"{_role}-place-refused-by-server");
@@ -665,7 +678,7 @@ public partial class UiCheck : Node
         var verdict = move is { Legal: true } ? "LOOKS LEGAL" : "REFUSED";
         Check("board-move-preview", startOk && move is { Kind: PreviewKind.Move } && move.Path.Count == 3 && interaction.Waypoints.Count == 1
             && InPanel(board, $"MOVE → {move.Path[^1].At}") && InPanel(board, $"{BoardScene.Inch(move.Path[^1].Inches)} used") && (move.Legal || PanelHas("REFUSED: "))
-            && board.OverlayTexts.Contains(BoardScene.Inch(move.Path[1].Inches)) && Section("BATTLEFIELD").Contains(move.Headline, StringComparison.Ordinal),
+            && board.OverlayTexts.Contains(BoardScene.Inch(move.Path[1].Inches)),
             $"from {actor?.Text}; {move?.Headline}; path {string.Join(" -> ", move?.Path.Select(p => $"{p.At} {BoardScene.Inch(p.Inches)}") ?? [])}; labels: {string.Join(" / ", board.OverlayTexts)}");
         // Stage B: the card says how far (the rules' path cost), of how much, what is left and the straight line; a
         // see-through ghost marks the end while the real model has not moved.
@@ -723,7 +736,7 @@ public partial class UiCheck : Node
         }
         var early = shot?.Refusal?.Code is Rules.Core.ReasonCode.AttackerEngaged or Rules.Core.ReasonCode.NoRangedWeapon;
         var sightShown = shot is { Rays.Count: > 0 } && InPanel(board, "SHOOT → ") && (shot.Legal || InPanel(board, $"REFUSED: {shot.Refusal!.Text}"))
-            && InPanel(board, $"of {shot.Rays.Count} sight rays clear") && InPanel(board, "Distance ") && Section("BATTLEFIELD").Contains(shot.Headline, StringComparison.Ordinal);
+            && InPanel(board, $"of {shot.Rays.Count} sight rays clear") && InPanel(board, "Distance ");
         Check("board-shoot-preview", sightShown || (early && InPanel(board, shot!.Refusal!.Text)),
             $"{shot?.Headline}; {shot?.Rays.Count} rays, {shot?.Rays.Count(r => r.Clear)} clear; labels: {string.Join(" / ", board.OverlayTexts)}");
         var aimed = interaction.Target is { } t && scene.Find(t) is { } targetShape ? targetShape : null;
@@ -1122,6 +1135,24 @@ public partial class UiCheck : Node
     private static bool Near(TablePoint p, double x, double y, double within = 0.001) => Math.Abs(p.X - x) <= within && Math.Abs(p.Y - y) <= within;
 
     // Proposal G: the selected-unit and action panel beside the battlefield, as shown.
+    // Proposal G3: the battlefield and its panel fill the window under the HUD; the combat log sits under the panel in
+    // the right-hand column, beside the battlefield.
+    private async Task LayoutChecks(BoardView board)
+    {
+        await Frames(3);
+        var main = (Main)_main;
+        var row = main.BattlefieldRow.GetGlobalRect();
+        var height = _main.GetViewportRect().Size.Y;
+        var want = Math.Max(440f, height - 24 - main.BattlefieldTop - 4);
+        Check("layout-battlefield-fills-window", Math.Abs(row.Size.Y - want) <= 2 && board.GetGlobalRect().Size.Y >= row.Size.Y - 2,
+            $"window {height}px; row starts {main.BattlefieldTop}px down the page, {row.Size.Y}px tall (wanted {want}); battlefield {board.GetGlobalRect().Size}");
+        var panel = Controls<PanelContainer>().FirstOrDefault(p => p.Name == "UnitPanel")?.GetGlobalRect();
+        var log = main.CombatLog.GetGlobalRect();
+        Check("layout-log-beside-battlefield", main.CombatLog.IsVisibleInTree() && panel is { } p && log.Position.X >= board.GetGlobalRect().End.X
+            && log.Position.Y >= p.End.Y && log.End.Y <= row.End.Y + 1 && log.Size.Y >= 100 && main.BattlefieldRow.IsAncestorOf(main.CombatLog),
+            $"battlefield {board.GetGlobalRect()}; panel {panel}; log {log}");
+    }
+
     // Proposal G: the words over the battlefield are short (ids, zones, objectives, notes of a word or two, inches), and
     // the model ids and the zone and objective labels do not cover each other on screen.
     private async Task LabelLayoutChecks(BoardView board, string prefix)
@@ -1169,7 +1200,11 @@ public partial class UiCheck : Node
             Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
             await Frames(2);
         }
-        owner?.GrabFocus();
+        // Give the keyboard focus back, as a mouse click does not move it, unless that control is now hidden.
+        if (owner is not null && owner.IsVisibleInTree())
+        {
+            owner.GrabFocus();
+        }
         await Frames(1);
     }
 
@@ -1204,6 +1239,8 @@ public partial class UiCheck : Node
 
     private async Task Accessibility()
     {
+        // Text size and high contrast are in the Menu (proposal G3).
+        await OpenMenu(true);
         await ChooseOption(Option("Text 100%"), "Text 150%", "text-150");
         await Frames(5);
         Check("text-150-applied", _main.Theme?.DefaultFontSize == 27, $"default font size {_main.Theme?.DefaultFontSize}");
@@ -1239,6 +1276,16 @@ public partial class UiCheck : Node
         // Turn the settings back so later screenshots are comparable.
         await Press(Controls<CheckButton>().FirstOrDefault(c => c.Text == "High contrast"), Key.Space, null);
         await ChooseOption(Option("Text 150%"), "Text 100%", null);
+        await OpenMenu(false);
+    }
+
+    private async Task OpenMenu(bool open)
+    {
+        if (((Main)_main).MenuOpen != open)
+        {
+            await ClickButton(((Main)_main).MenuButton);
+            await Frames(2);
+        }
     }
 
     // After the server restarted: automatic attempts (or Rejoin now, pressed with the keyboard once they stop) reach
@@ -1786,10 +1833,11 @@ public partial class UiCheck : Node
         await Frames(10);
         await Frames(3);
         var strip = Strip();
-        Check("pvp-status-strip", strip.Contains($"selected {second.Value}: chosen, not activated yet", StringComparison.Ordinal)
-            && strip.Contains($"can still activate: you {units.Count}, ", StringComparison.Ordinal) && strip.Contains("Activation · Your move", StringComparison.Ordinal)
-            && strip.Contains("VP you ", StringComparison.Ordinal),
-            strip);
+        // Proposal G3: the HUD on top (seat, whose move, turn, phase, VP, units left); the chosen unit's state is in the panel.
+        Check("pvp-status-strip", strip.StartsWith("[A] SEAT ONE · YOUR MOVE · Turn ", StringComparison.Ordinal)
+            && strip.Contains($"to activate: you {units.Count}, ", StringComparison.Ordinal) && strip.Contains(" · Activation · ", StringComparison.Ordinal)
+            && strip.Contains("VP you ", StringComparison.Ordinal) && PanelHas("Chosen: not activated yet (nothing sent)"),
+            $"HUD: {strip} || panel: {PanelText.Replace('\n', '|')}");
         Check("pvp-switch-unit-sends-nothing", interaction.Chosen == second && board.BarLabels.Contains("Not activated yet") && NothingSent(),
             $"chosen {interaction.Chosen?.Value} (wanted {second.Value}); bar: {string.Join(" / ", board.BarLabels)}; events {events} -> {Lines(LogText()).Count}");
         await CloseShot(board, second, "pvp-a-switched");
@@ -2178,13 +2226,15 @@ public partial class UiCheck : Node
     private static string ItemName(OptionButton option, int index) =>
         index >= 0 && option.GetItemMetadata(index).VariantType == Variant.Type.String ? option.GetItemMetadata(index).AsString() : option.GetItemText(index);
 
-    private Godot.Label? Label(string startsWith) => Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && l.Text.StartsWith(startsWith, StringComparison.Ordinal));
+    // A label shown on screen, or one in the Menu while it is folded (proposal G3: the match code is in the Menu).
+    private Godot.Label? Label(string startsWith) => Controls<Godot.Label>().FirstOrDefault(l => (l.IsVisibleInTree() || ((Main)_main).InMatchMenu(l))
+        && l.Text.StartsWith(startsWith, StringComparison.Ordinal));
 
     private string Banner() => Label("Connection: ")?.Text ?? "";
 
     // The body of a section: the control after its title label.
     // The compact status line over the battlefield (QoL stage C).
-    private string Strip() => Controls<Godot.Label>().FirstOrDefault(l => l.Name == "StatusStrip" && l.IsVisibleInTree())?.Text ?? "";
+    private string Strip() => Controls<Godot.Label>().FirstOrDefault(l => l.Name == "TopHud" && l.IsVisibleInTree())?.Text ?? "";
 
     private string Section(string title)
     {
@@ -2197,7 +2247,10 @@ public partial class UiCheck : Node
         return string.Join("\n", (body is Godot.Label own ? [own] : All(body).OfType<Godot.Label>()).Where(l => l.IsVisibleInTree() && !l.IsQueuedForDeletion()).Select(l => l.Text).Where(t => t.Length > 0));
     }
 
-    private string LogText() => Section("EVENTS");
+    private string LogText() => Section("COMBAT LOG");
+
+    // The battlefield's camera and keys, in the Menu (read whether the Menu is open or folded).
+    private string BoardInfo() => ((Main)_main).BoardInfoText;
 
     private static List<string> Lines(string text) => [.. text.Split('\n').Where(l => l.StartsWith('['))];
 

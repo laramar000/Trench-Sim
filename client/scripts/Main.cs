@@ -54,7 +54,13 @@ public partial class Main : Control
     private VBoxContainer _boardSection = null!;
     private BoardView _board = null!;
     private Label _boardInfo = null!;
-    private Label _strip = null!;
+    private Label _hud = null!;
+    private VBoxContainer _menuBox = null!;
+    private VBoxContainer _matchMenu = null!;
+    private Button _menuButton = null!;
+    private bool _menuOpen;
+    private HBoxContainer _split = null!;
+    private VBoxContainer _logBox = null!;
     private ScreenState? _lastScreen;
     private VBoxContainer _hints = null!;
     private Label _notYet = null!;
@@ -83,10 +89,14 @@ public partial class Main : Control
         _root.AddThemeConstantOverride("separation", 10);
         scroll.AddChild(_root);
 
-        _root.AddChild(Text($"Trench Sim client (M7.4: battlefield, in progress). Godot {Engine.GetVersionInfo()["string"]}, " +
+        // Version, settings and keys: shown on the connect screen; in a match they fold into the HUD's Menu (proposal G3).
+        _menuBox = new VBoxContainer { Name = "MenuItems" };
+        _menuBox.AddThemeConstantOverride("separation", 10);
+        _menuBox.AddChild(Text($"Trench Sim client (M7.4: battlefield, in progress). Godot {Engine.GetVersionInfo()["string"]}, " +
             $"{System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}. Rules version {ClaimNoMansLand.RulesVersion}; protocol {ClientSession.SubProtocol}."));
-        _root.AddChild(Settings());
-        _root.AddChild(Text(Hints));
+        _menuBox.AddChild(Settings());
+        _menuBox.AddChild(Text(Hints));
+        _root.AddChild(_menuBox);
         _status = Text("");
         _root.AddChild(_status);
         BuildConnect();
@@ -140,6 +150,7 @@ public partial class Main : Control
             _hotSeat?.FollowIfNeeded();
             Render(_controller.Snapshot());
         }
+        FitBattlefield();
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -213,6 +224,7 @@ public partial class Main : Control
     {
         _connect.Visible = true;
         _match.Visible = false;
+        MoveMenu(_root, 0, true);
         _status.Text = "Connect to a server: create a match, join one with its code, or rejoin a saved seat.";
         RefreshSaved();
         // Keyboard users start in the first field rather than with nothing focused.
@@ -283,6 +295,8 @@ public partial class Main : Control
         controller.Changed += () => System.Threading.Interlocked.Exchange(ref _changed, 1);
         _connect.Visible = false;
         _match.Visible = true;
+        MoveMenu(_matchMenu, 0, true);
+        SetMenu(false);
         _shown = -1;
         Render(controller.Snapshot());
         FocusDefault();
@@ -412,21 +426,38 @@ public partial class Main : Control
     {
         _match = new VBoxContainer();
         _match.AddThemeConstantOverride("separation", 8);
-        // Hot-seat only: which seat this window controls, whose move it is, and the local server.
-        _hotLine = Text("");
-        _match.AddChild(_hotLine);
-        _banner = Text("");
-        _match.AddChild(_banner);
-        _bannerButtons = new HBoxContainer();
-        _match.AddChild(_bannerButtons);
+        _board = new BoardView();
+        // Proposal G3: one line on top (the HUD): this window's seat, whose move, turn, phase, VP, units left to activate,
+        // the objectives of the last scoring; then the camera buttons and the Menu.
+        _hud = Text("");
+        _hud.Name = "TopHud";
+        _menuButton = Button("Menu ▸", () => SetMenu(!_menuOpen));
+        _menuButton.Name = "MenuButton";
+        _menuButton.TooltipText = "Version, text size, high contrast, keys, the match code and the rules in this build.";
+        _match.AddChild(Row(_hud, Button("Centre on selected (Home)", () => _board.CentreOn(_board.Selected?.Id)), Button("Fit the table (F)", () => _board.Fit()), _menuButton));
+        // What the Menu holds (folded by default): the version, settings and keys (moved here from the top), the match
+        // code, the rules in this build, and the battlefield's camera and keys.
+        _matchMenu = new VBoxContainer { Name = "MatchMenu", Visible = false };
+        _matchMenu.AddThemeConstantOverride("separation", 8);
+        _match.AddChild(_matchMenu);
         _code2 = Text("");
-        _match.AddChild(Row(_code2, Button("Copy code", () =>
+        _matchMenu.AddChild(Row(_code2, Button("Copy code", () =>
         {
             if (_controller?.Snapshot().Code is { } code)
             {
                 DisplayServer.ClipboardSet(code);
             }
         }), Button("Rules in this build (F1)", () => _gaps.PopupCentered())));
+        _boardInfo = Text("");
+        _matchMenu.AddChild(Section("Battlefield keys", _boardInfo));
+        // Hot-seat only: which seat this window controls, whose move it is, and the local server.
+        _hotLine = Text("");
+        _match.AddChild(_hotLine);
+        // Connection problems need attention, so they stay out of the Menu.
+        _banner = Text("");
+        _match.AddChild(_banner);
+        _bannerButtons = new HBoxContainer();
+        _match.AddChild(_bannerButtons);
         // Once the match has ended or been aborted: the result, the final state hash and the event count (M7.5). The
         // hash can be compared with the one `trench-cli verify` prints for the server's signed record.
         _end = Text("");
@@ -442,33 +473,33 @@ public partial class Main : Control
         _endSection = Section("Result of the match", endBox);
         _endSection.Visible = false;
         _match.AddChild(_endSection);
-        // The battlefield (M7.4): a 3D view of the server's state, with the camera keys and the selected model in words.
-        _board = new BoardView();
-        _boardInfo = Text("");
-        var boardBox = new VBoxContainer();
-        // A compact status line over the battlefield (QoL stage C): turn, phase, whose move, the selected model's state,
-        // how many models can still activate, VP, the last scoring and a command waiting for its answer.
-        _strip = Text("");
-        _strip.Name = "StatusStrip";
-        boardBox.AddChild(_strip);
-        // Proposal G (step G1): the battlefield and, beside it, the selected-unit and action panel. The battlefield shows
-        // positions; the panel says who the unit is, what it can do and what the chosen action would do.
-        var split = new HBoxContainer { Name = "BattlefieldAndPanel" };
-        split.AddThemeConstantOverride("separation", 10);
+        // The battlefield (M7.4) and, beside it (proposal G), one column with the selected-unit and action panel over the
+        // combat log. The battlefield shows positions; the panel says who the unit is, what it can do and what the chosen
+        // action would do; the log says what the server confirmed. The battlefield fills the window's height.
+        BuildLog();
+        _split = new HBoxContainer { Name = "BattlefieldAndPanel" };
+        _split.AddThemeConstantOverride("separation", 10);
         _board.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _board.SizeFlagsStretchRatio = 7;
-        split.AddChild(_board);
-        split.AddChild(BuildPanel());
-        boardBox.AddChild(split);
-        // Camera buttons (QoL stage E), the same as the keys Home and F on the battlefield.
-        boardBox.AddChild(Row(Button("Centre on selected (Home)", () => _board.CentreOn(_board.Selected?.Id)), Button("Fit the table (F)", () => _board.Fit())));
-        boardBox.AddChild(_boardInfo);
+        _split.AddChild(_board);
+        var column = new VBoxContainer { Name = "RightColumn", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, CustomMinimumSize = new Vector2(300, 0) };
+        column.AddThemeConstantOverride("separation", 8);
+        column.AddChild(BuildPanel());
+        var logBox = Section("Combat log (Tab here, then arrows or Page Up/Down)", _logScroll);
+        logBox.Name = "CombatLog";
+        _logBox = logBox;
+        logBox.SizeFlagsVertical = SizeFlags.ExpandFill;
+        logBox.SizeFlagsStretchRatio = 2;
+        column.AddChild(logBox);
+        _split.AddChild(column);
+        var boardBox = new VBoxContainer();
+        boardBox.AddChild(_split);
         _board.Changed += ShowBoardInfo;
         // A confirmed battlefield command goes the same way as a hint button: one at a time, answered by the server.
         _board.Interaction.Send = (command, label) => _controller is { } controller
             ? controller.SendAsync(command, label)
             : Task.FromResult(new Feedback(FeedbackKind.ProtocolRefused, "Not sent: not in a match."));
-        _boardSection = Section("Battlefield", boardBox);
+        _boardSection = boardBox;
         _match.AddChild(_boardSection);
         // Two columns: the match on the left, what you can do and what happened on the right.
         var columns = new HBoxContainer();
@@ -491,24 +522,6 @@ public partial class Main : Control
         right.AddChild(Section("Your actions", actions));
         _feedback = Text("");
         right.AddChild(Section("Last command", _feedback));
-        // One row per event (QoL stage D): a coloured tag naming its kind, then its line, word for word as before. The
-        // newest row is marked, and so is the current turn's header.
-        _log = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _log.AddThemeConstantOverride("separation", 0);
-        // The event list takes focus (Tab), so it can be scrolled with the keyboard: arrows, Page Up/Down, Home, End.
-        _logScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 260), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FocusMode = FocusModeEnum.All };
-        _logScroll.AddChild(_log);
-        _log.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _logScroll.GuiInput += ScrollLogWithKeys;
-        // New events scroll into view unless the player has scrolled up to read (End or scrolling to the bottom resumes).
-        _logScroll.GetVScrollBar().Changed += () =>
-        {
-            if (_followLog)
-            {
-                _logScroll.ScrollVertical = (int)_logScroll.GetVScrollBar().MaxValue;
-            }
-        };
-        right.AddChild(Section("Events (newest at the bottom; Tab here, then arrows or Page Up/Down to scroll)", _logScroll));
         _root.AddChild(_match);
 
         _gaps = new AcceptDialog { Title = RulesGaps.Title, DialogText = RulesGaps.Text, DialogAutowrap = true, Size = new Vector2I(760, 480) };
@@ -523,6 +536,27 @@ public partial class Main : Control
         AddChild(_takeBack);
     }
 
+    private void BuildLog()
+    {
+        // One row per event (QoL stage D): a coloured tag naming its kind, then its line, word for word as before. The
+        // newest row is marked, and so is the current turn's header.
+        _log = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _log.AddThemeConstantOverride("separation", 0);
+        // The event list takes focus (Tab), so it can be scrolled with the keyboard: arrows, Page Up/Down, Home, End.
+        _logScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 120), SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FocusMode = FocusModeEnum.All };
+        _logScroll.AddChild(_log);
+        _log.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _logScroll.GuiInput += ScrollLogWithKeys;
+        // New events scroll into view unless the player has scrolled up to read (End or scrolling to the bottom resumes).
+        _logScroll.GetVScrollBar().Changed += () =>
+        {
+            if (_followLog)
+            {
+                _logScroll.ScrollVertical = (int)_logScroll.GetVScrollBar().MaxValue;
+            }
+        };
+    }
+
     private void Render(ScreenState s)
     {
         if (s.Version == _shown)
@@ -534,7 +568,8 @@ public partial class Main : Control
         ShowStrip();
         ShowPanel();
         var view = s.View;
-        _status.Text = $"{view.Status}";
+        // The HUD says whose move it is; the line above stays for messages (a blocked hot-seat switch, a problem).
+        _status.Text = "";
         _hotLine.Visible = _hotSeat is not null;
         _hotLine.Text = _hotSeat is { } h
             ? $"{h.Banner()}\nLocal server {h.Server?.Endpoint} (process {h.Server?.ProcessId}); it stops when you leave or close this window."
@@ -633,10 +668,69 @@ public partial class Main : Control
 
     private void ShowStrip()
     {
-        _strip.Text = _lastScreen is { } s && s.View.Turn.Length > 0
-            ? StatusStrip.Of(s.View, _board.Scene, s.Log, s.Seat, _board.Selected, _board.Interaction.Chosen,
-                s.Feedback is { Kind: FeedbackKind.Sending } || _board.Interaction.Pending is not null)
+        _hud.Text = _lastScreen is { } s
+            ? TopHud.Of(s.View, _board.Scene, s.Log, s.Seat, s.Feedback is { Kind: FeedbackKind.Sending } || _board.Interaction.Pending is not null)
             : "";
+        // Your move in a colour as well as in words.
+        _hud.AddThemeColorOverride("font_color", _lastScreen?.View.YourMove == true
+            ? _highContrast ? Colors.Yellow : new Color(0.6f, 1f, 0.65f)
+            : _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f));
+    }
+
+    // ---- the Menu (proposal G3) ----
+
+    private void SetMenu(bool open)
+    {
+        _menuOpen = open;
+        // Closing the Menu never leaves the keyboard focus on a hidden control: it goes back to the Menu button.
+        if (!open && GetViewport()?.GuiGetFocusOwner() is { } focused && _matchMenu.IsAncestorOf(focused))
+        {
+            _menuButton.GrabFocus();
+        }
+        _matchMenu.Visible = open;
+        _menuButton.Text = open ? "Menu ▾" : "Menu ▸";
+    }
+
+    private void MoveMenu(Node parent, int index, bool visible)
+    {
+        if (_menuBox.GetParent() != parent)
+        {
+            _menuBox.GetParent()?.RemoveChild(_menuBox);
+            parent.AddChild(_menuBox);
+        }
+        parent.MoveChild(_menuBox, index);
+        _menuBox.Visible = visible;
+    }
+
+    public bool MenuOpen => _menuOpen;
+
+    public Button MenuButton => _menuButton;
+
+    // Whether a control sits in the match screen's Menu (shown or folded), for the UI check.
+    public bool InMatchMenu(Node node) => _match.IsVisibleInTree() && _matchMenu.IsAncestorOf(node);
+
+    public string BoardInfoText => _boardInfo.Text;
+
+    // The layout (for the UI check): the battlefield and panel row, the combat log, and how far down the page the row starts.
+    public Control BattlefieldRow => _split;
+
+    public Control CombatLog => _logBox;
+
+    public float BattlefieldTop => _boardSection.GlobalPosition.Y - _root.GlobalPosition.Y;
+
+    // The battlefield fills the window below the HUD (and any banner); the rest of the page is below the fold.
+    private void FitBattlefield()
+    {
+        if (!_match.Visible || _split is null)
+        {
+            return;
+        }
+        var top = _boardSection.GlobalPosition.Y - _root.GlobalPosition.Y;
+        var want = Math.Max(440f, GetViewportRect().Size.Y - 24 - top - 4);
+        if (Math.Abs(_split.CustomMinimumSize.Y - want) > 1)
+        {
+            _split.CustomMinimumSize = new Vector2(0, want);
+        }
     }
 
     // ---- the selected-unit and action panel (proposal G, step G1) ----
@@ -659,7 +753,7 @@ public partial class Main : Control
 
     private Control BuildPanel()
     {
-        _panel = new PanelContainer { Name = "UnitPanel", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, CustomMinimumSize = new Vector2(300, 0) };
+        _panel = new PanelContainer { Name = "UnitPanel", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3 };
         _panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
         {
             BgColor = new Color(0.17f, 0.17f, 0.2f),
@@ -769,7 +863,7 @@ public partial class Main : Control
     public Button PanelUndo => _pUndo;
 
     // The status line as shown (for the UI check).
-    public string StripText => _strip.Text;
+    public string HudText => _hud.Text;
 
     private void ShowBoardInfo()
     {
@@ -780,12 +874,11 @@ public partial class Main : Control
             _boardInfo.Text = "";
             return;
         }
-        _boardInfo.Text = $"Table {scene.Size}; camera {_board.CameraText}. Selected: {_board.Selected?.Text ?? "none"}\n" +
+        _boardInfo.Text = $"Table {scene.Size}; camera {_board.CameraText}.\n" +
             "Keys on the battlefield (Tab to it or click it): arrows pan, + and - zoom, Q and E turn 90°, F fits the table, Home centres on the selected model, T top-down or angled, " +
             "N and P next and previous model, A activates the selected model. Actions: L place, M move, D dash, R retreat, S shoot, C charge, X fight; " +
             "then arrows (Shift: 2\") move the cursor, Enter fixes a waypoint, Space sends, Esc cancels. Mouse: click selects (or picks the target or a waypoint), right-drag pans, wheel zooms towards the pointer. Distances are in inches. " +
-            "This view shows the server's state and decides nothing; heights are for display only.\n" +
-            "ACTIONS ON THE BATTLEFIELD (previews say what the server would probably answer; the server decides): " + string.Join("\n", _board.Interaction.Lines());
+            "This view shows the server's state and decides nothing; heights are for display only. The panel beside it says what the selected unit and the chosen action would do; the server decides.";
     }
 
     // The first hint, or else the first connection button (Rejoin now, Leave): where a keyboard user wants to be.
@@ -910,6 +1003,10 @@ public partial class Main : Control
         if (_pTitle is not null)
         {
             ShowPanel();
+        }
+        if (_hud is not null)
+        {
+            ShowStrip();
         }
     }
 

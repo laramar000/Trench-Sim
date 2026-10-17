@@ -217,6 +217,25 @@ public partial class UnitPanelTests
         Assert.True(placed > 5, $"{placed} placements");
     }
 
+    // The selected unit's state this turn (it moved here from the old status strip): chosen but not activated, can
+    // activate, activated this turn.
+    [Fact]
+    public void TheSelectedUnitsStateIsInWords()
+    {
+        var state = States.First(s => s.Phase == Phase.Activation && s.ActiveModel is null && s.Pending is null && s.Setup?.Scenario is not null
+            && TurnSequence.NextActivator(s) is { } next && s.Models.Any(m => m.Seat == next && m.ActivatedThisTurn));
+        var seat = TurnSequence.NextActivator(state)!.Value;
+        var scene = BoardScene.Of(state, seat, ContentNames.None)!;
+        var eligible = scene.Models.First(m => m.Yours && m.Eligible);
+        var done = scene.Models.First(m => m.Yours && m.Activated);
+        var interaction = new Interaction();
+        interaction.Update(state, seat);
+        Assert.Contains("Can activate now", UnitPanel.Of(state, scene, interaction, seat, eligible).Unit);
+        Assert.Contains("Activated this turn", UnitPanel.Of(state, scene, interaction, seat, done).Unit);
+        Assert.True(interaction.Choose(eligible.Id));
+        Assert.Contains("Chosen: not activated yet (nothing sent)", UnitPanel.Of(state, scene, interaction, seat, eligible).Unit);
+    }
+
     [Fact]
     public void WithNothingSelectedThePanelSaysSo()
     {

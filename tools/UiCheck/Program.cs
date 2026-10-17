@@ -262,14 +262,16 @@ public static class Program
             var looksA = endA.GetValueOrDefault("looks", "");
             Record("pvp-both-same-unit-looks", looksA.Length > 0 && looksA == endB.GetValueOrDefault("looks", "") ? "PASS" : "FAIL",
                 $"Seat One: {looksA} || Seat Two: {endB.GetValueOrDefault("looks", "")}");
-            // Both status lines at the end: the same turn, phase and last scoring, and each seat's VP the other way round.
+            // Both HUD lines at the end: the same turn, phase and objectives, and each seat's VP the other way round.
             var stripA = endA.GetValueOrDefault("strip", "");
             var stripB = endB.GetValueOrDefault("strip", "");
             var vpA = Regex.Match(stripA, @"VP you (\d+), opponent (\d+)");
             var vpB = Regex.Match(stripB, @"VP you (\d+), opponent (\d+)");
-            static string Shared(string strip) => string.Join("|", strip.Split(" · ").Where(p => !p.StartsWith("VP ", StringComparison.Ordinal) && !p.StartsWith("selected ", StringComparison.Ordinal)));
+            // The HUD (proposal G3) starts with each window's own seat; the rest is shared.
+            static string Shared(string strip) => string.Join("|", strip.Split(" · ").Where(p => !p.StartsWith("VP ", StringComparison.Ordinal) && !p.StartsWith('[')));
             Record("pvp-both-same-status-strip", vpA.Success && vpB.Success && vpA.Groups[1].Value == vpB.Groups[2].Value && vpA.Groups[2].Value == vpB.Groups[1].Value
-                && Shared(stripA) == Shared(stripB) && stripA.Contains(" scoring", StringComparison.Ordinal) ? "PASS" : "FAIL",
+                && Shared(stripA) == Shared(stripB) && stripA.Contains("objectives: ", StringComparison.Ordinal)
+                && stripA.StartsWith("[A] SEAT ONE", StringComparison.Ordinal) && stripB.StartsWith("[B] SEAT TWO", StringComparison.Ordinal) ? "PASS" : "FAIL",
                 $"Seat One: {stripA} || Seat Two: {stripB}");
             Record("pvp-opponent-sees-only-chosen-unit", chosen.Contains(" One activates ", StringComparison.Ordinal) && seenByB.Contains(chosen) ? "PASS" : "FAIL",
                 $"Seat One's activation after switching: {(chosen.Length > 0 ? chosen : "none")}; in Seat Two's window: {seenByB.Contains(chosen)}");
