@@ -124,7 +124,9 @@ public class ClientCoreTests
             Assert.Null(names.Problem);
             var warbands = Content.Load(Path.Combine(Repository.Root, "content", ContentNames.FileFor(scenario)!));
             Assert.Equal($"{warbands[0].Models[0].Name} (a1)", names.Of(new ModelId("a1")));
-            Assert.Equal($"{warbands[1].Models[^1].Name} (b{warbands[1].Models.Count})", names.Of(new ModelId($"b{warbands[1].Models.Count}")));
+            // The last model of Seat Two: the warband's last, or for a small test roster the last of its first models.
+            var two = setup.Models.Count(m => m.Seat == Seat.Two);
+            Assert.Equal($"{warbands[1].Models[two - 1].Name} (b{two})", names.Of(new ModelId($"b{two}")));
             Assert.Equal(warbands[1].Name, names.WarbandOf(Seat.Two));
         }
 

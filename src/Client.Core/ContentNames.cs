@@ -35,12 +35,22 @@ public sealed class ContentNames
     public string Of(ModelId id) => _names.TryGetValue(id.Value, out var name) ? $"{name} ({id.Value})" : id.Value;
 
     // The scenario names the server offers, and the content file each uses (as Sim.ScenarioSetups does).
-    public static string? FileFor(string scenario) => scenario switch
+    // A test size ("ranged-2v2") uses the first models of the same file.
+    public static string? FileFor(string scenario) => BaseOf(scenario) switch
     {
         "ranged" => "test-warbands.json",
         "melee" => "melee-warbands.json",
         _ => null,
     };
+
+    // The scenarios a player can choose when creating a match: the normal rosters, then the small test sizes.
+    public static IReadOnlyList<string> Choices { get; } =
+        ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3"];
+
+    private static string BaseOf(string scenario) =>
+        scenario.Length > 4 && scenario[^4] == '-' && scenario[^2] == 'v' && char.IsAsciiDigit(scenario[^3]) && scenario[^3] == scenario[^1]
+            ? scenario[..^4]
+            : scenario;
 
     public static ContentNames For(string scenario, MatchSetup? setup)
     {
@@ -60,6 +70,12 @@ public sealed class ContentNames
         catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException or FormatException)
         {
             return Ids($"This client's content file {file} could not be read.");
+        }
+        if (scenario != BaseOf(scenario))
+        {
+            // A test size: the first models of each warband, as Sim.ScenarioSetups builds it.
+            var size = scenario[^1] - '0';
+            warbands = [.. warbands.Select(w => w with { Models = [.. w.Models.Take(size)] })];
         }
         return Match(warbands, setup);
     }

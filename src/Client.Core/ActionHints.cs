@@ -36,11 +36,11 @@ public static class ActionHints
         }
         if (state.Phase == Phase.Deployment && state.Setup?.Scenario is not null && MatchView.NextDeployer(state) == mine)
         {
-            return "Place your models on the battlefield: click Place a model on its bar, click a spot in your zone, then click it again. (Keys: L, arrows, Space; N and P choose the model.)";
+            return "Place your models on the battlefield: click Place a model on its bar, then click a spot in your zone. (Keys: L, arrows, Space; N and P choose the model.)";
         }
         if (state.Phase == Phase.Activation && state.ActiveModel is { } active && state.FindModel(active)?.Seat == mine)
         {
-            return "Your activating model's actions are on its bar on the battlefield: click one, then click where to go or whom to target, then click it again. (Keys: M, D, R, S, C, X, then Space.) End the activation on the bar or with its button.";
+            return "Your activating model's actions are on its bar on the battlefield: click one, then click where to go (it moves at once) or click a target twice. (Keys: M, D, R, S, C, X, then Space.) End the activation on the bar or with its button.";
         }
         return null;
     }

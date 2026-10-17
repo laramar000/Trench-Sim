@@ -136,14 +136,21 @@ public class ActionBarTests
         Assert.Equal([BarKind.Confirm, BarKind.Cancel], bar.Items.Select(i => i.Kind));
         Assert.Equal("Move here", bar.Items[0].Label);
 
+        // Shift+click adds a waypoint (the bar then offers Undo); a plain click on a spot the preview accepts sends.
         var at = TablePoint.Of(state.FindModel(state.ActiveModel!.Value)!.Position!.Value);
-        Assert.False(interaction.ClickAt(Math.Clamp(at.X + 1, 0, 36), at.Y));
+        var step = LegalStep(state, seat, PreviewKind.Move);
+        Assert.Equal(ClickResult.Waypoint, interaction.ClickAt(step.X, step.Y, waypoint: true));
         Assert.Equal([BarKind.Confirm, BarKind.Undo, BarKind.Cancel], interaction.Bar(null).Items.Select(i => i.Kind));
-        Assert.NotNull(interaction.Reach());
+        Assert.True(interaction.RemovePoint());
+        Assert.Equal(ClickResult.Send, interaction.ClickAt(step.X, step.Y));
+        Assert.True(interaction.Preview!.Legal);
 
-        // A click on the last point again asks to send; a click elsewhere adds a point instead.
-        Assert.True(interaction.ClickAt(Math.Clamp(at.X + 1, 0, 36) + Interaction.SameSpot / 2, at.Y));
-        Assert.False(interaction.ClickAt(Math.Clamp(at.X - 1, 0, 36), at.Y));
+        // Too far: not sent, and the note says why.
+        var far = new TablePoint(at.X < 18 ? 35.5 : 0.5, at.Y < 18 ? 35.5 : 0.5);
+        Assert.Equal(ClickResult.Refused, interaction.ClickAt(far.X, far.Y));
+        Assert.Equal(new UnitNote(state.ActiveModel!.Value, "NOT ENOUGH MOVEMENT", NoteTone.Failure), interaction.RefusedNote());
+        Assert.StartsWith("Not sent: ", interaction.Notice);
+        Assert.Null(interaction.Pending);
 
         interaction.Cancel();
         Assert.Equal(InteractionMode.None, interaction.Mode);
@@ -151,7 +158,26 @@ public class ActionBarTests
     }
 
     [Fact]
-    public void PlacingAPointNeedsASecondClickOnTheSameSpot()
+    public async Task OneClickOnALegalSpotSendsTheMoveOnce()
+    {
+        var state = ActivationStates().First(s => s.Actions == ActionsTaken.None
+            && Previews.ActionOpen(s, s.FindModel(s.ActiveModel!.Value)!.Seat, s.ActiveModel!.Value, PreviewKind.Move) is null);
+        var seat = state.FindModel(state.ActiveModel!.Value)!.Seat;
+        var sent = new List<Command>();
+        var interaction = new Interaction { Send = (c, _) => { sent.Add(c); return Task.FromResult(new Feedback(FeedbackKind.Accepted, "Done.")); } };
+        interaction.Update(state, seat);
+        interaction.Start(InteractionMode.Move);
+        var step = LegalStep(state, seat, PreviewKind.Move);
+        Assert.Equal(ClickResult.Send, interaction.ClickAt(step.X, step.Y));
+        // The battlefield then confirms, as the click asked: one command, the previewed one, accepted by the server.
+        var command = interaction.Preview!.Command;
+        await interaction.ConfirmAsync();
+        Assert.Equal([command], sent);
+        Assert.True(TurnSequence.Decide(state, command, new SeededDice(1)).IsAccepted);
+    }
+
+    [Fact]
+    public void PlacingIsOneClickOnALegalSpot()
     {
         var state = States.First(s => s.Phase == Phase.Deployment && s.Pending is null && s.Setup?.Scenario is not null && MatchView.NextDeployer(s) is not null);
         var interaction = new Interaction();
@@ -159,10 +185,29 @@ public class ActionBarTests
         Assert.Equal("Place a model", Assert.Single(interaction.Bar(null).Items).Label);
         Assert.True(interaction.Start(InteractionMode.Place));
         Assert.Null(interaction.Bar(null).Anchor);
-        Assert.False(interaction.ClickAt(10, 2));
-        Assert.Equal(new TablePoint(10, 2), interaction.Cursor);
-        Assert.True(interaction.ClickAt(10.1, 2.1));
-        Assert.False(interaction.ClickAt(14, 2));
+        var centre = interaction.Cursor;
+        Assert.Equal(ClickResult.Send, interaction.ClickAt(centre.X, centre.Y));
+        var outside = new TablePoint(centre.X < 18 ? 35 : 1, centre.Y);
+        Assert.Equal(ClickResult.Refused, interaction.ClickAt(outside.X, outside.Y));
+        Assert.Equal("INVALID PLACEMENT", interaction.RefusedNote()!.Text);
+        // Shift means nothing when placing: the click is still the spot.
+        Assert.Equal(ClickResult.Send, interaction.ClickAt(centre.X, centre.Y, waypoint: true));
+    }
+
+    // A point one inch away in some direction that the preview accepts for this action.
+    private static TablePoint LegalStep(MatchState state, Seat seat, PreviewKind kind)
+    {
+        var model = state.FindModel(state.ActiveModel!.Value)!;
+        var at = TablePoint.Of(model.Position!.Value);
+        foreach (var (dx, dy) in new[] { (1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0), (1.5, 1.5), (-1.5, -1.5), (1.5, -1.5), (-1.5, 1.5) })
+        {
+            var p = new TablePoint(Math.Clamp(at.X + dx, 0, 36), Math.Clamp(at.Y + dy, 0, 36));
+            if (Previews.Path(state, seat, kind, model.Id, [Previews.PointAt(p.X, p.Y)]).Legal)
+            {
+                return p;
+            }
+        }
+        throw new InvalidOperationException("no legal short step");
     }
 
     [Fact]

@@ -37,9 +37,9 @@ public sealed record TestMatch(string Mode, string Server, string Scenario, stri
         {
             return (null, $"--test-match {mode} needs --code <match code>.");
         }
-        if (scenario is not ("ranged" or "melee"))
+        if (!ContentNames.Choices.Contains(scenario))
         {
-            return (null, $"--scenario must be ranged or melee, not '{scenario}'.");
+            return (null, $"--scenario must be one of {string.Join(", ", ContentNames.Choices)}, not '{scenario}'.");
         }
         return (new TestMatch(mode, server, scenario, code, Arg(args, "--test-window"), Arg(args, "--test-report")), null);
     }

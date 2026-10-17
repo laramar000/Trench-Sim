@@ -4,7 +4,7 @@ using System.Diagnostics;
 // ./test-trench-sim.sh (Linux). With no arguments it shows a menu; each choice can also be run directly:
 //
 //   dotnet run --project tools/TestCenter -- tests                 every automated check for this computer
-//   dotnet run --project tools/TestCenter -- match [ranged|melee]  a guided test match in two windows
+//   dotnet run --project tools/TestCenter -- match [ranged|melee|ranged-2v2 ...]  a guided test match in two windows
 //   dotnet run --project tools/TestCenter -- editor                the Godot editor's Build and Play buttons
 //   dotnet run --project tools/TestCenter -- check [<record>]      verify a finished match's signed record
 //   dotnet run --project tools/TestCenter -- cleanup               stop anything a test left running
@@ -88,6 +88,12 @@ public static class Program
                 case "2":
                     Console.Write("  Scenario: 1 = ranged (shooting), 2 = melee (close combat). Press Enter for ranged: ");
                     var scenario = (Console.ReadLine() ?? "").Trim() == "2" ? "melee" : "ranged";
+                    Console.Write("  Side size: 1, 2 or 3 models a side for a quick test, or Enter for the normal roster: ");
+                    var size = (Console.ReadLine() ?? "").Trim();
+                    if (size is "1" or "2" or "3")
+                    {
+                        scenario = $"{scenario}-{size}v{size}";
+                    }
                     last = await TestMatchRun.Run(setup, new TestMatchRun.Options(scenario, opengl, [], []));
                     break;
                 case "3":
@@ -148,9 +154,12 @@ public static class Program
     }
 
     private static TestMatchRun.Options MatchOptions(string[] args, List<string> words, bool opengl) => new(
-        words.ElementAtOrDefault(1) is "melee" ? "melee" : "ranged", opengl,
+        words.ElementAtOrDefault(1) is { } scenario && Scenarios.Contains(scenario) ? scenario : "ranged", opengl,
         Value(args, "--client-args-a")?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [],
         Value(args, "--client-args-b")?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? []);
+
+    // The scenarios the server offers (Sim.ScenarioSetups): the normal rosters and the small test sizes.
+    private static readonly string[] Scenarios = ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3"];
 
     private static bool Takes(string option) => option is "--godot" or "--client-args-a" or "--client-args-b";
 
@@ -162,7 +171,7 @@ public static class Program
 
     private static int Usage()
     {
-        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests | match [ranged|melee] | editor | check [<record>] | cleanup]");
+        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests | match [ranged|melee|ranged-1v1 ... melee-3v3] | editor | check [<record>] | cleanup]");
         Console.WriteLine("         [--godot <path>] [--no-questions] [--opengl]");
         return 3;
     }

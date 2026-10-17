@@ -35,7 +35,7 @@ public class TestMatchTests
     [InlineData(new[] { "--test-match", "create", "--server", "not a url" }, "needs --server")]
     [InlineData(new[] { "--test-match", "join", "--server", "ws://127.0.0.1:5000/match" }, "needs --code")]
     [InlineData(new[] { "--test-match", "rejoin", "--server", "ws://127.0.0.1:5000/match", "--code", "" }, "needs --code")]
-    [InlineData(new[] { "--test-match", "create", "--server", "ws://127.0.0.1:5000/match", "--scenario", "siege" }, "ranged or melee")]
+    [InlineData(new[] { "--test-match", "create", "--server", "ws://127.0.0.1:5000/match", "--scenario", "siege" }, "must be one of ranged, melee, ranged-1v1")]
     public void UnusableOptionsAreReported(string[] args, string problem)
     {
         var (test, said) = TestMatch.Parse(args);

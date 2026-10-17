@@ -24,6 +24,15 @@ public enum InteractionMode
 }
 
 // What a button of the battlefield's action bar does.
+// What a left click on the table did (Interaction.ClickAt).
+public enum ClickResult
+{
+    None,
+    Waypoint,
+    Send,
+    Refused,
+}
+
 public enum BarKind
 {
     // Starts choosing an action (Mode): Move, Shoot, Place ...
@@ -31,6 +40,9 @@ public enum BarKind
 
     // Sends ActivateModel for the selected model.
     Activate,
+
+    // Sends an answer to a decision of yours (Command): Blood Markers, free attacks, the own model a shot hits.
+    Decide,
 
     // Sends EndActivation.
     EndActivation,
@@ -202,15 +214,19 @@ public sealed class Interaction
             {
                 new(BarKind.Confirm, ConfirmLabel(Mode), Preview is { Legal: false }
                     ? "The preview says the server would refuse this (see the battlefield). Click twice to send it anyway; the server decides."
-                    : $"Send it. The server decides. ({(IsPath ? "Or click the last point again" : IsTarget ? "Or click the target again" : "Or click the same spot again")}; key Space.)",
+                    : $"Send it. The server decides. ({(IsTarget ? "Or click the target again" : "Or just click the destination")}; key Space.)",
                     Enabled: Preview is not null, Mode: Mode),
             };
             if (IsPath && _waypoints.Count > 0)
             {
-                items.Add(new(BarKind.Undo, "Undo point", "Remove the last point of the path (key Backspace).", Mode: Mode));
+                items.Add(new(BarKind.Undo, "Undo point", "Remove the last waypoint (key Backspace). Shift+click adds one.", Mode: Mode));
             }
             items.Add(new(BarKind.Cancel, "Cancel", "Stop choosing this action; nothing is sent (Esc or right-click).", Mode: Mode));
             return new(Mode == InteractionMode.Place ? null : Actor, items);
+        }
+        if (DecisionBar(seat) is { } decision)
+        {
+            return decision;
         }
         var offered = Offered;
         if (offered.Count == 1 && offered[0] == InteractionMode.Place)
@@ -234,6 +250,41 @@ public sealed class Interaction
         return ActionBar.Empty;
     }
 
+    // A decision of yours about a model on the battlefield (spending Blood Markers, free attacks on a retreating model,
+    // which own model a shot into melee hits): its answers, as the rules list them (TurnSequence.LegalCommands), on a bar
+    // next to the model concerned. The server decides each answer, exactly as with the side panel's buttons.
+    private ActionBar? DecisionBar(Seat seat)
+    {
+        if (_state.Pending is not { } pending || pending.Seat != seat)
+        {
+            return null;
+        }
+        ModelId? anchor = pending.Kind switch
+        {
+            DecisionKind.SpendMarkersOnSuccessRoll => _state.InProgress?.Actor,
+            DecisionKind.SpendMarkersOnInjuryRoll => _state.InProgress?.Target,
+            DecisionKind.ChooseFriendlyTarget => _state.InProgress?.Actor,
+            DecisionKind.FreeFight => _state.Retreat?.Model,
+            _ => null,
+        };
+        if (anchor is not { } holder)
+        {
+            return null;
+        }
+        var items = TurnSequence.LegalCommands(_state).Where(c => CommandSeats.Of(c) == seat).Select(c => c switch
+        {
+            SpendMarkers { Count: 0 } m => new BarItem(BarKind.Decide, "No Blood", "Spend no Blood Markers on this roll.", Command: m),
+            SpendMarkers m => new BarItem(BarKind.Decide, $"Spend {m.Count} Blood", pending.Kind == DecisionKind.SpendMarkersOnSuccessRoll
+                ? $"Spend {m.Count} of {NameOf(holder)}'s Blood Markers: -1 DICE each on its Success Roll."
+                : $"Spend {m.Count} of {NameOf(holder)}'s Blood Markers: +1 INJURY DICE each on the Injury Roll against it.", Command: m),
+            FreeFight f => new BarItem(BarKind.Decide, $"Free attack: {NameOf(f.Attacker)}", $"{NameOf(f.Attacker)} attacks the retreating model first.", Command: f),
+            DeclineFreeFights d => new BarItem(BarKind.Decide, "No more free attacks", "Let the model retreat without further free attacks.", Command: d),
+            ChooseFriendlyTarget t => new BarItem(BarKind.Decide, $"Hit {NameOf(t.Victim)}", $"The shot into melee hits your own {NameOf(t.Victim)}.", Command: t),
+            _ => null,
+        }).OfType<BarItem>().ToList();
+        return items.Count == 0 ? null : new(holder, items);
+    }
+
     // Target modes: every enemy that could be chosen, and whether the preview would accept it (null) or why not.
     public IReadOnlyList<(ModelId Model, Rejection? Refusal)> TargetVerdicts()
     {
@@ -252,36 +303,69 @@ public sealed class Interaction
     private List<(ModelId, Rejection?)>? _verdicts;
     private long _verdictsVersion = -1;
 
-    // A click on the table while placing or choosing a path: the first click marks the point (a waypoint on a path), a
-    // second click on the same point asks to send. Returns true for that second click; the caller then confirms, which
-    // still asks twice when the preview says the server would refuse.
-    public bool ClickAt(double x, double y)
+    // A left click on the table while placing or choosing a path. A plain click is the destination: when the preview
+    // says the server would accept it, the caller sends it at once (Send); when the preview refuses, nothing is sent
+    // (Refused, with RefusedNote saying why). Shift+click adds a waypoint instead, for a path around something.
+    public ClickResult ClickAt(double x, double y, bool waypoint = false)
     {
         if (Pending is not null || !UsesCursor)
         {
-            return false;
-        }
-        var near = IsPath ? (_waypoints.Count > 0 ? _waypoints[^1] : (TablePoint?)null) : _marked;
-        if (near is { } point && Math.Abs(point.X - x) <= SameSpot && Math.Abs(point.Y - y) <= SameSpot)
-        {
-            return true;
+            return ClickResult.None;
         }
         SetCursor(x, y);
-        if (IsPath)
+        if (waypoint && IsPath)
         {
-            AddPoint();
+            return AddPoint() ? ClickResult.Waypoint : ClickResult.None;
         }
-        else
+        if (Preview is not { } preview)
         {
-            _marked = Cursor;
+            return ClickResult.None;
         }
-        return false;
+        if (preview.Legal)
+        {
+            return ClickResult.Send;
+        }
+        Notice = $"Not sent: {preview.Refusal!.Text} ({preview.Refusal.RuleRef}) Choose another point; the keys can still send it (Space twice) for the server to decide.";
+        Changed();
+        return ClickResult.Refused;
     }
 
-    // How close (inches) a second click must be to count as the same spot.
-    public const double SameSpot = 0.3;
+    // What to show above the model when a click was not sent: too far for its movement, or not a legal end point.
+    public UnitNote? RefusedNote()
+    {
+        if (Preview is not { Refusal: { } refusal } preview)
+        {
+            return null;
+        }
+        var text = preview.Kind == PreviewKind.Place ? "INVALID PLACEMENT"
+            : preview.Path.Count > 0 && Reach() is { } reach && preview.Path[^1].Inches > reach + 1e-9 ? "NOT ENOUGH MOVEMENT"
+            : refusal.Code == Rules.Core.ReasonCode.RetreatEndsEngaged ? "MUST END 1\" AWAY"
+            : "INVALID MOVE";
+        return new UnitNote(preview.Model, text, NoteTone.Failure);
+    }
 
-    private TablePoint? _marked;
+    // Where the acting model could end its Move, Dash or Retreat with one more straight leg (Previews.Reachable), worked
+    // out again only when the state, the action or the waypoints change (not when the cursor moves).
+    public IReadOnlyList<TablePoint> ReachArea()
+    {
+        if (!IsPath || _seat is not { } seat || Actor is not { } actor)
+        {
+            return [];
+        }
+        var key = (_state, Mode, actor, string.Join(";", _waypoints));
+        if (_area is null || !_areaKey.Equals(key))
+        {
+            _area = Previews.Reachable(_state, seat, Kind(Mode), actor, [.. _waypoints.Select(p => Previews.PointAt(p.X, p.Y))]);
+            _areaKey = key;
+        }
+        return _area;
+    }
+
+    private IReadOnlyList<TablePoint>? _area;
+    private (MatchState, InteractionMode, ModelId, string) _areaKey;
+
+    // How the bar names a model ("Runner (b2)"); the battlefield sets it from its scene.
+    public Func<ModelId, string> NameOf { get; set; } = id => id.Value;
 
     private static string ConfirmLabel(InteractionMode mode) => mode switch
     {
@@ -297,10 +381,10 @@ public sealed class Interaction
     // What each action does, in a line, with its optional key.
     public static string Tip(InteractionMode mode) => mode switch
     {
-        InteractionMode.Place => "Place your next model in your deployment zone: click a spot, then click it again (key L).",
-        InteractionMode.Move => "Move up to the model's Movement: click points on the battlefield, then click the last one again (key M).",
-        InteractionMode.Dash => "Move again with a Risky roll that decides whether it works: click where to go, then click there again (key D).",
-        InteractionMode.Retreat => "Leave melee: end more than 1\" from every enemy; enemies within 1\" may attack first (key R).",
+        InteractionMode.Place => "Place your next model in your deployment zone: click a spot (key L).",
+        InteractionMode.Move => "Move up to the model's Movement: click a spot in the shaded area to move there; Shift+click adds a waypoint (key M).",
+        InteractionMode.Dash => "Move again up to the model's Movement, with a Risky roll that decides whether it works: click a spot in the shaded area (key D).",
+        InteractionMode.Retreat => "Leave melee: click a spot in the shaded area, more than 1\" from every enemy; enemies within 1\" may attack first (key R).",
         InteractionMode.Shoot => "Shoot an enemy in range and in sight: click a target, then click it again (key S).",
         InteractionMode.Charge => "Charge an enemy within 12\" into melee; a D6 adds reach: click a target, then click it again (key C).",
         InteractionMode.Fight => "Attack an enemy within 1\": click a target, then click it again (key X).",
@@ -679,8 +763,8 @@ public sealed class Interaction
 
     private string Help() => Mode switch
     {
-        InteractionMode.Place => "Click a spot, then click it again to place. Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), N and P choose the model, Space sends.",
-        _ when IsPath => "Click points on the battlefield, then click the last one again to go. Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), Enter fixes a point, Backspace removes one, Space sends.",
+        InteractionMode.Place => "Click a spot in your zone to place the model. Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), N and P choose the model, Space sends.",
+        _ when IsPath => "Click a spot in the shaded area to go there (Shift+click adds a waypoint for a path around something). Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), Enter fixes a point, Backspace removes one, Space sends.",
         _ => "Click a target (valid ones are marked), then click it again. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
     };
 
@@ -757,7 +841,6 @@ public sealed class Interaction
         _armed = false;
         Notice = null;
         Answer = null;
-        _marked = null;
         _waypoints.Clear();
     }
 

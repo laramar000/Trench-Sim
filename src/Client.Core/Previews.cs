@@ -492,6 +492,50 @@ public static class Previews
         return Opening(state) is null && Acting(state, seat, model, out var acting) is null ? TableRect.Inches(Allowance(state, acting!)) : null;
     }
 
+    // Where the acting model could end a Move, Dash or Retreat with one more straight leg after the fixed waypoints: every
+    // point of a grid (step inches apart) whose path the preview checks accept, so the area follows the rules' own path
+    // check (allowance after the waypoints already used, terrain, other models, a Retreat's end more than 1" from enemies)
+    // and agrees with the server as Path does. Empty when the action is not open.
+    public static IReadOnlyList<TablePoint> Reachable(MatchState state, Seat seat, PreviewKind kind, ModelId model, IReadOnlyList<Point2> waypoints, double step = 0.5)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(waypoints);
+        if (kind is not (PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat) || ActionOpen(state, seat, model, kind) is not null
+            || Reach(state, seat, model) is not { } reach || state.FindModel(model)?.Position is not { } at || state.Setup?.Scenario is not { } scenario)
+        {
+            return [];
+        }
+        var from = waypoints.Count > 0 ? TablePoint.Of(waypoints[^1]) : TablePoint.Of(at);
+        var used = waypoints.Count > 0 ? Path(state, seat, kind, model, waypoints).Path[^1].Inches : 0;
+        // A path never costs less than its straight length, so nothing beyond the allowance left can be reached.
+        var left = reach - used;
+        var width = TableRect.Inches(scenario.Battlefield.Width);
+        var depth = TableRect.Inches(scenario.Battlefield.Height);
+        var points = new List<TablePoint>();
+        if (left <= 0 || waypoints.Count >= Rules.Core.Events.ModelMoved.MaxWaypoints)
+        {
+            return points;
+        }
+        var path = new List<Point2>(waypoints) { default };
+        for (var x = Math.Max(0, Math.Ceiling((from.X - left) / step) * step); x <= Math.Min(width, from.X + left); x += step)
+        {
+            for (var y = Math.Max(0, Math.Ceiling((from.Y - left) / step) * step); y <= Math.Min(depth, from.Y + left); y += step)
+            {
+                var (dx, dy) = (x - from.X, y - from.Y);
+                if (dx * dx + dy * dy > left * left || (Math.Abs(dx) < 1e-9 && Math.Abs(dy) < 1e-9))
+                {
+                    continue;
+                }
+                path[^1] = PointAt(x, y);
+                if (Path(state, seat, kind, model, path).Legal)
+                {
+                    points.Add(new TablePoint(Math.Round(x, 3), Math.Round(y, 3)));
+                }
+            }
+        }
+        return points;
+    }
+
     // Enemy models on the table that are not Out of Action, nearest first (the order targets are offered in).
     public static IReadOnlyList<ModelState> EnemiesByDistance(MatchState state, ModelState from)
     {
