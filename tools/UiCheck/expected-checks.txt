@@ -1,0 +1,216 @@
+# Checks the UI check runner reports (208): the 93 of M7.3 (Linux run of 3ba61db), 12 battlefield checks of M7.4 stage 4a, 11 preview checks of stage 4b,
+# 7 sending checks of stage 4c, 15 single-player (hot-seat) checks, 7 match-result checks of M7.5 stage 5a and 37 checks of stage 5b (two Godot clients play a
+# whole melee match, one is killed and rejoins, and the signed record is checked with trench-cli verify), 19 of stage 5c (a Godot client plays
+# a whole ranged match against trench-cli --bot; Godot, trench-cli and the verified record must agree) and 9 checks of the action bar and mouse play (shown, a mouse click starts an action, the movement area, a click too far is not sent, a right-click cancels, a Dash by mouse and its note). Lines marked "optional" (board-send-shoot, board-send-charge, board-send-fight, board-click-dash, board-note-shown) are reported only when the
+# match offers a legal target at that moment; otherwise Run-WindowsUiCheck.ps1 lists them as NOT TESTED without making the run incomplete (the
+# Client.Core tests send every action through a real server). Any other check a run did not report makes the verdict INCOMPLETE. One check id per line, as in the runner's summary.md.
+# "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide, and the
+# placement previews are checked by whichever seat deploys first.
+godot-version
+client-build-Debug
+client-build-Release
+build-Match.Server
+build-Match.Cli
+godot-build-solutions
+godot-launch-scene
+guest-closes-cleanly
+cli-played
+both-clients-same-models
+both-clients-same-events
+both-clients-same-seats-vp-turn
+letters-match-seats
+whose-move-agrees
+godot-shows-cli-events
+host-exit
+reopen-exit
+both-clients-same-final-hash
+host: focus-start
+host: tab-reaches-every-control-connect
+host: shift-tab-reverses-connect
+host: type-server
+host: set-window
+host: set-window-value
+host: choose-scenario
+host: create-enter
+host: create
+host: gaps-shown-at-first-match
+host: gaps-lists-rules
+host: gaps-escape-closes
+host: gaps-f1-opens
+host: gaps-enter-closes
+host: rules-button-space
+host: gaps-button-space-opens
+host: gaps-escape-closes-again
+host: tab-reaches-every-control-match
+host: shift-tab-reverses-match
+host: zone-event-shown
+host: positional-not-offered-explained
+host: takeover-shown
+host: takeback-enter
+host: takeback-confirm-shown
+host: takeback-confirm-focus
+host: takeback
+host: catch-up-deploys
+host: catch-up-models
+host: opponent-away-shown-after-rejoin
+host: board-shown
+host: board-models-labelled
+host: board-tab-focus
+host: board-fit-angled
+host: board-pick-roundtrip
+host: board-zoom-pan-fit-keys
+host: board-turn-keys
+host: board-top-down
+host: board-pick-roundtrip-top-down
+host: board-select-key
+host: board-previous-key
+host: board-click-selects
+host: board-move-preview
+host: board-mouse-path
+host: board-shoot-preview
+host: board-target-cycle-and-click
+host: board-charge-preview
+host: board-previews-send-nothing
+host: board-action-bar-shown
+host: board-bar-click-starts-action
+host: board-move-area-shown
+host: board-click-too-far-not-sent
+host: board-right-click-cancels
+host|guest: board-place-preview
+host|guest: board-cursor-steps
+host|guest: board-place-refused-reason
+host|guest: board-refused-preview-not-sent
+host|guest: board-escape-cancels
+host|guest: board-send-refused-shown
+host|guest: board-send-place
+host: board-send-move
+optional host: board-send-shoot
+optional host: board-click-dash
+optional host: board-note-shown
+host: board-activate-key
+optional host: board-send-charge
+optional host: board-send-fight
+host: focus-after-hint-answered
+host: activation-hints-used
+host: live-opponent-events
+host: turn-scored
+host: vp-shown
+host: event-list-shows-newest
+host: reconnecting-shown
+host: focus-kept-on-redraw
+host: gave-up-offers-rejoin-now
+host: rejoin-now-enter
+host: rejoin-now-works
+host: text-150
+host: text-150-applied
+host: text-150-fits-width
+host: contrast-space
+host: high-contrast-applied
+host: event-list-scrolls-with-keys
+host: event-list-end-returns-to-newest
+host: seats-by-letter-not-colour
+host: feedback-in-words
+host: connection-in-words
+host: server-stop-shown
+host: server-restart-clear
+host: match-result-shown
+host: copy-final-hash-enter
+host: copy-final-hash
+guest: type-server
+guest: type-code
+guest: join-space
+guest: join
+guest: gaps-shown-on-join
+host|guest: hint-enter
+host|guest: hint-sent-shown
+host|guest: one-command-at-a-time
+host|guest: hint-done-shown
+guest: zone-event-shown
+guest: positional-not-offered-explained
+reopen: type-server
+reopen: refresh-enter
+reopen: saved-seat-listed
+reopen: rejoin-saved-enter
+reopen: reopen-same-seat
+reopen: opponent-away-on-cut
+reopen: focus-kept-on-redraw
+reopen: opponent-back-after-rejoin
+reopen: server-stop-shown
+reopen: server-restart-clear
+reopen: match-result-shown
+reopen: copy-final-hash-enter
+reopen: copy-final-hash
+godot-host: engine errors
+godot-guest: engine errors
+godot-reopen: engine errors
+hotseat-exit
+hotseat-no-server-left
+godot-hotseat: engine errors
+hotseat: hotseat-choose-scenario
+hotseat: hotseat-start-enter
+hotseat: hotseat-started
+hotseat: hotseat-server-running
+hotseat: hotseat-one-window-both-seats
+hotseat: hotseat-both-seats-deploy
+hotseat: hotseat-follows-turn
+hotseat: hotseat-whose-move-shown
+hotseat: hotseat-f2-switches
+hotseat: hotseat-f2-kept
+hotseat: hotseat-leave-enter
+hotseat: hotseat-server-stopped
+pvp-b-hard-killed
+pvp-a-exit
+pvp-b-rejoin-exit
+pvp-both-same-final-hash
+pvp-both-same-event-count
+pvp-both-same-events
+pvp-both-agree-on-outcome
+pvp-no-events-lost-or-repeated-across-kill
+pvp-record-verifies-completed
+pvp-record-hash-matches-both-clients
+pvp-record-event-count-matches-both-clients
+pvp-record-outcome-matches
+pvp-a: pvp-type-server
+pvp-a: pvp-choose-scenario
+pvp-a: pvp-create-enter
+pvp-a: pvp-create
+pvp-a: pvp-refused-mid-match
+pvp-a: pvp-opponent-drop-pauses
+pvp-a: pvp-match-completed
+pvp-a: pvp-nothing-to-send
+pvp-b: pvp-type-server
+pvp-b: pvp-type-code
+pvp-b: pvp-join-enter
+pvp-b: pvp-join
+pvp-b-rejoin: pvp-type-server
+pvp-b-rejoin: pvp-refresh-enter
+pvp-b-rejoin: pvp-saved-seat-listed
+pvp-b-rejoin: pvp-rejoin-saved-enter
+pvp-b-rejoin: pvp-rejoin-same-seat
+pvp-b-rejoin: pvp-rejoin-caught-up
+pvp-b-rejoin: pvp-plays-on-after-rejoin
+pvp-b-rejoin: pvp-match-completed
+pvp-b-rejoin: pvp-nothing-to-send
+godot-pvp-a: engine errors
+godot-pvp-b: engine errors
+godot-pvp-b-rejoin: engine errors
+pvp-no-server-left
+gvt-a-exit
+gvt-cli-exit
+gvt-both-reach-match-ended
+gvt-outcome-agrees
+gvt-same-final-hash
+gvt-same-event-count
+gvt-same-event-text
+gvt-record-verifies-completed
+gvt-record-hash-matches
+gvt-record-event-count-matches
+gvt-record-outcome-matches
+gvt-a: pvp-type-server
+gvt-a: pvp-choose-scenario
+gvt-a: pvp-create-enter
+gvt-a: pvp-create
+gvt-a: pvp-match-completed
+gvt-a: pvp-nothing-to-send
+godot-gvt-a: engine errors
+gvt-no-server-left

@@ -15,7 +15,9 @@ Milestone M6: reconnects and signed match records, awaiting review. A player who
 
 ## Verify
 
-From the repository root:
+**Easiest:** double-click **Test Trench Sim** in this folder (Windows) or run `./test-trench-sim.sh` (Linux). The test center runs every check and a guided test match, and ends with PASS, FAIL or NOT RUN for each check; see `docs/testing.md`.
+
+By hand, from the repository root:
 
 ```sh
 dotnet --version

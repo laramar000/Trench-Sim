@@ -1,5 +1,6 @@
 using System.Globalization;
 using Match.Cli;
+using Match.Client;
 using Match.Protocol;
 using Rules.Core.Commands;
 using Sim;

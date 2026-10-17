@@ -153,6 +153,22 @@ public class RecordTests
         }
     }
 
+    // The small test rosters are recorded under their own scenario name, verify like any match, and their content
+    // fingerprint is the one trench-cli verify works out from the content folder for that name.
+    [Theory]
+    [InlineData("ranged-1v1")]
+    [InlineData("ranged-2v2")]
+    [InlineData("melee-3v3")]
+    public void SmallTestRosterRecordsVerify(string scenario)
+    {
+        var body = TestRecords.Completed(scenario, 3);
+        Assert.Equal(scenario, body.Scenario);
+        var verdict = RecordVerifier.Verify(RecordFormat.Sign(body, Key), Trusted);
+        Assert.Equal(VerdictKind.Completed, verdict.Kind);
+        Assert.Equal(RecordFormat.ContentFingerprint(Scenarios.All[scenario]), body.ContentFingerprint);
+        Assert.NotEqual(RecordFormat.ContentFingerprint(Scenarios.All[scenario.Split('-')[0]]), body.ContentFingerprint);
+    }
+
     // ---- The signature ----
 
     [Fact]

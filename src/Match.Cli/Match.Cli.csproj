@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Match.Protocol\Match.Protocol.csproj" />
+    <ProjectReference Include="..\Match.Client\Match.Client.csproj" />
     <ProjectReference Include="..\Sim\Sim.csproj" />
   </ItemGroup>
 
