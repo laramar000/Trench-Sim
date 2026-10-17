@@ -1632,6 +1632,12 @@ public partial class UiCheck : Node
 
         await ClickModel(board, second);
         await Frames(10);
+        await Frames(3);
+        var strip = Strip();
+        Check("pvp-status-strip", strip.Contains($"selected {second.Value}: chosen, not activated yet", StringComparison.Ordinal)
+            && strip.Contains($"can still activate: you {units.Count}, ", StringComparison.Ordinal) && strip.Contains("Activation · Your move", StringComparison.Ordinal)
+            && strip.Contains("VP you ", StringComparison.Ordinal),
+            strip);
         Check("pvp-switch-unit-sends-nothing", interaction.Chosen == second && board.BarLabels.Contains("Not activated yet") && NothingSent(),
             $"chosen {interaction.Chosen?.Value} (wanted {second.Value}); bar: {string.Join(" / ", board.BarLabels)}; events {events} -> {Lines(LogText()).Count}");
         await CloseShot(board, second, "pvp-a-switched");
@@ -1824,6 +1830,7 @@ public partial class UiCheck : Node
         Write($"DUMP pvp-end ended={ended}");
         Write($"DUMP pvp-end answers={string.Join(", ", _pvpAnswers.OrderBy(a => a.Key, StringComparer.Ordinal).Select(a => $"{a.Key} {a.Value}"))}");
         Write($"DUMP pvp-end log={string.Join("|", lines)}");
+        Write($"DUMP pvp-end strip={Strip()}");
         Write($"DUMP pvp-end looks={(board?.Scene is { } final ? string.Join(",", final.Models.Select(m => $"{m.Id.Value}:{m.Look}:{m.Status}")) : "")}");
         Mark("ended");
     }
@@ -1994,6 +2001,9 @@ public partial class UiCheck : Node
     private string Banner() => Label("Connection: ")?.Text ?? "";
 
     // The body of a section: the control after its title label.
+    // The compact status line over the battlefield (QoL stage C).
+    private string Strip() => Controls<Godot.Label>().FirstOrDefault(l => l.Name == "StatusStrip" && l.IsVisibleInTree())?.Text ?? "";
+
     private string Section(string title)
     {
         var heading = Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && l.Text.StartsWith(title, StringComparison.Ordinal) && l.GetParent() is VBoxContainer);

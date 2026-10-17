@@ -54,6 +54,8 @@ public partial class Main : Control
     private VBoxContainer _boardSection = null!;
     private BoardView _board = null!;
     private Label _boardInfo = null!;
+    private Label _strip = null!;
+    private ScreenState? _lastScreen;
     private VBoxContainer _hints = null!;
     private Label _notYet = null!;
     private Label _feedback = null!;
@@ -443,6 +445,11 @@ public partial class Main : Control
         _board = new BoardView();
         _boardInfo = Text("");
         var boardBox = new VBoxContainer();
+        // A compact status line over the battlefield (QoL stage C): turn, phase, whose move, the selected model's state,
+        // how many models can still activate, VP, the last scoring and a command waiting for its answer.
+        _strip = Text("");
+        _strip.Name = "StatusStrip";
+        boardBox.AddChild(_strip);
         boardBox.AddChild(_board);
         boardBox.AddChild(_boardInfo);
         _board.Changed += ShowBoardInfo;
@@ -509,6 +516,8 @@ public partial class Main : Control
             return;
         }
         _shown = s.Version;
+        _lastScreen = s;
+        ShowStrip();
         var view = s.View;
         _status.Text = $"{view.Status}";
         _hotLine.Visible = _hotSeat is not null;
@@ -607,8 +616,20 @@ public partial class Main : Control
         }
     }
 
+    private void ShowStrip()
+    {
+        _strip.Text = _lastScreen is { } s && s.View.Turn.Length > 0
+            ? StatusStrip.Of(s.View, _board.Scene, s.Log, s.Seat, _board.Selected, _board.Interaction.Chosen,
+                s.Feedback is { Kind: FeedbackKind.Sending } || _board.Interaction.Pending is not null)
+            : "";
+    }
+
+    // The status line as shown (for the UI check).
+    public string StripText => _strip.Text;
+
     private void ShowBoardInfo()
     {
+        ShowStrip();
         if (_board.Scene is not { } scene)
         {
             _boardInfo.Text = "";

@@ -519,6 +519,7 @@ public partial class BoardView : SubViewportContainer
         {
             AddNote(new UnitNote(wanted, "CAN'T SWITCH: ACTIVATION STARTED", NoteTone.Failure));
         }
+        Changed?.Invoke();
     }
 
     // A right-click without dragging: cancels the action being chosen; with none, closes the bar and the selection.
@@ -845,7 +846,8 @@ public partial class BoardView : SubViewportContainer
                 var end = preview.Path[^1];
                 Ring(end.At, preview.Radius, colour);
                 Ghost(end.At, preview.Model, preview.Radius, colour);
-                Overlay($"{string.Join("\n", PreviewCard.Lines(preview))}{state}", end.At, 2.8f, 0.95f);
+                // Higher than the model's own label, so a short move's card does not cover it.
+                Overlay($"{string.Join("\n", PreviewCard.Lines(preview))}{state}", end.At, 3.6f, 0.95f);
                 break;
             default:
                 foreach (var ray in preview.Rays)
