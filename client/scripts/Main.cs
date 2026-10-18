@@ -921,6 +921,9 @@ public partial class Main : Control
     // The status line as shown (for the UI check).
     public string HudText => _hud.Text;
 
+    // The server's state as this window last received it (for the UI check).
+    public Rules.Core.State.MatchState? ServerState => _controller?.Snapshot().State;
+
     // The panel's "POINTING AT" lines as shown (for the UI check); empty when hidden.
     public string PointingText => _pPointing.IsVisibleInTree() ? _pPointing.Text : "";
 

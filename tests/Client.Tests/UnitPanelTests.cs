@@ -62,7 +62,7 @@ public partial class UnitPanelTests
                 Assert.False(panel.CanCancel);
                 if (!unit.Yours)
                 {
-                    Assert.StartsWith("Opponent's unit", panel.Unavailable);
+                    Assert.StartsWith("— Opponent's unit", panel.Unavailable);
                     Assert.DoesNotContain(panel.Unit, l => l.StartsWith("Actions:", StringComparison.Ordinal));
                     enemy++;
                 }
@@ -78,8 +78,8 @@ public partial class UnitPanelTests
                     activated += unit.Activated ? 1 : 0;
                     if (unit.Activated)
                     {
-                        Assert.Equal("Already activated this turn.", panel.Unavailable);
-                        Assert.Contains("Activated this turn", panel.Unit);
+                        Assert.Equal("— Already activated this turn.", panel.Unavailable);
+                        Assert.Contains("✓ Activated this turn", panel.Unit);
                     }
                     unavailable++;
                 }
@@ -231,10 +231,10 @@ public partial class UnitPanelTests
         var done = scene.Models.First(m => m.Yours && m.Activated);
         var interaction = new Interaction();
         interaction.Update(state, seat);
-        Assert.Contains("Can activate now", UnitPanel.Of(state, scene, interaction, seat, eligible).Unit);
-        Assert.Contains("Activated this turn", UnitPanel.Of(state, scene, interaction, seat, done).Unit);
+        Assert.Contains("○ Can activate now", UnitPanel.Of(state, scene, interaction, seat, eligible).Unit);
+        Assert.Contains("✓ Activated this turn", UnitPanel.Of(state, scene, interaction, seat, done).Unit);
         Assert.True(interaction.Choose(eligible.Id));
-        Assert.Contains("Chosen: not activated yet (nothing sent)", UnitPanel.Of(state, scene, interaction, seat, eligible).Unit);
+        Assert.Contains("◌ Chosen: not activated yet (nothing sent)", UnitPanel.Of(state, scene, interaction, seat, eligible).Unit);
     }
 
     [Fact]

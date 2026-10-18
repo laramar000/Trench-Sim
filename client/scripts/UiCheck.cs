@@ -494,7 +494,7 @@ public partial class UiCheck : Node
         await Frames(2);
         var panel = ((Main)_main).PanelView;
         Check("panel-unit", panel is not null && panel.Title == UnitPanel.Heading(target) && PanelHas(Words.Status(target.Status))
-            && (panel.Unavailable is null || panel.Unavailable.StartsWith("Opponent's unit", StringComparison.Ordinal)),
+            && (panel.Unavailable is null || panel.Unavailable.StartsWith("— Opponent's unit", StringComparison.Ordinal)),
             $"panel: {PanelText.Replace('\n', '|')}");
         await CameraChecks(board, scene);
         Dump("board");
@@ -2074,6 +2074,7 @@ public partial class UiCheck : Node
     private async Task PvpActivation(BoardView board)
     {
         CheckBloodLabels(board);
+        CheckPanelState(board);
         await CheckDiceTray(board);
         if (!await FocusByTab(board, 80))
         {
@@ -2136,6 +2137,57 @@ public partial class UiCheck : Node
             if (shown != shape.BloodMarkers > 0 || (shown && !label.Contains($" {ModelShape.MarkerMark}{shape.BloodMarkers}", StringComparison.Ordinal)))
             {
                 _bloodLabelProblems.Add($"{label} has {shape.BloodMarkers}");
+            }
+        }
+    }
+
+    // ---- QoL H3: the unit panel follows the server's state ----
+
+    private int _panelSamples;
+    private readonly List<string> _panelProblems = [];
+
+    // The panel's unit lines against the server's state as the battlefield draws it (the same render): Down, Blood
+    // Markers, activated and activating marks, and the unit's values from its profile. Checked at each own activation and
+    // at the end, for a unit of each seat.
+    private void CheckPanelState(BoardView? board)
+    {
+        if (board?.Scene is not { } scene || ((Main)_main).ServerState is not { } state || ((Main)_main).PanelView is not { } panel || board.Interaction.Mode != InteractionMode.None)
+        {
+            return;
+        }
+        var selected = board.Selected?.Id;
+        var seat = scene.Models.FirstOrDefault(m => m.Yours)?.Seat;
+        var other = scene.Models.FirstOrDefault(m => m.Yours != (board.Selected?.Yours ?? true));
+        foreach (var unit in scene.Models.Where(m => m.Id == selected || m.Id == other?.Id).ToList())
+        {
+            // The selected unit as the panel shows it; a unit of the other seat as the panel would show it.
+            var view = unit.Id == selected ? panel : UnitPanel.Of(state, scene, board.Interaction, seat, unit);
+            if (unit.Id == selected && panel.Title != UnitPanel.Heading(unit))
+            {
+                continue;
+            }
+            _panelSamples++;
+            var status = view.Unit.Count > 0 ? view.Unit[0] : "";
+            var problems = new List<string>();
+            if (status.Contains("↓ Down", StringComparison.Ordinal) != (unit.Status == Rules.Core.State.ModelStatus.Down))
+            {
+                problems.Add("Down");
+            }
+            if (status.Contains($"•{unit.BloodMarkers} Blood Marker", StringComparison.Ordinal) != (unit.BloodMarkers > 0))
+            {
+                problems.Add($"Blood {unit.BloodMarkers}");
+            }
+            if (view.Unit.Contains("✓ Activated this turn") != (unit.Activated && !unit.Active) || view.Unit.Contains("● Activating now") != unit.Active)
+            {
+                problems.Add("turn state");
+            }
+            if (UnitPanel.ProfileLine(state, unit) is not { } profile || !view.Unit.Contains(profile))
+            {
+                problems.Add("profile");
+            }
+            if (problems.Count > 0)
+            {
+                _panelProblems.Add($"{unit.Id.Value}: {string.Join(", ", problems)} in {string.Join(" | ", view.Unit)}");
             }
         }
     }
@@ -2303,15 +2355,29 @@ public partial class UiCheck : Node
         }
         var before = Section("LAST COMMAND");
         var selected = board.Selected?.Id;
+        // The other window keeps playing: a new roll can move this box to the tray. Aim again until the ✕ stays put,
+        // then press and release at once, so the click lands where the ✕ is.
         var at = board.GlobalPosition + close.GetCenter();
-        Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
-        await Frames(2);
+        for (var tries = 0; tries < 5; tries++)
+        {
+            Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
+            await Frames(2);
+            if (tray.CloseRect(id) is not { } now)
+            {
+                break;
+            }
+            var still = board.GlobalPosition + now.GetCenter();
+            if (still.IsEqualApprox(at))
+            {
+                break;
+            }
+            at = still;
+        }
         foreach (var pressed in new[] { true, false })
         {
             Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
-            await Frames(2);
         }
-        await Frames(2);
+        await Frames(4);
         Check("pvp-dice-click-closes", !tray.BoxIds.Contains(id) && Section("LAST COMMAND") == before && board.Selected?.Id == selected,
             $"box {id} {(tray.BoxIds.Contains(id) ? "still shown" : "closed")} by its ✕; nothing sent: {Section("LAST COMMAND") == before}; selection kept: {board.Selected?.Id == selected}");
     }
@@ -2512,8 +2578,14 @@ public partial class UiCheck : Node
         // XCOM-style UX, improvement 2: each label on the battlefield carries its model's Blood Markers as the server's
         // state has them ("•2"); checked through the whole match, here at the end too.
         CheckBloodLabels(board);
+        CheckPanelState(board);
         await CheckDiceTray(board);
         DiceEndChecks(board);
+        if (_role is "pvp-a" or "gvt-a")
+        {
+            Check("pvp-panel-follows-state", _panelSamples > 0 && _panelProblems.Count == 0,
+                $"{_panelSamples} looks at the panel; {string.Join(" / ", _panelProblems.Take(5))}");
+        }
         Check("pvp-labels-show-blood", _bloodLabelsChecked > 0 && _bloodLabelProblems.Count == 0,
             $"{_bloodLabelsChecked} labels checked, {_bloodLabelsWithMarkers} with markers; {string.Join(" / ", _bloodLabelProblems.Take(5))}");
         Check("pvp-nothing-to-send", Hint() is null && (board is null || board.Interaction.Available.Count == 0),

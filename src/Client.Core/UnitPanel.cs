@@ -104,7 +104,15 @@ public static class UnitPanel
             {
                 lines.Add(turnState);
             }
-            unavailable = choosing ? null : Unavailable(state, scene, interaction, seat, unit);
+            if (ProfileLine(state, unit) is { } profile)
+            {
+                lines.Add(profile);
+            }
+            if (WarbandLine(state, unit.Seat) is { } warband)
+            {
+                lines.Add(warband);
+            }
+            unavailable = choosing ? null : Unavailable(state, scene, interaction, seat, unit) is { } why ? $"— {why}" : null;
             // The actions are listed only for the unit they belong to (the bar's own unit, yours).
             if (!choosing && unit.Yours && (bar.Anchor is null || bar.Anchor == unit.Id))
             {
@@ -116,6 +124,10 @@ public static class UnitPanel
                 }
             }
             details.Add(unit.Text);
+            if (state.Setup?.ProfileOf(unit.Id) is { } p)
+            {
+                details.Add($"Injury modifiers of its attacks: ranged {Signed(p.RangedInjuryModifier)}, melee {Signed(p.MeleeInjuryModifier)}.");
+            }
         }
 
         string? actionTitle = null;
@@ -198,13 +210,41 @@ public static class UnitPanel
         };
     }
 
-    // Seat, Standing or Down, and Blood Markers: "Seat Two [B] · Down · 2 Blood Markers" (the server's state).
+    // Seat, Standing or Down, and Blood Markers, with the battlefield's own marks: "Seat Two [B] · ↓ Down · •2 Blood
+    // Markers" (the server's state).
     private static string StatusLine(MatchState state, ModelShape unit)
     {
         var markers = state.FindModel(unit.Id)?.BloodMarkers ?? 0;
-        return $"{Words.Seat(unit.Seat)} [{unit.SeatLetter}]{(unit.Yours ? " (yours)" : "")} · {Words.Status(unit.Status)}" +
-            (markers > 0 ? $" · {markers} Blood Marker{(markers == 1 ? "" : "s")}" : "");
+        return $"{Words.Seat(unit.Seat)} [{unit.SeatLetter}]{(unit.Yours ? " (yours)" : "")} · {(unit.Status == ModelStatus.Down ? $"{ModelShape.DownMark} " : "")}{Words.Status(unit.Status)}" +
+            (markers > 0 ? $" · {ModelShape.MarkerMark}{markers} Blood Marker{(markers == 1 ? "" : "s")}" : "");
     }
+
+    // QoL H3: the unit's values as the rules hold them (its profile in the match setup): "Move 6.0" · Range 24.0" ·
+    // Armour 1 · Melee weapon". While it activates after standing up, the halved Movement too. There are no wounds.
+    public static string? ProfileLine(MatchState state, ModelShape unit)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(unit);
+        if (state.Setup?.ProfileOf(unit.Id) is not { } p)
+        {
+            return null;
+        }
+        var move = BoardScene.Inch(TableRect.Inches(p.Movement));
+        var halved = unit.Active && state.ActiveModel == unit.Id && state.MovementHalved
+            ? $" ({BoardScene.Inch(TableRect.Inches(p.Movement) / 2)} now, halved after standing up)" : "";
+        var range = p.HasRangedWeapon ? $"Range {BoardScene.Inch(TableRect.Inches(p.RangedRange))}" : "No ranged weapon";
+        return $"Move {move}{halved} · {range} · Armour {p.Armour} · {(p.HasMeleeWeapon ? "Melee weapon" : "No melee weapon")}";
+    }
+
+    // The unit's warband state when it is Shaken or has Fled (the rules hold these for a warband, not for a model).
+    public static string? WarbandLine(MatchState state, Seat seat)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var warband = state.SeatFor(seat);
+        return warband.Fled ? "Warband: Fled" : warband.Shaken ? "Warband: Shaken" : null;
+    }
+
+    private static string Signed(int value) => value >= 0 ? $"+{value}" : value.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     // What the panel says about the model under the pointer (QoL H1). In Shoot, Charge and Fight, for an enemy: the rules'
     // facts about it as a target (distance and range, sight, cover, long range) and whether it can be chosen, from the
@@ -247,12 +287,13 @@ public static class UnitPanel
     };
 
     // The unit's state this turn, in words (the battlefield shows the same with a ring or a grey wash).
+    // QoL H3: each starts with a mark (● activating, ◌ chosen, ✓ activated as on the battlefield, ○ can activate).
     private static string? State(ModelShape unit, Interaction interaction) =>
         unit.Active ? "● Activating now"
-        : interaction.Chosen == unit.Id ? "Chosen: not activated yet (nothing sent)"
-        : unit.Activated ? "Activated this turn"
-        : unit.Yours && interaction.CanChoose(unit.Id) ? "Can activate now"
-        : unit.Eligible ? "Can still activate this turn"
+        : interaction.Chosen == unit.Id ? "◌ Chosen: not activated yet (nothing sent)"
+        : unit.Activated ? $"{ModelShape.ActivatedMark} Activated this turn"
+        : unit.Yours && interaction.CanChoose(unit.Id) ? "○ Can activate now"
+        : unit.Eligible ? "○ Can still activate this turn"
         : null;
 
     // Why the selected unit cannot be given an order now, in one line; null when it can (or when nothing is due).

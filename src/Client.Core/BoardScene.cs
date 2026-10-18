@@ -81,6 +81,8 @@ public sealed record ModelShape(
         $"{Id.Value.ToUpperInvariant()}{(BloodMarkers > 0 ? $" {MarkerMark}{BloodMarkers}" : "")}{(Activated && !Active ? " " + activatedMark : "")}{(Status == ModelStatus.Down ? " " + downMark : "")}";
 
     public const string MarkerMark = "•";
+    public const string ActivatedMark = "✓";
+    public const string DownMark = "↓";
 
     // How the battlefield draws the model's turn state (colour is never the only sign: the label says it too).
     public UnitLook Look => Active ? UnitLook.Active : Activated ? UnitLook.Activated : Eligible ? UnitLook.Eligible : UnitLook.Waiting;
