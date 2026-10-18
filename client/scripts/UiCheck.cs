@@ -1017,6 +1017,22 @@ public partial class UiCheck : Node
             }
             var events = Lines(LogText()).Count;
             var before = Section("LAST COMMAND");
+            var glides = board.GlidesStarted;
+            var followed = board.FollowedMoves;
+            var end0 = preview.Path[^1].At;
+            var standing0 = board.Scene?.Find(preview.Model)?.Standing ?? 0;
+            var checkFollow = _role == "pvp-a" && !_followChecked;
+            var endOffScreen = false;
+            if (checkFollow)
+            {
+                // Improvement 3: look away from where the move ends (zoomed in on the model furthest from it), so the
+                // camera has to follow the move there.
+                _followChecked = true;
+                var far = board.Scene?.Models.OrderByDescending(m => (m.X - end0.X) * (m.X - end0.X) + (m.Y - end0.Y) * (m.Y - end0.Y)).FirstOrDefault();
+                board.CentreOn(far?.Id, 5);
+                await Frames(2);
+                endOffScreen = !OnBoardScreen(board, end0.X, end0.Y, standing0);
+            }
             if (_role == "host")
             {
                 // The panel's Confirm, clicked with the mouse, sends the previewed move (as Space does).
@@ -1033,6 +1049,25 @@ public partial class UiCheck : Node
             await Frames(3);
             var end = preview.Path[^1].At;
             var shape = board.Scene?.Find(preview.Model);
+            if (!_glideChecked && shape is not null && line is not null)
+            {
+                // Improvement 3: the move was shown travelling from where the model stood to where the server put it,
+                // briefly, and the model is drawn at the server's position once it stops.
+                _glideChecked = true;
+                var last = board.LastGlide;
+                var drawn = board.DrawnAt(preview.Model);
+                Check("board-move-glides", board.GlidesStarted > glides && last is { } g && g.Model == preview.Model
+                    && Near(new TablePoint(g.To.X, g.To.Y), shape.X, shape.Y) && Near(new TablePoint(g.From.X, g.From.Y), preview.Path[0].At.X, preview.Path[0].At.Y)
+                    && g.Seconds is >= BoardView.GlideMinSeconds and <= BoardView.GlideMaxSeconds && !board.Gliding && drawn is { } d && Near(new TablePoint(d.X, d.Y), shape.X, shape.Y),
+                    $"glides {glides} -> {board.GlidesStarted}; last {last}; drawn at {drawn}; server ({shape.X}, {shape.Y})");
+            }
+            if (checkFollow)
+            {
+                Check("pvp-move-followed", endOffScreen && board.FollowedMoves > followed && OnBoardScreen(board, end.X, end.Y, standing0),
+                    $"end {end} off screen before: {endOffScreen}; followed {followed} -> {board.FollowedMoves}; camera on {board.CameraTarget}");
+                board.Fit();
+                await Frames(3);
+            }
             var pass = answer.StartsWith("DONE:", StringComparison.Ordinal) && answer.Contains(Interaction.Describe(preview), StringComparison.Ordinal) && line is not null && shape is not null && Near(new TablePoint(shape.X, shape.Y), end.X, end.Y)
                 && (interaction.Notice ?? "").StartsWith("DONE: Move ", StringComparison.Ordinal) && interaction.Mode == InteractionMode.None;
             return (pass, $"{preview.Headline}; last command: {answer}; event: {line}; now {shape?.Text}; notice: {interaction.Notice}");
@@ -1997,6 +2032,11 @@ public partial class UiCheck : Node
     // The action key, then N through the targets until the preview looks legal; Space sends it. Null when no target
     // looks legal (nothing is sent).
     private bool _diceChecked;
+    private bool _glideChecked;
+    private bool _followChecked;
+
+    private static bool OnBoardScreen(BoardView board, double x, double y, double height) =>
+        board.ScreenOf(x, y, height) is { } p && p.X >= 0 && p.Y >= 0 && p.X <= board.Size.X && p.Y <= board.Size.Y;
     private int _bloodLabelsChecked;
     private int _bloodLabelsWithMarkers;
     private readonly List<string> _bloodLabelProblems = [];
@@ -2400,6 +2440,11 @@ public partial class UiCheck : Node
     private async Task Frames(int count)
     {
         for (var i = 0; i < count; i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
+        // A model still travelling (improvement 3) is drawn between two places: checks measure the drawing once it stops.
+        for (var i = 0; i < 120 && Controls<BoardView>().Any(b => b.Gliding); i++)
         {
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
         }

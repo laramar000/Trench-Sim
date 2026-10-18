@@ -133,6 +133,8 @@ public partial class BoardView : SubViewportContainer
     public void Show(BoardScene? scene, MatchState? state = null, Seat? seat = null, IReadOnlyList<LogLine>? log = null)
     {
         var first = _scene is null && scene is not null;
+        // Where each model was drawn before this update: a model the server moved travels from there (improvement 3).
+        var before = _scene?.Models.ToDictionary(m => m.Id, m => new Vector2((float)m.X, (float)m.Y)) ?? [];
         _scene = scene;
         if (_scene?.Find(_selected) is null)
         {
@@ -152,9 +154,10 @@ public partial class BoardView : SubViewportContainer
         }
         if (log is not null)
         {
-            ShowNotes(log);
+            ShowNotes(log, before);
         }
         Rebuild();
+        ApplyGlides();
         DrawPreview();
         if (first)
         {
@@ -275,6 +278,17 @@ public partial class BoardView : SubViewportContainer
         PlaceCamera();
         Changed?.Invoke();
     }
+
+    // Turns the camera to a table point (inches) at the current zoom: a move that ends off screen is followed there.
+    private void CentreOnPoint(Vector2 at)
+    {
+        _target = new Vector3(at.X, _target.Y, at.Y);
+        PlaceCamera();
+        FollowedMoves++;
+    }
+
+    // How many moves the camera has followed off screen (for the UI check).
+    public int FollowedMoves { get; private set; }
 
     // Pans by a distance in inches, relative to the way the camera faces (right, and away from the viewer).
     public void Pan(float right, float forward)
@@ -405,6 +419,7 @@ public partial class BoardView : SubViewportContainer
         }
         Sync();
         UpdateBar();
+        ApplyGlides();
         SeparateLabels();
         if (Interaction.ServerNotes != _serverNotesShown)
         {
@@ -1008,12 +1023,13 @@ public partial class BoardView : SubViewportContainer
 
     // New events' notes. The first time (or after a catch-up of many events) only remembers where the log is, so a
     // rejoin does not replay old notes.
-    private void ShowNotes(IReadOnlyList<LogLine> log)
+    private void ShowNotes(IReadOnlyList<LogLine> log, IReadOnlyDictionary<ModelId, Vector2> before)
     {
         var newest = log.Count == 0 ? 0 : log[^1].Seq;
         if (_lastSeq < 0 || newest < _lastSeq || newest - _lastSeq > 20)
         {
             _lastSeq = newest;
+            _glides.Clear();
             return;
         }
         foreach (var line in log.Where(l => l.Seq > _lastSeq))
@@ -1022,8 +1038,107 @@ public partial class BoardView : SubViewportContainer
             {
                 AddNote(note);
             }
+            if (line.Motion is { } motion && before.TryGetValue(motion.Model, out var from))
+            {
+                StartGlide(motion, from);
+            }
         }
         _lastSeq = newest;
+    }
+
+    // ---- watchable moves (XCOM-style UX, improvement 3) ----
+
+    // A model the server moved travels its path from where it was drawn, briefly, instead of jumping. Only the drawing
+    // moves: the scene, the selection, the previews and every check use the server's position throughout. When the
+    // path ends off screen the camera turns to it (keeping the zoom).
+    private sealed record Glide(ModelId Model, Vector2[] Points, float[] Lengths, float Total, double Start, double Seconds);
+
+    private readonly List<Glide> _glides = [];
+    private readonly Dictionary<ModelId, List<(Node3D Node, Vector3 At)>> _modelNodes = [];
+
+    public const float GlideInchesPerSecond = 24f;
+    public const double GlideMinSeconds = 0.25;
+    public const double GlideMaxSeconds = 0.7;
+
+    // How many moves have been shown travelling, and the last one (for the UI check).
+    public int GlidesStarted { get; private set; }
+
+    public (ModelId Model, Vector2 From, Vector2 To, double Seconds)? LastGlide { get; private set; }
+
+    // Whether a model is still travelling on screen (the UI check waits for this before it measures the drawing).
+    public bool Gliding => _glides.Count > 0;
+
+    // Where a model is drawn now (its base centre, inches); the server's position once it has stopped.
+    public Vector2? DrawnAt(ModelId id) => _modelNodes.TryGetValue(id, out var nodes) && nodes.Count > 0
+        ? new Vector2(nodes[0].Node.Position.X, nodes[0].Node.Position.Z)
+        : null;
+
+    private void StartGlide(Motion motion, Vector2 from)
+    {
+        var points = new[] { from }.Concat(motion.Path.Select(p => new Vector2((float)p.X, (float)p.Y))).ToArray();
+        var lengths = new float[points.Length];
+        for (var i = 1; i < points.Length; i++)
+        {
+            lengths[i] = lengths[i - 1] + points[i - 1].DistanceTo(points[i]);
+        }
+        if (lengths[^1] < 0.01f)
+        {
+            return;
+        }
+        _glides.RemoveAll(g => g.Model == motion.Model);
+        var seconds = Math.Clamp(lengths[^1] / GlideInchesPerSecond, GlideMinSeconds, GlideMaxSeconds);
+        _glides.Add(new Glide(motion.Model, points, lengths, lengths[^1], Time.GetTicksMsec() / 1000.0, seconds));
+        GlidesStarted++;
+        LastGlide = (motion.Model, points[0], points[^1], seconds);
+        var end = points[^1];
+        var standing = _scene?.Find(motion.Model)?.Standing ?? 0;
+        if (!OnScreen(ScreenOf(end.X, end.Y, standing)))
+        {
+            CentreOnPoint(end);
+        }
+    }
+
+    private bool OnScreen(Vector2? at) => at is { } p && p.X >= 0 && p.Y >= 0 && p.X <= Size.X && p.Y <= Size.Y;
+
+    // Draws each travelling model at its point along the path; a finished one is back on the server's position.
+    private void ApplyGlides()
+    {
+        if (_glides.Count == 0)
+        {
+            return;
+        }
+        var now = Time.GetTicksMsec() / 1000.0;
+        foreach (var glide in _glides.ToList())
+        {
+            var t = (float)Math.Clamp((now - glide.Start) / glide.Seconds, 0, 1);
+            // Eased so it starts and stops gently.
+            var eased = t * t * (3 - 2 * t);
+            var along = eased * glide.Total;
+            var i = 1;
+            while (i < glide.Points.Length - 1 && glide.Lengths[i] < along)
+            {
+                i++;
+            }
+            var leg = glide.Lengths[i] - glide.Lengths[i - 1];
+            var at = leg <= 0 ? glide.Points[i] : glide.Points[i - 1].Lerp(glide.Points[i], (along - glide.Lengths[i - 1]) / leg);
+            var offset = t >= 1 ? Vector2.Zero : at - glide.Points[^1];
+            if (_modelNodes.TryGetValue(glide.Model, out var nodes))
+            {
+                foreach (var (node, rest) in nodes)
+                {
+                    if (IsInstanceValid(node))
+                    {
+                        node.Position = rest + new Vector3(offset.X, 0, offset.Y);
+                    }
+                }
+            }
+            if (t >= 1)
+            {
+                _glides.Remove(glide);
+            }
+        }
+        // Labels moved: place them again next frame.
+        _labelsPlaced = "";
     }
 
     public void AddNote(UnitNote note)
@@ -1265,6 +1380,7 @@ public partial class BoardView : SubViewportContainer
         _eligibleRings.Clear();
         _idLabels.Clear();
         _fixedLabels.Clear();
+        _modelNodes.Clear();
         _labelsPlaced = "";
         if (_scene is not { } scene)
         {
@@ -1296,6 +1412,17 @@ public partial class BoardView : SubViewportContainer
             }
         }
         foreach (var model in scene.Models)
+        {
+            var firstNode = _content.GetChildCount();
+            DrawModel(model);
+            // Everything just drawn for this model (body, rings, id), so a glide can carry it along its path.
+            _modelNodes[model.Id] = [.. Enumerable.Range(firstNode, _content.GetChildCount() - firstNode)
+                .Select(i => _content.GetChild(i)).OfType<Node3D>().Select(n => (n, n.Position))];
+        }
+    }
+
+    private void DrawModel(ModelShape model)
+    {
         {
             var standing = (float)model.Standing;
             var tall = model.Status == ModelStatus.Standing ? 1.2f : 0.3f;
