@@ -2172,7 +2172,9 @@ public partial class UiCheck : Node
         {
             return;
         }
-        if (!_diceOffscreenChecked && tray.Feed.Boxes.LastOrDefault() is { Model: { } model } withModel && board.Scene is { } scene)
+        // A box about to fade cannot be checked: wait for one with time left.
+        double Left(DiceBox b) => b.Updated + tray.Feed.Seconds - DiceTray.Now;
+        if (!_diceOffscreenChecked && tray.Feed.Boxes.LastOrDefault() is { Model: { } model } withModel && Left(withModel) >= 3 && board.Scene is { } scene)
         {
             // A box whose model goes off screen moves to the tray; the camera is not moved for it.
             _diceOffscreenChecked = true;
@@ -2197,10 +2199,10 @@ public partial class UiCheck : Node
             }
             return;
         }
-        if (!_diceClickChecked)
+        if (!_diceClickChecked && tray.Feed.Boxes.LastOrDefault() is { } newest && Left(newest) >= 2)
         {
             await Frames(3);
-            var id = tray.BoxIds[^1];
+            var id = newest.Id;
             if (tray.BesideId != id)
             {
                 CheckTrayInside(board, id);
@@ -2208,7 +2210,7 @@ public partial class UiCheck : Node
             await ClickDiceBox(board, id);
             return;
         }
-        if (!_diceFadeChecked)
+        if (!_diceFadeChecked && _diceClickChecked)
         {
             _diceFadeChecked = true;
             var id = tray.BoxIds[^1];
