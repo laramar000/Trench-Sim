@@ -78,6 +78,22 @@ public partial class BoardView : SubViewportContainer
 
     public event Action? Changed;
 
+    // The newest event number when this battlefield first showed the match: nothing up to it is animated (UI check).
+    public int DiceFrom { get; private set; } = -1;
+
+    // The server's dice rolls, drawn in a corner of the battlefield (visible dice rolls, QoL stage F2).
+    public DiceTray Dice { get; } = new();
+
+    // How long a box of dice stays (seconds); 0 is "Off" (the rolls stay in the combat log).
+    public void SetDiceSeconds(double seconds)
+    {
+        Dice.Feed.Seconds = seconds;
+        if (seconds <= 0)
+        {
+            Dice.Feed.Clear();
+        }
+    }
+
     public BoardScene? Scene => _scene;
 
     public ModelShape? Selected => _scene?.Find(_selected);
@@ -116,6 +132,7 @@ public partial class BoardView : SubViewportContainer
         _barRow.AddThemeConstantOverride("separation", 6);
         _bar.AddChild(_barRow);
         AddChild(_bar);
+        AddChild(Dice);
         FocusEntered += QueueRedraw;
         FocusExited += QueueRedraw;
         Resized += () =>
@@ -172,6 +189,7 @@ public partial class BoardView : SubViewportContainer
     {
         _textScale = textScale;
         _highContrast = highContrast;
+        Dice.SetLook(textScale, highContrast);
         ApplyEnvironment();
         Rebuild();
         DrawPreview();
@@ -1042,12 +1060,17 @@ public partial class BoardView : SubViewportContainer
         var newest = log.Count == 0 ? 0 : log[^1].Seq;
         if (_lastSeq < 0 || newest < _lastSeq || newest - _lastSeq > 20)
         {
+            if (DiceFrom < 0)
+            {
+                DiceFrom = newest;
+            }
             _lastSeq = newest;
             _glides.Clear();
             return;
         }
         foreach (var line in log.Where(l => l.Seq > _lastSeq))
         {
+            Dice.Feed.Add(line, DiceTray.Now);
             foreach (var note in line.Notes ?? [])
             {
                 AddNote(note);

@@ -2053,6 +2053,7 @@ public partial class UiCheck : Node
     private async Task PvpActivation(BoardView board)
     {
         CheckBloodLabels(board);
+        await CheckDiceTray(board);
         if (!await FocusByTab(board, 80))
         {
             return;
@@ -2116,6 +2117,177 @@ public partial class UiCheck : Node
                 _bloodLabelProblems.Add($"{label} has {shape.BloodMarkers}");
             }
         }
+    }
+
+    // ---- visible dice rolls (QoL stage F2) ----
+
+    private bool _diceClickChecked;
+    private bool _diceLong;
+    private bool _diceFadeChecked;
+    private int _diceOffShown = -1;
+    private int _diceOffLogDice = -1;
+    private bool _diceOffChecked;
+    private readonly List<string> _diceStacks = [];
+
+    private int LogDiceCount() => _main is Main screen ? screen.LogRows.Count(r => r.Full.Contains("\n      Dice: ", StringComparison.Ordinal)) : 0;
+
+    // Checked at each own activation and at the end. Every window: boxes with several rows keep event order. The first
+    // match window also clicks a box shut, watches one fade after its time, and turns the dice Off until a new roll has
+    // come in without being shown.
+    private async Task CheckDiceTray(BoardView? board)
+    {
+        if (board is null)
+        {
+            return;
+        }
+        var tray = board.Dice;
+        foreach (var box in tray.Feed.Boxes.Where(b => b.Rows.Count > 1))
+        {
+            _diceStacks.Add($"{box.Id}: {string.Join(", ", box.Rows.Select(r => r.Seq))} {(box.Rows.Select(r => r.Seq).SequenceEqual(box.Rows.Select(r => r.Seq).Order()) ? "in order" : "OUT OF ORDER")}");
+        }
+        if (_role != "pvp-a")
+        {
+            return;
+        }
+        if (!_diceLong)
+        {
+            // Long (8 s), so that a box is still there when this window's next activation starts.
+            _diceLong = true;
+            ((Main)_main).ChooseDice(2);
+        }
+        if (_diceOffShown >= 0 && !_diceOffChecked && LogDiceCount() > _diceOffLogDice)
+        {
+            _diceOffChecked = true;
+            var shownNow = tray.Feed.Shown.Count;
+            Check("pvp-dice-off", tray.BoxIds.Count == 0 && shownNow == _diceOffShown,
+                $"Off: {LogDiceCount() - _diceOffLogDice} new rolls in the log, {shownNow - _diceOffShown} shown, {tray.BoxIds.Count} boxes on screen");
+            ((Main)_main).ChooseDice(1);
+            await Frames(2);
+            return;
+        }
+        if (tray.BoxIds.Count == 0)
+        {
+            return;
+        }
+        if (!_diceClickChecked)
+        {
+            _diceClickChecked = true;
+            await Frames(3);
+            var id = tray.BoxIds[^1];
+            if (tray.BoxRect(id) is not { } rect)
+            {
+                return;
+            }
+            var field = new Rect2(Vector2.Zero, board.Size);
+            Check("pvp-dice-tray-inside", field.Encloses(rect) && Math.Abs(rect.Position.X - DiceTray.Margin) < 1 && rect.End.Y <= board.Size.Y - DiceTray.Margin + 1
+                && rect.End.Y >= board.Size.Y - DiceTray.Margin - 1,
+                $"box {rect} in the battlefield {field}; dice {string.Join(" / ", tray.Feed.Boxes.Single(b => b.Id == id).Rows.Select(r => $"{string.Join(",", r.Roll.Faces)} {r.Roll.Result}"))}");
+            var before = Section("LAST COMMAND");
+            var selected = board.Selected?.Id;
+            var at = board.GlobalPosition + rect.GetCenter();
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
+                await Frames(2);
+            }
+            await Frames(2);
+            Check("pvp-dice-click-closes", !tray.BoxIds.Contains(id) && Section("LAST COMMAND") == before && board.Selected?.Id == selected,
+                $"box {id} {(tray.BoxIds.Contains(id) ? "still shown" : "closed")}; nothing sent: {Section("LAST COMMAND") == before}; selection kept: {board.Selected?.Id == selected}");
+            return;
+        }
+        if (!_diceFadeChecked)
+        {
+            _diceFadeChecked = true;
+            var id = tray.BoxIds[^1];
+            var box = tray.Feed.Boxes.Single(b => b.Id == id);
+            var updated = box.Updated;
+            var start = DiceTray.Now;
+            var halfway = false;
+            while (tray.BoxIds.Contains(id) && DiceTray.Now - start < 15)
+            {
+                updated = box.Updated;
+                var alpha = tray.BoxAlpha(id);
+                halfway |= alpha is > 0.05f and < 0.95f;
+                await Frames(1);
+            }
+            var gone = DiceTray.Now - updated;
+            var seconds = tray.Feed.Seconds;
+            Check("pvp-dice-fades", !tray.BoxIds.Contains(id) && halfway && gone >= seconds - 0.05 && gone <= seconds + 1.5,
+                $"box {id} gone {gone:0.00} s after its last roll (setting {seconds} s); faded on the way: {halfway}");
+            // Then Off: the boxes go at once, and the next rolls are not shown (they stay in the combat log).
+            ((Main)_main).ChooseDice(3);
+            await Frames(2);
+            _diceOffShown = tray.Feed.Shown.Count;
+            _diceOffLogDice = LogDiceCount();
+        }
+    }
+
+    // At the end of the match, in every window: each roll shown once, each equal to the dice its event has in the combat
+    // log, and none from before this window first showed the match.
+    private void DiceEndChecks(BoardView? board)
+    {
+        if (board is null || _main is not Main screen)
+        {
+            return;
+        }
+        var shown = board.Dice.Feed.Shown;
+        var logged = new Dictionary<int, string>();
+        foreach (var row in screen.LogRows)
+        {
+            var close = row.Full.IndexOf(']', StringComparison.Ordinal);
+            var dice = row.Full.IndexOf("\n      Dice: ", StringComparison.Ordinal);
+            if (row.Full.StartsWith('[') && close > 1 && dice >= 0 && int.TryParse(row.Full[1..close], System.Globalization.CultureInfo.InvariantCulture, out var seq))
+            {
+                logged[seq] = string.Join(",", LogFaces(row.Full[(dice + 13)..]));
+            }
+        }
+        var problems = new List<string>();
+        foreach (var row in shown)
+        {
+            var faces = string.Join(",", row.Roll.Faces);
+            if (logged.TryGetValue(row.Seq, out var log) && log != faces)
+            {
+                problems.Add($"[{row.Seq}] shown {faces}, log {log}");
+            }
+            if (row.Seq <= board.DiceFrom)
+            {
+                problems.Add($"[{row.Seq}] shown though it came before this window's first view ({board.DiceFrom})");
+            }
+        }
+        var twice = shown.GroupBy(r => r.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        var compared = shown.Count(r => logged.ContainsKey(r.Seq));
+        Check("pvp-dice-shown-once-as-logged", shown.Count > 0 && compared > 0 && problems.Count == 0 && twice.Count == 0,
+            $"{shown.Count} rolls shown, {compared} compared with the log's dice, {logged.Count} in the log; shown twice: {string.Join(",", twice)}; {string.Join(" / ", problems.Take(5))}");
+        if (_diceStacks.Count > 0)
+        {
+            Check("pvp-dice-stacked", _diceStacks.All(s => s.EndsWith("in order", StringComparison.Ordinal)), string.Join(" / ", _diceStacks.Distinct().Take(6)));
+        }
+    }
+
+    // The faces the combat log lists for a roll: "rolled 5, 2, 6; kept ...", "D6 4", or a roll-off's rounds.
+    private static List<int> LogFaces(string dice)
+    {
+        string part;
+        if (dice.StartsWith("rolled ", StringComparison.Ordinal))
+        {
+            part = dice[7..dice.IndexOf(';')];
+            return [.. part.Split(", ").Select(x => int.Parse(x, System.Globalization.CultureInfo.InvariantCulture))];
+        }
+        if (dice.StartsWith("D6 ", StringComparison.Ordinal))
+        {
+            return [int.Parse(dice[3..].Trim(), System.Globalization.CultureInfo.InvariantCulture)];
+        }
+        // "Seat One 3, Seat Two 3 (tie, rolled again); Seat One 2, Seat Two 5": the digit after each seat's name.
+        var faces = new List<int>();
+        for (var at = 0; (at = dice.IndexOf("Seat ", at, StringComparison.Ordinal)) >= 0; at += 5)
+        {
+            var space = dice.IndexOf(' ', at + 5);
+            if (space > 0 && space + 1 < dice.Length && char.IsAsciiDigit(dice[space + 1]))
+            {
+                faces.Add(dice[space + 1] - '0');
+            }
+        }
+        return faces;
     }
 
     private async Task<string?> PvpTarget(BoardView board, Key action, string name)
@@ -2216,6 +2388,8 @@ public partial class UiCheck : Node
         // XCOM-style UX, improvement 2: each label on the battlefield carries its model's Blood Markers as the server's
         // state has them ("•2"); checked through the whole match, here at the end too.
         CheckBloodLabels(board);
+        await CheckDiceTray(board);
+        DiceEndChecks(board);
         Check("pvp-labels-show-blood", _bloodLabelsChecked > 0 && _bloodLabelProblems.Count == 0,
             $"{_bloodLabelsChecked} labels checked, {_bloodLabelsWithMarkers} with markers; {string.Join(" / ", _bloodLabelProblems.Take(5))}");
         Check("pvp-nothing-to-send", Hint() is null && (board is null || board.Interaction.Available.Count == 0),
@@ -2242,6 +2416,8 @@ public partial class UiCheck : Node
         Write($"DUMP pvp-end answers={string.Join(", ", _pvpAnswers.OrderBy(a => a.Key, StringComparer.Ordinal).Select(a => $"{a.Key} {a.Value}"))}");
         Write($"DUMP pvp-end log={string.Join("|", lines)}");
         Write($"DUMP pvp-end strip={Strip()}");
+        Write($"DUMP pvp-end dice={string.Join("|", (board?.Dice.Feed.Shown ?? []).Select(r => $"{r.Seq}:{string.Join(",", r.Roll.Faces)}:{r.Roll.Result}{(r.FollowUp is null ? "" : " " + r.FollowUp)}"))}");
+        Write($"DUMP pvp-end dice_from={board?.DiceFrom ?? -1}");
         // Stage D: one row per event line, in the same order and words, each with its kind's tag; the newest is marked.
         if (_main is Main screen)
         {

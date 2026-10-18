@@ -262,6 +262,20 @@ public static class Program
             var looksA = endA.GetValueOrDefault("looks", "");
             Record("pvp-both-same-unit-looks", looksA.Length > 0 && looksA == endB.GetValueOrDefault("looks", "") ? "PASS" : "FAIL",
                 $"Seat One: {looksA} || Seat Two: {endB.GetValueOrDefault("looks", "")}");
+            // Visible dice rolls (QoL stage F2): a roll both windows showed has the same dice and result in both, and the window
+            // that rejoined showed no roll from before it opened (those stay in its combat log).
+            static Dictionary<string, string> DiceOf(string dump) => dump.Split('|', StringSplitOptions.RemoveEmptyEntries)
+                .Select(x => x.Split(':', 2)).Where(x => x.Length == 2).GroupBy(x => x[0]).ToDictionary(g => g.Key, g => string.Join(" & ", g.Select(x => x[1])));
+            var diceA = DiceOf(endA.GetValueOrDefault("dice", ""));
+            var diceB = DiceOf(endB.GetValueOrDefault("dice", ""));
+            var both = diceA.Keys.Intersect(diceB.Keys).ToList();
+            var differ = both.Where(k => diceA[k] != diceB[k]).Select(k => $"[{k}] {diceA[k]} || {diceB[k]}").ToList();
+            Record("pvp-both-same-dice", both.Count > 0 && differ.Count == 0 ? "PASS" : "FAIL",
+                differ.Count == 0 ? $"{both.Count} rolls shown in both windows, all alike (Seat One showed {diceA.Count}, Seat Two after rejoining {diceB.Count})" : string.Join("; ", differ.Take(5)));
+            var fromB = int.TryParse(endB.GetValueOrDefault("dice_from"), out var f) ? f : -1;
+            var oldB = diceB.Keys.Select(k => int.Parse(k)).Where(k => k <= fromB).ToList();
+            Record("pvp-rejoin-shows-no-old-dice", fromB > 0 && diceB.Count > 0 && oldB.Count == 0 ? "PASS" : "FAIL",
+                $"the rejoined window first showed the match at event {fromB}; it showed {diceB.Count} rolls, {oldB.Count} from before that");
             // Both HUD lines at the end: the same turn, phase and objectives, and each seat's VP the other way round.
             var stripA = endA.GetValueOrDefault("strip", "");
             var stripB = endB.GetValueOrDefault("strip", "");

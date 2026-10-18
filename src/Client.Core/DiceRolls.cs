@@ -7,6 +7,17 @@ namespace Client.Core;
 // One die as the server rolled it: its face, and whether it counted (bonus or penalty dice drop the others).
 public sealed record DieFace(int Value, bool Kept);
 
+public enum DiceCue
+{
+    None,
+    NewAction,
+    EndAction,
+    OwnBox,
+}
+
+// One event's part in the dice display: a roll, a cue, or the result that ends a charge.
+public sealed record DiceStep(DiceRoll? Roll, DiceCue Cue, string? FollowUp = null, RollVerdict FollowUpVerdict = RollVerdict.Neutral);
+
 public enum RollVerdict
 {
     Pass,
@@ -20,6 +31,8 @@ public enum RollVerdict
 // Result starts with a symbol (✓, ✓✓, ✗ or •) so colour is never the only cue.
 public sealed record DiceRoll(ModelId? Model, string Title, IReadOnlyList<DieFace> Dice, string Rule, string Result, RollVerdict Verdict)
 {
+    public bool Charge => Title.EndsWith(": charge bonus", StringComparison.Ordinal);
+
     public IReadOnlyList<int> Faces => Dice.Select(d => d.Value).ToList();
 }
 
@@ -43,6 +56,27 @@ public static class DiceRolls
                 "1 die: 1-3 a friend is the target, 4-6 the enemy may be",
                 t.HitsFriend ? $"✗ FRIENDLY FIRE {t.Die}" : $"✓ ENEMY TARGET {t.Die}", t.HitsFriend ? RollVerdict.Fail : RollVerdict.Pass),
             RollOffResolved r => RollOff(r),
+            _ => null,
+        };
+    }
+
+    // What an event means for the dice on screen (stage F2): a roll to show, the start or end of an action (so the rolls
+    // of one action share a box and the next action starts a new one), or the end of a charge. Null for the rest.
+    public static DiceStep? Step(GameEvent e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        if (Of(e) is { } roll)
+        {
+            return new(roll, e is MoraleCheckRolled or RollOffResolved ? DiceCue.OwnBox : DiceCue.None);
+        }
+        if (FollowUp(e) is { } follow)
+        {
+            return new(null, DiceCue.None, follow.Result, follow.Verdict);
+        }
+        return e switch
+        {
+            DashDeclared or RangedAttackDeclared or MeleeAttackDeclared or ChargeDeclared or RetreatDeclared => new(null, DiceCue.NewAction),
+            ActivationEnded or TurnEnded or MatchEnded => new(null, DiceCue.EndAction),
             _ => null,
         };
     }

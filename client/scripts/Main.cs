@@ -1031,7 +1031,30 @@ public partial class Main : Control
             ApplyTheme();
             PaintLog();
         };
-        return Row(size, contrast);
+        // Visible dice rolls (QoL stage F2): how long a box of dice stays on the battlefield, or Off.
+        var dice = new OptionButton();
+        foreach (var name in DiceChoices)
+        {
+            dice.AddItem(name);
+        }
+        dice.Select(1);
+        dice.ItemSelected += index => _board?.SetDiceSeconds(DiceSeconds[index]);
+        _diceChoice = dice;
+        return Row(size, contrast, dice);
+    }
+
+    private static readonly string[] DiceChoices = ["Dice: Short (2 s)", "Dice: Normal (4 s)", "Dice: Long (8 s)", "Dice: Off"];
+    private static readonly double[] DiceSeconds = [2, 4, 8, 0];
+    private OptionButton? _diceChoice;
+
+    // For the UI check: the dice setting as a player picks it in the Menu.
+    public void ChooseDice(int index)
+    {
+        if (_diceChoice is { } choice)
+        {
+            choice.Select(index);
+            choice.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+        }
     }
 
     private void ApplyTheme()
