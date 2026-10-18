@@ -272,10 +272,15 @@ public static class Program
             var differ = both.Where(k => diceA[k] != diceB[k]).Select(k => $"[{k}] {diceA[k]} || {diceB[k]}").ToList();
             Record("pvp-both-same-dice", both.Count > 0 && differ.Count == 0 ? "PASS" : "FAIL",
                 differ.Count == 0 ? $"{both.Count} rolls shown in both windows, all alike (Seat One showed {diceA.Count}, Seat Two after rejoining {diceB.Count})" : string.Join("; ", differ.Take(5)));
-            var fromB = int.TryParse(endB.GetValueOrDefault("dice_from"), out var f) ? f : -1;
-            var oldB = diceB.Keys.Select(k => int.Parse(k)).Where(k => k <= fromB).ToList();
-            Record("pvp-rejoin-shows-no-old-dice", fromB > 0 && diceB.Count > 0 && oldB.Count == 0 ? "PASS" : "FAIL",
-                $"the rejoined window first showed the match at event {fromB}; it showed {diceB.Count} rolls, {oldB.Count} from before that");
+            // The rejoined window catches up on the match so far without showing it: a range of events from 0 up to where it
+            // rejoined (mid-match). None of its shown rolls may lie in a range it caught up on.
+            var skippedB = endB.GetValueOrDefault("dice_skipped", "").Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(r => r.Split('-')).Select(r => (From: int.Parse(r[0]), To: int.Parse(r[1]))).ToList();
+            var replayedB = int.TryParse(endB.GetValueOrDefault("dice_replayed"), out var rb) ? rb : 0;
+            var oldB = diceB.Keys.Select(k => int.Parse(k)).Where(k => k <= replayedB || skippedB.Any(r => k > r.From && k <= r.To)).ToList();
+            var caughtUp = Math.Max(replayedB, skippedB.Select(r => r.To).DefaultIfEmpty(0).Max());
+            Record("pvp-rejoin-shows-no-old-dice", caughtUp > 20 && diceB.Count > 0 && oldB.Count == 0 ? "PASS" : "FAIL",
+                $"the rejoined window was sent the match again up to event {replayedB} and caught up on {string.Join(", ", skippedB.Select(r => $"{r.From + 1}-{r.To}"))} without showing them; it showed {diceB.Count} rolls, {oldB.Count} of them from before");
             // Both HUD lines at the end: the same turn, phase and objectives, and each seat's VP the other way round.
             var stripA = endA.GetValueOrDefault("strip", "");
             var stripB = endB.GetValueOrDefault("strip", "");

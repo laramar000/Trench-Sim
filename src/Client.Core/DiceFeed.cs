@@ -25,8 +25,8 @@ public sealed class DiceBox
 
 // What the dice display holds (visible dice rolls, QoL stage F2): the server's rolls as they arrive, grouped per action,
 // each box kept for Seconds after its last roll and then dropped (or closed at once by a click). Seconds 0 is "Off":
-// nothing is shown, the rolls stay in the combat log. Only lines handed to Add are shown; the battlefield hands over
-// only events newer than the last it showed, so a roll is never shown twice and nothing is shown for a catch-up.
+// nothing is shown, the rolls stay in the combat log. Events the server sends again on joining or rejoining are not
+// shown, and the battlefield hands over only events newer than the last it showed, so a roll is never shown twice.
 public sealed class DiceFeed
 {
     public const double FadeSeconds = 0.6;
@@ -58,7 +58,8 @@ public sealed class DiceFeed
     public void Add(LogLine line, double now)
     {
         ArgumentNullException.ThrowIfNull(line);
-        if (line.Step is not { } step)
+        // The match so far, sent again on joining or rejoining, is not shown: it is in the combat log.
+        if (line.Step is not { } step || line.Replayed)
         {
             return;
         }

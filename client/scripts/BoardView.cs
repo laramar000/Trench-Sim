@@ -78,8 +78,13 @@ public partial class BoardView : SubViewportContainer
 
     public event Action? Changed;
 
-    // The newest event number when this battlefield first showed the match: nothing up to it is animated (UI check).
-    public int DiceFrom { get; private set; } = -1;
+    // The events this battlefield caught up on without showing them (after opening, rejoining or a long gap): from
+    // (exclusive) to (inclusive). Their rolls, notes and moves are only in the combat log (for the UI check).
+    private readonly List<(int From, int To)> _skipped = [];
+    public IReadOnlyList<(int From, int To)> Skipped => _skipped;
+
+    // The newest event this battlefield was handed as the match so far, sent again on joining or rejoining.
+    public int ReplayedUpTo { get; private set; }
 
     // The server's dice rolls, drawn in a corner of the battlefield (visible dice rolls, QoL stage F2).
     public DiceTray Dice { get; } = new();
@@ -1060,9 +1065,9 @@ public partial class BoardView : SubViewportContainer
         var newest = log.Count == 0 ? 0 : log[^1].Seq;
         if (_lastSeq < 0 || newest < _lastSeq || newest - _lastSeq > 20)
         {
-            if (DiceFrom < 0)
+            if (newest > Math.Max(_lastSeq, 0))
             {
-                DiceFrom = newest;
+                _skipped.Add((Math.Max(_lastSeq, 0), newest));
             }
             _lastSeq = newest;
             _glides.Clear();
@@ -1070,6 +1075,10 @@ public partial class BoardView : SubViewportContainer
         }
         foreach (var line in log.Where(l => l.Seq > _lastSeq))
         {
+            if (line.Replayed)
+            {
+                ReplayedUpTo = Math.Max(ReplayedUpTo, line.Seq);
+            }
             Dice.Feed.Add(line, DiceTray.Now);
             foreach (var note in line.Notes ?? [])
             {

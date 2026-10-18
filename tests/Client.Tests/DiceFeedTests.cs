@@ -125,6 +125,17 @@ public class DiceFeedTests
     }
 
     [Fact]
+    public void TheMatchSoFarSentAgainOnRejoiningIsNotShown()
+    {
+        var feed = new DiceFeed();
+        feed.Add(Line(5, new MeleeSuccessRolled(A1, B2, Check(3, 4))) with { Replayed = true }, 0);
+        Assert.Empty(feed.Boxes);
+        Assert.Empty(feed.Shown);
+        feed.Add(Line(6, new MeleeSuccessRolled(A1, B2, Check(3, 4))), 0);
+        Assert.Equal([6], feed.Shown.Select(r => r.Seq));
+    }
+
+    [Fact]
     public void ALongActionStartsAnotherBoxAfterFourRows()
     {
         var feed = new DiceFeed();

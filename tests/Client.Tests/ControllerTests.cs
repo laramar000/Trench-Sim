@@ -141,6 +141,12 @@ public sealed partial class TransportTests
             var screen = await Until(controller, s => s.Log.Count == log.Count && s.View.Outcome is not null);
             Assert.Equal(Enumerable.Range(1, log.Count), screen.Log.Select(l => l.Seq));
             Assert.Equal(log.Select(e => EventText.Line(e.Event)), screen.Log.Select(l => l.Text));
+            // Visible dice rolls: only the events the server sent again on joining (the match so far) count as replayed;
+            // their rolls are not shown. Every later event is new to the player.
+            var joinedAt = controller.Session!.Welcome!.Events;
+            Assert.Equal(screen.Log.Select(l => l.Seq <= joinedAt), screen.Log.Select(l => l.Replayed));
+            static string Shown(DiceStep? step) => step is null ? "" : $"{step.Cue} {string.Join(",", step.Roll?.Faces ?? [])} {step.Roll?.Result} {step.FollowUp}";
+            Assert.Equal(log.Select(e => Shown(DiceRolls.Step(e.Event))), screen.Log.Select(l => Shown(l.Step)));
             Assert.Equal(screen.View.Outcome, screen.View.Status);
             Assert.Empty(screen.Hints);
             Assert.Equal("the match is over.", screen.InputLocked);

@@ -2249,9 +2249,9 @@ public partial class UiCheck : Node
             {
                 problems.Add($"[{row.Seq}] shown {faces}, log {log}");
             }
-            if (row.Seq <= board.DiceFrom)
+            if (row.Seq <= board.ReplayedUpTo || board.Skipped.Any(r => row.Seq > r.From && row.Seq <= r.To))
             {
-                problems.Add($"[{row.Seq}] shown though it came before this window's first view ({board.DiceFrom})");
+                problems.Add($"[{row.Seq}] shown though this window caught up on it without showing it");
             }
         }
         var twice = shown.GroupBy(r => r.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
@@ -2417,7 +2417,8 @@ public partial class UiCheck : Node
         Write($"DUMP pvp-end log={string.Join("|", lines)}");
         Write($"DUMP pvp-end strip={Strip()}");
         Write($"DUMP pvp-end dice={string.Join("|", (board?.Dice.Feed.Shown ?? []).Select(r => $"{r.Seq}:{string.Join(",", r.Roll.Faces)}:{r.Roll.Result}{(r.FollowUp is null ? "" : " " + r.FollowUp)}"))}");
-        Write($"DUMP pvp-end dice_from={board?.DiceFrom ?? -1}");
+        Write($"DUMP pvp-end dice_replayed={board?.ReplayedUpTo ?? 0}");
+        Write($"DUMP pvp-end dice_skipped={string.Join(",", (board?.Skipped ?? []).Select(r => $"{r.From}-{r.To}"))}");
         // Stage D: one row per event line, in the same order and words, each with its kind's tag; the newest is marked.
         if (_main is Main screen)
         {
