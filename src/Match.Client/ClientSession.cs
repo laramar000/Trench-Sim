@@ -144,8 +144,11 @@ public sealed class ClientSession : IAsyncDisposable
 
     // Takes a seat back with its token, offering the copy this session holds. The server replays what is missing, or
     // everything if the copy is not a prefix of the match.
-    public async Task<ServerMessage> RejoinAsync(string code, string seatToken, CancellationToken cancellationToken = default) =>
-        await RequestAsync(new Rejoin(code, seatToken, Mirror.Events, Mirror.Events == 0 ? null : Mirror.Hash), cancellationToken);
+    public async Task<ServerMessage> RejoinAsync(string code, string seatToken, CancellationToken cancellationToken = default)
+    {
+        var copy = Mirror.Current;
+        return await RequestAsync(new Rejoin(code, seatToken, copy.Events, copy.Events == 0 ? null : copy.Hash), cancellationToken);
+    }
 
     // Tells the server the last token is saved. SaveToken does this automatically.
     public Task ConfirmTokenAsync(CancellationToken cancellationToken = default) => SendAsync(new TokenSaved(), cancellationToken);

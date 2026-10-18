@@ -318,7 +318,9 @@ public sealed class MatchController : IAsyncDisposable
     {
         lock (_gate)
         {
-            var state = _session?.Mirror.State ?? MatchState.None;
+            // One read of the copy: the network thread may apply the next event at any moment.
+            var copy = _session?.Mirror.Current;
+            var state = copy?.State ?? MatchState.None;
             var seat = _welcome?.Seat;
             var view = MatchView.Of(state, seat, _names);
             var locked = LockedReason();
@@ -347,19 +349,19 @@ public sealed class MatchController : IAsyncDisposable
                 _log.Values.TakeLast(_options.LogLines).ToList(),
                 BoardScene.Of(state, seat, _names),
                 state,
-                EndOf(view));
+                EndOf(view, copy));
         }
     }
 
     // The result, final hash and event count once the match has ended or been aborted (null before). The hash is the
     // copy's own: every event in it matched the server's hash, and an abort message must match it too (ClientSession).
-    private MatchEnd? EndOf(MatchView view)
+    private MatchEnd? EndOf(MatchView view, MirrorCopy? copy)
     {
-        if (_session is not { } session)
+        if (_session is not { } session || copy is null)
         {
             return null;
         }
-        var mirror = session.Mirror;
+        var mirror = copy;
         var aborted = _connection == ConnectionState.Aborted || session.Aborted is not null;
         if (!aborted && _connection != ConnectionState.Finished && mirror.State.Phase != Phase.Ended)
         {
