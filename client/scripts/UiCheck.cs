@@ -2259,9 +2259,22 @@ public partial class UiCheck : Node
         {
             return;
         }
+        // The box never blocks the battlefield: the pointer over its dice is over the battlefield.
+        var body = board.GlobalPosition + rect.Position + new Vector2(rect.Size.X * 0.3f, rect.Size.Y * 0.6f);
+        Input.ParseInputEvent(new InputEventMouseMotion { Position = body, GlobalPosition = body });
+        await Frames(3);
+        var hovered = GetViewport().GuiGetHoveredControl();
+        Check("pvp-dice-does-not-block-battlefield", hovered == board, $"pointer over box {id} at {body}: over {Describe(hovered)}");
+        if (tray.CloseRect(id) is not { } close)
+        {
+            Check("pvp-dice-click-closes", false, $"box {id} has no close button");
+            return;
+        }
         var before = Section("LAST COMMAND");
         var selected = board.Selected?.Id;
-        var at = board.GlobalPosition + rect.GetCenter();
+        var at = board.GlobalPosition + close.GetCenter();
+        Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
+        await Frames(2);
         foreach (var pressed in new[] { true, false })
         {
             Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
@@ -2269,7 +2282,7 @@ public partial class UiCheck : Node
         }
         await Frames(2);
         Check("pvp-dice-click-closes", !tray.BoxIds.Contains(id) && Section("LAST COMMAND") == before && board.Selected?.Id == selected,
-            $"box {id} {(tray.BoxIds.Contains(id) ? "still shown" : "closed")}; nothing sent: {Section("LAST COMMAND") == before}; selection kept: {board.Selected?.Id == selected}");
+            $"box {id} {(tray.BoxIds.Contains(id) ? "still shown" : "closed")} by its ✕; nothing sent: {Section("LAST COMMAND") == before}; selection kept: {board.Selected?.Id == selected}");
     }
 
     // A box beside its model is inside the battlefield and covers none of what it had to avoid (the models in the roll,

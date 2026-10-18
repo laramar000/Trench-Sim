@@ -6,7 +6,8 @@ using Godot;
 // (DicePlacement); the other boxes, rolls without a model (morale, roll-offs) and any box whose model is off screen or
 // crowded go in the tray, the battlefield's bottom-left corner, newest at the bottom. The camera never moves for a roll.
 // Each die slides in and settles on its real face (no other face is ever drawn); dice the rules dropped are grey and
-// struck through. A box fades after the chosen time; a click closes it. What is in a box comes only from DiceFeed
+// struck through. A box fades after the chosen time; its ✕ closes it, and every other click goes through to the
+// battlefield. What is in a box comes only from DiceFeed
 // (Client.Core), which reads the server's events.
 public partial class DiceTray : Control
 {
@@ -16,6 +17,7 @@ public partial class DiceTray : Control
     public const double DieDelay = 0.07;
 
     private readonly Dictionary<int, PanelContainer> _panels = [];
+    private readonly Dictionary<int, Button> _closeButtons = [];
     private float _scale = 1f;
     private bool _highContrast;
     private Rect2? _besideRect;
@@ -52,6 +54,10 @@ public partial class DiceTray : Control
 
     // The screen rectangle of a box (in the battlefield's coordinates), or null when it is not shown.
     public Rect2? BoxRect(int id) => _panels.TryGetValue(id, out var panel) && IsInstanceValid(panel) ? new Rect2(Position + panel.Position, panel.Size) : null;
+
+    // The ✕ of a box, in the battlefield's coordinates (for the UI check).
+    public Rect2? CloseRect(int id) => _closeButtons.TryGetValue(id, out var close) && IsInstanceValid(close) && BoxRect(id) is { } box
+        ? new Rect2(close.GetGlobalRect().Position - GetGlobalRect().Position + Position, close.Size) : null;
 
     public float BoxAlpha(int id) => _panels.TryGetValue(id, out var panel) ? panel.Modulate.A : 0;
 
@@ -156,6 +162,7 @@ public partial class DiceTray : Control
             child.QueueFree();
         }
         _panels.Clear();
+        _closeButtons.Clear();
         foreach (var box in Feed.Boxes)
         {
             var panel = MakeBox(box);
@@ -183,24 +190,32 @@ public partial class DiceTray : Control
             ContentMarginTop = 6,
             ContentMarginBottom = 6,
         };
-        var panel = new PanelContainer { MouseFilter = MouseFilterEnum.Stop, TooltipText = "Click to close. Every roll stays in the combat log." };
+        // The box lets every click through to the battlefield, so it never blocks play; only its ✕ closes it.
+        var panel = new PanelContainer { MouseFilter = MouseFilterEnum.Ignore };
         panel.AddThemeStyleboxOverride("panel", style);
         var id = box.Id;
-        panel.GuiInput += input =>
+        var close = new Button
         {
-            if (input is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
-            {
-                Feed.Dismiss(id);
-                panel.AcceptEvent();
-            }
+            Text = "✕",
+            Flat = true,
+            FocusMode = FocusModeEnum.None,
+            MouseFilter = MouseFilterEnum.Stop,
+            TooltipText = "Close. Every roll stays in the combat log.",
+            SizeFlagsVertical = SizeFlags.ShrinkBegin,
         };
-        var rows = new VBoxContainer();
+        close.AddThemeFontSizeOverride("font_size", (int)(14 * _scale));
+        close.Pressed += () => Feed.Dismiss(id);
+        _closeButtons[id] = close;
+        var rows = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         rows.AddThemeConstantOverride("separation", 4);
         foreach (var row in box.Rows)
         {
             rows.AddChild(MakeRow(row));
         }
-        panel.AddChild(rows);
+        var top = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+        top.AddChild(rows);
+        top.AddChild(close);
+        panel.AddChild(top);
         return panel;
     }
 

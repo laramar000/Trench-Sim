@@ -16,7 +16,7 @@ public class DicePlacementTests
     }
 
     [Fact]
-    public void ItTriesLeftAboveAndBelowInTurnAndNeverCoversWhatItMustAvoid()
+    public void ItTriesLeftAboveAndBelowThenFurtherOutAndNeverCoversWhatItMustAvoid()
     {
         var model = ScreenBox.Around(400, 300, 14);
         var right = new ScreenBox(430, 290, 20, 20);
@@ -26,7 +26,10 @@ public class DicePlacementTests
         var above = new ScreenBox(390, 200, 20, 20);
         Assert.Equal(new ScreenBox(300, 326, 200, 80), DicePlacement.Beside(400, 300, 200, 80, Field, [model, right, left, above]));
         var below = new ScreenBox(390, 350, 20, 20);
-        Assert.Null(DicePlacement.Beside(400, 300, 200, 80, Field, [model, right, left, above, below]));
+        // Then a little further out: right again, 40 px further.
+        Assert.Equal(new ScreenBox(466, 260, 200, 80), DicePlacement.Beside(400, 300, 200, 80, Field, [model, right, left, above, below]));
+        // Crowded all round: the tray.
+        Assert.Null(DicePlacement.Beside(400, 300, 200, 80, Field, [model, new ScreenBox(0, 0, 1000, 285), new ScreenBox(0, 315, 1000, 385), new ScreenBox(0, 285, 385, 30), new ScreenBox(415, 285, 585, 30)]));
     }
 
     [Fact]
@@ -35,7 +38,7 @@ public class DicePlacementTests
         Assert.Null(DicePlacement.Beside(-20, 300, 200, 80, Field, []));
         Assert.Null(DicePlacement.Beside(500, 760, 200, 80, Field, []));
         // In a corner nothing fits inside the battlefield.
-        Assert.Null(DicePlacement.Beside(5, 5, 600, 600, Field, []));
+        Assert.Null(DicePlacement.Beside(5, 5, 680, 680, Field, []));
     }
 
     [Fact]

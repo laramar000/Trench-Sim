@@ -15,8 +15,9 @@ public readonly record struct ScreenBox(double X, double Y, double Width, double
 }
 
 // Where a box of dice goes beside its model (visible dice rolls, QoL stage F3): right of the model, else left, above or
-// below it, the first of these that stays inside the battlefield and covers nothing to avoid (the models in the roll,
-// every label, the dice tray, the action bar). Null when none fits (or the model is off screen): the box goes in the tray.
+// below it (close in, then a little further out), else at a corner: the first of these that stays inside the
+// battlefield and covers nothing to avoid (the models in the roll, every label, the dice tray, the action bar). Null
+// when none fits (or the model is off screen): the box goes in the tray.
 public static class DicePlacement
 {
     public const double Gap = 26;
@@ -31,17 +32,23 @@ public static class DicePlacement
         bool Fits(ScreenBox box) => box.Inside(field) && !avoid.Any(a => a.Intersects(box));
         // Keep the place it had while it still fits, so a box does not jump about as the labels move.
         if (previous is { } kept && Math.Abs(kept.Width - width) < 1 && Math.Abs(kept.Height - height) < 1 && Fits(kept)
-            && Math.Abs(kept.X + width / 2 - modelX) < width + Gap * 2 && Math.Abs(kept.Y + height / 2 - modelY) < height + Gap * 2)
+            && Math.Abs(kept.X + width / 2 - modelX) < width / 2 + Gap + 80 + 1 && Math.Abs(kept.Y + height / 2 - modelY) < height / 2 + Gap + 80 + 1)
         {
             return kept;
         }
-        var candidates = new[]
+        // Right, left, above and below, close in first, then a little further out, then the four corners.
+        var candidates = new List<ScreenBox>();
+        foreach (var gap in new[] { Gap, Gap + 40, Gap + 80 })
         {
-            new ScreenBox(modelX + Gap, modelY - height / 2, width, height),
-            new ScreenBox(modelX - Gap - width, modelY - height / 2, width, height),
-            new ScreenBox(modelX - width / 2, modelY - Gap - height, width, height),
-            new ScreenBox(modelX - width / 2, modelY + Gap, width, height),
-        };
+            candidates.Add(new(modelX + gap, modelY - height / 2, width, height));
+            candidates.Add(new(modelX - gap - width, modelY - height / 2, width, height));
+            candidates.Add(new(modelX - width / 2, modelY - gap - height, width, height));
+            candidates.Add(new(modelX - width / 2, modelY + gap, width, height));
+        }
+        candidates.Add(new(modelX + Gap, modelY - Gap - height, width, height));
+        candidates.Add(new(modelX - Gap - width, modelY - Gap - height, width, height));
+        candidates.Add(new(modelX + Gap, modelY + Gap, width, height));
+        candidates.Add(new(modelX - Gap - width, modelY + Gap, width, height));
         foreach (var box in candidates)
         {
             if (Fits(box))
