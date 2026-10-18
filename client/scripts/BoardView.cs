@@ -138,6 +138,8 @@ public partial class BoardView : SubViewportContainer
         _bar.AddChild(_barRow);
         AddChild(_bar);
         AddChild(Dice);
+        Dice.ScreenOfModel = id => BodyAt(id) is { } body && ScreenOf(body.X, body.Z, body.Y) is { } p && new Rect2(Vector2.Zero, Size).HasPoint(p) ? p : null;
+        Dice.Avoid = () => ScreenLabelBoxes().Select(b => b.Box).Concat(_bar.Visible ? [new Rect2(_bar.Position, _bar.Size)] : []);
         FocusEntered += QueueRedraw;
         FocusExited += QueueRedraw;
         Resized += () =>
@@ -298,6 +300,23 @@ public partial class BoardView : SubViewportContainer
             {
                 _distance = Math.Clamp(d, 4, 200);
             }
+        }
+        PlaceCamera();
+        Changed?.Invoke();
+    }
+
+    // Looks at a table point (inches) from the given distance (for the UI check).
+    public void LookAtTable(Vector2 at, float distance)
+    {
+        _autoFit = false;
+        _target = new Vector3(at.X, 0, at.Y);
+        if (_topDown)
+        {
+            _orthoSize = distance;
+        }
+        else
+        {
+            _distance = distance;
         }
         PlaceCamera();
         Changed?.Invoke();

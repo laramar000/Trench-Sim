@@ -1,31 +1,46 @@
 using Client.Core;
 using Godot;
 
-// Visible dice rolls (QoL stage F2): the server's rolls drawn as dice in a corner of the battlefield, one box per
-// action, newest at the bottom. Each die slides in and settles on its real face (no other face is ever drawn); dice the
-// rules dropped are grey and struck through. A box fades after the chosen time; a click closes it. What is in a box
-// comes only from DiceFeed (Client.Core), which reads the server's events.
-public partial class DiceTray : VBoxContainer
+// Visible dice rolls (QoL stages F2 and F3): the server's rolls drawn as dice, one box per action. The newest box goes
+// beside its model when it fits there without covering the models in the roll, any label, the tray or the action bar
+// (DicePlacement); the other boxes, rolls without a model (morale, roll-offs) and any box whose model is off screen or
+// crowded go in the tray, the battlefield's bottom-left corner, newest at the bottom. The camera never moves for a roll.
+// Each die slides in and settles on its real face (no other face is ever drawn); dice the rules dropped are grey and
+// struck through. A box fades after the chosen time; a click closes it. What is in a box comes only from DiceFeed
+// (Client.Core), which reads the server's events.
+public partial class DiceTray : Control
 {
     public const float Margin = 10;
+    public const float Spacing = 6;
     public const double SettleSeconds = 0.35;
     public const double DieDelay = 0.07;
 
     private readonly Dictionary<int, PanelContainer> _panels = [];
     private float _scale = 1f;
     private bool _highContrast;
+    private Rect2? _besideRect;
 
     public DiceFeed Feed { get; } = new();
 
-    // The box ids on screen now, oldest first, and their rows as text (for the UI check).
+    // Where a model is on screen now (null when it is not drawn or behind the camera), and what a box beside a model must
+    // not cover; set by the battlefield.
+    public Func<Rules.Core.State.ModelId, Vector2?>? ScreenOfModel { get; set; }
+    public Func<IEnumerable<Rect2>>? Avoid { get; set; }
+
+    // The box ids on screen now, oldest first; the one beside its model (null when all are in the tray).
     public IReadOnlyList<int> BoxIds => [.. _panels.Keys];
+    public int? BesideId { get; private set; }
+
+    // What the box beside its model had to avoid when it was last placed (for the UI check).
+    public IReadOnlyList<Rect2> LastAvoided { get; private set; } = [];
 
     public static double Now => Time.GetTicksMsec() / 1000.0;
 
     public override void _Ready()
     {
         MouseFilter = MouseFilterEnum.Ignore;
-        AddThemeConstantOverride("separation", 6);
+        // After the battlefield has moved its labels this frame, so a box beside a model is placed against where they are.
+        ProcessPriority = 100;
     }
 
     public void SetLook(float scale, bool highContrast)
@@ -55,12 +70,82 @@ public partial class DiceTray : VBoxContainer
                 panel.Modulate = new Color(1, 1, 1, (float)Feed.Alpha(box, now));
             }
         }
-        if (GetParent() is Control parent)
+        Layout();
+    }
+
+    // Places the boxes: the newest beside its model if it fits, the rest stacked up from the bottom-left corner.
+    public void Layout()
+    {
+        if (GetParent() is not Control parent)
         {
-            var size = GetCombinedMinimumSize();
-            Size = size;
-            Position = new Vector2(Margin, Math.Max(Margin, parent.Size.Y - size.Y - Margin));
+            return;
         }
+        Position = Vector2.Zero;
+        Size = parent.Size;
+        var boxes = Feed.Boxes.Where(b => _panels.ContainsKey(b.Id)).ToList();
+        foreach (var box in boxes)
+        {
+            _panels[box.Id].Size = _panels[box.Id].GetCombinedMinimumSize();
+        }
+        var newest = boxes.Count > 0 ? boxes[^1] : null;
+        var tray = newest is null ? boxes : boxes.Take(boxes.Count - 1).ToList();
+        var trayRects = Stack(tray);
+        Rect2? beside = null;
+        if (newest is { Model: { } model } && ScreenOfModel?.Invoke(model) is { } at)
+        {
+            var size = _panels[newest.Id].Size;
+            var avoid = new List<Rect2>(Avoid?.Invoke() ?? []);
+            foreach (var id in newest.Rows.SelectMany(r => new[] { r.Roll.Model, r.Roll.Other }).OfType<Rules.Core.State.ModelId>().Distinct())
+            {
+                if (ScreenOfModel(id) is { } point)
+                {
+                    var half = 22 * _scale;
+                    avoid.Add(new Rect2(point - new Vector2(half, half), new Vector2(2 * half, 2 * half)));
+                }
+            }
+            avoid.AddRange(trayRects.Values);
+            LastAvoided = avoid;
+            var field = new ScreenBox(Margin, Margin, Size.X - 2 * Margin, Size.Y - 2 * Margin);
+            var previous = _besideRect is { } p && BesideId == newest.Id ? new ScreenBox(p.Position.X, p.Position.Y, p.Size.X, p.Size.Y) : (ScreenBox?)null;
+            if (DicePlacement.Beside(at.X, at.Y, size.X, size.Y, field, [.. avoid.Select(r => new ScreenBox(r.Position.X, r.Position.Y, r.Size.X, r.Size.Y))], previous) is { } chosen)
+            {
+                beside = new Rect2((float)chosen.X, (float)chosen.Y, (float)chosen.Width, (float)chosen.Height);
+            }
+        }
+        if (newest is not null && beside is null)
+        {
+            trayRects = Stack(boxes);
+        }
+        foreach (var (id, rect) in trayRects)
+        {
+            _panels[id].Position = rect.Position;
+        }
+        if (beside is { } placed && newest is not null)
+        {
+            _panels[newest.Id].Position = placed.Position;
+            BesideId = newest.Id;
+            _besideRect = placed;
+        }
+        else
+        {
+            BesideId = null;
+            _besideRect = null;
+        }
+    }
+
+    // The tray: boxes stacked up from the bottom-left corner, the last one at the bottom.
+    private Dictionary<int, Rect2> Stack(IReadOnlyList<DiceBox> boxes)
+    {
+        var rects = new Dictionary<int, Rect2>();
+        var y = Size.Y - Margin;
+        for (var i = boxes.Count - 1; i >= 0; i--)
+        {
+            var size = _panels[boxes[i].Id].Size;
+            y -= size.Y;
+            rects[boxes[i].Id] = new Rect2(new Vector2(Margin, y), size);
+            y -= Spacing;
+        }
+        return rects;
     }
 
     private void Rebuild()
@@ -77,7 +162,7 @@ public partial class DiceTray : VBoxContainer
             _panels[box.Id] = panel;
             AddChild(panel);
         }
-        Size = GetCombinedMinimumSize();
+        Layout();
     }
 
     private PanelContainer MakeBox(DiceBox box)

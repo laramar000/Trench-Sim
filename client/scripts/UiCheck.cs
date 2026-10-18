@@ -2141,6 +2141,7 @@ public partial class UiCheck : Node
             return;
         }
         var tray = board.Dice;
+        SampleBeside(board);
         foreach (var box in tray.Feed.Boxes.Where(b => b.Rows.Count > 1))
         {
             _diceStacks.Add($"{box.Id}: {string.Join(", ", box.Rows.Select(r => r.Seq))} {(box.Rows.Select(r => r.Seq).SequenceEqual(box.Rows.Select(r => r.Seq).Order()) ? "in order" : "OUT OF ORDER")}");
@@ -2169,30 +2170,40 @@ public partial class UiCheck : Node
         {
             return;
         }
+        if (!_diceOffscreenChecked && tray.Feed.Boxes.LastOrDefault() is { Model: { } model } withModel && board.Scene is { } scene)
+        {
+            // A box whose model goes off screen moves to the tray; the camera is not moved for it.
+            _diceOffscreenChecked = true;
+            await Frames(3);
+            var id = withModel.Id;
+            var body = board.BodyAt(model) ?? Vector3.Zero;
+            var far = new Vector2(body.X < scene.Width / 2 ? (float)scene.Width : 0, body.Z < scene.Depth / 2 ? (float)scene.Depth : 0);
+            var wasBeside = tray.BesideId == id;
+            board.LookAtTable(far, 6);
+            await Frames(4);
+            var target = board.CameraTarget;
+            await Frames(10);
+            var off = tray.ScreenOfModel?.Invoke(model) is null;
+            Check("pvp-dice-offscreen-tray", off && tray.BoxIds.Contains(id) && tray.BesideId != id && board.CameraTarget == target,
+                $"model {model.Value} off screen: {off}; box {id} beside it before: {wasBeside}, in the tray now: {tray.BoxIds.Contains(id) && tray.BesideId != id}; camera stayed: {board.CameraTarget == target}");
+            CheckTrayInside(board, id);
+            board.Fit();
+            await Frames(3);
+            if (!_diceClickChecked && tray.BoxIds.Contains(id))
+            {
+                await ClickDiceBox(board, id);
+            }
+            return;
+        }
         if (!_diceClickChecked)
         {
-            _diceClickChecked = true;
             await Frames(3);
             var id = tray.BoxIds[^1];
-            if (tray.BoxRect(id) is not { } rect)
+            if (tray.BesideId != id)
             {
-                return;
+                CheckTrayInside(board, id);
             }
-            var field = new Rect2(Vector2.Zero, board.Size);
-            Check("pvp-dice-tray-inside", field.Encloses(rect) && Math.Abs(rect.Position.X - DiceTray.Margin) < 1 && rect.End.Y <= board.Size.Y - DiceTray.Margin + 1
-                && rect.End.Y >= board.Size.Y - DiceTray.Margin - 1,
-                $"box {rect} in the battlefield {field}; dice {string.Join(" / ", tray.Feed.Boxes.Single(b => b.Id == id).Rows.Select(r => $"{string.Join(",", r.Roll.Faces)} {r.Roll.Result}"))}");
-            var before = Section("LAST COMMAND");
-            var selected = board.Selected?.Id;
-            var at = board.GlobalPosition + rect.GetCenter();
-            foreach (var pressed in new[] { true, false })
-            {
-                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
-                await Frames(2);
-            }
-            await Frames(2);
-            Check("pvp-dice-click-closes", !tray.BoxIds.Contains(id) && Section("LAST COMMAND") == before && board.Selected?.Id == selected,
-                $"box {id} {(tray.BoxIds.Contains(id) ? "still shown" : "closed")}; nothing sent: {Section("LAST COMMAND") == before}; selection kept: {board.Selected?.Id == selected}");
+            await ClickDiceBox(board, id);
             return;
         }
         if (!_diceFadeChecked)
@@ -2208,6 +2219,7 @@ public partial class UiCheck : Node
                 updated = box.Updated;
                 var alpha = tray.BoxAlpha(id);
                 halfway |= alpha is > 0.05f and < 0.95f;
+                SampleBeside(board);
                 await Frames(1);
             }
             var gone = DiceTray.Now - updated;
@@ -2219,6 +2231,62 @@ public partial class UiCheck : Node
             await Frames(2);
             _diceOffShown = tray.Feed.Shown.Count;
             _diceOffLogDice = LogDiceCount();
+        }
+    }
+
+    private bool _diceOffscreenChecked;
+    private bool _trayInsideChecked;
+    private int _besideSamples;
+    private readonly List<string> _besideProblems = [];
+
+    private void CheckTrayInside(BoardView board, int id)
+    {
+        if (_trayInsideChecked || board.Dice.BoxRect(id) is not { } rect)
+        {
+            return;
+        }
+        _trayInsideChecked = true;
+        var field = new Rect2(Vector2.Zero, board.Size);
+        Check("pvp-dice-tray-inside", field.Encloses(rect) && Math.Abs(rect.Position.X - DiceTray.Margin) < 1 && Math.Abs(rect.End.Y - (board.Size.Y - DiceTray.Margin)) < 1,
+            $"box {rect} in the battlefield {field}; dice {string.Join(" / ", board.Dice.Feed.Boxes.Single(b => b.Id == id).Rows.Select(r => $"{string.Join(",", r.Roll.Faces)} {r.Roll.Result}"))}");
+    }
+
+    private async Task ClickDiceBox(BoardView board, int id)
+    {
+        _diceClickChecked = true;
+        var tray = board.Dice;
+        if (tray.BoxRect(id) is not { } rect)
+        {
+            return;
+        }
+        var before = Section("LAST COMMAND");
+        var selected = board.Selected?.Id;
+        var at = board.GlobalPosition + rect.GetCenter();
+        foreach (var pressed in new[] { true, false })
+        {
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
+            await Frames(2);
+        }
+        await Frames(2);
+        Check("pvp-dice-click-closes", !tray.BoxIds.Contains(id) && Section("LAST COMMAND") == before && board.Selected?.Id == selected,
+            $"box {id} {(tray.BoxIds.Contains(id) ? "still shown" : "closed")}; nothing sent: {Section("LAST COMMAND") == before}; selection kept: {board.Selected?.Id == selected}");
+    }
+
+    // A box beside its model is inside the battlefield and covers none of what it had to avoid (the models in the roll,
+    // labels, the tray, the action bar), checked against the labels where they are now.
+    private void SampleBeside(BoardView board)
+    {
+        var tray = board.Dice;
+        if (tray.BesideId is not { } id || tray.BoxRect(id) is not { } rect || board.Gliding)
+        {
+            return;
+        }
+        _besideSamples++;
+        var now = board.ScreenLabelBoxes().Select(b => (b.Text, b.Box)).Concat(tray.LastAvoided.Select(r => ("avoided", r)));
+        var hits = now.Where(b => b.Item2.Intersects(rect.Grow(-1))).Select(b => $"{b.Item1} {b.Item2}").ToList();
+        if (!new Rect2(Vector2.Zero, board.Size).Encloses(rect) || hits.Count > 0)
+        {
+            _besideProblems.Add($"box {id} {rect} covers {string.Join(", ", hits.Take(3))}");
         }
     }
 
@@ -2258,6 +2326,10 @@ public partial class UiCheck : Node
         var compared = shown.Count(r => logged.ContainsKey(r.Seq));
         Check("pvp-dice-shown-once-as-logged", shown.Count > 0 && compared > 0 && problems.Count == 0 && twice.Count == 0,
             $"{shown.Count} rolls shown, {compared} compared with the log's dice, {logged.Count} in the log; shown twice: {string.Join(",", twice)}; {string.Join(" / ", problems.Take(5))}");
+        if (_besideSamples > 0)
+        {
+            Check("pvp-dice-beside-model-clear", _besideProblems.Count == 0, $"{_besideSamples} looks at a box beside its model; {string.Join(" / ", _besideProblems.Take(4))}");
+        }
         if (_diceStacks.Count > 0)
         {
             Check("pvp-dice-stacked", _diceStacks.All(s => s.EndsWith("in order", StringComparison.Ordinal)), string.Join(" / ", _diceStacks.Distinct().Take(6)));

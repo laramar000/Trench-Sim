@@ -33,6 +33,9 @@ public sealed record DiceRoll(ModelId? Model, string Title, IReadOnlyList<DieFac
 {
     public bool Charge => Title.EndsWith(": charge bonus", StringComparison.Ordinal);
 
+    // The other model in the roll (the target, or the attacker of an injury), which the dice must not cover either.
+    public ModelId? Other { get; init; }
+
     public IReadOnlyList<int> Faces => Dice.Select(d => d.Value).ToList();
 }
 
@@ -43,6 +46,20 @@ public static class DiceRolls
     public static DiceRoll? Of(GameEvent e)
     {
         ArgumentNullException.ThrowIfNull(e);
+        ModelId? other = e switch
+        {
+            RangedSuccessRolled r => r.Target,
+            MeleeSuccessRolled m => m.Target,
+            InjuryRolled i => i.Attacker,
+            ChargeRolled c => c.Target,
+            ShootingTargetRolled t => t.Target,
+            _ => null,
+        };
+        return Roll(e) is { } roll ? roll with { Other = other } : null;
+    }
+
+    private static DiceRoll? Roll(GameEvent e)
+    {
         return e switch
         {
             DashRolled d => Success(d.Model, $"{Id(d.Model)} DASHES: Risky roll", d.Check, "DASH", "DASH FAILED"),
