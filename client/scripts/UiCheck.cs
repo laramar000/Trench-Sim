@@ -2142,6 +2142,8 @@ public partial class UiCheck : Node
         }
         var tray = board.Dice;
         SampleBeside(board);
+        await Frames(2);
+        SampleBeside(board);
         foreach (var box in tray.Feed.Boxes.Where(b => b.Rows.Count > 1))
         {
             _diceStacks.Add($"{box.Id}: {string.Join(", ", box.Rows.Select(r => r.Seq))} {(box.Rows.Select(r => r.Seq).SequenceEqual(box.Rows.Select(r => r.Seq).Order()) ? "in order" : "OUT OF ORDER")}");
@@ -2237,6 +2239,7 @@ public partial class UiCheck : Node
     private bool _diceOffscreenChecked;
     private bool _trayInsideChecked;
     private int _besideSamples;
+    private (int, Rect2)? _besideLast;
     private readonly List<string> _besideProblems = [];
 
     private void CheckTrayInside(BoardView board, int id)
@@ -2260,10 +2263,14 @@ public partial class UiCheck : Node
             return;
         }
         // The box never blocks the battlefield: the pointer over its dice is over the battlefield.
+        // (The keyboard checks make the battlefield ignore the mouse; it takes the mouse again for this look, as in play.)
+        var filter = board.MouseFilter;
+        board.MouseFilter = Control.MouseFilterEnum.Stop;
         var body = board.GlobalPosition + rect.Position + new Vector2(rect.Size.X * 0.3f, rect.Size.Y * 0.6f);
         Input.ParseInputEvent(new InputEventMouseMotion { Position = body, GlobalPosition = body });
         await Frames(3);
         var hovered = GetViewport().GuiGetHoveredControl();
+        board.MouseFilter = filter;
         Check("pvp-dice-does-not-block-battlefield", hovered == board, $"pointer over box {id} at {body}: over {Describe(hovered)}");
         if (tray.CloseRect(id) is not { } close)
         {
@@ -2291,6 +2298,14 @@ public partial class UiCheck : Node
     {
         var tray = board.Dice;
         if (tray.BesideId is not { } id || tray.BoxRect(id) is not { } rect || board.Gliding)
+        {
+            _besideLast = null;
+            return;
+        }
+        // Only a box that has stayed put since the last look: the tray places boxes once a frame, after the labels move.
+        var stable = _besideLast == (id, rect);
+        _besideLast = (id, rect);
+        if (!stable)
         {
             return;
         }
