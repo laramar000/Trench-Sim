@@ -158,6 +158,7 @@ public partial class BoardView : SubViewportContainer
         }
         Rebuild();
         ApplyGlides();
+        UpdateSeeThrough();
         DrawPreview();
         if (first)
         {
@@ -420,6 +421,7 @@ public partial class BoardView : SubViewportContainer
         Sync();
         UpdateBar();
         ApplyGlides();
+        UpdateSeeThrough();
         SeparateLabels();
         if (Interaction.ServerNotes != _serverNotesShown)
         {
@@ -1046,6 +1048,49 @@ public partial class BoardView : SubViewportContainer
         _lastSeq = newest;
     }
 
+    // ---- see-through walls (XCOM-style UX) ----
+
+    // In the angled view, a wall or other tall piece between the camera and a model (as drawn, also while it travels) is
+    // drawn faint, in its own colour, so no model is ever hidden behind terrain; it is solid again as soon as it hides
+    // nothing. Top-down nothing can hide. Display only: sight and cover come from the rules.
+    public const float FadedAlpha = 0.3f;
+
+    private readonly Dictionary<string, StandardMaterial3D> _terrainPaint = [];
+    private readonly HashSet<string> _faded = [];
+
+    // The terrain drawn see-through now, and the terrain that hides a model from the current camera (for the UI check).
+    public IReadOnlySet<string> FadedTerrain => _faded;
+
+    public IReadOnlySet<string> HidingTerrain() => _scene is not { } scene || _topDown
+        ? new HashSet<string>()
+        : SeeThrough.Hiding(new SeeThrough.Point3(_camera.GlobalPosition.X, _camera.GlobalPosition.Z, _camera.GlobalPosition.Y), scene.Terrain,
+            _modelNodes.Values.Where(n => n.Count > 0 && IsInstanceValid(n[0].Node)).Select(n => n[0].Node.Position)
+                .Select(at => new SeeThrough.Point3(at.X, at.Z, at.Y)));
+
+    // The alpha a terrain piece is drawn with now (for the UI check); null when it is not a tall piece.
+    public float? TerrainAlpha(string id) => _terrainPaint.TryGetValue(id, out var paint) ? paint.AlbedoColor.A : null;
+
+    private void UpdateSeeThrough()
+    {
+        if (_terrainPaint.Count == 0)
+        {
+            return;
+        }
+        var hiding = HidingTerrain();
+        if (hiding.SetEquals(_faded))
+        {
+            return;
+        }
+        foreach (var (id, paint) in _terrainPaint)
+        {
+            var fade = hiding.Contains(id);
+            paint.AlbedoColor = paint.AlbedoColor with { A = fade ? FadedAlpha : 1f };
+            paint.Transparency = fade ? BaseMaterial3D.TransparencyEnum.Alpha : BaseMaterial3D.TransparencyEnum.Disabled;
+        }
+        _faded.Clear();
+        _faded.UnionWith(hiding);
+    }
+
     // ---- watchable moves (XCOM-style UX, improvement 3) ----
 
     // A model the server moved travels its path from where it was drawn, briefly, instead of jumping. Only the drawing
@@ -1381,6 +1426,8 @@ public partial class BoardView : SubViewportContainer
         _idLabels.Clear();
         _fixedLabels.Clear();
         _modelNodes.Clear();
+        _terrainPaint.Clear();
+        _faded.Clear();
         _labelsPlaced = "";
         if (_scene is not { } scene)
         {
@@ -1403,6 +1450,10 @@ public partial class BoardView : SubViewportContainer
             var area = piece.Area;
             var h = (float)piece.Height;
             Box(new Vector3((float)area.CentreX, h / 2, (float)area.CentreY), new Vector3((float)area.Width, h, (float)area.Depth), TerrainColour(piece));
+            if (piece.Height >= SeeThrough.MinHeight && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D paint })
+            {
+                _terrainPaint[piece.Id] = paint;
+            }
             // Proposal G: only objectives carry text ("OBJ-2"); the kind of terrain shows by its colour and height, and the
             // panel's Details has the legend.
             if (piece.Objective)

@@ -418,6 +418,7 @@ public partial class UiCheck : Node
             unlabelled.Count == 0 ? string.Join(" | ", scene.Models.Select(m => board.IdLabelOf(m.Id))) : $"no short id for {string.Join(", ", unlabelled)}");
         await LabelLayoutChecks(board, "board");
         await LayoutChecks(board);
+        await SeeThroughChecks(board, scene);
         var reached = await FocusByTab(board, 80);
         Check("board-tab-focus", reached, $"focus on {Describe(Focused())}");
         if (!reached)
@@ -1187,6 +1188,68 @@ public partial class UiCheck : Node
         Check("layout-log-beside-battlefield", main.CombatLog.IsVisibleInTree() && panel is { } p && log.Position.X >= board.GetGlobalRect().End.X
             && log.Position.Y >= p.End.Y && log.End.Y <= row.End.Y + 1 && log.Size.Y >= 100 && main.BattlefieldRow.IsAncestorOf(main.CombatLog),
             $"battlefield {board.GetGlobalRect()}; panel {panel}; log {log}");
+    }
+
+    // See-through walls: the camera is moved until a tall piece stands between it and a model; that piece (and only the
+    // pieces hiding a model) is drawn faint, every other piece solid; top-down nothing is faint. The camera is put back
+    // as it was (angled, facing the same way, the table fitted).
+    private async Task SeeThroughChecks(BoardView board, BoardScene scene)
+    {
+        var yaw = board.Yaw;
+        var wasTopDown = board.TopDown;
+        if (wasTopDown)
+        {
+            board.ToggleTopDown();
+        }
+        IReadOnlySet<string> hiding = new HashSet<string>();
+        var where = "";
+        foreach (var turn in new[] { 0, 1, 2, 3 })
+        {
+            foreach (var model in scene.Models)
+            {
+                foreach (var distance in new[] { 10f, 16f, 24f })
+                {
+                    board.CentreOn(model.Id, distance);
+                    await Frames(2);
+                    hiding = board.HidingTerrain();
+                    if (hiding.Count > 0)
+                    {
+                        where = $"facing {board.CameraText}, on {model.Id.Value} at {distance}\"";
+                        break;
+                    }
+                }
+                if (hiding.Count > 0)
+                {
+                    break;
+                }
+            }
+            if (hiding.Count > 0)
+            {
+                break;
+            }
+            board.Turn(1);
+            await Frames(2);
+        }
+        var tall = scene.Terrain.Where(t => t.Height >= SeeThrough.MinHeight).Select(t => t.Id).ToList();
+        string Alphas() => string.Join(", ", tall.Select(id => $"{id} {board.TerrainAlpha(id):0.0}"));
+        var faded = board.FadedTerrain.ToHashSet();
+        var fadeOk = hiding.Count > 0 && faded.SetEquals(hiding)
+            && tall.All(id => board.TerrainAlpha(id) is { } a && (hiding.Contains(id) ? Math.Abs(a - BoardView.FadedAlpha) < 0.01f : a == 1f));
+        var fadedText = $"{where}; hiding {string.Join(",", hiding)}; drawn {Alphas()}";
+        board.ToggleTopDown();
+        await Frames(3);
+        var topDownSolid = board.FadedTerrain.Count == 0 && tall.All(id => board.TerrainAlpha(id) == 1f);
+        var topText = Alphas();
+        board.ToggleTopDown();
+        board.Turn(((yaw - board.Yaw) / 90 % 4 + 4) % 4);
+        if (wasTopDown)
+        {
+            board.ToggleTopDown();
+        }
+        board.Fit();
+        await Frames(3);
+        Check("board-see-through-walls", fadeOk && topDownSolid && board.Yaw == yaw && board.TopDown == wasTopDown,
+            $"{fadedText}; top-down: {topText}; camera back to {board.CameraText}");
     }
 
     // Proposal G: the words over the battlefield are short (ids, zones, objectives, notes of a word or two, inches), and
