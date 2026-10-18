@@ -26,10 +26,13 @@ public class MirrorCopyTests
         {
             var mirror = new MatchMirror();
             using var done = new CancellationTokenSource();
+            using var started = new ManualResetEventSlim();
             var reads = 0;
-            var reader = Task.Run(() =>
+            // A thread of its own, started before the first event, so a busy machine cannot leave it unscheduled.
+            var reader = Task.Factory.StartNew(() =>
             {
-                while (!done.IsCancellationRequested)
+                started.Set();
+                do
                 {
                     var copy = mirror.Current;
                     Assert.Equal(hashes[copy.Events], copy.Hash);
@@ -37,7 +40,9 @@ public class MirrorCopyTests
                     Assert.Equal(copy.Events == published.Count, copy.State.Phase == Phase.Ended);
                     reads++;
                 }
-            });
+                while (!done.IsCancellationRequested);
+            }, TaskCreationOptions.LongRunning);
+            started.Wait();
             foreach (var p in published)
             {
                 mirror.Apply(p);
