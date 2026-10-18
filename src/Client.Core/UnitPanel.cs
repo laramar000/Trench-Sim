@@ -181,7 +181,7 @@ public static class UnitPanel
             {
                 details.Add($"Terrain on this table: {string.Join("; ", kinds)}.");
             }
-            details.Add("Battlefield marks: OBJ-n objective, ZONE deployment edge, ✓ activated, ↓ down, ✕ not a valid target.");
+            details.Add("Battlefield marks: OBJ-n objective, ZONE deployment edge, •N Blood Markers, ✓ activated, ↓ down, ✕ not a valid target.");
         }
 
         return new UnitPanelView(title, lines, unavailable, actionTitle, action, refusal, interaction.Notice, details,

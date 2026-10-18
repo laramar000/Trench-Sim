@@ -63,7 +63,8 @@ public sealed record ModelShape(
     bool Active,
     bool Yours,
     bool Activated = false,
-    bool Eligible = false)
+    bool Eligible = false,
+    int BloodMarkers = 0)
 {
     // Activated: the server's ActivatedThisTurn (the rules clear it at the next turn). Eligible: it can still activate
     // this turn (the activation phase, deployed, on the table, not activated), the same conditions the rules check for
@@ -71,10 +72,13 @@ public sealed record ModelShape(
     // (TurnSequence.LegalCommands, a test checks). Both are display only: they never decide anything.
     public string Label => $"[{SeatLetter}] {Name}{(Active ? ", ACTIVE" : Activated ? ", activated" : "")}{(Status == ModelStatus.Standing ? "" : $", {Words.Status(Status)}")}";
 
-    // Proposal G: the label drawn over the model on the battlefield: its short id ("A2"), then a mark when it has
-    // activated this turn (✓) and when it is Down (↓). The full name and state are in the panel beside the battlefield.
+    // Proposal G: the label drawn over the model on the battlefield: its short id ("A2"), its Blood Markers when it has
+    // any ("•2", the server's count; XCOM-style UX improvement 2), then a mark when it has activated this turn (✓) and
+    // when it is Down (↓). The full name and state are in the panel beside the battlefield.
     public string ShortLabel(string activatedMark = "✓", string downMark = "↓") =>
-        $"{Id.Value.ToUpperInvariant()}{(Activated && !Active ? " " + activatedMark : "")}{(Status == ModelStatus.Down ? " " + downMark : "")}";
+        $"{Id.Value.ToUpperInvariant()}{(BloodMarkers > 0 ? $" {MarkerMark}{BloodMarkers}" : "")}{(Activated && !Active ? " " + activatedMark : "")}{(Status == ModelStatus.Down ? " " + downMark : "")}";
+
+    public const string MarkerMark = "•";
 
     // How the battlefield draws the model's turn state (colour is never the only sign: the label says it too).
     public UnitLook Look => Active ? UnitLook.Active : Activated ? UnitLook.Activated : Eligible ? UnitLook.Eligible : UnitLook.Waiting;
@@ -133,7 +137,7 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
             models.Add(new ModelShape(model.Id, names.Of(model.Id), model.Seat, Words.SeatLetter(model.Seat),
                 TableRect.Inches(body.Centre.X), TableRect.Inches(body.Centre.Y), TableRect.Inches(body.Radius),
                 level.Level == ModelLevel.High, standing, model.Status, state.ActiveModel == model.Id, model.Seat == you,
-                model.ActivatedThisTurn, CanStillActivate(state, model)));
+                model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers));
         }
         return new BoardScene(TableRect.Inches(field.Width), TableRect.Inches(field.Height), zones, terrain, models);
     }

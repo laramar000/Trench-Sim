@@ -75,7 +75,7 @@ Beside the battlefield, on the right, a panel says what the battlefield does not
 ### Short labels on the battlefield (proposal G, step G2)
 
 The battlefield shows positioning; words live in the panel. Over the 3D view there are only:
-- **Model ids:** "A2" (seat letter and number), with "✓" once activated this turn (dimmed) and "↓" when Down; the selected model's id is larger.
+- **Model ids:** "A2" (seat letter and number), with "•2" when it has Blood Markers (the server's count, XCOM-style UX improvement 2, so you can see at a glance whose markers can be spent), "✓" once activated this turn (dimmed) and "↓" when Down, for example "B3 •2 ↓"; the selected model's id is larger.
 - **Zones:** "ZONE A" / "ZONE B" at the zone's outer edge. **Objectives:** "OBJ-2". Other terrain has no text: its height and colour show the kind, and the legend is under Details.
 - **Notes** of a word or two over a model: DASH FAILED, HIT, MISSED, DOWN +1 BLOOD, REFUSED, TOO FAR, CAN'T SWITCH, FRIENDLY FIRE...
 - **Previews:** the inches of each leg of a path, and at the end of a charge path the roll it needs ("4+", "ANY" or "SHORT").

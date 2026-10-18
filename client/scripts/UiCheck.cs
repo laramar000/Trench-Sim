@@ -1967,6 +1967,7 @@ public partial class UiCheck : Node
     // One own activation: Fight, else Charge (then Fight), else Shoot, else Move; the activation is then ended by its hint.
     private async Task PvpActivation(BoardView board)
     {
+        CheckBloodLabels(board);
         if (!await FocusByTab(board, 80))
         {
             return;
@@ -1996,6 +1997,36 @@ public partial class UiCheck : Node
     // The action key, then N through the targets until the preview looks legal; Space sends it. Null when no target
     // looks legal (nothing is sent).
     private bool _diceChecked;
+    private int _bloodLabelsChecked;
+    private int _bloodLabelsWithMarkers;
+    private readonly List<string> _bloodLabelProblems = [];
+
+    // Every label drawn on the battlefield against its model in the battlefield's scene (built from the server's state;
+    // BoardSceneTests check the scene's counts against the rules' state): the Blood Markers, exactly when there are some.
+    private void CheckBloodLabels(BoardView? board)
+    {
+        if (board?.Scene is not { } scene)
+        {
+            return;
+        }
+        foreach (var shape in scene.Models)
+        {
+            if (board.IdLabelOf(shape.Id) is not { } label)
+            {
+                continue;
+            }
+            _bloodLabelsChecked++;
+            if (shape.BloodMarkers > 0)
+            {
+                _bloodLabelsWithMarkers++;
+            }
+            var shown = label.Contains(ModelShape.MarkerMark, StringComparison.Ordinal);
+            if (shown != shape.BloodMarkers > 0 || (shown && !label.Contains($" {ModelShape.MarkerMark}{shape.BloodMarkers}", StringComparison.Ordinal)))
+            {
+                _bloodLabelProblems.Add($"{label} has {shape.BloodMarkers}");
+            }
+        }
+    }
 
     private async Task<string?> PvpTarget(BoardView board, Key action, string name)
     {
@@ -2092,6 +2123,11 @@ public partial class UiCheck : Node
             && inOrder && lines[^1] == ended && lines[^1].StartsWith($"[{events}] ", StringComparison.Ordinal),
             $"{result.Replace('\n', '|')} || {ended} || {order}");
         var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        // XCOM-style UX, improvement 2: each label on the battlefield carries its model's Blood Markers as the server's
+        // state has them ("•2"); checked through the whole match, here at the end too.
+        CheckBloodLabels(board);
+        Check("pvp-labels-show-blood", _bloodLabelsChecked > 0 && _bloodLabelProblems.Count == 0,
+            $"{_bloodLabelsChecked} labels checked, {_bloodLabelsWithMarkers} with markers; {string.Join(" / ", _bloodLabelProblems.Take(5))}");
         Check("pvp-nothing-to-send", Hint() is null && (board is null || board.Interaction.Available.Count == 0),
             $"actions: {Section("YOUR ACTIONS").Replace('\n', '|')}");
         await Shot($"{_role}-match-ended");

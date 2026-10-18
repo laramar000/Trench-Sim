@@ -66,6 +66,36 @@ public class BoardSceneTests
         Assert.True(checkedModels > 1000, $"only {checkedModels} model positions checked");
     }
 
+    // XCOM-style UX, improvement 2: every model's label carries its Blood Markers as the server's state holds them
+    // ("•2"), both seats see the same count, and the label stays short.
+    [Fact]
+    public void LabelsShowEachModelsBloodMarkers()
+    {
+        var withMarkers = 0;
+        var counts = new HashSet<int>();
+        foreach (var state in States.Value.Where(s => s.Setup?.Scenario is not null))
+        {
+            var one = BoardScene.Of(state, Seat.One, ContentNames.None)!;
+            var two = BoardScene.Of(state, Seat.Two, ContentNames.None)!;
+            foreach (var shape in one.Models)
+            {
+                var markers = state.FindModel(shape.Id)!.BloodMarkers;
+                Assert.Equal(markers, shape.BloodMarkers);
+                Assert.Equal(markers, two.Find(shape.Id)!.BloodMarkers);
+                var label = shape.ShortLabel();
+                Assert.True(label.Length <= 18, label);
+                Assert.Equal(markers > 0, label.Contains($" {ModelShape.MarkerMark}{markers}", StringComparison.Ordinal));
+                Assert.StartsWith(shape.Id.Value.ToUpperInvariant(), label, StringComparison.Ordinal);
+                if (markers > 0)
+                {
+                    withMarkers++;
+                    counts.Add(markers);
+                }
+            }
+        }
+        Assert.True(withMarkers > 100 && counts.Count > 1, $"{withMarkers} labels with markers; counts {string.Join(",", counts)}");
+    }
+
     [Fact]
     public void TerrainUsesTheDisplayHeightsAndSaysWhatItIsInWords()
     {
