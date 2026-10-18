@@ -785,6 +785,7 @@ public partial class Main : Control
     private Label _pAction = null!;
     private Label _pRefusal = null!;
     private Label _pNotice = null!;
+    private Label _pPointing = null!;
     private Button _pDetailsButton = null!;
     private Label _pDetails = null!;
     private Button _pConfirm = null!;
@@ -819,6 +820,8 @@ public partial class Main : Control
         _pAction = Text("");
         _pRefusal = Text("");
         _pNotice = Text("");
+        _pPointing = Text("");
+        _pPointing.Name = "PanelPointing";
         _pDetails = Text("");
         _pDetails.Visible = false;
         _pDetailsButton = Button("Details ▸", () =>
@@ -828,7 +831,7 @@ public partial class Main : Control
             ShowPanel();
         });
         _pDetailsButton.Alignment = HorizontalAlignment.Left;
-        foreach (var control in new Control[] { _pTitle, _pUnit, _pUnavailable, _pActionTitle, _pAction, _pRefusal, _pNotice, _pDetails })
+        foreach (var control in new Control[] { _pTitle, _pUnit, _pUnavailable, _pActionTitle, _pAction, _pRefusal, _pPointing, _pNotice, _pDetails })
         {
             body.AddChild(control);
         }
@@ -860,7 +863,7 @@ public partial class Main : Control
         {
             return;
         }
-        var view = UnitPanel.Of(_controller.Snapshot().State, _board.Scene, _board.Interaction, _lastScreen.Seat, _board.Selected);
+        var view = UnitPanel.Of(_controller.Snapshot().State, _board.Scene, _board.Interaction, _lastScreen.Seat, _board.Selected, _board.Hovered);
         _panelView = view;
         var scale = _scale;
         _pTitle.Text = view.Title;
@@ -878,6 +881,9 @@ public partial class Main : Control
         _pRefusal.Text = view.Refusal ?? "";
         _pRefusal.Visible = view.Refusal is not null;
         _pRefusal.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : new Color(1f, 0.55f, 0.45f));
+        _pPointing.Text = string.Join("\n", view.Pointing);
+        _pPointing.Visible = view.Pointing.Count > 0;
+        _pPointing.Modulate = new Color(1, 1, 1, 0.85f);
         _pNotice.Text = view.Notice ?? "";
         _pNotice.Visible = view.Notice is not null;
         _pDetailsButton.Visible = view.Details.Count > 0;
@@ -894,7 +900,7 @@ public partial class Main : Control
     // The panel as shown (for the UI check): every visible line, and its buttons.
     public UnitPanelView? PanelView => _panelView;
 
-    public string PanelText => string.Join("\n", new[] { _pTitle, _pUnit, _pUnavailable, _pActionTitle, _pAction, _pRefusal, _pNotice, _pDetails }
+    public string PanelText => string.Join("\n", new[] { _pTitle, _pUnit, _pUnavailable, _pActionTitle, _pAction, _pRefusal, _pPointing, _pNotice, _pDetails }
         .Where(l => l.IsVisibleInTree()).Select(l => l.Text));
 
     public bool DetailsOpen => _detailsOpen;
@@ -909,6 +915,9 @@ public partial class Main : Control
 
     // The status line as shown (for the UI check).
     public string HudText => _hud.Text;
+
+    // The panel's "POINTING AT" lines as shown (for the UI check); empty when hidden.
+    public string PointingText => _pPointing.IsVisibleInTree() ? _pPointing.Text : "";
 
     private void ShowBoardInfo()
     {

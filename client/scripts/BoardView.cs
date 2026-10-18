@@ -103,6 +103,16 @@ public partial class BoardView : SubViewportContainer
 
     public ModelShape? Selected => _scene?.Find(_selected);
 
+    // The model under the pointer (QoL H1): a thin ring and a larger id on the battlefield, and "POINTING AT" in the
+    // panel. Pointing chooses nothing and sends nothing; it is worked out at most every 80 ms.
+    public ModelShape? Hovered => _scene?.Find(_hovered);
+
+    private ModelId? _hovered;
+    private Vector2? _pointer;
+    private double _hoverCheckedAt;
+    private readonly MeshInstance3D _hoverRing = new() { Visible = false };
+    public const double HoverSeconds = 0.08;
+
     public bool TopDown => _topDown;
 
     public int Yaw => _yaw;
@@ -132,6 +142,8 @@ public partial class BoardView : SubViewportContainer
         _viewport.AddChild(_overlay);
         _viewport.AddChild(_notes);
         _viewport.AddChild(_camera);
+        _viewport.AddChild(_hoverRing);
+        MouseExited += () => _pointer = null;
         Interaction.NameOf = id => _scene?.Find(id)?.Name ?? id.Value;
         _camera.MakeCurrent();
         _barRow.AddThemeConstantOverride("separation", 6);
@@ -472,6 +484,7 @@ public partial class BoardView : SubViewportContainer
         {
             Interaction.SetCursor(point.X, point.Y);
         }
+        UpdateHover();
         Sync();
         UpdateBar();
         ApplyGlides();
@@ -492,6 +505,10 @@ public partial class BoardView : SubViewportContainer
 
     public override void _GuiInput(InputEvent @event)
     {
+        if (@event is InputEventMouseMotion pointer)
+        {
+            _pointer = pointer.Position;
+        }
         switch (@event)
         {
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click:
@@ -1577,7 +1594,7 @@ public partial class BoardView : SubViewportContainer
             }
             // Proposal G: the short id ("A2", with ✓ once activated and ↓ when Down); the selected one larger, an activated
             // one dimmed. The full name and state are in the panel beside the battlefield.
-            var id = MakeText(model.ShortLabel(), new Vector3((float)model.X, LabelHeight(model), (float)model.Y), selected ? 1.15f : 0.9f);
+            var id = MakeText(model.ShortLabel(), new Vector3((float)model.X, LabelHeight(model), (float)model.Y), selected || model.Id == _hovered ? 1.15f : 0.9f);
             if (model.Activated && !model.Active)
             {
                 id.Modulate = new Color(1, 1, 1, 0.6f);
@@ -1609,6 +1626,59 @@ public partial class BoardView : SubViewportContainer
     public Color SeatColourOf(ModelShape model) => ModelColour(model);
 
     public IReadOnlyCollection<ModelId> EligibleRings => _eligibleRings;
+
+    // QoL H1: which model is under the pointer (not while panning, and not when the battlefield ignores the mouse); its id
+    // is drawn larger and a thin white ring follows its base as drawn.
+    private void UpdateHover()
+    {
+        var now = Time.GetTicksMsec() / 1000.0;
+        if (now - _hoverCheckedAt >= HoverSeconds || _pointer is null || MouseFilter == MouseFilterEnum.Ignore)
+        {
+            _hoverCheckedAt = now;
+            var over = _pointer is { } at && MouseFilter != MouseFilterEnum.Ignore && !_dragging ? ModelAt(at)?.Id : null;
+            if (over != _hovered)
+            {
+                SetHovered(over);
+            }
+        }
+        if (_hovered is { } id && Hovered is { } model && BodyAt(id) is { } body)
+        {
+            _hoverRing.Visible = true;
+            _hoverRing.Position = new Vector3(body.X, (float)model.Standing + 0.06f, body.Z);
+        }
+        else
+        {
+            _hoverRing.Visible = false;
+        }
+    }
+
+    // Whether the hover ring is drawn, and a model id label's font size now (for the UI check).
+    public bool HoverRingShown => _hoverRing.Visible;
+
+    public int? IdFontSize(ModelId id) => _idLabels.TryGetValue(id, out var label) && IsInstanceValid(label) ? label.FontSize : null;
+
+    public void SetHovered(ModelId? id)
+    {
+        if (id == _hovered)
+        {
+            return;
+        }
+        var before = _hovered;
+        _hovered = id;
+        foreach (var changed in new[] { before, id })
+        {
+            if (changed is { } m && _idLabels.TryGetValue(m, out var label) && IsInstanceValid(label))
+            {
+                label.FontSize = (int)(32 * (m == _selected || m == _hovered ? 1.15f : 0.9f) * _textScale);
+            }
+        }
+        if (Hovered is { } model)
+        {
+            _hoverRing.Mesh = new TorusMesh { InnerRadius = (float)model.Radius + 0.12f, OuterRadius = (float)model.Radius + 0.24f };
+            _hoverRing.MaterialOverride = Paint(_highContrast ? Colors.White : new Color(1, 1, 1, 0.85f), noDepth: true);
+        }
+        Changed?.Invoke();
+    }
 
     private void BaseRing(ModelShape model, float standing, float inner, float outer, Color colour)
     {

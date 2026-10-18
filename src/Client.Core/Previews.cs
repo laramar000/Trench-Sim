@@ -675,6 +675,17 @@ public static class Previews
         return cover;
     }
 
+    // The rules' distance between two models on the table, base edge to base edge (as the attack previews measure it), in
+    // words ("7.4\""); null when either is not on the table.
+    public static string? Gap(MatchState state, ModelId a, ModelId b)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return state.FindModel(a) is { } first && state.FindModel(b) is { } second && first.Status != ModelStatus.OutOfAction
+            && second.Status != ModelStatus.OutOfAction && BodyOf(state, first) is { } x && BodyOf(state, second) is { } y
+            ? Inch(Measure.Gap(x, y))
+            : null;
+    }
+
     private static IEnumerable<ModelState> OnTable(MatchState state) => state.Models.Where(m => m.Position is not null);
 
     private static ModelBody? BodyOf(MatchState state, ModelState model) =>

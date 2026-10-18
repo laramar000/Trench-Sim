@@ -21,6 +21,11 @@ public sealed record UnitPanelView(
     bool CanUndo = false)
 {
     public const string PreviewLine = "PREVIEW · the server decides";
+    public const string PointingPrefix = "POINTING AT ";
+
+    // The model under the pointer (QoL H1), when it is not the unit or target already shown: who it is and its state,
+    // or in Shoot, Charge and Fight what choosing it as the target would give. Nothing is chosen by pointing.
+    public IReadOnlyList<string> Pointing { get; init; } = [];
     public const string SentLine = "SENT · waiting for the server";
 
     // Every line shown without opening Details (for tests and the UI check).
@@ -47,6 +52,10 @@ public sealed record UnitPanelView(
         {
             yield return Refusal;
         }
+        foreach (var line in Pointing)
+        {
+            yield return line;
+        }
         if (Notice is not null)
         {
             yield return Notice;
@@ -68,7 +77,7 @@ public static class UnitPanel
         return $"{ShortId(unit.Id)} · {name}";
     }
 
-    public static UnitPanelView Of(MatchState state, BoardScene? scene, Interaction interaction, Seat? seat, ModelShape? selected)
+    public static UnitPanelView Of(MatchState state, BoardScene? scene, Interaction interaction, Seat? seat, ModelShape? selected, ModelShape? pointing = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(interaction);
@@ -90,10 +99,7 @@ public static class UnitPanel
         }
         else
         {
-            var model = state.FindModel(unit.Id);
-            var markers = model?.BloodMarkers ?? 0;
-            lines.Add($"{Words.Seat(unit.Seat)} [{unit.SeatLetter}]{(unit.Yours ? " (yours)" : "")} · {Words.Status(unit.Status)}" +
-                (markers > 0 ? $" · {markers} Blood Marker{(markers == 1 ? "" : "s")}" : ""));
+            lines.Add(StatusLine(state, unit));
             if (State(unit, interaction) is { } turnState)
             {
                 lines.Add(turnState);
@@ -186,7 +192,44 @@ public static class UnitPanel
 
         return new UnitPanelView(title, lines, unavailable, actionTitle, action, refusal, interaction.Notice, details,
             confirm?.Label ?? "Confirm", confirm?.Enabled == true, choosing && interaction.Pending is null,
-            bar.Items.Any(i => i.Kind == BarKind.Undo && i.Enabled));
+            bar.Items.Any(i => i.Kind == BarKind.Undo && i.Enabled))
+        {
+            Pointing = PointingAt(state, interaction, unit, pointing),
+        };
+    }
+
+    // Seat, Standing or Down, and Blood Markers: "Seat Two [B] · Down · 2 Blood Markers" (the server's state).
+    private static string StatusLine(MatchState state, ModelShape unit)
+    {
+        var markers = state.FindModel(unit.Id)?.BloodMarkers ?? 0;
+        return $"{Words.Seat(unit.Seat)} [{unit.SeatLetter}]{(unit.Yours ? " (yours)" : "")} · {Words.Status(unit.Status)}" +
+            (markers > 0 ? $" · {markers} Blood Marker{(markers == 1 ? "" : "s")}" : "");
+    }
+
+    // What the panel says about the model under the pointer (QoL H1). In Shoot, Charge and Fight, for an enemy: the rules'
+    // facts about it as a target (distance and range, sight, cover, long range) and whether it can be chosen, from the
+    // same check as a click. Otherwise: who it is, its state, and the rules' distance from the unit shown.
+    public static IReadOnlyList<string> PointingAt(MatchState state, Interaction interaction, ModelShape? unit, ModelShape? pointing)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(interaction);
+        if (pointing is null || pointing.Id == unit?.Id || (interaction.IsTarget && pointing.Id == interaction.Target))
+        {
+            return [];
+        }
+        var lines = new List<string> { UnitPanelView.PointingPrefix + Heading(pointing) };
+        if (!pointing.Yours && interaction.PreviewOf(pointing.Id) is { } preview)
+        {
+            lines.AddRange(preview.Facts.Where(PreviewCard.IsTargetFact).Select(f => f.TrimEnd('.')));
+            lines.Add(preview.Refusal is { } refused ? $"✕ {refused.Text}" : "✓ can be the target: click to choose it");
+            return lines;
+        }
+        lines.Add(StatusLine(state, pointing));
+        if (unit is not null && Previews.Gap(state, unit.Id, pointing.Id) is { } gap)
+        {
+            lines.Add($"{gap} from {ShortId(unit.Id)} (base to base)");
+        }
+        return lines;
     }
 
     // Why a target cannot be chosen, in a few words (the full reason and page show once it is the previewed target).

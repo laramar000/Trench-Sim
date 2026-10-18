@@ -721,6 +721,7 @@ public partial class UiCheck : Node
         Check("board-preview-cancel-clears", hadGhost && board.GhostAt is null && board.OverlayTexts.Count == 0 && interaction.Mode == InteractionMode.None
             && interaction.Pending is null && Section("LAST COMMAND") == lastCommand,
             $"ghost before Esc: {hadGhost}, after: {board.GhostAt}; labels: {board.OverlayTexts.Count}; mode {interaction.Mode}; last command unchanged: {Section("LAST COMMAND") == lastCommand}");
+        await HoverInspectCheck(board, scene, lastCommand);
         await MouseOff(board);
 
         // Shoot: the rules' own sight rays, distance and cover, on the battlefield and in the text.
@@ -761,6 +762,7 @@ public partial class UiCheck : Node
         if (other is not null && board.ScreenOf(other.X, other.Y, other.Standing) is { } spot)
         {
             var global = board.GetGlobalTransformWithCanvas() * spot;
+            await HoverTargetCheck(board, other, lastCommand);
             foreach (var pressed in new[] { true, false })
             {
                 Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
@@ -2755,6 +2757,62 @@ public partial class UiCheck : Node
     // The real mouse pointer may rest over (or cross) the window, and hovering over the battlefield moves its cursor.
     // The keyboard checks make the battlefield ignore the mouse first, so only their keys move the cursor; the mouse
     // checks turn it back on. The real pointer is never moved.
+    // ---- QoL H1: pointing at a model ----
+
+    // Moves the pointer (a synthetic event, never the real mouse) over a model and waits until the battlefield and the
+    // panel show it as pointed at.
+    private async Task<bool> PointAt(BoardView board, Rules.Core.State.ModelId id)
+    {
+        if (board.Scene?.Find(id) is not { } model || board.ScreenOf(model.X, model.Y, model.Standing) is not { } spot)
+        {
+            return false;
+        }
+        var global = board.GetGlobalTransformWithCanvas() * spot;
+        Input.ParseInputEvent(new InputEventMouseMotion { Position = global, GlobalPosition = global });
+        return await Until(() => board.Hovered?.Id == id && ((Main)_main).PointingText.Length > 0 ? "ok" : null, 3, "pointing") is not null;
+    }
+
+    // With no action chosen: pointing at an enemy rings it, draws its id as large as the selected one's and adds its state
+    // and the rules' distance to the panel. Nothing is selected, chosen, sent or written over the battlefield.
+    private async Task HoverInspectCheck(BoardView board, BoardScene scene, string lastCommand)
+    {
+        var field = new Rect2(Vector2.Zero, board.Size);
+        var foe = scene.Models.FirstOrDefault(m => !m.Yours && m.Id != board.Selected?.Id && board.ScreenOf(m.X, m.Y, m.Standing) is { } p && field.HasPoint(p));
+        if (foe is null)
+        {
+            Check("board-hover-inspect", false, "no enemy model on screen to point at");
+            return;
+        }
+        var selected = board.Selected?.Id;
+        var overlay = board.OverlayTexts.Count;
+        var pointed = await PointAt(board, foe.Id);
+        var text = ((Main)_main).PointingText;
+        var lines = text.Split('\n');
+        var bigger = selected is not { } s || board.IdFontSize(foe.Id) == board.IdFontSize(s);
+        var distance = selected is null || lines.Any(l => l.EndsWith($" from {UnitPanel.ShortId(selected.Value)} (base to base)", StringComparison.Ordinal));
+        Check("board-hover-inspect", pointed && lines[0] == UnitPanelView.PointingPrefix + UnitPanel.Heading(foe) && lines.Length >= 2
+            && lines[1].Contains(Words.Status(foe.Status), StringComparison.Ordinal) && distance && board.HoverRingShown && bigger
+            && board.Selected?.Id == selected && board.Interaction.Mode == InteractionMode.None && Section("LAST COMMAND") == lastCommand && board.OverlayTexts.Count == overlay,
+            $"pointing at {foe.Name}: {pointed}; panel: {text.Replace('\n', '|')}; ring: {board.HoverRingShown}; id size {board.IdFontSize(foe.Id)} (selected {(selected is { } t ? board.IdFontSize(t) : null)}); selection kept: {board.Selected?.Id == selected}; nothing sent: {Section("LAST COMMAND") == lastCommand}; battlefield texts {overlay} -> {board.OverlayTexts.Count}");
+    }
+
+    // In Shoot: pointing at an enemy that is not the chosen target shows, in the panel, the rules' facts about it as a
+    // target and whether it can be chosen (the same check as a click), and chooses nothing.
+    private async Task HoverTargetCheck(BoardView board, ModelShape other, string lastCommand)
+    {
+        var interaction = board.Interaction;
+        var chosen = interaction.Target;
+        var pointed = await PointAt(board, other.Id);
+        var text = ((Main)_main).PointingText;
+        var lines = text.Split('\n');
+        var preview = interaction.PreviewOf(other.Id);
+        var facts = preview?.Facts.Where(PreviewCard.IsTargetFact).Select(f => f.TrimEnd('.')).ToList() ?? [];
+        var verdict = preview?.Refusal is { } r ? $"✕ {r.Text}" : "✓ can be the target: click to choose it";
+        Check("board-hover-target-preview", pointed && preview is not null && lines[0] == UnitPanelView.PointingPrefix + UnitPanel.Heading(other)
+            && facts.All(lines.Contains) && lines[^1] == verdict && interaction.Target == chosen && interaction.Pending is null && Section("LAST COMMAND") == lastCommand,
+            $"pointing at {other.Name}: {pointed}; panel: {text.Replace('\n', '|')}; expected facts: {string.Join(" | ", facts)}; {verdict}; target kept: {interaction.Target == chosen}; nothing sent: {Section("LAST COMMAND") == lastCommand}");
+    }
+
     private async Task MouseOff(BoardView board)
     {
         board.MouseFilter = Control.MouseFilterEnum.Ignore;

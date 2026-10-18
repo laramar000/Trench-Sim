@@ -5,6 +5,16 @@ namespace Client.Core;
 // always says it is a preview and that the server decides; what the dice decide is said to be the server's.
 public static class PreviewCard
 {
+    // The rules' facts about a target worth showing: distance and range, sight, cover, long range, shooting into melee,
+    // charge reach.
+    public static bool IsTargetFact(string fact)
+    {
+        ArgumentNullException.ThrowIfNull(fact);
+        return fact.StartsWith("Distance", StringComparison.Ordinal) || fact.StartsWith("Line of sight", StringComparison.Ordinal)
+            || fact.StartsWith("Target ", StringComparison.Ordinal) || fact.StartsWith("Long range", StringComparison.Ordinal)
+            || fact.StartsWith("Short range", StringComparison.Ordinal) || fact.StartsWith("Shooting into melee", StringComparison.Ordinal);
+    }
+
     public static IReadOnlyList<string> Lines(Preview preview, ModelShape? target = null)
     {
         ArgumentNullException.ThrowIfNull(preview);
@@ -43,9 +53,7 @@ public static class PreviewCard
                 {
                     // The rules' facts about the target, in their own words: distance and range, sight, cover, long
                     // range, shooting into melee, charge reach.
-                    if (fact.StartsWith("Distance", StringComparison.Ordinal) || fact.StartsWith("Line of sight", StringComparison.Ordinal)
-                        || fact.StartsWith("Target ", StringComparison.Ordinal) || fact.StartsWith("Long range", StringComparison.Ordinal)
-                        || fact.StartsWith("Short range", StringComparison.Ordinal) || fact.StartsWith("Shooting into melee", StringComparison.Ordinal))
+                    if (IsTargetFact(fact))
                     {
                         lines.Add(fact.TrimEnd('.'));
                     }

@@ -384,6 +384,28 @@ public sealed class Interaction
     private List<(ModelId, Rejection?)>? _verdicts;
     private long _verdictsVersion = -1;
 
+    // Pointing at a model in Shoot, Charge or Fight (QoL H1): the preview of choosing it as the target, from the same rules
+    // check as a click (Previews.Target on the same state), before anything is chosen. Null outside target modes or for the
+    // model already chosen. Nothing is chosen or sent.
+    public Preview? PreviewOf(ModelId target)
+    {
+        if (!IsTarget || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor)
+        {
+            return null;
+        }
+        if (_pointedVersion != Version || _pointedAt != target)
+        {
+            _pointed = Previews.Target(_state, seat, Kind(Mode), actor, target);
+            _pointedVersion = Version;
+            _pointedAt = target;
+        }
+        return _pointed;
+    }
+
+    private Preview? _pointed;
+    private ModelId? _pointedAt;
+    private long _pointedVersion = -1;
+
     // A left click on the table while placing or choosing a path. A plain click is the destination: when the preview
     // says the server would accept it, the caller sends it at once (Send); when the preview refuses, nothing is sent
     // (Refused, with RefusedNote saying why). Shift+click adds a waypoint instead, for a path around something.
