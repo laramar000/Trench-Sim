@@ -2164,7 +2164,8 @@ public partial class UiCheck : Node
             var shownNow = tray.Feed.Shown.Count;
             Check("pvp-dice-off", tray.BoxIds.Count == 0 && shownNow == _diceOffShown,
                 $"Off: {LogDiceCount() - _diceOffLogDice} new rolls in the log, {shownNow - _diceOffShown} shown, {tray.BoxIds.Count} boxes on screen");
-            ((Main)_main).ChooseDice(1);
+            // Back to Long, so a box still has time left for the off-screen check if that has not had its chance yet.
+            ((Main)_main).ChooseDice(2);
             await Frames(2);
             return;
         }
