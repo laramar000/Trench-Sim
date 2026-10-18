@@ -1201,39 +1201,26 @@ public partial class UiCheck : Node
         {
             board.ToggleTopDown();
         }
+        // Deployment is rolled, so where models stand varies: put the camera just behind the tallest piece, on the
+        // line from a model through the piece's middle, so that piece must hide that model.
         IReadOnlySet<string> hiding = new HashSet<string>();
         var where = "";
-        foreach (var turn in new[] { 0, 1, 2, 3 })
+        var piece = scene.Terrain.Where(t => t.Height >= SeeThrough.MinHeight).OrderByDescending(t => t.Height).FirstOrDefault();
+        var model = scene.Models.FirstOrDefault(m => board.BodyAt(m.Id) is not null);
+        if (piece is not null && model is not null && board.BodyAt(model.Id) is { } body)
         {
-            foreach (var model in scene.Models)
-            {
-                foreach (var distance in new[] { 10f, 16f, 24f })
-                {
-                    board.CentreOn(model.Id, distance);
-                    await Frames(2);
-                    hiding = board.HidingTerrain();
-                    if (hiding.Count > 0)
-                    {
-                        where = $"facing {board.CameraText}, on {model.Id.Value} at {distance}\"";
-                        break;
-                    }
-                }
-                if (hiding.Count > 0)
-                {
-                    break;
-                }
-            }
-            if (hiding.Count > 0)
-            {
-                break;
-            }
-            board.Turn(1);
+            var middle = new Vector3((float)(piece.Area.X0 + piece.Area.X1) / 2, (float)piece.Height / 2, (float)(piece.Area.Y0 + piece.Area.Y1) / 2);
+            var half = (float)Math.Sqrt(Math.Pow(piece.Area.X1 - piece.Area.X0, 2) + Math.Pow(piece.Area.Y1 - piece.Area.Y0, 2)) / 2;
+            var camera = middle + (middle - body).Normalized() * (half + 1.5f);
+            board.PlaceCameraAt(camera);
             await Frames(2);
+            hiding = board.HidingTerrain();
+            where = $"camera behind {piece.Id} from {model.Id.Value}, facing {board.CameraText}";
         }
         var tall = scene.Terrain.Where(t => t.Height >= SeeThrough.MinHeight).Select(t => t.Id).ToList();
         string Alphas() => string.Join(", ", tall.Select(id => $"{id} {board.TerrainAlpha(id):0.0}"));
         var faded = board.FadedTerrain.ToHashSet();
-        var fadeOk = hiding.Count > 0 && faded.SetEquals(hiding)
+        var fadeOk = piece is not null && hiding.Contains(piece.Id) && faded.SetEquals(hiding)
             && tall.All(id => board.TerrainAlpha(id) is { } a && (hiding.Contains(id) ? Math.Abs(a - BoardView.FadedAlpha) < 0.01f : a == 1f));
         var fadedText = $"{where}; hiding {string.Join(",", hiding)}; drawn {Alphas()}";
         board.ToggleTopDown();

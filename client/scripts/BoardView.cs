@@ -280,6 +280,18 @@ public partial class BoardView : SubViewportContainer
         Changed?.Invoke();
     }
 
+    // Puts the angled camera at a point (Godot units: x, height, table y), keeping its facing (for the UI check).
+    public void PlaceCameraAt(Vector3 at)
+    {
+        _autoFit = false;
+        _distance = 4;
+        var yaw = Mathf.DegToRad(_yaw);
+        var pitch = Mathf.DegToRad(AngledPitch);
+        _target = at - new Vector3(Mathf.Sin(yaw) * Mathf.Cos(pitch), Mathf.Sin(pitch), Mathf.Cos(yaw) * Mathf.Cos(pitch)) * _distance;
+        PlaceCamera();
+        Changed?.Invoke();
+    }
+
     // Turns the camera to a table point (inches) at the current zoom: a move that ends off screen is followed there.
     private void CentreOnPoint(Vector2 at)
     {
@@ -1112,6 +1124,9 @@ public partial class BoardView : SubViewportContainer
 
     // Whether a model is still travelling on screen (the UI check waits for this before it measures the drawing).
     public bool Gliding => _glides.Count > 0;
+
+    // The point of a model the see-through walls keep visible (Godot units: x, height, table y; for the UI check).
+    public Vector3? BodyAt(ModelId id) => _modelNodes.TryGetValue(id, out var nodes) && nodes.Count > 0 ? nodes[0].Node.Position : null;
 
     // Where a model is drawn now (its base centre, inches); the server's position once it has stopped.
     public Vector2? DrawnAt(ModelId id) => _modelNodes.TryGetValue(id, out var nodes) && nodes.Count > 0
