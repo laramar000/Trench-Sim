@@ -78,6 +78,9 @@ public class ClientAuthorityTest
         "System.Activator",
         "System.Runtime.Loader.AssemblyLoadContext",
         "System.Reflection.Emit.DynamicMethod",
+        // Visible dice rolls (QoL stage F): the client shows the server's dice and never makes up a number of its own.
+        "System.Random",
+        "Godot.RandomNumberGenerator",
     ];
 
     private static readonly HashSet<string> ForbiddenGodotMembers =
@@ -94,12 +97,19 @@ public class ClientAuthorityTest
         "System.Reflection.Assembly.LoadFrom",
         "System.Reflection.Assembly.LoadFile",
         "System.Reflection.Assembly.GetType",
+        "Godot.GD.Randi",
+        "Godot.GD.Randf",
+        "Godot.GD.Randfn",
+        "Godot.GD.RandRange",
+        "Godot.GD.Randomize",
+        "Godot.GD.Seed",
     ];
 
     // The same rules, as text, for the Godot client's sources: a quick extra check, not the guard.
     private static readonly Regex ForbiddenSource = new(
         @"\bTurnSequence\s*\.\s*Decide\b|\bIDiceSource\b|\bRandomDice\b|\bSeededDice\b|\bReducer\s*\.|\bRecordVerifier\b|\bMatchRecordBody\b"
-        + @"|\busing\s+Sim\b|\bSim\s*\.|\bMatch\.Server\b|\bMatch\.Cli\b",
+        + @"|\busing\s+Sim\b|\bSim\s*\.|\bMatch\.Server\b|\bMatch\.Cli\b"
+        + @"|\bnew\s+(System\s*\.\s*)?Random\s*\(|\bRandom\s*\.\s*Shared\b|\bGD\s*\.\s*(Rand|Seed)|\bRandomNumberGenerator\b",
         RegexOptions.Compiled);
 
     [Fact]
@@ -138,6 +148,14 @@ public class ClientAuthorityTest
         var (types, members) = References(Path.Combine(AppContext.BaseDirectory, "Match.Server.dll"));
         Assert.Contains("Rules.Core.Dice.IDiceSource", types);
         Assert.Contains("Rules.Core.TurnSequence.Decide", members);
+    }
+
+    // The scan finds System.Random where it is used: the simulator's bot picks its moves with it.
+    [Fact]
+    public void TheScanFindsRandomNumbersInTheSimulator()
+    {
+        var (types, _) = References(Path.Combine(AppContext.BaseDirectory, "Sim.dll"));
+        Assert.Contains("System.Random", types);
     }
 
     // Client.Core (M7.3): what the Godot client shows, as plain C#. It reads state and rules queries; it never resolves,
@@ -241,6 +259,10 @@ public class ClientAuthorityTest
     [InlineData("using Sim;")]
     [InlineData("var record = RecordVerifier.Verify(bytes, keys);")]
     [InlineData("using Match.Server;")]
+    [InlineData("var face = new Random().Next(1, 7);")]
+    [InlineData("var face = Random.Shared.Next(1, 7);")]
+    [InlineData("var face = GD.RandRange(1, 6);")]
+    [InlineData("var rng = new RandomNumberGenerator();")]
     public void TheSourceScanCatchesForbiddenCode(string line) => Assert.Matches(ForbiddenSource, line);
 
     private static List<string> ReferencedAssemblies(string path)
