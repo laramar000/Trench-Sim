@@ -722,6 +722,7 @@ public partial class UiCheck : Node
             && interaction.Pending is null && Section("LAST COMMAND") == lastCommand,
             $"ghost before Esc: {hadGhost}, after: {board.GhostAt}; labels: {board.OverlayTexts.Count}; mode {interaction.Mode}; last command unchanged: {Section("LAST COMMAND") == lastCommand}");
         await HoverInspectCheck(board, scene, lastCommand);
+        await DoubleClickChecks(board, scene, lastCommand);
         await MouseOff(board);
 
         // Shoot: the rules' own sight rays, distance and cover, on the battlefield and in the text.
@@ -772,6 +773,8 @@ public partial class UiCheck : Node
         }
         await MouseOff(board);
         Check("board-target-cycle-and-click", targets.Count > 0 && cycled && picked, $"{targets.Count} enemy targets; N went to the next: {cycled}; a click picked {other?.Name ?? "nobody"}: {picked}");
+        await DoubleClickTargetCheck(board, lastCommand);
+        await CameraKeysCheck(board, lastCommand);
 
         await KeyPress(Key.C);
         var charge = interaction.Preview;
@@ -1225,9 +1228,24 @@ public partial class UiCheck : Node
         var fadeOk = piece is not null && hiding.Contains(piece.Id) && faded.SetEquals(hiding)
             && tall.All(id => board.TerrainAlpha(id) is { } a && (hiding.Contains(id) ? Math.Abs(a - BoardView.FadedAlpha) < 0.01f : a == 1f));
         var fadedText = $"{where}; hiding {string.Join(",", hiding)}; drawn {Alphas()}";
+        // QoL H2: exactly the faded pieces are outlined; the set is not worked out again while nothing moves, and it is
+        // after a zoom.
+        var outlined = board.OutlinedTerrain;
+        var outlineOk = outlined.Count > 0 && outlined.SequenceEqual(faded.Order(StringComparer.Ordinal));
+        var updates = board.SeeThroughUpdates;
+        var glides = board.GlidesStarted;
+        await Frames(10);
+        // Not every frame: at most a redraw or two in 10 frames while the camera stands still (a server event redraws).
+        var still = board.Gliding || board.GlidesStarted != glides || board.SeeThroughUpdates - updates <= 2;
+        board.Zoom(1.6f);
+        await Frames(3);
+        var afterZoom = board.FadedTerrain.ToHashSet().SetEquals(board.HidingTerrain()) && board.OutlinedTerrain.SequenceEqual(board.FadedTerrain.Order(StringComparer.Ordinal));
         board.ToggleTopDown();
         await Frames(3);
         var topDownSolid = board.FadedTerrain.Count == 0 && tall.All(id => board.TerrainAlpha(id) == 1f);
+        var noOutlineTop = board.OutlinedTerrain.Count == 0;
+        Check("board-see-through-outlines", fadeOk && outlineOk && still && afterZoom && noOutlineTop,
+            $"outlined {string.Join(",", outlined)} (faded {string.Join(",", faded)}); not worked out again while still: {still} ({updates} -> {board.SeeThroughUpdates}); after a zoom faded = hiding and outlined: {afterZoom}; none outlined top-down: {noOutlineTop}");
         var topText = Alphas();
         board.ToggleTopDown();
         board.Turn(((yaw - board.Yaw) / 90 % 4 + 4) % 4);
@@ -1967,6 +1985,7 @@ public partial class UiCheck : Node
         var wanted = units.Where(u => u != board.Selected?.Id).Select(i => i.Value).Order(StringComparer.Ordinal).ToList();
         Check("pvp-eligible-units-marked", ringed.Count >= 2 && ringed.SequenceEqual(wanted), $"rings on {string.Join(", ", ringed)}; the rules offer {string.Join(", ", units.Select(u => u.Value))}");
         await CloseShot(board, first, "pvp-a-eligible-rings");
+        await NextEligibleCheck(board, units, NothingSent);
 
         await ClickModel(board, first);
         await Frames(10);
@@ -2757,6 +2776,158 @@ public partial class UiCheck : Node
     // The real mouse pointer may rest over (or cross) the window, and hovering over the battlefield moves its cursor.
     // The keyboard checks make the battlefield ignore the mouse first, so only their keys move the cursor; the mouse
     // checks turn it back on. The real pointer is never moved.
+    // ---- QoL H2: double-click, J, camera keys, reset ----
+
+    private async Task DoubleClick(BoardView board, Vector2 local)
+    {
+        var global = board.GetGlobalTransformWithCanvas() * local;
+        Input.ParseInputEvent(new InputEventMouseMotion { Position = global, GlobalPosition = global });
+        await Frames(1);
+        foreach (var (pressed, twice) in new[] { (true, false), (false, false), (true, true), (false, false) })
+        {
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, DoubleClick = twice, Position = global, GlobalPosition = global });
+            await Frames(2);
+        }
+        await Frames(2);
+    }
+
+    private static bool Close(Vector3 a, double x, double y) => Math.Abs(a.X - x) < 0.05 && Math.Abs(a.Z - y) < 0.05;
+
+    // With no action chosen: a double-click on a unit selects it and centres on it at the same zoom; again, it zooms in;
+    // a double-click on an Objective centres on the objective. Nothing is sent; the action stays None.
+    private async Task DoubleClickChecks(BoardView board, BoardScene scene, string lastCommand)
+    {
+        var field = new Rect2(Vector2.Zero, board.Size);
+        var before = board.Selected?.Id;
+        // The selected unit, else an enemy: a first click on another of your own units could try to switch the activation.
+        var unit = scene.Models.Where(m => m.Id == before || !m.Yours).OrderBy(m => m.Id == before ? 0 : 1)
+            .FirstOrDefault(m => board.ScreenOf(m.X, m.Y, m.Standing) is { } p && field.HasPoint(p) && board.ModelAt(p)?.Id == m.Id);
+        var detail = "no selected or enemy unit on screen";
+        var ok = false;
+        if (unit is not null)
+        {
+            var zoom = board.Zoomed;
+            await DoubleClick(board, board.ScreenOf(unit.X, unit.Y, unit.Standing)!.Value);
+            var centred = Close(board.CameraTarget, unit.X, unit.Y) && Math.Abs(board.Zoomed - zoom) < 0.01f && board.Selected?.Id == unit.Id && board.FocusKey == $"model:{unit.Id.Value}";
+            var again = board.ScreenOf(unit.X, unit.Y, unit.Standing) is { } p2 && field.HasPoint(p2);
+            if (again)
+            {
+                await DoubleClick(board, board.ScreenOf(unit.X, unit.Y, unit.Standing)!.Value);
+            }
+            var closer = again && board.Zoomed < zoom - 0.01f && Close(board.CameraTarget, unit.X, unit.Y);
+            ok = centred && closer;
+            detail = $"{unit.Name}: centred at the same zoom ({zoom:0.0}) and selected: {centred}; again: zoom {board.Zoomed:0.0}, closer: {closer}";
+        }
+        var objectiveOk = false;
+        board.Fit();
+        await Frames(3);
+        var objective = scene.Terrain.Where(t => t.Objective).FirstOrDefault(t => board.ScreenOf(t.Area.CentreX, t.Area.CentreY, t.Height) is { } p && field.HasPoint(p) && board.ModelAt(p) is null);
+        if (objective is not null)
+        {
+            await DoubleClick(board, board.ScreenOf(objective.Area.CentreX, objective.Area.CentreY, objective.Height)!.Value);
+            objectiveOk = Close(board.CameraTarget, objective.Area.CentreX, objective.Area.CentreY) && board.FocusKey == $"objective:{objective.Id}";
+            detail += $"; objective {objective.Id} centred: {objectiveOk}";
+        }
+        else
+        {
+            detail += "; no objective clear of models on screen";
+        }
+        var nothing = board.Interaction.Mode == InteractionMode.None && board.Interaction.Pending is null && Section("LAST COMMAND") == lastCommand;
+        Check("board-double-click-centres", ok && objectiveOk && nothing, $"{detail}; nothing sent: {nothing}");
+        // Put the view and the selection back for the checks that follow.
+        board.Select(before);
+        board.Fit();
+        await Frames(3);
+    }
+
+    // Decision D2: in Shoot, a double-click on the chosen target is one click: it never sends (a second, separate click
+    // or Space does).
+    private async Task DoubleClickTargetCheck(BoardView board, string lastCommand)
+    {
+        var interaction = board.Interaction;
+        if (interaction.Target is not { } target || board.Scene?.Find(target) is not { } shape || board.ScreenOf(shape.X, shape.Y, shape.Standing) is not { } spot)
+        {
+            Check("board-double-click-target-no-send", false, "no chosen target on screen");
+            return;
+        }
+        var legal = interaction.Preview?.Legal == true;
+        await MouseOn(board);
+        var global = board.GetGlobalTransformWithCanvas() * spot;
+        foreach (var pressed in new[] { true, false })
+        {
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, DoubleClick = pressed, Position = global, GlobalPosition = global });
+            await Frames(2);
+        }
+        await Frames(3);
+        await MouseOff(board);
+        Check("board-double-click-target-no-send", interaction.Target == target && interaction.Pending is null && Section("LAST COMMAND") == lastCommand && interaction.IsTarget,
+            $"double-click on the chosen target {shape.Name} (preview legal: {legal}): target kept: {interaction.Target == target}; nothing sent: {interaction.Pending is null && Section("LAST COMMAND") == lastCommand}; still choosing: {interaction.IsTarget}");
+    }
+
+    // Camera keys and the wheel change only the camera: not the action, the target, the selection, and they send nothing.
+    // Then Shift+F resets the view: angled, facing north, the whole table.
+    private async Task CameraKeysCheck(BoardView board, string lastCommand)
+    {
+        var interaction = board.Interaction;
+        var (mode, target, selected, version) = (interaction.Mode, interaction.Target, board.Selected?.Id, interaction.Version);
+        board.GrabFocus();
+        foreach (var key in new[] { Key.Left, Key.Right, Key.Up, Key.Down, Key.Equal, Key.Minus, Key.Q, Key.E, Key.Home, Key.F })
+        {
+            await KeyPress(key);
+        }
+        await MouseOn(board);
+        var middle = board.GetGlobalTransformWithCanvas() * (board.Size / 2);
+        foreach (var wheel in new[] { MouseButton.WheelUp, MouseButton.WheelDown })
+        {
+            // Press and release, as a real wheel does: a press alone leaves the board holding the mouse.
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = wheel, Pressed = pressed, Position = middle, GlobalPosition = middle });
+                await Frames(2);
+            }
+        }
+        await MouseOff(board);
+        var unchanged = interaction.Mode == mode && interaction.Target == target && board.Selected?.Id == selected && interaction.Pending is null
+            && Section("LAST COMMAND") == lastCommand && interaction.Version == version;
+        Check("board-camera-keys-change-nothing", unchanged,
+            $"after arrows, + -, Q E, Home, F and the wheel: mode {interaction.Mode} (was {mode}), target {interaction.Target?.Value} (was {target?.Value}), selected {board.Selected?.Id.Value} (was {selected?.Value}), preview version {interaction.Version} (was {version}); nothing sent: {Section("LAST COMMAND") == lastCommand}");
+        await KeyPress(Key.Q);
+        await KeyPress(Key.T);
+        var turned = board.Yaw != 0 && board.TopDown;
+        await KeyPress(Key.F, shift: true);
+        await Frames(3);
+        Check("board-reset-view", turned && board.Yaw == 0 && !board.TopDown && board.TableInView(0) && interaction.Mode == mode && interaction.Target == target,
+            $"turned and top-down first: {turned}; after Shift+F: yaw {board.Yaw}, top-down {board.TopDown}, whole table in view {board.TableInView(0)}; action kept: {interaction.Mode == mode && interaction.Target == target}");
+    }
+
+    // J chooses the next unit the rules offer to activate, as a click would (nothing sent); Shift+J the previous. The
+    // camera stays put while that unit is on screen.
+    private async Task NextEligibleCheck(BoardView board, IReadOnlyList<Rules.Core.State.ModelId> units, Func<bool> nothingSent)
+    {
+        var scene = board.Scene!;
+        var interaction = board.Interaction;
+        var field = new Rect2(Vector2.Zero, board.Size);
+        var expected = scene.NextEligible(board.Selected?.Id, interaction.CanChoose)!.Id;
+        bool OnScreen(Rules.Core.State.ModelId id) => scene.Find(id) is { } m && board.ScreenOf(m.X, m.Y, m.Standing) is { } p && field.HasPoint(p);
+        var camera = board.CameraTarget;
+        var shown = OnScreen(expected);
+        board.GrabFocus();
+        await KeyPress(Key.J);
+        await Frames(3);
+        var first = interaction.Chosen;
+        var cameraOk = !shown || board.CameraTarget == camera;
+        var next = scene.NextEligible(first, interaction.CanChoose)!.Id;
+        await KeyPress(Key.J);
+        await Frames(3);
+        var second = interaction.Chosen;
+        await KeyPress(Key.J, shift: true);
+        await Frames(3);
+        var back = interaction.Chosen;
+        Check("board-next-eligible", first == expected && board.Selected?.Id == first && second == next && back == first && units.Contains(first!.Value) && units.Contains(second!.Value)
+            && cameraOk && nothingSent(),
+            $"J chose {first?.Value} (expected {expected.Value}), then {second?.Value} (expected {next.Value}), Shift+J {back?.Value}; the rules offer {string.Join(", ", units.Select(u => u.Value))}; camera kept while on screen: {cameraOk}; nothing sent: {nothingSent()}");
+    }
+
     // ---- QoL H1: pointing at a model ----
 
     // Moves the pointer (a synthetic event, never the real mouse) over a model and waits until the battlefield and the

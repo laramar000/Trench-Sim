@@ -317,6 +317,105 @@ public partial class BoardView : SubViewportContainer
         Changed?.Invoke();
     }
 
+    // ---- QoL H2: double-click, next unit, reset ----
+
+    public const float CloseDistance = 8f;
+    public const float CloseOrtho = 10f;
+    private string? _focusKey;
+
+    // What the last double-click centred on ("model:a1" or "objective:obj-2"), for the UI check.
+    public string? FocusKey => _focusKey;
+
+    public float Zoomed => _topDown ? _orthoSize : _distance;
+
+    // The second press of a double-click. With no action chosen: centres on the model under it (which the first press
+    // selected), else on the Objective under it, keeping the zoom; a double-click on what is already centred zooms in one
+    // step, down to a close view. While an action is being chosen it does nothing: the first press was the click.
+    public void DoubleClickAt(Vector2 local)
+    {
+        if (Interaction.Mode != InteractionMode.None || _scene is null)
+        {
+            return;
+        }
+        if (ModelAt(local) is { } model)
+        {
+            Focus($"model:{model.Id.Value}", new Vector3((float)model.X, (float)model.Standing, (float)model.Y));
+        }
+        else if (ObjectiveUnder(local) is { } objective)
+        {
+            Focus($"objective:{objective.Id}", new Vector3((float)objective.Area.CentreX, 0, (float)objective.Area.CentreY));
+        }
+    }
+
+    public TerrainShape? ObjectiveUnder(Vector2 local)
+    {
+        if (_scene is null)
+        {
+            return null;
+        }
+        foreach (var piece in _scene.Terrain.Where(t => t.Objective).OrderByDescending(t => t.Height))
+        {
+            foreach (var level in new[] { piece.Height, 0 })
+            {
+                if (TableAt(local, level) is { } p && piece.Area.Contains(p.X, p.Y))
+                {
+                    return piece;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void Focus(string key, Vector3 at)
+    {
+        var centred = _focusKey == key && new Vector2(_target.X - at.X, _target.Z - at.Z).Length() < 0.3f;
+        _autoFit = false;
+        _target = at;
+        if (centred)
+        {
+            if (_topDown)
+            {
+                _orthoSize = Math.Max(CloseOrtho, _orthoSize * 0.6f);
+            }
+            else
+            {
+                _distance = Math.Max(CloseDistance, _distance * 0.6f);
+            }
+        }
+        _focusKey = key;
+        PlaceCamera();
+        Changed?.Invoke();
+    }
+
+    // J (Shift+J): the next (previous) of your units the rules let you choose now, chosen as a click would (nothing is
+    // sent). The camera moves only when that unit is off screen, and then keeps the zoom.
+    public void NextEligible(bool forward)
+    {
+        if (_scene?.NextEligible(_selected, Interaction.CanChoose, forward) is not { } next)
+        {
+            return;
+        }
+        ChooseUnit(next.Id);
+        if (ScreenOf(next.X, next.Y, next.Standing) is not { } at || !new Rect2(Vector2.Zero, Size).HasPoint(at))
+        {
+            CentreOn(next.Id);
+        }
+        Sync();
+    }
+
+    // Shift+F or "Reset view": angled, facing north, the whole table.
+    public void ResetView()
+    {
+        _yaw = 0;
+        if (_topDown)
+        {
+            _topDown = false;
+            Rebuild();
+            DrawPreview();
+        }
+        Fit();
+    }
+
     // Looks at a table point (inches) from the given distance (for the UI check).
     public void LookAtTable(Vector2 at, float distance)
     {
@@ -511,6 +610,13 @@ public partial class BoardView : SubViewportContainer
         }
         switch (@event)
         {
+            case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left, DoubleClick: true } twice:
+                // QoL H2: the second press of a double-click is never a click (so it never sends, decision D2): with
+                // no action chosen it centres on the unit or objective under it, or zooms in on what is centred.
+                GrabFocus();
+                DoubleClickAt(twice.Position);
+                AcceptEvent();
+                break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } click:
                 GrabFocus();
                 Click(click.Position, click.ShiftPressed);
@@ -724,7 +830,9 @@ public partial class BoardView : SubViewportContainer
             case Key.Minus or Key.KpSubtract: Zoom(1.15f); return true;
             case Key.Q: Turn(-1); return true;
             case Key.E: Turn(1); return true;
+            case Key.F when key.ShiftPressed: ResetView(); return true;
             case Key.F: Fit(); return true;
+            case Key.J when Interaction.Mode == InteractionMode.None: NextEligible(!key.ShiftPressed); return true;
             case Key.Home: CentreOn(_selected); return true;
             case Key.T: ToggleTopDown(); return true;
             case Key.N: SelectNext(!key.ShiftPressed); return true;
@@ -1147,6 +1255,47 @@ public partial class BoardView : SubViewportContainer
             _modelNodes.Values.Where(n => n.Count > 0 && IsInstanceValid(n[0].Node)).Select(n => n[0].Node.Position)
                 .Select(at => new SeeThrough.Point3(at.X, at.Z, at.Y)));
 
+    private readonly Dictionary<string, MeshInstance3D> _terrainOutlines = [];
+    private (Transform3D, bool)? _seeThroughKey;
+
+    // How often the see-through set was worked out (for the UI check: not every frame).
+    public int SeeThroughUpdates { get; private set; }
+
+    // The tall pieces whose outline is drawn now: exactly the faded ones (for the UI check).
+    public IReadOnlyList<string> OutlinedTerrain => [.. _terrainOutlines.Where(o => IsInstanceValid(o.Value) && o.Value.Visible).Select(o => o.Key).Order(StringComparer.Ordinal)];
+
+    // The twelve edges of a tall piece in a darker shade of its own colour, shown only while it is see-through, so its
+    // shape stays readable (QoL H2). Display only.
+    private MeshInstance3D Outline(TerrainShape piece, Color colour)
+    {
+        var mesh = new ImmediateMesh();
+        var a = piece.Area;
+        var h = (float)piece.Height;
+        var corners = new[] { new Vector2((float)a.X0, (float)a.Y0), new Vector2((float)a.X1, (float)a.Y0), new Vector2((float)a.X1, (float)a.Y1), new Vector2((float)a.X0, (float)a.Y1) };
+        mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
+        for (var i = 0; i < 4; i++)
+        {
+            var p = corners[i];
+            var q = corners[(i + 1) % 4];
+            foreach (var y in new[] { 0.02f, h })
+            {
+                mesh.SurfaceAddVertex(new Vector3(p.X, y, p.Y));
+                mesh.SurfaceAddVertex(new Vector3(q.X, y, q.Y));
+            }
+            mesh.SurfaceAddVertex(new Vector3(p.X, 0.02f, p.Y));
+            mesh.SurfaceAddVertex(new Vector3(p.X, h, p.Y));
+        }
+        mesh.SurfaceEnd();
+        var outline = new MeshInstance3D
+        {
+            Mesh = mesh,
+            Visible = false,
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = _highContrast ? Colors.White : colour.Darkened(0.45f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
+        };
+        _content.AddChild(outline);
+        return outline;
+    }
+
     // The alpha a terrain piece is drawn with now (for the UI check); null when it is not a tall piece.
     public float? TerrainAlpha(string id) => _terrainPaint.TryGetValue(id, out var paint) ? paint.AlbedoColor.A : null;
 
@@ -1156,6 +1305,15 @@ public partial class BoardView : SubViewportContainer
         {
             return;
         }
+        // QoL H2: worked out again only when the camera has moved or a model is travelling (or after a redraw), not every
+        // frame.
+        var key = (_camera.GlobalTransform, _topDown);
+        if (!Gliding && _seeThroughKey == key)
+        {
+            return;
+        }
+        _seeThroughKey = key;
+        SeeThroughUpdates++;
         var hiding = HidingTerrain();
         if (hiding.SetEquals(_faded))
         {
@@ -1166,6 +1324,10 @@ public partial class BoardView : SubViewportContainer
             var fade = hiding.Contains(id);
             paint.AlbedoColor = paint.AlbedoColor with { A = fade ? FadedAlpha : 1f };
             paint.Transparency = fade ? BaseMaterial3D.TransparencyEnum.Alpha : BaseMaterial3D.TransparencyEnum.Disabled;
+            if (_terrainOutlines.TryGetValue(id, out var outline))
+            {
+                outline.Visible = fade;
+            }
         }
         _faded.Clear();
         _faded.UnionWith(hiding);
@@ -1510,6 +1672,8 @@ public partial class BoardView : SubViewportContainer
         _fixedLabels.Clear();
         _modelNodes.Clear();
         _terrainPaint.Clear();
+        _terrainOutlines.Clear();
+        _seeThroughKey = null;
         _faded.Clear();
         _labelsPlaced = "";
         if (_scene is not { } scene)
@@ -1536,6 +1700,7 @@ public partial class BoardView : SubViewportContainer
             if (piece.Height >= SeeThrough.MinHeight && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D paint })
             {
                 _terrainPaint[piece.Id] = paint;
+                _terrainOutlines[piece.Id] = Outline(piece, TerrainColour(piece));
             }
             // Proposal G: only objectives carry text ("OBJ-2"); the kind of terrain shows by its colour and height, and the
             // panel's Details has the legend.

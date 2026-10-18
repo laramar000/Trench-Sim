@@ -442,7 +442,12 @@ public partial class Main : Control
         _menuButton = Button("Menu ▸", () => SetMenu(!_menuOpen));
         _menuButton.Name = "MenuButton";
         _menuButton.TooltipText = "Version, text size, high contrast, keys, the match code and the rules in this build.";
-        _match.AddChild(Row(_hud, Button("Centre on selected (Home)", () => _board.CentreOn(_board.Selected?.Id)), Button("Fit the table (F)", () => _board.Fit()), _menuButton));
+        // Short words, so the HUD line still fits a 1000-pixel window; the tooltips say more.
+        var centre = Button("Centre (Home)", () => _board.CentreOn(_board.Selected?.Id));
+        centre.TooltipText = "Centre the camera on the selected unit and keep the zoom.";
+        var fit = Button("Fit (F)", () => _board.Fit());
+        fit.TooltipText = "Show the whole table.";
+        _match.AddChild(Row(_hud, centre, fit, ResetViewButton(), _menuButton));
         // What the Menu holds (folded by default): the version, settings and keys (moved here from the top), the match
         // code, the rules in this build, and the battlefield's camera and keys.
         _matchMenu = new VBoxContainer { Name = "MatchMenu", Visible = false };
@@ -919,6 +924,15 @@ public partial class Main : Control
     // The panel's "POINTING AT" lines as shown (for the UI check); empty when hidden.
     public string PointingText => _pPointing.IsVisibleInTree() ? _pPointing.Text : "";
 
+    // QoL H2: angled, facing north, the whole table (as Shift+F).
+    private Button ResetViewButton()
+    {
+        var reset = Button("Reset (Shift+F)", () => _board.ResetView());
+        reset.Name = "ResetView";
+        reset.TooltipText = "Angled view, facing north, the whole table. Double-click a unit or objective to centre on it; double-click again to zoom in.";
+        return reset;
+    }
+
     private void ShowBoardInfo()
     {
         ShowStrip();
@@ -929,8 +943,8 @@ public partial class Main : Control
             return;
         }
         _boardInfo.Text = $"Table {scene.Size}; camera {_board.CameraText}.\n" +
-            "Keys on the battlefield (Tab to it or click it): arrows pan, + and - zoom, Q and E turn 90°, F fits the table, Home centres on the selected model, T top-down or angled, " +
-            "N and P next and previous model, A activates the selected model. Actions: L place, M move, D dash, R retreat, S shoot, C charge, X fight; " +
+            "Keys on the battlefield (Tab to it or click it): arrows pan, + and - zoom, Q and E turn 90°, F fits the table, Shift+F resets the view, Home centres on the selected model, T top-down or angled, " +
+            "N and P next and previous model, J (Shift+J) the next (previous) unit that can activate, A activates the selected model. Double-click a unit or objective to centre on it, again to zoom in. Actions: L place, M move, D dash, R retreat, S shoot, C charge, X fight; " +
             "then arrows (Shift: 2\") move the cursor, Enter fixes a waypoint, Space sends, Esc cancels. Mouse: click selects (or picks the target or a waypoint), right-drag pans, wheel zooms towards the pointer. Distances are in inches. " +
             "This view shows the server's state and decides nothing; heights are for display only. The panel beside it says what the selected unit and the chosen action would do; the server decides.";
     }

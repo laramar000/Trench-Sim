@@ -36,6 +36,8 @@ public readonly record struct TableRect(double X0, double Y0, double X1, double 
     public static TableRect Of(Rect rect) => new(Inches(rect.Min.X), Inches(rect.Min.Y), Inches(rect.Max.X), Inches(rect.Max.Y));
 
     public static double Inches(Length length) => length.Thousandths / 1000.0;
+
+    public bool Contains(double x, double y) => x >= X0 && x <= X1 && y >= Y0 && y <= Y1;
 }
 
 public sealed record ZoneShape(string Id, TableRect Area, string Label, string? SeatLetter = null)
@@ -177,6 +179,29 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
         }
         return order[((at + (forward ? 1 : -1)) % order.Count + order.Count) % order.Count];
     }
+
+    // QoL H2 (key J): the next (or previous) of your units that may be chosen to activate now, in the same fixed order as
+    // Next; null when none may. canChoose is the rules' own offer (Interaction.CanChoose).
+    public ModelShape? NextEligible(ModelId? current, Func<ModelId, bool> canChoose, bool forward = true)
+    {
+        ArgumentNullException.ThrowIfNull(canChoose);
+        var order = Models.Where(m => m.Yours && canChoose(m.Id)).OrderBy(m => m.Id.Value, StringComparer.Ordinal).ToList();
+        if (order.Count == 0)
+        {
+            return null;
+        }
+        var at = order.FindIndex(m => m.Id == current);
+        if (at < 0)
+        {
+            return forward ? order[0] : order[^1];
+        }
+        return order[((at + (forward ? 1 : -1)) % order.Count + order.Count) % order.Count];
+    }
+
+    // The Objective piece at a table point (inches), if any (QoL H2: a double-click centres on it).
+    public TerrainShape? ObjectiveAt(double x, double y) => Terrain.FirstOrDefault(t => t.Objective && t.Area.Contains(x, y));
+
+    public TerrainShape? Objective(string id) => Terrain.FirstOrDefault(t => t.Objective && t.Id == id);
 
     public static string Inch(double inches) => inches.ToString("0.0", CultureInfo.InvariantCulture) + "\"";
 
