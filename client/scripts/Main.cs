@@ -112,6 +112,10 @@ public partial class Main : Control
         ShowConnect();
 
         var args = OS.GetCmdlineUserArgs();
+        _settingsPath = Arg(args, "--ui-check") is { } checking
+            ? System.IO.Path.GetFullPath(System.IO.Path.Combine(Arg(args, "--out") ?? "ui-check", $"settings-{checking}.cfg"))
+            : Arg(args, "--smoke-server") is null && Arg(args, "--smoke-view") is null ? "user://settings.cfg" : null;
+        LoadSettings();
         var (test, testProblem) = TestMatch.Parse(args);
         if (testProblem is not null)
         {
@@ -160,6 +164,32 @@ public partial class Main : Control
         // The line above the HUD only takes room when it says something.
         _status.Visible = _status.Text.Length > 0;
         FitBattlefield();
+        UpdateScaleNote();
+    }
+
+    // QoL I2: when the window is too small for the chosen interface scale, Confirm and Cancel end up below the first
+    // screen; a note over the battlefield's top-left corner says so (drawn on top, so it moves nothing).
+    public const string ScaleNoteText = "Confirm and Cancel are below: scroll down, or choose a smaller Scale in the Menu, or make the window larger.";
+
+    private Label? _scaleNote;
+
+    public bool ScaleNoteShown => _scaleNote?.Visible == true;
+
+    private void UpdateScaleNote()
+    {
+        if (_scaleNote is null)
+        {
+            return;
+        }
+        var height = GetViewportRect().Size.Y;
+        var below = _match.Visible && _boardSection.Visible && _pConfirm.IsVisibleInTree() && PageY(_pConfirm) + _pConfirm.Size.Y > height - 24 + 2;
+        _scaleNote.Visible = below;
+        if (below)
+        {
+            var board = _board.GetGlobalRect();
+            _scaleNote.Position = board.Position + new Vector2(8, 8);
+            _scaleNote.Size = new Vector2(Math.Max(120, Math.Min(620, board.Size.X - 16)), 0);
+        }
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -518,6 +548,14 @@ public partial class Main : Control
         var boardBox = new VBoxContainer();
         boardBox.AddChild(_split);
         _board.Changed += ShowBoardInfo;
+        // QoL I2: the camera's angled or top-down choice is kept between launches too.
+        _board.Changed += () =>
+        {
+            if (_board.TopDown != _settings.TopDown)
+            {
+                Remember(_settings with { TopDown = _board.TopDown });
+            }
+        };
         // A confirmed battlefield command goes the same way as a hint button: one at a time, answered by the server.
         _board.Interaction.Send = (command, label) => _controller is { } controller
             ? controller.SendAsync(command, label)
@@ -546,6 +584,18 @@ public partial class Main : Control
         _feedback = Text("");
         right.AddChild(Section("Last command", _feedback));
         _root.AddChild(_match);
+        _scaleNote = new Label
+        {
+            Name = "ScaleNote",
+            Text = ScaleNoteText,
+            TopLevel = true,
+            Visible = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        _scaleNote.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = new Color(0, 0, 0, 0.8f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 3, ContentMarginBottom = 3 });
+        _scaleNote.AddThemeColorOverride("font_color", new Color(1f, 0.9f, 0.4f));
+        _match.AddChild(_scaleNote);
 
         _gaps = new AcceptDialog { Title = RulesGaps.Title, DialogText = RulesGaps.Text, DialogAutowrap = true, Size = new Vector2I(760, 480) };
         AddChild(_gaps);
@@ -1065,16 +1115,32 @@ public partial class Main : Control
         }
         size.ItemSelected += index =>
         {
-            _scale = new[] { 1f, 1.25f, 1.5f }[index];
+            _scale = ClientSettings.TextScales[index];
             ApplyTheme();
+            Remember(_settings with { TextSize = (int)index });
         };
+        _textChoice = size;
         var contrast = new CheckButton { Text = "High contrast" };
         contrast.Toggled += on =>
         {
             _highContrast = on;
             ApplyTheme();
             PaintLog();
+            Remember(_settings with { HighContrast = on });
         };
+        _contrastChoice = contrast;
+        // QoL I2: buttons and panels larger or smaller, apart from the text size (the window's content scale).
+        var scale = new OptionButton { Name = "InterfaceScale" };
+        foreach (var factor in ClientSettings.InterfaceScales)
+        {
+            scale.AddItem($"Scale {factor * 100:0}%");
+        }
+        scale.ItemSelected += index =>
+        {
+            GetWindow().ContentScaleFactor = ClientSettings.InterfaceScales[index];
+            Remember(_settings with { InterfaceScale = (int)index });
+        };
+        _scaleChoice = scale;
         // Visible dice rolls (QoL stage F2): how long a box of dice stays on the battlefield, or Off.
         var dice = new OptionButton();
         foreach (var name in DiceChoices)
@@ -1082,14 +1148,105 @@ public partial class Main : Control
             dice.AddItem(name);
         }
         dice.Select(1);
-        dice.ItemSelected += index => _board?.SetDiceSeconds(DiceSeconds[index]);
+        dice.ItemSelected += index =>
+        {
+            _board?.SetDiceSeconds(DiceSeconds[index]);
+            Remember(_settings with { Dice = (int)index });
+        };
         _diceChoice = dice;
-        return Row(size, contrast, dice);
+        return Row(size, contrast, scale, dice);
     }
 
     private static readonly string[] DiceChoices = ["Dice: Short (2 s)", "Dice: Normal (4 s)", "Dice: Long (8 s)", "Dice: Off"];
     private static readonly double[] DiceSeconds = [2, 4, 8, 0];
     private OptionButton? _diceChoice;
+    private OptionButton? _textChoice;
+    private OptionButton? _scaleChoice;
+    private CheckButton? _contrastChoice;
+
+    // ---- QoL I2: settings kept between launches ----
+
+    private ClientSettings _settings = ClientSettings.Default;
+    // Where they are kept: user://settings.cfg; a UI check run keeps its own file in its output folder and starts from the
+    // defaults; the smoke runs keep none.
+    private string? _settingsPath;
+    private bool _applyingSettings;
+
+    public ClientSettings CurrentSettings => _settings;
+
+    public string? SettingsPath => _settingsPath;
+
+    private void Remember(ClientSettings settings)
+    {
+        _settings = settings;
+        if (_applyingSettings || _settingsPath is null)
+        {
+            return;
+        }
+        using var file = Godot.FileAccess.Open(_settingsPath, Godot.FileAccess.ModeFlags.Write);
+        file?.StoreString(settings.Format());
+    }
+
+    // Reads the file again and shows what it holds (at start, and for the UI check).
+    public void LoadSettings()
+    {
+        var text = _settingsPath is not null && Godot.FileAccess.FileExists(_settingsPath) ? Godot.FileAccess.GetFileAsString(_settingsPath) : null;
+        ApplySettings(ClientSettings.Parse(text));
+    }
+
+    private void ApplySettings(ClientSettings settings)
+    {
+        _applyingSettings = true;
+        try
+        {
+            void Pick(OptionButton? choice, int index)
+            {
+                if (choice is not null)
+                {
+                    choice.Select(index);
+                    choice.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+                }
+            }
+            Pick(_textChoice, settings.TextSize);
+            Pick(_scaleChoice, settings.InterfaceScale);
+            Pick(_diceChoice, settings.Dice);
+            if (_contrastChoice is { } contrast)
+            {
+                contrast.SetPressedNoSignal(settings.HighContrast);
+                _highContrast = settings.HighContrast;
+                ApplyTheme();
+                PaintLog();
+            }
+            if (_board is not null && _board.TopDown != settings.TopDown)
+            {
+                _board.ToggleTopDown();
+            }
+            _settings = settings;
+        }
+        finally
+        {
+            _applyingSettings = false;
+        }
+    }
+
+    // For the UI check: the interface scale as a player picks it in the Menu.
+    public void ChooseScale(int index)
+    {
+        if (_scaleChoice is { } choice)
+        {
+            choice.Select(index);
+            choice.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+        }
+    }
+
+    public void ChooseTextSize(int index)
+    {
+        if (_textChoice is { } choice)
+        {
+            choice.Select(index);
+            choice.EmitSignal(OptionButton.SignalName.ItemSelected, index);
+        }
+    }
 
     // For the UI check: the dice setting as a player picks it in the Menu.
     public void ChooseDice(int index)

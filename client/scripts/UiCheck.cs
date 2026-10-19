@@ -1393,10 +1393,38 @@ public partial class UiCheck : Node
         Check("feedback-in-words", Section("LAST COMMAND").Split(':')[0] is "DONE" or "SENT" or "REFUSED BY THE RULES" or "NOT TAKEN" or "OUT OF DATE" or "UNKNOWN" or "None yet.",
             Section("LAST COMMAND"));
         Check("connection-in-words", Banner().StartsWith("Connection: ", StringComparison.Ordinal), Banner());
+        // QoL I2: what was just chosen is in this window's settings file.
+        var saved = ClientSettings.Parse(SettingsFile());
         // Turn the settings back so later screenshots are comparable.
         await Press(Controls<CheckButton>().FirstOrDefault(c => c.Text == "High contrast"), Key.Space, null);
         await ChooseOption(Option("Text 150%"), "Text 100%", null);
+        await SettingsChecks(saved);
         await OpenMenu(false);
+    }
+
+    private string? SettingsFile() => ((Main)_main).SettingsPath is { } path && File.Exists(path) ? File.ReadAllText(path) : null;
+
+    // QoL I2: every Menu choice is written to the settings file when it is made, and the file read again shows what it
+    // holds (text size, contrast, scale, dice, camera); then the defaults are put back.
+    private async Task SettingsChecks(ClientSettings whileChanged)
+    {
+        var main = (Main)_main;
+        var board = Controls<BoardView>().First();
+        var afterReset = ClientSettings.Parse(SettingsFile());
+        var wanted = new ClientSettings(TextSize: 1, HighContrast: true, Dice: 3, TopDown: !board.TopDown, InterfaceScale: 0);
+        File.WriteAllText(main.SettingsPath!, wanted.Format());
+        main.LoadSettings();
+        await Frames(5);
+        var shown = Option("Text 125%") is not null && main.CurrentSettings == wanted && board.TopDown == wanted.TopDown
+            && Controls<CheckButton>().FirstOrDefault(c => c.Text == "High contrast")?.ButtonPressed == true && _main.Theme?.DefaultFontSize == 22
+            && Controls<OptionButton>().Any(o => o.Text == "Dice: Off");
+        File.WriteAllText(main.SettingsPath!, ClientSettings.Default.Format());
+        main.LoadSettings();
+        await Frames(5);
+        var back = main.CurrentSettings == ClientSettings.Default && Option("Text 100%") is not null && !board.TopDown && _main.Theme?.DefaultFontSize == 18;
+        Check("settings-remembered", whileChanged.TextSize == 2 && whileChanged.HighContrast && afterReset == ClientSettings.Default && shown && back,
+            $"file while changed: {whileChanged.Format().Trim().Replace('\n', ' ')}; after turning back: {afterReset.Format().Trim().Replace('\n', ' ')}; "
+            + $"a file with {wanted.Format().Trim().Replace('\n', ' ')} read again and shown: {shown}; defaults back: {back}; file {main.SettingsPath}");
     }
 
     // Proposal G5: at 1280 x 800 the panel and log sit beside the battlefield; under 1100 pixels of width (1000 x 700) they
@@ -1434,6 +1462,32 @@ public partial class UiCheck : Node
                 + (overflow.Count == 0 ? "nothing past the right edge" : "past the right edge: " + string.Join("; ", overflow)));
             await Shot($"host-layout-{w}x{h}");
         }
+        // QoL I2: the interface scale makes buttons and panels larger; at 125% and 150% in 1280 x 800, and 125% in
+        // 1000 x 700, Confirm and Cancel are still on the first screen, their words fit and nothing runs off the edge.
+        foreach (var (w, h, index) in new[] { (1280, 800, 1), (1280, 800, 2), (1000, 700, 1) })
+        {
+            window.Size = new Vector2I(w, h);
+            main.ChooseScale(index);
+            for (var i = 0; i < 60 && window.Size != new Vector2I(w, h); i++)
+            {
+                await Frames(1);
+            }
+            await Frames(8);
+            var factor = ClientSettings.InterfaceScales[index];
+            var size = _main.GetViewportRect().Size;
+            bool OnScreen(Control c) => c.IsVisibleInTree() && main.PageY(c) + c.Size.Y <= size.Y - 24 + 2;
+            var fits = PanelButtonsFit(out var words);
+            var overflow = Controls<Control>().Where(c => (c is Button or Godot.Label or OptionButton) && c.IsVisibleInTree() && c.GetGlobalRect().End.X > size.X + 1)
+                .Select(Describe).ToList();
+            var scaled = Math.Abs(size.X - w / factor) < 2 && Math.Abs(size.Y - h / factor) < 2 && main.CurrentSettings.InterfaceScale == index;
+            var shown = OnScreen(main.PanelConfirm) && OnScreen(main.PanelCancel);
+            var note = main.ScaleNoteShown;
+            Check($"layout-scale-{factor * 100:0}-{w}x{h}", scaled && (shown ? !note : note) && fits && overflow.Count == 0,
+                $"window {w}x{h} at {factor * 100:0}%: content {size} (scaled: {scaled}); Confirm and Cancel on the first screen: {shown}; note that they are below: {note}; words fit: {fits} ({words}); "
+                + $"stacked {main.Stacked}, battlefield top {main.BattlefieldTop:0}, row {main.BattlefieldRow.GetGlobalRect()}, panel {Controls<PanelContainer>().First(p => p.Name == "UnitPanel").GetGlobalRect()}, Confirm at {main.PageY(main.PanelConfirm):0}+{main.PanelConfirm.Size.Y:0}; "
+                + (overflow.Count == 0 ? "nothing past the right edge" : "past the right edge: " + string.Join("; ", overflow)));
+        }
+        main.ChooseScale(0);
         window.Size = original;
         await Frames(6);
     }
