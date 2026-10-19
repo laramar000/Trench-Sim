@@ -1917,6 +1917,7 @@ public partial class UiCheck : Node
             if (_role == "pvp-a")
             {
                 TurnAlertStep(board);
+                await CheckMeleeLinks(board);
             }
             // After a look check (and its screenshot) the screen may have been redrawn: read the board and hints again.
             if (_role == "pvp-a" && board?.Scene is { } looking && await UnitLookChecks(board, looking))
@@ -2147,6 +2148,7 @@ public partial class UiCheck : Node
         CheckBloodLabels(board);
         CheckPanelState(board);
         CheckObjectivesNow(board);
+        await CheckMeleeLinks(board);
         await CheckDiceTray(board);
         if (!await FocusByTab(board, 80))
         {
@@ -2251,6 +2253,46 @@ public partial class UiCheck : Node
                 _objectiveProblems.Add($"no label {mark}");
             }
         }
+    }
+
+    // ---- QoL I5: melee links ----
+
+    private int _linkSamples;
+    private int _linkedSamples;
+    private readonly List<string> _linkProblems = [];
+
+    private static List<string> LinkNames(IEnumerable<Rules.Core.EngagedPair> pairs) =>
+        pairs.Select(p => $"{p.One.Value}-{p.Two.Value}").Order(StringComparer.Ordinal).ToList();
+
+    // Through the match: the lines drawn between models are exactly the enemy pairs the rules say are engaged now
+    // (Rules.Core.Engagement.Pairs on the server's state). A sample waits for a glide to end and for the battlefield
+    // to catch up with the state.
+    private async Task CheckMeleeLinks(BoardView? board)
+    {
+        if (board is null || _role != "pvp-a")
+        {
+            return;
+        }
+        string? problem = null;
+        for (var attempt = 0; attempt < 30; attempt++)
+        {
+            if (board.Scene is not { } scene || ((Main)_main).ServerState is not { } state || state.Turn == 0)
+            {
+                return;
+            }
+            var rules = LinkNames(Rules.Core.Engagement.Pairs(state));
+            var drawn = board.MeleeLinksDrawn.Order(StringComparer.Ordinal).ToList();
+            var inScene = LinkNames(scene.Links);
+            if (!board.Gliding && rules.SequenceEqual(inScene) && drawn.SequenceEqual(rules))
+            {
+                _linkSamples++;
+                _linkedSamples += rules.Count > 0 ? 1 : 0;
+                return;
+            }
+            problem = $"turn {state.Turn}: rules [{string.Join(",", rules)}], scene [{string.Join(",", inScene)}], drawn [{string.Join(",", drawn)}]";
+            await Frames(2);
+        }
+        _linkProblems.Add(problem ?? "no sample");
     }
 
     // O selects and centres on the first Objective, keeping the zoom; the panel says who controls it now by the rules'
@@ -2736,6 +2778,7 @@ public partial class UiCheck : Node
         CheckBloodLabels(board);
         CheckPanelState(board);
         CheckObjectivesNow(board);
+        await CheckMeleeLinks(board);
         await CheckDiceTray(board);
         DiceEndChecks(board);
         if (_role == "pvp-a")
@@ -2748,6 +2791,11 @@ public partial class UiCheck : Node
                 $"{_objectiveSamples} looks at the HUD and the objective marks; {string.Join(" / ", _objectiveProblems.Take(5))}");
             Check("pvp-panel-follows-state", _panelSamples > 0 && _panelProblems.Count == 0,
                 $"{_panelSamples} looks at the panel; {string.Join(" / ", _panelProblems.Take(5))}");
+            if (_role == "pvp-a")
+            {
+                Check("board-melee-links", _linkSamples > 0 && _linkedSamples > 0 && _linkProblems.Count == 0,
+                    $"{_linkSamples} looks, {_linkedSamples} with engaged models; {string.Join(" / ", _linkProblems.Take(5))}");
+            }
         }
         Check("pvp-labels-show-blood", _bloodLabelsChecked > 0 && _bloodLabelProblems.Count == 0,
             $"{_bloodLabelsChecked} labels checked, {_bloodLabelsWithMarkers} with markers; {string.Join(" / ", _bloodLabelProblems.Take(5))}");

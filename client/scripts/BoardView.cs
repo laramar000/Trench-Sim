@@ -630,6 +630,7 @@ public partial class BoardView : SubViewportContainer
         Sync();
         UpdateBar();
         ApplyGlides();
+        UpdateMeleeLinks();
         UpdateSeeThrough();
         SeparateLabels();
         if (Interaction.ServerNotes != _serverNotesShown)
@@ -1728,6 +1729,8 @@ public partial class BoardView : SubViewportContainer
         _idLabels.Clear();
         _fixedLabels.Clear();
         _modelNodes.Clear();
+        _meleeLinks.Clear();
+        _meleeLinkNames.Clear();
         _terrainPaint.Clear();
         _terrainOutlines.Clear();
         _seeThroughKey = null;
@@ -1786,7 +1789,60 @@ public partial class BoardView : SubViewportContainer
             _modelNodes[model.Id] = [.. Enumerable.Range(firstNode, _content.GetChildCount() - firstNode)
                 .Select(i => _content.GetChild(i)).OfType<Node3D>().Select(n => (n, n.Position))];
         }
+        foreach (var link in scene.Links)
+        {
+            DrawMeleeLink(scene.Find(link.One), scene.Find(link.Two));
+        }
     }
+
+    // QoL I5: a short bar from base edge to base edge between two enemy models the rules say are engaged (within 1"),
+    // drawn through walls. Hidden while a model glides, since it joins where the models end up.
+    private readonly List<MeshInstance3D> _meleeLinks = [];
+    private readonly List<string> _meleeLinkNames = [];
+
+    private void DrawMeleeLink(ModelShape? one, ModelShape? two)
+    {
+        if (one is null || two is null)
+        {
+            return;
+        }
+        var a = new Vector2((float)one.X, (float)one.Y);
+        var b = new Vector2((float)two.X, (float)two.Y);
+        var gap = a.DistanceTo(b);
+        var direction = gap > 0.001f ? (b - a) / gap : Vector2.Right;
+        // From just inside one base to just inside the other, so touching bases still show a visible link.
+        var from = a + direction * Math.Max(0f, (float)one.Radius - 0.3f);
+        var to = b - direction * Math.Max(0f, (float)two.Radius - 0.3f);
+        var length = Math.Max(0.3f, from.DistanceTo(to));
+        var height = (float)Math.Max(one.Standing, two.Standing) + 0.7f;
+        var bar = new MeshInstance3D
+        {
+            Name = $"MeleeLink-{one.Id.Value}-{two.Id.Value}",
+            Mesh = new BoxMesh { Size = new Vector3(0.16f, 0.06f, length) },
+            Position = new Vector3((from.X + to.X) / 2, height, (from.Y + to.Y) / 2),
+            Rotation = new Vector3(0, Mathf.Atan2(to.X - from.X, to.Y - from.Y), 0),
+            MaterialOverride = Paint(_highContrast ? Colors.Yellow : new Color(1f, 0.45f, 0.15f), noDepth: true),
+            Visible = !Gliding,
+        };
+        _content.AddChild(bar);
+        _meleeLinks.Add(bar);
+        _meleeLinkNames.Add($"{one.Id.Value}-{two.Id.Value}");
+    }
+
+    private void UpdateMeleeLinks()
+    {
+        foreach (var link in _meleeLinks)
+        {
+            if (IsInstanceValid(link))
+            {
+                link.Visible = !Gliding;
+            }
+        }
+    }
+
+    // For the UI check: the engaged pairs drawn now (visible or hidden by a glide), as "a1-b2".
+    // (Godot renames a node whose name is still taken by one being freed, so the pairs are kept beside the bars.)
+    public IReadOnlyList<string> MeleeLinksDrawn => [.. _meleeLinkNames.Where((_, i) => IsInstanceValid(_meleeLinks[i]))];
 
     private void DrawModel(ModelShape model)
     {

@@ -113,6 +113,10 @@ public enum UnitLook
 
 public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneShape> Zones, IReadOnlyList<TerrainShape> Terrain, IReadOnlyList<ModelShape> Models)
 {
+    // QoL I5: the enemy pairs the rules say are engaged now (Rules.Core.Engagement.Pairs, decision D1), each drawn as a
+    // short line between the two bases. Display only.
+    public IReadOnlyList<EngagedPair> Links { get; init; } = [];
+
     // Null when the match has no battlefield yet (before the Welcome, or a setup without a scenario).
     public static BoardScene? Of(MatchState state, Seat? you, ContentNames names)
     {
@@ -153,7 +157,10 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
                 level.Level == ModelLevel.High, standing, model.Status, state.ActiveModel == model.Id, model.Seat == you,
                 model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers));
         }
-        return new BoardScene(TableRect.Inches(field.Width), TableRect.Inches(field.Height), zones, terrain, models);
+        return new BoardScene(TableRect.Inches(field.Width), TableRect.Inches(field.Height), zones, terrain, models)
+        {
+            Links = [.. Engagement.Pairs(state).Where(p => models.Any(m => m.Id == p.One) && models.Any(m => m.Id == p.Two))],
+        };
     }
 
     // Whether the model can still activate this turn, from the server's state (see ModelShape). Display only.
