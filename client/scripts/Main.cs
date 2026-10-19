@@ -81,6 +81,8 @@ public partial class Main : Control
     public override async void _Ready()
     {
         Theme = _theme;
+        _baseTitle = GetWindow().Title;
+        AddChild(_sounds);
         _background = new ColorRect { Color = new Color(0.12f, 0.12f, 0.14f) };
         _background.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_background);
@@ -220,6 +222,14 @@ public partial class Main : Control
     // Closing the window (or quitting) stops the hot-seat server at once, so no server process is left behind.
     public override void _Notification(int what)
     {
+        if (what == NotificationWMWindowFocusIn || what == NotificationWMWindowFocusOut)
+        {
+            _focused = what == NotificationWMWindowFocusIn;
+            if (_lastScreen is not null)
+            {
+                UpdateTurnAlert();
+            }
+        }
         if (what == NotificationWMCloseRequest || what == NotificationPredelete)
         {
             _hotSeat?.StopServerNow();
@@ -471,6 +481,13 @@ public partial class Main : Control
         _match = new VBoxContainer();
         _match.AddThemeConstantOverride("separation", 8);
         _board = new BoardView();
+        _board.LineShown += line =>
+        {
+            if (!line.Replayed && line.Sound is { } cue)
+            {
+                _sounds.Play(cue);
+            }
+        };
         // Proposal G3: one line on top (the HUD): this window's seat, whose move, turn, phase, VP, units left to activate,
         // the objectives of the last scoring; then the camera buttons and the Menu.
         _hud = Text("");
@@ -690,9 +707,12 @@ public partial class Main : Control
         _endSection.Visible = s.End is not null;
         _finalHash = s.End?.Hash;
         _end.Text = s.End is { } end ? string.Join("\n", end.Lines()) : "";
+        _title = _test is { } titled ? titled.Title(s.Seat) : _baseTitle;
+        UpdateTurnAlert();
         if (_test is { } test)
         {
-            DisplayServer.WindowSetTitle(test.Title(s.Seat));
+            WindowTitle = _turnAlert.Title(test.Title(s.Seat));
+            DisplayServer.WindowSetTitle(WindowTitle);
             if (test.Report is { } report && s.End is { } ended && !_testReported)
             {
                 _testReported = true;
@@ -1154,7 +1174,15 @@ public partial class Main : Control
             Remember(_settings with { Dice = (int)index });
         };
         _diceChoice = dice;
-        return Row(size, contrast, scale, dice);
+        // QoL I3: short sounds for your move, activations, passed and failed rolls and scoring; off by default.
+        var sound = new CheckButton { Text = "Sound", Name = "SoundToggle" };
+        sound.Toggled += on =>
+        {
+            _sounds.Enabled = on;
+            Remember(_settings with { Sound = on });
+        };
+        _soundChoice = sound;
+        return Row(size, contrast, scale, dice, sound);
     }
 
     private static readonly string[] DiceChoices = ["Dice: Short (2 s)", "Dice: Normal (4 s)", "Dice: Long (8 s)", "Dice: Off"];
@@ -1163,6 +1191,64 @@ public partial class Main : Control
     private OptionButton? _textChoice;
     private OptionButton? _scaleChoice;
     private CheckButton? _contrastChoice;
+    private CheckButton? _soundChoice;
+    private readonly Sounds _sounds = new() { Name = "Sounds" };
+    private readonly TurnAlert _turnAlert = new();
+    private bool _focused = true;
+    private string _title = "";
+    private string _baseTitle = "";
+
+    public Sounds SoundPlayer => _sounds;
+
+    // For the UI check: stands in for the window being in front or not (null: the real focus).
+    public bool? FocusOverride
+    {
+        get => _focusOverride;
+        set
+        {
+            _focusOverride = value;
+            UpdateTurnAlert();
+        }
+    }
+
+    private bool? _focusOverride;
+
+    // For the UI check: each combat-log row's sound, as the events gave them.
+    public IReadOnlyList<(int Seq, SoundCue? Sound, bool Replayed)> LogSounds => [.. _logRows.Select(r => (r.Seq, r.Source.Sound, r.Source.Replayed))];
+
+    public int AttentionRequests { get; private set; }
+
+    public bool YourMove => _lastScreen is { End: null } s && s.View.YourMove;
+
+    public string WindowTitle { get; private set; } = "";
+
+    public void ChooseSound(bool on)
+    {
+        if (_soundChoice is { } choice)
+        {
+            choice.ButtonPressed = on;
+        }
+    }
+
+    // QoL I3: the title says "● YOUR MOVE" and the window asks for attention once when the move turns to this window
+    // while it is not in front; both end when it is in front again or the move is no longer this window's.
+    private void UpdateTurnAlert()
+    {
+        var yourMove = _lastScreen is { End: null } s && s.View.YourMove && _hotSeat is null;
+        var focused = FocusOverride ?? _focused;
+        var wasAlerted = _turnAlert.Alerted;
+        if (_turnAlert.Update(yourMove, focused))
+        {
+            AttentionRequests++;
+            DisplayServer.WindowRequestAttention();
+            _sounds.Play(SoundCue.YourMove);
+        }
+        if (_turnAlert.Alerted != wasAlerted || _turnAlert.Alerted)
+        {
+            WindowTitle = _turnAlert.Title(_title);
+            DisplayServer.WindowSetTitle(WindowTitle);
+        }
+    }
 
     // ---- QoL I2: settings kept between launches ----
 
@@ -1210,6 +1296,8 @@ public partial class Main : Control
             Pick(_textChoice, settings.TextSize);
             Pick(_scaleChoice, settings.InterfaceScale);
             Pick(_diceChoice, settings.Dice);
+            _soundChoice?.SetPressedNoSignal(settings.Sound);
+            _sounds.Enabled = settings.Sound;
             if (_contrastChoice is { } contrast)
             {
                 contrast.SetPressedNoSignal(settings.HighContrast);

@@ -2,9 +2,9 @@ using System.Globalization;
 
 namespace Client.Core;
 
-// QoL I2: what a player chose in the Menu, kept between launches in a small text file ("key=value" lines). A missing,
+// QoL I2 (sound: I3, off by default): what a player chose in the Menu, kept between launches in a small text file ("key=value" lines). A missing,
 // unknown or out-of-range value falls back to its default, so a broken file never stops the client. No match data.
-public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false, int Dice = 1, bool TopDown = false, int InterfaceScale = 0)
+public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false, int Dice = 1, bool TopDown = false, int InterfaceScale = 0, bool Sound = false)
 {
     public static readonly float[] TextScales = [1f, 1.25f, 1.5f];
     public static readonly float[] InterfaceScales = [1f, 1.25f, 1.5f];
@@ -17,7 +17,8 @@ public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false,
         $"contrast={(HighContrast ? 1 : 0)}",
         $"dice={Dice}",
         $"topdown={(TopDown ? 1 : 0)}",
-        $"scale={InterfaceScale}") + "\n";
+        $"scale={InterfaceScale}",
+        $"sound={(Sound ? 1 : 0)}") + "\n";
 
     public static ClientSettings Parse(string? text)
     {
@@ -37,6 +38,7 @@ public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false,
             Pick("contrast", 2, d.HighContrast ? 1 : 0) == 1,
             Pick("dice", DiceChoices, d.Dice),
             Pick("topdown", 2, d.TopDown ? 1 : 0) == 1,
-            Pick("scale", InterfaceScales.Length, d.InterfaceScale));
+            Pick("scale", InterfaceScales.Length, d.InterfaceScale),
+            Pick("sound", 2, d.Sound ? 1 : 0) == 1);
     }
 }

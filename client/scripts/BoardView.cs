@@ -1255,6 +1255,9 @@ public partial class BoardView : SubViewportContainer
 
     // ---- notes above models ----
 
+    // Each new event as it arrives (not those of a first look or a catch-up), for the sounds (QoL I3).
+    public event Action<LogLine>? LineShown;
+
     // New events' notes. The first time (or after a catch-up of many events) only remembers where the log is, so a
     // rejoin does not replay old notes.
     private void ShowNotes(IReadOnlyList<LogLine> log, IReadOnlyDictionary<ModelId, Vector2> before)
@@ -1277,6 +1280,7 @@ public partial class BoardView : SubViewportContainer
                 ReplayedUpTo = Math.Max(ReplayedUpTo, line.Seq);
             }
             Dice.Feed.Add(line, DiceTray.Now);
+            LineShown?.Invoke(line);
             foreach (var note in line.Notes ?? [])
             {
                 AddNote(note);

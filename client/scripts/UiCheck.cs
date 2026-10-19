@@ -1914,6 +1914,10 @@ public partial class UiCheck : Node
                 }
                 continue;
             }
+            if (_role == "pvp-a")
+            {
+                TurnAlertStep(board);
+            }
             // After a look check (and its screenshot) the screen may have been redrawn: read the board and hints again.
             if (_role == "pvp-a" && board?.Scene is { } looking && await UnitLookChecks(board, looking))
             {
@@ -2734,6 +2738,10 @@ public partial class UiCheck : Node
         CheckObjectivesNow(board);
         await CheckDiceTray(board);
         DiceEndChecks(board);
+        if (_role == "pvp-a")
+        {
+            SoundEndChecks(board);
+        }
         if (_role is "pvp-a" or "gvt-a")
         {
             Check("hud-objectives-now", _objectiveSamples > 0 && _objectiveProblems.Count == 0,
@@ -3087,6 +3095,65 @@ public partial class UiCheck : Node
     }
 
     private static bool Close(Vector3 a, double x, double y) => Math.Abs(a.X - x) < 0.05 && Math.Abs(a.Z - y) < 0.05;
+
+    // ---- QoL I3: the your-turn alert and sounds (first match window) ----
+
+    private bool _soundOn;
+    private int _soundFrom;
+    private string _silentWhileOff = "";
+    private bool _alertArmed;
+    private bool _alertChecked;
+    private int _attentionBefore;
+
+    // Sound is off at first: nothing plays while events come in. At this window's first activation it is turned on.
+    // Once, while it is the opponent's move, the window stands in for one not in front; when the move turns to it,
+    // the title says so and it asks for attention once; in front again, the title is back.
+    private void TurnAlertStep(BoardView? board)
+    {
+        var main = (Main)_main;
+        if (!_soundOn && board?.Interaction.Available.Count > 0 && main.LogSounds.Any(r => r.Sound is not null))
+        {
+            _soundOn = true;
+            var cues = main.LogSounds.Count(r => r.Sound is not null);
+            _silentWhileOff = $"{cues} events with a sound while off, {main.SoundPlayer.Played.Count} played, Sound on: {main.CurrentSettings.Sound}";
+            _silentWhileOff = main.SoundPlayer.Played.Count == 0 && !main.CurrentSettings.Sound ? "OK " + _silentWhileOff : _silentWhileOff;
+            main.ChooseSound(true);
+            _soundFrom = main.LogSounds.Count == 0 ? 0 : main.LogSounds[^1].Seq;
+        }
+        if (_soundOn && !_alertChecked && !_alertArmed && !main.YourMove && board?.Scene is not null && Hint() is null)
+        {
+            _alertArmed = true;
+            _attentionBefore = main.AttentionRequests;
+            main.FocusOverride = false;
+        }
+        else if (_alertArmed && main.YourMove)
+        {
+            _alertArmed = false;
+            _alertChecked = true;
+            var title = main.WindowTitle;
+            var asked = main.AttentionRequests - _attentionBefore;
+            main.FocusOverride = true;
+            var after = main.WindowTitle;
+            main.FocusOverride = null;
+            Check("turn-alert", title.StartsWith(TurnAlert.Prefix, StringComparison.Ordinal) && asked == 1 && !after.StartsWith(TurnAlert.Prefix, StringComparison.Ordinal),
+                $"not in front when the move turned: title '{title}', asked for attention {asked} time(s); in front again: title '{after}'");
+        }
+    }
+
+    // Every new event after Sound was turned on played its sound (activations, passed and failed rolls, scoring), in
+    // order, and none while it was off; old events of a catch-up play nothing.
+    private void SoundEndChecks(BoardView? board)
+    {
+        var main = (Main)_main;
+        var skipped = board?.Skipped ?? [];
+        var expected = main.LogSounds.Where(r => r.Seq > _soundFrom && !r.Replayed && r.Sound is not null && !skipped.Any(k => r.Seq > k.From && r.Seq <= k.To))
+            .Select(r => r.Sound!.Value).ToList();
+        var played = main.SoundPlayer.Played.Where(c => c != SoundCue.YourMove).ToList();
+        var yourMove = main.SoundPlayer.Played.Count(c => c == SoundCue.YourMove);
+        var same = played.Count >= expected.Count && played.Skip(played.Count - expected.Count).SequenceEqual(expected);
+        Check("sound-cues", _soundOn && _silentWhileOff.StartsWith("OK ", StringComparison.Ordinal) && expected.Count > 0 && same && yourMove <= main.AttentionRequests,
+            $"{_silentWhileOff}; after Sound on: {expected.Count} events with a sound, {played.Count} played, same order: {same}; your-move sounds {yourMove} (attention asked {main.AttentionRequests})");
+    }
 
     // ---- QoL I1: combat-log clicks and the key sheet ----
 

@@ -16,7 +16,7 @@ public class ClientSettingsTests
                 {
                     foreach (var flag in new[] { false, true })
                     {
-                        var settings = new ClientSettings(text, flag, dice, !flag, scale);
+                        var settings = new ClientSettings(text, flag, dice, !flag, scale, flag);
                         Assert.Equal(settings, ClientSettings.Parse(settings.Format()));
                     }
                 }
@@ -27,7 +27,7 @@ public class ClientSettingsTests
     [Theory]
     [InlineData(null)]
     [InlineData("")]
-    [InlineData("garbage\n===\ntext=9\ndice=-1\nscale=abc\ncontrast=7\ntopdown=2\nunknown=1")]
+    [InlineData("garbage\n===\ntext=9\ndice=-1\nscale=abc\ncontrast=7\ntopdown=2\nsound=5\nunknown=1")]
     public void ABrokenFileGivesTheDefaults(string? text) => Assert.Equal(ClientSettings.Default, ClientSettings.Parse(text));
 
     [Fact]
