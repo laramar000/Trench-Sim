@@ -142,13 +142,14 @@ public static class Program
                 differ.Count == 0 ? $"{printed.Count} events trench-cli printed are in Godot's list with the same number and text" : string.Join("; ", differ.Take(5)));
             Record("gvt-commands", "INFO", $"Godot (Seat One): {end.GetValueOrDefault("answers")}");
 
-            // The server's signed record, checked with trench-cli verify (the client never reads it).
+            // The server's signed record, checked with trench-cli verify (the client never reads it). The first one written:
+            // a rematch the client starts afterwards (QoL I4) is never played.
             var matches = Path.Combine(data, "matches");
             var deadline = DateTime.UtcNow.AddSeconds(30);
             string? record = null;
             while (record is null && DateTime.UtcNow < deadline)
             {
-                record = Directory.Exists(matches) ? Directory.GetFiles(matches, "*.json").FirstOrDefault() : null;
+                record = Directory.Exists(matches) ? Directory.GetFiles(matches, "*.json").OrderBy(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
                 if (record is null)
                 {
                     await Task.Delay(200);
@@ -309,13 +310,14 @@ public static class Program
                 $"the {beforeKill.Split('|').Length} events shown before the kill are the first of the {rejoined.Split('|').Length} shown after rejoining");
             Record("pvp-commands", "INFO", $"Seat One: {endA.GetValueOrDefault("answers")} || Seat Two after rejoining: {endB.GetValueOrDefault("answers")}");
 
-            // The server's signed record, checked with trench-cli verify (the client never reads it).
+            // The server's signed record, checked with trench-cli verify (the client never reads it). The first one written:
+            // a rematch the client starts afterwards (QoL I4) is never played.
             var matches = Path.Combine(data, "matches");
             var deadline = DateTime.UtcNow.AddSeconds(30);
             string? record = null;
             while (record is null && DateTime.UtcNow < deadline)
             {
-                record = Directory.Exists(matches) ? Directory.GetFiles(matches, "*.json").FirstOrDefault() : null;
+                record = Directory.Exists(matches) ? Directory.GetFiles(matches, "*.json").OrderBy(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
                 if (record is null)
                 {
                     await Task.Delay(200);

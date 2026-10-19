@@ -2797,7 +2797,53 @@ public partial class UiCheck : Node
             Check("pvp-event-log-tags", false, "the match screen was not found");
         }
         Write($"DUMP pvp-end looks={(board?.Scene is { } final ? string.Join(",", final.Models.Select(m => $"{m.Id.Value}:{m.Look}:{m.Status}")) : "")}");
+        SummaryCheck();
+        if (_role == "gvt-a")
+        {
+            await RematchCheck();
+        }
         Mark("ended");
+    }
+
+    // QoL I4: the summary under the result: VP (each turn's scoring adds up to the server's final VP), models Down
+    // and Out of Action as the final state has them, and rolls passed and failed. Rematch only where this window
+    // created the match; a window that joined is told to wait for the other's code.
+    private void SummaryCheck()
+    {
+        var main = (Main)_main;
+        if (main.ServerState is not { } state)
+        {
+            Check("match-summary", false, "no final state");
+            return;
+        }
+        var lines = main.SummaryText.Split('\n');
+        int Count(Rules.Core.State.Seat seat, Rules.Core.State.ModelStatus status) => StateCounts.Models(state, seat, status);
+        var (one, two) = (Rules.Core.State.Seat.One, Rules.Core.State.Seat.Two);
+        var models = $"Models at the end: Down A {Count(one, Rules.Core.State.ModelStatus.Down)}, B {Count(two, Rules.Core.State.ModelStatus.Down)} · Out of Action A {Count(one, Rules.Core.State.ModelStatus.OutOfAction)}, B {Count(two, Rules.Core.State.ModelStatus.OutOfAction)}";
+        var vp = lines.Length > 0 && (lines[0].EndsWith($"total A {state.One.VictoryPoints}, B {state.Two.VictoryPoints}", StringComparison.Ordinal)
+            || lines[0].StartsWith($"VP: A {state.One.VictoryPoints}, B {state.Two.VictoryPoints}", StringComparison.Ordinal));
+        var creator = _role is "pvp-a" or "gvt-a";
+        // A test match (Test Center option 2) offers no rematch: its windows are run by the test center.
+        var rematch = _role.StartsWith("tm-", StringComparison.Ordinal) ? !main.RematchShown && main.RematchNoteText.Length == 0
+            : creator ? main.CanRematch && main.RematchShown : !main.CanRematch && main.RematchNoteText.Length > 0;
+        Check("match-summary", lines.Length == 3 && vp && lines[1] == models && lines[2].StartsWith("Rolls passed / failed (the server's dice): A ", StringComparison.Ordinal) && rematch,
+            $"{main.SummaryText.Replace('\n', '|')}; final VP A {state.One.VictoryPoints}, B {state.Two.VictoryPoints}; {(creator ? "Rematch shown" : "joined: rematch note shown")}: {rematch}");
+    }
+
+    // QoL I4: Rematch starts the same scenario again as a new match with a new code, this window as Seat One. Then this
+    // window leaves it (nobody plays it).
+    private async Task RematchCheck()
+    {
+        var main = (Main)_main;
+        var before = main.MatchCode;
+        main.Rematch();
+        var code = await Until(() => main.MatchCode is { } c && c != before && main.ServerState is { } st && st.Phase != Rules.Core.State.Phase.Ended ? c : null, 30, "rematch");
+        var fresh = main.ServerState is { } s && s.Phase != Rules.Core.State.Phase.Ended && s.One.VictoryPoints == 0 && s.Two.VictoryPoints == 0;
+        var seat = main.Seat;
+        Check("rematch-creates", code is not null && fresh && seat == Rules.Core.State.Seat.One && main.SummaryText.Length == 0,
+            $"code {before} -> {code ?? "none"}; a new match not started yet: {fresh}; seat {seat}; old summary gone: {main.SummaryText.Length == 0}");
+        main.LeaveMatch();
+        await Frames(10);
     }
 
     // ---- keyboard ----

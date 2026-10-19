@@ -376,7 +376,7 @@ public sealed class MatchController : IAsyncDisposable
                 : null;
             return new MatchEnd(true, _connectionText, mirror.Events, mirror.Hash, note);
         }
-        return new MatchEnd(false, view.Outcome ?? "The match has ended.", mirror.Events, mirror.Hash, null);
+        return new MatchEnd(false, view.Outcome ?? "The match has ended.", mirror.Events, mirror.Hash, null) { Summary = _tally.Summary(mirror.State) };
     }
 
     public async ValueTask DisposeAsync()
@@ -456,6 +456,8 @@ public sealed class MatchController : IAsyncDisposable
     }
 
     private int _replayUntil;
+    // QoL I4: the match summary's numbers, counted as events arrive.
+    private readonly MatchTally _tally = new();
 
     private void OnReceived(ClientSession session, ServerMessage message)
     {
@@ -470,18 +472,21 @@ public sealed class MatchController : IAsyncDisposable
             {
                 case Welcome { ReplayFrom: 0 }:
                     _log.Clear();
+                    _tally.Clear();
                     break;
                 case MatchAborted a when ReferenceEquals(session, _session):
                     SetConnection(ConnectionState.Aborted, $"Match aborted ({a.Reason}). No result was recorded as a win or loss.");
                     ForgetSeat();
                     break;
                 case EventPublished { Event: Rules.Core.Events.MatchEnded } e when ReferenceEquals(session, _session):
+                    _tally.Add(e.Seq, e.Event, session.Mirror.State);
                     _log[e.Seq] = new LogLine(e.Seq, EventText.Line(e.Event), EventText.Dice(e.Event), UnitNotes.Of(e.Event), EventText.Kind(e.Event), EventText.Compact(e.Event), Motions.Of(e.Event), DiceRolls.Step(e.Event), e.Seq <= _replayUntil, EventModels.Of(e.Event), SoundCues.Of(e.Event));
                     SetConnection(ConnectionState.Finished, "The match has ended. The result above is the server's.");
                     // The match is over: the saved seat has nothing left to rejoin (as trench-cli does).
                     ForgetSeat();
                     break;
                 case EventPublished e:
+                    _tally.Add(e.Seq, e.Event, session.Mirror.State);
                     _log[e.Seq] = new LogLine(e.Seq, EventText.Line(e.Event), EventText.Dice(e.Event), UnitNotes.Of(e.Event), EventText.Kind(e.Event), EventText.Compact(e.Event), Motions.Of(e.Event), DiceRolls.Step(e.Event), e.Seq <= _replayUntil, EventModels.Of(e.Event), SoundCues.Of(e.Event));
                     while (_log.Count > _options.LogLines)
                     {

@@ -47,6 +47,9 @@ public partial class Main : Control
     private HBoxContainer _bannerButtons = null!;
     private Label _code2 = null!;
     private VBoxContainer _endSection = null!;
+    private Label _summary = null!;
+    private Button _rematch = null!;
+    private Label _rematchNote = null!;
     private Label _end = null!;
     private string? _finalHash;
     private Label _state = null!;
@@ -257,14 +260,18 @@ public partial class Main : Control
             _scenario.AddItem(ScenarioLabel(choice));
             _scenario.SetItemMetadata(_scenario.ItemCount - 1, choice);
         }
-        _connect.AddChild(Row(Text("Scenario:"), _scenario, Button("Create match", () => Start(c => c.CreateAsync(ChosenScenario())))));
+        _connect.AddChild(Row(Text("Scenario:"), _scenario, Button("Create match", () => Create(ChosenScenario()))));
         _connect.AddChild(Text("The 1 v 1, 2 v 2 and 3 v 3 choices are small test rosters (each side's first models) for trying mechanics quickly; " +
             "the normal roster is the full warbands."));
         _connect.AddChild(Row(Text("Single player:"), Button("Hot-seat: play both sides in this window", StartHotSeat)));
         _connect.AddChild(Text("Hot-seat starts a local server on this PC (no server address needed) and seats you as Seat One and Seat Two of a " +
             "match in the scenario above. F2 switches the side you control; by default the window follows the turn."));
         _code = new LineEdit { PlaceholderText = "match code", CustomMinimumSize = new Vector2(160, 0) };
-        _connect.AddChild(Row(Text("Join with a code:"), _code, Button("Join match", () => Start(c => c.JoinAsync(_code.Text.Trim().ToUpperInvariant())))));
+        _connect.AddChild(Row(Text("Join with a code:"), _code, Button("Join match", () =>
+        {
+            _createdScenario = null;
+            Start(c => c.JoinAsync(_code.Text.Trim().ToUpperInvariant()));
+        })));
         _connect.AddChild(Text("Saved seats on this server (Rejoin):"));
         _saved = new VBoxContainer();
         _connect.AddChild(_saved);
@@ -362,7 +369,59 @@ public partial class Main : Control
         }
     }
 
-    private async void Leave()
+    private async void Leave() => await LeaveAsync();
+
+    // QoL I4: the window that created the match (or a hot-seat) can start the same match again: same scenario and side
+    // size, a new match code. A window that joined waits for the other's new code.
+    private string? _createdScenario;
+
+    private void Create(string scenario)
+    {
+        _createdScenario = scenario;
+        Start(c => c.CreateAsync(scenario));
+    }
+
+    // For the UI check.
+    public string SummaryText => _summary.Visible ? _summary.Text : "";
+
+    public bool RematchShown => _rematch.IsVisibleInTree();
+
+    public string RematchNoteText => _rematchNote.Visible ? _rematchNote.Text : "";
+
+    public string? MatchCode => _lastScreen?.Code;
+
+    public Rules.Core.State.Seat? Seat => _lastScreen?.Seat;
+
+    public void LeaveMatch() => Leave();
+
+    public bool CanRematch => _createdScenario is not null && _test is null && _lastScreen?.End is { Aborted: false };
+
+    public async void Rematch()
+    {
+        if (!CanRematch || _createdScenario is not { } scenario)
+        {
+            return;
+        }
+        var hot = _hotSeat is not null;
+        await LeaveAsync();
+        for (var i = 0; i < _scenario.ItemCount; i++)
+        {
+            if (_scenario.GetItemMetadata(i).AsString() == scenario)
+            {
+                _scenario.Select(i);
+            }
+        }
+        if (hot)
+        {
+            StartHotSeat();
+        }
+        else
+        {
+            Create(scenario);
+        }
+    }
+
+    private async Task LeaveAsync()
     {
         if (_hotSeat is { } hot)
         {
@@ -393,6 +452,7 @@ public partial class Main : Control
             return;
         }
         var scenario = ChosenScenario();
+        _createdScenario = scenario;
         try
         {
             var server = await LocalServer.StartAsync(repository, LocalServer.DefaultDataDirectory(),
@@ -529,13 +589,21 @@ public partial class Main : Control
         _end = Text("");
         var endBox = new VBoxContainer();
         endBox.AddChild(_end);
+        // QoL I4: the match in numbers (from the server's events and final state), and a rematch.
+        _summary = Text("");
+        _summary.Name = "MatchSummary";
+        endBox.AddChild(_summary);
+        _rematch = Button("Rematch (same scenario, new code)", Rematch);
+        _rematch.Name = "Rematch";
+        _rematchNote = Text("");
         endBox.AddChild(Row(Button("Copy final hash", () =>
         {
             if (_finalHash is { } hash)
             {
                 DisplayServer.ClipboardSet(hash);
             }
-        })));
+        }), _rematch));
+        endBox.AddChild(_rematchNote);
         _endSection = Section("Result of the match", endBox);
         _endSection.Visible = false;
         _match.AddChild(_endSection);
@@ -707,6 +775,12 @@ public partial class Main : Control
         _endSection.Visible = s.End is not null;
         _finalHash = s.End?.Hash;
         _end.Text = s.End is { } end ? string.Join("\n", end.Lines()) : "";
+        _summary.Text = s.End?.Summary is { } summary ? string.Join("\n", summary.Lines()) : "";
+        _summary.Visible = _summary.Text.Length > 0;
+        _rematch.Visible = CanRematch;
+        _rematchNote.Text = s.End is { Aborted: false } && _createdScenario is null && _test is null
+            ? "Rematch: the window that created this match can start one and give you its code." : "";
+        _rematchNote.Visible = _rematchNote.Text.Length > 0;
         _title = _test is { } titled ? titled.Title(s.Seat) : _baseTitle;
         UpdateTurnAlert();
         if (_test is { } test)

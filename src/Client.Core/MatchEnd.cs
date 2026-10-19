@@ -6,6 +6,9 @@ namespace Client.Core;
 // copy already holds; the server decided the result.
 public sealed record MatchEnd(bool Aborted, string Result, int Events, string Hash, string? Note)
 {
+    // QoL I4: VP by turn, models Down and Out of Action, rolls passed and failed (a match that ended, not an aborted one).
+    public MatchSummary? Summary { get; init; }
+
     public IEnumerable<string> Lines()
     {
         yield return $"Result: {Result}";
