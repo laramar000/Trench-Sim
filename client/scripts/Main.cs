@@ -791,6 +791,7 @@ public partial class Main : Control
     private Label _pRefusal = null!;
     private Label _pNotice = null!;
     private Label _pPointing = null!;
+    private Label _pKeys = null!;
     private Button _pDetailsButton = null!;
     private Label _pDetails = null!;
     private Button _pConfirm = null!;
@@ -859,6 +860,11 @@ public partial class Main : Control
         // Details ▸ stays in view above the buttons however long the panel's words are; what it opens scrolls with them.
         column.AddChild(_pDetailsButton);
         column.AddChild(Row(_pConfirm, _pUndo, _pCancel));
+        // QoL H5: the same keys for every action, under its buttons.
+        _pKeys = Text(UnitPanelView.KeysLine);
+        _pKeys.Name = "PanelKeys";
+        _pKeys.Modulate = new Color(1, 1, 1, 0.7f);
+        column.AddChild(_pKeys);
         return _panel;
     }
 
@@ -900,6 +906,7 @@ public partial class Main : Control
         _pConfirm.Disabled = !view.CanConfirm;
         _pCancel.Disabled = !view.CanCancel;
         _pUndo.Disabled = !view.CanUndo;
+        _pKeys.Visible = view.CanCancel;
         ((StyleBoxFlat)_panel.GetThemeStylebox("panel")).BgColor = _highContrast ? new Color(0.05f, 0.05f, 0.05f) : new Color(0.17f, 0.17f, 0.2f);
     }
 
@@ -918,6 +925,8 @@ public partial class Main : Control
     public Button PanelCancel => _pCancel;
 
     public Button PanelUndo => _pUndo;
+
+    public string PanelKeysText => _pKeys.IsVisibleInTree() ? _pKeys.Text : "";
 
     // The status line as shown (for the UI check).
     public string HudText => _hud.Text;

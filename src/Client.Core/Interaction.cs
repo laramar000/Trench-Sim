@@ -65,7 +65,21 @@ public enum BarKind
 
 // One button of the action bar: a short label, a tooltip that says what it does (and its optional key), and the command
 // it sends for Activate and End activation (the rules' own legal command, which the server still decides).
-public sealed record BarItem(BarKind Kind, string Label, string Tip, bool Enabled = true, InteractionMode Mode = InteractionMode.None, Command? Command = null);
+public sealed record BarItem(BarKind Kind, string Label, string Tip, bool Enabled = true, InteractionMode Mode = InteractionMode.None, Command? Command = null)
+{
+    // QoL H5: the key that does the same, shown on the button ("Move · M"); null when there is none. No key is new.
+    public string? Key => Kind switch
+    {
+        BarKind.Start => Interaction.Key(Mode) is { Length: > 0 } k ? k : null,
+        BarKind.Activate => "A",
+        BarKind.Confirm => "Space",
+        BarKind.Undo => "Backspace",
+        BarKind.Cancel => "Esc",
+        _ => null,
+    };
+
+    public string ButtonText => Key is { } key ? $"{Label} · {key}" : Label;
+}
 
 // The bar next to a model (Anchor; none while placing): only the choices that make sense now.
 public sealed record ActionBar(ModelId? Anchor, IReadOnlyList<BarItem> Items)
@@ -748,6 +762,10 @@ public sealed class Interaction
         return await SendOne(command, label, keepChoice: false);
     }
 
+    // How many commands this battlefield has handed to the server (for the UI check: a second confirmation while one is
+    // waiting adds none).
+    public int SentCount { get; private set; }
+
     private async Task<Feedback?> SendOne(Command command, string label, bool keepChoice)
     {
         if (Send is not { } send)
@@ -756,6 +774,7 @@ public sealed class Interaction
             Changed();
             return null;
         }
+        SentCount++;
         Pending = command;
         _armed = false;
         Answer = null;

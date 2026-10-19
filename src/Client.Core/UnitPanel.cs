@@ -23,6 +23,9 @@ public sealed record UnitPanelView(
     public const string PreviewLine = "PREVIEW · the server decides";
     public const string PointingPrefix = "POINTING AT ";
 
+    // QoL H5: under Confirm, Undo and Cancel while an action is being chosen; the same for every action.
+    public const string KeysLine = "Keys: Space confirms · Backspace undoes a waypoint · Esc or right-click cancels";
+
     // The model under the pointer (QoL H1), when it is not the unit or target already shown: who it is and its state,
     // or in Shoot, Charge and Fight what choosing it as the target would give. Nothing is chosen by pointing.
     public IReadOnlyList<string> Pointing { get; init; } = [];

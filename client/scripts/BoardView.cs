@@ -943,9 +943,13 @@ public partial class BoardView : SubViewportContainer
     // The labels of the action bar's buttons now (for the UI check), empty when it is hidden.
     public IReadOnlyList<string> BarLabels => _bar.Visible ? _barNow.Items.Select(i => i.Label).ToList() : [];
 
+    // The texts on the bar's buttons now, keys included (for the UI check).
+    public IReadOnlyList<string> BarTexts => _bar.Visible ? [.. _barRow.GetChildren().OfType<Button>().Where(b => !b.IsQueuedForDeletion()).Select(b => b.Text)] : [];
+
     // Where a button of the action bar is on the screen (window coordinates), for a real mouse click; null when not shown.
     public Vector2? BarButtonAt(string label) =>
-        _bar.Visible && _barRow.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == label && !b.IsQueuedForDeletion()) is { } button
+        _bar.Visible && _barNow.Items.FirstOrDefault(i => i.Label == label) is { } item
+            && _barRow.GetChildren().OfType<Button>().FirstOrDefault(b => b.Text == item.ButtonText && !b.IsQueuedForDeletion()) is { } button
             ? button.GetGlobalRect().GetCenter()
             : null;
 
@@ -1013,7 +1017,8 @@ public partial class BoardView : SubViewportContainer
             {
                 var button = new Button
                 {
-                    Text = item.Label,
+                    // QoL H5: the key that does the same is on the button ("Move · M").
+                    Text = item.ButtonText,
                     TooltipText = item.Tip,
                     Disabled = !item.Enabled,
                     FocusMode = FocusModeEnum.None,

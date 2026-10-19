@@ -790,6 +790,7 @@ public partial class UiCheck : Node
             $"mode {interaction.Mode}; last command unchanged: {Section("LAST COMMAND") == lastCommand}; hint still offered: {Hint()?.Text}");
         Dump("previews");
         await ActionBarChecks(board);
+        await ControlsChecks(board, lastCommand);
 
         // Stage 4c: a Move with the keyboard cursor, sent once with Space; the server's events move the model.
         var moved = await SendFirstLegalMove(board);
@@ -1045,7 +1046,16 @@ public partial class UiCheck : Node
                 // The panel's Confirm, clicked with the mouse, sends the previewed move (as Space does).
                 var confirm = ((Main)_main).PanelConfirm;
                 Check("panel-confirm-shows-action", !confirm.Disabled && confirm.Text == "Move here", $"Confirm \"{confirm.Text}\", disabled: {confirm.Disabled}");
+                // QoL H5: confirming again at once (Space, then Confirm again) while the move waits for its answer sends
+                // nothing more.
+                var sent = interaction.SentCount;
+                var once = interaction.Chosen is null ? 1 : 2;
                 await ClickButton(confirm);
+                await KeyPress(Key.Space);
+                await ClickButton(confirm);
+                await Answered(before);
+                Check("board-no-double-send", interaction.SentCount - sent == once,
+                    $"Confirm, then Space and Confirm again while waiting: {interaction.SentCount - sent} command(s) sent (one confirmation sends {once})");
             }
             else
             {
@@ -2284,7 +2294,7 @@ public partial class UiCheck : Node
 
     private int LogDiceCount() => _main is Main screen ? screen.LogRows.Count(r => r.Full.Contains("\n      Dice: ", StringComparison.Ordinal)) : 0;
 
-    // Checked at each own activation and at the end. Every window: boxes with several rows keep event order. The first
+    // Checked at each own activation, after each own attack, and at the end. Every window: boxes with several rows keep event order. The first
     // match window also clicks a box shut, watches one fade after its time, and turns the dice Off until a new roll has
     // come in without being shown.
     private async Task CheckDiceTray(BoardView? board)
@@ -2594,6 +2604,12 @@ public partial class UiCheck : Node
         var answer = await AnswerAfter(before, events);
         Answer(name, answer);
         await Frames(3);
+        if (_role == "pvp-a" && answer.StartsWith("DONE:", StringComparison.Ordinal))
+        {
+            // Also look at the dice right after this window's own roll, while its box is fresh: at the start of the next
+            // activation a box has often only a second or two left, too little for the click and fade checks.
+            await CheckDiceTray(board);
+        }
         return answer;
     }
 
@@ -2931,6 +2947,74 @@ public partial class UiCheck : Node
     // The real mouse pointer may rest over (or cross) the window, and hovering over the battlefield moves its cursor.
     // The keyboard checks make the battlefield ignore the mouse first, so only their keys move the cursor; the mouse
     // checks turn it back on. The real pointer is never moved.
+    // ---- QoL H5: consistent controls ----
+
+    // The bar's buttons carry the key that does the same ("Move · M"); while an action is being chosen the panel lists
+    // Space, Backspace and Esc under its buttons. Then, for every action the unit can start now: Esc cancels it, and so
+    // does a right-click, and neither sends anything or leaves a mark on the battlefield.
+    private async Task ControlsChecks(BoardView board, string lastCommand)
+    {
+        var interaction = board.Interaction;
+        if (interaction.Mode != InteractionMode.None)
+        {
+            await KeyPress(Key.Escape);
+        }
+        // The acting unit selected again, so its bar is up (an earlier right-click may have closed it).
+        if (board.Scene?.Models.FirstOrDefault(m => m.Active) is { } acting)
+        {
+            board.Select(acting.Id);
+        }
+        await Frames(3);
+        var texts = board.BarTexts;
+        var starts = interaction.Offered.Where(m => m != InteractionMode.Place).ToList();
+        var keysShown = starts.Count > 0 && starts.All(m => texts.Contains($"{Interaction.Words(m)} · {Interaction.Key(m)}"));
+        var keysHidden = ((Main)_main).PanelKeysText.Length == 0;
+        Check("board-keys-on-buttons", keysShown && keysHidden,
+            $"bar: {string.Join(" / ", texts)}; actions {string.Join(", ", starts)}; panel keys line hidden with no action: {keysHidden}");
+        var results = new List<string>();
+        var ok = starts.Count > 0;
+        board.GrabFocus();
+        foreach (var mode in starts)
+        {
+            foreach (var how in new[] { "Esc", "right-click" })
+            {
+                await KeyPress(Enum.Parse<Key>(Interaction.Key(mode)));
+                await Frames(2);
+                var started = interaction.Mode == mode;
+                var keysLine = ((Main)_main).PanelKeysText == UnitPanelView.KeysLine;
+                if (how == "Esc")
+                {
+                    await KeyPress(Key.Escape);
+                }
+                else
+                {
+                    await MouseOn(board);
+                    var spot = board.Scene is { } scene ? FreeSpot(board, scene) : null;
+                    if (spot is { } at)
+                    {
+                        var global = board.GetGlobalTransformWithCanvas() * at;
+                        foreach (var pressed in new[] { true, false })
+                        {
+                            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Right, Pressed = pressed, Position = global, GlobalPosition = global });
+                            await Frames(2);
+                        }
+                    }
+                    await MouseOff(board);
+                    board.GrabFocus();
+                }
+                await Frames(2);
+                var cancelled = interaction.Mode == InteractionMode.None && interaction.Pending is null && board.OverlayTexts.Count == 0 && Section("LAST COMMAND") == lastCommand;
+                ok &= started && keysLine && cancelled;
+                results.Add($"{mode} {how}: started {started}, keys line {keysLine}, cancelled {cancelled}");
+                if (interaction.Mode != InteractionMode.None)
+                {
+                    await KeyPress(Key.Escape);
+                }
+            }
+        }
+        Check("board-esc-cancels-everywhere", ok, string.Join("; ", results));
+    }
+
     // ---- QoL H2: double-click, J, camera keys, reset ----
 
     private async Task DoubleClick(BoardView board, Vector2 local)
