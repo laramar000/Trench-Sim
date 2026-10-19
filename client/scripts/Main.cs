@@ -75,6 +75,7 @@ public partial class Main : Control
     private readonly List<LogRow> _logRows = [];
     private ScrollContainer _logScroll = null!;
     private AcceptDialog _gaps = null!;
+    private AcceptDialog _keySheet = null!;
     private ConfirmationDialog _takeBack = null!;
 
     public override async void _Ready()
@@ -166,6 +167,11 @@ public partial class Main : Control
         if (@event is InputEventKey { Pressed: true, Keycode: Key.F1 })
         {
             _gaps.PopupCentered();
+        }
+        else if (@event is InputEventKey { Pressed: true } question && question.Unicode == '?')
+        {
+            ToggleKeySheet();
+            GetViewport().SetInputAsHandled();
         }
         else if (@event is InputEventKey { Pressed: true, Keycode: Key.F2 } && _hotSeat is not null)
         {
@@ -460,7 +466,7 @@ public partial class Main : Control
             {
                 DisplayServer.ClipboardSet(code);
             }
-        }), Button("Rules in this build (F1)", () => _gaps.PopupCentered())));
+        }), Button("Rules in this build (F1)", () => _gaps.PopupCentered()), Button("Keys (?)", ToggleKeySheet)));
         _boardInfo = Text("");
         _matchMenu.AddChild(Section("Battlefield keys", _boardInfo));
         // Hot-seat only: which seat this window controls, whose move it is, and the local server.
@@ -543,6 +549,10 @@ public partial class Main : Control
 
         _gaps = new AcceptDialog { Title = RulesGaps.Title, DialogText = RulesGaps.Text, DialogAutowrap = true, Size = new Vector2I(760, 480) };
         AddChild(_gaps);
+        // QoL I1: every key on one sheet; ? opens and closes it, Esc or OK closes it.
+        _keySheet = new AcceptDialog { Title = KeySheet.Title, DialogText = KeySheet.Text, DialogAutowrap = true, Size = new Vector2I(820, 520) };
+        _keySheet.Name = "KeySheet";
+        AddChild(_keySheet);
         _takeBack = new ConfirmationDialog
         {
             Title = "Take the seat back?",
@@ -956,9 +966,7 @@ public partial class Main : Control
             return;
         }
         _boardInfo.Text = $"Table {scene.Size}; camera {_board.CameraText}.\n" +
-            "Keys on the battlefield (Tab to it or click it): arrows pan, + and - zoom, Q and E turn 90°, F fits the table, Shift+F resets the view, Home centres on the selected model, T top-down or angled, " +
-            "N and P next and previous model, J (Shift+J) the next (previous) unit that can activate, A activates the selected model. Double-click a unit or objective to centre on it, again to zoom in. Actions: L place, M move, D dash, R retreat, S shoot, C charge, X fight; " +
-            "then arrows (Shift: 2\") move the cursor, Enter fixes a waypoint, Space sends, Esc cancels. Mouse: click selects (or picks the target or a waypoint), right-drag pans, wheel zooms towards the pointer. Distances are in inches. " +
+            "Keys on the battlefield (Tab to it or click it); ? shows them on one sheet:\n" + KeySheet.Text + "\n" +
             "This view shows the server's state and decides nothing; heights are for display only. The panel beside it says what the selected unit and the chosen action would do; the server decides.";
     }
 
@@ -1228,11 +1236,63 @@ public partial class Main : Control
             };
             row.AddChild(marker);
             row.AddChild(text);
+            // QoL I1: a click on a row points out the models its event names (nothing is selected or sent).
+            if (line.Models is { Count: > 0 })
+            {
+                var seq = line.Seq;
+                row.MouseFilter = MouseFilterEnum.Stop;
+                row.MouseDefaultCursorShape = CursorShape.PointingHand;
+                row.GuiInput += input =>
+                {
+                    if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+                    {
+                        PickLogRow(seq);
+                    }
+                };
+            }
             _log.AddChild(row);
             _logRows.Add(new LogRow(line.Seq, marker, text, line));
         }
         PaintLog();
     }
+
+    private int? _logPicked;
+
+    private void PickLogRow(int seq)
+    {
+        if (_logRows.FirstOrDefault(r => r.Seq == seq) is not { } row || _board is null)
+        {
+            return;
+        }
+        _logPicked = seq;
+        _board.PointOut(row.Source.Models ?? []);
+        PaintLog();
+    }
+
+    private void ToggleKeySheet()
+    {
+        if (_keySheet.Visible)
+        {
+            _keySheet.Hide();
+        }
+        else
+        {
+            _keySheet.PopupCentered();
+        }
+    }
+
+    // For the UI check: the key sheet's text while it is open, the picked log row and where a row is on screen.
+    public string KeySheetText => _keySheet.Visible ? _keySheet.DialogText : "";
+
+    public int? PickedLogRow => _logPicked;
+
+    public void CloseKeySheet() => _keySheet.Hide();
+
+    public Rect2? LogRowRect(int seq) => _logRows.FirstOrDefault(r => r.Seq == seq) is { } row && row.Line.GetParent() is Control box && box.IsVisibleInTree()
+        ? box.GetGlobalRect() : null;
+
+    public IReadOnlyList<(int Seq, IReadOnlyList<Rules.Core.State.ModelId> Models)> LogRowModels =>
+        [.. _logRows.Select(r => (r.Seq, r.Source.Models ?? (IReadOnlyList<Rules.Core.State.ModelId>)[]))];
 
     private static string FullText(LogLine line) => $"[{line.Seq}] {line.Text.Trim()}{(line.Dice is null ? "" : $"\n      {line.Dice}")}";
 
@@ -1247,7 +1307,7 @@ public partial class Main : Control
         {
             var (seq, marker, line, source) = _logRows[i];
             var newest = i == _logRows.Count - 1;
-            marker.Text = newest ? "▶" : "";
+            marker.Text = newest ? "▶" : seq == _logPicked ? "•" : "";
             var colour = (_highContrast ? Colors.Yellow : KindColour(source.Kind)).ToHtml(false);
             var row = source.Row ?? new CompactRow(null, null, source.Text.Trim());
             var verb = row.Verb is null ? "" : $"[b][color=#{colour}]{Escape(row.Verb)}[/color][/b]";

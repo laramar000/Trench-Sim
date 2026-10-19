@@ -35,7 +35,8 @@ public sealed record Feedback(FeedbackKind Kind, string Text, string? RuleRef = 
 
 // Notes: what the event shows above the models it concerns (UnitNotes).
 // Row is the combat log's short form ("A4 FIGHTS B3", proposal G4); Text stays the narrator's full line.
-public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<UnitNote>? Notes = null, EventKind Kind = EventKind.Other, CompactRow? Row = null, Motion? Motion = null, DiceStep? Step = null, bool Replayed = false);
+// Models: the models the event names (QoL I1), pointed out when its log row is clicked.
+public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<UnitNote>? Notes = null, EventKind Kind = EventKind.Other, CompactRow? Row = null, Motion? Motion = null, DiceStep? Step = null, bool Replayed = false, IReadOnlyList<ModelId>? Models = null);
 
 // Everything the screen needs at one moment. Hints are empty whenever input is locked (InputLocked says why).
 public sealed record ScreenState(
@@ -474,13 +475,13 @@ public sealed class MatchController : IAsyncDisposable
                     ForgetSeat();
                     break;
                 case EventPublished { Event: Rules.Core.Events.MatchEnded } e when ReferenceEquals(session, _session):
-                    _log[e.Seq] = new LogLine(e.Seq, EventText.Line(e.Event), EventText.Dice(e.Event), UnitNotes.Of(e.Event), EventText.Kind(e.Event), EventText.Compact(e.Event), Motions.Of(e.Event), DiceRolls.Step(e.Event), e.Seq <= _replayUntil);
+                    _log[e.Seq] = new LogLine(e.Seq, EventText.Line(e.Event), EventText.Dice(e.Event), UnitNotes.Of(e.Event), EventText.Kind(e.Event), EventText.Compact(e.Event), Motions.Of(e.Event), DiceRolls.Step(e.Event), e.Seq <= _replayUntil, EventModels.Of(e.Event));
                     SetConnection(ConnectionState.Finished, "The match has ended. The result above is the server's.");
                     // The match is over: the saved seat has nothing left to rejoin (as trench-cli does).
                     ForgetSeat();
                     break;
                 case EventPublished e:
-                    _log[e.Seq] = new LogLine(e.Seq, EventText.Line(e.Event), EventText.Dice(e.Event), UnitNotes.Of(e.Event), EventText.Kind(e.Event), EventText.Compact(e.Event), Motions.Of(e.Event), DiceRolls.Step(e.Event), e.Seq <= _replayUntil);
+                    _log[e.Seq] = new LogLine(e.Seq, EventText.Line(e.Event), EventText.Dice(e.Event), UnitNotes.Of(e.Event), EventText.Kind(e.Event), EventText.Compact(e.Event), Motions.Of(e.Event), DiceRolls.Step(e.Event), e.Seq <= _replayUntil, EventModels.Of(e.Event));
                     while (_log.Count > _options.LogLines)
                     {
                         _log.RemoveAt(0);

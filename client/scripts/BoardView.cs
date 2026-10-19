@@ -111,6 +111,10 @@ public partial class BoardView : SubViewportContainer
     private Vector2? _pointer;
     private double _hoverCheckedAt;
     private readonly MeshInstance3D _hoverRing = new() { Visible = false };
+    // QoL I1: rings on the models a clicked combat-log row names, for a moment.
+    private readonly List<(ModelId Id, MeshInstance3D Ring)> _pointRings = [];
+    private double _pointUntil;
+    public const double PointSeconds = 2.5;
     public const double HoverSeconds = 0.08;
 
     public bool TopDown => _topDown;
@@ -622,6 +626,7 @@ public partial class BoardView : SubViewportContainer
             Interaction.SetCursor(point.X, point.Y);
         }
         UpdateHover();
+        UpdatePointOut();
         Sync();
         UpdateBar();
         ApplyGlides();
@@ -1875,6 +1880,70 @@ public partial class BoardView : SubViewportContainer
             _hoverRing.Visible = false;
         }
     }
+
+    // QoL I1: rings the models (a clicked combat-log row's), for PointSeconds; the camera centres on them only when one
+    // is off screen, keeping the zoom. Nothing is selected and nothing is sent.
+    public void PointOut(IReadOnlyList<ModelId> ids)
+    {
+        foreach (var (_, ring) in _pointRings)
+        {
+            ring.QueueFree();
+        }
+        _pointRings.Clear();
+        var models = ids.Select(id => _scene?.Find(id)).OfType<ModelShape>().ToList();
+        foreach (var model in models)
+        {
+            var ring = new MeshInstance3D
+            {
+                Mesh = new TorusMesh { InnerRadius = (float)model.Radius + 0.16f, OuterRadius = (float)model.Radius + 0.34f },
+                MaterialOverride = Paint(_highContrast ? Colors.Yellow : new Color(1f, 0.95f, 0.6f, 0.95f), noDepth: true),
+            };
+            _viewport.AddChild(ring);
+            _pointRings.Add((model.Id, ring));
+        }
+        _pointUntil = Time.GetTicksMsec() / 1000.0 + PointSeconds;
+        if (models.Count > 0 && models.Any(m => !InView(ScreenOf(m.X, m.Y, m.Standing), 0.05f)))
+        {
+            _autoFit = false;
+            _target = new Vector3((float)models.Average(m => m.X), (float)models.Max(m => m.Standing), (float)models.Average(m => m.Y));
+            _focusKey = null;
+            PlaceCamera();
+            Changed?.Invoke();
+        }
+        UpdatePointOut();
+    }
+
+    private void UpdatePointOut()
+    {
+        if (_pointRings.Count == 0)
+        {
+            return;
+        }
+        if (Time.GetTicksMsec() / 1000.0 > _pointUntil)
+        {
+            foreach (var (_, ring) in _pointRings)
+            {
+                ring.QueueFree();
+            }
+            _pointRings.Clear();
+            return;
+        }
+        foreach (var (id, ring) in _pointRings)
+        {
+            if (_scene?.Find(id) is { } model && BodyAt(id) is { } body)
+            {
+                ring.Visible = true;
+                ring.Position = new Vector3(body.X, (float)model.Standing + 0.05f, body.Z);
+            }
+            else
+            {
+                ring.Visible = false;
+            }
+        }
+    }
+
+    // The models pointed out now (for the UI check).
+    public IReadOnlyList<ModelId> PointedOut => [.. _pointRings.Where(r => r.Ring.Visible).Select(r => r.Id)];
 
     // Whether the hover ring is drawn, and a model id label's font size now (for the UI check).
     public bool HoverRingShown => _hoverRing.Visible;

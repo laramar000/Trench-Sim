@@ -796,6 +796,8 @@ public partial class UiCheck : Node
         var moved = await SendFirstLegalMove(board);
         Check("board-send-move", moved.Pass, moved.Detail);
         await Shot("host-moved");
+        await LogClickChecks(board);
+        await KeySheetCheck(board);
 
         // Then a Shoot at the first target the preview says is legal (if any), sent with Space.
         _shootSent = await SendFirstLegalTarget(board, Key.S, "board-send-shoot");
@@ -3031,6 +3033,89 @@ public partial class UiCheck : Node
     }
 
     private static bool Close(Vector3 a, double x, double y) => Math.Abs(a.X - x) < 0.05 && Math.Abs(a.Z - y) < 0.05;
+
+    // ---- QoL I1: combat-log clicks and the key sheet ----
+
+    // A click on a combat-log row rings exactly the models its event names. With them on screen the camera stays; with
+    // them off screen it centres on them, keeping the zoom. Nothing is selected, no action starts and nothing is sent.
+    private async Task LogClickChecks(BoardView board)
+    {
+        var main = (Main)_main;
+        var log = main.CombatLog.GetGlobalRect();
+        var row = main.LogRowModels.Where(r => r.Models.Count > 0).Reverse()
+            .Select(r => (r.Seq, r.Models, Rect: main.LogRowRect(r.Seq))).FirstOrDefault(r => r.Rect is { } box && log.HasPoint(box.GetCenter()));
+        if (row.Rect is not { } rect)
+        {
+            Check("log-click-points-out", false, "no combat-log row naming a model in view");
+            return;
+        }
+        var interaction = board.Interaction;
+        if (interaction.Mode != InteractionMode.None)
+        {
+            await KeyPress(Key.Escape);
+        }
+        var (selected, lastCommand, events) = (board.Selected?.Id, Section("LAST COMMAND"), Lines(LogText()).Count);
+        board.Fit();
+        await Frames(3);
+        var target = board.CameraTarget;
+        var zoom = board.Zoomed;
+        await ClickAt(rect.GetCenter());
+        var wanted = string.Join(",", row.Models.Select(m => m.Value).Order(StringComparer.Ordinal));
+        var ringed = string.Join(",", board.PointedOut.Select(m => m.Value).Order(StringComparer.Ordinal));
+        var stayed = board.CameraTarget == target;
+        // Then with the camera on a far corner (the models off screen): the camera centres on them, same zoom.
+        var scene = board.Scene!;
+        var models = row.Models.Select(id => scene.Find(id)).OfType<ModelShape>().ToList();
+        var far = new Vector2(models.Average(m => m.X) < scene.Width / 2 ? (float)scene.Width : 0, models.Average(m => m.Y) < scene.Depth / 2 ? (float)scene.Depth : 0);
+        board.LookAtTable(far, 6);
+        await Frames(4);
+        var offBefore = models.All(m => !board.InView(board.ScreenOf(m.X, m.Y, m.Standing), 0.05f));
+        var zoomFar = board.Zoomed;
+        await ClickAt(rect.GetCenter());
+        var centred = Math.Abs(board.CameraTarget.X - models.Average(m => m.X)) < 0.05 && Math.Abs(board.CameraTarget.Z - models.Average(m => m.Y)) < 0.05
+            && Math.Abs(board.Zoomed - zoomFar) < 0.01f;
+        var nothing = board.Selected?.Id == selected && interaction.Mode == InteractionMode.None && interaction.Pending is null
+            && Section("LAST COMMAND") == lastCommand && Lines(LogText()).Count == events;
+        Check("log-click-points-out", main.PickedLogRow == row.Seq && ringed == wanted && stayed && offBefore && centred && nothing,
+            $"row {row.Seq} names {wanted}; ringed {ringed}; camera kept while on screen: {stayed} (zoom {zoom:0.0}); off screen first: {offBefore}, then centred at the same zoom: {centred}; nothing selected or sent: {nothing}");
+        board.Fit();
+        await Frames(3);
+    }
+
+    // ? opens one sheet with every key (the same list as the Menu), and Esc closes it.
+    private async Task KeySheetCheck(BoardView board)
+    {
+        var main = (Main)_main;
+        board.GrabFocus();
+        foreach (var pressed in new[] { true, false })
+        {
+            Input.ParseInputEvent(new InputEventKey { Keycode = Key.Slash, PhysicalKeycode = Key.Slash, ShiftPressed = true, Unicode = '?', Pressed = pressed });
+            await Frames(2);
+        }
+        await Frames(3);
+        var shown = main.KeySheetText;
+        await KeyPress(Key.Escape);
+        await Frames(3);
+        var closed = main.KeySheetText.Length == 0;
+        Check("key-sheet", shown == KeySheet.Text && BoardInfo().Contains(KeySheet.Text, StringComparison.Ordinal) && closed,
+            $"? opened {(shown.Length > 0 ? $"{shown.Split('\n').Length} lines" : "nothing")}; same as the Menu's: {BoardInfo().Contains(KeySheet.Text, StringComparison.Ordinal)}; Esc closed it: {closed}");
+        if (!closed)
+        {
+            main.CloseKeySheet();
+        }
+    }
+
+    private async Task ClickAt(Vector2 at)
+    {
+        Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
+        await Frames(2);
+        foreach (var pressed in new[] { true, false })
+        {
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
+            await Frames(2);
+        }
+        await Frames(2);
+    }
 
     // With no action chosen: a double-click on a unit selects it and centres on it at the same zoom; again, it zooms in;
     // a double-click on an Objective centres on the objective. Nothing is sent; the action stays None.
