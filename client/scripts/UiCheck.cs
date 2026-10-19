@@ -723,6 +723,7 @@ public partial class UiCheck : Node
             $"ghost before Esc: {hadGhost}, after: {board.GhostAt}; labels: {board.OverlayTexts.Count}; mode {interaction.Mode}; last command unchanged: {Section("LAST COMMAND") == lastCommand}");
         await HoverInspectCheck(board, scene, lastCommand);
         await DoubleClickChecks(board, scene, lastCommand);
+        await ObjectiveChecks(board, lastCommand);
         await MouseOff(board);
 
         // Shoot: the rules' own sight rays, distance and cover, on the battlefield and in the text.
@@ -2075,6 +2076,7 @@ public partial class UiCheck : Node
     {
         CheckBloodLabels(board);
         CheckPanelState(board);
+        CheckObjectivesNow(board);
         await CheckDiceTray(board);
         if (!await FocusByTab(board, 80))
         {
@@ -2139,6 +2141,84 @@ public partial class UiCheck : Node
                 _bloodLabelProblems.Add($"{label} has {shape.BloodMarkers}");
             }
         }
+    }
+
+    // ---- QoL H4: objectives ----
+
+    private int _objectiveSamples;
+    private readonly List<string> _objectiveProblems = [];
+
+    // The rules' own answer to who controls each Objective now, in words for the HUD ("◆1 A ◆2 –").
+    // (The ids come from the scene: the rules' own id list is an immutable array, a library the client does not use.)
+    private static string ObjectivesNow(Rules.Core.State.MatchState state, BoardScene scene) =>
+        string.Join(" ", ObjectiveIds(scene)
+            .Select(id => $"◆{(id.StartsWith("obj-", StringComparison.Ordinal) ? id[4..] : id)} {(Rules.Core.Objectives.ControllerNow(state, id) is { } c ? Words.SeatLetter(c) : "–")}"));
+
+    private static List<string> ObjectiveIds(BoardScene scene) =>
+        scene.Terrain.Where(t => t.Objective).Select(t => t.Id).Order(StringComparer.Ordinal).ToList();
+
+    // Through the match: the HUD's "objectives now" and each objective's mark on the battlefield agree with the rules'
+    // control test on the server's state (Rules.Core.Objectives.ControllerNow).
+    private void CheckObjectivesNow(BoardView? board)
+    {
+        if (board?.Scene is not { } scene || ObjectiveIds(scene).Count == 0 || ((Main)_main).ServerState is not { } state || state.Turn == 0)
+        {
+            return;
+        }
+        _objectiveSamples++;
+        var expected = ObjectivesNow(state, scene);
+        var hud = ((Main)_main).HudText;
+        if (!hud.Contains($"objectives now: {expected}", StringComparison.Ordinal))
+        {
+            _objectiveProblems.Add($"HUD '{hud}' wanted '{expected}'");
+        }
+        var labels = board.LabelBoxes().Select(l => l.Text).ToHashSet();
+        foreach (var id in ObjectiveIds(scene))
+        {
+            var mark = $"◆{id[4..]}{(Rules.Core.Objectives.ControllerNow(state, id) is { } c ? $" {Words.SeatLetter(c)}" : "")}";
+            if (scene.Objective(id) is { } piece && board.ScreenOf(piece.Area.CentreX, piece.Area.CentreY, piece.Height) is not null && !labels.Contains(mark))
+            {
+                _objectiveProblems.Add($"no label {mark}");
+            }
+        }
+    }
+
+    // O selects and centres on the first Objective, keeping the zoom; the panel says who controls it now by the rules'
+    // test; O again goes to the next. Nothing is sent and no action starts.
+    private async Task ObjectiveChecks(BoardView board, string lastCommand)
+    {
+        var before = board.Selected?.Id;
+        var scene = board.Scene!;
+        var order = scene.Terrain.Where(t => t.Objective).OrderBy(t => t.Id, StringComparer.Ordinal).ToList();
+        if (order.Count == 0 || ((Main)_main).ServerState is not { } state)
+        {
+            Check("board-objective-select", false, "no objectives in this match");
+            return;
+        }
+        board.GrabFocus();
+        var zoom = board.Zoomed;
+        await KeyPress(Key.O);
+        await Frames(3);
+        var first = board.SelectedObjective;
+        var now = Rules.Core.Objectives.ControllerNow(state, order[0].Id);
+        var words = now is { } seat ? $"Controlled now: {Words.Seat(seat)} [{Words.SeatLetter(seat)}] (if scored now)" : "Controlled now: nobody (if scored now)";
+        var panel = ((Main)_main).PanelView;
+        var firstOk = first?.Id == order[0].Id && Close(board.CameraTarget, order[0].Area.CentreX, order[0].Area.CentreY) && Math.Abs(board.Zoomed - zoom) < 0.01f
+            && board.Selected is null && panel?.Title == UnitPanel.ObjectiveTitle(order[0]) && panel.Unit.Contains(words);
+        var detail = $"O: {first?.Id} centred at the same zoom: {Close(board.CameraTarget, order[0].Area.CentreX, order[0].Area.CentreY) && Math.Abs(board.Zoomed - zoom) < 0.01f}; panel: {string.Join(" | ", panel?.Unit ?? [])} (wanted '{words}')";
+        var secondOk = true;
+        if (order.Count > 1)
+        {
+            await KeyPress(Key.O);
+            await Frames(3);
+            secondOk = board.SelectedObjective?.Id == order[1].Id && Close(board.CameraTarget, order[1].Area.CentreX, order[1].Area.CentreY);
+            detail += $"; O again: {board.SelectedObjective?.Id}";
+        }
+        var nothing = board.Interaction.Mode == InteractionMode.None && board.Interaction.Pending is null && Section("LAST COMMAND") == lastCommand;
+        Check("board-objective-select", firstOk && secondOk && nothing, $"{detail}; nothing sent: {nothing}");
+        board.Select(before);
+        board.Fit();
+        await Frames(3);
     }
 
     // ---- QoL H3: the unit panel follows the server's state ----
@@ -2579,10 +2659,13 @@ public partial class UiCheck : Node
         // state has them ("•2"); checked through the whole match, here at the end too.
         CheckBloodLabels(board);
         CheckPanelState(board);
+        CheckObjectivesNow(board);
         await CheckDiceTray(board);
         DiceEndChecks(board);
         if (_role is "pvp-a" or "gvt-a")
         {
+            Check("hud-objectives-now", _objectiveSamples > 0 && _objectiveProblems.Count == 0,
+                $"{_objectiveSamples} looks at the HUD and the objective marks; {string.Join(" / ", _objectiveProblems.Take(5))}");
             Check("pvp-panel-follows-state", _panelSamples > 0 && _panelProblems.Count == 0,
                 $"{_panelSamples} looks at the panel; {string.Join(" / ", _panelProblems.Take(5))}");
         }

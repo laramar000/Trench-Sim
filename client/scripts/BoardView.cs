@@ -480,12 +480,50 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
+    // QoL H4: the Objective selected (by a click on it where no model is, or with O), shown highlighted and in the panel;
+    // selecting a unit clears it.
+    public TerrainShape? SelectedObjective => _selectedObjective is { } o ? _scene?.Objective(o) : null;
+
+    private string? _selectedObjective;
+
+    public void SelectObjective(string? id)
+    {
+        _selected = null;
+        _selectedObjective = id is not null && _scene?.Objective(id) is not null ? id : null;
+        Rebuild();
+        UpdateBar();
+        Changed?.Invoke();
+    }
+
+    // O (Shift+O): the next (previous) Objective, selected and centred, keeping the zoom.
+    public void NextObjective(bool forward)
+    {
+        if (_scene is null)
+        {
+            return;
+        }
+        var order = _scene.Terrain.Where(t => t.Objective).OrderBy(t => t.Id, StringComparer.Ordinal).ToList();
+        if (order.Count == 0)
+        {
+            return;
+        }
+        var at = order.FindIndex(t => t.Id == _selectedObjective);
+        var next = at < 0 ? (forward ? order[0] : order[^1]) : order[((at + (forward ? 1 : -1)) % order.Count + order.Count) % order.Count];
+        SelectObjective(next.Id);
+        _autoFit = false;
+        _target = new Vector3((float)next.Area.CentreX, 0, (float)next.Area.CentreY);
+        _focusKey = $"objective:{next.Id}";
+        PlaceCamera();
+        Changed?.Invoke();
+    }
+
     public void Select(ModelId? id)
     {
         if (id is not null)
         {
             _barDismissed = false;
         }
+        _selectedObjective = null;
         _selected = _scene?.Find(id)?.Id;
         Rebuild();
         UpdateBar();
@@ -724,6 +762,10 @@ public partial class BoardView : SubViewportContainer
                 }
             }
         }
+        else if (ModelAt(local) is null && ObjectiveUnder(local) is { } objective)
+        {
+            SelectObjective(objective.Id);
+        }
         else
         {
             ChooseUnit(ModelAt(local)?.Id);
@@ -833,6 +875,7 @@ public partial class BoardView : SubViewportContainer
             case Key.F when key.ShiftPressed: ResetView(); return true;
             case Key.F: Fit(); return true;
             case Key.J when Interaction.Mode == InteractionMode.None: NextEligible(!key.ShiftPressed); return true;
+            case Key.O when Interaction.Mode == InteractionMode.None: NextObjective(!key.ShiftPressed); return true;
             case Key.Home: CentreOn(_selected); return true;
             case Key.T: ToggleTopDown(); return true;
             case Key.N: SelectNext(!key.ShiftPressed); return true;
@@ -1702,12 +1745,23 @@ public partial class BoardView : SubViewportContainer
                 _terrainPaint[piece.Id] = paint;
                 _terrainOutlines[piece.Id] = Outline(piece, TerrainColour(piece));
             }
-            // Proposal G: only objectives carry text ("OBJ-2"); the kind of terrain shows by its colour and height, and the
-            // panel's Details has the legend.
+            // Proposal G: only objectives carry text; the kind of terrain shows by its colour and height, and the panel's
+            // Details has the legend. QoL H4: a compact mark ("◆2", with "A" or "B" for the seat the rules say controls it
+            // now, in that seat's colour) and a flat ring on the piece; brighter and larger when the objective is selected.
             if (piece.Objective)
             {
-                _fixedLabels.Add(MakeText(piece.Id.StartsWith("obj", StringComparison.OrdinalIgnoreCase) ? piece.Id.ToUpperInvariant() : "OBJ",
-                    new Vector3((float)area.CentreX, h + 0.4f, (float)area.CentreY), 0.65f));
+                var chosen = piece.Id == _selectedObjective;
+                var tint = piece.Controller is { } owner ? SeatColour(owner) : _highContrast ? Colors.White : new Color(0.95f, 0.85f, 0.45f);
+                var mark = MakeText(piece.MarkWithController, new Vector3((float)area.CentreX, h + 0.4f, (float)area.CentreY), chosen ? 0.85f : 0.65f);
+                mark.Modulate = tint;
+                _fixedLabels.Add(mark);
+                var radius = (float)Math.Min(1.0, Math.Min(area.Width, area.Depth) / 2 * 0.8);
+                _content.AddChild(new MeshInstance3D
+                {
+                    Mesh = new TorusMesh { InnerRadius = radius - (chosen ? 0.22f : 0.1f), OuterRadius = radius },
+                    Position = new Vector3((float)area.CentreX, h + 0.03f, (float)area.CentreY),
+                    MaterialOverride = Paint(chosen ? (_highContrast ? Colors.Yellow : new Color(1f, 0.85f, 0.2f)) : tint, noDepth: true),
+                });
             }
         }
         foreach (var model in scene.Models)
@@ -1856,9 +1910,11 @@ public partial class BoardView : SubViewportContainer
     }
 
     // Seats differ by colour and by the [A]/[B] letter in every label; colour is never the only sign.
-    private Color ModelColour(ModelShape model) => _highContrast
-        ? model.Seat == Seat.One ? Colors.White : new Color(1f, 0.9f, 0f)
-        : model.Seat == Seat.One ? new Color(0.35f, 0.55f, 0.95f) : new Color(0.9f, 0.35f, 0.3f);
+    private Color ModelColour(ModelShape model) => SeatColour(model.Seat);
+
+    private Color SeatColour(Seat seat) => _highContrast
+        ? seat == Seat.One ? Colors.White : new Color(1f, 0.9f, 0f)
+        : seat == Seat.One ? new Color(0.35f, 0.55f, 0.95f) : new Color(0.9f, 0.35f, 0.3f);
 
     private void Box(Vector3 centre, Vector3 size, Color colour)
     {

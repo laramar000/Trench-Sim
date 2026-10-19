@@ -47,7 +47,16 @@ public sealed record ZoneShape(string Id, TableRect Area, string Label, string? 
 }
 
 // Words carry every fact (profile, kind, high ground, Objective), so nothing depends on colour or shape alone.
-public sealed record TerrainShape(string Id, TableRect Area, TerrainProfile Profile, double Height, bool Platform, bool Objective, string Label);
+public sealed record TerrainShape(string Id, TableRect Area, TerrainProfile Profile, double Height, bool Platform, bool Objective, string Label, Seat? Controller = null)
+{
+    // QoL H4: an Objective's compact mark, "◆2" for obj-2, with the letter of the seat that would control it if it were
+    // scored now ("◆2 A"); the rules decide who that is (Rules.Core.Objectives.ControllerNow).
+    public string Mark => $"{ObjectiveMark}{(Id.StartsWith("obj-", StringComparison.OrdinalIgnoreCase) ? Id[4..] : Id)}";
+
+    public string MarkWithController => Controller is { } seat ? $"{Mark} {Words.SeatLetter(seat)}" : Mark;
+
+    public const string ObjectiveMark = "◆";
+}
 
 // A model on the table. Standing is the height of what it stands on: 0 on the ground, the platform's display height
 // on a High platform. Models not on the table (not deployed, out of action) are not in the scene.
@@ -123,7 +132,8 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
         var terrain = field.Terrain.Select(t =>
         {
             var objective = scenario.ObjectiveIds.Contains(t.Id);
-            return new TerrainShape(t.Id, TableRect.Of(t.Footprint.Bounds), t.Profile, DisplayHeight.Of(t.Profile), t.IsPlatform, objective, TerrainLabel(t, objective));
+            return new TerrainShape(t.Id, TableRect.Of(t.Footprint.Bounds), t.Profile, DisplayHeight.Of(t.Profile), t.IsPlatform, objective, TerrainLabel(t, objective),
+                objective ? Rules.Core.Objectives.ControllerNow(state, t.Id) : null);
         }).ToList();
         var models = new List<ModelShape>();
         // On the table: a position, Down models included (a Down model still has a base, p. 36), as Rules.Core's Board does.

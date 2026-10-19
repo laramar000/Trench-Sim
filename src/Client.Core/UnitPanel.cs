@@ -77,7 +77,8 @@ public static class UnitPanel
         return $"{ShortId(unit.Id)} · {name}";
     }
 
-    public static UnitPanelView Of(MatchState state, BoardScene? scene, Interaction interaction, Seat? seat, ModelShape? selected, ModelShape? pointing = null)
+    public static UnitPanelView Of(MatchState state, BoardScene? scene, Interaction interaction, Seat? seat, ModelShape? selected, ModelShape? pointing = null,
+        TerrainShape? objective = null, string? lastScoring = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(interaction);
@@ -87,11 +88,16 @@ public static class UnitPanel
         // While an action is being chosen the panel is about the acting model, whatever else is selected.
         var unit = choosing && interaction.Actor is { } actor && scene?.Find(actor) is { } acting ? acting : selected;
 
-        var title = unit is null ? "No unit selected" : Heading(unit);
+        var title = unit is null ? objective is { Objective: true } o ? ObjectiveTitle(o) : "No unit selected" : Heading(unit);
         var lines = new List<string>();
         string? unavailable = null;
         var details = new List<string>();
-        if (unit is null)
+        if (unit is null && objective is { Objective: true } chosenObjective)
+        {
+            lines.AddRange(ObjectiveLines(chosenObjective, lastScoring));
+            details.Add(ObjectiveRule);
+        }
+        else if (unit is null)
         {
             lines.Add(seat is null ? "Watching."
                 : interaction.Mode == InteractionMode.Place ? "Placing a model in your deployment zone."
@@ -199,7 +205,7 @@ public static class UnitPanel
             {
                 details.Add($"Terrain on this table: {string.Join("; ", kinds)}.");
             }
-            details.Add("Battlefield marks: OBJ-n objective, ZONE deployment edge, •N Blood Markers, ✓ activated, ↓ down, ✕ not a valid target.");
+            details.Add("Battlefield marks: ◆n objective (A or B: who controls it now), ZONE deployment edge, •N Blood Markers, ✓ activated, ↓ down, ✕ not a valid target.");
         }
 
         return new UnitPanelView(title, lines, unavailable, actionTitle, action, refusal, interaction.Notice, details,
@@ -209,6 +215,27 @@ public static class UnitPanel
             Pointing = PointingAt(state, interaction, unit, pointing),
         };
     }
+
+    // QoL H4: an Objective in the panel. Who controls it now comes from the rules' own test (the scene's Controller,
+    // Rules.Core.Objectives.ControllerNow), the last scoring from the combat log; nothing is judged from the picture.
+    public static string ObjectiveTitle(TerrainShape objective)
+    {
+        ArgumentNullException.ThrowIfNull(objective);
+        return $"{objective.Mark} · Objective {objective.Id}";
+    }
+
+    public static IReadOnlyList<string> ObjectiveLines(TerrainShape objective, string? lastScoring)
+    {
+        ArgumentNullException.ThrowIfNull(objective);
+        return
+        [
+            objective.Controller is { } seat ? $"Controlled now: {Words.Seat(seat)} [{Words.SeatLetter(seat)}] (if scored now)" : "Controlled now: nobody (if scored now)",
+            $"{Rules.Core.Objectives.PointsPerObjective} VP to its controller at the end of each turn",
+            lastScoring is null ? "Not scored yet" : $"Last scoring: {lastScoring}",
+        ];
+    }
+
+    public const string ObjectiveRule = "Control (Scenario I, pp. 152-153): more of a side's models on, in or within 1\" of the piece than the other side's; if only one side has models on it, that side controls it. Down models count. Scored at the end of each turn.";
 
     // Seat, Standing or Down, and Blood Markers, with the battlefield's own marks: "Seat Two [B] · ↓ Down · •2 Blood
     // Markers" (the server's state).

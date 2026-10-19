@@ -73,8 +73,44 @@ public class TopHudTests
         Assert.StartsWith("WATCHING · ", Hud(state, null));
         Assert.DoesNotContain(TopHud.Waiting, Hud(state, Seat.One));
         Assert.EndsWith(TopHud.Waiting, Hud(state, Seat.One, waiting: true));
-        // The objectives of the last scoring come from the log's own line.
+        // The objectives of the last scoring come from the log's own line (shown in an objective's panel, QoL H4).
         var log = new List<LogLine> { new(40, "Turn 1 scoring: obj-1 to One.", null), new(41, "--- Turn 2 ---", null) };
-        Assert.Contains("objectives: obj-1 to One", Hud(state, Seat.One, log));
+        Assert.Equal("obj-1 to One", TopHud.LastScoring(log));
+        Assert.Null(TopHud.LastScoring([new(41, "--- Turn 2 ---", null)]));
+    }
+
+    // QoL H4 (decision D1): the HUD says who would control each Objective if it were scored now, by the rules' own test,
+    // and at each end-of-turn scoring that is exactly what the rules score.
+    [Fact]
+    public void TheObjectivesNowAreTheRulesOwnAndMatchEveryScoring()
+    {
+        var (shown, scorings) = (0, 0);
+        foreach (var (_, log) in ClientCoreTests.Matches.Value)
+        {
+            var state = MatchState.None;
+            foreach (var e in log)
+            {
+                if (e is Rules.Core.Events.ObjectivesScored scored)
+                {
+                    foreach (var result in scored.Results)
+                    {
+                        Assert.Equal(result.Controller, Rules.Core.Objectives.ControllerNow(state, result.ObjectiveId));
+                        Assert.Equal(result.Controller is null ? 0 : Rules.Core.Objectives.PointsPerObjective, result.Points);
+                    }
+                    scorings++;
+                }
+                state = Rules.Core.Reducer.Apply(state, e);
+            }
+        }
+        foreach (var state in States.Where(s => s.Setup?.Scenario is { ObjectiveIds.Length: > 0 } && s.Turn > 0).Take(2000))
+        {
+            var scene = BoardScene.Of(state, Seat.One, ContentNames.None)!;
+            var expected = string.Join(" ", state.Setup!.Scenario!.ObjectiveIds.Order(StringComparer.Ordinal)
+                .Select(id => $"◆{id[4..]} {(Rules.Core.Objectives.ControllerNow(state, id) is { } c ? Words.SeatLetter(c) : "–")}"));
+            Assert.Contains($" · objectives now: {expected}", Hud(state, Seat.One), StringComparison.Ordinal);
+            Assert.All(scene.Terrain.Where(t => t.Objective), t => Assert.Equal(Rules.Core.Objectives.ControllerNow(state, t.Id), t.Controller));
+            shown++;
+        }
+        Assert.True(scorings > 50 && shown > 500, $"{scorings} scorings, {shown} HUDs");
     }
 }

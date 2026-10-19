@@ -289,7 +289,7 @@ public static class Program
             // The HUD (proposal G3) starts with each window's own seat; the rest is shared.
             static string Shared(string strip) => string.Join("|", strip.Split(" · ").Where(p => !p.StartsWith("VP ", StringComparison.Ordinal) && !p.StartsWith('[')));
             Record("pvp-both-same-status-strip", vpA.Success && vpB.Success && vpA.Groups[1].Value == vpB.Groups[2].Value && vpA.Groups[2].Value == vpB.Groups[1].Value
-                && Shared(stripA) == Shared(stripB) && stripA.Contains("objectives: ", StringComparison.Ordinal)
+                && Shared(stripA) == Shared(stripB) && stripA.Contains("objectives now: ", StringComparison.Ordinal)
                 && stripA.StartsWith("[A] SEAT ONE", StringComparison.Ordinal) && stripB.StartsWith("[B] SEAT TWO", StringComparison.Ordinal) ? "PASS" : "FAIL",
                 $"Seat One: {stripA} || Seat Two: {stripB}");
             Record("pvp-opponent-sees-only-chosen-unit", chosen.Contains(" One activates ", StringComparison.Ordinal) && seenByB.Contains(chosen) ? "PASS" : "FAIL",

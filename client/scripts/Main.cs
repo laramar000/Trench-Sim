@@ -868,7 +868,8 @@ public partial class Main : Control
         {
             return;
         }
-        var view = UnitPanel.Of(_controller.Snapshot().State, _board.Scene, _board.Interaction, _lastScreen.Seat, _board.Selected, _board.Hovered);
+        var view = UnitPanel.Of(_controller.Snapshot().State, _board.Scene, _board.Interaction, _lastScreen.Seat, _board.Selected, _board.Hovered,
+            _board.SelectedObjective, TopHud.LastScoring(_lastScreen.Log));
         _panelView = view;
         var scale = _scale;
         _pTitle.Text = view.Title;
@@ -921,8 +922,8 @@ public partial class Main : Control
     // The status line as shown (for the UI check).
     public string HudText => _hud.Text;
 
-    // The server's state as this window last received it (for the UI check).
-    public Rules.Core.State.MatchState? ServerState => _controller?.Snapshot().State;
+    // The server's state as this window last drew it (for the UI check: the same render as the HUD and battlefield).
+    public Rules.Core.State.MatchState? ServerState => _lastScreen?.State;
 
     // The panel's "POINTING AT" lines as shown (for the UI check); empty when hidden.
     public string PointingText => _pPointing.IsVisibleInTree() ? _pPointing.Text : "";
