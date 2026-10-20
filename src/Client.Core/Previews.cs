@@ -254,7 +254,7 @@ public static class Previews
         {
             return new(ReasonCode.MoveIllegal, result.Text, result.RuleRef);
         }
-        var end = BodyOf(state, model!)!.At(path[^1]);
+        var end = BodyAt(state, model!, path[^1])!;
         return OnTable(state).Any(o => o.Seat != model!.Seat && Measure.IsWithin(end, BodyOf(state, o)!, Engagement))
             ? new(ReasonCode.RetreatEndsEngaged, "A retreating model must end its move more than 1\" from all enemy models.", "1.0.2 p. 37")
             : null;
@@ -707,7 +707,13 @@ public static class Previews
     private static IEnumerable<ModelState> OnTable(MatchState state) => state.Models.Where(m => m.Position is not null);
 
     private static ModelBody? BodyOf(MatchState state, ModelState model) =>
-        model.Position is { } at && state.Setup!.ProfileOf(model.Id) is { } profile ? new ModelBody(model.Id.Value, at, profile.BaseRadius) : null;
+        model.Position is { } at ? BodyAt(state, model, at) : null;
+
+    // At the elevation the battlefield gives the point (a tower's platform or the ground), as Board.BodyAt does.
+    private static ModelBody? BodyAt(MatchState state, ModelState model, Point2 at) =>
+        state.Setup!.ProfileOf(model.Id) is { } profile
+            ? new ModelBody(model.Id.Value, at, profile.BaseRadius, state.Setup.Scenario is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero)
+            : null;
 
     private static List<ModelBody> Bodies(MatchState state, ModelId except) =>
         OnTable(state).Where(m => m.Id != except).Select(m => BodyOf(state, m)!).ToList();

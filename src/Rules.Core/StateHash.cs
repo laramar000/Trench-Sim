@@ -112,6 +112,11 @@ public static class StateHash
         foreach (var t in field.Terrain)
         {
             Line(sb, "terrain", $"{t.Id},{Rectangle(t.Footprint)},{t.Profile},{(int)t.Kind},{t.Surface},walkable={Bool(t.IsWalkable)}");
+            // Towers only (towers proposal, T1), so every battlefield without one hashes exactly as before.
+            if (t.Climb is { } climb)
+            {
+                Line(sb, "climb", $"{t.Id},height={climb.Height.Thousandths},{string.Join(";", climb.Ladders.Select(l => $"{l.Id}@{Point(l.At)}"))}");
+            }
         }
         Line(sb, "objectives", string.Join(",", scenario.ObjectiveIds));
     }

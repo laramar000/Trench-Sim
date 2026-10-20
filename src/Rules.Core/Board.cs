@@ -34,9 +34,14 @@ internal static class Board
 
     public static Scenario? ScenarioOf(MatchState state) => state.Setup?.Scenario;
 
+    // The model's base where it stands, at its elevation (a tower's height on its platform, else the ground).
     public static ModelBody? BodyOf(MatchState state, ModelState model) =>
-        model.Position is { } at && state.Setup!.ProfileOf(model.Id) is { } profile
-            ? new ModelBody(model.Id.Value, at, profile.BaseRadius)
+        model.Position is { } at ? BodyAt(state, model, at) : null;
+
+    // The model's base if it stood at this point, at the elevation the battlefield gives that point.
+    public static ModelBody? BodyAt(MatchState state, ModelState model, Point2 at) =>
+        state.Setup!.ProfileOf(model.Id) is { } profile
+            ? new ModelBody(model.Id.Value, at, profile.BaseRadius, ScenarioOf(state) is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero)
             : null;
 
     // Every model that is on the table, Down ones included (a Down model still has a base, p. 36).
@@ -221,7 +226,7 @@ internal static class Board
         {
             return new(ReasonCode.MoveIllegal, result.Text, result.RuleRef);
         }
-        var end = BodyOf(state, model)!.At(path[^1]);
+        var end = BodyAt(state, model, path[^1])!;
         return OnTable(state).Any(o => o.Seat != model.Seat && Measure.IsWithin(end, BodyOf(state, o)!, EngagementRange))
             ? new(ReasonCode.RetreatEndsEngaged, "A retreating model must end its move more than 1\" from all enemy models.", "1.0.2 p. 37")
             : null;

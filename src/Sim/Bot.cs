@@ -190,8 +190,8 @@ public sealed class Bot(Random rng)
 
     private static Length Gap(MatchState state, ModelState a, ModelState b) =>
         Measure.Gap(
-            new ModelBody(a.Id.Value, a.Position!.Value, state.Setup!.ProfileOf(a.Id)!.BaseRadius),
-            new ModelBody(b.Id.Value, b.Position!.Value, state.Setup.ProfileOf(b.Id)!.BaseRadius));
+            new ModelBody(a.Id.Value, a.Position!.Value, state.Setup!.ProfileOf(a.Id)!.BaseRadius, ElevationAt(state, a.Position!.Value)),
+            new ModelBody(b.Id.Value, b.Position!.Value, state.Setup.ProfileOf(b.Id)!.BaseRadius, ElevationAt(state, b.Position!.Value)));
 
     // Retreat paths: the legal candidates that end farthest from the nearest enemy, best first.
     private IEnumerable<ImmutableArray<Point2>> RetreatPaths(MatchState state, ModelState model)
@@ -199,11 +199,11 @@ public sealed class Bot(Random rng)
         var scenario = state.Setup!.Scenario!;
         var profile = state.Setup.ProfileOf(model.Id)!;
         var allowance = state.MovementHalved ? Length.FromThousandths(profile.Movement.Thousandths / 2) : profile.Movement;
-        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius);
+        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius, ElevationAt(state, model.Position!.Value));
         var others = state.Models
             .Where(m => m.Id != model.Id && m.Position is not null)
             .Select(m => new Obstacle(
-                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius),
+                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius, ElevationAt(state, m.Position!.Value)),
                 m.Seat == model.Seat ? Relation.Friendly : Relation.Enemy))
             .ToList();
         var from = model.Position!.Value;
@@ -252,11 +252,11 @@ public sealed class Bot(Random rng)
         var scenario = state.Setup!.Scenario!;
         var profile = state.Setup.ProfileOf(model.Id)!;
         var allowance = state.MovementHalved ? Length.FromThousandths(profile.Movement.Thousandths / 2) : profile.Movement;
-        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius);
+        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius, ElevationAt(state, model.Position!.Value));
         var others = state.Models
             .Where(m => m.Id != model.Id && m.Position is not null)
             .Select(m => new Obstacle(
-                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius),
+                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius, ElevationAt(state, m.Position!.Value)),
                 m.Seat == model.Seat ? Relation.Friendly : Relation.Enemy))
             .ToList();
         var goal = Goal(state, model);
@@ -289,4 +289,8 @@ public sealed class Bot(Random rng)
             .Take(6)
             .ToList();
     }
+
+    // How high a base centred here stands (a tower's platform or the ground), as the rules measure it.
+    private static Length ElevationAt(MatchState state, Point2 at) =>
+        state.Setup?.Scenario is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero;
 }

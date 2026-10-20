@@ -107,6 +107,34 @@ public sealed record TerrainBlock
 
     // A walkable High surface: a model on it has high ground.
     public bool IsPlatform => Surface == SurfaceLevel.High && IsWalkable;
+
+    // Towers proposal, stage T1: a platform with a height and ladders is a tower, reached only by its ladders. Null for
+    // every other piece, which then behaves exactly as before (an untouched platform keeps U18). Set after
+    // construction; only an Open, walkable High platform can be a tower, and each ladder must stand on a side of the
+    // footprint, not at a corner.
+    public Climb? Climb
+    {
+        get => _climb;
+        init
+        {
+            if (value is not null)
+            {
+                if (!IsPlatform || Kind != TerrainKind.Open)
+                {
+                    throw new ArgumentException("Only an Open, walkable High platform can be a tower.", nameof(Climb));
+                }
+                if (value.Ladders.FirstOrDefault(l => Climb.SideOf(Footprint.Bounds, l.At) is null) is { } off)
+                {
+                    throw new ArgumentException($"Ladder '{off.Id}' must stand on a side of the tower, not at a corner or away from it.", nameof(Climb));
+                }
+            }
+            _climb = value;
+        }
+    }
+
+    private readonly Climb? _climb;
+
+    public bool IsTower => _climb is not null;
 }
 
 public sealed record DeploymentZone

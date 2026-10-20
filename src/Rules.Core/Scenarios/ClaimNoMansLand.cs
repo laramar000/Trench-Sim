@@ -51,4 +51,34 @@ public static class ClaimNoMansLand
 
     public static MatchSetup CreateSetup(IEnumerable<SetupModel> models, RulesProfile? profile = null) =>
         new(RulesVersion, ScenarioId, TurnLimit, profile ?? RulesProfile.Default, [West, East], models, Create());
+
+    // Towers proposal: the same scenario and layout with two climbable towers added on the table's north-south centre
+    // line, between the Objectives, mirrored so neither side is favoured. Each is a 3" x 3" platform 2" high with a
+    // ladder on its west and east sides (U66 to U74). They stand well over 1" from every Objective, zone and other piece.
+    public const string TowerHeight = "2";
+
+    public static Scenario CreateWithTowers()
+    {
+        var plain = Create();
+        var towers = new[]
+        {
+            Tower("tower-s", "16.5", "5", "19.5", "8"),
+            Tower("tower-n", "16.5", "28", "19.5", "31"),
+        };
+        var field = plain.Battlefield;
+        return new Scenario(new Battlefield(field.Width, field.Height, field.Terrain.Concat(towers), field.Zones), plain.ObjectiveIds);
+    }
+
+    public static MatchSetup CreateTowersSetup(IEnumerable<SetupModel> models, RulesProfile? profile = null) =>
+        new(RulesVersion, ScenarioId, TurnLimit, profile ?? RulesProfile.Default, [West, East], models, CreateWithTowers());
+
+    private static TerrainBlock Tower(string id, string x1, string y1, string x2, string y2)
+    {
+        var rect = Rect(x1, y1, x2, y2).Bounds;
+        var midY = Length.FromThousandths((rect.Min.Y.Thousandths + rect.Max.Y.Thousandths) / 2);
+        return new TerrainBlock(id, Footprint.Of(rect), TerrainProfile.Wall, surface: SurfaceLevel.High, walkable: true)
+        {
+            Climb = new Climb(Length.Parse(TowerHeight), [new Ladder($"{id}-west", new Point2(rect.Min.X, midY)), new Ladder($"{id}-east", new Point2(rect.Max.X, midY))]),
+        };
+    }
 }
