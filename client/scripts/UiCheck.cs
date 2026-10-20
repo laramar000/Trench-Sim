@@ -3142,6 +3142,7 @@ public partial class UiCheck : Node
             await Frames(3);
         }
         var before = Section("LAST COMMAND");
+        Preview? atPress = null;
         if (board.ScreenOf(spot.X, spot.Y, height) is { } local)
         {
             await MouseOn(board);
@@ -3150,17 +3151,23 @@ public partial class UiCheck : Node
             {
                 Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
                 await Frames(2);
+                if (pressed)
+                {
+                    atPress = interaction.Preview;
+                }
             }
             await MouseOff(board);
         }
-        var sent = interaction.Preview;
+        // The preview the click sent: the one shown as the button went down, else after it came up, else the one at the
+        // cursor before the click (once the server answers quickly the preview is already cleared, run 222).
+        var sent = atPress is { Path.Count: > 0 } ? atPress : interaction.Preview is { Path.Count: > 0 } up ? up : shown;
         var answer = await Answered(before);
         Answer("Move", answer);
         await Frames(3);
         var after = board.Scene?.Find(me.Id);
         var server = ((Main)_main).ServerState?.FindModel(me.Id)?.Position;
         var end = sent?.Path.Count > 0 ? sent.Path[^1] : null;
-        var landed = server is { } pos && end is not null && Near(TablePoint.Of(pos), end.At.X, end.At.Y);
+        var landed = server is { } pos && end is not null && Near(TablePoint.Of(pos), end.At.X, end.At.Y, 0.05);
         var heights = sent?.Path.Select(m => m.Height).ToList() ?? [];
         var detail = $"{me.Id.Value} {what} to ({spot.X}, {spot.Y}): preview path {string.Join(" ", sent?.Path.Select(m => $"({m.At.X},{m.At.Y})@{m.Height}") ?? [])}, " +
             $"{sent?.Used:0.000}\" used; climbs drawn {climbsDrawn}; ghost {ghost}; answer {answer}; server put it at {(server is { } q ? TablePoint.Of(q).ToString() : "?")}, " +
