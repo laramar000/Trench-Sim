@@ -57,7 +57,6 @@ public class TowerMovementTests
     }
 
     [Theory]
-    [InlineData("16", "6.4", "17", "6.4")]    // beside the ladder
     [InlineData("15.9", "6.5", "17", "6.5")]  // not quite at its foot
     [InlineData("16", "6.5", "17.5", "6.5")]  // past its top
     [InlineData("16", "6.5", "17", "7")]      // slanting off it
@@ -67,6 +66,23 @@ public class TowerMovementTests
         var result = Check(At("A1", x1, y1), (x2, y2));
         Assert.Equal(MoveRefusal.TowerNotByLadder, result.Reason);
         Assert.Equal("tower-s", result.SubjectId);
+    }
+
+    [Fact]
+    public void BesideTheLadderIsASideClimbWhichOnlyAMoveOrDashMayMake()
+    {
+        // Stage T6 (U75, U76): straight up the side beside the ladder. CheckPath without sideClimb (a Retreat, a Charge's
+        // planner) refuses it with its own reason; with it (a Move or Dash) it is legal and says where the climb is.
+        var mover = At("A1", "16", "6.4");
+        var refused = Check(mover, ("17", "6.4"));
+        Assert.Equal(MoveRefusal.SideClimbNotAllowed, refused.Reason);
+        Assert.Equal(Movement.SideClimbOnlyMoveText, refused.Text);
+        var climbed = Movement.CheckPath(Field, mover, [P("17", "6.4")], L("6"), [], sideClimb: true);
+        Assert.True(climbed.IsLegal);
+        Assert.Equal(0, climbed.SideClimb);
+        Assert.Equal(L("3"), climbed.Cost);
+        // A ladder leg is not a side climb.
+        Assert.Null(Movement.CheckPath(Field, At("A1", "16", "6.5"), [P("17", "6.5")], L("6"), [], sideClimb: true).SideClimb);
     }
 
     [Fact]

@@ -18,6 +18,8 @@ public static class EventModels
             ModelMoved m => [m.Model],
             DashDeclared d => [d.Model],
             DashRolled d => [d.Model],
+            SideClimbDeclared c => [c.Model],
+            SideClimbRolled c => [c.Model],
             MarkersSpent m => [m.Model],
             RangedAttackDeclared r => [r.Attacker, r.Target],
             RangedSuccessRolled r => [r.Attacker, r.Target],

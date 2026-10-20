@@ -63,7 +63,7 @@ internal static class Board
         var others = OnTable(state)
             .Where(m => m.Id != mover.Id)
             .Select(m => new Obstacle(BodyOf(state, m)!, m.Seat == mover.Seat ? Relation.Friendly : Relation.Enemy));
-        return Movement.CheckPath(scenario.Battlefield, BodyOf(state, mover)!, path, Allowance(state, mover), others);
+        return Movement.CheckPath(scenario.Battlefield, BodyOf(state, mover)!, path, Allowance(state, mover), others, sideClimb: true);
     }
 
     public static PlacementResult CheckPlacement(MatchState state, Seat seat, ModelState model, Point2 at)

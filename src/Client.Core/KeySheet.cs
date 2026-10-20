@@ -22,6 +22,7 @@ public static class KeySheet
         ("Actions", [
             "L place · M move · D dash · R retreat · S shoot · C charge · X fight",
             "Moving: arrows move the cursor (Shift: 2\"), Enter or Shift+click fixes a waypoint",
+            "Move or Dash on a battlefield with towers: K climbs a tower's side instead of a ladder (a Risky roll), K again goes back to ladders",
             "Shoot, Charge, Fight: N and P next and previous target",
         ]),
         ("Confirm and cancel", [

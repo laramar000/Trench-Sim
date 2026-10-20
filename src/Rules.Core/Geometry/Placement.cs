@@ -44,11 +44,11 @@ public static class Placement
             return PlacementResult.Refuse(PlacementRefusal.InBlockingTerrain, "The base overlaps terrain that cannot be stood on.", "1.0.2 pp. 31, 38, 39", blocker.Id);
         }
 
-        // Towers (stage T2): models are placed on the ground, and a tower is reached only by its ladders (U68).
+        // Towers (stage T2): models are placed on the ground, and a tower is reached by a move (U68).
         var tower = battlefield.Terrain.FirstOrDefault(t => t.IsTower && t.Footprint.CircleOverlaps(body.Centre, body.Radius));
         if (tower is not null)
         {
-            return PlacementResult.Refuse(PlacementRefusal.InBlockingTerrain, "Models are placed on the ground: a tower is reached only by its ladders.", "1.0.2 pp. 39-40", tower.Id);
+            return PlacementResult.Refuse(PlacementRefusal.InBlockingTerrain, "Models are placed on the ground: a tower is reached by moving up a ladder or a side.", "1.0.2 pp. 39-40", tower.Id);
         }
 
         var clash = others.Where(o => o.Id != body.Id && Measure.Overlap(body, o)).OrderBy(o => o.Id, StringComparer.Ordinal).FirstOrDefault();

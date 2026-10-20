@@ -259,7 +259,7 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
         {
             // Towers proposal, stage T4: what is accessible, in words.
             var sides = string.Join(" and ", climb.Ladders.Select(l => Climb.SideOf(t.Footprint.Bounds, l.At)!.Value).Order().Select(side => side.ToString().ToLowerInvariant()));
-            return $"Tower, {Inch(TableRect.Inches(climb.Height))} high: models stand and fight on its platform, reached only by its ladders ({sides} side{(climb.Ladders.Length > 1 ? "s" : "")}); from the ground it blocks movement and sight";
+            return $"Tower, {Inch(TableRect.Inches(climb.Height))} high: models stand and fight on its platform, reached by its ladders ({sides} side{(climb.Ladders.Length > 1 ? "s" : "")}) or by climbing a side with a Risky roll; from the ground it blocks movement and sight";
         }
         var words = new List<string>
         {

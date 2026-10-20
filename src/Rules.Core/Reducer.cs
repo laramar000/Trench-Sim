@@ -66,6 +66,8 @@ public static class Reducer
             ModelStoodUp x => OnModelStoodUp(state, x),
             DashDeclared x => OnDashDeclared(state, x),
             DashRolled x => OnDashRolled(state, x),
+            SideClimbDeclared x => OnSideClimbDeclared(state, x),
+            SideClimbRolled x => OnSideClimbRolled(state, x),
             ModelMoved x => OnModelMoved(state, x),
             MarkersSpent x => OnMarkersSpent(state, x),
             RangedAttackDeclared x => OnRangedAttackDeclared(state, x),
@@ -198,7 +200,7 @@ public static class Reducer
         {
             return null;
         }
-        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll && actor.BloodMarkers > 0)
+        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll && actor.BloodMarkers > 0)
         {
             return new PendingDecision(DecisionKind.SpendMarkersOnSuccessRoll, actor.Seat.Opponent());
         }
@@ -266,7 +268,7 @@ public static class Reducer
                 break;
             case DecisionKind.SpendMarkersOnSuccessRoll:
                 var rolling = state.InProgress;
-                Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll, MarkersAsked: false }
+                Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll, MarkersAsked: false }
                     && state.FindModel(rolling.Actor) is { BloodMarkers: > 0 } holder
                     && holder.Seat.Opponent() == e.Seat, "Only the rolling model's opponent may spend its markers, once, before a Success Roll.");
                 state = state with { InProgress = rolling! with { MarkersAsked = true } };
@@ -598,9 +600,73 @@ public static class Reducer
         };
     }
 
+    // Towers stage T6 (p. 39, U75, U76): a Move or Dash that climbs a tower's side. A Move is taken here; a Dash has
+    // already succeeded its own roll and reached its move.
+    private static MatchState OnSideClimbDeclared(MatchState state, SideClimbDeclared e)
+    {
+        var model = Active(state, e.Model, "A climb");
+        Require(Enum.IsDefined(e.Kind), "Unknown move kind.");
+        if (e.Kind == MoveKind.Move)
+        {
+            Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
+                "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.");
+        }
+        else
+        {
+            Require(state.InProgress is { Stage: RollStage.DashMove } p && p.Actor == e.Model && p.DashPath.SequenceEqual(e.Path),
+                "A Dash climbs only after its own roll succeeded, along the declared path.");
+        }
+        Require(Board.CheckMove(state, model, e.Path) is { IsLegal: true, SideClimb: not null }, "A climb must be part of a legal move that climbs a tower's side.");
+        var action = e.Kind == MoveKind.Move ? ActionsTaken.Move : ActionsTaken.Dash;
+        return state with
+        {
+            Actions = state.Actions | action,
+            InProgress = new RollInProgress(RollStage.ClimbRoll, e.Model, DashPath: e.Path, ClimbAction: action),
+        };
+    }
+
+    private static MatchState OnSideClimbRolled(MatchState state, SideClimbRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.ClimbRoll } p && p.Actor == e.Model && state.Pending is null, "No climb roll is waiting.");
+        var progress = state.InProgress!;
+        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice, "A climb is a Risky Success Roll with the spent markers as penalty dice.");
+        if (e.Check.Outcome != SuccessOutcome.Failure)
+        {
+            return state with { InProgress = progress with { Stage = RollStage.ClimbMove } };
+        }
+        // Failed: the model moves only as far as the climb's start, if it is not there already, and then stops.
+        var stops = ClimbStopPath(state, progress).Length > 0;
+        return state with
+        {
+            InProgress = stops ? progress with { Stage = RollStage.ClimbStop } : null,
+            MustEndActivation = !stops,
+        };
+    }
+
+    // The part of a climbing move before the climb: where a failed climb leaves the model (may be empty).
+    internal static ImmutableArray<Point2> ClimbStopPath(MatchState state, RollInProgress progress)
+    {
+        var model = state.FindModel(progress.Actor)!;
+        var at = Board.CheckMove(state, model, progress.DashPath).SideClimb!.Value;
+        return progress.DashPath.Take(at).ToImmutableArray();
+    }
+
     private static MatchState OnModelMoved(MatchState state, ModelMoved e)
     {
         var model = Active(state, e.Model, "A move");
+        if (state.InProgress is { Stage: RollStage.ClimbMove or RollStage.ClimbStop } climb && climb.Actor == e.Model)
+        {
+            var expected = climb.Stage == RollStage.ClimbMove ? climb.DashPath : ClimbStopPath(state, climb);
+            Require(e.Kind == (climb.ClimbAction == ActionsTaken.Move ? MoveKind.Move : MoveKind.Dash) && expected.SequenceEqual(e.Path),
+                "A climbing move follows its roll: the whole path on a Success, only up to the climb on a Failure.");
+            var climbed = Board.CheckMove(state, model, e.Path);
+            Require(climbed.IsLegal && climbed.Cost == e.Cost, "The move must follow a legal path at the recorded cost.");
+            return TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
+            {
+                InProgress = null,
+                MustEndActivation = climb.Stage == RollStage.ClimbStop,
+            };
+        }
         if (e.Kind == MoveKind.Move)
         {
             Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
@@ -612,6 +678,7 @@ public static class Reducer
         }
         var check = Board.CheckMove(state, model, e.Path);
         Require(check.IsLegal && check.Cost == e.Cost, "The move must follow a legal path at the recorded cost.");
+        Require(check.SideClimb is null, "A move that climbs a tower's side needs its Risky Success Roll first.");
         return TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
         {
             Actions = e.Kind == MoveKind.Move ? state.Actions | ActionsTaken.Move : state.Actions,

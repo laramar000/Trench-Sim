@@ -63,6 +63,7 @@ public static class DiceRolls
         return e switch
         {
             DashRolled d => Success(d.Model, $"{Id(d.Model)} DASHES: Risky roll", d.Check, "DASH", "DASH FAILED"),
+            SideClimbRolled c => Success(c.Model, $"{Id(c.Model)} CLIMBS THE SIDE: Risky roll", c.Check, "CLIMB", "CLIMB FAILED"),
             RangedSuccessRolled r => Success(r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}: hit roll", r.Check, "HIT", "MISSED"),
             MeleeSuccessRolled m => Success(m.Attacker, $"{Id(m.Attacker)} FIGHTS {Id(m.Target)}: hit roll", m.Check, "HIT", "MISSED"),
             MoraleCheckRolled m => Success(null, $"{Words.Seat(m.Seat)}: morale check", m.Check, "HOLDS", "FAILS"),
@@ -92,7 +93,7 @@ public static class DiceRolls
         }
         return e switch
         {
-            DashDeclared or RangedAttackDeclared or MeleeAttackDeclared or ChargeDeclared or RetreatDeclared => new(null, DiceCue.NewAction),
+            DashDeclared or SideClimbDeclared or RangedAttackDeclared or MeleeAttackDeclared or ChargeDeclared or RetreatDeclared => new(null, DiceCue.NewAction),
             ActivationEnded or TurnEnded or MatchEnded => new(null, DiceCue.EndAction),
             _ => null,
         };

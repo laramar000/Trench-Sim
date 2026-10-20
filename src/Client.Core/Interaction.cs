@@ -472,17 +472,38 @@ public sealed class Interaction
         {
             return [];
         }
-        var key = (_state, Mode, actor, string.Join(";", _waypoints));
+        var key = (_state, Mode, actor, string.Join(";", _waypoints), Sides);
         if (_area is null || !_areaKey.Equals(key))
         {
-            _area = Previews.Reachable(_state, seat, Kind(Mode), actor, [.. _waypoints.Select(p => Previews.PointAt(p.X, p.Y))]);
+            _area = Previews.Reachable(_state, seat, Kind(Mode), actor, [.. _waypoints.Select(p => Previews.PointAt(p.X, p.Y))], sides: Sides);
             _areaKey = key;
         }
         return _area;
     }
 
     private IReadOnlyList<TablePoint>? _area;
-    private (MatchState, InteractionMode, ModelId, string) _areaKey;
+    private (MatchState, InteractionMode, ModelId, string, bool) _areaKey;
+
+    // Towers proposal, stage T6: whether a Move or Dash to another level climbs a tower's side (a Risky Success Roll,
+    // p. 39) instead of using a ladder. K switches it; a new action starts with ladders.
+    public bool ClimbSides { get; private set; }
+
+    private bool Sides => ClimbSides && Mode is InteractionMode.Move or InteractionMode.Dash;
+
+    // Can K switch it now: a Move or Dash on a battlefield with towers.
+    public bool CanClimbSides => Mode is InteractionMode.Move or InteractionMode.Dash && _state.Setup?.Scenario?.Battlefield.Terrain.Any(t => t.IsTower) == true;
+
+    public bool ToggleClimbSides()
+    {
+        if (!CanClimbSides)
+        {
+            return false;
+        }
+        ClimbSides = !ClimbSides;
+        _armed = false;
+        Changed();
+        return true;
+    }
 
     // How the bar names a model ("Runner (b2)"); the battlefield sets it from its scene.
     public Func<ModelId, string> NameOf { get; set; } = id => id.Value;
@@ -940,7 +961,8 @@ public sealed class Interaction
     private string Help() => Mode switch
     {
         InteractionMode.Place => "Click a spot in your zone to place the model. Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), N and P choose the model, Space sends.",
-        _ when IsPath => "Click a spot in the shaded area to go there (Shift+click adds a waypoint for a path around something). Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), Enter fixes a point, Backspace removes one, Space sends.",
+        _ when IsPath => "Click a spot in the shaded area to go there (Shift+click adds a waypoint for a path around something). Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), Enter fixes a point, Backspace removes one, Space sends."
+            + (CanClimbSides ? (ClimbSides ? " K: back to ladders (now climbing a tower's side, a Risky roll)." : " K: climb a tower's side instead of a ladder (a Risky roll).") : ""),
         _ => "Click a target (valid ones are marked), then click it again. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
     };
 
@@ -957,7 +979,7 @@ public sealed class Interaction
             case InteractionMode.Move or InteractionMode.Dash or InteractionMode.Retreat:
                 var points = PathPoints();
                 // Towers proposal, stage T4: a point on another level is reached by a ladder (Previews.Route).
-                return points.Count == 0 ? null : Previews.Path(_state, seat, Kind(Mode), actor, Previews.Route(_state, actor, [.. points.Select(p => Previews.PointAt(p.X, p.Y))]));
+                return points.Count == 0 ? null : Previews.Path(_state, seat, Kind(Mode), actor, Previews.Route(_state, actor, [.. points.Select(p => Previews.PointAt(p.X, p.Y))], Sides));
             case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight:
                 return Target is { } target ? Previews.Target(_state, seat, Kind(Mode), actor, target) : null;
             default:
@@ -1018,6 +1040,7 @@ public sealed class Interaction
         _armed = false;
         Notice = null;
         Answer = null;
+        ClimbSides = false;
         _waypoints.Clear();
     }
 

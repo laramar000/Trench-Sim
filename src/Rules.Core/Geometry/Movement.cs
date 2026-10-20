@@ -28,9 +28,19 @@ public enum MoveRefusal
 
     // A model on a tower's platform would have part of its base off the platform.
     OffPlatformEdge,
+
+    // Towers, stage T6: a climb up or down a tower's side (away from its ladders) where none is allowed: in a Retreat or
+    // a Charge, a second one in the same move, or one whose starting point the model could not stop at.
+    SideClimbNotAllowed,
 }
 
-public sealed record MoveResult(bool IsLegal, MoveRefusal? Reason, string Text, string RuleRef, Length Cost, string? SubjectId);
+// SideClimb (towers proposal, stage T6, U75): on a legal path that climbs a tower's side away from its ladders, the index
+// in the waypoints of the point the climb reaches. The waypoints before it are where the model stops if the Risky
+// Success Roll fails (none: it is already at the side). Null for every other path.
+public sealed record MoveResult(bool IsLegal, MoveRefusal? Reason, string Text, string RuleRef, Length Cost, string? SubjectId)
+{
+    public int? SideClimb { get; init; }
+}
 
 // Checking an ordinary Move (Movement p. 35) along a path of straight legs through the given waypoints.
 // The model's centre follows the path and its base sweeps out a strip around it. Confirmed rules are marked
@@ -52,6 +62,12 @@ public sealed record MoveResult(bool IsLegal, MoveRefusal? Reason, string Text, 
 // at its own elevation, and a ladder leg meets the ground models at its foot (the climb happens there) and the models
 // at the top along the step over the edge. Towers on one battlefield share one height over 1", so models at different
 // elevations are never within 1" of each other (U70).
+//
+// Climbing a side (stage T6; p. 39, U75, U76). With sideClimb (a Move or a Dash) one leg may also go straight up or down
+// a side away from the ladders, shaped and costed like a ladder leg; the result names it (SideClimb) and the turn
+// sequence rolls the Risky Success Roll before the model moves. The point where the climb starts must be one the model
+// could stop at, since a failed roll leaves it there. Without sideClimb (a Retreat, a Charge's planner) such a leg is
+// refused with its own reason.
 public static class Movement
 {
     public static MoveResult CheckPath(
@@ -61,7 +77,8 @@ public static class Movement
         Length allowance,
         IEnumerable<Obstacle> others,
         string? chargeTargetId = null,
-        bool retreat = false)
+        bool retreat = false,
+        bool sideClimb = false)
     {
         ArgumentNullException.ThrowIfNull(battlefield);
         ArgumentNullException.ThrowIfNull(mover);
@@ -108,7 +125,7 @@ public static class Movement
             }
         }
 
-        if (TowerRefusal(battlefield, mover.Radius, path) is { } tower)
+        if (TowerRefusal(battlefield, mover.Radius, path, sideClimb, out var climbLeg) is { } tower)
         {
             return tower with { Cost = cost };
         }
@@ -178,7 +195,8 @@ public static class Movement
 
         // Friendly models may be passed over but the base may not finish on one (p. 35, provisional U10).
         var end = path[^1];
-        foreach (var friend in sorted.Where(o => o.Relation == Relation.Friendly).Select(o => o.Body))
+        var friends = sorted.Where(o => o.Relation == Relation.Friendly).Select(o => o.Body).ToList();
+        foreach (var friend in friends)
         {
             if (friend.Elevation == ElevationOf(end) && ExactMath.Near(end, friend.Centre, mover.Radius + friend.Radius, strict: true))
             {
@@ -186,17 +204,39 @@ public static class Movement
             }
         }
 
+        if (climbLeg is { } leg)
+        {
+            // A failed climb stops the model where the climb starts (p. 39), so it must be a place it could stop at (U76).
+            var stop = path[leg - 1];
+            foreach (var friend in friends)
+            {
+                if (friend.Elevation == ElevationOf(stop) && ExactMath.Near(stop, friend.Centre, mover.Radius + friend.Radius, strict: true))
+                {
+                    return Refuse(MoveRefusal.SideClimbNotAllowed, SideClimbStopText, RefSideClimb, cost, friend.Id);
+                }
+            }
+            return new MoveResult(true, null, "The move is legal.", "1.0.2 p. 35", cost, null) { SideClimb = leg - 1 };
+        }
+
         return new MoveResult(true, null, "The move is legal.", "1.0.2 p. 35", cost, null);
     }
 
     public const string TowerNotByLadderText = "A tower can be climbed only by its ladders: from a ladder's foot straight to its top, or back.";
+    public const string SideClimbText = "A tower is reached or left by its ladders, or by climbing straight up or down one of its sides with a Risky Success Roll: from the ground touching the side to the platform touching it from inside, or back.";
+    public const string SideClimbOnlyMoveText = "Climbing a tower's side takes a Risky Success Roll and is part of a Move or a Dash only, not a Retreat or a Charge.";
+    public const string SideClimbOnceText = "A move can climb a tower's side only once in this version.";
+    public const string SideClimbStopText = "A failed climb stops the model where the climb starts, and it cannot stop on another model's base.";
+    private const string RefSideClimb = "1.0.2 p. 39";
     public const string OffPlatformEdgeText = "A model on a tower must stay wholly on its platform.";
     private const string RefTowers = "1.0.2 pp. 39-40";
 
     // The first leg that enters, leaves or crosses a tower other than by a ladder, or puts part of the base off a
     // platform; null when there is none (always null on a battlefield without towers).
-    private static MoveResult? TowerRefusal(Battlefield battlefield, Length radius, IReadOnlyList<Point2> path)
+    // With sideClimb, one leg straight up or down a side away from a ladder is allowed and its index in the path is given
+    // back (U75, U76); without, such a leg is refused with its own reason.
+    private static MoveResult? TowerRefusal(Battlefield battlefield, Length radius, IReadOnlyList<Point2> path, bool sideClimb, out int? climbLeg)
     {
+        climbLeg = null;
         var towers = battlefield.Terrain.Where(t => t.IsTower).ToList();
         if (towers.Count == 0)
         {
@@ -231,7 +271,19 @@ public static class Movement
                 var rect = tower.Footprint.Bounds;
                 if (!tower.Climb!.Ladders.Any(l => Climb.Foot(rect, l, radius) == ground && Climb.Top(rect, l, radius) == top))
                 {
-                    return Refuse(MoveRefusal.TowerNotByLadder, TowerNotByLadderText, RefTowers, Length.Zero, tower.Id);
+                    if (!Towers.IsSideClimb(tower, radius, ground, top))
+                    {
+                        return Refuse(MoveRefusal.TowerNotByLadder, sideClimb ? SideClimbText : TowerNotByLadderText, RefTowers, Length.Zero, tower.Id);
+                    }
+                    if (!sideClimb)
+                    {
+                        return Refuse(MoveRefusal.SideClimbNotAllowed, SideClimbOnlyMoveText, RefSideClimb, Length.Zero, tower.Id);
+                    }
+                    if (climbLeg is not null)
+                    {
+                        return Refuse(MoveRefusal.SideClimbNotAllowed, SideClimbOnceText, RefSideClimb, Length.Zero, tower.Id);
+                    }
+                    climbLeg = i;
                 }
             }
             else

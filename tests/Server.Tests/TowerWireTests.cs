@@ -54,4 +54,24 @@ public class TowerWireTests
         Assert.Null(Codec.ParseServer(Encoding.UTF8.GetBytes(text), out var failure));
         Assert.NotNull(failure);
     }
+
+    // Stage T6: the two side-climb events travel on the wire and back unchanged.
+    [Fact]
+    public void TheSideClimbEventsRoundTrip()
+    {
+        var path = System.Collections.Immutable.ImmutableArray.Create(new Rules.Core.Geometry.Point2(Rules.Core.Geometry.Length.FromThousandths(16000), Rules.Core.Geometry.Length.FromThousandths(5800)), new Rules.Core.Geometry.Point2(Rules.Core.Geometry.Length.FromThousandths(17000), Rules.Core.Geometry.Length.FromThousandths(5800)));
+        GameEvent[] events =
+        [
+            new SideClimbDeclared(new ModelId("a1"), MoveKind.Dash, path),
+            new SideClimbRolled(new ModelId("a1"), Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(4), 0, 1, risky: true)),
+        ];
+        foreach (var e in events)
+        {
+            var text = Encoding.UTF8.GetString(Codec.Encode(new EventPublished(7, e, new string('a', 64))));
+            var read = Assert.IsType<EventPublished>(Codec.ParseServer(Encoding.UTF8.GetBytes(text), out var failure));
+            Assert.Null(failure);
+            Assert.Equal(text, Encoding.UTF8.GetString(Codec.Encode(read)));
+            Assert.Equal(e.GetType(), read.Event.GetType());
+        }
+    }
 }

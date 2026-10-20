@@ -72,6 +72,8 @@ public sealed class ResolutionLog
         public List<ResolutionPart> Dice { get; } = [];
         public bool Critical { get; set; }
         public bool FreeFight { get; set; }
+        public bool Climb { get; set; }
+        public bool Failed { get; set; }
         public List<string> Steps { get; } = [];
         public List<string> Outcome { get; } = [];
 
@@ -112,6 +114,11 @@ public sealed class ResolutionLog
         {
             case DashDeclared d:
                 Start(seq, d.Model, $"{Id(d.Model)} DASHES", null, null);
+                break;
+            case SideClimbDeclared c:
+                // Towers stage T6: a Move or Dash that climbs a tower's side is its own action with its own roll.
+                Start(seq, c.Model, $"{Id(c.Model)} CLIMBS A TOWER'S SIDE", null, null);
+                _current!.Climb = true;
                 break;
             case RangedAttackDeclared r:
                 Start(seq, r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}", AttackKind.Ranged, r.Target);
@@ -172,6 +179,10 @@ public sealed class ResolutionLog
             case DashRolled d:
                 Success(seq, action, d.Check, "Risky roll", "DASH", "DASH FAILED");
                 break;
+            case SideClimbRolled c:
+                Success(seq, action, c.Check, "Risky roll", "CLIMB", "CLIMB FAILED");
+                action.Failed = c.Check.Outcome == SuccessOutcome.Failure;
+                break;
             case RangedSuccessRolled r:
                 Success(seq, action, r.Check, "Hit roll", "HIT", "MISSED");
                 break;
@@ -188,6 +199,9 @@ public sealed class ResolutionLog
             case ChargeMoved m:
                 action.Steps.Add(m.Reached ? $"Reaches {Id(m.Target)}" : $"Stops short of {Id(m.Target)}");
                 action.Outcome.Add(m.Reached ? "REACHED ✓" : "STOPS SHORT ✗");
+                break;
+            case ModelMoved when action.Climb:
+                action.Steps.Add(action.Failed ? "Moves to where the climb starts and stops" : "Moves, up or down the side");
                 break;
             case ModelMoved { Kind: MoveKind.Dash }:
                 action.Steps.Add("Moves");

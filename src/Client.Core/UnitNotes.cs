@@ -26,6 +26,7 @@ public static class UnitNotes
         return e switch
         {
             DashRolled d => [d.Check.Outcome == SuccessOutcome.Failure ? new(d.Model, "DASH FAILED", NoteTone.Failure) : new(d.Model, "DASH", NoteTone.Success)],
+            SideClimbRolled c => [c.Check.Outcome == SuccessOutcome.Failure ? new(c.Model, "CLIMB FAILED", NoteTone.Failure) : new(c.Model, "CLIMB", NoteTone.Success)],
             RangedSuccessRolled r => [Hit(r.Attacker, r.Check)],
             MeleeSuccessRolled m => [Hit(m.Attacker, m.Check)],
             InjuryRolled i => [Injury(i.Target, i.Injury)],

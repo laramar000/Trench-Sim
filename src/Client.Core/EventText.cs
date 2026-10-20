@@ -23,6 +23,7 @@ public static class EventText
         ModelStoodUp s => $"  {s.Model} stands up (Movement halved).",
         ModelMoved m => $"  {m.Model} {(m.Kind == MoveKind.Dash ? "dashes" : "moves")} to {m.Path[^1]} (cost {m.Cost}).",
         DashRolled d => $"  {d.Model} Dash roll {d.Check.Dice.Total}: {d.Check.Outcome}.",
+        SideClimbRolled c => $"  {c.Model} climb roll {c.Check.Dice.Total}: {c.Check.Outcome}.",
         RangedAttackDeclared r => $"  {r.Attacker} shoots {r.Target}{(r.LongRange ? " at long range" : "")}{(r.InCover ? $" (cover: {r.CoverTerrainId})" : "")}.",
         ChargeDeclared c => $"  {c.Model} declares a charge on {c.Target}.",
         ChargeRolled c => $"  {c.Model} Charge Bonus {c.Die}.",
@@ -55,6 +56,7 @@ public static class EventText
         MoraleOrderSet m => $"{Words.Seat(m.First)} takes its Morale Check first{(m.Chosen ? " (chosen)" : "")}.",
         TurnEnded t => $"End of turn {t.Turn}.",
         DashDeclared d => $"  {d.Model} declares a Dash.",
+        SideClimbDeclared c => $"  {c.Model} climbs a tower's side ({(c.Kind == MoveKind.Dash ? "Dash" : "Move")}): a Risky roll first.",
         _ => e.GetType().Name + ".",
     };
 
@@ -70,6 +72,8 @@ public static class EventText
         ModelMoved m => new(Id(m.Model), m.Kind == MoveKind.Dash ? "DASHES" : "MOVES", $"→ {At(m.Path[^1])} (cost {Cost(m.Cost)})"),
         DashDeclared d => new(Id(d.Model), "DECLARES", "a Dash"),
         DashRolled d => new(Id(d.Model), "ROLLS", $"Dash {d.Check.Dice.Total}: {d.Check.Outcome}"),
+        SideClimbDeclared c => new(Id(c.Model), "CLIMBS", "a tower's side (Risky roll)"),
+        SideClimbRolled c => new(Id(c.Model), "ROLLS", $"climb {c.Check.Dice.Total}: {c.Check.Outcome}"),
         RangedAttackDeclared r => new(Id(r.Attacker), "SHOOTS", Id(r.Target) + (r.LongRange ? " (long range)" : "") + (r.InCover ? $" (cover: {r.CoverTerrainId})" : "")),
         RangedSuccessRolled r => new(Id(r.Attacker), "ROLLS", $"{r.Check.Dice.Total} to hit {Id(r.Target)}: {r.Check.Outcome}"),
         ChargeDeclared c => new(Id(c.Model), "CHARGES", $"→ {Id(c.Target)}"),
@@ -104,7 +108,7 @@ public static class EventText
         MatchCreated or RollOffResolved or DeploymentZoneChosen or DeploymentOrderSet or ModelDeployed => EventKind.Setup,
         TurnStarted or TurnEnded or PhaseEntered or InitiativeDetermined or FirstActivationChosen or MoraleOrderSet => EventKind.Turn,
         ActivationStarted or ActivationEnded => EventKind.Activation,
-        ModelMoved or DashDeclared or DashRolled or RetreatDeclared or RetreatResolved => EventKind.Movement,
+        ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved => EventKind.Movement,
         RangedAttackDeclared or ShootingTargetRolled or FriendlyTargetChosen or RangedSuccessRolled => EventKind.Shooting,
         ChargeDeclared or ChargeRolled or ChargeMoved => EventKind.Charge,
         MeleeAttackDeclared or MeleeSuccessRolled or FreeFightsDeclined => EventKind.Fight,
@@ -139,6 +143,7 @@ public static class EventText
     {
         RollOffResolved r => "Dice: " + string.Join("; ", r.Rounds.Select(x => $"Seat One {x.SeatOne}, Seat Two {x.SeatTwo}{(x.IsTie ? " (tie, rolled again)" : "")}")),
         DashRolled d => Faces(d.Check.Dice, d.Check.NetDice),
+        SideClimbRolled c => Faces(c.Check.Dice, c.Check.NetDice),
         RangedSuccessRolled r => Faces(r.Check.Dice, r.Check.NetDice),
         MeleeSuccessRolled m => Faces(m.Check.Dice, m.Check.NetDice),
         MoraleCheckRolled m => Faces(m.Check.Dice, m.Check.NetDice),

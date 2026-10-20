@@ -3056,7 +3056,7 @@ public partial class UiCheck : Node
             var sides = towers.Select(t => string.Join("+", t.Ladders.Select(l => l.SideWord).Order(StringComparer.Ordinal))).ToList();
             Check("tower-drawn", towers.Count == 2 && board.TowersDrawn.Order(StringComparer.Ordinal).SequenceEqual(towers.Select(t => t.Id).Order(StringComparer.Ordinal))
                 && board.LaddersDrawn == 4 && towers.All(t => t.Height == 2 && t.Ladders.Count == 2) && sides.All(x => x == "east+west")
-                && towers.All(t => labels.Contains(t.TowerMark)) && towers.All(t => t.Label.Contains("reached only by its ladders", StringComparison.Ordinal)),
+                && towers.All(t => labels.Contains(t.TowerMark)) && towers.All(t => t.Label.Contains("reached by its ladders", StringComparison.Ordinal)),
                 $"towers {string.Join(",", towers.Select(t => $"{t.Id} {t.Height}\" {string.Join("+", t.Ladders.Select(l => l.SideWord))}"))}; drawn {string.Join(",", board.TowersDrawn)} with {board.LaddersDrawn} ladders; marks shown: {string.Join(",", towers.Select(t => labels.Contains(t.TowerMark)))}");
         }
         if (towers.Count == 0 || _towerDescended)
@@ -3069,13 +3069,43 @@ public partial class UiCheck : Node
         {
             return false;
         }
-        // One model climbs (the first of this window's to activate); the others play as usual.
-        _climber ??= me.Id;
+        // One model climbs: of this window's standing models, the one nearest a ladder's foot when the first of them
+        // activates (a match has four turns, so the climber must start near); the others play as usual.
+        _climber ??= scene.Models.Where(m => m.Yours && m.Status == Rules.Core.State.ModelStatus.Standing && m.TowerId is null)
+            .OrderBy(m => towers.SelectMany(t => t.Ladders).Min(l => Math.Sqrt((l.At.X - m.X) * (l.At.X - m.X) + (l.At.Y - m.Y) * (l.At.Y - m.Y))))
+            .ThenBy(m => m.Id.Value, StringComparer.Ordinal).Select(m => (Rules.Core.State.ModelId?)m.Id).FirstOrDefault() ?? me.Id;
         var onTower = me.TowerId is not null;
         if (me.Id != _climber || (_towerClimbed ? !onTower : onTower))
         {
             return false;
         }
+        // While approaching, a Dash follows the Move in the same activation (when the Move was only an approach).
+        var took = false;
+        foreach (var mode in new[] { InteractionMode.Move, InteractionMode.Dash })
+        {
+            if (board.Scene?.Find(me.Id) is not { Status: Rules.Core.State.ModelStatus.Standing } now || !board.Interaction.Offered.Contains(mode)
+                || ((Main)_main).ServerState?.ActiveModel != me.Id)
+            {
+                break;
+            }
+            var (sent, what) = await TowerMove(board, now, towers, mode);
+            took |= sent;
+            if (!sent || what != "approach")
+            {
+                break;
+            }
+            await Frames(10);
+        }
+        return took;
+    }
+
+    // One Move or Dash of the climber by mouse (see TowerStep): returns whether something was sent and what it was
+    // ("approach", "climb" or "descend").
+    private async Task<(bool Sent, string What)> TowerMove(BoardView board, ModelShape me, List<TerrainShape> towers, InteractionMode mode)
+    {
+        var scene = board.Scene!;
+        var interaction = board.Interaction;
+        var onTower = me.TowerId is not null;
         double Level(double x, double y) => towers.FirstOrDefault(t => t.Area.X0 < x && x < t.Area.X1 && t.Area.Y0 < y && y < t.Area.Y1)?.Height ?? 0;
         double Distance(double x0, double y0, double x1, double y1) => Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
         bool Free(TablePoint p) => scene.Models.All(m => m.Id == me.Id || Distance(m.X, m.Y, p.X, p.Y) > m.Radius + me.Radius + 0.3);
@@ -3088,11 +3118,21 @@ public partial class UiCheck : Node
             _ => (l.At.X, l.At.Y + me.Radius),
         };
         await MouseOff(board);
-        await KeyPress(Key.M);
-        if (interaction.Mode != InteractionMode.Move)
+        await KeyPress(mode == InteractionMode.Move ? Key.M : Key.D);
+        if (interaction.Mode != mode)
         {
             await KeyPress(Key.Escape);
-            return false;
+            return (false, "");
+        }
+        // Stage T6: the way down is by a side, with K (a Risky Success Roll, p. 39), not by a ladder.
+        if (onTower)
+        {
+            await KeyPress(Key.K);
+            if (!interaction.ClimbSides)
+            {
+                await KeyPress(Key.Escape);
+                return (false, "");
+            }
         }
         var area = interaction.ReachArea();
         TablePoint? goal = null;
@@ -3100,6 +3140,12 @@ public partial class UiCheck : Node
         if (!onTower)
         {
             var tops = area.Where(p => Level(p.X, p.Y) > 0 && Free(p)).ToList();
+            if (tops.Count > 0 && mode == InteractionMode.Dash)
+            {
+                // The climb is checked with a Move (a Dash's own Risky roll could stop it): wait for the next activation.
+                await KeyPress(Key.Escape);
+                return (false, "");
+            }
             if (tops.Count > 0)
             {
                 var tower = towers.First(t => Level(tops[0].X, tops[0].Y) > 0 && t.Area.Contains(tops[0].X, tops[0].Y));
@@ -3115,13 +3161,23 @@ public partial class UiCheck : Node
         }
         else
         {
-            goal = area.Where(p => Level(p.X, p.Y) == 0 && Free(p)).OrderBy(p => Distance(p.X, p.Y, me.X, me.Y)).Select(p => (TablePoint?)p).FirstOrDefault();
+            // The nearest ground spot whose way down is a side climb: where the shortest way across a side is at a
+            // ladder, the route takes the ladder (no roll), which is not what this check is for.
+            foreach (var p in area.Where(p => Level(p.X, p.Y) == 0 && Free(p)).OrderBy(p => Distance(p.X, p.Y, me.X, me.Y)).Take(60))
+            {
+                interaction.SetCursor(p.X, p.Y);
+                if (interaction.Preview is { Legal: true } side && side.Facts.Contains(Previews.SideClimbFact))
+                {
+                    goal = p;
+                    break;
+                }
+            }
             what = "descend";
         }
         if (goal is not { } spot)
         {
             await KeyPress(Key.Escape);
-            return false;
+            return (false, "");
         }
         // The cursor there first, so the path, any climb and the ghost are drawn; then a mouse click on that spot (on
         // the platform top for a climb) sends the move when the preview says the server would accept it.
@@ -3134,7 +3190,7 @@ public partial class UiCheck : Node
         if (shown is not { Legal: true })
         {
             await KeyPress(Key.Escape);
-            return false;
+            return (false, "");
         }
         if (!OnBoardScreen(board, spot.X, spot.Y, height))
         {
@@ -3142,6 +3198,7 @@ public partial class UiCheck : Node
             await Frames(3);
         }
         var before = Section("LAST COMMAND");
+        var rollsBefore = Lines(LogText()).Count(l => l.Contains("climb roll", StringComparison.Ordinal));
         Preview? atPress = null;
         if (board.ScreenOf(spot.X, spot.Y, height) is { } local)
         {
@@ -3162,7 +3219,7 @@ public partial class UiCheck : Node
         // cursor before the click (once the server answers quickly the preview is already cleared, run 222).
         var sent = atPress is { Path.Count: > 0 } ? atPress : interaction.Preview is { Path.Count: > 0 } up ? up : shown;
         var answer = await Answered(before);
-        Answer("Move", answer);
+        Answer(mode == InteractionMode.Move ? "Move" : "Dash", answer);
         await Frames(3);
         var after = board.Scene?.Find(me.Id);
         var server = ((Main)_main).ServerState?.FindModel(me.Id)?.Position;
@@ -3188,10 +3245,26 @@ public partial class UiCheck : Node
         }
         else if (what == "descend")
         {
+            // Down a side: the newest climb roll in the combat log decides. On a Success the model is on the ground where
+            // the preview ended; on a Failure it stays on the platform where the climb starts (the last point before the
+            // height changes) and its activation ends (p. 39, U75).
             _towerDescended = true;
-            Check("tower-descend", done && heights.Contains(0) && heights.Contains(2) && climbsDrawn > 0 && after is { Standing: 0, TowerId: null }, detail);
+            // The roll may wait for the opponent's Blood Marker decision: wait for its row, then read where the model is.
+            var roll = await Until(() => Lines(LogText()).Where(l => l.Contains("climb roll", StringComparison.Ordinal)).Skip(rollsBefore).LastOrDefault(), 30, "tower-climb-roll") ?? "";
+            await Frames(10);
+            server = ((Main)_main).ServerState?.FindModel(me.Id)?.Position;
+            after = board.Scene?.Find(me.Id);
+            landed = server is { } pos2 && end is not null && Near(TablePoint.Of(pos2), end.At.X, end.At.Y, 0.05);
+            var failed = roll.EndsWith("Failure.", StringComparison.Ordinal);
+            var marks = sent?.Path ?? [];
+            var change = Enumerable.Range(1, Math.Max(0, marks.Count - 1)).FirstOrDefault(i => marks[i].Height != marks[i - 1].Height);
+            TablePoint? stop = change > 0 ? marks[change - 1].At : null;
+            var stayed = failed && stop is not null && server is { } at && Near(TablePoint.Of(at), stop.Value.X, stop.Value.Y, 0.05) && after is { Standing: 2, TowerId: not null };
+            var down = !failed && landed && after is { Standing: 0, TowerId: null };
+            Check("tower-descend", answer.StartsWith("DONE:", StringComparison.Ordinal) && sent is { Legal: true } && heights.Contains(0) && heights.Contains(2)
+                && climbsDrawn > 0 && sent.Facts.Contains(Previews.SideClimbFact) && roll.Length > 0 && (stayed || down), $"{detail}; roll: {roll}");
         }
-        return answer.StartsWith("DONE:", StringComparison.Ordinal) || Section("LAST COMMAND") != before;
+        return (answer.StartsWith("DONE:", StringComparison.Ordinal) || Section("LAST COMMAND") != before, what);
     }
 
     // Both seats at the end: the outcome as this seat sees it, the final state hash and the event count, all from the

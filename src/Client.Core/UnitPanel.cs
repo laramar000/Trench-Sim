@@ -278,7 +278,7 @@ public static class UnitPanel
     public static string? TowerLine(ModelShape unit)
     {
         ArgumentNullException.ThrowIfNull(unit);
-        return unit.TowerId is null ? null : $"{TowerPrefix}{BoardScene.Inch(unit.Standing)} up): it leaves only by a ladder";
+        return unit.TowerId is null ? null : $"{TowerPrefix}{BoardScene.Inch(unit.Standing)} up): it leaves by a ladder, or down a side with a Risky roll";
     }
 
     public const string TowerPrefix = "▲ On the tower (";

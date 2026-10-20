@@ -66,7 +66,7 @@ public class TowerClientTests
         Assert.Equal(2, shape.Standing);
         Assert.Equal("tower-s", shape.TowerId);
         Assert.Contains("on the tower (2.0\" up)", shape.Text, StringComparison.Ordinal);
-        Assert.Equal("▲ On the tower (2.0\" up): it leaves only by a ladder", UnitPanel.TowerLine(shape));
+        Assert.Equal("▲ On the tower (2.0\" up): it leaves by a ladder, or down a side with a Risky roll", UnitPanel.TowerLine(shape));
         Assert.Same(shape, scene.ModelAt(18, 6.5, 2));
         Assert.Null(scene.ModelAt(18, 6.5));
     }
@@ -142,13 +142,14 @@ public class TowerClientTests
             Assert.Equal(2, tower.Height);
             Assert.Equal("TOWER 2.0\"", tower.TowerMark);
             Assert.Equal([Side.East, Side.West], tower.Ladders.Select(l => l.Side).Order().Reverse());
-            Assert.StartsWith("Tower, 2.0\" high: models stand and fight on its platform, reached only by its ladders (west and east sides)", tower.Label, StringComparison.Ordinal);
+            Assert.StartsWith("Tower, 2.0\" high: models stand and fight on its platform, reached by its ladders (west and east sides) or by climbing a side with a Risky roll", tower.Label, StringComparison.Ordinal);
         }
         Assert.All(scene.Terrain.Where(t => !t.Tower), t => Assert.Empty(t.Ladders));
         // The Scenario card says what the towers allow.
         var card = ScenarioCard.Of(state, Seat.One);
         Assert.Contains("TOWERS", card.Lines);
-        Assert.Contains(card.Lines, l => l.Contains("only by its ladders", StringComparison.Ordinal) && l.Contains("U66", StringComparison.Ordinal));
+        Assert.Contains(card.Lines, l => l.Contains("by its ladders", StringComparison.Ordinal) && l.Contains("U66", StringComparison.Ordinal));
+        Assert.Contains(card.Lines, l => l.Contains("Risky Success Roll", StringComparison.Ordinal) && l.Contains("U75", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -159,5 +160,73 @@ public class TowerClientTests
         var scene = BoardScene.Of(plain, Seat.One, ContentNames.None)!;
         Assert.DoesNotContain(scene.Terrain, t => t.Tower);
         Assert.All(scene.Models, m => Assert.Null(m.TowerId));
+    }
+
+    // ---- stage T6: climbing a tower's side (a Risky Success Roll, p. 39, U75) ----
+
+    [Fact]
+    public void WithKAMoveClimbsTheSideAndThePreviewSaysTheRollDecides()
+    {
+        var (state, seat, model) = Activating(15, 5.8);
+        var interaction = new Interaction();
+        interaction.Update(state, seat);
+        Assert.True(interaction.Start(InteractionMode.Move));
+        Assert.True(interaction.CanClimbSides);
+        Assert.Contains(" K: climb a tower's side instead of a ladder", string.Join("\n", interaction.Lines()), StringComparison.Ordinal);
+        Assert.True(interaction.ToggleClimbSides());
+        interaction.SetCursor(18, 5.8);
+        var preview = interaction.Preview!;
+        Assert.True(preview.Legal, preview.Refusal?.Text);
+        var command = Assert.IsType<MoveModel>(preview.Command);
+        Assert.Equal([P(16.008, 5.8), P(16.992, 5.8), P(18, 5.8)], command.Path.ToArray());
+        Assert.Contains(Previews.SideClimbFact, preview.Facts);
+        Assert.Contains(preview.Facts, f => f.StartsWith("One climb up or down the side", StringComparison.Ordinal));
+        // The server agrees, and the roll comes first.
+        var decided = TurnSequence.Decide(state, command, new SeededDice(3));
+        Assert.True(decided.IsAccepted, decided.Rejection?.Text);
+        Assert.IsType<SideClimbDeclared>(decided.Events[0]);
+        Assert.Contains(decided.Events, e => e is SideClimbRolled);
+        // K again: back to the ladder.
+        Assert.True(interaction.ToggleClimbSides());
+        Assert.Equal(P(16.008, 6.5), Assert.IsType<MoveModel>(interaction.Preview!.Command).Path[0]);
+        Assert.DoesNotContain(Previews.SideClimbFact, interaction.Preview!.Facts);
+        _ = model;
+    }
+
+    [Fact]
+    public void SideClimbingIsOffForARetreatAndOnAPlainBattlefield()
+    {
+        var plain = PreviewAgreementTests.States.Value.First(s => s.Phase == Phase.Activation && s.Setup?.Scenario?.Battlefield.Terrain.Any(t => t.IsTower) == false
+            && s.Pending is null && s.Actions == ActionsTaken.None && s.ActiveModel is not null);
+        var interaction = new Interaction();
+        interaction.Update(plain, plain.FindModel(plain.ActiveModel!.Value)!.Seat);
+        Assert.True(interaction.Start(InteractionMode.Move));
+        Assert.False(interaction.CanClimbSides);
+        Assert.False(interaction.ToggleClimbSides());
+        Assert.DoesNotContain(" K:", string.Join("\n", interaction.Lines()), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheSideRouteTakesTheShortestWayAcrossASide()
+    {
+        // From the south (y 3), to a platform point near the south side: straight up the south side.
+        var route = TowerRoute.Expand(Field, Half, P(18.2, 3), [P(18.2, 6)], sides: true);
+        Assert.Equal([P(18.2, 4.5), P(18.2, 5.5), P(18.2, 6)], route);
+        // Without sides the same click goes round to a ladder.
+        Assert.Contains(P(20, 6.5), TowerRoute.Expand(Field, Half, P(18.2, 3), [P(18.2, 6)])); // the east ladder is nearer this way
+    }
+
+    [Fact]
+    public void EverySideClimbPointTheAreaShowsIsOneTheServerAccepts()
+    {
+        var (state, seat, model) = Activating(14.8, 5.6);
+        var area = Previews.Reachable(state, seat, PreviewKind.Move, model, [], sides: true);
+        bool OnTop(TablePoint p) => p.X > 16.5 && p.X < 19.5 && p.Y > 5 && p.Y < 8;
+        Assert.Contains(area, OnTop);
+        foreach (var point in area.Where(OnTop))
+        {
+            var path = Previews.Route(state, model, [P(point.X, point.Y)], sides: true);
+            Assert.True(TurnSequence.Check(state, new MoveModel(seat, model, [.. path])) is null, $"{point}");
+        }
     }
 }

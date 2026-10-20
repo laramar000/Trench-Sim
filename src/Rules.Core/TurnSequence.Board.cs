@@ -274,7 +274,14 @@ public static partial class TurnSequence
                 break;
             case MoveModel c:
                 var move = Board.CheckMove(state, state.FindModel(c.Model)!, c.Path);
-                run.Emit(new ModelMoved(c.Model, MoveKind.Move, c.Path, move.Cost));
+                if (move.SideClimb is not null)
+                {
+                    DeclareClimb(run, c.Model, MoveKind.Move, c.Path);
+                }
+                else
+                {
+                    run.Emit(new ModelMoved(c.Model, MoveKind.Move, c.Path, move.Cost));
+                }
                 break;
             case DashModel c:
                 run.Emit(new DashDeclared(c.Model, c.Path));
@@ -371,8 +378,40 @@ public static partial class TurnSequence
             }
             case RollStage.DashMove:
             {
-                var cost = Board.CheckMove(s, actor, progress.DashPath).Cost;
-                run.Emit(new ModelMoved(progress.Actor, MoveKind.Dash, progress.DashPath, cost));
+                var dash = Board.CheckMove(s, actor, progress.DashPath);
+                if (dash.SideClimb is not null)
+                {
+                    DeclareClimb(run, progress.Actor, MoveKind.Dash, progress.DashPath);
+                }
+                else
+                {
+                    run.Emit(new ModelMoved(progress.Actor, MoveKind.Dash, progress.DashPath, dash.Cost));
+                }
+                return true;
+            }
+            case RollStage.ClimbRoll:
+            {
+                // Climbing a sheer surface is always a Risky Success Roll (p. 39); spent markers are penalty dice.
+                var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true);
+                run.Emit(new SideClimbRolled(progress.Actor, check));
+                if (check.Outcome == SuccessOutcome.Failure && run.State.InProgress is null)
+                {
+                    run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                }
+                return true;
+            }
+            case RollStage.ClimbMove:
+            {
+                var kind = progress.ClimbAction == ActionsTaken.Move ? MoveKind.Move : MoveKind.Dash;
+                run.Emit(new ModelMoved(progress.Actor, kind, progress.DashPath, Board.CheckMove(s, actor, progress.DashPath).Cost));
+                return true;
+            }
+            case RollStage.ClimbStop:
+            {
+                var kind = progress.ClimbAction == ActionsTaken.Move ? MoveKind.Move : MoveKind.Dash;
+                var stop = Reducer.ClimbStopPath(s, progress);
+                run.Emit(new ModelMoved(progress.Actor, kind, stop, Board.CheckMove(s, actor, stop).Cost));
+                run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
                 return true;
             }
             case RollStage.ShotRoll:
@@ -448,6 +487,17 @@ public static partial class TurnSequence
             }
             default:
                 throw new InvalidOperationException("Unknown roll stage.");
+        }
+    }
+
+    // A Move or Dash that climbs a tower's side: the roll waits for the opponent's Blood Marker decision, as a Dash does.
+    private static void DeclareClimb(Run run, ModelId model, MoveKind kind, ImmutableArray<Point2> path)
+    {
+        run.Emit(new SideClimbDeclared(model, kind, path));
+        var climber = run.State.FindModel(model)!;
+        if (climber.BloodMarkers > 0)
+        {
+            run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, climber.Seat.Opponent()));
         }
     }
 

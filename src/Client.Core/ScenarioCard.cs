@@ -73,7 +73,8 @@ public static class ScenarioCard
         return
         [
             $"{towers.Count} tower{(towers.Count == 1 ? "" : "s")}, {height} high ({string.Join(", ", towers.Select(t => t.Id))}). Models stand and fight on a platform, wholly on it (U67).",
-            $"A platform is reached and left only by its ladders, from the foot straight to the top or back; a climb costs {height} of movement on top of the step (U66, U68, U71).",
+            $"A platform is reached and left by its ladders, from the foot straight to the top or back; a climb costs {height} of movement on top of the step (U66, U71).",
+            "Or climb straight up or down a side (key K in a Move or Dash): a Risky Success Roll; on a Failure the model stops where the climb starts and its activation ends (p. 39, U75, U76).",
             "Distances between heights are measured in 3D, so no model on a tower is within 1\" of one on the ground (U70).",
             "No charges up or down a ladder in this version (U72). A model on a tower never counts for an Objective (U74).",
             "Sight and cover as before: a tower blocks sight between ground models; a model on it sees over ground walls (U73).",

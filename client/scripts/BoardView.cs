@@ -940,6 +940,9 @@ public partial class BoardView : SubViewportContainer
             case Key.Backspace:
                 Interaction.RemovePoint();
                 return true;
+            case Key.K:
+                // Towers proposal, stage T6: switch between ladders and climbing a tower's side (a Risky roll).
+                return Interaction.ToggleClimbSides();
             case Key.Escape:
                 Interaction.Cancel();
                 return true;

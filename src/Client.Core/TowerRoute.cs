@@ -10,9 +10,12 @@ namespace Client.Core;
 // edge is moved just far enough in for the whole base to stand on it (U67). Nothing here decides anything: the path is
 // the one the command carries, and the preview and the server check it as they check any path. On a battlefield
 // without towers the points come back unchanged.
+//
+// Stage T6: with sides, a change of level climbs straight up or down a side of the tower instead (a Risky Success Roll,
+// p. 39, U75), at the point of the sides that makes the route shortest.
 public static class TowerRoute
 {
-    public static List<Point2> Expand(Battlefield field, Length radius, Point2 start, IReadOnlyList<Point2> points)
+    public static List<Point2> Expand(Battlefield field, Length radius, Point2 start, IReadOnlyList<Point2> points, bool sides = false)
     {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(points);
@@ -32,14 +35,14 @@ public static class TowerRoute
                 if (up is not null)
                 {
                     // Down from this platform by its ladder nearest the way on.
-                    var (foot, top) = Nearest(up, radius, to, from);
+                    var (foot, top) = sides ? NearestSide(up, radius, to, from) : Nearest(up, radius, to, from);
                     Add(route, from, top);
                     Add(route, from, foot);
                 }
                 if (down is not null)
                 {
                     var last = route.Count > 0 ? route[^1] : from;
-                    var (foot, top) = Nearest(down, radius, last, to);
+                    var (foot, top) = sides ? NearestSide(down, radius, last, to) : Nearest(down, radius, last, to);
                     Add(route, from, foot);
                     Add(route, from, top);
                 }
@@ -76,6 +79,66 @@ public static class TowerRoute
             .Select(l => (Foot: Climb.Foot(rect, l, radius), Top: Climb.Top(rect, l, radius)))
             .OrderBy(l => Distance(ground, l.Foot) + Distance(l.Top, platform))
             .First();
+    }
+
+    // The point of the tower's sides where climbing straight up or down makes the way between a point on the ground and a
+    // point on its platform shortest, as the foot and top for this base. Along each side the length is convex, so a
+    // search over thousandths finds its least; ties go to the lower coordinate and to the sides in Side order.
+    private static (Point2 Foot, Point2 Top) NearestSide(TerrainBlock tower, Length radius, Point2 ground, Point2 platform)
+    {
+        var r = tower.Footprint.Bounds;
+        var best = (Foot: ground, Top: platform);
+        var bestLength = double.MaxValue;
+        foreach (var side in new[] { Side.West, Side.East, Side.South, Side.North })
+        {
+            var alongY = side is Side.West or Side.East;
+            var low = (alongY ? r.Min.Y : r.Min.X).Thousandths + radius.Thousandths;
+            var high = (alongY ? r.Max.Y : r.Max.X).Thousandths - radius.Thousandths;
+            if (low > high)
+            {
+                continue;
+            }
+            (Point2 Foot, Point2 Top) At(long t)
+            {
+                var c = Length.FromThousandths(t);
+                return side switch
+                {
+                    Side.West => (new Point2(r.Min.X - radius, c), new Point2(r.Min.X + radius, c)),
+                    Side.East => (new Point2(r.Max.X + radius, c), new Point2(r.Max.X - radius, c)),
+                    Side.South => (new Point2(c, r.Min.Y - radius), new Point2(c, r.Min.Y + radius)),
+                    _ => (new Point2(c, r.Max.Y + radius), new Point2(c, r.Max.Y - radius)),
+                };
+            }
+            double LengthAt(long t)
+            {
+                var (foot, top) = At(t);
+                return Distance(ground, foot) + Distance(top, platform);
+            }
+            var (a, b) = (low, high);
+            while (b - a > 2)
+            {
+                var m1 = a + (b - a) / 3;
+                var m2 = b - (b - a) / 3;
+                if (LengthAt(m1) <= LengthAt(m2))
+                {
+                    b = m2;
+                }
+                else
+                {
+                    a = m1;
+                }
+            }
+            for (var t = a; t <= b; t++)
+            {
+                var length = LengthAt(t);
+                if (length < bestLength - 1e-12)
+                {
+                    bestLength = length;
+                    best = At(t);
+                }
+            }
+        }
+        return best;
     }
 
     private static void Add(List<Point2> route, Point2 start, Point2 p)

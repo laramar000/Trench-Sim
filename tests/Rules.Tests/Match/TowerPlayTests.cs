@@ -32,11 +32,12 @@ public class TowerPlayTests
     }
 
     [Fact]
-    public void AMoveStraightOntoTheTowerIsRefusedWithTheLadderReason()
+    public void AMoveStraightOntoTheTowerIsRefused()
     {
+        // Stage T6: a Move may also climb a side (with a Risky roll), so its reason names both ways up.
         var play = On("15", "6.5", "30", "30");
         var refusal = play.Refused(new MoveModel(Seat.One, A(1), Path(("18", "6.5"))), ReasonCode.MoveIllegal);
-        Assert.Equal(Movement.TowerNotByLadderText, refusal.Text);
+        Assert.Equal(Movement.SideClimbText, refusal.Text);
     }
 
     [Fact]

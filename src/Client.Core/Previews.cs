@@ -192,7 +192,11 @@ public static class Previews
         var climbs = marks.Zip(marks.Skip(1)).Where(m => m.First.Height != m.Second.Height).Select(m => Math.Abs(m.Second.Height - m.First.Height)).ToList();
         if (climbs.Count > 0)
         {
-            facts.Add($"{(climbs.Count == 1 ? "One ladder climb" : $"{climbs.Count} ladder climbs")}: each counts its {BoardScene.Inch(climbs[0])} height in the distance (U66).");
+            // Stage T6: one of them may be up or down a side rather than a ladder; it costs the same (U75).
+            var side = facts.Contains(SideClimbFact);
+            var what = side ? (climbs.Count == 1 ? "One climb up or down the side" : $"{climbs.Count} climbs (one up or down the side)")
+                : climbs.Count == 1 ? "One ladder climb" : $"{climbs.Count} ladder climbs";
+            facts.Add($"{what}: each counts its {BoardScene.Inch(climbs[0])} height in the distance (U66{(side ? ", U75" : "")}).");
         }
         return new Preview(kind, model, command, refusal, facts, marks, RadiusOf(state, model), null, [], [], null, allowance);
     }
@@ -216,14 +220,21 @@ public static class Previews
         {
             return new(ReasonCode.TooManyWaypoints, $"A move has at most {Rules.Core.Events.ModelMoved.MaxWaypoints} waypoints.", RefMove);
         }
-        var result = Movement.CheckPath(state.Setup!.Scenario!.Battlefield, BodyOf(state, model!)!, path, Allowance(state, model!), Obstacles(state, model!));
+        var result = Movement.CheckPath(state.Setup!.Scenario!.Battlefield, BodyOf(state, model!)!, path, Allowance(state, model!), Obstacles(state, model!), sideClimb: true);
         facts.Add($"Distance {Inch(result.Cost)} of {Inch(Allowance(state, model!))} allowed{(state.MovementHalved ? " (halved after standing up)" : "")}.");
         if (kind == PreviewKind.Dash)
         {
             facts.Add("A Dash is a Risky Success Roll: the dice decide whether the model moves (server).");
         }
+        if (result.SideClimb is not null)
+        {
+            facts.Add(SideClimbFact);
+        }
         return result.IsLegal ? null : new(ReasonCode.MoveIllegal, result.Text, result.RuleRef);
     }
+
+    // Towers proposal, stage T6 (p. 39, U75).
+    public const string SideClimbFact = "Climbs the tower's side: a Risky Success Roll when the model reaches it. On a Success it makes the whole move; on a Failure it stops where the climb starts and its activation ends (server).";
 
     // A legal Fight target is engaged with the attacker: within 1" (pp. 45-46).
     public const string EngagedFact = "Engaged: within 1\" of the attacker.";
@@ -566,12 +577,12 @@ public static class Previews
 
     // Towers proposal, stage T4: the path a click's points make for this model, with a ladder's foot and top put in
     // wherever the points change level (TowerRoute). The points themselves on a battlefield without towers.
-    public static List<Point2> Route(MatchState state, ModelId model, IReadOnlyList<Point2> points)
+    public static List<Point2> Route(MatchState state, ModelId model, IReadOnlyList<Point2> points, bool sides = false)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(points);
         return state.Setup?.Scenario is { } scenario && state.FindModel(model) is { Position: { } at } && state.Setup.ProfileOf(model) is { } profile
-            ? TowerRoute.Expand(scenario.Battlefield, profile.BaseRadius, at, points)
+            ? TowerRoute.Expand(scenario.Battlefield, profile.BaseRadius, at, points, sides)
             : [.. points];
     }
 
@@ -579,7 +590,7 @@ public static class Previews
     // point of a grid (step inches apart) whose path the preview checks accept, so the area follows the rules' own path
     // check (allowance after the waypoints already used, terrain, other models, a Retreat's end more than 1" from enemies)
     // and agrees with the server as Path does. Empty when the action is not open.
-    public static IReadOnlyList<TablePoint> Reachable(MatchState state, Seat seat, PreviewKind kind, ModelId model, IReadOnlyList<Point2> waypoints, double step = 0.5)
+    public static IReadOnlyList<TablePoint> Reachable(MatchState state, Seat seat, PreviewKind kind, ModelId model, IReadOnlyList<Point2> waypoints, double step = 0.5, bool sides = false)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(waypoints);
@@ -591,7 +602,7 @@ public static class Previews
         var from = waypoints.Count > 0 ? TablePoint.Of(waypoints[^1]) : TablePoint.Of(at);
         // On a battlefield with towers each point is reached as a click would reach it, by a ladder if it is on another
         // level (Route); the area then shows the platform tops a click can reach.
-        var used = waypoints.Count > 0 ? Path(state, seat, kind, model, Route(state, model, waypoints)).Path[^1].Inches : 0;
+        var used = waypoints.Count > 0 ? Path(state, seat, kind, model, Route(state, model, waypoints, sides)).Path[^1].Inches : 0;
         // A path never costs less than its straight length, so nothing beyond the allowance left can be reached.
         var left = reach - used;
         var width = TableRect.Inches(scenario.Battlefield.Width);
@@ -612,7 +623,7 @@ public static class Previews
                     continue;
                 }
                 path[^1] = PointAt(x, y);
-                if (Path(state, seat, kind, model, Route(state, model, path)).Legal)
+                if (Path(state, seat, kind, model, Route(state, model, path, sides)).Legal)
                 {
                     points.Add(new TablePoint(Math.Round(x, 3), Math.Round(y, 3)));
                 }

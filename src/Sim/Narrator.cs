@@ -20,6 +20,7 @@ public static class Narrator
         ModelStoodUp s => $"  {s.Model} stands up (Movement halved).",
         ModelMoved m => $"  {m.Model} {(m.Kind == MoveKind.Dash ? "dashes" : "moves")} to {m.Path[^1]} (cost {m.Cost}).",
         DashRolled d => $"  {d.Model} Dash roll {d.Check.Dice.Total}: {d.Check.Outcome}.",
+        SideClimbRolled c => $"  {c.Model} climb roll {c.Check.Dice.Total}: {c.Check.Outcome}.",
         RangedAttackDeclared r => $"  {r.Attacker} shoots {r.Target}{(r.LongRange ? " at long range" : "")}{(r.InCover ? $" (cover: {r.CoverTerrainId})" : "")}.",
         ChargeDeclared c => $"  {c.Model} declares a charge on {c.Target}.",
         ChargeRolled c => $"  {c.Model} Charge Bonus {c.Die}.",
