@@ -82,6 +82,12 @@ public partial class Main : Control
     private ScrollContainer _logScroll = null!;
     private AcceptDialog _gaps = null!;
     private AcceptDialog _keySheet = null!;
+    private AcceptDialog _scenarioCard = null!;
+    private Label _scenarioText = null!;
+    private VBoxContainer _scenarioRows = null!;
+    private Label _scenarioPreview = null!;
+    private ScenarioCardView? _scenarioView;
+    private readonly Dictionary<string, Button> _scenarioButtons = [];
     private ConfirmationDialog _takeBack = null!;
 
     public override async void _Ready()
@@ -209,6 +215,11 @@ public partial class Main : Control
         else if (@event is InputEventKey { Pressed: true } question && question.Unicode == '?')
         {
             ToggleKeySheet();
+            GetViewport().SetInputAsHandled();
+        }
+        else if (@event is InputEventKey { Pressed: true, Keycode: Key.G, CtrlPressed: false, AltPressed: false } && _board is not null && _match.Visible)
+        {
+            ToggleScenario();
             GetViewport().SetInputAsHandled();
         }
         else if (@event is InputEventKey { Pressed: true, Keycode: Key.F2 } && _hotSeat is not null)
@@ -563,7 +574,11 @@ public partial class Main : Control
         centre.TooltipText = "Centre the camera on the selected unit and keep the zoom.";
         var fit = Button("Fit (F)", () => _board.Fit());
         fit.TooltipText = "Show the whole table.";
-        _match.AddChild(Row(_hud, centre, fit, ResetViewButton(), _menuButton));
+        // Proposal J3b: the scenario's scoring, endings and objectives (G).
+        var scenario = Button("Scenario (G)", ToggleScenario);
+        scenario.Name = "ScenarioButton";
+        scenario.TooltipText = "How Victory Points are scored, how the match ends, and who controls each objective now.";
+        _match.AddChild(Row(_hud, centre, fit, ResetViewButton(), scenario, _menuButton));
         // What the Menu holds (folded by default): the version, settings and keys (moved here from the top), the match
         // code, the rules in this build, and the battlefield's camera and keys.
         _matchMenu = new VBoxContainer { Name = "MatchMenu", Visible = false };
@@ -691,6 +706,24 @@ public partial class Main : Control
         _keySheet = new AcceptDialog { Title = KeySheet.Title, DialogText = KeySheet.Text, DialogAutowrap = true, Size = new Vector2I(820, 520) };
         _keySheet.Name = "KeySheet";
         AddChild(_keySheet);
+        // Proposal J3b: the Scenario card. Its words are the rules' own description (Rules.Core.ScenarioRules); a row per
+        // objective names who controls it now and centres the camera on it when clicked; nothing is sent.
+        _scenarioCard = new AcceptDialog { Title = ScenarioCard.Title, Size = new Vector2I(860, 600) };
+        _scenarioCard.Name = "ScenarioCard";
+        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        var scenarioColumn = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        scenarioColumn.AddThemeConstantOverride("separation", 6);
+        _scenarioText = Text("");
+        _scenarioRows = new VBoxContainer { Name = "ScenarioRows" };
+        _scenarioPreview = Text("");
+        _scenarioPreview.Name = "ScenarioPreview";
+        _scenarioPreview.AddThemeColorOverride("font_color", new Color(0.55f, 0.85f, 1f));
+        scenarioColumn.AddChild(_scenarioText);
+        scenarioColumn.AddChild(_scenarioRows);
+        scenarioColumn.AddChild(_scenarioPreview);
+        scroll.AddChild(scenarioColumn);
+        _scenarioCard.AddChild(scroll);
+        AddChild(_scenarioCard);
         _takeBack = new ConfirmationDialog
         {
             Title = "Take the seat back?",
@@ -845,6 +878,7 @@ public partial class Main : Control
 
     private void ShowStrip()
     {
+        RefreshScenario();
         _hud.Text = _lastScreen is { } s
             ? TopHud.Of(s.View, _board.Scene, s.Log, s.Seat, s.Feedback is { Kind: FeedbackKind.Sending } || _board.Interaction.Pending is not null)
             : "";
@@ -1090,6 +1124,8 @@ public partial class Main : Control
 
     // The server's state as this window last drew it (for the UI check: the same render as the HUD and battlefield).
     public Rules.Core.State.MatchState? ServerState => _lastScreen?.State;
+
+    public Rules.Core.State.Seat? ScreenSeat => _lastScreen?.Seat;
 
     // The panel's "POINTING AT" lines as shown (for the UI check); empty when hidden.
     public string PointingText => _pPointing.IsVisibleInTree() ? _pPointing.Text : "";
@@ -1605,6 +1641,80 @@ public partial class Main : Control
         _board.PointOut(row.Source.Models ?? []);
         PaintLog();
     }
+
+    private void ToggleScenario()
+    {
+        if (_scenarioCard.Visible)
+        {
+            _scenarioCard.Hide();
+            return;
+        }
+        RefreshScenario();
+        _scenarioCard.PopupCentered();
+    }
+
+    // The card follows the match while it is open: rows and the PREVIEW line are rebuilt when they change.
+    private void RefreshScenario()
+    {
+        if (_controller is null || _lastScreen is null)
+        {
+            return;
+        }
+        var view = ScenarioCard.Of(_lastScreen.State, _lastScreen.Seat);
+        if (_scenarioView is { } old && old.Text == view.Text)
+        {
+            return;
+        }
+        _scenarioView = view;
+        _scenarioText.Text = string.Join("\n", view.Lines);
+        // Old rows leave at once, so the new ones keep their names.
+        foreach (var child in _scenarioRows.GetChildren())
+        {
+            _scenarioRows.RemoveChild(child);
+            child.QueueFree();
+        }
+        _scenarioButtons.Clear();
+        foreach (var row in view.Rows)
+        {
+            var id = row.ObjectiveId;
+            var button = Button(row.Text, () => PickScenarioRow(id));
+            button.Name = "ScenarioRow_" + id.Replace('-', '_');
+            button.Alignment = HorizontalAlignment.Left;
+            _scenarioRows.AddChild(button);
+            _scenarioButtons[id] = button;
+        }
+        _scenarioPreview.Text = view.Projection ?? "";
+        _scenarioPreview.Visible = view.Projection is not null;
+    }
+
+    // A row click selects and centres on the objective (as O does), closes the card and sends nothing.
+    private void PickScenarioRow(string objectiveId)
+    {
+        _scenarioCard.Hide();
+        _board.CentreOnObjective(objectiveId);
+    }
+
+    // For the UI check.
+    public bool ScenarioOpen => _scenarioCard.Visible;
+
+    public ScenarioCardView? ScenarioShown => _scenarioCard.Visible ? _scenarioView : null;
+
+    public string ScenarioShownText => _scenarioCard.Visible
+        ? string.Join("\n", new[] { _scenarioText.Text }.Concat(_scenarioRows.GetChildren().OfType<Button>().Select(b => b.Text))
+            .Concat(_scenarioPreview.Visible ? [_scenarioPreview.Text] : []))
+        : "";
+
+    public void OpenScenario()
+    {
+        if (!_scenarioCard.Visible)
+        {
+            ToggleScenario();
+        }
+    }
+
+    public void CloseScenario() => _scenarioCard.Hide();
+
+    public void PressScenarioRow(string objectiveId) => _scenarioButtons.GetValueOrDefault(objectiveId)?.EmitSignal(BaseButton.SignalName.Pressed);
 
     private void ToggleKeySheet()
     {

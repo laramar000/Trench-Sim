@@ -501,6 +501,20 @@ public partial class BoardView : SubViewportContainer
         Changed?.Invoke();
     }
 
+    // Selects the Objective and centres the camera on it, keeping the zoom (O, and a Scenario card row, proposal J3b).
+    public void CentreOnObjective(string id)
+    {
+        if (_scene?.Objective(id) is not { } objective)
+        {
+            return;
+        }
+        SelectObjective(objective.Id);
+        _autoFit = false;
+        _target = new Vector3((float)objective.Area.CentreX, 0, (float)objective.Area.CentreY);
+        _focusKey = $"objective:{objective.Id}";
+        PlaceCamera();
+    }
+
     // O (Shift+O): the next (previous) Objective, selected and centred, keeping the zoom.
     public void NextObjective(bool forward)
     {
@@ -515,11 +529,7 @@ public partial class BoardView : SubViewportContainer
         }
         var at = order.FindIndex(t => t.Id == _selectedObjective);
         var next = at < 0 ? (forward ? order[0] : order[^1]) : order[((at + (forward ? 1 : -1)) % order.Count + order.Count) % order.Count];
-        SelectObjective(next.Id);
-        _autoFit = false;
-        _target = new Vector3((float)next.Area.CentreX, 0, (float)next.Area.CentreY);
-        _focusKey = $"objective:{next.Id}";
-        PlaceCamera();
+        CentreOnObjective(next.Id);
         Changed?.Invoke();
     }
 

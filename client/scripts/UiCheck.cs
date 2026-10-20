@@ -724,6 +724,7 @@ public partial class UiCheck : Node
         await HoverInspectCheck(board, scene, lastCommand);
         await DoubleClickChecks(board, scene, lastCommand);
         await ObjectiveChecks(board, lastCommand);
+        await ScenarioCardChecks(board, lastCommand);
         await MouseOff(board);
 
         // Shoot: the rules' own sight rays, distance and cover, on the battlefield and in the text.
@@ -2476,6 +2477,78 @@ public partial class UiCheck : Node
             await Frames(2);
         }
         _linkProblems.Add(problem ?? "no sample");
+    }
+
+    // Proposal J3b: G opens the Scenario card. Its words are the rules' own description (ScenarioRules), each objective
+    // row names the controller the rules' test gives now, and the PREVIEW line adds up the points of those controllers.
+    // A click on a row closes the card, selects and centres on that objective at the same zoom, and sends nothing.
+    private async Task ScenarioCardChecks(BoardView board, string lastCommand)
+    {
+        var main = (Main)_main;
+        board.GrabFocus();
+        await KeyPress(Key.G);
+        await Frames(3);
+        var shown = main.ScenarioShownText;
+        var view = main.ScenarioShown;
+        var problems = new List<string>();
+        if (main.ServerState is not { } state || Rules.Core.ScenarioRules.Of(state.Setup) is not { } rules || view is null)
+        {
+            Check("scenario-card", false, $"G opened: {main.ScenarioOpen}; rules described: {main.ServerState is { } st && Rules.Core.ScenarioRules.Of(st.Setup) is not null}");
+            main.CloseScenario();
+            return;
+        }
+        foreach (var line in rules.Scoring.Concat(rules.MatchEnds).Concat(rules.Provisional).Append(rules.Name))
+        {
+            if (!shown.Contains(line, StringComparison.Ordinal))
+            {
+                problems.Add($"missing '{line}'");
+            }
+        }
+        var ids = board.Scene!.Terrain.Where(t => t.Objective).Select(t => t.Id).Order(StringComparer.Ordinal).ToList();
+        if (!view.Rows.Select(r => r.ObjectiveId).SequenceEqual(ids) || !ids.SequenceEqual(rules.ObjectiveIds.Order(StringComparer.Ordinal)))
+        {
+            problems.Add($"rows {string.Join(",", view.Rows.Select(r => r.ObjectiveId))} vs objectives {string.Join(",", ids)}");
+        }
+        var points = new Dictionary<Rules.Core.State.Seat, int> { [Rules.Core.State.Seat.One] = 0, [Rules.Core.State.Seat.Two] = 0 };
+        foreach (var row in view.Rows)
+        {
+            var now = Rules.Core.Objectives.ControllerNow(state, row.ObjectiveId);
+            if (now != row.Controller || !shown.Contains(row.Text, StringComparison.Ordinal))
+            {
+                problems.Add($"{row.ObjectiveId}: row '{row.Text}', rules {now?.ToString() ?? "nobody"}");
+            }
+            if (now is { } c)
+            {
+                points[c] += rules.PointsPerObjective;
+            }
+        }
+        if (state.Turn >= 1 && state.Outcome is null)
+        {
+            var you = main.ScreenSeat;
+            var wanted = you is { } me
+                ? $"{ScenarioCard.PreviewPrefix}you +{points[me]}, opponent +{points[me == Rules.Core.State.Seat.One ? Rules.Core.State.Seat.Two : Rules.Core.State.Seat.One]}"
+                : $"{ScenarioCard.PreviewPrefix}{Words.Seat(Rules.Core.State.Seat.One)} +{points[Rules.Core.State.Seat.One]}, {Words.Seat(Rules.Core.State.Seat.Two)} +{points[Rules.Core.State.Seat.Two]}";
+            if (!shown.Contains(wanted, StringComparison.Ordinal))
+            {
+                problems.Add($"preview: wanted '{wanted}'");
+            }
+        }
+        Check("scenario-card", problems.Count == 0, $"{shown.Split('\n').Length} lines, {view.Rows.Count} objective rows, turn {state.Turn}; {string.Join(" / ", problems.Take(5))}");
+
+        // A row click: the card closes, the objective is selected and centred at the same zoom, nothing is sent.
+        var target = board.Scene!.Terrain.Where(t => t.Objective).OrderBy(t => t.Id, StringComparer.Ordinal).Last();
+        var before = board.Selected?.Id;
+        var zoom = board.Zoomed;
+        main.PressScenarioRow(target.Id);
+        await Frames(4);
+        var centred = Close(board.CameraTarget, target.Area.CentreX, target.Area.CentreY) && Math.Abs(board.Zoomed - zoom) < 0.01f;
+        var nothing = board.Interaction.Mode == InteractionMode.None && board.Interaction.Pending is null && Section("LAST COMMAND") == lastCommand;
+        Check("scenario-row-centres", !main.ScenarioOpen && board.SelectedObjective?.Id == target.Id && centred && nothing,
+            $"card closed: {!main.ScenarioOpen}; selected {board.SelectedObjective?.Id} (wanted {target.Id}); centred at the same zoom: {centred}; nothing sent: {nothing}");
+        main.CloseScenario();
+        board.Select(before);
+        board.Fit();
+        await Frames(3);
     }
 
     // O selects and centres on the first Objective, keeping the zoom; the panel says who controls it now by the rules'

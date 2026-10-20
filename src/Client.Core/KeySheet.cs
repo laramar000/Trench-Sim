@@ -30,6 +30,7 @@ public static class KeySheet
         ]),
         ("Window", [
             "F1: rules in this build · F2: switch seat (hot-seat) · ?: this sheet (Esc closes it)",
+            "G: the scenario (scoring, how the match ends, who controls each objective now)",
         ]),
     ];
 
