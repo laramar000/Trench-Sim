@@ -113,6 +113,10 @@ public static class UnitPanel
             {
                 lines.Add(engaged);
             }
+            if (TowerLine(unit) is { } tower)
+            {
+                lines.Add(tower);
+            }
             if (State(unit, interaction) is { } turnState)
             {
                 lines.Add(turnState);
@@ -269,6 +273,15 @@ public static class UnitPanel
         var range = p.HasRangedWeapon ? $"Range {BoardScene.Inch(TableRect.Inches(p.RangedRange))}" : "No ranged weapon";
         return $"Move {move}{halved} · {range} · Armour {p.Armour} · {(p.HasMeleeWeapon ? "Melee weapon" : "No melee weapon")}";
     }
+
+    // Towers proposal, stage T4: where a unit on a tower stands, and how it can leave. Null on the ground.
+    public static string? TowerLine(ModelShape unit)
+    {
+        ArgumentNullException.ThrowIfNull(unit);
+        return unit.TowerId is null ? null : $"{TowerPrefix}{BoardScene.Inch(unit.Standing)} up): it leaves only by a ladder";
+    }
+
+    public const string TowerPrefix = "▲ On the tower (";
 
     // The unit's warband state when it is Shaken or has Fled (the rules hold these for a warband, not for a model).
     public static string? WarbandLine(MatchState state, Seat seat)

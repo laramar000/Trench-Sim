@@ -956,7 +956,8 @@ public sealed class Interaction
                 return Previews.Place(_state, seat, actor, Previews.PointAt(Cursor.X, Cursor.Y));
             case InteractionMode.Move or InteractionMode.Dash or InteractionMode.Retreat:
                 var points = PathPoints();
-                return points.Count == 0 ? null : Previews.Path(_state, seat, Kind(Mode), actor, points.Select(p => Previews.PointAt(p.X, p.Y)).ToList());
+                // Towers proposal, stage T4: a point on another level is reached by a ladder (Previews.Route).
+                return points.Count == 0 ? null : Previews.Path(_state, seat, Kind(Mode), actor, Previews.Route(_state, actor, [.. points.Select(p => Previews.PointAt(p.X, p.Y))]));
             case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight:
                 return Target is { } target ? Previews.Target(_state, seat, Kind(Mode), actor, target) : null;
             default:

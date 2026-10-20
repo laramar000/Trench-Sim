@@ -565,6 +565,20 @@ public partial class BoardView : SubViewportContainer
         return hit is { } p ? (p.X, p.Z) : null;
     }
 
+    // Towers proposal, stage T4: the table point a click or the pointer means while placing or choosing a path: a tower's
+    // platform top when the pointer is over one (picked at the tower's height), else the ground.
+    public (double X, double Y)? CursorAt(Vector2 local)
+    {
+        foreach (var tower in _scene?.Terrain.Where(t => t.Tower).OrderByDescending(t => t.Height) ?? Enumerable.Empty<TerrainShape>())
+        {
+            if (TableAt(local, tower.Height) is { } top && tower.Area.Contains(top.X, top.Y))
+            {
+                return top;
+            }
+        }
+        return TableAt(local);
+    }
+
     // The model under a position in this control: platform tops first, then the ground.
     public ModelShape? ModelAt(Vector2 local)
     {
@@ -721,7 +735,7 @@ public partial class BoardView : SubViewportContainer
                 Pan(-motion.Relative.X * inchesPerPixel, motion.Relative.Y * inchesPerPixel);
                 AcceptEvent();
                 break;
-            case InputEventMouseMotion hover when Interaction.UsesCursor && TableAt(hover.Position) is { } p:
+            case InputEventMouseMotion hover when Interaction.UsesCursor && CursorAt(hover.Position) is { } p:
                 // Throttled: the preview is worked out at most every 80 ms while the mouse moves (_Process).
                 _hover.Offer(new TablePoint(Math.Round(p.X * 10) / 10, Math.Round(p.Y * 10) / 10));
                 break;
@@ -767,7 +781,7 @@ public partial class BoardView : SubViewportContainer
         }
         else if (Interaction.UsesCursor)
         {
-            if (TableAt(local) is { } p)
+            if (CursorAt(local) is { } p)
             {
                 switch (Interaction.ClickAt(Math.Round(p.X * 10) / 10, Math.Round(p.Y * 10) / 10, shift))
                 {
@@ -1109,6 +1123,7 @@ public partial class BoardView : SubViewportContainer
         _crossed.Clear();
         AreaPoints = 0;
         GhostAt = null;
+        Climbs = 0;
         if (_scene is null || Interaction.Mode == InteractionMode.None)
         {
             return;
@@ -1125,8 +1140,9 @@ public partial class BoardView : SubViewportContainer
         if (Interaction.UsesCursor)
         {
             var c = Interaction.Cursor;
-            Segment(new TablePoint(c.X - 0.4, c.Y), new TablePoint(c.X + 0.4, c.Y), 0.1f, Colors.White, 0.08f);
-            Segment(new TablePoint(c.X, c.Y - 0.4), new TablePoint(c.X, c.Y + 0.4), 0.1f, Colors.White, 0.08f);
+            var level = (float)LevelAt(c.X, c.Y) + 0.1f;
+            Segment(new TablePoint(c.X - 0.4, c.Y), new TablePoint(c.X + 0.4, c.Y), level, Colors.White, 0.08f);
+            Segment(new TablePoint(c.X, c.Y - 0.4), new TablePoint(c.X, c.Y + 0.4), level, Colors.White, 0.08f);
         }
         if (preview is null)
         {
@@ -1143,17 +1159,33 @@ public partial class BoardView : SubViewportContainer
             case PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat:
                 // A dashed path and a see-through "ghost" base at its end: a preview never looks like the real model,
                 // which stays where it is until the server's events move it.
+                // Towers proposal, stage T4: each point at its own height, and a ladder's climb drawn as a rising dashed
+                // line at its foot (the rules put the climb there, U71).
                 for (var i = 1; i < preview.Path.Count; i++)
                 {
-                    Dashed(preview.Path[i - 1].At, preview.Path[i].At, 0.12f, colour);
+                    var (a, b) = (preview.Path[i - 1], preview.Path[i]);
+                    if (a.Height < b.Height)
+                    {
+                        Climbing(a.At, a.Height, b.Height, colour);
+                        Dashed(a.At, b.At, (float)b.Height + 0.12f, colour);
+                    }
+                    else if (a.Height > b.Height)
+                    {
+                        Dashed(a.At, b.At, (float)a.Height + 0.12f, colour);
+                        Climbing(b.At, b.Height, a.Height, colour);
+                    }
+                    else
+                    {
+                        Dashed(a.At, b.At, (float)a.Height + 0.12f, colour);
+                    }
                     if (i < preview.Path.Count - 1)
                     {
-                        Overlay(BoardScene.Inch(preview.Path[i].Inches), preview.Path[i].At, 0.6f, 0.75f);
+                        Overlay(BoardScene.Inch(b.Inches), b.At, (float)b.Height + 0.6f, 0.75f);
                     }
                 }
                 var end = preview.Path[^1];
-                Ring(end.At, preview.Radius, colour);
-                Ghost(end.At, preview.Model, preview.Radius, colour);
+                Ring(end.At, preview.Radius, colour, (float)end.Height);
+                Ghost(end.At, preview.Model, preview.Radius, colour, (float)end.Height);
                 // Proposal G: the distances (used, left, straight line) are in the panel beside the battlefield.
                 break;
             default:
@@ -1165,7 +1197,7 @@ public partial class BoardView : SubViewportContainer
                 {
                     var spot = new TablePoint(target.X, target.Y);
                     // Proposal G: distance, sight, cover and any refusal are in the panel beside the battlefield.
-                    Ring(spot, target.Radius, colour);
+                    Ring(spot, target.Radius, colour, (float)target.Standing);
                 }
                 for (var i = 1; i < preview.ChargePath.Count; i++)
                 {
@@ -1196,7 +1228,7 @@ public partial class BoardView : SubViewportContainer
                 continue;
             }
             var spot = new TablePoint(model.X, model.Y);
-            Ring(spot, model.Radius + 0.25, refusal is null ? good : new Color(0.55f, 0.55f, 0.55f));
+            Ring(spot, model.Radius + 0.25, refusal is null ? good : new Color(0.55f, 0.55f, 0.55f), (float)model.Standing);
             // Proposal J2b: in Fight, a target the rules accept is one this model is engaged with; it says so under its base.
             if (refusal is null && Interaction.Mode == InteractionMode.Fight)
             {
@@ -1251,7 +1283,8 @@ public partial class BoardView : SubViewportContainer
         var multi = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, Mesh = new PlaneMesh { Size = new Vector2(0.46f, 0.46f) }, InstanceCount = points.Count };
         for (var i = 0; i < points.Count; i++)
         {
-            multi.SetInstanceTransform(i, new Transform3D(Basis.Identity, new Vector3((float)points[i].X, 0.03f, (float)points[i].Y)));
+            // A point on a tower's platform is drawn on the platform (towers proposal, stage T4).
+            multi.SetInstanceTransform(i, new Transform3D(Basis.Identity, new Vector3((float)points[i].X, (float)LevelAt(points[i].X, points[i].Y) + 0.03f, (float)points[i].Y)));
         }
         _overlay.AddChild(new MultiMeshInstance3D
         {
@@ -1413,7 +1446,7 @@ public partial class BoardView : SubViewportContainer
     // A model the server moved travels its path from where it was drawn, briefly, instead of jumping. Only the drawing
     // moves: the scene, the selection, the previews and every check use the server's position throughout. When the
     // path ends off screen the camera turns to it (keeping the zoom).
-    private sealed record Glide(ModelId Model, Vector2[] Points, float[] Lengths, float Total, double Start, double Seconds);
+    private sealed record Glide(ModelId Model, Vector2[] Points, float[] Lengths, float Total, double Start, double Seconds, float[] Heights);
 
     private readonly List<Glide> _glides = [];
     private readonly Dictionary<ModelId, List<(Node3D Node, Vector3 At)>> _modelNodes = [];
@@ -1452,7 +1485,9 @@ public partial class BoardView : SubViewportContainer
         }
         _glides.RemoveAll(g => g.Model == motion.Model);
         var seconds = Math.Clamp(lengths[^1] / GlideInchesPerSecond, GlideMinSeconds, GlideMaxSeconds);
-        _glides.Add(new Glide(motion.Model, points, lengths, lengths[^1], Time.GetTicksMsec() / 1000.0, seconds));
+        // Towers proposal, stage T4: each point's height (a tower's platform or the ground), so a climb is seen going up.
+        var heights = points.Select(p => (float)LevelAt(p.X, p.Y)).ToArray();
+        _glides.Add(new Glide(motion.Model, points, lengths, lengths[^1], Time.GetTicksMsec() / 1000.0, seconds, heights));
         GlidesStarted++;
         LastGlide = (motion.Model, points[0], points[^1], seconds);
         var end = points[^1];
@@ -1462,6 +1497,11 @@ public partial class BoardView : SubViewportContainer
             CentreOnPoint(end);
         }
     }
+
+    // The height a base centred at this table point stands at: a tower's height inside its footprint, else the ground
+    // (as Rules.Core.Geometry.Towers.ElevationAt; display only).
+    private double LevelAt(double x, double y) =>
+        _scene?.Terrain.FirstOrDefault(t => t.Tower && t.Area.X0 < x && x < t.Area.X1 && t.Area.Y0 < y && y < t.Area.Y1)?.Height ?? 0;
 
     private bool OnScreen(Vector2? at) => at is { } p && p.X >= 0 && p.Y >= 0 && p.X <= Size.X && p.Y <= Size.Y;
 
@@ -1485,15 +1525,17 @@ public partial class BoardView : SubViewportContainer
                 i++;
             }
             var leg = glide.Lengths[i] - glide.Lengths[i - 1];
-            var at = leg <= 0 ? glide.Points[i] : glide.Points[i - 1].Lerp(glide.Points[i], (along - glide.Lengths[i - 1]) / leg);
+            var part = leg <= 0 ? 1 : (along - glide.Lengths[i - 1]) / leg;
+            var at = glide.Points[i - 1].Lerp(glide.Points[i], part);
             var offset = t >= 1 ? Vector2.Zero : at - glide.Points[^1];
+            var rise = t >= 1 ? 0 : Mathf.Lerp(glide.Heights[i - 1], glide.Heights[i], part) - glide.Heights[^1];
             if (_modelNodes.TryGetValue(glide.Model, out var nodes))
             {
                 foreach (var (node, rest) in nodes)
                 {
                     if (IsInstanceValid(node))
                     {
-                        node.Position = rest + new Vector3(offset.X, 0, offset.Y);
+                        node.Position = rest + new Vector3(offset.X, rise, offset.Y);
                     }
                 }
             }
@@ -1637,12 +1679,12 @@ public partial class BoardView : SubViewportContainer
     }
 
     // Where a base would stand.
-    private void Ring(TablePoint at, double radius, Color colour)
+    private void Ring(TablePoint at, double radius, Color colour, float standing = 0)
     {
         _overlay.AddChild(new MeshInstance3D
         {
             Mesh = new TorusMesh { InnerRadius = (float)radius - 0.05f, OuterRadius = (float)radius + 0.1f },
-            Position = new Vector3((float)at.X, 0.08f, (float)at.Y),
+            Position = new Vector3((float)at.X, standing + 0.08f, (float)at.Y),
             MaterialOverride = Paint(colour, noDepth: true),
         });
     }
@@ -1659,11 +1701,29 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
-    // A see-through copy of the model's base where the preview would put it.
-    private void Ghost(TablePoint at, ModelId model, double radius, Color edge)
+    // A climb up or down a ladder in a path preview: a vertical dashed line at the foot, from one height to the other.
+    private void Climbing(TablePoint at, double low, double high, Color colour)
+    {
+        for (var y = low; y < high; y += 0.5)
+        {
+            var top = Math.Min(high, y + 0.3);
+            _overlay.AddChild(new MeshInstance3D
+            {
+                Mesh = new BoxMesh { Size = new Vector3(0.12f, (float)(top - y), 0.12f) },
+                Position = new Vector3((float)at.X, (float)(y + top) / 2, (float)at.Y),
+                MaterialOverride = Paint(colour, noDepth: true),
+            });
+        }
+        Climbs++;
+    }
+
+    // How many climbs the path preview drawn now shows (for the UI check).
+    public int Climbs { get; private set; }
+
+    // A see-through copy of the model's base where the preview would put it, at the height it would stand at.
+    private void Ghost(TablePoint at, ModelId model, double radius, Color edge, float standing = 0)
     {
         var seat = _scene?.Find(model) is { } shape ? ModelColour(shape) : edge;
-        var standing = 0f;
         _overlay.AddChild(new MeshInstance3D
         {
             Mesh = new CylinderMesh { TopRadius = (float)radius, BottomRadius = (float)radius, Height = 1.2f, RadialSegments = 24 },
@@ -1750,6 +1810,8 @@ public partial class BoardView : SubViewportContainer
         _meleeLinkNames.Clear();
         _terrainPaint.Clear();
         _terrainOutlines.Clear();
+        _towers.Clear();
+        _ladders = 0;
         _seeThroughKey = null;
         _faded.Clear();
         _labelsPlaced = "";
@@ -1778,6 +1840,10 @@ public partial class BoardView : SubViewportContainer
             {
                 _terrainPaint[piece.Id] = paint;
                 _terrainOutlines[piece.Id] = Outline(piece, TerrainColour(piece));
+            }
+            if (piece.Tower)
+            {
+                DrawTower(piece);
             }
             // Proposal G: only objectives carry text; the kind of terrain shows by its colour and height, and the panel's
             // Details has the legend. QoL H4: a compact mark ("◆2", with "A" or "B" for the seat the rules say controls it
@@ -1811,6 +1877,52 @@ public partial class BoardView : SubViewportContainer
             DrawMeleeLink(scene.Find(link.One), scene.Find(link.Two));
         }
     }
+
+    // Towers proposal, stage T4: what is accessible on a tower, drawn plainly. The platform top is a walkable deck in a
+    // lighter colour, each ladder is drawn on its side (two rails and rungs, in a colour of its own), and "TOWER 2.0\""
+    // stands over the deck. The rules decide where a model can go; this only shows it.
+    private void DrawTower(TerrainShape piece)
+    {
+        var area = piece.Area;
+        var h = (float)piece.Height;
+        Box(new Vector3((float)area.CentreX, h + 0.02f, (float)area.CentreY), new Vector3((float)area.Width - 0.12f, 0.04f, (float)area.Depth - 0.12f), DeckColour);
+        foreach (var ladder in piece.Ladders)
+        {
+            var (nx, nz) = ladder.Side switch
+            {
+                Rules.Core.Geometry.Side.West => (-1f, 0f),
+                Rules.Core.Geometry.Side.East => (1f, 0f),
+                Rules.Core.Geometry.Side.South => (0f, -1f),
+                _ => (0f, 1f),
+            };
+            // Along the side (a quarter turn from the outward direction).
+            var (ax, az) = (-nz, nx);
+            var foot = new Vector3((float)ladder.At.X + nx * 0.08f, 0, (float)ladder.At.Y + nz * 0.08f);
+            foreach (var rail in new[] { -0.32f, 0.32f })
+            {
+                Box(foot + new Vector3(ax * rail, (h + 0.35f) / 2, az * rail), new Vector3(Math.Abs(ax) * 0.06f + Math.Abs(nx) * 0.06f, h + 0.35f, Math.Abs(az) * 0.06f + Math.Abs(nz) * 0.06f), LadderColour);
+            }
+            for (var y = 0.3f; y < h; y += 0.4f)
+            {
+                Box(foot + new Vector3(0, y, 0), new Vector3(Math.Abs(ax) * 0.64f + Math.Abs(nx) * 0.06f, 0.06f, Math.Abs(az) * 0.64f + Math.Abs(nz) * 0.06f), LadderColour);
+            }
+            _ladders++;
+        }
+        _fixedLabels.Add(MakeText(piece.TowerMark, new Vector3((float)area.CentreX, h + 0.5f, (float)area.CentreY), 0.6f));
+        _towers.Add(piece.Id);
+    }
+
+    private Color DeckColour => _highContrast ? new Color(0.95f, 0.95f, 0.95f) : new Color(0.7f, 0.58f, 0.38f);
+
+    private Color LadderColour => _highContrast ? Colors.Yellow : new Color(0.95f, 0.78f, 0.3f);
+
+    // The towers and ladders drawn now (for the UI check).
+    private readonly List<string> _towers = [];
+    private int _ladders;
+
+    public IReadOnlyList<string> TowersDrawn => _towers;
+
+    public int LaddersDrawn => _ladders;
 
     // QoL I5: a short bar from base edge to base edge between two enemy models the rules say are engaged (within 1"),
     // drawn through walls. Hidden while a model glides, since it joins where the models end up.

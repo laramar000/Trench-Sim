@@ -108,7 +108,7 @@ public static class Program
         try
         {
             await server.WaitFor(l => l.Contains("Listening on"), 60, "server start");
-            var godotA = Start("godot-gvt-a", godot, GodotArgs("gvt-a", gvt, url, null, "ranged"), Path.Combine(_out, "home-gvt-a"));
+            var godotA = Start("godot-gvt-a", godot, GodotArgs("gvt-a", gvt, url, null, "ranged-towers"), Path.Combine(_out, "home-gvt-a"));
             processes.Add(godotA);
             var code = await Mark(gvt, "gvt-a", "code", 120);
             // The existing test-only bot of trench-cli plays Seat Two (no user-facing bot in the client).

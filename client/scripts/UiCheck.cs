@@ -2156,6 +2156,11 @@ public partial class UiCheck : Node
         {
             return;
         }
+        // Towers proposal, stage T4: the window playing trench-cli --bot plays "ranged-towers" and climbs a tower.
+        if (_role == "gvt-a" && await TowerStep(board))
+        {
+            return;
+        }
         if (await PvpTarget(board, Key.X, "Fight") is not null)
         {
             return;
@@ -3022,6 +3027,164 @@ public partial class UiCheck : Node
             $"notes: {string.Join(" / ", board.NoteTexts)}; answer: {answer}; panel: {PanelText.Replace('\n', '|')}");
         await CloseShot(board, me.Id, $"{_role}-refused-mid-match");
         await KeyPress(Key.Escape);
+    }
+
+    // ---- towers (towers proposal, stage T4; gvt-a plays "ranged-towers") ----
+
+    private bool _towerDrawnChecked;
+    private bool _towerClimbed;
+    private bool _towerDescended;
+    private int _towerApproaches;
+    private Rules.Core.State.ModelId? _climber;
+
+    // At its first activation: both towers drawn at the rules' height with their ladders on opposite sides and their
+    // marks. Then the first model of this window's to activate, at each of its activations: a Move by mouse to a platform
+    // top when the movement area reaches one (the preview routes it by a ladder; the server must put the model where the
+    // preview said, on the tower), else towards the nearest ladder's foot; once on the tower, at its next activation, a
+    // Move by mouse back down to the ground. True when this activation's action was taken here.
+    private async Task<bool> TowerStep(BoardView board)
+    {
+        if (board.Scene is not { } scene)
+        {
+            return false;
+        }
+        var towers = scene.Terrain.Where(t => t.Tower).ToList();
+        if (!_towerDrawnChecked)
+        {
+            _towerDrawnChecked = true;
+            var labels = All(board).OfType<Label3D>().Where(l => !l.IsQueuedForDeletion() && l.Visible).Select(l => l.Text).ToList();
+            var sides = towers.Select(t => string.Join("+", t.Ladders.Select(l => l.SideWord).Order(StringComparer.Ordinal))).ToList();
+            Check("tower-drawn", towers.Count == 2 && board.TowersDrawn.Order(StringComparer.Ordinal).SequenceEqual(towers.Select(t => t.Id).Order(StringComparer.Ordinal))
+                && board.LaddersDrawn == 4 && towers.All(t => t.Height == 2 && t.Ladders.Count == 2) && sides.All(x => x == "east+west")
+                && towers.All(t => labels.Contains(t.TowerMark)) && towers.All(t => t.Label.Contains("reached only by its ladders", StringComparison.Ordinal)),
+                $"towers {string.Join(",", towers.Select(t => $"{t.Id} {t.Height}\" {string.Join("+", t.Ladders.Select(l => l.SideWord))}"))}; drawn {string.Join(",", board.TowersDrawn)} with {board.LaddersDrawn} ladders; marks shown: {string.Join(",", towers.Select(t => labels.Contains(t.TowerMark)))}");
+        }
+        if (towers.Count == 0 || _towerDescended)
+        {
+            return false;
+        }
+        var interaction = board.Interaction;
+        if (scene.Models.FirstOrDefault(m => m.Active && m.Yours) is not { } me || me.Status != Rules.Core.State.ModelStatus.Standing
+            || !interaction.Offered.Contains(InteractionMode.Move))
+        {
+            return false;
+        }
+        // One model climbs (the first of this window's to activate); the others play as usual.
+        _climber ??= me.Id;
+        var onTower = me.TowerId is not null;
+        if (me.Id != _climber || (_towerClimbed ? !onTower : onTower))
+        {
+            return false;
+        }
+        double Level(double x, double y) => towers.FirstOrDefault(t => t.Area.X0 < x && x < t.Area.X1 && t.Area.Y0 < y && y < t.Area.Y1)?.Height ?? 0;
+        double Distance(double x0, double y0, double x1, double y1) => Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+        bool Free(TablePoint p) => scene.Models.All(m => m.Id == me.Id || Distance(m.X, m.Y, p.X, p.Y) > m.Radius + me.Radius + 0.3);
+        // A ladder's foot for this base: the ladder's point, a radius out from its side.
+        (double X, double Y) Foot(LadderShape l) => l.Side switch
+        {
+            Rules.Core.Geometry.Side.West => (l.At.X - me.Radius, l.At.Y),
+            Rules.Core.Geometry.Side.East => (l.At.X + me.Radius, l.At.Y),
+            Rules.Core.Geometry.Side.South => (l.At.X, l.At.Y - me.Radius),
+            _ => (l.At.X, l.At.Y + me.Radius),
+        };
+        await MouseOff(board);
+        await KeyPress(Key.M);
+        if (interaction.Mode != InteractionMode.Move)
+        {
+            await KeyPress(Key.Escape);
+            return false;
+        }
+        var area = interaction.ReachArea();
+        TablePoint? goal = null;
+        var what = "approach";
+        if (!onTower)
+        {
+            var tops = area.Where(p => Level(p.X, p.Y) > 0 && Free(p)).ToList();
+            if (tops.Count > 0)
+            {
+                var tower = towers.First(t => Level(tops[0].X, tops[0].Y) > 0 && t.Area.Contains(tops[0].X, tops[0].Y));
+                goal = tops.OrderBy(p => Distance(p.X, p.Y, tower.Area.CentreX, tower.Area.CentreY)).First();
+                what = "climb";
+            }
+            else if (_towerApproaches < 8)
+            {
+                var foot = towers.SelectMany(t => t.Ladders).Select(Foot).OrderBy(f => Distance(me.X, me.Y, f.X, f.Y)).First();
+                goal = area.Where(p => Level(p.X, p.Y) == 0 && Free(p)).OrderBy(p => Distance(p.X, p.Y, foot.X, foot.Y)).Select(p => (TablePoint?)p).FirstOrDefault();
+                _towerApproaches++;
+            }
+        }
+        else
+        {
+            goal = area.Where(p => Level(p.X, p.Y) == 0 && Free(p)).OrderBy(p => Distance(p.X, p.Y, me.X, me.Y)).Select(p => (TablePoint?)p).FirstOrDefault();
+            what = "descend";
+        }
+        if (goal is not { } spot)
+        {
+            await KeyPress(Key.Escape);
+            return false;
+        }
+        // The cursor there first, so the path, any climb and the ghost are drawn; then a mouse click on that spot (on
+        // the platform top for a climb) sends the move when the preview says the server would accept it.
+        interaction.SetCursor(spot.X, spot.Y);
+        await Frames(3);
+        var shown = interaction.Preview;
+        var climbsDrawn = board.Climbs;
+        var ghost = board.GhostAt;
+        var height = Level(spot.X, spot.Y);
+        if (shown is not { Legal: true })
+        {
+            await KeyPress(Key.Escape);
+            return false;
+        }
+        if (!OnBoardScreen(board, spot.X, spot.Y, height))
+        {
+            board.CentreOn(me.Id);
+            await Frames(3);
+        }
+        var before = Section("LAST COMMAND");
+        if (board.ScreenOf(spot.X, spot.Y, height) is { } local)
+        {
+            await MouseOn(board);
+            var global = board.GetGlobalTransformWithCanvas() * local;
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
+                await Frames(2);
+            }
+            await MouseOff(board);
+        }
+        var sent = interaction.Preview;
+        var answer = await Answered(before);
+        Answer("Move", answer);
+        await Frames(3);
+        var after = board.Scene?.Find(me.Id);
+        var server = ((Main)_main).ServerState?.FindModel(me.Id)?.Position;
+        var end = sent?.Path.Count > 0 ? sent.Path[^1] : null;
+        var landed = server is { } pos && end is not null && Near(TablePoint.Of(pos), end.At.X, end.At.Y);
+        var heights = sent?.Path.Select(m => m.Height).ToList() ?? [];
+        var detail = $"{me.Id.Value} {what} to ({spot.X}, {spot.Y}): preview path {string.Join(" ", sent?.Path.Select(m => $"({m.At.X},{m.At.Y})@{m.Height}") ?? [])}, " +
+            $"{sent?.Used:0.000}\" used; climbs drawn {climbsDrawn}; ghost {ghost}; answer {answer}; server put it at {(server is { } q ? TablePoint.Of(q).ToString() : "?")}, " +
+            $"drawn standing {after?.Standing} on {after?.TowerId ?? "the ground"}; panel: {PanelText.Replace('\n', '|')}";
+        Write($"DUMP tower {detail}");
+        var done = answer.StartsWith("DONE:", StringComparison.Ordinal) && landed && sent is { Legal: true };
+        if (what == "climb")
+        {
+            _towerClimbed = done;
+            Check("tower-climb", done && heights.Contains(0) && heights.Contains(2) && climbsDrawn > 0 && ghost is not null
+                && after is { Standing: 2, TowerId: not null } && sent!.Facts.Any(f => f.Contains("ladder climb", StringComparison.Ordinal))
+                && PanelText.Contains(UnitPanel.TowerPrefix, StringComparison.Ordinal), detail);
+            if (!done)
+            {
+                // One try: the check has reported; the rest of the match plays as usual.
+                _towerDescended = true;
+            }
+        }
+        else if (what == "descend")
+        {
+            _towerDescended = true;
+            Check("tower-descend", done && heights.Contains(0) && heights.Contains(2) && climbsDrawn > 0 && after is { Standing: 0, TowerId: null }, detail);
+        }
+        return answer.StartsWith("DONE:", StringComparison.Ordinal) || Section("LAST COMMAND") != before;
     }
 
     // Both seats at the end: the outcome as this seat sees it, the final state hash and the event count, all from the

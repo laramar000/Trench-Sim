@@ -10,7 +10,8 @@ namespace Client.Core;
 //
 // The rules are 2D with two levels (ground, or on a High platform); they have no heights (U17). The heights below are
 // display conventions only, chosen by Jason (M7.4 Q2): they change the picture, never a rule. Line of sight and cover
-// always come from the rules geometry, not from the picture.
+// always come from the rules geometry, not from the picture. Towers (towers proposal) are the exception: a tower has a
+// height in the rules, and it is drawn at that height.
 public static class DisplayHeight
 {
     public const double Low = 0.25;
@@ -56,6 +57,21 @@ public sealed record TerrainShape(string Id, TableRect Area, TerrainProfile Prof
     public string MarkWithController => Controller is { } seat ? $"{Mark} {Words.SeatLetter(seat)}" : Mark;
 
     public const string ObjectiveMark = "◆";
+
+    // Towers proposal, stage T4: a tower's ladders (empty for any other piece). Its Height is the tower's own height from
+    // the rules (not a display convention), and its platform is reached only by these ladders.
+    public IReadOnlyList<LadderShape> Ladders { get; init; } = [];
+
+    public bool Tower => Ladders.Count > 0;
+
+    // The short words drawn on a tower's platform: "TOWER 2.0"".
+    public string TowerMark => $"TOWER {BoardScene.Inch(Height)}";
+}
+
+// A ladder on a tower's side: the point the rules climb at (U71) and the side it is on. Display only.
+public sealed record LadderShape(string Id, TablePoint At, Side Side)
+{
+    public string SideWord => Side.ToString().ToLowerInvariant();
 }
 
 // A model on the table. Standing is the height of what it stands on: 0 on the ground, the platform's display height
@@ -98,7 +114,12 @@ public sealed record ModelShape(
 
     // One line for the selected model: what it is, where (in inches) and on which level.
     public string Text => $"[{SeatLetter}] {Name}: {Words.Status(Status)}{(Active ? ", ACTIVE" : "")}, at ({BoardScene.Inch(X)}, {BoardScene.Inch(Y)}), " +
-        $"{(HighGround ? "on high ground" : "on the ground")}, base {BoardScene.Inch(Radius * 2)}.";
+        $"{Where}, base {BoardScene.Inch(Radius * 2)}.";
+
+    // Towers proposal, stage T4: the tower the model stands on, if any (its Standing is then the tower's height).
+    public string? TowerId { get; init; }
+
+    public string Where => TowerId is not null ? $"on the tower ({BoardScene.Inch(Standing)} up)" : HighGround ? "on high ground" : "on the ground";
 }
 
 // A model's turn state on the battlefield: activating now, already activated this turn, can still activate, or neither
@@ -136,8 +157,12 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
         var terrain = field.Terrain.Select(t =>
         {
             var objective = scenario.ObjectiveIds.Contains(t.Id);
-            return new TerrainShape(t.Id, TableRect.Of(t.Footprint.Bounds), t.Profile, DisplayHeight.Of(t.Profile), t.IsPlatform, objective, TerrainLabel(t, objective),
-                objective ? Rules.Core.Objectives.ControllerNow(state, t.Id) : null);
+            // A tower is drawn at its own height, with its ladders (towers proposal, stage T4).
+            return new TerrainShape(t.Id, TableRect.Of(t.Footprint.Bounds), t.Profile, t.Climb is { } climb ? TableRect.Inches(climb.Height) : DisplayHeight.Of(t.Profile),
+                t.IsPlatform, objective, TerrainLabel(t, objective), objective ? Rules.Core.Objectives.ControllerNow(state, t.Id) : null)
+            {
+                Ladders = t.Climb is { } c ? [.. c.Ladders.Select(l => new LadderShape(l.Id, TablePoint.Of(l.At), Climb.SideOf(t.Footprint.Bounds, l.At)!.Value))] : [],
+            };
         }).ToList();
         var models = new List<ModelShape>();
         // On the table: a position, Down models included (a Down model still has a base, p. 36), as Rules.Core's Board does.
@@ -149,13 +174,15 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
             }
             var body = new ModelBody(model.Id.Value, at, profile.BaseRadius);
             var level = Elevation.Of(field, body);
-            var standing = level.Level == ModelLevel.High && field.Terrain.FirstOrDefault(t => t.Id == level.PlatformId) is { } platform
-                ? DisplayHeight.Of(platform.Profile)
+            // On a tower: the tower's own height (towers proposal, stage T4); on another platform: its display height.
+            var tower = Towers.TowerAt(field, at);
+            var standing = tower?.Climb is { } climb ? TableRect.Inches(climb.Height)
+                : level.Level == ModelLevel.High && field.Terrain.FirstOrDefault(t => t.Id == level.PlatformId) is { } platform ? DisplayHeight.Of(platform.Profile)
                 : 0;
             models.Add(new ModelShape(model.Id, names.Of(model.Id), model.Seat, Words.SeatLetter(model.Seat),
                 TableRect.Inches(body.Centre.X), TableRect.Inches(body.Centre.Y), TableRect.Inches(body.Radius),
                 level.Level == ModelLevel.High, standing, model.Status, state.ActiveModel == model.Id, model.Seat == you,
-                model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers));
+                model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers) { TowerId = tower?.Id });
         }
         return new BoardScene(TableRect.Inches(field.Width), TableRect.Inches(field.Height), zones, terrain, models)
         {
@@ -228,6 +255,12 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
 
     private static string TerrainLabel(TerrainBlock t, bool objective)
     {
+        if (t.Climb is { } climb)
+        {
+            // Towers proposal, stage T4: what is accessible, in words.
+            var sides = string.Join(" and ", climb.Ladders.Select(l => Climb.SideOf(t.Footprint.Bounds, l.At)!.Value).Order().Select(side => side.ToString().ToLowerInvariant()));
+            return $"Tower, {Inch(TableRect.Inches(climb.Height))} high: models stand and fight on its platform, reached only by its ladders ({sides} side{(climb.Ladders.Length > 1 ? "s" : "")}); from the ground it blocks movement and sight";
+        }
         var words = new List<string>
         {
             t.Profile switch

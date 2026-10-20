@@ -41,8 +41,9 @@ public sealed record PreviewRay(TablePoint From, TablePoint To, string? BlockedB
     public bool Clear => BlockedBy is null;
 }
 
-// A point along a path with the distance used to get there, in inches (difficult terrain counts double).
-public sealed record PathMark(TablePoint At, double Inches);
+// A point along a path with the distance used to get there, in inches (difficult terrain counts double, a ladder's climb
+// counts its height), and the height it stands at (a tower's platform, else 0; towers proposal stage T4).
+public sealed record PathMark(TablePoint At, double Inches, double Height = 0);
 
 public sealed record Preview(
     PreviewKind Kind,
@@ -186,7 +187,14 @@ public static class Previews
         var facts = new List<string>();
         var refusal = Opening(state) ?? (kind == PreviewKind.Retreat ? CheckRetreat(state, seat, model, path, facts) : CheckMove(state, seat, model, path, kind, facts));
         double? allowance = state.FindModel(model) is { } mover && state.Setup?.ProfileOf(model) is not null ? TableRect.Inches(Allowance(state, mover)) : null;
-        return new Preview(kind, model, command, refusal, facts, Marks(state, model, path), RadiusOf(state, model), null, [], [], null, allowance);
+        var marks = Marks(state, model, path);
+        // Towers proposal, stage T4: a path that goes up or down a ladder says so, and what the climb costs (U66).
+        var climbs = marks.Zip(marks.Skip(1)).Where(m => m.First.Height != m.Second.Height).Select(m => Math.Abs(m.Second.Height - m.First.Height)).ToList();
+        if (climbs.Count > 0)
+        {
+            facts.Add($"{(climbs.Count == 1 ? "One ladder climb" : $"{climbs.Count} ladder climbs")}: each counts its {BoardScene.Inch(climbs[0])} height in the distance (U66).");
+        }
+        return new Preview(kind, model, command, refusal, facts, marks, RadiusOf(state, model), null, [], [], null, allowance);
     }
 
     private static Rejection? CheckMove(MatchState state, Seat seat, ModelId id, ImmutableArray<Point2> path, PreviewKind kind, List<string> facts)
@@ -556,6 +564,17 @@ public static class Previews
         return state with { Models = models, ActiveModel = model, LastActivator = seat, Actions = ActionsTaken.None, MovementHalved = standsUp };
     }
 
+    // Towers proposal, stage T4: the path a click's points make for this model, with a ladder's foot and top put in
+    // wherever the points change level (TowerRoute). The points themselves on a battlefield without towers.
+    public static List<Point2> Route(MatchState state, ModelId model, IReadOnlyList<Point2> points)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(points);
+        return state.Setup?.Scenario is { } scenario && state.FindModel(model) is { Position: { } at } && state.Setup.ProfileOf(model) is { } profile
+            ? TowerRoute.Expand(scenario.Battlefield, profile.BaseRadius, at, points)
+            : [.. points];
+    }
+
     // Where the acting model could end a Move, Dash or Retreat with one more straight leg after the fixed waypoints: every
     // point of a grid (step inches apart) whose path the preview checks accept, so the area follows the rules' own path
     // check (allowance after the waypoints already used, terrain, other models, a Retreat's end more than 1" from enemies)
@@ -570,7 +589,9 @@ public static class Previews
             return [];
         }
         var from = waypoints.Count > 0 ? TablePoint.Of(waypoints[^1]) : TablePoint.Of(at);
-        var used = waypoints.Count > 0 ? Path(state, seat, kind, model, waypoints).Path[^1].Inches : 0;
+        // On a battlefield with towers each point is reached as a click would reach it, by a ladder if it is on another
+        // level (Route); the area then shows the platform tops a click can reach.
+        var used = waypoints.Count > 0 ? Path(state, seat, kind, model, Route(state, model, waypoints)).Path[^1].Inches : 0;
         // A path never costs less than its straight length, so nothing beyond the allowance left can be reached.
         var left = reach - used;
         var width = TableRect.Inches(scenario.Battlefield.Width);
@@ -591,7 +612,7 @@ public static class Previews
                     continue;
                 }
                 path[^1] = PointAt(x, y);
-                if (Path(state, seat, kind, model, path).Legal)
+                if (Path(state, seat, kind, model, Route(state, model, path)).Legal)
                 {
                     points.Add(new TablePoint(Math.Round(x, 3), Math.Round(y, 3)));
                 }
@@ -754,10 +775,12 @@ public static class Previews
         {
             return marks;
         }
-        marks.Add(new PathMark(TablePoint.Of(body.Centre), 0));
+        var field = scenario.Battlefield;
+        marks.Add(new PathMark(TablePoint.Of(body.Centre), 0, TableRect.Inches(body.Elevation)));
         for (var i = 1; i <= waypoints.Count; i++)
         {
-            marks.Add(new PathMark(TablePoint.Of(waypoints[i - 1]), TableRect.Inches(Movement.Cost(scenario.Battlefield, body, waypoints.Take(i).ToList()))));
+            marks.Add(new PathMark(TablePoint.Of(waypoints[i - 1]), TableRect.Inches(Movement.Cost(field, body, waypoints.Take(i).ToList())),
+                TableRect.Inches(Towers.ElevationAt(field, waypoints[i - 1]))));
         }
         return marks;
     }

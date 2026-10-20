@@ -33,6 +33,11 @@ public static class ScenarioCard
         lines.AddRange(rules.MatchEnds.Select(s => "  " + s));
         lines.Add("PROVISIONAL READINGS");
         lines.AddRange(rules.Provisional.Select(s => "  " + s));
+        if (state.Setup!.Scenario is { } scenario && scenario.Battlefield.Terrain.Where(t => t.IsTower).ToList() is { Count: > 0 } towers)
+        {
+            lines.Add("TOWERS");
+            lines.AddRange(TowerLines(towers).Select(s => "  " + s));
+        }
         lines.Add("OBJECTIVES (who controls each now; click one to centre on it)");
         var rows = rules.ObjectiveIds.Order(StringComparer.Ordinal).Select(id =>
         {
@@ -59,4 +64,19 @@ public static class ScenarioCard
     }
 
     private static Seat Other(Seat seat) => seat == Seat.One ? Seat.Two : Seat.One;
+
+    // Towers proposal, stage T4: what the towers allow, in the rules' own numbers and with their provisional readings.
+    public static IReadOnlyList<string> TowerLines(IReadOnlyList<Rules.Core.Geometry.TerrainBlock> towers)
+    {
+        ArgumentNullException.ThrowIfNull(towers);
+        var height = BoardScene.Inch(TableRect.Inches(towers[0].Climb!.Height));
+        return
+        [
+            $"{towers.Count} tower{(towers.Count == 1 ? "" : "s")}, {height} high ({string.Join(", ", towers.Select(t => t.Id))}). Models stand and fight on a platform, wholly on it (U67).",
+            $"A platform is reached and left only by its ladders, from the foot straight to the top or back; a climb costs {height} of movement on top of the step (U66, U68, U71).",
+            "Distances between heights are measured in 3D, so no model on a tower is within 1\" of one on the ground (U70).",
+            "No charges up or down a ladder in this version (U72). A model on a tower never counts for an Objective (U74).",
+            "Sight and cover as before: a tower blocks sight between ground models; a model on it sees over ground walls (U73).",
+        ];
+    }
 }
