@@ -45,3 +45,36 @@ public class EngagementPairsTests
     [Fact]
     public void AMatchWithoutASetupHasNoPairs() => Assert.Empty(Engagement.Pairs(MatchState.None));
 }
+
+// Proposal J2b (decision D2): the free attackers the Retreat preview names are exactly those the rules offer once the
+// Retreat is declared, at every Retreat of the simulated melee matches.
+public class FreeAttackersTests
+{
+    [Fact]
+    public void ThePreviewsFreeAttackersAreTheOnesOfferedWhenTheRetreatIsDeclared()
+    {
+        var (retreats, offered) = (0, 0);
+        var warbands = Content.Load(Content.MeleePath());
+        for (var seed = 1; seed <= 30; seed++)
+        {
+            var state = MatchState.None;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is Rules.Core.Events.RetreatDeclared declared)
+                {
+                    var preview = Engagement.FreeAttackersIfRetreating(state, declared.Model);
+                    var after = Reducer.Apply(state, e);
+                    var rules = Board.FreeFighters(after, after.Retreat!).Select(m => m.Id).ToList();
+                    Assert.Equal(rules, preview);
+                    retreats++;
+                    offered += preview.Count;
+                }
+                state = Reducer.Apply(state, e);
+            }
+        }
+        Assert.True(retreats > 5 && offered > 0, $"{retreats} retreats, {offered} free attackers");
+    }
+
+    [Fact]
+    public void NoMatchOrModelMeansNoFreeAttackers() => Assert.Empty(Engagement.FreeAttackersIfRetreating(MatchState.None, new ModelId("a1")));
+}

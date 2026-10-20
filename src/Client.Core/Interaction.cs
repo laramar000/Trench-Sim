@@ -104,6 +104,9 @@ public sealed class Interaction
     // What the previews and the bar work from: the server's state, or while a unit is only chosen, the state as the
     // server would hold it after that unit's activation (Previews.AsIfActivated). Never sent, never shown as the match.
     private MatchState _state = MatchState.None;
+
+    // The state the previews are made on (the server's, or the preview-only state after choosing a unit), for the UI check.
+    public MatchState PreviewState => _state;
     private Seat? _seat;
     private Preview? _preview;
     private bool _stale = true;

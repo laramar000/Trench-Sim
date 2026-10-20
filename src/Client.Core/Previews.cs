@@ -217,6 +217,14 @@ public static class Previews
         return result.IsLegal ? null : new(ReasonCode.MoveIllegal, result.Text, result.RuleRef);
     }
 
+    // A legal Fight target is engaged with the attacker: within 1" (pp. 45-46).
+    public const string EngagedFact = "Engaged: within 1\" of the attacker.";
+
+    // Proposal J2b (decision D2): who could make a free attack if the model retreated now, by the rules' own test.
+    public static string FreeAttackFact(IReadOnlyList<ModelId> attackers) => attackers.Count == 0
+        ? "No enemy can make a free attack now."
+        : $"Free attacks possible from: {string.Join(", ", attackers.Select(a => a.Value.ToUpperInvariant()))} (each may attack before the model moves; the server decides).";
+
     private static Rejection? CheckRetreat(MatchState state, Seat seat, ModelId id, ImmutableArray<Point2> path, List<string> facts)
     {
         if (Acting(state, seat, id, out var model) is { } rejection)
@@ -241,7 +249,7 @@ public static class Previews
         }
         var result = Movement.CheckPath(state.Setup!.Scenario!.Battlefield, BodyOf(state, model!)!, path, Allowance(state, model!), Obstacles(state, model!), retreat: true);
         facts.Add($"Distance {Inch(result.Cost)} of {Inch(Allowance(state, model!))} allowed.");
-        facts.Add("Enemies within 1\" may attack first (free attacks, decided by the server).");
+        facts.Add(FreeAttackFact(Rules.Core.Engagement.FreeAttackersIfRetreating(state, id)));
         if (!result.IsLegal)
         {
             return new(ReasonCode.MoveIllegal, result.Text, result.RuleRef);
@@ -275,6 +283,16 @@ public static class Previews
             PreviewKind.Charge => CheckCharge(state, seat, model, target, facts, rays, charge, ref needed),
             _ => CheckFight(state, seat, model, target, facts, rays, ref dice),
         };
+        // Proposal J2b (decision D1): whether a Fight target can be chosen is the rules' own answer (TurnSequence.Check,
+        // the check Decide makes); the facts and dice above only describe it.
+        if (kind == PreviewKind.Fight && Opening(state) is null)
+        {
+            refusal = TurnSequence.Check(state, command);
+            if (refusal is null)
+            {
+                facts.Add(EngagedFact);
+            }
+        }
         var from = state.FindModel(model) is { } m && BodyOf(state, m) is { } b ? [new PathMark(TablePoint.Of(b.Centre), 0)] : Array.Empty<PathMark>();
         return new Preview(kind, model, command, refusal, facts, from, RadiusOf(state, model), target, rays, charge, needed, Dice: refusal is null ? dice : null);
     }

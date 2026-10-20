@@ -33,4 +33,18 @@ public static class Engagement
         }
         return pairs;
     }
+
+    // Read-only, for the Retreat preview (proposal J, stage J2b, decision D2 approved by Jason on 2026-10-20): the enemy
+    // models that could each make a free attack if this model retreated now, by the very test the rules use once a
+    // Retreat is declared (Board.FreeFighters: standing, with a Melee Weapon, within 1"). The server decides when the
+    // Retreat is declared; this changes nothing.
+    public static IReadOnlyList<ModelId> FreeAttackersIfRetreating(MatchState state, ModelId model)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        if (state.Setup?.Scenario is null || state.FindModel(model) is null)
+        {
+            return [];
+        }
+        return [.. Board.FreeFighters(state, new RetreatInProgress(model, [], [])).Select(m => m.Id)];
+    }
 }

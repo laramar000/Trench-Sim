@@ -2256,6 +2256,53 @@ public partial class UiCheck : Node
         }
     }
 
+    // ---- Proposal J2b: melee ----
+
+    private int _engagedSamples;
+    private int _engagedSeen;
+    private readonly List<string> _engagedProblems = [];
+    private int _fightSamples;
+    private int _fightLegal;
+    private int _fightRefused;
+    private readonly List<string> _fightProblems = [];
+
+    // In Fight: every enemy the rules accept as a target (TurnSequence.Check on the state the previews use) has a ring and
+    // the ENGAGED tag, every other one is crossed; the panel's verdicts are the rules' own.
+    private void FightTargetsSample(BoardView board)
+    {
+        var interaction = board.Interaction;
+        if (interaction.Actor is not { } actor || ((Main)_main).Seat is not { } seat)
+        {
+            return;
+        }
+        _fightSamples++;
+        var tags = board.OverlayTexts.Count(t => t == BoardView.EngagedTag);
+        var wantedTags = 0;
+        foreach (var (id, refusal) in interaction.TargetVerdicts())
+        {
+            var rules = Rules.Core.TurnSequence.Check(interaction.PreviewState, new Rules.Core.Commands.FightModel(seat, actor, id));
+            if (rules != refusal)
+            {
+                _fightProblems.Add($"{id.Value}: shown '{refusal?.Text}', rules '{rules?.Text}'");
+            }
+            if (id == interaction.Target)
+            {
+                continue;
+            }
+            if ((refusal is null) == board.Crossed.Contains(id))
+            {
+                _fightProblems.Add($"{id.Value}: crossed {board.Crossed.Contains(id)} but refused {refusal is not null}");
+            }
+            wantedTags += refusal is null ? 1 : 0;
+            _fightLegal += refusal is null ? 1 : 0;
+            _fightRefused += refusal is null ? 0 : 1;
+        }
+        if (tags != wantedTags)
+        {
+            _fightProblems.Add($"{tags} {BoardView.EngagedTag} tags for {wantedTags} accepted targets");
+        }
+    }
+
     // ---- Proposal J1b: dice resolution ----
 
     private int _whyDrawn;
@@ -2512,6 +2559,14 @@ public partial class UiCheck : Node
             if (UnitPanel.ProfileLine(state, unit) is not { } profile || !view.Unit.Contains(profile))
             {
                 problems.Add("profile");
+            }
+            // Proposal J2b: "Engaged with" lists exactly the enemies the rules say the unit is engaged with.
+            _engagedSamples++;
+            var engaged = UnitPanel.EngagedLine(state, unit.Id);
+            _engagedSeen += engaged is null ? 0 : 1;
+            if (engaged is null ? view.Unit.Any(l => l.StartsWith(UnitPanel.EngagedPrefix, StringComparison.Ordinal)) : !view.Unit.Contains(engaged))
+            {
+                _engagedProblems.Add($"{unit.Id.Value}: wanted '{engaged}' in {string.Join(" | ", view.Unit)}");
             }
             if (problems.Count > 0)
             {
@@ -2817,6 +2872,11 @@ public partial class UiCheck : Node
         var interaction = board.Interaction;
         await MouseOff(board);
         await KeyPress(action);
+        if (_role == "pvp-a" && interaction.Mode == InteractionMode.Fight)
+        {
+            await Frames(2);
+            FightTargetsSample(board);
+        }
         var count = interaction.Mode == InteractionMode.None ? 0 : interaction.Targets().Count;
         for (var i = 0; i < count && interaction.Preview is not { Legal: true }; i++)
         {
@@ -2927,12 +2987,19 @@ public partial class UiCheck : Node
                 $"{_objectiveSamples} looks at the HUD and the objective marks; {string.Join(" / ", _objectiveProblems.Take(5))}");
             Check("pvp-panel-follows-state", _panelSamples > 0 && _panelProblems.Count == 0,
                 $"{_panelSamples} looks at the panel; {string.Join(" / ", _panelProblems.Take(5))}");
+            Check("panel-engaged-with", _engagedSamples > 0 && _engagedProblems.Count == 0,
+                $"{_engagedSamples} looks, {_engagedSeen} at an engaged unit; {string.Join(" / ", _engagedProblems.Take(4))}");
             if (_role == "pvp-a")
             {
                 Check("board-melee-links", _linkSamples > 0 && _linkedSamples > 0 && _linkProblems.Count == 0,
                     $"{_linkSamples} looks, {_linkedSamples} with engaged models; {string.Join(" / ", _linkProblems.Take(5))}");
                 DiceWhyEnd(board);
                 await LogActionCheck();
+                if (_fightSamples > 0)
+                {
+                    Check("board-fight-targets", _fightProblems.Count == 0,
+                        $"{_fightSamples} looks in Fight, {_fightLegal} targets the rules accept (each ringed and tagged {BoardView.EngagedTag}), {_fightRefused} refused (grey and crossed); {string.Join(" / ", _fightProblems.Take(4))}");
+                }
             }
         }
         Check("pvp-labels-show-blood", _bloodLabelsChecked > 0 && _bloodLabelProblems.Count == 0,

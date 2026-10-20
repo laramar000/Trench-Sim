@@ -12,7 +12,8 @@ public static class PreviewCard
         ArgumentNullException.ThrowIfNull(fact);
         return fact.StartsWith("Distance", StringComparison.Ordinal) || fact.StartsWith("Line of sight", StringComparison.Ordinal)
             || fact.StartsWith("Target ", StringComparison.Ordinal) || fact.StartsWith("Long range", StringComparison.Ordinal)
-            || fact.StartsWith("Short range", StringComparison.Ordinal) || fact.StartsWith("Shooting into melee", StringComparison.Ordinal);
+            || fact.StartsWith("Short range", StringComparison.Ordinal) || fact.StartsWith("Shooting into melee", StringComparison.Ordinal)
+            || fact.StartsWith("Engaged:", StringComparison.Ordinal);
     }
 
     public static IReadOnlyList<string> Lines(Preview preview, ModelShape? target = null)
@@ -41,7 +42,8 @@ public static class PreviewCard
                 }
                 if (preview.Kind == PreviewKind.Retreat)
                 {
-                    lines.Add("enemies within 1\" may attack first (server)");
+                    lines.Add(preview.Facts.FirstOrDefault(f => f.StartsWith("Free attacks possible", StringComparison.Ordinal) || f.StartsWith("No enemy can make a free", StringComparison.Ordinal))?.TrimEnd('.')
+                        ?? "enemies within 1\" may attack first (server)");
                 }
                 break;
             default:

@@ -109,6 +109,10 @@ public static class UnitPanel
         else
         {
             lines.Add(StatusLine(state, unit));
+            if (EngagedLine(state, unit.Id) is { } engaged)
+            {
+                lines.Add(engaged);
+            }
             if (State(unit, interaction) is { } turnState)
             {
                 lines.Add(turnState);
@@ -301,6 +305,19 @@ public static class UnitPanel
         }
         return lines;
     }
+
+    // Proposal J2b: the enemy models the rules say this model is engaged with now (Rules.Core.Engagement.Pairs), with the
+    // base-to-base gap; null when it is engaged with none.
+    public static string? EngagedLine(MatchState state, ModelId model)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var enemies = Rules.Core.Engagement.Pairs(state).Where(p => p.One == model || p.Two == model).Select(p => p.One == model ? p.Two : p.One)
+            .OrderBy(e => e.Value, StringComparer.Ordinal).ToList();
+        return enemies.Count == 0 ? null
+            : $"{EngagedPrefix}{string.Join(", ", enemies.Select(e => $"{ShortId(e)} ({Previews.Gap(state, model, e) ?? "?"})"))}";
+    }
+
+    public const string EngagedPrefix = "Engaged with: ";
 
     // Why a target cannot be chosen, in a few words (the full reason and page show once it is the previewed target).
     public static string ShortReason(Rules.Core.ReasonCode code) => code switch

@@ -132,6 +132,8 @@ public partial class BoardView : SubViewportContainer
     // Enemies marked with a grey cross as targets the chosen action cannot take (for the UI check).
     public IReadOnlyCollection<ModelId> Crossed => _crossed;
 
+    public const string EngagedTag = "ENGAGED";
+
     public override void _Ready()
     {
         Stretch = true;
@@ -1185,6 +1187,11 @@ public partial class BoardView : SubViewportContainer
             }
             var spot = new TablePoint(model.X, model.Y);
             Ring(spot, model.Radius + 0.25, refusal is null ? good : new Color(0.55f, 0.55f, 0.55f));
+            // Proposal J2b: in Fight, a target the rules accept is one this model is engaged with; it says so under its base.
+            if (refusal is null && Interaction.Mode == InteractionMode.Fight)
+            {
+                Overlay(EngagedTag, new TablePoint(model.X, model.Y + model.Radius + 0.45), (float)model.Standing + 0.15f, 0.45f);
+            }
             // Proposal G: a target that cannot be chosen gets a grey cross as well as its grey ring (not colour alone);
             // why not is in the panel.
             if (refusal is not null)
