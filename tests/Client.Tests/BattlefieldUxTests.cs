@@ -205,6 +205,8 @@ public class BattlefieldUxTests
     [InlineData("melee-1v1", 1)]
     [InlineData("melee-2v2", 2)]
     [InlineData("melee-3v3", 3)]
+    [InlineData("ranged-towers", 4)]
+    [InlineData("melee-towers", 4)]
     public void SmallTestRostersHaveTheFirstModelsOfEachSideAndPlayToTheEnd(string scenario, int size)
     {
         var all = ScenarioSetups.FromFolder(Path.Combine(Repository.Root, "content"));

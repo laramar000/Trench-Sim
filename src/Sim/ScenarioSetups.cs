@@ -23,19 +23,24 @@ public static class ScenarioSetups
             {
                 all[$"{name}-{size}v{size}"] = Setup(path, size);
             }
+            all[name + TowersSuffix] = Setup(path, towers: true);
         }
         return all;
     }
 
+    // Towers proposal, stage T3: "ranged-towers" and "melee-towers" are the same matches on the layout with two
+    // climbable towers (ClaimNoMansLand.CreateWithTowers). Separate names, so every other scenario is exactly as before.
+    public const string TowersSuffix = "-towers";
+
     // The scenario name for a content scenario and a side size; null size is the normal roster.
     public static string Name(string scenario, int? size) => size is { } n ? $"{scenario}-{n}v{n}" : scenario;
 
-    public static MatchSetup Setup(string contentPath, int? size = null)
+    public static MatchSetup Setup(string contentPath, int? size = null, bool towers = false)
     {
         var warbands = Content.Load(contentPath);
         var take = size ?? int.MaxValue;
         var models = warbands[0].Models.Take(take).Select((m, i) => new SetupModel(new ModelId($"a{i + 1}"), Seat.One, m.Profile))
             .Concat(warbands[1].Models.Take(take).Select((m, i) => new SetupModel(new ModelId($"b{i + 1}"), Seat.Two, m.Profile)));
-        return ClaimNoMansLand.CreateSetup(models);
+        return towers ? ClaimNoMansLand.CreateTowersSetup(models) : ClaimNoMansLand.CreateSetup(models);
     }
 }

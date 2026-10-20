@@ -153,12 +153,14 @@ public class RecordTests
         }
     }
 
-    // The small test rosters are recorded under their own scenario name, verify like any match, and their content
+    // The small test rosters and the tower layouts are recorded under their own scenario name, verify like any match, and their content
     // fingerprint is the one trench-cli verify works out from the content folder for that name.
     [Theory]
     [InlineData("ranged-1v1")]
     [InlineData("ranged-2v2")]
     [InlineData("melee-3v3")]
+    [InlineData("ranged-towers")]
+    [InlineData("melee-towers")]
     public void SmallTestRosterRecordsVerify(string scenario)
     {
         var body = TestRecords.Completed(scenario, 3);

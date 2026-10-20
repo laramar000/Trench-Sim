@@ -44,11 +44,15 @@ public sealed class ContentNames
     };
 
     // The scenarios a player can choose when creating a match: the normal rosters, then the small test sizes.
+    // The tower layouts ("ranged-towers", towers proposal stage T3) come last, so the earlier choices keep their places.
     public static IReadOnlyList<string> Choices { get; } =
-        ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3"];
+        ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3", "ranged-towers", "melee-towers"];
+
+    public const string TowersSuffix = "-towers";
 
     private static string BaseOf(string scenario) =>
-        scenario.Length > 4 && scenario[^4] == '-' && scenario[^2] == 'v' && char.IsAsciiDigit(scenario[^3]) && scenario[^3] == scenario[^1]
+        scenario.EndsWith(TowersSuffix, StringComparison.Ordinal) ? scenario[..^TowersSuffix.Length]
+        : scenario.Length > 4 && scenario[^4] == '-' && scenario[^2] == 'v' && char.IsAsciiDigit(scenario[^3]) && scenario[^3] == scenario[^1]
             ? scenario[..^4]
             : scenario;
 
@@ -71,7 +75,7 @@ public sealed class ContentNames
         {
             return Ids($"This client's content file {file} could not be read.");
         }
-        if (scenario != BaseOf(scenario))
+        if (scenario != BaseOf(scenario) && !scenario.EndsWith(TowersSuffix, StringComparison.Ordinal))
         {
             // A test size: the first models of each warband, as Sim.ScenarioSetups builds it.
             var size = scenario[^1] - '0';

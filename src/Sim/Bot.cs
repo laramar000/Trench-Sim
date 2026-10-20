@@ -283,11 +283,45 @@ public sealed class Bot(Random rng)
             }
         }
 
+        bool Legal(ImmutableArray<Point2> path) => Movement.CheckPath(scenario.Battlefield, body, path, allowance, others).IsLegal;
+        // On a battlefield with towers (towers proposal, stage T3), half the time head for the nearest ladder and climb
+        // it (or come down), so simulated tower matches use the towers. Without towers no die is drawn here, so those
+        // matches play exactly as before.
+        if (scenario.Battlefield.Terrain.Any(t => t.IsTower) && rng.Next(100) < 50)
+        {
+            var climbs = ClimbPaths(scenario.Battlefield, from, profile.BaseRadius).ToList();
+            var ladder = climbs[0][0];
+            return climbs.Where(Legal).Take(3)
+                .Concat(candidates.OrderBy(path => Distance2(path[^1], ladder)).Where(Legal).Take(3))
+                .ToList();
+        }
         return candidates
             .OrderBy(path => Distance2(path[^1], goal))
-            .Where(path => Movement.CheckPath(scenario.Battlefield, body, path, allowance, others).IsLegal)
+            .Where(Legal)
             .Take(6)
             .ToList();
+    }
+
+    // Paths up or down a ladder: from the ground to a ladder's foot, up to its top and one step on; or from a platform
+    // to a ladder's top, down to its foot and one step away.
+    private static IEnumerable<ImmutableArray<Point2>> ClimbPaths(Battlefield field, Point2 from, Length radius)
+    {
+        var on = Towers.TowerAt(field, from);
+        var paths = new List<ImmutableArray<Point2>>();
+        foreach (var tower in field.Terrain.Where(t => t.IsTower && (on is null || t == on)))
+        {
+            var rect = tower.Footprint.Bounds;
+            foreach (var ladder in tower.Climb!.Ladders)
+            {
+                var foot = Climb.Foot(rect, ladder, radius);
+                var top = Climb.Top(rect, ladder, radius);
+                var inward = new Point2(top.X + (top.X - foot.X), top.Y + (top.Y - foot.Y));
+                var outward = new Point2(foot.X + (foot.X - top.X), foot.Y + (foot.Y - top.Y));
+                paths.Add(on is null ? [foot, top, inward] : [top, foot, outward]);
+            }
+        }
+        // Nearest first (ties keep id order); a path that starts where the model stands drops that point.
+        return paths.OrderBy(path => Distance2(from, path[0])).Select(path => path[0] == from ? path[1..] : path);
     }
 
     // How high a base centred here stands (a tower's platform or the ground), as the rules measure it.

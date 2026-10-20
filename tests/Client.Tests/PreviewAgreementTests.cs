@@ -20,16 +20,17 @@ public class PreviewAgreementTests
     internal static readonly Lazy<List<MatchState>> States = new(() =>
     {
         var all = new List<MatchState>();
-        foreach (var file in new[] { "test-warbands.json", "melee-warbands.json" })
+        // Each content file on the plain layout (12 seeds), then on the tower layout (towers proposal stage T3, 6 seeds).
+        foreach (var (file, towers, seeds) in new[] { ("test-warbands.json", false, 12), ("melee-warbands.json", false, 12), ("test-warbands.json", true, 6), ("melee-warbands.json", true, 6) })
         {
             var warbands = Content.Load(Path.Combine(Repository.Root, "content", file));
-            for (var seed = 0; seed < 12; seed++)
+            for (var seed = 0; seed < seeds; seed++)
             {
                 var one = warbands[seed % 2];
                 var two = warbands[(seed + 1) % 2];
                 var models = one.Models.Select((m, i) => new SetupModel(new ModelId($"a{i + 1}"), Seat.One, m.Profile))
                     .Concat(two.Models.Select((m, i) => new SetupModel(new ModelId($"b{i + 1}"), Seat.Two, m.Profile)));
-                var state = Reducer.Apply(MatchState.None, new MatchCreated(ClaimNoMansLand.CreateSetup(models)));
+                var state = Reducer.Apply(MatchState.None, new MatchCreated(towers ? ClaimNoMansLand.CreateTowersSetup(models) : ClaimNoMansLand.CreateSetup(models)));
                 var bot = new Bot(new Random(seed));
                 var dice = new SeededDice(seed * 31 + 5);
                 all.Add(state);
@@ -103,11 +104,51 @@ public class PreviewAgreementTests
                     }
                 }
                 tally.Check(state, Previews.Path(state, active.Seat, kind, active.Id, []));
+                // On the tower layout: the ladders themselves, up from the foot or down from the top.
+                foreach (var path in LadderPaths(state, active))
+                {
+                    tally.Check(state, Previews.Path(state, active.Seat, kind, active.Id, path));
+                }
             }
         }
         tally.Expect(PreviewKind.Move, ReasonCode.MoveIllegal, ReasonCode.NotYourModel, ReasonCode.ActionAlreadyTaken);
         tally.Expect(PreviewKind.Dash, ReasonCode.MoveIllegal, ReasonCode.ActionAlreadyTaken);
         tally.Expect(PreviewKind.Retreat, ReasonCode.NotEngaged, ReasonCode.MoveIllegal, ReasonCode.RetreatEndsEngaged);
+    }
+
+    // Towers proposal, stage T3: for each ladder of each tower, to its foot and up, and to its top and down.
+    private static IEnumerable<List<Point2>> LadderPaths(MatchState state, ModelState model)
+    {
+        var field = state.Setup!.Scenario!.Battlefield;
+        var radius = state.Setup.ProfileOf(model.Id)!.BaseRadius;
+        foreach (var tower in field.Terrain.Where(t => t.IsTower))
+        {
+            foreach (var ladder in tower.Climb!.Ladders)
+            {
+                var foot = Climb.Foot(tower.Footprint.Bounds, ladder, radius);
+                var top = Climb.Top(tower.Footprint.Bounds, ladder, radius);
+                yield return [foot, top];
+                yield return [top, foot];
+            }
+        }
+    }
+
+    // The simulated tower matches do use the towers: models climb, stand on a platform, and come down.
+    [Fact]
+    public void SimulatedTowerMatchesClimbTheTowers()
+    {
+        var on = 0;
+        var maxOn = 0;
+        foreach (var state in States.Value.Where(s => s.Setup?.Scenario?.Battlefield.Terrain.Any(t => t.IsTower) == true))
+        {
+            var field = state.Setup!.Scenario!.Battlefield;
+            var count = state.Models.Count(m => m.Position is { } p && Towers.ElevationAt(field, p) > Length.Zero);
+            on += count > 0 ? 1 : 0;
+            maxOn = Math.Max(maxOn, count);
+        }
+        Console.WriteLine($"{on} states with a model on a tower; at most {maxOn} at once");
+        Assert.True(on > 20, $"only {on} states have a model on a tower");
+        Assert.True(maxOn >= 2, $"at most {maxOn} models were on towers at once");
     }
 
     [Fact]

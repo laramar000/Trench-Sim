@@ -564,6 +564,7 @@ public class InteractionTests
         Assert.Null(throttle.Take(0.5));
     }
 
+    // At the elevation the rules give it (a tower's platform or the ground).
     private static ModelBody Body(MatchState state, ModelState model) =>
-        new(model.Id.Value, model.Position!.Value, state.Setup!.ProfileOf(model.Id)!.BaseRadius);
+        new(model.Id.Value, model.Position!.Value, state.Setup!.ProfileOf(model.Id)!.BaseRadius, Towers.ElevationAt(state.Setup.Scenario!.Battlefield, model.Position!.Value));
 }
