@@ -84,6 +84,7 @@ public sealed class ResolutionLog
         _actions.Clear();
         _owner.Clear();
         _current = null;
+        _last = -1;
     }
 
     // The breakdown of the roll in the event with this number, or null for an event that is not a Success or Injury Roll.
@@ -95,11 +96,18 @@ public sealed class ResolutionLog
     public ActionResolution? ActionAt(int seq) => _owner.TryGetValue(seq, out var first) ? _actions.First(a => a.Seq == first).Build() : null;
 
     private readonly Dictionary<int, int> _owner = [];
+    private int _last = -1;
 
     // setup: the match's setup (model profiles); events must come in the server's order, each once.
     public void Add(int seq, GameEvent e, MatchSetup? setup)
     {
         ArgumentNullException.ThrowIfNull(e);
+        // An event the log already has (sent again on rejoining) changes nothing.
+        if (seq <= _last)
+        {
+            return;
+        }
+        _last = seq;
         switch (e)
         {
             case DashDeclared d:
@@ -144,6 +152,9 @@ public sealed class ResolutionLog
                 ShotParts(f.LongRange, f.CoverTerrainId);
                 action.Steps.Add($"Friendly target: {Id(f.Victim)}");
                 action.Outcome.Add($"shoots {Id(f.Victim)}");
+                break;
+            case MarkersSpent { Count: 0 } none:
+                action.Steps.Add($"{Words.Seat(none.Spender)} spends no Blood Markers of {Id(none.Model)}");
                 break;
             case MarkersSpent spent:
                 var markers = $"{spent.Count} Blood Marker{(spent.Count == 1 ? "" : "s")}";

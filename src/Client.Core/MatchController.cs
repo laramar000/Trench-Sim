@@ -37,7 +37,14 @@ public sealed record Feedback(FeedbackKind Kind, string Text, string? RuleRef = 
 // Row is the combat log's short form ("A4 FIGHTS B3", proposal G4); Text stays the narrator's full line.
 // Models: the models the event names (QoL I1), pointed out when its log row is clicked.
 // Sound: the sound the event may play (QoL I3), when sound is on and the event is new.
-public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<UnitNote>? Notes = null, EventKind Kind = EventKind.Other, CompactRow? Row = null, Motion? Motion = null, DiceStep? Step = null, bool Replayed = false, IReadOnlyList<ModelId>? Models = null, SoundCue? Sound = null);
+public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<UnitNote>? Notes = null, EventKind Kind = EventKind.Other, CompactRow? Row = null, Motion? Motion = null, DiceStep? Step = null, bool Replayed = false, IReadOnlyList<ModelId>? Models = null, SoundCue? Sound = null)
+{
+    // Proposal J1b: why this roll had its dice and modifier (empty for an event without a Success or Injury Roll), and the
+    // action this event belongs to as it stood after this event (its later events carry it further).
+    public string? Why { get; init; }
+
+    public ActionResolution? Action { get; init; }
+}
 
 // Everything the screen needs at one moment. Hints are empty whenever input is locked (InputLocked says why).
 public sealed record ScreenState(
@@ -458,6 +465,18 @@ public sealed class MatchController : IAsyncDisposable
     private int _replayUntil;
     // QoL I4: the match summary's numbers, counted as events arrive.
     private readonly MatchTally _tally = new();
+    // Proposal J1b: why each roll had its dice, and each action's steps and outcome.
+    private readonly ResolutionLog _resolutions = new();
+
+    private LogLine Line(int seq, Rules.Core.Events.GameEvent e, MatchState state)
+    {
+        _resolutions.Add(seq, e, state.Setup);
+        return new LogLine(seq, EventText.Line(e), EventText.Dice(e), UnitNotes.Of(e), EventText.Kind(e), EventText.Compact(e), Motions.Of(e), DiceRolls.Step(e), seq <= _replayUntil, EventModels.Of(e), SoundCues.Of(e))
+        {
+            Why = _resolutions.WhyOf(seq)?.Text is { Length: > 0 } why ? why : null,
+            Action = _resolutions.ActionAt(seq),
+        };
+    }
 
     private void OnReceived(ClientSession session, ServerMessage message)
     {
@@ -473,6 +492,7 @@ public sealed class MatchController : IAsyncDisposable
                 case Welcome { ReplayFrom: 0 }:
                     _log.Clear();
                     _tally.Clear();
+                    _resolutions.Clear();
                     break;
                 case MatchAborted a when ReferenceEquals(session, _session):
                     SetConnection(ConnectionState.Aborted, $"Match aborted ({a.Reason}). No result was recorded as a win or loss.");
@@ -480,14 +500,14 @@ public sealed class MatchController : IAsyncDisposable
                     break;
                 case EventPublished { Event: Rules.Core.Events.MatchEnded } e when ReferenceEquals(session, _session):
                     _tally.Add(e.Seq, e.Event, session.Mirror.State);
-                    _log[e.Seq] = new LogLine(e.Seq, EventText.Line(e.Event), EventText.Dice(e.Event), UnitNotes.Of(e.Event), EventText.Kind(e.Event), EventText.Compact(e.Event), Motions.Of(e.Event), DiceRolls.Step(e.Event), e.Seq <= _replayUntil, EventModels.Of(e.Event), SoundCues.Of(e.Event));
+                    _log[e.Seq] = Line(e.Seq, e.Event, session.Mirror.State);
                     SetConnection(ConnectionState.Finished, "The match has ended. The result above is the server's.");
                     // The match is over: the saved seat has nothing left to rejoin (as trench-cli does).
                     ForgetSeat();
                     break;
                 case EventPublished e:
                     _tally.Add(e.Seq, e.Event, session.Mirror.State);
-                    _log[e.Seq] = new LogLine(e.Seq, EventText.Line(e.Event), EventText.Dice(e.Event), UnitNotes.Of(e.Event), EventText.Kind(e.Event), EventText.Compact(e.Event), Motions.Of(e.Event), DiceRolls.Step(e.Event), e.Seq <= _replayUntil, EventModels.Of(e.Event), SoundCues.Of(e.Event));
+                    _log[e.Seq] = Line(e.Seq, e.Event, session.Mirror.State);
                     while (_log.Count > _options.LogLines)
                     {
                         _log.RemoveAt(0);

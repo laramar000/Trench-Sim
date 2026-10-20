@@ -59,6 +59,25 @@ public partial class DiceTray : Control
     public Rect2? CloseRect(int id) => _closeButtons.TryGetValue(id, out var close) && IsInstanceValid(close) && BoxRect(id) is { } box
         ? new Rect2(close.GetGlobalRect().Position - GetGlobalRect().Position + Position, close.Size) : null;
 
+    // For the UI check: every line of words drawn in a box, top to bottom.
+    public IReadOnlyList<string> BoxTexts(int id) => _panels.TryGetValue(id, out var panel) && IsInstanceValid(panel)
+        ? [.. Labels(panel).Select(l => l.Text)] : [];
+
+    private static IEnumerable<Label> Labels(Node node)
+    {
+        foreach (var child in node.GetChildren())
+        {
+            if (child is Label label)
+            {
+                yield return label;
+            }
+            foreach (var inner in Labels(child))
+            {
+                yield return inner;
+            }
+        }
+    }
+
     public float BoxAlpha(int id) => _panels.TryGetValue(id, out var panel) ? panel.Modulate.A : 0;
 
     public override void _Process(double delta)
@@ -212,6 +231,11 @@ public partial class DiceTray : Control
         {
             rows.AddChild(MakeRow(row));
         }
+        // Proposal J1b: what the action came to, kept apart from each roll's own result.
+        if (box.OutcomeShown is { } outcome)
+        {
+            rows.AddChild(Text($"→ {outcome}", 13, _highContrast ? Colors.White : new Color(0.95f, 0.9f, 0.7f), 340 * _scale));
+        }
         var top = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         top.AddChild(rows);
         top.AddChild(close);
@@ -229,6 +253,11 @@ public partial class DiceTray : Control
         var width = 300 * _scale;
         words.AddChild(Text(row.Roll.Title, 14, _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f), width));
         words.AddChild(Text(row.Roll.Rule, 12, _highContrast ? Colors.White : new Color(0.7f, 0.7f, 0.72f), width));
+        // Proposal J1b: why the dice and modifier were what they were, named from the server's events.
+        if (row.Why is { } why)
+        {
+            words.AddChild(Text($"why: {why}", 12, _highContrast ? Colors.White : new Color(0.85f, 0.8f, 0.6f), width));
+        }
         var result = row.FollowUp is null ? row.Roll.Result : $"{row.Roll.Result}   {row.FollowUp}";
         var tone = row.FollowUp is null ? row.Roll.Verdict : row.FollowUpVerdict;
         words.AddChild(Text(result, 17, Tone(tone), width));

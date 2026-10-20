@@ -1918,6 +1918,7 @@ public partial class UiCheck : Node
             {
                 TurnAlertStep(board);
                 await CheckMeleeLinks(board);
+                await SampleDiceWhy(board);
             }
             // After a look check (and its screenshot) the screen may have been redrawn: read the board and hints again.
             if (_role == "pvp-a" && board?.Scene is { } looking && await UnitLookChecks(board, looking))
@@ -2253,6 +2254,141 @@ public partial class UiCheck : Node
                 _objectiveProblems.Add($"no label {mark}");
             }
         }
+    }
+
+    // ---- Proposal J1b: dice resolution ----
+
+    private int _whyDrawn;
+    private int _outcomeDrawn;
+    private readonly List<string> _whyProblems = [];
+
+    // In each box on screen, every roll's "why" line and the action's outcome line are drawn as the feed has them (a box
+    // is redrawn the frame after its feed changes, so a mismatch is looked at again once).
+    private async Task SampleDiceWhy(BoardView? board)
+    {
+        if (board is null)
+        {
+            return;
+        }
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var problems = new List<string>();
+            var (why, outcome) = (0, 0);
+            foreach (var box in board.Dice.Feed.Boxes.Where(b => board.Dice.BoxIds.Contains(b.Id)))
+            {
+                var texts = board.Dice.BoxTexts(box.Id);
+                foreach (var row in box.Rows.Where(r => r.Why is not null))
+                {
+                    if (texts.Contains($"why: {row.Why}"))
+                    {
+                        why++;
+                    }
+                    else
+                    {
+                        problems.Add($"box {box.Id} row {row.Seq}: no 'why: {row.Why}' in [{string.Join(" | ", texts)}]");
+                    }
+                }
+                if (box.OutcomeShown is { } shown)
+                {
+                    if (texts.Contains($"→ {shown}"))
+                    {
+                        outcome++;
+                    }
+                    else
+                    {
+                        problems.Add($"box {box.Id}: no '→ {shown}'");
+                    }
+                }
+            }
+            if (problems.Count == 0 || attempt == 1)
+            {
+                _whyDrawn += why;
+                _outcomeDrawn += outcome;
+                _whyProblems.AddRange(problems);
+                return;
+            }
+            await Frames(2);
+        }
+    }
+
+    // At the end: every roll the dice display showed carries the same "why" as its combat-log line (both from the
+    // server's events through ResolutionLog), and some rolls had one drawn.
+    private void DiceWhyEnd(BoardView? board)
+    {
+        if (board is null)
+        {
+            Check("dice-why-shown", false, "no battlefield");
+            return;
+        }
+        var main = (Main)_main;
+        var shown = board.Dice.Feed.Shown;
+        var withWhy = 0;
+        foreach (var row in shown)
+        {
+            if (main.LogLineAt(row.Seq) is { } line)
+            {
+                if (line.Why != row.Why)
+                {
+                    _whyProblems.Add($"row {row.Seq}: shown '{row.Why}', log '{line.Why}'");
+                }
+                withWhy += row.Why is null ? 0 : 1;
+            }
+        }
+        Check("dice-why-shown", _whyProblems.Count == 0 && withWhy > 0 && _whyDrawn > 0,
+            $"{shown.Count} rolls shown, {withWhy} with a why; drawn: {_whyDrawn} why lines, {_outcomeDrawn} outcome lines; {string.Join(" / ", _whyProblems.Take(4))}");
+    }
+
+    // At the end: ▸ on an action's combat-log row (the latest with an Injury Roll, else the latest) opens its steps and
+    // outcome as ResolutionLog has them, ▾ closes them, and nothing is sent.
+    private async Task LogActionCheck()
+    {
+        var main = (Main)_main;
+        var rows = main.LogActionRows;
+        var start = rows.LastOrDefault(r => main.LogAction(r)?.Outcome.Contains("injury", StringComparison.Ordinal) == true);
+        if (start == 0)
+        {
+            start = rows.LastOrDefault();
+        }
+        if (start == 0 || main.LogAction(start) is not { } action)
+        {
+            Check("log-action-expands", false, $"no action row in the log ({rows.Count} rows)");
+            return;
+        }
+        var lastCommand = Section("LAST COMMAND");
+        main.ShowLogRow(start);
+        await Frames(4);
+        if (main.LogToggleRect(start) is not { } toggle)
+        {
+            Check("log-action-expands", false, $"row {start}: its toggle is not on screen");
+            return;
+        }
+        await ClickAt(toggle.GetCenter());
+        await Frames(3);
+        var opened = main.LogActionDetails(start);
+        var wanted = Main.ActionDetails(action);
+        main.ShowLogRow(start);
+        await Frames(3);
+        var again = main.LogToggleRect(start);
+        var togglesBefore = main.LogToggles;
+        Control? hit = null;
+        Rect2? during = null;
+        if (again is { } rect)
+        {
+            var at = rect.GetCenter();
+            Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
+            await Frames(2);
+            hit = GetViewport().GuiGetHoveredControl();
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = at, GlobalPosition = at });
+            await Frames(2);
+            during = main.LogToggleRect(start);
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = at, GlobalPosition = at });
+            await Frames(2);
+        }
+        await Frames(3);
+        var closed = main.LogActionDetails(start) is null;
+        var why = closed ? "" : $" [toggle first at {toggle.GetCenter()}, again at {again}; under the pointer: {hit?.GetPath()} (the toggle: {main.IsLogToggle(start, hit)}); toggle while pressed at {during}; toggled {main.LogToggles - togglesBefore} times; toggle now '{main.LogToggleText(start)}']";
+        Check("log-action-expands", opened == wanted && action.Steps.Count > 0 && closed && Section("LAST COMMAND") == lastCommand,
+            $"row {start} {action.Headline}: opened '{opened?.Replace('\n', '|')}' (wanted '{wanted.Replace('\n', '|')}'); closed again: {closed}; nothing sent: {Section("LAST COMMAND") == lastCommand}{why}");
     }
 
     // ---- QoL I5: melee links ----
@@ -2795,6 +2931,8 @@ public partial class UiCheck : Node
             {
                 Check("board-melee-links", _linkSamples > 0 && _linkedSamples > 0 && _linkProblems.Count == 0,
                     $"{_linkSamples} looks, {_linkedSamples} with engaged models; {string.Join(" / ", _linkProblems.Take(5))}");
+                DiceWhyEnd(board);
+                await LogActionCheck();
             }
         }
         Check("pvp-labels-show-blood", _bloodLabelsChecked > 0 && _bloodLabelProblems.Count == 0,

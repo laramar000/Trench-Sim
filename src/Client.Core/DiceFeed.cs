@@ -3,7 +3,8 @@ using Rules.Core.State;
 namespace Client.Core;
 
 // One roll in a box on screen, with the event number it came from; FollowUp is the end of a charge ("✓ REACHED").
-public sealed record DiceRow(int Seq, DiceRoll Roll, string? FollowUp = null, RollVerdict FollowUpVerdict = RollVerdict.Neutral);
+// Why (proposal J1b): the named reasons for the roll's dice and modifier (ResolutionLog), or null when nothing changed them.
+public sealed record DiceRow(int Seq, DiceRoll Roll, string? FollowUp = null, RollVerdict FollowUpVerdict = RollVerdict.Neutral, string? Why = null);
 
 // The rolls of one action, shown together: a shot's target die, hit roll and injury roll, in event order. Id is the
 // event number of its first roll. Updated is when a roll last arrived (seconds, the caller's clock).
@@ -21,6 +22,15 @@ public sealed class DiceBox
     public List<DiceRow> Rows { get; } = [];
     public double Updated { get; internal set; }
     internal bool Open { get; set; } = true;
+
+    // Proposal J1b: the first event of the action the box's rolls belong to, and that action's outcome so far, which
+    // keeps the roll apart from what it did ("HIT ✓ 9 → injury DOWN 8 (7+1)"). Null for rolls outside an action.
+    public int? ActionStart { get; internal set; }
+
+    public string? Outcome { get; internal set; }
+
+    // The outcome line is drawn only when it says more than the last roll's own result: an action of several steps.
+    public string? OutcomeShown => Outcome is { } o && o.Contains(" → ", StringComparison.Ordinal) ? o : null;
 }
 
 // What the dice display holds (visible dice rolls, QoL stage F2): the server's rolls as they arrive, grouped per action,
@@ -59,7 +69,20 @@ public sealed class DiceFeed
     {
         ArgumentNullException.ThrowIfNull(line);
         // The match so far, sent again on joining or rejoining, is not shown: it is in the combat log.
-        if (line.Step is not { } step || line.Replayed)
+        if (line.Replayed)
+        {
+            return;
+        }
+        // Proposal J1b: every event of an action carries it further; the box of that action shows its outcome so far.
+        if (line.Action is { } action)
+        {
+            foreach (var shown in _boxes.Where(b => b.ActionStart == action.FirstSeq && b.Outcome != action.Outcome))
+            {
+                shown.Outcome = action.Outcome;
+                Changed = true;
+            }
+        }
+        if (line.Step is not { } step)
         {
             return;
         }
@@ -84,14 +107,14 @@ public sealed class DiceFeed
         }
         if (_current is not { Open: true } || !_boxes.Contains(_current) || _current.Rows.Count >= MaxRows)
         {
-            _current = new DiceBox(line.Seq, roll.Model, now);
+            _current = new DiceBox(line.Seq, roll.Model, now) { ActionStart = line.Action?.FirstSeq, Outcome = line.Action?.Outcome };
             _boxes.Add(_current);
             while (_boxes.Count > MaxBoxes)
             {
                 _boxes.RemoveAt(0);
             }
         }
-        var row = new DiceRow(line.Seq, roll);
+        var row = new DiceRow(line.Seq, roll, Why: line.Why);
         _current.Rows.Add(row);
         _current.Updated = now;
         _shown.Add(row);

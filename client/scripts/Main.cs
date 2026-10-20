@@ -73,7 +73,10 @@ public partial class Main : Control
     private Label _feedback = null!;
     private VBoxContainer _log = null!;
     // One combat log row: a marker for the newest, the compact line (bold, coloured verb) and the event it shows.
-    private sealed record LogRow(int Seq, Label Marker, RichTextLabel Line, LogLine Source);
+    private sealed record LogRow(int Seq, Control Box, Label Marker, RichTextLabel Line, LogLine Source, Button? Toggle = null, Label? Details = null);
+
+    // Proposal J1b: the actions whose combat-log row is expanded (by the first event of the action).
+    private readonly HashSet<int> _logOpen = [];
 
     private readonly List<LogRow> _logRows = [];
     private ScrollContainer _logScroll = null!;
@@ -1532,7 +1535,7 @@ public partial class Main : Control
         }
         while (_logRows.Count > 0 && _logRows[0].Seq < first)
         {
-            var gone = _logRows[0].Line.GetParent();
+            var gone = _logRows[0].Box;
             _log.RemoveChild(gone);
             gone.QueueFree();
             _logRows.RemoveAt(0);
@@ -1554,7 +1557,22 @@ public partial class Main : Control
                 MouseFilter = MouseFilterEnum.Pass,
             };
             row.AddChild(marker);
-            row.AddChild(text);
+            // Proposal J1b: the first row of an action that rolled dice has ▸, which opens its steps and outcome under it.
+            Button? toggle = null;
+            Label? details = null;
+            var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Pass };
+            column.AddThemeConstantOverride("separation", 0);
+            column.AddChild(text);
+            if (line.Action is { } action && action.FirstSeq == line.Seq)
+            {
+                var start = line.Seq;
+                toggle = new Button { Text = "▸", Flat = true, FocusMode = FocusModeEnum.None, TooltipText = "Show this action's steps and outcome", SizeFlagsVertical = SizeFlags.ShrinkBegin };
+                toggle.Pressed += () => ToggleLogAction(start);
+                details = new Label { Visible = false, AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
+                column.AddChild(details);
+                row.AddChild(toggle);
+            }
+            row.AddChild(column);
             // QoL I1: a click on a row points out the models its event names (nothing is selected or sent).
             if (line.Models is { Count: > 0 })
             {
@@ -1570,7 +1588,7 @@ public partial class Main : Control
                 };
             }
             _log.AddChild(row);
-            _logRows.Add(new LogRow(line.Seq, marker, text, line));
+            _logRows.Add(new LogRow(line.Seq, row, marker, text, line, toggle, details));
         }
         PaintLog();
     }
@@ -1607,8 +1625,53 @@ public partial class Main : Control
 
     public void CloseKeySheet() => _keySheet.Hide();
 
-    public Rect2? LogRowRect(int seq) => _logRows.FirstOrDefault(r => r.Seq == seq) is { } row && row.Line.GetParent() is Control box && box.IsVisibleInTree()
+    public Rect2? LogRowRect(int seq) => _logRows.FirstOrDefault(r => r.Seq == seq) is { Box: var box } && box.IsVisibleInTree()
         ? box.GetGlobalRect() : null;
+
+    public int LogToggles { get; private set; }
+
+    public bool IsLogToggle(int start, Control? control) => control is not null && _logRows.Any(r => r.Seq == start && r.Toggle == control);
+
+    private void ToggleLogAction(int start)
+    {
+        LogToggles++;
+        if (!_logOpen.Remove(start))
+        {
+            _logOpen.Add(start);
+        }
+        PaintLog();
+    }
+
+    // The action as its newest event in the log has it (later events carry it further).
+    private ActionResolution? LatestAction(int start) => _logRows.LastOrDefault(r => r.Source.Action?.FirstSeq == start)?.Source.Action;
+
+    // An action's steps and outcome as the expanded row lists them.
+    public static string ActionDetails(ActionResolution action) =>
+        string.Join("\n", action.Steps.Select(s => $"  · {s}").Append($"  = {action.Outcome}"));
+
+    // For the UI check: the rows that can be expanded, the expanded text of one, and its toggle on screen.
+    public IReadOnlyList<int> LogActionRows => [.. _logRows.Where(r => r.Toggle is not null).Select(r => r.Seq)];
+
+    public string? LogActionDetails(int start) => _logRows.FirstOrDefault(r => r.Seq == start) is { Details: { Visible: true } d } ? d.Text : null;
+
+    public ActionResolution? LogAction(int start) => LatestAction(start);
+
+    public LogLine? LogLineAt(int seq) => _logRows.FirstOrDefault(r => r.Seq == seq)?.Source;
+
+    public void ShowLogRow(int seq)
+    {
+        if (_logRows.FirstOrDefault(r => r.Seq == seq) is { } row)
+        {
+            // An action's row shows its ▸/▾ (the top line), even when its opened steps are taller than the log.
+            _logScroll.EnsureControlVisible((Control?)row.Toggle ?? row.Box);
+        }
+    }
+
+    public string LogToggleText(int start) => _logRows.FirstOrDefault(r => r.Seq == start) is { Toggle: { } t } ? t.Text : "";
+
+    // Only while the toggle is inside the log's visible part (a row scrolled out of view is drawn clipped).
+    public Rect2? LogToggleRect(int start) => _logRows.FirstOrDefault(r => r.Seq == start) is { Toggle: { } t } && t.IsVisibleInTree()
+        && _logScroll.GetGlobalRect().HasPoint(t.GetGlobalRect().GetCenter()) ? t.GetGlobalRect() : null;
 
     public IReadOnlyList<(int Seq, IReadOnlyList<Rules.Core.State.ModelId> Models)> LogRowModels =>
         [.. _logRows.Select(r => (r.Seq, r.Source.Models ?? (IReadOnlyList<Rules.Core.State.ModelId>)[]))];
@@ -1624,7 +1687,15 @@ public partial class Main : Control
         var lastTurn = _logRows.FindLastIndex(r => r.Source.Kind == EventKind.Turn && r.Source.Text.Contains("--- Turn ", StringComparison.Ordinal));
         for (var i = 0; i < _logRows.Count; i++)
         {
-            var (seq, marker, line, source) = _logRows[i];
+            var (seq, _, marker, line, source, toggle, details) = _logRows[i];
+            if (toggle is not null && details is not null)
+            {
+                var open = _logOpen.Contains(seq);
+                toggle.Text = open ? "▾" : "▸";
+                details.Visible = open && LatestAction(seq) is not null;
+                details.Text = open && LatestAction(seq) is { } action ? ActionDetails(action) : "";
+                details.AddThemeColorOverride("font_color", _highContrast ? Colors.White : new Color(0.8f, 0.8f, 0.75f));
+            }
             var newest = i == _logRows.Count - 1;
             marker.Text = newest ? "▶" : seq == _logPicked ? "•" : "";
             var colour = (_highContrast ? Colors.Yellow : KindColour(source.Kind)).ToHtml(false);

@@ -131,4 +131,67 @@ public class ActionResolutionTests
         Assert.Equal($"-2 DICE · {RollWhy.NotAvailable}", why.Text);
         Assert.DoesNotContain("Long Range", why.Text, StringComparison.Ordinal);
     }
+    // A decision to spend no Blood Markers is a step in words, never "0 DICE" or "0 Blood Markers".
+    [Fact]
+    public void SpendingNoMarkersIsSaidInWords()
+    {
+        var none = 0;
+        foreach (var (log, setup) in Matches.Value)
+        {
+            var resolutions = new ResolutionLog();
+            for (var seq = 0; seq < log.Count; seq++)
+            {
+                resolutions.Add(seq, log[seq], setup);
+                none += log[seq] is MarkersSpent { Count: 0 } ? 1 : 0;
+            }
+            foreach (var action in resolutions.Actions)
+            {
+                Assert.DoesNotContain(action.Steps, s => s.Contains(" 0 Blood Marker", StringComparison.Ordinal) || s.Contains(" 0 DICE", StringComparison.Ordinal));
+            }
+        }
+        Assert.True(none > 0, "no match spent zero markers");
+    }
+}
+
+// Proposal J1b: the dice display carries each roll's "why" and its action's outcome exactly as ResolutionLog has them.
+public class DiceFeedResolutionTests
+{
+    [Fact]
+    public void BoxesCarryTheWhyOfEachRollAndTheOutcomeOfTheirAction()
+    {
+        var (whys, outcomes) = (0, 0);
+        foreach (var path in new[] { Content.DefaultPath(), Content.MeleePath() })
+        {
+            var warbands = Content.Load(path);
+            for (var seed = 1; seed <= 6; seed++)
+            {
+                var log = Runner.Run(seed, warbands).Log;
+                var setup = ((MatchCreated)log[0]).Setup;
+                var resolutions = new ResolutionLog();
+                var feed = new DiceFeed { Seconds = 1e9 };
+                for (var seq = 0; seq < log.Count; seq++)
+                {
+                    resolutions.Add(seq, log[seq], setup);
+                    var line = new LogLine(seq, "", null, Step: DiceRolls.Step(log[seq]))
+                    {
+                        Why = resolutions.WhyOf(seq)?.Text is { Length: > 0 } why ? why : null,
+                        Action = resolutions.ActionAt(seq),
+                    };
+                    feed.Add(line, 0);
+                    foreach (var box in feed.Boxes.Where(b => b.ActionStart is not null))
+                    {
+                        Assert.Equal(resolutions.Actions.First(a => a.FirstSeq == box.ActionStart).Outcome, box.Outcome);
+                        outcomes += box.OutcomeShown is null ? 0 : 1;
+                    }
+                }
+                foreach (var row in feed.Shown)
+                {
+                    Assert.Equal(resolutions.WhyOf(row.Seq)?.Text is { Length: > 0 } why ? why : null, row.Why);
+                    whys += row.Why is null ? 0 : 1;
+                }
+            }
+        }
+        Assert.True(whys > 20 && outcomes > 20, $"{whys} rows with a why, {outcomes} outcome lines");
+    }
+
 }
