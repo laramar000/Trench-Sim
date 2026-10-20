@@ -399,7 +399,11 @@ public static class Previews
         {
             return new(ReasonCode.TargetOutOfRange, "The target of a charge must be within 12\".", "1.0.2 p. 36");
         }
-        var others = Obstacles(state, charger);
+        if (from.Elevation != to.Elevation)
+        {
+            return new(ReasonCode.ChargeRouteBlocked, Charging.CrossLevelText, Charging.RefCrossLevel);
+        }
+        var others = Obstacles(state, charger).Where(o => o.Body.Elevation == from.Elevation).ToList();
         var route = Charging.CheckRoute(field, from, to, others);
         if (!route.IsLegal)
         {

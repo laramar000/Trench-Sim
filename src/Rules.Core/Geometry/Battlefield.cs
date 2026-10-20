@@ -189,6 +189,20 @@ public sealed record Battlefield
                 }
             }
         }
+        // Towers (towers proposal, stage T2): one height for all, so two models at different elevations are always
+        // more than 1" apart (U69, U70); and no other terrain on a tower's footprint, so its platform and sides are plain.
+        var towers = Terrain.Where(t => t.IsTower).ToList();
+        if (towers.Select(t => t.Climb!.Height).Distinct().Count() > 1)
+        {
+            throw new ArgumentException("All towers on a battlefield must have the same height.");
+        }
+        foreach (var tower in towers)
+        {
+            if (Terrain.FirstOrDefault(t => t.Id != tower.Id && t.Footprint.OverlapsInside(tower.Footprint)) is { } other)
+            {
+                throw new ArgumentException($"Terrain '{other.Id}' overlaps tower '{tower.Id}'.");
+            }
+        }
     }
 
     public Length Width { get; }

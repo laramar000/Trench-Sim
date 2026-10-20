@@ -41,6 +41,11 @@ public static class Charging
 
     private static readonly Length Unlimited = Length.FromInches(1000);
 
+    // Towers (stage T2): a charge up or down a ladder is not built in this version (U72), though the book would allow
+    // one. A charge is declared only against a model at the charger's own elevation, and plans around the models there.
+    public const string CrossLevelText = "A charge up or down a tower's ladder is not supported in this version: charge a model at your own height.";
+    public const string RefCrossLevel = "1.0.2 pp. 36, 39-40";
+
     // Is there a route to the target at all, however long? Declaring a charge needs only a target within 12" that is
     // visible (p. 36); how far the Charge Bonus carries the model along the shortest route is for the die to decide, and
     // a route far longer than 12" is a charge that falls short, not one that cannot be declared. A refusal here is a
@@ -175,6 +180,7 @@ public static class Charging
         private readonly ModelBody _target;
         private readonly IReadOnlyList<Obstacle> _others;
         private readonly List<TerrainBlock> _blocking;
+        private readonly TerrainBlock? _platform;
         private readonly List<Footprint> _difficult;
         private readonly List<ModelBody> _otherEnemies;
         private readonly List<ModelBody> _friends;
@@ -191,7 +197,10 @@ public static class Charging
             _mover = mover;
             _target = target;
             _others = others;
-            _blocking = field.Terrain.Where(t => !t.IsWalkable).ToList();
+            // Towers (stage T2): from the ground a tower is solid; a charge on a tower's platform stays wholly on it.
+            // Charges between heights are refused before planning (Board.AssessCharge, U72). Without towers, unchanged.
+            _platform = Towers.TowerAt(field, mover.Centre);
+            _blocking = field.Terrain.Where(t => !t.IsWalkable || (_platform is null && t.IsTower)).ToList();
             _difficult = field.Terrain.Where(t => t.IsDifficult).Select(t => t.Footprint).ToList();
             var sorted = others.Where(o => o.Body.Id != mover.Id).OrderBy(o => o.Body.Id, StringComparer.Ordinal).ToList();
             _enemyObstacles = sorted.Where(o => o.Relation == Relation.Enemy).ToList();
@@ -252,6 +261,11 @@ public static class Charging
         // Terrain that cannot be crossed (and, when asked, the bases of friendly models) along one leg.
         private bool LegFree(Point2 a, Point2 b, bool friendsBlock)
         {
+            // On a platform both ends wholly on it keep the whole leg on it (a rectangle is convex).
+            if (_platform is not null && (!_platform.Footprint.CircleInside(a, _mover.Radius) || !_platform.Footprint.CircleInside(b, _mover.Radius)))
+            {
+                return false;
+            }
             foreach (var terrain in _blocking)
             {
                 if (terrain.Footprint.SweptCircleOverlaps(a, b, _mover.Radius))
@@ -531,7 +545,8 @@ public static class Charging
             {
                 return false;
             }
-            if (_blocking.Any(t => t.Footprint.CircleOverlaps(p, _mover.Radius)))
+            if (_blocking.Any(t => t.Footprint.CircleOverlaps(p, _mover.Radius))
+                || _platform is not null && !_platform.Footprint.CircleInside(p, _mover.Radius))
             {
                 return false;
             }

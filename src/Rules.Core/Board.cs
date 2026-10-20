@@ -196,9 +196,17 @@ internal static class Board
         {
             return new(ReasonCode.TargetOutOfRange, "The target of a charge must be within 12\".", "1.0.2 p. 36");
         }
-        var route = Charging.CheckRoute(ScenarioOf(state)!.Battlefield, from, to, ObstaclesFor(state, charger));
+        if (from.Elevation != to.Elevation)
+        {
+            return new(ReasonCode.ChargeRouteBlocked, Charging.CrossLevelText, Charging.RefCrossLevel);
+        }
+        var route = Charging.CheckRoute(ScenarioOf(state)!.Battlefield, from, to, ChargeObstaclesFor(state, charger, from));
         return route.IsLegal ? null : new(ReasonCode.ChargeRouteBlocked, route.Text, route.RuleRef);
     }
+
+    // The models a charge at this height can meet: those at the charger's elevation (all of them without towers).
+    private static List<Obstacle> ChargeObstaclesFor(MatchState state, ModelState charger, ModelBody from) =>
+        ObstaclesFor(state, charger).Where(o => o.Body.Elevation == from.Elevation).ToList();
 
     public static readonly Length ChargeRange = Length.FromInches(12);
 
@@ -211,7 +219,7 @@ internal static class Board
     }
 
     public static ChargePlan PlanCharge(MatchState state, ModelState charger, ModelState target, int bonus) =>
-        Charging.Plan(ScenarioOf(state)!.Battlefield, BodyOf(state, charger)!, BodyOf(state, target)!, ChargeReach(state, charger, bonus), ObstaclesFor(state, charger));
+        Charging.Plan(ScenarioOf(state)!.Battlefield, BodyOf(state, charger)!, BodyOf(state, target)!, ChargeReach(state, charger, bonus), ChargeObstaclesFor(state, charger, BodyOf(state, charger)!));
 
     // ---- Retreat (pp. 35, 37) ----
 
@@ -307,6 +315,11 @@ internal static class Board
         foreach (var model in OnTable(state))
         {
             var body = BodyOf(state, model)!;
+            // A model on a tower is 2" above the ground piece, never on it or within 1" of it (U74).
+            if (body.Elevation != Length.Zero)
+            {
+                continue;
+            }
             var isOn = piece.Footprint.MoreThanHalfInside(body.Centre, body.Radius) == AreaDecision.MoreThanHalf;
             if (isOn || piece.Footprint.CircleWithin(body.Centre, body.Radius, EngagementRange))
             {
