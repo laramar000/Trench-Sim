@@ -428,6 +428,9 @@ public class InteractionTests
         var targets = interaction.Targets();
         Assert.True(targets.Count >= 3);
         Assert.All(targets, t => Assert.NotEqual(seat, state.FindModel(t)!.Seat));
+        // Stage N1: no target is chosen for the player; N goes to the nearest first.
+        Assert.Null(interaction.Target);
+        interaction.NextChoice();
         Assert.Equal(targets[0], interaction.Target);
         interaction.NextChoice();
         Assert.Equal(targets[1], interaction.Target);

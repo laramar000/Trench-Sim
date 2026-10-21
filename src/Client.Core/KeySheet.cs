@@ -50,8 +50,7 @@ public static class KeySheet
         ("Targets (combat, shoot, fight)", [
             E("next and previous target", "N", "P"),
             E("in combat: shoot, charge, fight", "1", "2", "3"),
-            E("click the target again to send", "Click"),
-            E("send a charge", "Confirm charge"),
+            E("send the attack shown (beside the target)", "Confirm"),
         ]),
         ("Confirm and cancel", [
             E("send", "Space", "Confirm"),

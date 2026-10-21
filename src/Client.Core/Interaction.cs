@@ -37,11 +37,10 @@ public enum CombatPick
     // Nothing (greyed out, or not choosing in Combat).
     None,
 
-    // Shoot or Fight: picking the target and the action is the confirmation; send it now.
-    Send,
-
-    // Charge: its preview is shown with a Confirm charge button beside the target; one click on it sends.
-    ConfirmCharge,
+    // Battlefield UI 2, stage N1: Shoot, Charge or Fight the preview accepts: its preview is shown with a Confirm button
+    // beside the target (Confirm shoot, Confirm charge, Confirm fight). Nothing is sent: choosing an action is not
+    // confirming it; one click on that button, or Space, sends.
+    Confirm,
 
     // Chosen by key with a preview the rules refuse: the action is shown, nothing is sent (Space twice still sends it).
     Shown,
@@ -449,7 +448,7 @@ public sealed class Interaction
             {
                 new(BarKind.Confirm, ConfirmLabel(Mode), Preview is { Legal: false }
                     ? "The preview says the server would refuse this (see the battlefield). Click twice to send it anyway; the server decides."
-                    : $"Send it. The server decides. ({(IsTarget ? "Or click the target again" : "Or just click the destination")}; key Space.)",
+                    : $"Send it. The server decides. ({(IsTarget ? "Or the Confirm button beside the target" : "Or just click the destination")}; key Space.)",
                     Enabled: Preview is not null, Mode: Mode),
             };
             if (IsPath && _waypoints.Count > 0)
@@ -678,10 +677,10 @@ public sealed class Interaction
         InteractionMode.Move => "Move up to the model's Movement: click a spot in the shaded area to move there; Shift+click adds a waypoint (key M).",
         InteractionMode.Dash => "Move again up to the model's Movement, with a Risky roll that decides whether it works: click a spot in the shaded area (key D).",
         InteractionMode.Retreat => "Leave melee: click a spot in the shaded area, more than 1\" from every enemy; enemies within 1\" may attack first (key R).",
-        InteractionMode.Shoot => "Shoot an enemy in range and in sight: click a target, then click it again (key S).",
+        InteractionMode.Shoot => "Shoot an enemy in range and in sight: click a target, then Confirm shoot beside it (key S).",
         InteractionMode.Charge => "Charge an enemy within 12\" into melee; a D6 adds reach: in Combat (C), choose Charge on a target, then Confirm charge beside it (key 2).",
-        InteractionMode.Fight => "Attack an enemy within 1\": click a target, then click it again (key X).",
-        InteractionMode.Combat => "Shoot, Charge or Fight: click an enemy, then choose the attack beside it (1, 2, 3); what the rules refuse is greyed out with the reason (key C).",
+        InteractionMode.Fight => "Attack an enemy within 1\": click a target, then Confirm fight beside it (key X).",
+        InteractionMode.Combat => "Shoot, Charge or Fight: click an enemy, choose the attack beside it (1, 2, 3), then Confirm beside the enemy (or Space); what the rules refuse is greyed out with the reason (key C).",
         _ => "",
     };
 
@@ -733,7 +732,8 @@ public sealed class Interaction
         {
             Actor = _state.ActiveModel;
             Cursor = TablePoint.Of(_state.FindModel(Actor!.Value)!.Position!.Value);
-            Target = Targets().FirstOrDefault();
+            // Stage N1: no target is chosen for the player; a click on an enemy (or N and P) chooses one.
+            Target = null;
         }
         Changed();
         return true;
@@ -829,8 +829,8 @@ public sealed class Interaction
 
     // Stage K6: picks an entry of the Combat menu (a click, or keys 1, 2 and 3). The action becomes the one being chosen,
     // on the same target. A greyed-out entry picked by a click does nothing; by a key it shows that action's preview (so
-    // the keyboard keeps "confirm twice to send anyway"). The caller sends at once on Send, and shows the Confirm charge
-    // button on ConfirmCharge.
+    // the keyboard keeps "confirm twice to send anyway"). Stage N1: nothing is ever sent from here; the caller shows the
+    // Confirm button beside the target on Confirm.
     public CombatPick ChooseCombat(InteractionMode mode, bool byKey = false)
     {
         if (Pending is not null || Mode != InteractionMode.Combat || Target is not { } target || !IsAttack(mode)
@@ -847,7 +847,7 @@ public sealed class Interaction
         _armed = false;
         Notice = null;
         Changed();
-        return !entry.Enabled ? CombatPick.Shown : mode == InteractionMode.Charge ? CombatPick.ConfirmCharge : CombatPick.Send;
+        return entry.Enabled ? CombatPick.Confirm : CombatPick.Shown;
     }
 
     // Stage K4: the models of the seat shown still to place, in order (for the bar's chips and the UI check).
@@ -1202,9 +1202,9 @@ public sealed class Interaction
         InteractionMode.Place => "Click a spot in your zone to place the model. Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), N and P choose the model, Space sends.",
         _ when IsPath => "Click a spot in the shaded area to go there (Shift+click adds a waypoint for a path around something). Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), Enter fixes a point, Backspace removes one, Space sends."
             + (CanClimbSides ? (ClimbSides ? " K: back to ladders (now climbing a tower's side, a Risky roll)." : " K: climb a tower's side instead of a ladder (a Risky roll).") : ""),
-        InteractionMode.Combat => "Click an enemy (ringed when an attack on it is open), then choose Shoot, Charge or Fight beside it; what the rules refuse is greyed out with the reason. Right-click or Esc cancels. Keys: N and P choose the enemy, 1 Shoot, 2 Charge, 3 Fight.",
-        InteractionMode.Charge => "Click Confirm charge beside the target (or click the target again). Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
-        _ => "Click a target (valid ones are marked), then click it again. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
+        InteractionMode.Combat => "Click an enemy (ringed when an attack on it is open), then choose Shoot, Charge or Fight beside it and Confirm (or Space) to send it; what the rules refuse is greyed out with the reason. Right-click or Esc cancels. Keys: N and P choose the enemy, 1 Shoot, 2 Charge, 3 Fight.",
+        InteractionMode.Charge => "Click Confirm charge beside the target. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
+        _ => "Click a target (valid ones are marked), then Confirm beside it. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
     };
 
     private Preview? Compute()

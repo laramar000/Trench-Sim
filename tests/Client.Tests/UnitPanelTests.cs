@@ -156,7 +156,13 @@ public partial class UnitPanelTests
             {
                 var interaction = new Interaction();
                 interaction.Update(state, actor.Seat);
-                if (!interaction.Start(mode) || interaction.Preview is not { Target: { } targetId } preview)
+                if (!interaction.Start(mode))
+                {
+                    continue;
+                }
+                // Stage N1: starting chooses no target; N chooses the nearest.
+                interaction.NextChoice();
+                if (interaction.Preview is not { Target: { } targetId } preview)
                 {
                     continue;
                 }

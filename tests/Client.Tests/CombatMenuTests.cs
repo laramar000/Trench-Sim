@@ -88,7 +88,7 @@ public class CombatMenuTests
                     }
                     else
                     {
-                        Assert.Equal(mode == InteractionMode.Charge ? CombatPick.ConfirmCharge : CombatPick.Send, byClick);
+                        Assert.Equal(CombatPick.Confirm, byClick);
                     }
                     picked.Add(entry.Enabled ? byClick : CombatPick.Shown);
                     Assert.Equal(mode, interaction.Mode);
@@ -100,8 +100,60 @@ public class CombatMenuTests
                 }
             }
         }
-        Assert.Contains(CombatPick.Send, picked);
+        Assert.Contains(CombatPick.Confirm, picked);
         Assert.Contains(CombatPick.Shown, picked);
+    }
+
+    // Battlefield UI 2, stage N1: choosing an action is not confirming it. Starting any attack (or Combat) chooses no
+    // target and sends nothing; a pick from the menu sends nothing; only Confirm (the button, Space or Enter) sends,
+    // exactly once, and what it sends is the command the preview showed.
+    [Fact]
+    public async Task StartingOrPickingAnAttackNeverSendsOnlyConfirmDoesOnce()
+    {
+        var (starts, confirmed) = (0, 0);
+        foreach (var (state, seat) in Activations().Take(300))
+        {
+            var sent = new List<Rules.Core.Commands.Command>();
+            var interaction = new Interaction { Send = (command, _) => { sent.Add(command); return Task.FromResult(new Feedback(FeedbackKind.Accepted, "ok")); } };
+            interaction.Update(state, seat);
+            foreach (var mode in new[] { InteractionMode.Combat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight })
+            {
+                if (!interaction.Start(mode))
+                {
+                    continue;
+                }
+                starts++;
+                Assert.Null(interaction.Target);
+                Assert.Null(interaction.Pending);
+                Assert.Null(interaction.Preview);
+                // Confirm with no target chosen sends nothing.
+                Assert.Null(await interaction.ConfirmAsync());
+                Assert.Empty(sent);
+            }
+            if (!interaction.Start(InteractionMode.Combat))
+            {
+                continue;
+            }
+            foreach (var target in interaction.Targets())
+            {
+                interaction.Start(InteractionMode.Combat);
+                interaction.SetTarget(target);
+                if (interaction.CombatEntries().FirstOrDefault(e => e.Enabled) is not { } entry)
+                {
+                    continue;
+                }
+                Assert.Equal(CombatPick.Confirm, interaction.ChooseCombat(entry.Mode));
+                Assert.Empty(sent);
+                Assert.Null(interaction.Pending);
+                var shown = interaction.Preview!.Command;
+                Assert.Equal(entry.Preview.Command, shown);
+                Assert.NotNull(await interaction.ConfirmAsync());
+                Assert.Equal(shown, Assert.Single(sent));
+                confirmed++;
+                break;
+            }
+        }
+        Assert.True(starts > 100 && confirmed > 10, $"{starts} starts, {confirmed} confirmed");
     }
 
     [Fact]
@@ -157,7 +209,7 @@ public class CombatMenuTests
                 interaction.Update(state, seat);
                 interaction.Start(InteractionMode.Combat);
                 interaction.SetTarget(target);
-                Assert.Equal(CombatPick.ConfirmCharge, interaction.ChooseCombat(InteractionMode.Charge));
+                Assert.Equal(CombatPick.Confirm, interaction.ChooseCombat(InteractionMode.Charge));
                 await interaction.ConfirmAsync();
                 interaction.Update(after, seat);
                 var mayFight = after.Pending is null && after.ActiveModel == state.ActiveModel

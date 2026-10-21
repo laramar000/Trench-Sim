@@ -166,10 +166,10 @@ public partial class BoardView : SubViewportContainer
         _combatRows.AddThemeConstantOverride("separation", 3);
         _combatMenu.AddChild(_combatRows);
         AddChild(_combatMenu);
-        _chargeBox.AddThemeStyleboxOverride("panel", menuLook);
-        _chargeButton.Pressed += Confirm;
-        _chargeBox.AddChild(_chargeButton);
-        AddChild(_chargeBox);
+        _confirmBox.AddThemeStyleboxOverride("panel", menuLook);
+        _confirmButton.Pressed += Confirm;
+        _confirmBox.AddChild(_confirmButton);
+        AddChild(_confirmBox);
         Dice.ScreenOfModel = id => BodyAt(id) is { } body && ScreenOf(body.X, body.Z, body.Y) is { } p && new Rect2(Vector2.Zero, Size).HasPoint(p) ? p : null;
         Dice.Avoid = () => ScreenLabelBoxes().Select(b => b.Box).Concat(_bar.Visible ? [new Rect2(_bar.Position, _bar.Size)] : [])
             .Concat(_strip is { Visible: true } strip ? [new Rect2(strip.Position, strip.Size)] : []);
@@ -893,7 +893,8 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
-    // A left click: picks the target in Shoot, Charge and Fight (a second click on it sends, as Space does). When
+    // A left click: picks the target in Shoot, Charge and Fight (stage N1: a second click on it sends nothing; the
+    // Confirm button beside it, or Space, does). When
     // placing or moving, a click on a spot is the destination: sent at once when the preview says the server would
     // accept it, otherwise not sent and a note above the model says why. Shift+click adds a waypoint to a path.
     // Otherwise the click selects the model under it.
@@ -919,11 +920,6 @@ public partial class BoardView : SubViewportContainer
         {
             if (ModelAt(local) is { } model)
             {
-                if (Interaction.Target == model.Id)
-                {
-                    Confirm();
-                    return;
-                }
                 Interaction.SetTarget(model.Id);
             }
         }
@@ -1126,24 +1122,21 @@ public partial class BoardView : SubViewportContainer
         Sync();
     }
 
-    // Stage K6: an entry of the Combat menu (a click on it, or 1, 2 and 3): Shoot and Fight that the preview accepts are
-    // sent at once; Charge shows its preview and the Confirm charge button beside the target.
+    // Stage K6: an entry of the Combat menu (a click on it, or 1, 2 and 3). Stage N1: it never sends; it shows that
+    // action's preview and, when the preview accepts it, Confirm shoot, Confirm charge or Confirm fight beside the target.
     public void PickCombat(InteractionMode mode, bool byKey = false)
     {
-        var pick = Interaction.ChooseCombat(mode, byKey);
+        Interaction.ChooseCombat(mode, byKey);
         Sync();
-        if (pick == CombatPick.Send)
-        {
-            Confirm();
-        }
         UpdateCombat();
     }
 
-    // Stage K6: the Combat menu beside the chosen enemy, and the Confirm charge button beside a charge's target.
+    // Stage K6: the Combat menu beside the chosen enemy. Stage N1: the Confirm button beside the target of a Shoot,
+    // Charge or Fight the preview accepts (it was for Charge only).
     private readonly PanelContainer _combatMenu = new() { Name = "CombatMenu", Visible = false, MouseFilter = MouseFilterEnum.Stop };
     private readonly VBoxContainer _combatRows = new();
-    private readonly PanelContainer _chargeBox = new() { Name = "ConfirmChargeBox", Visible = false, MouseFilter = MouseFilterEnum.Stop };
-    private readonly Button _chargeButton = new() { Name = "ConfirmCharge", Text = "Confirm charge", FocusMode = FocusModeEnum.None, MouseDefaultCursorShape = CursorShape.PointingHand };
+    private readonly PanelContainer _confirmBox = new() { Name = "ConfirmAttackBox", Visible = false, MouseFilter = MouseFilterEnum.Stop };
+    private readonly Button _confirmButton = new() { Name = "ConfirmAttack", Text = "Confirm charge", FocusMode = FocusModeEnum.None, MouseDefaultCursorShape = CursorShape.PointingHand };
     private string _combatShown = "";
 
     // For the UI check: the menu's entries as shown (label, enabled, the reason under a greyed one), and where to click.
@@ -1156,7 +1149,12 @@ public partial class BoardView : SubViewportContainer
 
     public Rect2? CombatMenuRect => _combatMenu.Visible ? _combatMenu.GetGlobalRect() : null;
 
-    public Vector2? ConfirmChargeAt => _chargeBox.Visible ? _chargeButton.GetGlobalRect().GetCenter() : null;
+    public Vector2? ConfirmChargeAt => Interaction.Mode == InteractionMode.Charge ? ConfirmAttackAt : null;
+
+    // Stage N1: where the Confirm button beside the target is, and what it says (for the UI check); null when hidden.
+    public Vector2? ConfirmAttackAt => _confirmBox.Visible ? _confirmButton.GetGlobalRect().GetCenter() : null;
+
+    public string? ConfirmAttackText => _confirmBox.Visible ? _confirmButton.Text : null;
 
     private void UpdateCombat()
     {
@@ -1206,11 +1204,18 @@ public partial class BoardView : SubViewportContainer
         {
             Beside(_combatMenu, target!);
         }
-        _chargeBox.Visible = Interaction.Mode == InteractionMode.Charge && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
-        if (_chargeBox.Visible)
+        _confirmBox.Visible = Interaction.IsAttack(Interaction.Mode) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
+        if (_confirmBox.Visible)
         {
-            _chargeButton.AddThemeFontSizeOverride("font_size", (int)(17 * _textScale));
-            Beside(_chargeBox, target!);
+            _confirmButton.Text = Interaction.Mode switch
+            {
+                InteractionMode.Shoot => "Confirm shoot",
+                InteractionMode.Fight => "Confirm fight",
+                _ => "Confirm charge",
+            };
+            _confirmBox.ResetSize();
+            _confirmButton.AddThemeFontSizeOverride("font_size", (int)(17 * _textScale));
+            Beside(_confirmBox, target!);
         }
     }
 
