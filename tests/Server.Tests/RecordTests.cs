@@ -161,6 +161,7 @@ public class RecordTests
     [InlineData("melee-3v3")]
     [InlineData("ranged-towers")]
     [InlineData("melee-towers")]
+    [InlineData("ranged-2v2-towers")]
     public void SmallTestRosterRecordsVerify(string scenario)
     {
         var body = TestRecords.Completed(scenario, 3);

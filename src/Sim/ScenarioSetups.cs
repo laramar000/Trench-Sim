@@ -24,6 +24,11 @@ public static class ScenarioSetups
                 all[$"{name}-{size}v{size}"] = Setup(path, size);
             }
             all[name + TowersSuffix] = Setup(path, towers: true);
+            // The small test rosters on the tower layout too ("ranged-1v1-towers"): the Test Center plays on towers by default.
+            foreach (var size in TestSizes)
+            {
+                all[$"{name}-{size}v{size}{TowersSuffix}"] = Setup(path, size, towers: true);
+            }
         }
         return all;
     }

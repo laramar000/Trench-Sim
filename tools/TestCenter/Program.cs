@@ -86,7 +86,8 @@ public static class Program
                     last = await AutomatedTests.Run(setup);
                     break;
                 case "2":
-                    Console.Write("  Scenario: 1 = ranged (shooting), 2 = melee (close combat). Press Enter for ranged: ");
+                    // Matches are played on the layout with the towers (Jason, 2026-10-21: towers by default).
+                    Console.Write("  Scenario (on the map with towers): 1 = ranged (shooting), 2 = melee (close combat). Press Enter for ranged: ");
                     var scenario = (Console.ReadLine() ?? "").Trim() == "2" ? "melee" : "ranged";
                     Console.Write("  Side size: 1, 2 or 3 models a side for a quick test, or Enter for the normal roster: ");
                     var size = (Console.ReadLine() ?? "").Trim();
@@ -94,6 +95,7 @@ public static class Program
                     {
                         scenario = $"{scenario}-{size}v{size}";
                     }
+                    scenario += "-towers";
                     last = await TestMatchRun.Run(setup, new TestMatchRun.Options(scenario, opengl, [], []));
                     break;
                 case "3":
@@ -154,12 +156,13 @@ public static class Program
     }
 
     private static TestMatchRun.Options MatchOptions(string[] args, List<string> words, bool opengl) => new(
-        words.ElementAtOrDefault(1) is { } scenario && Scenarios.Contains(scenario) ? scenario : "ranged", opengl,
+        words.ElementAtOrDefault(1) is { } scenario && Scenarios.Contains(scenario) ? scenario : "ranged-towers", opengl,
         Value(args, "--client-args-a")?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [],
         Value(args, "--client-args-b")?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? []);
 
     // The scenarios the server offers (Sim.ScenarioSetups): the normal rosters and the small test sizes.
-    private static readonly string[] Scenarios = ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3", "ranged-towers", "melee-towers"];
+    private static readonly string[] Scenarios = ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3", "ranged-towers", "melee-towers",
+        "ranged-1v1-towers", "ranged-2v2-towers", "ranged-3v3-towers", "melee-1v1-towers", "melee-2v2-towers", "melee-3v3-towers"];
 
     private static bool Takes(string option) => option is "--godot" or "--client-args-a" or "--client-args-b";
 
@@ -171,7 +174,7 @@ public static class Program
 
     private static int Usage()
     {
-        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests | match [ranged|melee|ranged-1v1 ... melee-3v3, ranged-towers, melee-towers] | editor | check [<record>] | cleanup]");
+        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests | match [ranged|melee|ranged-1v1 ... melee-3v3, ranged-towers, melee-towers, ranged-1v1-towers ... melee-3v3-towers] | editor | check [<record>] | cleanup]");
         Console.WriteLine("         [--godot <path>] [--no-questions] [--opengl]");
         return 3;
     }

@@ -207,6 +207,8 @@ public class BattlefieldUxTests
     [InlineData("melee-3v3", 3)]
     [InlineData("ranged-towers", 4)]
     [InlineData("melee-towers", 4)]
+    [InlineData("ranged-1v1-towers", 1)]
+    [InlineData("melee-3v3-towers", 3)]
     public void SmallTestRostersHaveTheFirstModelsOfEachSideAndPlayToTheEnd(string scenario, int size)
     {
         var all = ScenarioSetups.FromFolder(Path.Combine(Repository.Root, "content"));
@@ -228,6 +230,18 @@ public class BattlefieldUxTests
         {
             Assert.Equal(Phase.Ended, Play(setup, seed).State.Phase);
         }
+    }
+
+    // The create-match list names every scenario in words, the tower layouts included.
+    [Theory]
+    [InlineData("ranged", "ranged (normal roster)")]
+    [InlineData("melee-2v2", "melee, 2 v 2 (test roster)")]
+    [InlineData("ranged-towers", "ranged with towers (normal roster)")]
+    [InlineData("melee-1v1-towers", "melee with towers, 1 v 1 (test roster)")]
+    public void EveryScenarioHasALabel(string scenario, string label)
+    {
+        Assert.Equal(label, ContentNames.Label(scenario));
+        Assert.All(ContentNames.Choices, c => Assert.DoesNotContain("-", ContentNames.Label(c)));
     }
 
     // A whole match between two simulator bots with seeded dice, as PreviewAgreementTests plays them.

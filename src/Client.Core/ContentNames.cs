@@ -46,12 +46,25 @@ public sealed class ContentNames
     // The scenarios a player can choose when creating a match: the normal rosters, then the small test sizes.
     // The tower layouts ("ranged-towers", towers proposal stage T3) come last, so the earlier choices keep their places.
     public static IReadOnlyList<string> Choices { get; } =
-        ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3", "ranged-towers", "melee-towers"];
+        ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3", "ranged-towers", "melee-towers",
+            "ranged-1v1-towers", "ranged-2v2-towers", "ranged-3v3-towers", "melee-1v1-towers", "melee-2v2-towers", "melee-3v3-towers"];
 
     public const string TowersSuffix = "-towers";
 
+    // The words for a scenario in the create-match list: "ranged (normal roster)", "melee, 2 v 2 (test roster)",
+    // "ranged with towers (normal roster)", "melee with towers, 1 v 1 (test roster)".
+    public static string Label(string scenario)
+    {
+        var towers = scenario.EndsWith(TowersSuffix, StringComparison.Ordinal);
+        var name = towers ? scenario[..^TowersSuffix.Length] : scenario;
+        var map = towers ? " with towers" : "";
+        return name is "ranged" or "melee"
+            ? $"{name}{map} (normal roster)"
+            : $"{name[..^4]}{map}, {name[^3]} v {name[^1]} (test roster)";
+    }
+
     private static string BaseOf(string scenario) =>
-        scenario.EndsWith(TowersSuffix, StringComparison.Ordinal) ? scenario[..^TowersSuffix.Length]
+        scenario.EndsWith(TowersSuffix, StringComparison.Ordinal) ? BaseOf(scenario[..^TowersSuffix.Length])
         : scenario.Length > 4 && scenario[^4] == '-' && scenario[^2] == 'v' && char.IsAsciiDigit(scenario[^3]) && scenario[^3] == scenario[^1]
             ? scenario[..^4]
             : scenario;
@@ -75,10 +88,11 @@ public sealed class ContentNames
         {
             return Ids($"This client's content file {file} could not be read.");
         }
-        if (scenario != BaseOf(scenario) && !scenario.EndsWith(TowersSuffix, StringComparison.Ordinal))
+        var sized = scenario.EndsWith(TowersSuffix, StringComparison.Ordinal) ? scenario[..^TowersSuffix.Length] : scenario;
+        if (sized != BaseOf(sized))
         {
             // A test size: the first models of each warband, as Sim.ScenarioSetups builds it.
-            var size = scenario[^1] - '0';
+            var size = sized[^1] - '0';
             warbands = [.. warbands.Select(w => w with { Models = [.. w.Models.Take(size)] })];
         }
         return Match(warbands, setup);

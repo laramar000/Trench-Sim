@@ -1484,12 +1484,7 @@ public partial class Main : Control
 
     private string ChosenScenario() => _scenario.GetItemMetadata(_scenario.Selected).AsString();
 
-    private static string ScenarioLabel(string scenario) => scenario switch
-    {
-        "ranged" => "ranged (normal roster)",
-        "melee" => "melee (normal roster)",
-        _ => $"{scenario[..^4]}, {scenario[^3]} v {scenario[^1]} (test roster)",
-    };
+    private static string ScenarioLabel(string scenario) => ContentNames.Label(scenario);
 
     // Creates a match on the server and reports the Welcome (M7.2 check, unchanged).
     private static async Task<string> Smoke(Uri server)
