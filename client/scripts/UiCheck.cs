@@ -212,11 +212,11 @@ public partial class UiCheck : Node
         await Shot("reopen-compare");
 
         // While the host's connection is cut, this screen shows the match paused, then going on.
-        await FocusByTab(ButtonNamed("Leave"), 60);
+        var tabbed = await FocusByTab(ButtonNamed("Leave"), 60);
         var paused = await Until(() => Banner().Contains("paused", StringComparison.OrdinalIgnoreCase) ? Banner() : null, 60, "opponent-away");
         Check("opponent-away-on-cut", paused is not null, Banner());
         await Frames(3);
-        Check("focus-kept-on-redraw", Focused() is Button { Text: "Leave" } kept && !kept.IsQueuedForDeletion(), $"after the screen was redrawn: {Describe(Focused())}");
+        Check("focus-kept-on-redraw", Focused() is Button { Text: "Leave" } kept && !kept.IsQueuedForDeletion(), $"Tab reached Leave: {tabbed}; after the screen was redrawn: {Describe(Focused())}");
         await Shot("reopen-opponent-away");
         var resumed = await Until(() => Banner().Contains("paused", StringComparison.OrdinalIgnoreCase) ? null : Banner(), 90, "opponent-back");
         Check("opponent-back-after-rejoin", resumed is not null, Banner());
@@ -4034,15 +4034,23 @@ public partial class UiCheck : Node
         {
             return false;
         }
+        // A button the screen rebuilt while Tab was pressed (the HUD's Leave is made again at each redraw) counts when the
+        // focus is on its replacement: the same text in the same place in the tree (Windows runs at 099dbc8 and 50ac324:
+        // the reopened window's Leave was replaced mid-way, and 60 Tabs went past the new one).
+        var text = target is Button b ? b.Text : null;
+        var parent = target.GetParent();
+        bool Reached() => Focused() == target
+            || (text is not null && (!GodotObject.IsInstanceValid(target) || target.IsQueuedForDeletion() || !target.IsInsideTree())
+                && Focused() is Button now && now.Text == text && GodotObject.IsInstanceValid(parent) && now.GetParent() == parent);
         for (var i = 0; i < limit; i++)
         {
-            if (Focused() == target)
+            if (Reached())
             {
                 return true;
             }
             await KeyPress(Key.Tab);
         }
-        return Focused() == target;
+        return Reached();
     }
 
     private async Task Press(Control? target, Key key, string? id)
