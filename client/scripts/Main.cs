@@ -703,7 +703,8 @@ public partial class Main : Control
         _gaps = new AcceptDialog { Title = RulesGaps.Title, DialogText = RulesGaps.Text, DialogAutowrap = true, Size = new Vector2I(760, 480) };
         AddChild(_gaps);
         // QoL I1: every key on one sheet; ? opens and closes it, Esc or OK closes it.
-        _keySheet = new AcceptDialog { Title = KeySheet.Title, DialogText = KeySheet.Text, DialogAutowrap = true, Size = new Vector2I(820, 520) };
+        // Stage K1: each key is a bold key cap apart from what it does, grouped by purpose in two columns (BuildKeySheet).
+        _keySheet = new AcceptDialog { Title = KeySheet.Title };
         _keySheet.Name = "KeySheet";
         AddChild(_keySheet);
         // Proposal J3b: the Scenario card. Its words are the rules' own description (Rules.Core.ScenarioRules); a row per
@@ -1719,16 +1720,148 @@ public partial class Main : Control
         }
         else
         {
-            _keySheet.PopupCentered();
+            KeySheetFitted = false;
+            BuildKeySheet();
         }
     }
 
-    // For the UI check: the key sheet's text while it is open, the picked log row and where a row is on screen.
-    public string KeySheetText => _keySheet.Visible ? _keySheet.DialogText : "";
+    private VBoxContainer? _keySheetBody;
+    private readonly List<Label> _keyCaps = [];
+
+    // Stage K1: the sheet is built when it opens, for the window's size and text scale now: two columns of groups, each
+    // a heading and its entries; an entry is its keys as bold key caps, then what they do. No scrolling: the sheet is
+    // as wide as the window allows and the entries flow into it.
+    private void BuildKeySheet(int? fontSize = null)
+    {
+        if (_keySheetBody is { } old)
+        {
+            _keySheet.RemoveChild(old);
+            old.QueueFree();
+        }
+        _keyCaps.Clear();
+        var view = GetViewportRect().Size;
+        var width = (int)Math.Min(view.X - 24, 1600);
+        var size = fontSize ?? (int)(15 * _scale);
+        var gap = Math.Max(6, size * 3 / 4);
+        // Three columns where the window is wide enough for them, else two.
+        var count = width >= 66 * size ? 3 : 2;
+        var columnWidth = (width - (count + 1) * gap) / count;
+        var bold = new FontVariation { BaseFont = ThemeDB.FallbackFont, VariationEmbolden = 0.9f };
+        var cap = new StyleBoxFlat
+        {
+            BgColor = _highContrast ? Colors.Black : new Color(0.22f, 0.22f, 0.26f),
+            BorderColor = _highContrast ? Colors.Yellow : new Color(0.75f, 0.75f, 0.8f),
+            ContentMarginLeft = 5, ContentMarginRight = 5, ContentMarginTop = 0, ContentMarginBottom = 0,
+        };
+        cap.SetBorderWidthAll(1);
+        cap.SetCornerRadiusAll(4);
+        var body = new VBoxContainer { Name = "KeySheetBody" };
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", gap);
+        body.AddChild(row);
+        var columns = Enumerable.Range(0, count).Select(_ => new VBoxContainer { CustomMinimumSize = new Vector2(columnWidth, 0) }).ToList();
+        columns.ForEach(c =>
+        {
+            c.AddThemeConstantOverride("separation", 1);
+            row.AddChild(c);
+        });
+        // Groups go to columns in order, a new column once this one holds its share of the lines.
+        var total = KeySheet.Groups.Sum(g => g.Entries.Count + 1);
+        var used = 0;
+        foreach (var (group, entries) in KeySheet.Groups)
+        {
+            var column = columns[Math.Min(count - 1, used * count / total)];
+            used += entries.Count + 1;
+            var heading = new Label { Text = group.ToUpperInvariant(), Name = "KeyGroup" };
+            heading.AddThemeFontOverride("font", bold);
+            heading.AddThemeFontSizeOverride("font_size", size);
+            heading.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : new Color(1f, 0.85f, 0.45f));
+            column.AddChild(heading);
+            var flow = new HFlowContainer { CustomMinimumSize = new Vector2(columnWidth, 0) };
+            flow.AddThemeConstantOverride("h_separation", gap);
+            flow.AddThemeConstantOverride("v_separation", 1);
+            column.AddChild(flow);
+            foreach (var entry in entries)
+            {
+                var chip = new HBoxContainer { Name = "KeyEntry" };
+                chip.AddThemeConstantOverride("separation", 3);
+                foreach (var key in entry.Keys)
+                {
+                    var label = new Label { Text = key, Name = "KeyCap", VerticalAlignment = VerticalAlignment.Center };
+                    label.AddThemeFontOverride("font", bold);
+                    label.AddThemeFontSizeOverride("font_size", size);
+                    label.AddThemeStyleboxOverride("normal", cap);
+                    chip.AddChild(label);
+                    _keyCaps.Add(label);
+                }
+                var what = new Label { Text = entry.What, VerticalAlignment = VerticalAlignment.Center };
+                what.AddThemeFontSizeOverride("font_size", size);
+                // A long description wraps inside the column instead of widening it.
+                var keysWidth = entry.Keys.Sum(k => bold.GetStringSize(k, HorizontalAlignment.Left, -1, size).X + 13);
+                if (keysWidth + what.GetThemeFont("font").GetStringSize(entry.What, HorizontalAlignment.Left, -1, size).X > columnWidth)
+                {
+                    what.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+                    what.CustomMinimumSize = new Vector2(Math.Max(60, columnWidth - keysWidth - 4), 0);
+                }
+                chip.AddChild(what);
+                flow.AddChild(chip);
+            }
+            column.AddChild(new Control { CustomMinimumSize = new Vector2(0, gap / 3) });
+        }
+        _keySheetBody = body;
+        _keySheet.AddChild(body);
+        _keySheet.Size = new Vector2I(width, 10);
+        _keySheet.PopupCentered(new Vector2I(width, 10));
+        // The flows know their height once laid out at this width: then the sheet takes it, centred again; when it is
+        // taller than the window, the words get one size smaller (down to 10 px), so nothing needs scrolling.
+        Callable.From(() => FitKeySheet(width, size)).CallDeferred();
+    }
+
+    private async void FitKeySheet(int width, int size)
+    {
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        if (!_keySheet.Visible)
+        {
+            return;
+        }
+        _keySheet.ResetSize();
+        var height = _keySheet.Size.Y;
+        var room = (int)GetViewportRect().Size.Y - _keySheet.GetThemeConstant("title_height") - 8;
+        if (height > room && size > 10)
+        {
+            BuildKeySheet(size - 1);
+            return;
+        }
+        _keySheet.Size = new Vector2I(width, height);
+        _keySheet.PopupCentered(_keySheet.Size);
+        KeySheetFitted = true;
+    }
+
+    // For the UI check: the sheet has taken its final size since it last opened.
+    public bool KeySheetFitted { get; private set; }
+
+    // For the UI check: the key sheet's words while it is open (the same plain text as the Menu's), its key caps, and
+    // its rectangle on screen.
+    public string KeySheetText => _keySheet.Visible ? KeySheet.Text : "";
+
+    public IReadOnlyList<Label> KeyCaps => _keySheet.Visible ? _keyCaps : [];
+
+    public Rect2I KeySheetRect => new(_keySheet.Position, _keySheet.Size);
+
+    public int KeySheetTitleHeight => _keySheet.GetThemeConstant("title_height");
 
     public int? PickedLogRow => _logPicked;
 
     public void CloseKeySheet() => _keySheet.Hide();
+
+    public void OpenKeySheet()
+    {
+        if (!_keySheet.Visible)
+        {
+            KeySheetFitted = false;
+            BuildKeySheet();
+        }
+    }
 
     public Rect2? LogRowRect(int seq) => _logRows.FirstOrDefault(r => r.Seq == seq) is { Box: var box } && box.IsVisibleInTree()
         ? box.GetGlobalRect() : null;

@@ -64,6 +64,11 @@ public partial class UiCheck : Node
                     // M7.5 stage 5c: the same play as pvp-a, against trench-cli --bot.
                     await PvpCreate();
                     break;
+                case "dev":
+                    // For development only (never run by the checks): a hot-seat match, then the steps named in the
+                    // TRENCH_DEV environment variable, with screenshots, to look at one part of the screen quickly.
+                    await DevSteps();
+                    break;
                 case "tm-a" or "tm-b":
                     // The test center's guided test match (tools/TestCenter), played here in place of a person: the
                     // window connected itself (--test-match); this plays the match from there.
@@ -1581,6 +1586,42 @@ public partial class UiCheck : Node
     // One window, both seats: the client starts the local server itself, seats you as Seat One and Seat Two, follows
     // the turn through deployment (placements sent from the battlefield for both seats), switches by hand with F2, and
     // stops the server when you leave.
+    private async Task DevSteps()
+    {
+        await ChooseOption(Option("ranged"), _scenario, "dev-choose-scenario");
+        await Press(ButtonNamed(HotSeatButton), Key.Enter, "dev-start-enter");
+        if (await Until(() => Label("HOT-SEAT:")?.Text, 300, "hotseat") is null)
+        {
+            Check("dev-started", false, "the hot-seat match screen did not appear");
+            return;
+        }
+        await Frames(10);
+        if (Dialog<AcceptDialog>() is not null)
+        {
+            await KeyPress(Key.Escape);
+        }
+        var board = Controls<BoardView>().First(b => b.IsVisibleInTree());
+        foreach (var step in (System.Environment.GetEnvironmentVariable("TRENCH_DEV") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            switch (step)
+            {
+                case "keys":
+                    await KeySheetCheck(board);
+                    break;
+                case "shot":
+                    await Shot("dev");
+                    break;
+                default:
+                    if (step.StartsWith("size", StringComparison.Ordinal) && step[4..].Split('x') is [var w, var h])
+                    {
+                        _main.GetWindow().Size = new Vector2I(int.Parse(w, System.Globalization.CultureInfo.InvariantCulture), int.Parse(h, System.Globalization.CultureInfo.InvariantCulture));
+                        await Frames(10);
+                    }
+                    break;
+            }
+        }
+    }
+
     private async Task HotSeatPlay()
     {
         await ChooseOption(Option("ranged"), _scenario, "hotseat-choose-scenario");
@@ -3851,8 +3892,10 @@ public partial class UiCheck : Node
             Input.ParseInputEvent(new InputEventKey { Keycode = Key.Slash, PhysicalKeycode = Key.Slash, ShiftPressed = true, Unicode = '?', Pressed = pressed });
             await Frames(2);
         }
-        await Frames(3);
+        await Until(() => main.KeySheetFitted ? "fitted" : null, 5, "key-sheet-fitted");
+        await Frames(2);
         var shown = main.KeySheetText;
+        var caps = KeyCapProblems();
         await KeyPress(Key.Escape);
         await Frames(3);
         var closed = main.KeySheetText.Length == 0;
@@ -3862,6 +3905,75 @@ public partial class UiCheck : Node
         {
             main.CloseKeySheet();
         }
+        // Stage K1: every key is a bold key cap, and the whole sheet is in the window with nothing to scroll, at the
+        // text sizes and interface scales a player can choose (100%, text 150%, scale 150%).
+        var problems = new List<string>();
+        if (caps.Count > 0)
+        {
+            problems.Add($"text 100%, scale 100%: {string.Join("; ", caps)}");
+        }
+        foreach (var (text, scale) in new[] { (2, 0), (0, 2) })
+        {
+            main.ChooseTextSize(text);
+            main.ChooseScale(scale);
+            await Frames(8);
+            main.OpenKeySheet();
+            await Until(() => main.KeySheetFitted ? "fitted" : null, 5, "key-sheet-fitted");
+            await Frames(2);
+            var found = KeyCapProblems();
+            if (found.Count > 0)
+            {
+                problems.Add($"text {ClientSettings.TextScales[text] * 100:0}%, scale {ClientSettings.InterfaceScales[scale] * 100:0}%: {string.Join("; ", found)}");
+            }
+            await Shot($"key-sheet-text{text}-scale{scale}");
+            main.CloseKeySheet();
+            await Frames(3);
+        }
+        main.ChooseTextSize(0);
+        main.ChooseScale(0);
+        await Frames(8);
+        Check("key-sheet-keys", problems.Count == 0,
+            problems.Count == 0 ? $"{KeySheet.Keys.Count()} keys, each a bold key cap inside the sheet, the sheet inside the window, at text 100/150% and scale 100/150%" : string.Join(" | ", problems));
+    }
+
+    // What is wrong with the open key sheet: a key with no key cap, a cap that is not bold or not visible, a cap outside
+    // the sheet, or the sheet outside the window.
+    private List<string> KeyCapProblems()
+    {
+        var main = (Main)_main;
+        var problems = new List<string>();
+        var caps = main.KeyCaps;
+        if (caps.Count == 0)
+        {
+            problems.Add("the sheet is not open");
+            return problems;
+        }
+        var sheet = main.KeySheetRect;
+        var window = _main.GetViewportRect();
+        // The sheet's title bar sits above its rectangle.
+        var title = main.KeySheetTitleHeight;
+        if (sheet.Position.X < window.Position.X - 1 || sheet.Position.Y - title < window.Position.Y - 1 || sheet.End.X > window.End.X + 1 || sheet.End.Y > window.End.Y + 1)
+        {
+            problems.Add($"sheet {sheet} outside the window {window}");
+        }
+        var inside = new Rect2(Vector2.Zero, sheet.Size);
+        foreach (var key in KeySheet.Keys)
+        {
+            if (!caps.Any(c => c.Text == key))
+            {
+                problems.Add($"no key cap for {key}");
+            }
+        }
+        foreach (var cap in caps)
+        {
+            var bold = cap.GetThemeFont("font") is FontVariation { VariationEmbolden: > 0 };
+            var rect = cap.GetGlobalRect();
+            if (!bold || !cap.IsVisibleInTree() || rect.Size.X < 4 || !inside.Encloses(rect.Grow(-0.5f)))
+            {
+                problems.Add($"{cap.Text}: bold {bold}, visible {cap.IsVisibleInTree()}, at {rect} in a sheet of {sheet.Size}");
+            }
+        }
+        return problems;
     }
 
     private async Task ClickAt(Vector2 at)

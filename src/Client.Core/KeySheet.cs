@@ -1,48 +1,87 @@
 namespace Client.Core;
 
-// QoL I1: every key and mouse use of a match on one sheet (? opens it), grouped. The Menu's "Battlefield keys" text
-// is built from the same list, so the two cannot differ. No key here is new; `KeySheetTests` list the keys it must name.
+// QoL I1: every key and mouse use of a match on one sheet (? opens it), grouped by purpose. Stage K1 (battlefield UI
+// proposal): each entry is its keys apart from what they do, so the sheet can draw the keys as bold key caps. The Menu's
+// "Battlefield keys" text is built from the same list, so the two cannot differ. `KeySheetTests` list the keys it must name.
 public static class KeySheet
 {
     public const string Title = "Keys and mouse";
 
-    public static readonly IReadOnlyList<(string Group, IReadOnlyList<string> Lines)> Groups =
+    // One line of the sheet: the keys (each drawn as its own key cap) and what they do.
+    public sealed record Entry(IReadOnlyList<string> Keys, string What);
+
+    private static Entry E(string what, params string[] keys) => new(keys, what);
+
+    public static readonly IReadOnlyList<(string Group, IReadOnlyList<Entry> Entries)> Groups =
     [
         ("Camera", [
-            "Arrows: pan · + and -: zoom · wheel: zoom towards the pointer · right-drag: pan",
-            "Q and E: turn 90° · T: top-down or angled",
-            "F: fit the table · Shift+F: reset the view · Home: centre on the selected unit",
-            "Double-click a unit or objective: centre on it; again: zoom in",
+            E("pan", "Arrows", "Right-drag"),
+            E("zoom (the wheel: towards the pointer)", "+", "-", "Wheel"),
+            E("turn 90°", "Q", "E"),
+            E("top-down or angled", "T"),
+            E("fit the table", "F"),
+            E("reset the view", "Shift+F"),
+            E("centre on the selected unit", "Home"),
+            E("centre on it; again: zoom in", "Double-click"),
         ]),
-        ("Choosing", [
-            "Click: select a unit (or pick the target or a waypoint) · click a combat-log row: point out its models",
-            "N and P: next and previous model · J and Shift+J: next and previous unit that can activate",
-            "O and Shift+O: next and previous objective · A: activate the selected unit",
+        ("Selecting", [
+            E("select a unit, target or waypoint", "Click"),
+            E("point out its models", "Click a log row"),
+            E("next and previous model", "N", "P"),
+            E("next and previous unit that can activate", "J", "Shift+J"),
+            E("next and previous objective", "O", "Shift+O"),
+            E("activate the selected unit", "A"),
         ]),
         ("Actions", [
-            "L place · M move · D dash · R retreat · S shoot · C charge · X fight",
-            "Moving: arrows move the cursor (Shift: 2\"), Enter or Shift+click fixes a waypoint",
-            "Move or Dash on a battlefield with towers: K climbs a tower's side instead of a ladder (a Risky roll), K again goes back to ladders",
-            "Shoot, Charge, Fight: N and P next and previous target",
+            E("place a model", "L"),
+            E("move", "M"),
+            E("dash", "D"),
+            E("retreat", "R"),
+            E("shoot", "S"),
+            E("charge", "C"),
+            E("fight", "X"),
+        ]),
+        ("Moving", [
+            E("move the cursor (with Shift: 2\")", "Arrows"),
+            E("fix a waypoint", "Enter", "Shift+click"),
+            E("undo the last waypoint", "Backspace"),
+            E("towers: climb a side, not a ladder (a Risky roll); again: ladders", "K"),
+        ]),
+        ("Targets (shoot, charge, fight)", [
+            E("next and previous target", "N", "P"),
+            E("click the target again to send", "Click"),
         ]),
         ("Confirm and cancel", [
-            "Space or Confirm: send · Backspace: undo the last waypoint",
-            "Esc or right-click: cancel (sends nothing)",
+            E("send", "Space", "Confirm"),
+            E("cancel (sends nothing)", "Esc", "Right-click"),
         ]),
         ("Window", [
-            "F1: rules in this build · F2: switch seat (hot-seat) · ?: this sheet (Esc closes it)",
-            "G: the scenario (scoring, how the match ends, who controls each objective now)",
+            E("rules in this build", "F1"),
+            E("switch seat (hot-seat)", "F2"),
+            E("this sheet (Esc closes it)", "?"),
+            E("the scenario card (scoring, objectives now)", "G"),
         ]),
     ];
 
+    // Every key named on the sheet, once each.
+    public static IEnumerable<string> Keys => Groups.SelectMany(g => g.Entries).SelectMany(e => e.Keys).Distinct(StringComparer.Ordinal);
+
+    // An entry's keys as one plain phrase: "Q / E".
+    public static string KeysText(Entry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        return string.Join(" / ", entry.Keys);
+    }
+
+    // The plain-text form (the Menu's "Battlefield keys"): each group in capitals, then "  Q / E: turn 90°".
     public static IEnumerable<string> Lines()
     {
-        foreach (var (group, lines) in Groups)
+        foreach (var (group, entries) in Groups)
         {
             yield return group.ToUpperInvariant();
-            foreach (var line in lines)
+            foreach (var entry in entries)
             {
-                yield return "  " + line;
+                yield return $"  {KeysText(entry)}: {entry.What}";
             }
         }
     }
