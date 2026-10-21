@@ -10,7 +10,7 @@ public static class TopHud
 {
     public const string Waiting = "SENT · waiting for the server";
 
-    public static string Of(MatchView view, BoardScene? scene, IReadOnlyList<LogLine> log, Seat? you, bool waiting)
+    public static string Of(MatchView view, BoardScene? scene, IReadOnlyList<LogLine> log, Seat? you, bool waiting, string? prompt = null)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(log);
@@ -24,6 +24,11 @@ public static class TopHud
             parts.Add(view.Turn);
         }
         parts.Add(view.Phase);
+        // Stage K4: what the battlefield does now while you place your models ("Place ... in ZONE A: click a spot").
+        if (prompt is { Length: > 0 })
+        {
+            parts.Add(prompt);
+        }
         // Stage K3: the model activating now and what it has done.
         if (view.ActivatingShort is { } activating)
         {

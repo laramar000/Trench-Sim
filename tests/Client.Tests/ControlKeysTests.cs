@@ -8,7 +8,7 @@ namespace Client.Tests;
 public class ControlKeysTests
 {
     private static readonly InteractionMode[] Actions =
-        [InteractionMode.Place, InteractionMode.Move, InteractionMode.Dash, InteractionMode.Retreat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight];
+        [InteractionMode.Place, InteractionMode.Move, InteractionMode.Dash, InteractionMode.Retreat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight, InteractionMode.Combat];
 
     // Arrows, + and -, Q E (turn), F (fit; Shift+F reset), T (top-down), Home (centre), N P (next model), J (next unit),
     // O (next objective).

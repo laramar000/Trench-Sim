@@ -52,14 +52,15 @@ public sealed class ContentNames
     public const string TowersSuffix = "-towers";
 
     // The words for a scenario in the create-match list: "ranged (normal roster)", "melee, 2 v 2 (test roster)",
-    // "ranged with towers (normal roster)", "melee with towers, 1 v 1 (test roster)".
+    // "ranged with towers (normal roster)", "melee with towers, 1 v 1 (test roster)". Battlefield UI stage K7: the melee
+    // warbands have shooters and fighters, so their normal roster says "melee (shooting and close combat)".
     public static string Label(string scenario)
     {
         var towers = scenario.EndsWith(TowersSuffix, StringComparison.Ordinal);
         var name = towers ? scenario[..^TowersSuffix.Length] : scenario;
         var map = towers ? " with towers" : "";
         return name is "ranged" or "melee"
-            ? $"{name}{map} (normal roster)"
+            ? $"{name}{map} ({(name == "melee" ? "shooting and close combat" : "normal roster")})"
             : $"{name[..^4]}{map}, {name[^3]} v {name[^1]} (test roster)";
     }
 

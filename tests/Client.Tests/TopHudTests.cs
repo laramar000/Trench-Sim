@@ -15,6 +15,21 @@ public class TopHudTests
     private static string Hud(MatchState state, Seat? seat, IReadOnlyList<LogLine>? log = null, bool waiting = false) =>
         TopHud.Of(MatchView.Of(state, seat, Names), BoardScene.Of(state, seat, Names), log ?? [], seat, waiting);
 
+    // Stage K4: while you place your models the line says where, from the battlefield's own placing (Interaction.Prompt).
+    [Fact]
+    public void WhilePlacingTheLineSaysWhichModelAndWhere()
+    {
+        var state = States.First(s => s.Phase == Phase.Deployment && s.Pending is null && s.Setup?.Scenario is not null && MatchView.NextDeployer(s) is not null);
+        var seat = MatchView.NextDeployer(state)!.Value;
+        var interaction = new Interaction();
+        interaction.Update(state, seat);
+        var prompt = interaction.Prompt;
+        Assert.NotNull(prompt);
+        var parts = TopHud.Of(MatchView.Of(state, seat, Names), BoardScene.Of(state, seat, Names), [], seat, false, prompt).Split(" · ");
+        Assert.Equal(prompt, parts[parts.ToList().IndexOf(MatchView.Of(state, seat, Names).Phase) + 1]);
+        Assert.DoesNotContain(" · Place ", Hud(state, seat));
+    }
+
     [Fact]
     public void TheLineSaysTheSeatWhoseMoveTheTurnPhaseVictoryPointsAndWhoCanStillActivate()
     {

@@ -37,8 +37,8 @@ public static class KeySheet
             E("move", "M"),
             E("dash", "D"),
             E("retreat", "R"),
+            E("combat: click an enemy, then shoot, charge or fight", "C"),
             E("shoot", "S"),
-            E("charge", "C"),
             E("fight", "X"),
         ]),
         ("Moving", [
@@ -47,9 +47,11 @@ public static class KeySheet
             E("undo the last waypoint", "Backspace"),
             E("towers: climb a side, not a ladder (a Risky roll); again: ladders", "K"),
         ]),
-        ("Targets (shoot, charge, fight)", [
+        ("Targets (combat, shoot, fight)", [
             E("next and previous target", "N", "P"),
+            E("in combat: shoot, charge, fight", "1", "2", "3"),
             E("click the target again to send", "Click"),
+            E("send a charge", "Confirm charge"),
         ]),
         ("Confirm and cancel", [
             E("send", "Space", "Confirm"),

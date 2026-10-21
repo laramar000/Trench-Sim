@@ -47,6 +47,8 @@ public partial class Main : Control
     private HFlowContainer _bannerButtons = null!;
     private Label _code2 = null!;
     private VBoxContainer _endSection = null!;
+    private PanelContainer _resultBox = null!;
+    private ScrollContainer _resultScroll = null!;
     private Label _summary = null!;
     private Button _rematch = null!;
     private Label _rematchNote = null!;
@@ -74,6 +76,8 @@ public partial class Main : Control
     public const float StackBelow = 1100;
     private ScreenState? _lastScreen;
     private VBoxContainer _hints = null!;
+    private VBoxContainer _actions = null!;
+    private ScrollContainer _actionsScroll = null!;
     private Label _notYet = null!;
     private Label _feedback = null!;
     private VBoxContainer _log = null!;
@@ -697,8 +701,15 @@ public partial class Main : Control
         }), _rematch));
         endBox.AddChild(_rematchNote);
         _endSection = Section("Result of the match", endBox);
-        _endSection.Visible = false;
-        _match.AddChild(_endSection);
+        _endSection.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        // Stage K2: the result is a box over the battlefield, under the HUD strip (not a section that pushes the
+        // battlefield and the combat log down). It scrolls inside itself when the battlefield is too short for it.
+        _resultBox = new PanelContainer { Name = "MatchResult", Visible = false, MouseFilter = Control.MouseFilterEnum.Stop };
+        _resultBox.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.04f, 0.04f, 0.06f, 0.94f), ContentMarginLeft = 10, ContentMarginRight = 10, ContentMarginTop = 6, ContentMarginBottom = 8 });
+        _resultScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
+        _resultScroll.AddChild(_endSection);
+        _resultBox.AddChild(_resultScroll);
+        _board.AddChild(_resultBox);
         // The battlefield (M7.4) and, beside it (proposal G), one column with the selected-unit and action panel over the
         // combat log. The battlefield shows positions; the panel says who the unit is, what it can do and what the chosen
         // action would do; the log says what the server confirmed. The battlefield fills the window's height.
@@ -723,11 +734,16 @@ public partial class Main : Control
         _hints = new VBoxContainer();
         _hints.AddThemeConstantOverride("separation", 2);
         _notYet = Text("");
-        var actions = new VBoxContainer();
+        var actions = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         actions.AddChild(_hints);
         actions.AddChild(_notYet);
+        _actions = actions;
+        // Stage K2: many choices (four units to activate, a long note) at large text scroll inside this box, whose
+        // height FitBattlefield caps, so nothing is pushed below the window. Tab scrolls to the focused choice.
+        _actionsScroll = new ScrollContainer { Name = "ActionsScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _actionsScroll.AddChild(actions);
         var doing = new VBoxContainer { Name = "ActionsAndLastCommand", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        doing.AddChild(Section("Your actions", actions));
+        doing.AddChild(Section("Your actions", _actionsScroll));
         _feedback = Text("");
         // At most three lines; the whole answer is on its tooltip.
         _feedback.MaxLinesVisible = 3;
@@ -748,6 +764,14 @@ public partial class Main : Control
         _split.SizeFlagsVertical = SizeFlags.ExpandFill;
         boardBox.AddChild(_split);
         _board.Changed += ShowBoardInfo;
+        // Stage K4: the HUD says what placing does now; it follows the battlefield's choice (the model, or Esc).
+        _board.Changed += () =>
+        {
+            if (_board.Interaction.Prompt != _shownPrompt && _lastScreen is not null)
+            {
+                ShowStrip();
+            }
+        };
         // QoL I2: the camera's angled or top-down choice is kept between launches too.
         _board.Changed += () =>
         {
@@ -839,6 +863,12 @@ public partial class Main : Control
                 _logScroll.ScrollVertical = (int)_logScroll.GetVScrollBar().MaxValue;
             }
         };
+        // Dragging the bar: away from the bottom stops following, back at the bottom follows again (as the wheel does).
+        _logScroll.GetVScrollBar().Scrolling += () =>
+        {
+            var bar = _logScroll.GetVScrollBar();
+            _followLog = bar.Value + bar.Page >= bar.MaxValue - 2;
+        };
     }
 
     private void Render(ScreenState s)
@@ -890,7 +920,7 @@ public partial class Main : Control
 
         _code2.Text = s.Code is null ? "" : $"Match code {s.Code}. You are {(s.Seat is { } seat ? $"{Words.Seat(seat)} [{Words.SeatLetter(seat)}]" : "not seated")}." +
             (_hotSeat is null && (view.Phase == Words.Phase(Rules.Core.State.Phase.PreGame) || view.Models.Count == 0) ? " Give the code to your opponent." : "");
-        _endSection.Visible = s.End is not null;
+        _resultBox.Visible = s.End is not null;
         _finalHash = s.End?.Hash;
         _end.Text = s.End is { } end ? string.Join("\n", end.Lines()) : "";
         _summary.Text = s.End?.Summary is { } summary ? string.Join("\n", summary.Lines()) : "";
@@ -965,11 +995,14 @@ public partial class Main : Control
         }
     }
 
+    private string? _shownPrompt;
+
     private void ShowStrip()
     {
+        _shownPrompt = _board.Interaction.Prompt;
         RefreshScenario();
         _hud.Text = _lastScreen is { } s
-            ? TopHud.Of(s.View, _board.Scene, s.Log, s.Seat, s.Feedback is { Kind: FeedbackKind.Sending } || _board.Interaction.Pending is not null)
+            ? TopHud.Of(s.View, _board.Scene, s.Log, s.Seat, s.Feedback is { Kind: FeedbackKind.Sending } || _board.Interaction.Pending is not null, _board.Interaction.Prompt)
             : "";
         // Your move in a colour as well as in words.
         _hud.AddThemeColorOverride("font_color", _lastScreen?.View.YourMove == true
@@ -1061,6 +1094,14 @@ public partial class Main : Control
         {
             _split.CustomMinimumSize = new Vector2(0, want);
         }
+        PlaceResult();
+        // At most about a fifth of the window (a third when stacked) for the choices; more scrolls inside their box.
+        var cap = Math.Max(70f * _scale, size.Y * (stacked ? 0.3f : 0.2f));
+        var actionsHeight = Math.Min(_actions.GetCombinedMinimumSize().Y, cap);
+        if (Math.Abs(_actionsScroll.CustomMinimumSize.Y - actionsHeight) > 0.5f)
+        {
+            _actionsScroll.CustomMinimumSize = new Vector2(0, actionsHeight);
+        }
         PlaceMenu(size);
     }
 
@@ -1094,6 +1135,30 @@ public partial class Main : Control
     public float MatchHeight => _match.GlobalPosition.Y + _match.GetCombinedMinimumSize().Y + 12;
 
     public Control LastCommandLabel => _feedback;
+
+    // Stage K2: the result box over the battlefield, under the HUD strip, as tall as its words or the space left.
+    private void PlaceResult()
+    {
+        if (!_resultBox.Visible)
+        {
+            return;
+        }
+        var width = Math.Max(120f, _board.Size.X - 16);
+        var room = Math.Max(60f, _board.Size.Y - _board.TopInset - 16);
+        _resultScroll.CustomMinimumSize = new Vector2(0, Math.Min(_endSection.GetCombinedMinimumSize().Y, room - 14));
+        var size = new Vector2(width, Math.Min(_resultBox.GetCombinedMinimumSize().Y, room));
+        var at = new Vector2(8, _board.TopInset + 8);
+        if (_resultBox.Position != at || _resultBox.Size != size)
+        {
+            _resultBox.Position = at;
+            _resultBox.Size = size;
+        }
+    }
+
+    public Control ResultBox => _resultBox;
+
+    // Stage K2: the box the choices scroll in (for the UI check).
+    public ScrollContainer ActionsBox => _actionsScroll;
 
     // ---- the selected-unit and action panel (proposal G, step G1) ----
 
@@ -1999,6 +2064,9 @@ public partial class Main : Control
         if (!_logOpen.Remove(start))
         {
             _logOpen.Add(start);
+            // Reading an action's steps: the log stays where it is (it no longer jumps to the newest row as the steps
+            // make it taller, nor when new events arrive); End, or scrolling to the bottom, follows the newest again.
+            _followLog = false;
         }
         PaintLog();
     }

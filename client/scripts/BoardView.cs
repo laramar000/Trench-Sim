@@ -156,6 +156,20 @@ public partial class BoardView : SubViewportContainer
         _bar.AddChild(_barRow);
         AddChild(_bar);
         AddChild(Dice);
+        _reason.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = new Color(0.25f, 0.02f, 0.02f, 0.88f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 3, ContentMarginBottom = 3 });
+        _reason.AddThemeColorOverride("font_color", new Color(1f, 0.85f, 0.8f));
+        AddChild(_reason);
+        var menuLook = new StyleBoxFlat { BgColor = new Color(0.08f, 0.08f, 0.1f, 0.94f), BorderColor = new Color(0.85f, 0.85f, 0.9f) };
+        menuLook.SetBorderWidthAll(1);
+        menuLook.SetContentMarginAll(6);
+        _combatMenu.AddThemeStyleboxOverride("panel", menuLook);
+        _combatRows.AddThemeConstantOverride("separation", 3);
+        _combatMenu.AddChild(_combatRows);
+        AddChild(_combatMenu);
+        _chargeBox.AddThemeStyleboxOverride("panel", menuLook);
+        _chargeButton.Pressed += Confirm;
+        _chargeBox.AddChild(_chargeButton);
+        AddChild(_chargeBox);
         Dice.ScreenOfModel = id => BodyAt(id) is { } body && ScreenOf(body.X, body.Z, body.Y) is { } p && new Rect2(Vector2.Zero, Size).HasPoint(p) ? p : null;
         Dice.Avoid = () => ScreenLabelBoxes().Select(b => b.Box).Concat(_bar.Visible ? [new Rect2(_bar.Position, _bar.Size)] : [])
             .Concat(_strip is { Visible: true } strip ? [new Rect2(strip.Position, strip.Size)] : []);
@@ -702,6 +716,72 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
+    // Stage K4: the rules' reason a placement would be refused, beside the ghost (for the UI check: its words and place).
+    private readonly Label _reason = new()
+    {
+        Name = "PlaceReason",
+        Visible = false,
+        MouseFilter = MouseFilterEnum.Ignore,
+    };
+
+    private TablePoint? _reasonAt;
+    private string _reasonSource = "";
+    private string _reasonWords = "";
+    private float _reasonWidth;
+
+    public string? PlaceReason => _reason.Visible ? _reason.Text.Replace("\n", " ") : null;
+
+    public Rect2? PlaceReasonRect => _reason.Visible ? _reason.GetGlobalRect() : null;
+
+    private void PlaceReasonBox()
+    {
+        if (_reasonAt is not { } at || ScreenOf(at.X, at.Y, 0) is not { } p)
+        {
+            _reason.Visible = false;
+            return;
+        }
+        var width = Math.Min(320 * _textScale, Math.Max(120, Size.X - 16));
+        // The lines are broken here, by the font's own measure, rather than by the label's autowrap: an autowrapped
+        // label can keep the height of an earlier, narrower layout (seen as a box 1,482 px tall).
+        if (_reasonWords != _reasonSource || Math.Abs(_reasonWidth - width) > 0.5f)
+        {
+            _reasonWords = _reasonSource;
+            _reasonWidth = width;
+            _reason.Text = Wrap(_reasonSource, _reason.GetThemeFont("font"), _reason.GetThemeFontSize("font_size"), width - 14);
+        }
+        _reason.ResetSize();
+        var size = _reason.Size;
+        var x = Math.Clamp(p.X + 24, 4, Math.Max(4, Size.X - width - 4));
+        var y = Math.Clamp(p.Y - size.Y / 2, TopInset + 4, Math.Max(TopInset + 4, Size.Y - size.Y - 4));
+        _reason.Position = new Vector2(x, y);
+        _reason.Visible = true;
+    }
+
+    // Words into lines no wider than the width, as the font measures them (a word longer than the width keeps its line).
+    private static string Wrap(string text, Font font, int fontSize, float width)
+    {
+        var lines = new List<string>();
+        var line = "";
+        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var tried = line.Length == 0 ? word : $"{line} {word}";
+            if (line.Length > 0 && font.GetStringSize(tried, HorizontalAlignment.Left, -1, fontSize).X > width)
+            {
+                lines.Add(line);
+                line = word;
+            }
+            else
+            {
+                line = tried;
+            }
+        }
+        if (line.Length > 0)
+        {
+            lines.Add(line);
+        }
+        return string.Join("\n", lines);
+    }
+
     public override void _Process(double delta)
     {
         PlaceStrip();
@@ -713,6 +793,8 @@ public partial class BoardView : SubViewportContainer
         UpdatePointOut();
         Sync();
         UpdateBar();
+        UpdateCombat();
+        PlaceReasonBox();
         ApplyGlides();
         UpdateMeleeLinks();
         UpdateSeeThrough();
@@ -825,7 +907,15 @@ public partial class BoardView : SubViewportContainer
             Sync();
             return;
         }
-        if (Interaction.IsTarget)
+        if (Interaction.Mode == InteractionMode.Combat)
+        {
+            // Stage K6: a click chooses the enemy; its menu of attacks opens beside it.
+            if (ModelAt(local) is { Yours: false } enemy)
+            {
+                Interaction.SetTarget(enemy.Id);
+            }
+        }
+        else if (Interaction.IsTarget)
         {
             if (ModelAt(local) is { } model)
             {
@@ -924,7 +1014,8 @@ public partial class BoardView : SubViewportContainer
         Key.D => InteractionMode.Dash,
         Key.R => InteractionMode.Retreat,
         Key.S => InteractionMode.Shoot,
-        Key.C => InteractionMode.Charge,
+        // Stage K6: C opens Combat (Shoot, Charge or Fight on the enemy chosen); in Combat, 2 is Charge.
+        Key.C => InteractionMode.Combat,
         Key.X => InteractionMode.Fight,
         _ => null,
     };
@@ -977,6 +1068,18 @@ public partial class BoardView : SubViewportContainer
     private bool HandlePreviewKey(InputEventKey key)
     {
         var step = (float)(key.ShiftPressed ? Interaction.BigStep : Interaction.Step);
+        // Stage K6: in Combat, 1, 2 and 3 choose Shoot, Charge and Fight on the chosen enemy.
+        if (Interaction.Mode == InteractionMode.Combat && key.Keycode switch
+            {
+                Key.Key1 or Key.Kp1 => InteractionMode.Shoot,
+                Key.Key2 or Key.Kp2 => InteractionMode.Charge,
+                Key.Key3 or Key.Kp3 => InteractionMode.Fight,
+                _ => InteractionMode.None,
+            } is var attack && attack != InteractionMode.None)
+        {
+            PickCombat(attack, byKey: true);
+            return true;
+        }
         switch (key.Keycode)
         {
             case Key.Left or Key.Right or Key.Up or Key.Down when Interaction.UsesCursor:
@@ -1021,6 +1124,112 @@ public partial class BoardView : SubViewportContainer
     {
         await Interaction.ConfirmAsync();
         Sync();
+    }
+
+    // Stage K6: an entry of the Combat menu (a click on it, or 1, 2 and 3): Shoot and Fight that the preview accepts are
+    // sent at once; Charge shows its preview and the Confirm charge button beside the target.
+    public void PickCombat(InteractionMode mode, bool byKey = false)
+    {
+        var pick = Interaction.ChooseCombat(mode, byKey);
+        Sync();
+        if (pick == CombatPick.Send)
+        {
+            Confirm();
+        }
+        UpdateCombat();
+    }
+
+    // Stage K6: the Combat menu beside the chosen enemy, and the Confirm charge button beside a charge's target.
+    private readonly PanelContainer _combatMenu = new() { Name = "CombatMenu", Visible = false, MouseFilter = MouseFilterEnum.Stop };
+    private readonly VBoxContainer _combatRows = new();
+    private readonly PanelContainer _chargeBox = new() { Name = "ConfirmChargeBox", Visible = false, MouseFilter = MouseFilterEnum.Stop };
+    private readonly Button _chargeButton = new() { Name = "ConfirmCharge", Text = "Confirm charge", FocusMode = FocusModeEnum.None, MouseDefaultCursorShape = CursorShape.PointingHand };
+    private string _combatShown = "";
+
+    // For the UI check: the menu's entries as shown (label, enabled, the reason under a greyed one), and where to click.
+    public IReadOnlyList<(string Label, bool Enabled, string? Why)> CombatMenuShown { get; private set; } = [];
+
+    public Vector2? CombatButtonAt(InteractionMode mode) =>
+        _combatMenu.Visible && _combatRows.GetChildren().OfType<Button>().FirstOrDefault(b => !b.IsQueuedForDeletion() && b.HasMeta("mode") && (int)b.GetMeta("mode") == (int)mode) is { } button
+            ? button.GetGlobalRect().GetCenter()
+            : null;
+
+    public Rect2? CombatMenuRect => _combatMenu.Visible ? _combatMenu.GetGlobalRect() : null;
+
+    public Vector2? ConfirmChargeAt => _chargeBox.Visible ? _chargeButton.GetGlobalRect().GetCenter() : null;
+
+    private void UpdateCombat()
+    {
+        var entries = Interaction.CombatEntries();
+        var target = Interaction.Target is { } t ? _scene?.Find(t) : null;
+        var key = $"{Interaction.Target?.Value}|{_textScale}|{string.Join("|", entries.Select(e => $"{e.Mode}:{e.Enabled}:{e.Why}"))}";
+        if (key != _combatShown)
+        {
+            _combatShown = key;
+            foreach (var child in _combatRows.GetChildren())
+            {
+                _combatRows.RemoveChild(child);
+                child.QueueFree();
+            }
+            var shown = new List<(string, bool, string?)>();
+            foreach (var entry in entries)
+            {
+                var button = new Button
+                {
+                    Text = $"{entry.Label} · {entry.Key}",
+                    Disabled = !entry.Enabled,
+                    TooltipText = entry.Enabled ? entry.Preview.Headline : entry.Why ?? "",
+                    FocusMode = FocusModeEnum.None,
+                    Alignment = HorizontalAlignment.Left,
+                    MouseDefaultCursorShape = entry.Enabled ? CursorShape.PointingHand : CursorShape.Arrow,
+                };
+                button.AddThemeFontSizeOverride("font_size", (int)(16 * _textScale));
+                button.SetMeta("mode", (int)entry.Mode);
+                var mode = entry.Mode;
+                button.Pressed += () => PickCombat(mode);
+                _combatRows.AddChild(button);
+                if (!entry.Enabled && entry.Why is { } why)
+                {
+                    // Greyed out, with the rules' reason under it in words (not by colour alone).
+                    var reason = new Label { Text = why, AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(240 * _textScale, 0), MouseFilter = MouseFilterEnum.Ignore };
+                    reason.AddThemeFontSizeOverride("font_size", (int)(13 * _textScale));
+                    reason.AddThemeColorOverride("font_color", new Color(0.75f, 0.75f, 0.75f));
+                    _combatRows.AddChild(reason);
+                }
+                shown.Add((entry.Label, entry.Enabled, entry.Enabled ? null : entry.Why));
+            }
+            CombatMenuShown = shown;
+            _combatMenu.ResetSize();
+        }
+        _combatMenu.Visible = entries.Count > 0 && target is not null;
+        if (_combatMenu.Visible)
+        {
+            Beside(_combatMenu, target!);
+        }
+        _chargeBox.Visible = Interaction.Mode == InteractionMode.Charge && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
+        if (_chargeBox.Visible)
+        {
+            _chargeButton.AddThemeFontSizeOverride("font_size", (int)(17 * _textScale));
+            Beside(_chargeBox, target!);
+        }
+    }
+
+    // Puts a small box right of a model (else left), below the HUD strip and inside the battlefield.
+    private void Beside(Control box, ModelShape model)
+    {
+        var size = box.GetCombinedMinimumSize();
+        if (ScreenOf(model.X, model.Y, model.Standing) is not { } at)
+        {
+            box.Visible = false;
+            return;
+        }
+        var x = at.X + 36 + size.X <= Size.X - 4 ? at.X + 36 : at.X - 36 - size.X;
+        var position = new Vector2(Math.Clamp(x, 4, Math.Max(4, Size.X - size.X - 4)), Math.Clamp(at.Y - size.Y / 2, TopInset + 4, Math.Max(TopInset + 4, Size.Y - size.Y - 4)));
+        if (box.Position != position || box.Size != size)
+        {
+            box.Position = position;
+            box.Size = size;
+        }
     }
 
     // A: activate the selected model (yours), as its hint button does.
@@ -1068,6 +1277,11 @@ public partial class BoardView : SubViewportContainer
                 break;
             case BarKind.Confirm:
                 Confirm();
+                break;
+            case BarKind.Pick when item.Model is { } model:
+                GrabFocus();
+                Interaction.PickToPlace(model);
+                Sync();
                 break;
             case BarKind.Undo:
                 Interaction.RemovePoint();
@@ -1187,6 +1401,9 @@ public partial class BoardView : SubViewportContainer
         _crossed.Clear();
         AreaPoints = 0;
         GhostAt = null;
+        _reasonAt = null;
+        TargetLineDrawn = null;
+        TargetLinesDrawn = 0;
         Climbs = 0;
         if (_scene is null || Interaction.Mode == InteractionMode.None)
         {
@@ -1219,6 +1436,14 @@ public partial class BoardView : SubViewportContainer
                 var at = preview.Path[0];
                 // Proposal G: what the placement would do is said in the panel beside the battlefield, not over it.
                 Ring(at.At, preview.Radius, colour);
+                // Stage K4: a ghost of the model where a click puts it, red where the rules refuse, with their reason
+                // beside it (a small box on the screen, not a label on the table).
+                Ghost(at.At, preview.Model, preview.Radius, colour, tint: preview.Legal ? null : bad);
+                if (preview.Refusal is { } why)
+                {
+                    _reasonAt = at.At;
+                    _reasonSource = why.Text;
+                }
                 break;
             case PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat:
                 // A dashed path and a see-through "ghost" base at its end: a preview never looks like the real model,
@@ -1253,9 +1478,11 @@ public partial class BoardView : SubViewportContainer
                 // Proposal G: the distances (used, left, straight line) are in the panel beside the battlefield.
                 break;
             default:
-                foreach (var ray in preview.Rays)
+                // Stage K5: one bold line from the attacker's base edge to the target's, toned by the preview: clear,
+                // in cover or refused (the sight rays are in the panel's words).
+                if (TargetLine.Of(Interaction.PreviewState, preview) is { } line)
                 {
-                    Segment(ray.From, ray.To, 0.6f, ray.Clear ? good : new Color(0.55f, 0.55f, 0.55f), 0.08f);
+                    DrawTargetLine(line);
                 }
                 if (preview.Target is { } targetId && _scene.Find(targetId) is { } target)
                 {
@@ -1313,6 +1540,47 @@ public partial class BoardView : SubViewportContainer
         {
             Area(Interaction.ReachArea(), _highContrast ? new Color(1, 1, 1, 0.35f) : new Color(0.45f, 0.75f, 1f, 0.28f));
         }
+    }
+
+    // Stage K5 (for the UI check): the target line drawn now and its colour, and how many were drawn.
+    public (TargetLine Line, Color Colour)? TargetLineDrawn { get; private set; }
+
+    public int TargetLinesDrawn { get; private set; }
+
+    public Color ToneColour(TargetTone tone) => tone switch
+    {
+        TargetTone.Clear => _highContrast ? Colors.White : new Color(0.3f, 1f, 0.4f),
+        TargetTone.Cover => _highContrast ? Colors.Cyan : new Color(1f, 0.72f, 0.15f),
+        _ => _highContrast ? Colors.Yellow : new Color(1f, 0.3f, 0.25f),
+    };
+
+    // A dark outline under a bright bar, raised above the table at the models' own levels; drawn under the labels.
+    private void DrawTargetLine(TargetLine line)
+    {
+        var colour = ToneColour(line.Tone);
+        var from = (_scene?.Find(line.Attacker) is { } a ? (float)a.Standing : 0f) + 0.7f;
+        var to = (_scene?.Find(line.Target) is { } t ? (float)t.Standing : 0f) + 0.7f;
+        Bar(line.From, from, line.To, to, new Color(0, 0, 0, 0.75f), 0.42f, 0.06f);
+        Bar(line.From, from + 0.03f, line.To, to + 0.03f, colour, 0.26f, 0.1f);
+        TargetLineDrawn = (line, colour);
+        TargetLinesDrawn++;
+    }
+
+    // A flat bar between two table points at their own heights, drawn through terrain but under the labels.
+    private void Bar(TablePoint a, float ha, TablePoint b, float hb, Color colour, float width, float thickness)
+    {
+        var from = new Vector3((float)a.X, ha, (float)a.Y);
+        var to = new Vector3((float)b.X, hb, (float)b.Y);
+        var length = from.DistanceTo(to);
+        if (length < 0.001f)
+        {
+            return;
+        }
+        var paint = Paint(colour, noDepth: true);
+        paint.RenderPriority = -1;
+        var bar = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(width, thickness, length) }, MaterialOverride = paint };
+        _overlay.AddChild(bar);
+        bar.LookAtFromPosition((from + to) / 2, to, Mathf.Abs((to - from).Normalized().Y) > 0.99f ? Vector3.Right : Vector3.Up);
     }
 
     // The roll a charge needs, drawn at the end of its path: "4+", "ANY" or "SHORT" (the panel says it in words).
@@ -1785,9 +2053,9 @@ public partial class BoardView : SubViewportContainer
     public int Climbs { get; private set; }
 
     // A see-through copy of the model's base where the preview would put it, at the height it would stand at.
-    private void Ghost(TablePoint at, ModelId model, double radius, Color edge, float standing = 0)
+    private void Ghost(TablePoint at, ModelId model, double radius, Color edge, float standing = 0, Color? tint = null)
     {
-        var seat = _scene?.Find(model) is { } shape ? ModelColour(shape) : edge;
+        var seat = tint ?? (_scene?.Find(model) is { } shape ? ModelColour(shape) : edge);
         _overlay.AddChild(new MeshInstance3D
         {
             Mesh = new CylinderMesh { TopRadius = (float)radius, BottomRadius = (float)radius, Height = 1.2f, RadialSegments = 24 },

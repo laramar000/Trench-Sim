@@ -86,9 +86,10 @@ public static class Program
                     last = await AutomatedTests.Run(setup);
                     break;
                 case "2":
-                    // Matches are played on the layout with the towers (Jason, 2026-10-21: towers by default).
-                    Console.Write("  Scenario (on the map with towers): 1 = ranged (shooting), 2 = melee (close combat). Press Enter for ranged: ");
-                    var scenario = (Console.ReadLine() ?? "").Trim() == "2" ? "melee" : "ranged";
+                    // Matches are played on the layout with the towers (Jason, 2026-10-21: towers by default). Battlefield
+                    // UI stage K7: melee by default, the warbands with shooters and fighters, so a match has both.
+                    Console.Write("  Scenario (on the map with towers): 1 = ranged (shooting only), 2 = melee (shooting and close combat). Press Enter for melee: ");
+                    var scenario = (Console.ReadLine() ?? "").Trim() == "1" ? "ranged" : "melee";
                     Console.Write("  Side size: 1, 2 or 3 models a side for a quick test, or Enter for the normal roster: ");
                     var size = (Console.ReadLine() ?? "").Trim();
                     if (size is "1" or "2" or "3")
@@ -156,7 +157,7 @@ public static class Program
     }
 
     private static TestMatchRun.Options MatchOptions(string[] args, List<string> words, bool opengl) => new(
-        words.ElementAtOrDefault(1) is { } scenario && Scenarios.Contains(scenario) ? scenario : "ranged-towers", opengl,
+        words.ElementAtOrDefault(1) is { } scenario && Scenarios.Contains(scenario) ? scenario : "melee-towers", opengl,
         Value(args, "--client-args-a")?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? [],
         Value(args, "--client-args-b")?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? []);
 

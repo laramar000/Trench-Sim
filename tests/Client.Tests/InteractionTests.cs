@@ -368,7 +368,8 @@ public class InteractionTests
         var (state, seat) = Activating();
         var interaction = new Interaction();
         interaction.Update(state, seat);
-        Assert.Equal(6, interaction.Available.Count);
+        // The six actions and (stage K6) Combat, which chooses among Shoot, Charge and Fight.
+        Assert.Equal(7, interaction.Available.Count);
         Assert.True(interaction.Start(InteractionMode.Move));
         var model = state.FindModel(state.ActiveModel!.Value)!;
         Assert.Equal(TablePoint.Of(model.Position!.Value), interaction.Cursor);

@@ -302,7 +302,13 @@ public static class Previews
             PreviewKind.Charge => CheckCharge(state, seat, model, target, facts, rays, charge, ref needed),
             _ => CheckFight(state, seat, model, target, facts, rays, ref dice),
         };
-        // Proposal J2b (decision D1): whether a Fight target can be chosen is the rules' own answer (TurnSequence.Check,
+        // Battlefield UI, stage K7: a charger without a Melee Weapon may still charge (1.0.2 p. 37: a charge does not of
+        // itself allow a Fight), but it cannot Fight after it (p. 45); the preview says so before the charge is sent.
+        if (kind == PreviewKind.Charge && state.Setup?.ProfileOf(model) is { HasMeleeWeapon: false })
+        {
+            facts.Add(NoMeleeWeaponFact);
+        }
+                // Proposal J2b (decision D1): whether a Fight target can be chosen is the rules' own answer (TurnSequence.Check,
         // the check Decide makes); the facts and dice above only describe it.
         if (kind == PreviewKind.Fight && Opening(state) is null)
         {
@@ -721,7 +727,7 @@ public static class Previews
         };
         var blockers = cover.Sight.Rays.Where(r => r.BlockedBy is not null).Select(r => r.BlockedBy!).Distinct().ToList();
         facts.Add($"Line of sight: {seeing}, {cover.Sight.Visible} of {cover.Sight.Total} sight rays clear{(blockers.Count > 0 ? $", blocked by {string.Join(", ", blockers)}" : "")}.");
-        facts.Add(cover.InCover ? $"Target in cover ({cover.TerrainId})." : "Target not in cover.");
+        facts.Add(cover.InCover ? $"{CoverFact} ({cover.TerrainId})." : "Target not in cover.");
         if (cover.Sight.Attacker.Level == ModelLevel.High)
         {
             facts.Add("Attacker on high ground: it sees over ground-level walls.");
@@ -775,7 +781,13 @@ public static class Previews
         return state.MovementHalved ? Length.FromThousandths(total.Thousandths / 2) : total;
     }
 
-    private static double RadiusOf(MatchState state, ModelId id) =>
+    // Stage K7: said by a Charge preview when the charger has no Melee Weapon.
+    public const string NoMeleeWeaponFact = "It can charge but cannot Fight: it has no Melee Weapon (" + RefMelee + ").";
+
+    // The fact a preview states when the target is in cover (stage K5 colours the target line by it).
+    public const string CoverFact = "Target in cover";
+
+    internal static double RadiusOf(MatchState state, ModelId id) =>
         state.Setup?.ProfileOf(id) is { } profile ? TableRect.Inches(profile.BaseRadius) : 0.5;
 
     // The path from the model's centre through each waypoint, with the distance used so far at each point.

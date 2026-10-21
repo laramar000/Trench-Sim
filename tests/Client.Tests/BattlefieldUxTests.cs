@@ -235,6 +235,8 @@ public class BattlefieldUxTests
     // The create-match list names every scenario in words, the tower layouts included.
     [Theory]
     [InlineData("ranged", "ranged (normal roster)")]
+    [InlineData("melee", "melee (shooting and close combat)")]
+    [InlineData("melee-towers", "melee with towers (shooting and close combat)")]
     [InlineData("melee-2v2", "melee, 2 v 2 (test roster)")]
     [InlineData("ranged-towers", "ranged with towers (normal roster)")]
     [InlineData("melee-1v1-towers", "melee with towers, 1 v 1 (test roster)")]

@@ -26,7 +26,7 @@ Double-click **Test Trench Sim**. A menu appears:
 | Choice | What happens | What you do |
 |---|---|---|
 | **1 Run all automated tests** | Builds the game (Debug and Release, warnings count as errors), runs the whole test suite twice, the authority checks (the client never decides anything), then the UI checks for this computer: on Windows the existing Windows UI check, with Godot windows that play full matches by themselves. | Nothing. Do not use the mouse or keyboard while the Godot windows play. About 15 to 25 minutes. |
-| **2 Play a test match** | Asks for ranged or melee and the side size (normal, or 1, 2 or 3 models a side for a quick test). The match is played on the map with the two climbable towers. Starts a local server and two game windows side by side. Window A creates the match and window B joins it, by themselves. When the match is over, it finds the server's signed record by the match's id and checks its signature, every event, the final state hash, the event count and the result against both windows. | Play both sides with the mouse. Once, close a window with its **X**: it is reopened and takes its seat back by itself. Click **Copy code** and **Copy final hash** when asked (the clipboard is checked, not your word). Answer two questions (mouse, readability). |
+| **2 Play a test match** | Asks for ranged or melee (Enter: melee, the warbands with shooters and fighters, so a match has shooting and close combat) and the side size (normal, or 1, 2 or 3 models a side for a quick test). The match is played on the map with the two climbable towers. Starts a local server and two game windows side by side. Window A creates the match and window B joins it, by themselves. When the match is over, it finds the server's signed record by the match's id and checks its signature, every event, the final state hash, the event count and the result against both windows. | Play both sides with the mouse. Once, close a window with its **X**: it is reopened and takes its seat back by itself. Click **Copy code** and **Copy final hash** when asked (the clipboard is checked, not your word). Answer two questions (mouse, readability). |
 | **3 Check the Godot editor** | Opens the project in the Godot editor and watches what happens. | Press **Build**, then **Play**, look at the game window, close it and the editor. |
 | **4 Check a finished match** | Verifies the record of your latest test or hot-seat match. | Press Enter. |
 | **5 Clean up** | Stops anything a test left running. | Nothing. |
@@ -59,7 +59,7 @@ Godot editor's Build and Play buttons (then it checks that a build ran and that 
 
 ## For developers
 
-`dotnet run --project tools/TestCenter -- tests | match [<scenario>, default ranged-towers] | editor | check [<record>] | cleanup`, with
+`dotnet run --project tools/TestCenter -- tests | match [<scenario>, default melee-towers] | editor | check [<record>] | cleanup`, with
 `--godot <path>`, `--no-questions` (nobody at the keyboard; questions become NOT RUN) and `--opengl`. On Linux,
 `./test-trench-sim.sh`. Exit codes: 0 PASS, 1 FAIL, 2 INCOMPLETE, 3 could not start. `--client-args-a`/`--client-args-b`
 add arguments to the test match's windows; the automated rehearsal of the test match uses them to let the UI check driver

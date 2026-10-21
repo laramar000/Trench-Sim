@@ -21,6 +21,30 @@ public enum InteractionMode
     Shoot,
     Charge,
     Fight,
+
+    // Battlefield UI, stage K6: one Combat action for Shoot, Charge and Fight. Choosing an enemy opens a small menu of the
+    // attacks that apply to it now; each stays its own command and its own preview.
+    Combat,
+}
+
+// Stage K6: one entry of the Combat menu for the chosen enemy: the action, whether the preview says the server would take
+// it, and if not, the rules' reason (greyed out, never sent from the menu).
+public sealed record CombatEntry(InteractionMode Mode, string Label, string Key, bool Enabled, string? Why, Preview Preview);
+
+// Stage K6: what picking an entry of the Combat menu does next.
+public enum CombatPick
+{
+    // Nothing (greyed out, or not choosing in Combat).
+    None,
+
+    // Shoot or Fight: picking the target and the action is the confirmation; send it now.
+    Send,
+
+    // Charge: its preview is shown with a Confirm charge button beside the target; one click on it sends.
+    ConfirmCharge,
+
+    // Chosen by key with a preview the rules refuse: the action is shown, nothing is sent (Space twice still sends it).
+    Shown,
 }
 
 // What a button of the battlefield's action bar does.
@@ -61,11 +85,14 @@ public enum BarKind
 
     // A command is on its way; nothing to press.
     Waiting,
+
+    // Stage K4: chooses the model to place next (Model); nothing is sent.
+    Pick,
 }
 
 // One button of the action bar: a short label, a tooltip that says what it does (and its optional key), and the command
 // it sends for Activate and End activation (the rules' own legal command, which the server still decides).
-public sealed record BarItem(BarKind Kind, string Label, string Tip, bool Enabled = true, InteractionMode Mode = InteractionMode.None, Command? Command = null)
+public sealed record BarItem(BarKind Kind, string Label, string Tip, bool Enabled = true, InteractionMode Mode = InteractionMode.None, Command? Command = null, ModelId? Model = null)
 {
     // QoL H5: the key that does the same, shown on the button ("Move · M"); null when there is none. No key is new.
     public string? Key => Kind switch
@@ -204,7 +231,10 @@ public sealed class Interaction
 
     public bool IsPath => Mode is InteractionMode.Move or InteractionMode.Dash or InteractionMode.Retreat;
 
-    public bool IsTarget => Mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight;
+    public bool IsTarget => Mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Combat;
+
+    // Stage K6: Shoot, Charge and Fight, which the bar offers as one Combat action.
+    public static bool IsAttack(InteractionMode mode) => mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight;
 
     public bool UsesCursor => IsPath || Mode == InteractionMode.Place;
 
@@ -221,12 +251,14 @@ public sealed class Interaction
         if (seat != _seat && Pending is null && Mode != InteractionMode.None)
         {
             Clear();
-            Notice = "Another seat is shown now, so the preview was cleared.";
+            Notice = SeatShownNotice;
         }
         if (seat != _seat)
         {
             Chosen = null;
         }
+        // Stage K4: a new state (or seat) brings placing back after Esc dropped it.
+        _placeDismissed = false;
         _server = state;
         _seat = seat;
         _state = Effective();
@@ -234,11 +266,96 @@ public sealed class Interaction
         // While a command is on its way, the server's answer decides what happens to the choice.
         if (Pending is null && Mode != InteractionMode.None && !StillPossible())
         {
-            Clear();
-            Notice = "The match moved on, so the preview was cleared.";
+            if (Mode == InteractionMode.Place && PlacingNow)
+            {
+                // Stage K4: the model was placed and you place another: the next one, keeping the cursor and the answer.
+                Actor = NextToPlace();
+                _armed = false;
+            }
+            else
+            {
+                Clear();
+                Notice = "The match moved on, so the preview was cleared.";
+            }
+        }
+        FightAfterCharge();
+        if (AutoPlace() && Notice == SeatShownNotice)
+        {
+            // The seat now shown places its models: nothing of the other seat's was lost worth a note.
+            Notice = null;
         }
         Changed();
     }
+
+    // Stage K7: the charger and the enemy of the last accepted charge, until the Combat menu opens on it with Fight ready
+    // (when the rules allow that Fight) or the activation ends.
+    private (ModelId Charger, ModelId Target)? _afterCharge;
+
+    // For the UI check: how many times Combat opened by itself after a charge.
+    public int CombatAfterCharge { get; private set; }
+
+    private void FightAfterCharge()
+    {
+        if (_afterCharge is not { } after)
+        {
+            return;
+        }
+        if (_server.ActiveModel != after.Charger || _seat is not { } seat)
+        {
+            _afterCharge = null;
+            return;
+        }
+        if (Pending is not null || Mode != InteractionMode.None || _state.Pending is not null || !Available.Contains(InteractionMode.Combat))
+        {
+            return;
+        }
+        // The charge's events may still be on their way: wait until the rules accept a Fight on that enemy.
+        if (Previews.ActionOpen(_state, seat, after.Charger, PreviewKind.Fight) is not null || !Previews.Target(_state, seat, PreviewKind.Fight, after.Charger, after.Target).Legal)
+        {
+            return;
+        }
+        _afterCharge = null;
+        Mode = InteractionMode.Combat;
+        Actor = after.Charger;
+        Target = after.Target;
+        _armed = false;
+        CombatAfterCharge++;
+    }
+
+    // Stage K4: on your deployment turn the battlefield is in Place mode by itself (no button, no key): a click on the
+    // table places the model shown by the ghost. Esc drops it until the next state from the server (or L brings it back).
+    private bool _placeDismissed;
+
+    // The model the player chose to place next (a chip on the bar, or N and P); the first undeployed one otherwise.
+    private ModelId? _placeNext;
+
+    private bool PlacingNow => Available is [InteractionMode.Place];
+
+    private ModelId NextToPlace()
+    {
+        var undeployed = Undeployed();
+        return _placeNext is { } wanted && undeployed.Any(m => m.Id == wanted) ? wanted : undeployed[0].Id;
+    }
+
+    private bool AutoPlace()
+    {
+        if (Pending is not null || Mode != InteractionMode.None || _placeDismissed || !PlacingNow)
+        {
+            return false;
+        }
+        Mode = InteractionMode.Place;
+        Actor = NextToPlace();
+        Cursor = ZoneCentre();
+        _armed = false;
+        return true;
+    }
+
+    private const string SeatShownNotice = "Another seat is shown now, so the preview was cleared.";
+
+    // Stage K4: what to do now while placing, for the HUD: "Place Sharpshooter (A1) in ZONE A: click a spot".
+    public string? Prompt => Mode == InteractionMode.Place && Pending is null && Actor is { } actor && _seat is { } seat
+        ? $"Place {(NameOf(actor) is var name && name != actor.Value ? $"{name} ({actor.Value})" : actor.Value)} in ZONE {Client.Core.Words.SeatLetter(seat)}: click a spot"
+        : null;
 
     // The actions the player can preview now: placing a model on your deployment turn, or the actions of your
     // activating model. The preview then says whether the server would probably accept each one.
@@ -256,9 +373,35 @@ public sealed class Interaction
             }
             if (_state.Phase == Phase.Activation && _state.ActiveModel is { } active && _state.FindModel(active) is { Seat: var owner, Position: not null } && owner == seat)
             {
-                return ActionModes;
+                return [.. ActionModes, InteractionMode.Combat];
             }
             return [];
+        }
+    }
+
+    // Stage K6: what the bar offers: Offered with Shoot, Charge and Fight folded into one Combat action where the first
+    // of them was (Combat appears exactly when at least one of them is open).
+    public IReadOnlyList<InteractionMode> BarOffered
+    {
+        get
+        {
+            var offered = Offered;
+            var list = new List<InteractionMode>();
+            foreach (var mode in offered)
+            {
+                if (IsAttack(mode))
+                {
+                    if (!list.Contains(InteractionMode.Combat))
+                    {
+                        list.Add(InteractionMode.Combat);
+                    }
+                }
+                else if (mode != InteractionMode.Combat)
+                {
+                    list.Add(mode);
+                }
+            }
+            return list;
         }
     }
 
@@ -274,13 +417,13 @@ public sealed class Interaction
             {
                 return available;
             }
-            return [.. available.Where(mode => Previews.ActionOpen(_state, seat, actor, Kind(mode)) is null)];
+            return [.. available.Where(mode => mode != InteractionMode.Combat && Previews.ActionOpen(_state, seat, actor, Kind(mode)) is null)];
         }
     }
 
     // Why an action is not offered now, in the rules' words; null when it is offered (or not an action of this moment).
     public string? WhyNot(InteractionMode mode) =>
-        _seat is { } seat && _state.ActiveModel is { } actor && Available.Contains(mode) && mode != InteractionMode.Place
+        _seat is { } seat && _state.ActiveModel is { } actor && Available.Contains(mode) && mode != InteractionMode.Place && mode != InteractionMode.Combat
             ? Previews.ActionOpen(_state, seat, actor, Kind(mode))?.Text
             : null;
 
@@ -314,6 +457,12 @@ public sealed class Interaction
                 items.Add(new(BarKind.Undo, "Undo point", "Remove the last waypoint (key Backspace). Shift+click adds one.", Mode: Mode));
             }
             items.Add(new(BarKind.Cancel, "Cancel", "Stop choosing this action; nothing is sent (Esc or right-click).", Mode: Mode));
+            if (Mode == InteractionMode.Place)
+            {
+                // Stage K4: a chip per model still to place; the one placed next is marked. N and P do the same.
+                items.AddRange(Undeployed().Select(m => new BarItem(BarKind.Pick, $"{(m.Id == Actor ? "▶ " : "")}{m.Id.Value}{(NameOf(m.Id) is var n && n != m.Id.Value ? $" {n}" : "")}",
+                    m.Id == Actor ? "The model a click places next." : "Place this model next (N and P go through them). Nothing is sent.", Model: m.Id)));
+            }
             return new(Mode == InteractionMode.Place ? null : Actor, items);
         }
         if (DecisionBar(seat) is { } decision)
@@ -328,7 +477,7 @@ public sealed class Interaction
         var legal = _state.Pending is null ? TurnSequence.LegalCommands(_state).Where(c => CommandSeats.Of(c) == seat).ToList() : [];
         if (_state.Phase == Phase.Activation && _state.ActiveModel is { } active && _state.FindModel(active)?.Seat == seat)
         {
-            var items = offered.Select(m => new BarItem(BarKind.Start, Words(m), Tip(m), Mode: m)).ToList();
+            var items = BarOffered.Select(m => new BarItem(BarKind.Start, Words(m), Tip(m), Mode: m)).ToList();
             if (legal.OfType<EndActivation>().FirstOrDefault() is { } end)
             {
                 items.Add(Chosen is null
@@ -392,7 +541,10 @@ public sealed class Interaction
         }
         if (_verdicts is null || _verdictsVersion != Version)
         {
-            _verdicts = [.. Targets().Select(t => (t, Previews.Target(_state, seat, Kind(Mode), actor, t).Refusal))];
+            _verdicts = Mode == InteractionMode.Combat
+                // Stage K6: an enemy is a valid choice when at least one of its attacks is open; else the first reason.
+                ? [.. Targets().Select(t => CombatEntriesFor(t) is var entries && entries.Any(e => e.Enabled) ? (t, (Rejection?)null) : (t, entries.Select(e => e.Preview.Refusal).FirstOrDefault()))]
+                : [.. Targets().Select(t => (t, Previews.Target(_state, seat, Kind(Mode), actor, t).Refusal))];
             _verdictsVersion = Version;
         }
         return _verdicts;
@@ -406,7 +558,7 @@ public sealed class Interaction
     // model already chosen. Nothing is chosen or sent.
     public Preview? PreviewOf(ModelId target)
     {
-        if (!IsTarget || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor)
+        if (!IsTarget || Mode == InteractionMode.Combat || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor)
         {
             return null;
         }
@@ -527,8 +679,9 @@ public sealed class Interaction
         InteractionMode.Dash => "Move again up to the model's Movement, with a Risky roll that decides whether it works: click a spot in the shaded area (key D).",
         InteractionMode.Retreat => "Leave melee: click a spot in the shaded area, more than 1\" from every enemy; enemies within 1\" may attack first (key R).",
         InteractionMode.Shoot => "Shoot an enemy in range and in sight: click a target, then click it again (key S).",
-        InteractionMode.Charge => "Charge an enemy within 12\" into melee; a D6 adds reach: click a target, then click it again (key C).",
+        InteractionMode.Charge => "Charge an enemy within 12\" into melee; a D6 adds reach: in Combat (C), choose Charge on a target, then Confirm charge beside it (key 2).",
         InteractionMode.Fight => "Attack an enemy within 1\": click a target, then click it again (key X).",
+        InteractionMode.Combat => "Shoot, Charge or Fight: click an enemy, then choose the attack beside it (1, 2, 3); what the rules refuse is greyed out with the reason (key C).",
         _ => "",
     };
 
@@ -572,7 +725,8 @@ public sealed class Interaction
         Mode = mode;
         if (mode == InteractionMode.Place)
         {
-            Actor = Undeployed()[0].Id;
+            _placeDismissed = false;
+            Actor = NextToPlace();
             Cursor = ZoneCentre();
         }
         else
@@ -590,6 +744,10 @@ public sealed class Interaction
         if (Pending is not null || (Mode == InteractionMode.None && Notice is null))
         {
             return;
+        }
+        if (Mode == InteractionMode.Place)
+        {
+            _placeDismissed = true;
         }
         Clear();
         Changed();
@@ -642,6 +800,72 @@ public sealed class Interaction
         return true;
     }
 
+    // Stage K6: the Combat menu for the chosen enemy: Shoot, Charge and Fight, each with the preview of that action on
+    // that target (the same check as choosing it by its key), greyed out with the rules' reason when refused.
+    public IReadOnlyList<CombatEntry> CombatEntries() => Mode == InteractionMode.Combat && Target is { } target && Pending is null ? CombatEntriesFor(target) : [];
+
+    private IReadOnlyList<CombatEntry> CombatEntriesFor(ModelId target)
+    {
+        if (_seat is not { } seat || Actor is not { } actor)
+        {
+            return [];
+        }
+        var entries = new List<CombatEntry>();
+        var number = 0;
+        foreach (var mode in new[] { InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight })
+        {
+            number++;
+            if (!Available.Contains(mode))
+            {
+                continue;
+            }
+            var preview = Previews.Target(_state, seat, Kind(mode), actor, target);
+            var why = Previews.ActionOpen(_state, seat, actor, Kind(mode)) ?? preview.Refusal;
+            entries.Add(new CombatEntry(mode, Words(mode), number.ToString(System.Globalization.CultureInfo.InvariantCulture), why is null && preview.Legal,
+                why is null ? null : $"{why.Text} ({why.RuleRef})", preview));
+        }
+        return entries;
+    }
+
+    // Stage K6: picks an entry of the Combat menu (a click, or keys 1, 2 and 3). The action becomes the one being chosen,
+    // on the same target. A greyed-out entry picked by a click does nothing; by a key it shows that action's preview (so
+    // the keyboard keeps "confirm twice to send anyway"). The caller sends at once on Send, and shows the Confirm charge
+    // button on ConfirmCharge.
+    public CombatPick ChooseCombat(InteractionMode mode, bool byKey = false)
+    {
+        if (Pending is not null || Mode != InteractionMode.Combat || Target is not { } target || !IsAttack(mode)
+            || CombatEntriesFor(target).FirstOrDefault(e => e.Mode == mode) is not { } entry)
+        {
+            return CombatPick.None;
+        }
+        if (!entry.Enabled && !byKey)
+        {
+            return CombatPick.None;
+        }
+        Mode = mode;
+        Target = target;
+        _armed = false;
+        Notice = null;
+        Changed();
+        return !entry.Enabled ? CombatPick.Shown : mode == InteractionMode.Charge ? CombatPick.ConfirmCharge : CombatPick.Send;
+    }
+
+    // Stage K4: the models of the seat shown still to place, in order (for the bar's chips and the UI check).
+    public IReadOnlyList<ModelId> ToPlace => [.. Undeployed().Select(m => m.Id)];
+
+    // Stage K4: a chip on the bar: the model to place next. Nothing is sent.
+    public void PickToPlace(ModelId id)
+    {
+        if (Pending is not null || Mode != InteractionMode.Place || Actor == id || !Undeployed().Any(m => m.Id == id))
+        {
+            return;
+        }
+        Actor = id;
+        _placeNext = id;
+        _armed = false;
+        Changed();
+    }
+
     // The next (or previous) choice: the target for Shoot, Charge and Fight; the model to place during Deployment.
     public void NextChoice(bool forward = true)
     {
@@ -656,6 +880,7 @@ public sealed class Interaction
         if (Mode == InteractionMode.Place)
         {
             Actor = next;
+            _placeNext = next;
         }
         else
         {
@@ -828,6 +1053,17 @@ public sealed class Interaction
                 Clear();
                 Answer = answer;
                 Notice = $"DONE: {label}. The server accepted it; the battlefield shows its result.";
+                // Stage K4: when the server's events already placed it, the next placement starts now (else with them).
+                if (command is PlaceModel placed && _state.FindModel(placed.Model) is { Deployed: true })
+                {
+                    AutoPlace();
+                }
+                // Stage K7: after an accepted charge, Combat opens on the charged enemy when the rules let it Fight.
+                if (command is ChargeModel charged)
+                {
+                    _afterCharge = (charged.Model, charged.Target);
+                    FightAfterCharge();
+                }
                 break;
             case FeedbackKind.Unknown:
                 // The answer was lost: drop the choice so a second key press cannot send it twice.
@@ -942,6 +1178,7 @@ public sealed class Interaction
         InteractionMode.Shoot => "Shoot",
         InteractionMode.Charge => "Charge",
         InteractionMode.Fight => "Fight",
+        InteractionMode.Combat => "Combat",
         _ => "Nothing",
     };
 
@@ -953,8 +1190,10 @@ public sealed class Interaction
         InteractionMode.Dash => "D",
         InteractionMode.Retreat => "R",
         InteractionMode.Shoot => "S",
-        InteractionMode.Charge => "C",
+        // Stage K6: C opens Combat; in Combat, 2 is Charge.
+        InteractionMode.Charge => "2",
         InteractionMode.Fight => "X",
+        InteractionMode.Combat => "C",
         _ => "",
     };
 
@@ -963,6 +1202,8 @@ public sealed class Interaction
         InteractionMode.Place => "Click a spot in your zone to place the model. Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), N and P choose the model, Space sends.",
         _ when IsPath => "Click a spot in the shaded area to go there (Shift+click adds a waypoint for a path around something). Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), Enter fixes a point, Backspace removes one, Space sends."
             + (CanClimbSides ? (ClimbSides ? " K: back to ladders (now climbing a tower's side, a Risky roll)." : " K: climb a tower's side instead of a ladder (a Risky roll).") : ""),
+        InteractionMode.Combat => "Click an enemy (ringed when an attack on it is open), then choose Shoot, Charge or Fight beside it; what the rules refuse is greyed out with the reason. Right-click or Esc cancels. Keys: N and P choose the enemy, 1 Shoot, 2 Charge, 3 Fight.",
+        InteractionMode.Charge => "Click Confirm charge beside the target (or click the target again). Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
         _ => "Click a target (valid ones are marked), then click it again. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
     };
 

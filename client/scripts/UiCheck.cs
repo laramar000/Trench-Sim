@@ -753,6 +753,7 @@ public partial class UiCheck : Node
             && InPanel(board, $"of {shot.Rays.Count} sight rays clear") && InPanel(board, "Distance ");
         Check("board-shoot-preview", sightShown || (early && InPanel(board, shot!.Refusal!.Text)),
             $"{shot?.Headline}; {shot?.Rays.Count} rays, {shot?.Rays.Count(r => r.Clear)} clear; labels: {string.Join(" / ", board.OverlayTexts)}");
+        TargetLineCheck(board, shot);
         var aimed = interaction.Target is { } t && scene.Find(t) is { } targetShape ? targetShape : null;
         IReadOnlyList<string> targetCard = shot is null || aimed is null ? [] : PreviewCard.Lines(shot, aimed);
         Check("board-preview-card-target", early || (aimed is not null && InPanel(board, $"SHOOT → {UnitPanel.Heading(aimed)}") && InPanel(board, "Line of sight: ")
@@ -786,11 +787,16 @@ public partial class UiCheck : Node
         await DoubleClickTargetCheck(board, lastCommand);
         await CameraKeysCheck(board, lastCommand);
 
-        await KeyPress(Key.C);
+        await ActionKey(Key.C);
         var charge = interaction.Preview;
         var chargeShown = charge is not null && InPanel(board, "CHARGE → ") && OffField(board, Preview.Caveat)
             && (charge.Legal ? (charge.ChargePath.Count < 2 || board.OverlayTexts.Any(t => t is "ANY" or "SHORT" || t.EndsWith('+')))
                 && (charge.ChargePath.Count < 2 || InPanel(board, "Charge roll") || InPanel(board, "stops short")) : InPanel(board, $"REFUSED: {charge.Refusal!.Text}"));
+        // Stage K7: a charger without a Melee Weapon is told before it charges that it cannot Fight after it (p. 45).
+        var unarmed = charge is not null && ((Main)_main).ServerState?.Setup?.ProfileOf(charge.Model) is { HasMeleeWeapon: false };
+        var warned = InPanel(board, Previews.NoMeleeWeaponFact.TrimEnd('.'));
+        Check("charge-warns-no-melee-weapon", charge is not null && warned == unarmed && charge.Facts.Contains(Previews.NoMeleeWeaponFact) == unarmed,
+            $"{charge?.Model.Value}: no Melee Weapon {unarmed}; the panel says it cannot Fight: {warned}; panel: {PanelText.Replace('\n', '|')}");
         Check("board-charge-preview", chargeShown, $"{charge?.Headline}; {string.Join(" ", charge?.Facts ?? [])}; labels: {string.Join(" / ", board.OverlayTexts)}");
         await Shot("host-charge-preview");
         // The panel's Cancel, clicked with the mouse, stops choosing and sends nothing (as Esc does).
@@ -844,10 +850,11 @@ public partial class UiCheck : Node
         var interaction = board.Interaction;
         var lastCommand = Section("LAST COMMAND");
         await Frames(3);
-        var offered = interaction.Offered.Select(Interaction.Words).ToList();
+        // Stage K6: Shoot, Charge and Fight are one Combat button (BarOffered).
+        var offered = interaction.BarOffered.Select(Interaction.Words).ToList();
         var labels = board.BarLabels;
         Check("board-action-bar-shown", labels.Count > 0 && labels.Take(offered.Count).SequenceEqual(offered) && labels.Contains("End activation")
-            && interaction.Available.Except(interaction.Offered).All(m => !labels.Contains(Interaction.Words(m))),
+            && interaction.Available.Except(interaction.BarOffered).All(m => !labels.Contains(Interaction.Words(m))),
             $"bar: {string.Join(" / ", labels)}; offered: {string.Join(" / ", offered)}; available: {string.Join(" / ", interaction.Available)}");
         await Shot("host-action-bar");
 
@@ -1109,7 +1116,7 @@ public partial class UiCheck : Node
     {
         var interaction = board.Interaction;
         await MouseOff(board);
-        await KeyPress(action);
+        await ActionKey(action);
         var count = interaction.Targets().Count;
         for (var i = 0; i < count && interaction.Preview is not { Legal: true }; i++)
         {
@@ -1141,19 +1148,25 @@ public partial class UiCheck : Node
     private bool _chargeSent;
     private bool _fightSent;
 
+    // The hint that activates that model: "Activate Sharpshooter (a1)", alone or with more words after it.
+    private static bool IsActivateHint(string hint, string name) =>
+        hint == $"Activate {name}" || hint.StartsWith($"Activate {name} ", StringComparison.Ordinal);
+
     private async Task<bool> ActivateByKey(BoardView board)
     {
         if (_activateChecked || board.Scene is not { } scene || !await FocusByTab(board, 80))
         {
+            Mark("activate-key-skipped", $"no scene or Tab never reached the battlefield; focus on {Describe(Focused())}");
             return false;
         }
         var hints = Controls<Button>().Where(b => b.IsVisibleInTree() && b.Text.StartsWith("Activate ", StringComparison.Ordinal)).Select(b => b.Text).ToList();
-        for (var i = 0; i < scene.Models.Count && !(board.Selected is { Yours: true } m && hints.Any(h => h.StartsWith($"Activate {m.Name} ", StringComparison.Ordinal))); i++)
+        for (var i = 0; i < scene.Models.Count && !(board.Selected is { Yours: true } m && hints.Any(h => IsActivateHint(h, m.Name))); i++)
         {
             await KeyPress(Key.N);
         }
-        if (board.Selected is not { Yours: true } chosen || !hints.Any(h => h.StartsWith($"Activate {chosen.Name} ", StringComparison.Ordinal)))
+        if (board.Selected is not { Yours: true } chosen || !hints.Any(h => IsActivateHint(h, chosen.Name)))
         {
+            Mark("activate-key-skipped", $"selected {board.Selected?.Name} (yours: {board.Selected?.Yours}); hints {string.Join(" / ", hints)}; focus on {Describe(Focused())}; mode {board.Interaction.Mode}");
             return false;
         }
         _activateChecked = true;
@@ -1522,7 +1535,20 @@ public partial class UiCheck : Node
             {
                 ("HUD", hud), ("Confirm", main.PanelConfirm), ("Cancel", main.PanelCancel), ("last command", main.LastCommandLabel), ("combat log", main.CombatLog),
             };
-            shown.AddRange(Controls<Button>().Where(b => b.HasMeta("hint") && b.IsVisibleInTree()).Select(b => ($"hint {b.Text}", (Control?)b)));
+            // The choices: their box is inside the window, and each choice is inside the box or reached by scrolling it
+            // (a box at most a fifth of the window, a third when stacked, scrolls when there are more).
+            shown.Add(("choices box", main.ActionsBox));
+            var box = main.ActionsBox.GetGlobalRect();
+            foreach (var hint in Controls<Button>().Where(b => b.HasMeta("hint") && b.IsVisibleInTree()))
+            {
+                var r = hint.GetGlobalRect();
+                var inBox = main.ActionsBox.IsAncestorOf(hint) && r.Position.X >= box.Position.X - 1 && r.End.X <= box.End.X + 1;
+                var scrolls = main.ActionsBox.GetVScrollBar().MaxValue > main.ActionsBox.Size.Y + 1;
+                if (!inBox || (!scrolls && (r.Position.Y < box.Position.Y - 1 || r.End.Y > box.End.Y + 1)))
+                {
+                    offScreen.Add($"{where}: hint {hint.Text} at {r}, choices box {box} (scrolls: {scrolls})");
+                }
+            }
             foreach (var (name, control) in shown)
             {
                 if (control is null || !control.IsVisibleInTree())
@@ -1692,7 +1718,10 @@ public partial class UiCheck : Node
         // The local server's address, from the hot-seat line; the runner checks its process separately.
         var urlText = line[(line.IndexOf("Local server ", StringComparison.Ordinal) + 13)..];
         var endpoint = new Uri(urlText[..urlText.IndexOf(' ')]);
-        Check("hotseat-server-running", await Reachable(endpoint) && Banner().StartsWith("Connection: Connected", StringComparison.Ordinal), $"local server {endpoint}; {Banner()}");
+        // The connection line follows the first status from the match controller (a moment after the hot-seat line).
+        var reachable = await Reachable(endpoint);
+        await Until(() => Banner().StartsWith("Connection: Connected", StringComparison.Ordinal) ? "ok" : null, 10, "hotseat-connected");
+        Check("hotseat-server-running", reachable && Banner().StartsWith("Connection: Connected", StringComparison.Ordinal), $"local server {endpoint}; {Banner()}");
         await Frames(5);
         if (Dialog<AcceptDialog>() is not null)
         {
@@ -1728,6 +1757,16 @@ public partial class UiCheck : Node
                 // The answer, or the window following the turn to the other seat (whose last command is then shown).
                 await Until(() => HotControlled() != seat || (Section("LAST COMMAND") is var now && now != before && !now.StartsWith("SENT:", StringComparison.Ordinal)) ? "answered" : null, 20, "hotseat-answer");
                 actions++;
+            }
+            else if (board is not null && board.Interaction.Available.Contains(InteractionMode.Place) && !_deployChecked)
+            {
+                // Stage K4, once: the battlefield is already placing; a refused spot says why and sends nothing; one
+                // click on a legal spot places the model.
+                _deployChecked = true;
+                if (await DeployDirectChecks(board))
+                {
+                    actions++;
+                }
             }
             else if (board is not null && board.Interaction.Available.Contains(InteractionMode.Place))
             {
@@ -1801,6 +1840,138 @@ public partial class UiCheck : Node
     }
 
     // L on the battlefield, then 2" steps in a widening square until the preview looks legal; Space sends it.
+    // Battlefield UI, stage K5: Shoot (also Charge and Fight) draws exactly one line, from the attacker's base edge to the
+    // chosen target's base edge, in the colour the preview implies (clear, in cover, refused); no sight-ray lines.
+    private void TargetLineCheck(BoardView board, Preview? shot)
+    {
+        var interaction = board.Interaction;
+        var state = interaction.PreviewState;
+        if (shot is null || shot.Target is not { } target || state.FindModel(shot.Model)?.Position is not { } a || state.FindModel(target)?.Position is not { } t)
+        {
+            Check("board-target-line", false, $"no shoot preview with a target: {shot?.Headline}");
+            return;
+        }
+        var tone = !shot.Legal ? TargetTone.Refused : shot.Facts.Any(f => f.StartsWith("Target in cover (", StringComparison.Ordinal)) ? TargetTone.Cover : TargetTone.Clear;
+        var drawn = board.TargetLineDrawn;
+        var (ac, tc) = (TablePoint.Of(a), TablePoint.Of(t));
+        double Dist(TablePoint p, TablePoint q) => Math.Sqrt((p.X - q.X) * (p.X - q.X) + (p.Y - q.Y) * (p.Y - q.Y));
+        var apart = Dist(ac, tc);
+        var ra = board.Scene?.Find(shot.Model)?.Radius ?? 0;
+        var rt = board.Scene?.Find(target)?.Radius ?? 0;
+        var ends = drawn is { } d && (apart <= ra + rt + 1e-6
+            ? Near(d.Line.From, ac.X, ac.Y, 0.01) && Near(d.Line.To, tc.X, tc.Y, 0.01)
+            : Math.Abs(Dist(d.Line.From, ac) - ra) < 0.02 && Math.Abs(Dist(d.Line.To, tc) - rt) < 0.02 && Math.Abs(Dist(d.Line.From, tc) - (apart - ra)) < 0.02);
+        Check("board-target-line", board.TargetLinesDrawn == 1 && drawn is { } line && line.Line.Attacker == shot.Model && line.Line.Target == target && ends
+            && line.Line.Tone == tone && line.Colour == board.ToneColour(tone),
+            $"{board.TargetLinesDrawn} line(s); {drawn?.Line} colour {drawn?.Colour}; wanted {shot.Model.Value} -> {target.Value} ({tone}), base edges {ra}\" and {rt}\" of {apart:0.00}\" apart");
+    }
+
+    private bool _deployChecked;
+
+    // Battlefield UI, stage K4 (hot-seat window, on a deployment turn of its own). Nothing was pressed: the battlefield is
+    // already placing (no "Place a model" button), the bar has a chip per model to place and the HUD says where. Pointed
+    // at a spot outside the zone, the ghost is red and the rules' own reason is beside it; a click there sends nothing.
+    // Then one click on a legal spot sends the placement once, and the server's events put the model there.
+    private async Task<bool> DeployDirectChecks(BoardView board)
+    {
+        var interaction = board.Interaction;
+        var main = (Main)_main;
+        await Until(() => interaction.Mode == InteractionMode.Place && interaction.Pending is null ? "ok" : null, 5, "auto-place");
+        if (main.ServerState is not { } state || interaction.Actor is not { } actor || state.FindModel(actor) is not { } placing
+            || state.Setup?.Scenario is not { } scenario || state.SeatFor(placing.Seat).ZoneId is not { } zoneId || scenario.Battlefield.Zone(zoneId) is not { } zone)
+        {
+            Check("deploy-direct", false, $"not placing by itself: mode {interaction.Mode}, actor {interaction.Actor}, bar {string.Join(" / ", board.BarLabels)}");
+            return false;
+        }
+        var seat = placing.Seat;
+        var undeployed = interaction.ToPlace.Select(m => m.Value).ToList();
+        await Frames(3);
+        var bar = board.BarLabels;
+        var chips = bar.Select(l => l.TrimStart('▶', ' ')).Where(l => undeployed.Any(u => l == u || l.StartsWith(u + " ", StringComparison.Ordinal))).ToList();
+        var ready = interaction.Mode == InteractionMode.Place && !bar.Contains("Place a model") && chips.Count == undeployed.Count
+            && interaction.Prompt is { } prompt && main.HudText.Contains(prompt, StringComparison.Ordinal) && prompt.Contains($"ZONE {Words.SeatLetter(seat)}", StringComparison.Ordinal);
+        var readyText = $"mode {interaction.Mode}; bar {string.Join(" / ", bar)}; to place {string.Join(",", undeployed)}; HUD: {main.HudText}";
+        await MouseOn(board);
+        var area = new Rect2(new Vector2(0, board.TopInset + 8), board.Size - new Vector2(0, board.TopInset + 16));
+        Vector2? Screen(double x, double y)
+        {
+            if (board.ScreenOf(x, y, 0) is not { } p || !area.HasPoint(p) || board.BarRect is { } b && b.Grow(8).HasPoint(p))
+            {
+                return null;
+            }
+            return board.GetGlobalTransformWithCanvas() * p;
+        }
+        var bounds = TableRect.Of(zone.Area.Bounds);
+        var width = TableRect.Inches(scenario.Battlefield.Width);
+        var depth = TableRect.Inches(scenario.Battlefield.Height);
+        // A spot outside the zone the rules refuse (the table's middle row, else the far side), on screen.
+        var outside = Enumerable.Range(0, 9).Select(i => new TablePoint(width * (i + 0.5) / 9, depth / 2))
+            .Concat(Enumerable.Range(0, 9).Select(i => new TablePoint(bounds.X0 < width / 2 ? width - 2 : 2, depth * (i + 0.5) / 9)))
+            .FirstOrDefault(p => !Previews.Place(state, seat, actor, Previews.PointAt(p.X, p.Y)).Legal && Screen(p.X, p.Y) is not null);
+        var events = Lines(LogText()).Count;
+        var sent = interaction.SentCount;
+        var lastCommand = Section("LAST COMMAND");
+        var refusedOk = false;
+        var refusedText = "no refused spot on screen";
+        if (Screen(outside.X, outside.Y) is { } bad)
+        {
+            await Until(() =>
+            {
+                if (interaction.Preview is { Legal: false } && board.PlaceReason is not null && Near(interaction.Cursor, outside.X, outside.Y, 0.6))
+                {
+                    return "ok";
+                }
+                Input.ParseInputEvent(new InputEventMouseMotion { Position = bad, GlobalPosition = bad });
+                return null;
+            }, 3, "pointing-refused");
+            var at = interaction.Cursor;
+            var rules = Previews.Place(state, seat, interaction.Actor ?? actor, Previews.PointAt(at.X, at.Y));
+            var reasonRect = board.PlaceReasonRect;
+            var ghostScreen = board.GhostAt is { } g ? board.GetGlobalTransformWithCanvas() * (board.ScreenOf(g.X, g.Y, 0) ?? Vector2.Zero) : (Vector2?)null;
+            var beside = reasonRect is { } r && ghostScreen is { } gs && board.GetGlobalRect().Encloses(r) && r.Grow(80).HasPoint(gs);
+            await ClickAt(bad);
+            await Frames(3);
+            refusedOk = rules.Refusal is { } why && board.PlaceReason == why.Text && interaction.Preview?.Refusal?.Text == why.Text && board.GhostAt is { } ghost && Near(ghost, at.X, at.Y, 0.01) && beside
+                && interaction.SentCount == sent && interaction.Pending is null && Lines(LogText()).Count == events && Section("LAST COMMAND") == lastCommand
+                && (interaction.Notice ?? "").StartsWith($"Not sent: {why.Text}", StringComparison.Ordinal);
+            refusedText = $"pointed at {at}: reason box '{board.PlaceReason}' at {reasonRect} (ghost at {ghostScreen}); rules: {rules.Refusal?.Text}; after a click: sent {sent} -> {interaction.SentCount}, notice {interaction.Notice}";
+        }
+        Check("deploy-refused-explained", refusedOk, refusedText);
+        // A legal spot in the zone, on screen: one click sends it, once.
+        var model = interaction.Actor ?? actor;
+        var legal = Enumerable.Range(0, 7).SelectMany(i => Enumerable.Range(0, 7).Select(j => new TablePoint(Math.Round(bounds.X0 + (bounds.X1 - bounds.X0) * (i + 0.5) / 7, 1), Math.Round(bounds.Y0 + (bounds.Y1 - bounds.Y0) * (j + 0.5) / 7, 1))))
+            .FirstOrDefault(p => Previews.Place(state, seat, model, Previews.PointAt(p.X, p.Y)).Legal && Screen(p.X, p.Y) is not null);
+        var placedOk = false;
+        var placedText = "no legal spot on screen";
+        if (Screen(legal.X, legal.Y) is { } good)
+        {
+            sent = interaction.SentCount;
+            events = Lines(LogText()).Count;
+            await Until(() =>
+            {
+                if (interaction.Preview is { Legal: true } && Near(interaction.Cursor, legal.X, legal.Y, 0.6))
+                {
+                    return "ok";
+                }
+                Input.ParseInputEvent(new InputEventMouseMotion { Position = good, GlobalPosition = good });
+                return null;
+            }, 3, "pointing-legal");
+            var expected = interaction.Preview?.Command;
+            await ClickAt(good);
+            var answer = await Until(() => interaction.Pending is null && interaction.Answer is { } a ? a.Kind.ToString() : null, 20, "deploy-direct-answer");
+            var line = await Until(() => Lines(LogText()).Skip(events).FirstOrDefault(l => l.Contains($" sets up {model.Value}", StringComparison.Ordinal) || l.Contains(" sets up ", StringComparison.Ordinal)), 10, "deploy-direct-placed");
+            await Frames(3);
+            var shape = board.Scene?.Find(model);
+            placedOk = ready && answer == nameof(FeedbackKind.Accepted) && interaction.SentCount == sent + 1 && line is not null && expected is Rules.Core.Commands.PlaceModel p
+                && shape is not null && Near(new TablePoint(shape.X, shape.Y), TablePoint.Of(p.At).X, TablePoint.Of(p.At).Y);
+            placedText = $"{readyText}; one click at {legal}: answer {answer}, sent {sent} -> {interaction.SentCount}; event {line}; {model.Value} drawn at {(shape is null ? "nowhere" : $"({shape.X}, {shape.Y})")}";
+        }
+        Check("deploy-direct", placedOk, placedText);
+        await MouseOff(board);
+        await MouseOn(board);
+        return placedOk;
+    }
+
     private async Task<bool> PlaceSomewhere(BoardView board)
     {
         var interaction = board.Interaction;
@@ -2260,6 +2431,11 @@ public partial class UiCheck : Node
         {
             return;
         }
+        // Battlefield UI, stage K6 (pvp-a): the Combat button, the menu beside an enemy, and Confirm charge.
+        if (_role == "pvp-a" && (!_combatMenuChecked || !_chargeButtonChecked) && await CombatMenuStep(board))
+        {
+            return;
+        }
         if (await PvpTarget(board, Key.X, "Fight") is not null)
         {
             return;
@@ -2269,7 +2445,14 @@ public partial class UiCheck : Node
             if (charge.StartsWith("DONE:", StringComparison.Ordinal))
             {
                 await Until(() => Hint() is not null ? "ok" : null, 20, "charge-resolved");
-                await PvpTarget(board, Key.X, "Fight");
+                if (_role == "pvp-a" && _chargedTarget is { } charged)
+                {
+                    await AfterCharge(board, charged);
+                }
+                else
+                {
+                    await PvpTarget(board, Key.X, "Fight");
+                }
             }
             return;
         }
@@ -2586,6 +2769,14 @@ public partial class UiCheck : Node
             Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = at, GlobalPosition = at });
             Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = at, GlobalPosition = at });
             await Frames(2);
+            // Linux runs at the battlefield UI stages: now and then the toggle under the pointer did not take those
+            // three events (toggled 0 times); then it is clicked once more the way the first click was made.
+            if (main.LogToggles == togglesBefore && main.LogToggleRect(start) is { } still)
+            {
+                await Frames(10);
+                await ClickAt(still.GetCenter());
+                await Frames(2);
+            }
         }
         await Frames(3);
         var closed = main.LogActionDetails(start) is null;
@@ -3091,6 +3282,228 @@ public partial class UiCheck : Node
         return faces;
     }
 
+    private bool _combatMenuChecked;
+    private bool _chargeButtonChecked;
+
+    // Stage K6, in the pvp-a window: a click on the bar's Combat button, then on an enemy (one with an open charge when
+    // there is one) opens the menu beside it: Shoot, Charge and Fight, each enabled exactly when that action's own preview
+    // (and the rules' check that the action is open) accepts it, a greyed one with the rules' reason under it; nothing is
+    // sent (combat-menu). When Charge is open: a click on it shows the charge and a Confirm charge button beside the
+    // target, still sending nothing; one click on that button sends the charge once, and the server's roll and move
+    // arrive (charge-confirm-button). True when this step took the activation's action.
+    private async Task<bool> CombatMenuStep(BoardView board)
+    {
+        var interaction = board.Interaction;
+        var state = interaction.PreviewState;
+        if (Hint() is null || !interaction.BarOffered.Contains(InteractionMode.Combat) || state.ActiveModel is not { } me || interaction.Pending is not null)
+        {
+            return false;
+        }
+        var seat = state.FindModel(me)!.Seat;
+        bool Open(InteractionMode mode, Rules.Core.State.ModelId target, out string? why)
+        {
+            var kind = mode switch { InteractionMode.Shoot => PreviewKind.Shoot, InteractionMode.Charge => PreviewKind.Charge, _ => PreviewKind.Fight };
+            var preview = Previews.Target(state, seat, kind, me, target);
+            var refused = Previews.ActionOpen(state, seat, me, kind) ?? preview.Refusal;
+            why = refused is null ? null : $"{refused.Text} ({refused.RuleRef})";
+            return refused is null && preview.Legal;
+        }
+        // The enemies on the battlefield (Interaction.Targets is empty until an action names the acting model).
+        var targets = board.Scene?.Models.Where(m => !m.Yours).Select(m => m.Id).ToList() ?? [];
+        var chargeable = targets.Where(t => Open(InteractionMode.Charge, t, out _)).ToList();
+        if (_combatMenuChecked && chargeable.Count == 0)
+        {
+            return false;
+        }
+        await MouseOn(board);
+        await Frames(2);
+        var events = Lines(LogText()).Count;
+        var sent = interaction.SentCount;
+        var lastCommand = Section("LAST COMMAND");
+        if (board.BarButtonAt("Combat") is not { } combatButton)
+        {
+            Check("combat-menu", false, $"no Combat button on the bar: {string.Join(" / ", board.BarLabels)}");
+            _combatMenuChecked = true;
+            return false;
+        }
+        await ClickAt(combatButton);
+        await Frames(2);
+        // An enemy a click on its base picks (by the battlefield's own pick), clear of the HUD strip; if none is in view,
+        // the camera is centred on the first one (as a double-click would) and it is looked for again.
+        Vector2? Clickable(Rules.Core.State.ModelId id) =>
+            board.Scene?.Find(id) is { } m && board.ScreenOf(m.X, m.Y, m.Standing) is { } p && p.Y > board.TopInset + 8
+            && board.GetRect().Size is var size && p.X > 8 && p.X < size.X - 8 && p.Y < size.Y - 8 && board.ModelAt(p)?.Id == id ? p : null;
+        var ordered = chargeable.Concat(targets).Distinct().ToList();
+        if (ordered.Count > 0 && !ordered.Any(t => Clickable(t) is not null))
+        {
+            board.CentreOn(ordered[0]);
+            await Until(() => ordered.Any(t => Clickable(t) is not null) ? "ok" : null, 3, "enemy-in-view");
+        }
+        var enemy = ordered.Where(t => Clickable(t) is not null).Select(t => board.Scene?.Find(t)).FirstOrDefault();
+        var opened = false;
+        if (interaction.Mode == InteractionMode.Combat && enemy is not null && Clickable(enemy.Id) is { } local)
+        {
+            var at = board.GetGlobalTransformWithCanvas() * local;
+            await ClickAt(at);
+            opened = await Until(() => interaction.Target == enemy.Id && board.CombatMenuShown.Count > 0 && board.CombatMenuRect is not null ? "ok" : null, 3, "combat-menu") is not null;
+        }
+        if (!_combatMenuChecked)
+        {
+            _combatMenuChecked = true;
+            var shown = board.CombatMenuShown;
+            var problems = new List<string>();
+            if (!opened || enemy is null)
+            {
+                problems.Add($"menu not opened: mode {interaction.Mode}, target {interaction.Target?.Value}, enemy {enemy?.Id.Value}");
+            }
+            else
+            {
+                var expected = new[] { InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight }
+                    .Select(m => (Label: Interaction.Words(m), Enabled: Open(m, enemy.Id, out var why), Why: why)).ToList();
+                if (shown.Count != 3)
+                {
+                    problems.Add($"{shown.Count} entries");
+                }
+                for (var i = 0; i < Math.Min(3, shown.Count); i++)
+                {
+                    var (label, enabled, why) = shown[i];
+                    if (label != expected[i].Label || enabled != expected[i].Enabled || (enabled ? why is not null : why != expected[i].Why))
+                    {
+                        problems.Add($"{label} {(enabled ? "open" : $"greyed ({why})")} but the rules: {expected[i].Label} {(expected[i].Enabled ? "open" : $"refused ({expected[i].Why})")}");
+                    }
+                }
+                var menu = board.CombatMenuRect!.Value;
+                var spot = board.GetGlobalTransformWithCanvas() * (board.ScreenOf(enemy.X, enemy.Y, enemy.Standing) ?? Vector2.Zero);
+                if (!board.GetGlobalRect().Encloses(menu) || menu.HasPoint(spot) || menu.Grow(120).HasPoint(spot) is false)
+                {
+                    problems.Add($"menu at {menu}, not beside the enemy at {spot} inside the battlefield {board.GetGlobalRect()}");
+                }
+            }
+            if (interaction.SentCount != sent || Lines(LogText()).Count != events || Section("LAST COMMAND") != lastCommand)
+            {
+                problems.Add("something was sent");
+            }
+            Check("combat-menu", problems.Count == 0,
+                $"{enemy?.Name}: {string.Join(" / ", board.CombatMenuShown.Select(e => $"{e.Label} {(e.Enabled ? "open" : $"greyed: {e.Why}")}"))}; {(problems.Count == 0 ? "the rules' own verdicts, nothing sent" : string.Join("; ", problems))}");
+            await Shot("pvp-a-combat-menu");
+        }
+        if (!opened || enemy is null || !chargeable.Contains(enemy.Id) || board.CombatButtonAt(InteractionMode.Charge) is not { } chargeEntry)
+        {
+            await KeyPress(Key.Escape);
+            await MouseOff(board);
+            return false;
+        }
+        _chargeButtonChecked = true;
+        await ClickAt(chargeEntry);
+        var ready = await Until(() => interaction.Mode == InteractionMode.Charge && board.ConfirmChargeAt is not null ? "ok" : null, 3, "confirm-charge") is not null;
+        var preview = interaction.Preview;
+        var notYet = interaction.SentCount == sent && Lines(LogText()).Count == events;
+        var box = board.ConfirmChargeAt;
+        var beside = box is { } b && board.ScreenOf(enemy.X, enemy.Y, enemy.Standing) is { } p
+            && b.DistanceTo(board.GetGlobalTransformWithCanvas() * p) < 260 && board.GetGlobalRect().HasPoint(b);
+        var answer = "NOT SENT";
+        if (ready && box is { } button)
+        {
+            await ClickAt(button);
+            answer = await AnswerAfter(lastCommand, events);
+            Answer("Charge", answer);
+        }
+        var newLines = Lines(LogText()).Skip(events).ToList();
+        var charged = newLines.Any(l => l.Contains(" charges ", StringComparison.Ordinal) || l.Contains("CHARGE", StringComparison.Ordinal));
+        Check("charge-confirm-button", ready && notYet && beside && answer.StartsWith("DONE:", StringComparison.Ordinal) && preview is { Kind: PreviewKind.Charge, Legal: true }
+            && answer.Contains(Interaction.Describe(preview), StringComparison.Ordinal) && interaction.SentCount == sent + 1 && newLines.Count > 0,
+            $"Confirm charge shown beside {enemy.Name}: {ready} at {box} ({beside}); nothing sent before it: {notYet}; one click: {answer}; sent {sent} -> {interaction.SentCount}; events: {string.Join(" / ", newLines.Take(4))} (charge line: {charged})");
+        await Shot("pvp-a-charge-confirm");
+        await MouseOff(board);
+        if (answer.StartsWith("DONE:", StringComparison.Ordinal))
+        {
+            await Until(() => Hint() is not null ? "ok" : null, 20, "charge-resolved");
+            await AfterCharge(board, enemy.Id);
+        }
+        return true;
+    }
+
+    // Stage K7 (pvp-a): after a charge the server accepted, the Combat menu opens on the charged enemy exactly when the
+    // rules let the charger Fight it now (fight-opens-after-charge, checked after every charge). The first time it
+    // opens, one click on Fight in the menu sends the fight once, and the server's rolls are shown in the dice display
+    // and the combat log (fight-from-combat-menu). Otherwise the Fight key plays on as before.
+    private int _chargesLooked;
+    private int _chargeOpenMismatch;
+    private string? _chargeMismatchNote;
+    private bool _fightFromMenuChecked;
+    private Rules.Core.State.ModelId? _chargedTarget;
+
+    private async Task AfterCharge(BoardView board, Rules.Core.State.ModelId charged)
+    {
+        var interaction = board.Interaction;
+        await Frames(3);
+        var state = interaction.PreviewState;
+        var mayFight = false;
+        if (Hint() is not null && state.ActiveModel is { } me && state.Pending is null && state.FindModel(me) is { } model)
+        {
+            mayFight = Previews.ActionOpen(state, model.Seat, me, PreviewKind.Fight) is null
+                && Previews.Target(state, model.Seat, PreviewKind.Fight, me, charged).Legal;
+        }
+        var opened = await Until(() => interaction.Mode == InteractionMode.Combat && interaction.Target == charged && board.CombatMenuShown.Count > 0 ? "ok" : null, mayFight ? 3 : 1, "fight-after-charge") is not null;
+        _chargesLooked++;
+        if (opened != mayFight)
+        {
+            _chargeOpenMismatch++;
+            _chargeMismatchNote ??= $"charged {charged.Value}: rules let it Fight {mayFight}, Combat opened {opened} (mode {interaction.Mode}, target {interaction.Target?.Value})";
+        }
+        if (opened && !_fightFromMenuChecked && board.CombatButtonAt(InteractionMode.Fight) is { } fight)
+        {
+            _fightFromMenuChecked = true;
+            var entry = board.CombatMenuShown.FirstOrDefault(e => e.Label.StartsWith("Fight", StringComparison.Ordinal));
+            var preview = interaction.CombatEntries().Single(e => e.Mode == InteractionMode.Fight).Preview;
+            var sent = interaction.SentCount;
+            var before = Section("LAST COMMAND");
+            var events = Lines(LogText()).Count;
+            var rolls = board.Dice.Feed.Shown.Count;
+            var logDice = LogDiceCount();
+            // The dice display may be Off at this moment (the dice-off check turns it off until a roll comes in); then
+            // the rolls are only in the combat log, as that setting promises.
+            var diceOff = ((Main)_main).CurrentSettings.Dice == ClientSettings.DiceChoices - 1;
+            var notYet = interaction.SentCount == sent && interaction.Pending is null;
+            await ClickAt(fight);
+            var answer = await AnswerAfter(before, events);
+            Answer("Fight", answer);
+            await Until(() => LogDiceCount() > logDice && (diceOff || board.Dice.Feed.Shown.Count > rolls) ? "ok" : null, 5, "fight-dice");
+            var newLines = Lines(LogText()).Skip(events).ToList();
+            var newRolls = board.Dice.Feed.Shown.Skip(rolls).ToList();
+            var rollsOk = LogDiceCount() > logDice && (diceOff ? newRolls.Count == 0 : newRolls.Count > 0);
+            Check("fight-from-combat-menu", entry.Enabled && notYet && answer.StartsWith("DONE:", StringComparison.Ordinal)
+                && answer.Contains(Interaction.Describe(preview), StringComparison.Ordinal) && interaction.SentCount == sent + 1
+                && newLines.Count > 0 && rollsOk,
+                $"dice display {(diceOff ? "Off (rolls only in the log)" : "on")}, {LogDiceCount() - logDice} new rolls in the log; menu {string.Join(" / ", board.CombatMenuShown.Select(e => $"{e.Label}{(e.Enabled ? "" : " (greyed)")}"))}; one click: {answer}; sent {sent} -> {interaction.SentCount}; "
+                + $"rolls shown: {string.Join(" / ", newRolls.Take(4).Select(r => $"{r.Roll.Title} {string.Join(",", r.Roll.Dice.Select(d => d.Value))} {r.Roll.Result}"))}; events: {string.Join(" / ", newLines.Take(4))}");
+            await Shot("pvp-a-fight-from-menu");
+            await MouseOff(board);
+            return;
+        }
+        if (opened)
+        {
+            await KeyPress(Key.Escape);
+        }
+        await PvpTarget(board, Key.X, "Fight");
+    }
+
+    private void FightAfterChargeEnd()
+    {
+        Check("fight-opens-after-charge", _chargeOpenMismatch == 0,
+            $"{_chargesLooked} accepted charges looked at, {_chargeOpenMismatch} where Combat opening disagreed with the rules' Fight check{(_chargeMismatchNote is null ? "" : $"; first: {_chargeMismatchNote}")}");
+    }
+
+    // An action's key; stage K6: Charge is C (Combat) and then 2, on the nearest enemy as C alone chose before.
+    private async Task ActionKey(Key action)
+    {
+        await KeyPress(action);
+        if (action == Key.C)
+        {
+            await KeyPress(Key.Key2);
+        }
+    }
+
     private async Task<string?> PvpTarget(BoardView board, Key action, string name)
     {
         if (Hint() is null || !await FocusByTab(board, 80))
@@ -3099,7 +3512,7 @@ public partial class UiCheck : Node
         }
         var interaction = board.Interaction;
         await MouseOff(board);
-        await KeyPress(action);
+        await ActionKey(action);
         if (_role == "pvp-a" && interaction.Mode == InteractionMode.Fight)
         {
             await Frames(2);
@@ -3124,6 +3537,7 @@ public partial class UiCheck : Node
             Check("pvp-preview-dice", diceLines.Count > 0 && diceLines.All(PanelHas) && PanelHas("Hit roll: ") && PanelHas("Injury roll: ") && !PanelHas("%"),
                 $"{name}: {string.Join(" | ", diceLines)}; panel: {PanelText.Replace('\n', '|')}");
         }
+        _chargedTarget = name == "Charge" ? interaction.Preview?.Target : null;
         var before = Section("LAST COMMAND");
         var events = Lines(LogText()).Count;
         await KeyPress(Key.Space);
@@ -3475,6 +3889,10 @@ public partial class UiCheck : Node
                     $"{_linkSamples} looks, {_linkedSamples} with engaged models; {string.Join(" / ", _linkProblems.Take(5))}");
                 DiceWhyEnd(board);
                 await LogActionCheck();
+                if (_chargesLooked > 0)
+                {
+                    FightAfterChargeEnd();
+                }
                 if (_fightSamples > 0)
                 {
                     Check("board-fight-targets", _fightProblems.Count == 0,
@@ -3812,7 +4230,7 @@ public partial class UiCheck : Node
         }
         await Frames(3);
         var texts = board.BarTexts;
-        var starts = interaction.Offered.Where(m => m != InteractionMode.Place).ToList();
+        var starts = interaction.BarOffered.Where(m => m != InteractionMode.Place).ToList();
         var keysShown = starts.Count > 0 && starts.All(m => texts.Contains($"{Interaction.Words(m)} · {Interaction.Key(m)}"));
         var keysHidden = ((Main)_main).PanelKeysText.Length == 0;
         Check("board-keys-on-buttons", keysShown && keysHidden,

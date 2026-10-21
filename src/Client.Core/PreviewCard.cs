@@ -13,7 +13,7 @@ public static class PreviewCard
         return fact.StartsWith("Distance", StringComparison.Ordinal) || fact.StartsWith("Line of sight", StringComparison.Ordinal)
             || fact.StartsWith("Target ", StringComparison.Ordinal) || fact.StartsWith("Long range", StringComparison.Ordinal)
             || fact.StartsWith("Short range", StringComparison.Ordinal) || fact.StartsWith("Shooting into melee", StringComparison.Ordinal)
-            || fact.StartsWith("Engaged:", StringComparison.Ordinal);
+            || fact.StartsWith("Engaged:", StringComparison.Ordinal) || fact == Previews.NoMeleeWeaponFact;
     }
 
     public static IReadOnlyList<string> Lines(Preview preview, ModelShape? target = null)

@@ -110,8 +110,12 @@ public class ActionBarTests
         var bar = interaction.Bar(null);
         Assert.Equal(state.ActiveModel, bar.Anchor);
         var starts = bar.Items.Where(i => i.Kind == BarKind.Start).Select(i => i.Mode).ToList();
-        Assert.Equal(interaction.Offered, starts);
-        Assert.All(interaction.Available.Except(interaction.Offered), m => Assert.NotNull(interaction.WhyNot(m)));
+        // Stage K6: Shoot, Charge and Fight are one Combat button, there exactly when one of them is open.
+        Assert.Equal(interaction.BarOffered, starts);
+        Assert.Equal(interaction.Offered.Any(Interaction.IsAttack), starts.Contains(InteractionMode.Combat));
+        Assert.Equal(interaction.Offered.Where(m => !Interaction.IsAttack(m)), starts.Where(m => m != InteractionMode.Combat));
+        Assert.DoesNotContain(starts, Interaction.IsAttack);
+        Assert.All(interaction.Available.Except(interaction.Offered).Where(m => m != InteractionMode.Combat), m => Assert.NotNull(interaction.WhyNot(m)));
         Assert.All(interaction.Offered, m => Assert.Null(interaction.WhyNot(m)));
         var end = Assert.Single(bar.Items, i => i.Kind == BarKind.EndActivation);
         Assert.Equal(TurnSequence.LegalCommands(state).OfType<EndActivation>().Single(), end.Command);
@@ -182,6 +186,12 @@ public class ActionBarTests
         var state = States.First(s => s.Phase == Phase.Deployment && s.Pending is null && s.Setup?.Scenario is not null && MatchView.NextDeployer(s) is not null);
         var interaction = new Interaction();
         interaction.Update(state, MatchView.NextDeployer(state)!.Value);
+        // Stage K4: on your deployment turn the battlefield is already placing (no "Place a model" button first).
+        Assert.Equal(InteractionMode.Place, interaction.Mode);
+        Assert.DoesNotContain(interaction.Bar(null).Items, i => i.Label == "Place a model");
+        // Esc drops it; then the button (or L) brings it back.
+        interaction.Cancel();
+        Assert.Equal(InteractionMode.None, interaction.Mode);
         Assert.Equal("Place a model", Assert.Single(interaction.Bar(null).Items).Label);
         Assert.True(interaction.Start(InteractionMode.Place));
         Assert.Null(interaction.Bar(null).Anchor);
