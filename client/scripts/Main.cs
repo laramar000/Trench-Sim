@@ -706,7 +706,7 @@ public partial class Main : Control
         // battlefield and the combat log down). It scrolls inside itself when the battlefield is too short for it.
         _resultBox = new PanelContainer { Name = "MatchResult", Visible = false, MouseFilter = Control.MouseFilterEnum.Stop };
         _resultBox.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.04f, 0.04f, 0.06f, 0.94f), ContentMarginLeft = 10, ContentMarginRight = 10, ContentMarginTop = 6, ContentMarginBottom = 8 });
-        _resultScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
+        _resultScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, FocusMode = FocusModeEnum.None };
         _resultScroll.AddChild(_endSection);
         _resultBox.AddChild(_resultScroll);
         _board.AddChild(_resultBox);
@@ -739,8 +739,9 @@ public partial class Main : Control
         actions.AddChild(_notYet);
         _actions = actions;
         // Stage K2: many choices (four units to activate, a long note) at large text scroll inside this box, whose
-        // height FitBattlefield caps, so nothing is pushed below the window. Tab scrolls to the focused choice.
-        _actionsScroll = new ScrollContainer { Name = "ActionsScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        // height FitBattlefield caps, so nothing is pushed below the window. Tab scrolls to the focused choice. The box
+        // itself never takes the focus (Windows run at 099dbc8: after a redraw the focus fell to it, not to the choice).
+        _actionsScroll = new ScrollContainer { Name = "ActionsScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, FocusMode = FocusModeEnum.None, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _actionsScroll.AddChild(actions);
         var doing = new VBoxContainer { Name = "ActionsAndLastCommand", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         doing.AddChild(Section("Your actions", _actionsScroll));

@@ -748,6 +748,10 @@ public partial class UiCheck : Node
             }
             await KeyPress(Key.N);
         }
+        // The preview shown now (when no target had sight rays, the last N moved on from the one read above: Windows run
+        // at 099dbc8, where the line drawn was the next target's), once the battlefield has drawn it.
+        await Frames(2);
+        shot = interaction.Preview;
         var early = shot?.Refusal?.Code is Rules.Core.ReasonCode.AttackerEngaged or Rules.Core.ReasonCode.NoRangedWeapon;
         var sightShown = shot is { Rays.Count: > 0 } && InPanel(board, "SHOOT → ") && (shot.Legal || InPanel(board, $"REFUSED: {shot.Refusal!.Text}"))
             && InPanel(board, $"of {shot.Rays.Count} sight rays clear") && InPanel(board, "Distance ");
@@ -2749,34 +2753,38 @@ public partial class UiCheck : Node
         await Frames(3);
         var opened = main.LogActionDetails(start);
         var wanted = Main.ActionDetails(action);
-        main.ShowLogRow(start);
-        await Frames(3);
-        var again = main.LogToggleRect(start);
         var togglesBefore = main.LogToggles;
+        Rect2? again = null;
         Control? hit = null;
         Rect2? during = null;
-        if (again is { } rect)
+        // Up to four tries: bring the row into view, point at its toggle, and press only once the pointer is over the
+        // toggle (Linux runs at the battlefield UI stages: the log sometimes settled a frame or two later, so a press
+        // made at once landed on the row instead, which marks it).
+        for (var attempt = 0; attempt < 4 && main.LogToggles == togglesBefore; attempt++)
         {
+            main.ShowLogRow(start);
+            await Frames(3);
+            if (main.LogToggleRect(start) is not { } rect)
+            {
+                continue;
+            }
+            again ??= rect;
             var at = rect.GetCenter();
             Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
-            await Frames(2);
+            await Frames(3);
             hit = GetViewport().GuiGetHoveredControl();
             during = main.LogToggleRect(start);
+            if (!main.IsLogToggle(start, hit) || during is not { } settled || settled.GetCenter().DistanceTo(at) > 1)
+            {
+                continue;
+            }
             // Motion, press and release go in together, so they reach the button one after another with no real mouse
             // event between them: on Windows a real one between the press and the release made the button ignore the
             // click (run at ba86efb: the toggle was under the pointer, and toggled 0 times).
             Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
             Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = at, GlobalPosition = at });
             Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = at, GlobalPosition = at });
-            await Frames(2);
-            // Linux runs at the battlefield UI stages: now and then the toggle under the pointer did not take those
-            // three events (toggled 0 times); then it is clicked once more the way the first click was made.
-            if (main.LogToggles == togglesBefore && main.LogToggleRect(start) is { } still)
-            {
-                await Frames(10);
-                await ClickAt(still.GetCenter());
-                await Frames(2);
-            }
+            await Until(() => main.LogToggles != togglesBefore ? "ok" : null, 1, "log-toggle");
         }
         await Frames(3);
         var closed = main.LogActionDetails(start) is null;
@@ -3941,7 +3949,7 @@ public partial class UiCheck : Node
             Check("pvp-event-log-tags", rows.Count > 0 && rowLines.SequenceEqual(lines) && numbered && rows.All(r => r.Kind != EventKind.Other)
                 && rows[^1].Marker == "▶" && rows[^1].Full.Contains("MATCH ENDED", StringComparison.Ordinal) && rows.Take(rows.Count - 1).All(r => r.Marker.Length == 0)
                 && verbs.Count == 3,
-                $"{rows.Count} rows, {lines.Count} lines, same order and words: {rowLines.SequenceEqual(lines)}; numbered alike: {numbered}; verbs seen: {string.Join(",", verbs)}; newest: {rows.LastOrDefault().Marker} {rows.LastOrDefault().Shown}");
+                $"{rows.Count} rows, {lines.Count} lines, same order and words: {rowLines.SequenceEqual(lines)}; numbered alike: {numbered}; verbs seen: {string.Join(",", verbs)}; newest: {rows.LastOrDefault().Marker} {rows.LastOrDefault().Shown}; other: {string.Join(" / ", rows.Where(r => r.Kind == EventKind.Other).Take(3).Select(r => r.Shown))}; marked: {string.Join(" / ", rows.Take(rows.Count - 1).Where(r => r.Marker.Length > 0).Take(3).Select(r => $"{r.Marker} {r.Shown}"))}");
         }
         else
         {
