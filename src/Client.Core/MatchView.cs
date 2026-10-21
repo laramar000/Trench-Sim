@@ -41,7 +41,8 @@ public sealed record MatchView(
     string? Pending,
     string? Roll,
     string? Outcome,
-    string? NamesProblem)
+    string? NamesProblem,
+    string? ActivatingShort = null)
 {
     public static MatchView Of(MatchState state, Seat? you, ContentNames names)
     {
@@ -72,7 +73,9 @@ public sealed record MatchView(
             Rules.Core.State.Phase.Ended => outcome ?? "The match has ended.",
             _ => $"{Words.Phase(state.Phase)}. {whose}",
         };
-        return new MatchView(status, turn, Words.Phase(state.Phase), whose, yours, seats, models, activation, pending, roll, outcome, names.Problem);
+        // Stage K3: the activating model and what it has done, short, for the HUD on the battlefield.
+        var activating = state.ActiveModel is { } now ? $"activating {names.Of(now)}: done {Words.Actions(state.Actions)}" : null;
+        return new MatchView(status, turn, Words.Phase(state.Phase), whose, yours, seats, models, activation, pending, roll, outcome, names.Problem, activating);
     }
 
     // Whose move it is, in words: the seat that must decide, else the seat of the active model, else the seat that

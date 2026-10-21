@@ -44,7 +44,7 @@ public partial class Main : Control
     private VBoxContainer _match = null!;
     private Label _banner = null!;
     private Label _hotLine = null!;
-    private HBoxContainer _bannerButtons = null!;
+    private HFlowContainer _bannerButtons = null!;
     private Label _code2 = null!;
     private VBoxContainer _endSection = null!;
     private Label _summary = null!;
@@ -58,8 +58,13 @@ public partial class Main : Control
     private BoardView _board = null!;
     private Label _boardInfo = null!;
     private Label _hud = null!;
+    private PanelContainer _hudStrip = null!;
+    private Button _follow = null!;
     private VBoxContainer _menuBox = null!;
     private VBoxContainer _matchMenu = null!;
+    private PanelContainer _menuPanel = null!;
+    private BoxContainer _info = null!;
+    private ScrollContainer _page = null!;
     private Button _menuButton = null!;
     private bool _menuOpen;
     private BoxContainer _split = null!;
@@ -100,13 +105,14 @@ public partial class Main : Control
         AddChild(_background);
 
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _page = scroll;
         scroll.SetAnchorsPreset(LayoutPreset.FullRect);
         scroll.OffsetLeft = 16;
         scroll.OffsetTop = 12;
         scroll.OffsetRight = -16;
         scroll.OffsetBottom = -12;
         AddChild(scroll);
-        _root = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _root = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
         _root.AddThemeConstantOverride("separation", 10);
         scroll.AddChild(_root);
 
@@ -201,7 +207,7 @@ public partial class Main : Control
         if (below)
         {
             var board = _board.GetGlobalRect();
-            _scaleNote.Position = board.Position + new Vector2(8, 8);
+            _scaleNote.Position = board.Position + new Vector2(8, _board.TopInset + 8);
             _scaleNote.Size = new Vector2(Math.Max(120, Math.Min(620, board.Size.X - 16)), 0);
         }
     }
@@ -299,6 +305,7 @@ public partial class Main : Control
     {
         _connect.Visible = true;
         _match.Visible = false;
+        _page.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
         MoveMenu(_root, 0, true);
         _status.Text = "Connect to a server: create a match, join one with its code, or rejoin a saved seat.";
         RefreshSaved();
@@ -370,6 +377,9 @@ public partial class Main : Control
         controller.Changed += () => System.Threading.Interlocked.Exchange(ref _changed, 1);
         _connect.Visible = false;
         _match.Visible = true;
+        // Stage K2: in a match the page never scrolls; everything is laid out in the window (FitBattlefield).
+        _page.VerticalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        _page.ScrollVertical = 0;
         MoveMenu(_matchMenu, 0, true);
         SetMenu(false);
         _shown = -1;
@@ -552,7 +562,7 @@ public partial class Main : Control
 
     private void BuildMatch()
     {
-        _match = new VBoxContainer();
+        _match = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         _match.AddThemeConstantOverride("separation", 8);
         _board = new BoardView();
         _board.LineShown += line =>
@@ -570,20 +580,59 @@ public partial class Main : Control
         _menuButton.Name = "MenuButton";
         _menuButton.TooltipText = "Version, text size, high contrast, keys, the match code and the rules in this build.";
         // Short words, so the HUD line still fits a 1000-pixel window; the tooltips say more.
-        var centre = Button("Centre (Home)", () => _board.CentreOn(_board.Selected?.Id));
-        centre.TooltipText = "Centre the camera on the selected unit and keep the zoom.";
-        var fit = Button("Fit (F)", () => _board.Fit());
-        fit.TooltipText = "Show the whole table.";
+        var centre = Button("Centre", () => _board.CentreOn(_board.Selected?.Id));
+        centre.TooltipText = "Home: centre the camera on the selected unit and keep the zoom.";
+        var fit = Button("Fit", () => _board.Fit());
+        fit.TooltipText = "F: show the whole table.";
         // Proposal J3b: the scenario's scoring, endings and objectives (G).
-        var scenario = Button("Scenario (G)", ToggleScenario);
+        var scenario = Button("Scenario", ToggleScenario);
         scenario.Name = "ScenarioButton";
-        scenario.TooltipText = "How Victory Points are scored, how the match ends, and who controls each objective now.";
-        _match.AddChild(Row(_hud, centre, fit, ResetViewButton(), scenario, _menuButton));
+        scenario.TooltipText = "G: how Victory Points are scored, how the match ends, and who controls each objective now.";
+        // Stage K3: the HUD is a strip across the top of the battlefield (over it, not above it): the line on the left,
+        // the camera buttons and the Menu on the right (they wrap on a narrow battlefield), the connection line under them.
+        _hud.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _hud.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _hud.SizeFlagsStretchRatio = 3;
+        _hud.MouseFilter = Control.MouseFilterEnum.Ignore;
+        var hudButtons = new HFlowContainer { Name = "HudButtons", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 2, Alignment = FlowContainer.AlignmentMode.End, MouseFilter = Control.MouseFilterEnum.Ignore };
+        hudButtons.AddThemeConstantOverride("h_separation", 6);
+        hudButtons.AddThemeConstantOverride("v_separation", 4);
+        foreach (var button in new Control[] { centre, fit, ResetViewButton(), scenario, _menuButton })
+        {
+            hudButtons.AddChild(button);
+        }
+        // The HUD line and the connection line on the left; the buttons for both on the right.
+        var hudLeft = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, MouseFilter = Control.MouseFilterEnum.Ignore };
+        hudLeft.AddThemeConstantOverride("separation", 2);
+        var hudRight = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 2, MouseFilter = Control.MouseFilterEnum.Ignore };
+        hudRight.AddThemeConstantOverride("separation", 4);
+        hudLeft.AddChild(_hud);
+        hudRight.AddChild(hudButtons);
+        var hudRow = Row(hudLeft, hudRight);
+        hudRow.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _hudStrip = new PanelContainer { Name = "HudStrip", MouseFilter = Control.MouseFilterEnum.Ignore };
+        _hudStrip.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.02f, 0.02f, 0.03f, 0.78f), ContentMarginLeft = 8, ContentMarginRight = 8, ContentMarginTop = 4, ContentMarginBottom = 4 });
+        var stripRows = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        stripRows.AddThemeConstantOverride("separation", 2);
+        stripRows.AddChild(hudRow);
+        _hudStrip.AddChild(stripRows);
+        _board.SetTopStrip(_hudStrip);
         // What the Menu holds (folded by default): the version, settings and keys (moved here from the top), the match
         // code, the rules in this build, and the battlefield's camera and keys.
-        _matchMenu = new VBoxContainer { Name = "MatchMenu", Visible = false };
+        // Stage K2: the Menu opens over the battlefield (under the HUD, at the right) instead of pushing it down; what does
+        // not fit scrolls inside the Menu.
+        _menuPanel = new PanelContainer { Name = "MenuPanel", Visible = false };
+        var menuLook = new StyleBoxFlat { BgColor = new Color(0.1f, 0.1f, 0.12f, 0.97f), BorderColor = new Color(0.6f, 0.6f, 0.65f) };
+        menuLook.SetBorderWidthAll(1);
+        menuLook.SetContentMarginAll(10);
+        _menuPanel.AddThemeStyleboxOverride("panel", menuLook);
+        var menuScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _menuPanel.AddChild(menuScroll);
+        _matchMenu = new VBoxContainer { Name = "MatchMenu", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _matchMenu.AddThemeConstantOverride("separation", 8);
-        _match.AddChild(_matchMenu);
+        menuScroll.AddChild(_matchMenu);
+        // Over the battlefield, as its child (not a top-level control, which Tab would skip).
+        _board.AddChild(_menuPanel);
         _code2 = Text("");
         _matchMenu.AddChild(Row(_code2, Button("Copy code", () =>
         {
@@ -594,14 +643,39 @@ public partial class Main : Control
         }), Button("Rules in this build (F1)", () => _gaps.PopupCentered()), Button("Keys (?)", ToggleKeySheet)));
         _boardInfo = Text("");
         _matchMenu.AddChild(Section("Battlefield keys", _boardInfo));
-        // Hot-seat only: which seat this window controls, whose move it is, and the local server.
+        // Hot-seat only: which seat this window controls, whose move it is, and the local server. Stage K2: in the Menu
+        // (the HUD names the seat this window plays; Switch seat is a button beside the connection line).
         _hotLine = Text("");
-        _match.AddChild(_hotLine);
-        // Connection problems need attention, so they stay out of the Menu.
+        _matchMenu.AddChild(_hotLine);
+        _matchMenu.MoveChild(_hotLine, 0);
+        _follow = Button("Follow the turn: on", () =>
+        {
+            if (_hotSeat is { } hot)
+            {
+                hot.FollowTurn = !hot.FollowTurn;
+                _shown = -1;
+                System.Threading.Interlocked.Exchange(ref _changed, 1);
+            }
+        });
+        _follow.Name = "FollowTurn";
+        _follow.TooltipText = "Hot-seat: show the seat that must act next by itself.";
+        _follow.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+        _follow.Visible = false;
+        _matchMenu.AddChild(_follow);
+        _matchMenu.MoveChild(_follow, 1);
+        // Connection problems need attention, so they stay out of the Menu. Stage K2: the connection line and its buttons
+        // share one row.
         _banner = Text("");
-        _match.AddChild(_banner);
-        _bannerButtons = new HBoxContainer();
-        _match.AddChild(_bannerButtons);
+        _banner.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _banner.SizeFlagsStretchRatio = 3;
+        _banner.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _banner.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _bannerButtons = new HFlowContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 2, Alignment = FlowContainer.AlignmentMode.End, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _bannerButtons.AddThemeConstantOverride("h_separation", 6);
+        _bannerButtons.AddThemeConstantOverride("v_separation", 4);
+        // Stage K3: in the strip over the battlefield: the line under the HUD line, its buttons under the camera buttons.
+        hudLeft.AddChild(_banner);
+        hudRight.AddChild(_bannerButtons);
         // Once the match has ended or been aborted: the result, the final state hash and the event count (M7.5). The
         // hash can be compared with the one `trench-cli verify` prints for the server's signed record.
         _end = Text("");
@@ -639,6 +713,28 @@ public partial class Main : Control
         _column = column;
         column.AddThemeConstantOverride("separation", 8);
         column.AddChild(BuildPanel());
+        // Stage K2: under the panel (beside it on a narrow window), what you can do, the last command and the combat log,
+        // so nothing sits below the battlefield.
+        // In a wide window one above the other; in a narrow one, side by side under the battlefield (FitBattlefield).
+        var info = new BoxContainer { Name = "InfoColumn", Vertical = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3 };
+        info.AddThemeConstantOverride("separation", 6);
+        _info = info;
+        column.AddChild(info);
+        _hints = new VBoxContainer();
+        _hints.AddThemeConstantOverride("separation", 2);
+        _notYet = Text("");
+        var actions = new VBoxContainer();
+        actions.AddChild(_hints);
+        actions.AddChild(_notYet);
+        var doing = new VBoxContainer { Name = "ActionsAndLastCommand", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        doing.AddChild(Section("Your actions", actions));
+        _feedback = Text("");
+        // At most three lines; the whole answer is on its tooltip.
+        _feedback.MaxLinesVisible = 3;
+        _feedback.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        _feedback.MouseFilter = Control.MouseFilterEnum.Pass;
+        doing.AddChild(Section("Last command", _feedback));
+        info.AddChild(doing);
         var logBox = Section("Combat log", _logScroll);
         _logScroll.TooltipText = "What the server confirmed, newest at the bottom. Tab here, then arrows or Page Up/Down to scroll; End returns to the newest. Hover a row for its full line.";
         logBox.Name = "CombatLog";
@@ -646,9 +742,10 @@ public partial class Main : Control
         logBox.SizeFlagsVertical = SizeFlags.ExpandFill;
         logBox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         logBox.SizeFlagsStretchRatio = 2;
-        column.AddChild(logBox);
+        info.AddChild(logBox);
         _split.AddChild(column);
-        var boardBox = new VBoxContainer();
+        var boardBox = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+        _split.SizeFlagsVertical = SizeFlags.ExpandFill;
         boardBox.AddChild(_split);
         _board.Changed += ShowBoardInfo;
         // QoL I2: the camera's angled or top-down choice is kept between launches too.
@@ -665,27 +762,12 @@ public partial class Main : Control
             : Task.FromResult(new Feedback(FeedbackKind.ProtocolRefused, "Not sent: not in a match."));
         _boardSection = boardBox;
         _match.AddChild(_boardSection);
-        // Two columns: the match on the left, what you can do and what happened on the right.
-        var columns = new HBoxContainer();
-        columns.AddThemeConstantOverride("separation", 24);
-        var left = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1 };
-        var right = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1 };
-        columns.AddChild(left);
-        columns.AddChild(right);
-        _match.AddChild(columns);
+        // Stage K2: the match in words and the list of models are in the Menu (the HUD and the panel say what the next
+        // decision needs); nothing is below the battlefield.
         _state = Text("");
-        left.AddChild(Section("Match", _state));
+        _matchMenu.AddChild(Section("Match", _state));
         _models = Text("");
-        left.AddChild(Section("Models ([A] Seat One, [B] Seat Two)", _models));
-        _hints = new VBoxContainer();
-        _notYet = Text("");
-        var actions = new VBoxContainer();
-        actions.AddChild(Text("Available to you: hints from the rules. The server accepts or refuses every command."));
-        actions.AddChild(_hints);
-        actions.AddChild(_notYet);
-        right.AddChild(Section("Your actions", actions));
-        _feedback = Text("");
-        right.AddChild(Section("Last command", _feedback));
+        _matchMenu.AddChild(Section("Models ([A] Seat One, [B] Seat Two)", _models));
         _root.AddChild(_match);
         _scaleNote = new Label
         {
@@ -744,7 +826,7 @@ public partial class Main : Control
         // The event list takes focus (Tab), so it can be scrolled with the keyboard: arrows, Page Up/Down, Home, End.
         // The scroll bar is always shown: a bar that comes and goes changes the rows' width, which rewraps them, which can
         // bring the bar back, over and over (a layout loop that filled Godot's message queue once).
-        _logScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 120), SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
+        _logScroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 60), SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled,
             VerticalScrollMode = ScrollContainer.ScrollMode.ShowAlways, FocusMode = FocusModeEnum.All };
         _logScroll.AddChild(_log);
         _log.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -797,14 +879,13 @@ public partial class Main : Control
         }
         if (_hotSeat is { } hot)
         {
-            _bannerButtons.AddChild(Button($"Switch to {Words.Seat(hot.OtherSeat)} (F2)", SwitchSeat));
-            _bannerButtons.AddChild(Button(hot.FollowTurn ? "Follow the turn: on" : "Follow the turn: off", () =>
-            {
-                hot.FollowTurn = !hot.FollowTurn;
-                _shown = -1;
-                System.Threading.Interlocked.Exchange(ref _changed, 1);
-            }));
+            // Stage K3: short, so the strip over the battlefield stays small; "Follow the turn" is in the Menu.
+            var switchSeat = Button("Switch seat (F2)", SwitchSeat);
+            switchSeat.TooltipText = $"Show and play {Words.Seat(hot.OtherSeat)}.";
+            _bannerButtons.AddChild(switchSeat);
         }
+        _follow.Visible = _hotSeat is not null;
+        _follow.Text = _hotSeat?.FollowTurn == false ? "Follow the turn: off" : "Follow the turn: on";
         _bannerButtons.AddChild(Button("Leave", Leave));
 
         _code2.Text = s.Code is null ? "" : $"Match code {s.Code}. You are {(s.Seat is { } seat ? $"{Words.Seat(seat)} [{Words.SeatLetter(seat)}]" : "not seated")}." +
@@ -849,9 +930,14 @@ public partial class Main : Control
         foreach (var hint in s.Hints)
         {
             var chosen = hint;
-            var button = Button(chosen.Label + "  (hint; the server decides)", () => Send(chosen));
-            // Long labels wrap instead of widening the page (text at 150 % must still fit the window).
-            button.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            var button = Button(chosen.Label, () => Send(chosen));
+            // Stage K2: short words; the tooltip says where the choice comes from.
+            button.TooltipText = $"{chosen.Label}\nA choice the rules offer now; the server accepts or refuses it.";
+            button.SetMeta("hint", true);
+            // Stage K2: one line each; a long label ends in "…" (its tooltip has the whole of it), so the buttons never
+            // push anything off the window.
+            button.ClipText = true;
+            button.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
             button.Alignment = HorizontalAlignment.Left;
             button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             _hints.AddChild(button);
@@ -861,7 +947,9 @@ public partial class Main : Control
             _hints.AddChild(Text(s.InputLocked is { } locked ? $"Nothing to send: {locked}" : view.YourMove ? "No choice to make here." : "Nothing to do until the opponent moves."));
         }
         _notYet.Text = s.NotYetOffered ?? "";
+        _notYet.Visible = _notYet.Text.Length > 0;
         _feedback.Text = s.Feedback is { } f ? $"{FeedbackWord(f.Kind)}: {f.Text}{(f.RuleRef is null ? "" : $" (rule: {f.RuleRef})")}" : "None yet.";
+        _feedback.TooltipText = _feedback.Text;
         ShowLog(s.Log);
         if (refocus is not null)
         {
@@ -899,7 +987,13 @@ public partial class Main : Control
         {
             _menuButton.GrabFocus();
         }
-        _matchMenu.Visible = open;
+        _menuPanel.Visible = open;
+        if (open)
+        {
+            // Drawn over the action bar and the dice, and placed before it shows.
+            _menuPanel.MoveToFront();
+            PlaceMenu(GetViewportRect().Size);
+        }
         _menuButton.Text = open ? "Menu ▾" : "Menu ▸";
     }
 
@@ -946,22 +1040,46 @@ public partial class Main : Control
             _stacked = stacked;
             _split.Vertical = stacked;
             _column.Vertical = !stacked;
+            _info.Vertical = !stacked;
             _board.SizeFlagsVertical = stacked ? SizeFlags.ExpandFill : SizeFlags.Fill;
-            _board.SizeFlagsStretchRatio = stacked ? 11 : 7;
-            _column.SizeFlagsStretchRatio = stacked ? 9 : 3;
-            _board.CustomMinimumSize = new Vector2(0, stacked ? 240 : 440);
+            _board.SizeFlagsStretchRatio = stacked ? 3 : 7;
+            _column.SizeFlagsStretchRatio = stacked ? 1 : 3;
+            _logBox.SizeFlagsStretchRatio = stacked ? 1 : 2;
+            _board.CustomMinimumSize = new Vector2(0, 120);
         }
         // The column is wider with larger text, so the panel's buttons keep their words.
-        var columnMin = stacked ? new Vector2(0, 220 * _scale) : new Vector2(300 * _scale, 0);
+        var columnMin = stacked ? Vector2.Zero : new Vector2(300 * _scale, 0);
         if (_column.CustomMinimumSize != columnMin)
         {
             _column.CustomMinimumSize = columnMin;
         }
+        // Stage K2: the battlefield and its column take exactly the window's height under the HUD (no minimum that would
+        // push anything below the window; the page does not scroll in a match).
         var top = _boardSection.GlobalPosition.Y - _root.GlobalPosition.Y;
-        var want = Math.Max(stacked ? 250f + columnMin.Y : 440f, size.Y - 24 - top - 4);
+        var want = Math.Max(0f, size.Y - 24 - top);
         if (Math.Abs(_split.CustomMinimumSize.Y - want) > 1)
         {
             _split.CustomMinimumSize = new Vector2(0, want);
+        }
+        PlaceMenu(size);
+    }
+
+    // The Menu, when open, under the HUD row at the right, as tall as its contents or the room left.
+    private void PlaceMenu(Vector2 size)
+    {
+        if (!_menuPanel.Visible)
+        {
+            return;
+        }
+        var width = Math.Min(680 * _scale, size.X - 32);
+        var y = _menuButton.GetGlobalRect().End.Y + 4;
+        var height = Math.Min(_matchMenu.GetCombinedMinimumSize().Y + 24, size.Y - y - 12);
+        // In the battlefield's own coordinates (the Menu is its child; it may reach below it, over the panel).
+        var rect = new Rect2(new Vector2(size.X - 16 - width, y) - _board.GlobalPosition, new Vector2(width, Math.Max(80, height)));
+        if (_menuPanel.Position != rect.Position || _menuPanel.Size != rect.Size)
+        {
+            _menuPanel.Position = rect.Position;
+            _menuPanel.Size = rect.Size;
         }
     }
 
@@ -971,6 +1089,11 @@ public partial class Main : Control
     public float PageY(Control control) => control.GlobalPosition.Y - _root.GlobalPosition.Y;
 
     public Control RightColumn => _column;
+
+    // Stage K2 (for the UI check): how tall the match screen needs to be, and the last command's line.
+    public float MatchHeight => _match.GlobalPosition.Y + _match.GetCombinedMinimumSize().Y + 12;
+
+    public Control LastCommandLabel => _feedback;
 
     // ---- the selected-unit and action panel (proposal G, step G1) ----
 
@@ -1134,9 +1257,9 @@ public partial class Main : Control
     // QoL H2: angled, facing north, the whole table (as Shift+F).
     private Button ResetViewButton()
     {
-        var reset = Button("Reset (Shift+F)", () => _board.ResetView());
+        var reset = Button("Reset view", () => _board.ResetView());
         reset.Name = "ResetView";
-        reset.TooltipText = "Angled view, facing north, the whole table. Double-click a unit or objective to centre on it; double-click again to zoom in.";
+        reset.TooltipText = "Shift+F: angled view, facing north, the whole table. Double-click a unit or objective to centre on it; double-click again to zoom in.";
         return reset;
     }
 

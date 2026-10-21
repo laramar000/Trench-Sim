@@ -24,6 +24,11 @@ public static class TopHud
             parts.Add(view.Turn);
         }
         parts.Add(view.Phase);
+        // Stage K3: the model activating now and what it has done.
+        if (view.ActivatingShort is { } activating)
+        {
+            parts.Add(activating);
+        }
         var vp = view.Seats.OrderByDescending(s => s.IsYou).Select(s => $"{(s.IsYou ? "you" : "opponent")} {s.VictoryPoints}").ToList();
         if (vp.Count == 2 && view.Turn.Length > 0)
         {

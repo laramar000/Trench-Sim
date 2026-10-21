@@ -1207,7 +1207,8 @@ public partial class UiCheck : Node
         var main = (Main)_main;
         var row = main.BattlefieldRow.GetGlobalRect();
         var height = _main.GetViewportRect().Size.Y;
-        var want = Math.Max(440f, height - 24 - main.BattlefieldTop - 4);
+        // Stage K2: exactly the room under the HUD, with no minimum (nothing below the window).
+        var want = Math.Max(0f, height - 24 - main.BattlefieldTop);
         Check("layout-battlefield-fills-window", Math.Abs(row.Size.Y - want) <= 2 && board.GetGlobalRect().Size.Y >= row.Size.Y - 2,
             $"window {height}px; row starts {main.BattlefieldTop}px down the page, {row.Size.Y}px tall (wanted {want}); battlefield {board.GetGlobalRect().Size}");
         var panel = Controls<PanelContainer>().FirstOrDefault(p => p.Name == "UnitPanel")?.GetGlobalRect();
@@ -1497,6 +1498,55 @@ public partial class UiCheck : Node
                 + (overflow.Count == 0 ? "nothing past the right edge" : "past the right edge: " + string.Join("; ", overflow)));
         }
         main.ChooseScale(0);
+        // Stage K2: in every window size, text size and interface scale tried, the page has nothing to scroll and the HUD,
+        // the panel's Confirm and Cancel, the hint buttons, the last command and the combat log are all inside the window.
+        var offScreen = new List<string>();
+        foreach (var (w, h, text, scale) in new[] { (1280, 800, 0, 0), (1920, 1080, 0, 0), (1280, 800, 2, 0), (1280, 800, 0, 1), (1280, 800, 0, 2), (1000, 700, 0, 0), (1000, 700, 2, 0) })
+        {
+            window.Size = new Vector2I(w, h);
+            main.ChooseTextSize(text);
+            main.ChooseScale(scale);
+            for (var i = 0; i < 60 && window.Size != new Vector2I(w, h); i++)
+            {
+                await Frames(1);
+            }
+            await Frames(10);
+            var view = _main.GetViewportRect();
+            var where = $"{w}x{h} text {ClientSettings.TextScales[text] * 100:0}% scale {ClientSettings.InterfaceScales[scale] * 100:0}% (content {view.Size})";
+            if (main.MatchHeight > view.Size.Y + 1)
+            {
+                offScreen.Add($"{where}: the match needs {main.MatchHeight:0}px of {view.Size.Y:0}");
+            }
+            var hud = Controls<Godot.Label>().FirstOrDefault(l => l.Name == "TopHud" && l.IsVisibleInTree());
+            var shown = new List<(string Name, Control? Control)>
+            {
+                ("HUD", hud), ("Confirm", main.PanelConfirm), ("Cancel", main.PanelCancel), ("last command", main.LastCommandLabel), ("combat log", main.CombatLog),
+            };
+            shown.AddRange(Controls<Button>().Where(b => b.HasMeta("hint") && b.IsVisibleInTree()).Select(b => ($"hint {b.Text}", (Control?)b)));
+            foreach (var (name, control) in shown)
+            {
+                if (control is null || !control.IsVisibleInTree())
+                {
+                    offScreen.Add($"{where}: {name} not shown");
+                    continue;
+                }
+                var rect = control.GetGlobalRect();
+                if (rect.Position.X < -1 || rect.Position.Y < -1 || rect.End.X > view.Size.X + 1 || rect.End.Y > view.Size.Y + 1 || rect.Size.Y < 4)
+                {
+                    offScreen.Add($"{where}: {name} at {rect}");
+                }
+            }
+            if (main.CombatLog.GetGlobalRect().Size.Y < 60)
+            {
+                offScreen.Add($"{where}: combat log only {main.CombatLog.GetGlobalRect().Size.Y:0}px tall");
+            }
+            await Shot($"host-on-screen-{w}x{h}-t{text}-s{scale}");
+        }
+        main.ChooseTextSize(0);
+        main.ChooseScale(0);
+        Check("match-on-screen", offScreen.Count == 0, offScreen.Count == 0
+            ? "1280x800, 1920x1080, 1000x700 at text 100/150% and scale 100/125/150%: nothing to scroll; HUD, Confirm, Cancel, hints, last command and combat log inside the window"
+            : string.Join(" | ", offScreen));
         window.Size = original;
         await Frames(6);
     }
@@ -1610,6 +1660,10 @@ public partial class UiCheck : Node
                     break;
                 case "shot":
                     await Shot("dev");
+                    break;
+                case "layout":
+                    await LayoutChecks(board);
+                    await WindowSizeChecks();
                     break;
                 default:
                     if (step.StartsWith("size", StringComparison.Ordinal) && step[4..].Split('x') is [var w, var h])
@@ -2194,6 +2248,7 @@ public partial class UiCheck : Node
         CheckBloodLabels(board);
         CheckPanelState(board);
         CheckObjectivesNow(board);
+        CheckHudStrip(board);
         await CheckMeleeLinks(board);
         await CheckDiceTray(board);
         if (!await FocusByTab(board, 80))
@@ -2288,6 +2343,48 @@ public partial class UiCheck : Node
 
     // Through the match: the HUD's "objectives now" and each objective's mark on the battlefield agree with the rules'
     // control test on the server's state (Rules.Core.Objectives.ControllerNow).
+    private int _stripSamples;
+    private readonly List<string> _stripProblems = [];
+
+    // Stage K3: the HUD is a strip across the top of the battlefield, inside it, holding the HUD line; the action bar is
+    // never under it; and the line names the model activating now and what it has done, as the server's state has them.
+    private void CheckHudStrip(BoardView? board)
+    {
+        if (board is null || ((Main)_main).ServerState is not { } state)
+        {
+            return;
+        }
+        _stripSamples++;
+        var hud = Controls<Godot.Label>().FirstOrDefault(l => l.Name == "TopHud" && l.IsVisibleInTree());
+        if (board.TopStrip is not { } strip || !strip.IsVisibleInTree() || hud is null || !strip.IsAncestorOf(hud))
+        {
+            _stripProblems.Add("no HUD strip holding the HUD line on the battlefield");
+            return;
+        }
+        var area = board.GetGlobalRect();
+        var rect = strip.GetGlobalRect();
+        if (rect.Position.X < area.Position.X - 1 || rect.Position.Y < area.Position.Y - 1 || rect.End.X > area.End.X + 1 || rect.End.Y > area.End.Y + 1
+            || Math.Abs(board.TopInset - rect.Size.Y) > 1)
+        {
+            _stripProblems.Add($"strip {rect} not along the top of the battlefield {area} (inset {board.TopInset})");
+        }
+        if (board.BarRect is { } bar && bar.Position.Y < board.TopInset - 0.5f)
+        {
+            _stripProblems.Add($"action bar {bar} under the strip (inset {board.TopInset})");
+        }
+        var text = ((Main)_main).HudText;
+        // ContentNames.Of: "Name (id)", or the id alone.
+        var done = $": done {Words.Actions(state.Actions)}";
+        var shown = state.ActiveModel is { } now
+            ? text.Contains($" · activating {now.Value}{done}", StringComparison.Ordinal) || text.Contains(" · activating ", StringComparison.Ordinal) && text.Contains($"({now.Value}){done}", StringComparison.Ordinal)
+            : !text.Contains(" · activating ", StringComparison.Ordinal);
+        var activating = state.ActiveModel?.Value;
+        if (!shown)
+        {
+            _stripProblems.Add($"HUD '{text}' (activating: {activating ?? "none"})");
+        }
+    }
+
     private void CheckObjectivesNow(BoardView? board)
     {
         if (board?.Scene is not { } scene || ObjectiveIds(scene).Count == 0 || ((Main)_main).ServerState is not { } state || state.Turn == 0)
@@ -3354,6 +3451,7 @@ public partial class UiCheck : Node
         CheckBloodLabels(board);
         CheckPanelState(board);
         CheckObjectivesNow(board);
+        CheckHudStrip(board);
         await CheckMeleeLinks(board);
         await CheckDiceTray(board);
         DiceEndChecks(board);
@@ -3363,6 +3461,8 @@ public partial class UiCheck : Node
         }
         if (_role is "pvp-a" or "gvt-a")
         {
+            Check("hud-on-battlefield", _stripSamples > 0 && _stripProblems.Count == 0,
+                $"{_stripSamples} looks at the HUD strip; {string.Join(" / ", _stripProblems.Take(5))}");
             Check("hud-objectives-now", _objectiveSamples > 0 && _objectiveProblems.Count == 0,
                 $"{_objectiveSamples} looks at the HUD and the objective marks; {string.Join(" / ", _objectiveProblems.Take(5))}");
             Check("pvp-panel-follows-state", _panelSamples > 0 && _panelProblems.Count == 0,
@@ -3625,7 +3725,8 @@ public partial class UiCheck : Node
 
     private Button? ButtonStarting(string text) => Controls<Button>().FirstOrDefault(b => b.Text.StartsWith(text, StringComparison.Ordinal) && b.IsVisibleInTree() && !b.IsQueuedForDeletion());
 
-    private Button? Hint() => Controls<Button>().FirstOrDefault(b => b.Text.EndsWith("(hint; the server decides)", StringComparison.Ordinal) && b.IsVisibleInTree() && !b.IsQueuedForDeletion());
+    // A hint button: a choice the rules offer now (stage K2: short words, marked as a hint).
+    private Button? Hint() => Controls<Button>().FirstOrDefault(b => b.HasMeta("hint") && b.IsVisibleInTree() && !b.IsQueuedForDeletion());
 
     private LineEdit? Field(string startsWith, string? placeholder = null) => Controls<LineEdit>().FirstOrDefault(l => l.IsVisibleInTree() && l.GetParent() is not SpinBox
         && (placeholder is null ? l.Text.StartsWith(startsWith, StringComparison.Ordinal) : l.PlaceholderText == placeholder));
@@ -3652,13 +3753,15 @@ public partial class UiCheck : Node
 
     private string Section(string title)
     {
-        var heading = Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && l.Text.StartsWith(title, StringComparison.Ordinal) && l.GetParent() is VBoxContainer);
+        // Stage K2: the Match and Models sections are in the Menu, read whether it is open or folded (as Label does).
+        bool Shown(CanvasItem l) => l.IsVisibleInTree() || ((Main)_main).InMatchMenu(l);
+        var heading = Controls<Godot.Label>().FirstOrDefault(l => Shown(l) && l.Text.StartsWith(title, StringComparison.Ordinal) && l.GetParent() is VBoxContainer);
         if (heading?.GetParent() is not { } box || heading.GetIndex() + 1 >= box.GetChildCount())
         {
             return "";
         }
         var body = box.GetChild(heading.GetIndex() + 1);
-        return string.Join("\n", (body is Godot.Label own ? [own] : All(body).OfType<Godot.Label>()).Where(l => l.IsVisibleInTree() && !l.IsQueuedForDeletion()).Select(l => l.Text).Where(t => t.Length > 0));
+        return string.Join("\n", (body is Godot.Label own ? [own] : All(body).OfType<Godot.Label>()).Where(l => (l.IsVisibleInTree() || l.Visible && ((Main)_main).InMatchMenu(l)) && !l.IsQueuedForDeletion()).Select(l => l.Text).Where(t => t.Length > 0));
     }
 
     // The combat log's rows in the narrator's full words (each row's tooltip), as the event list showed them before G4.

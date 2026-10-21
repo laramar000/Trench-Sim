@@ -32,6 +32,15 @@ public class TopHudTests
                 Assert.Equal(view.Turn, parts[2]);
                 Assert.Equal(view.Phase, parts[3]);
                 Assert.Contains($"VP you {state.SeatFor(seat).VictoryPoints}, opponent {state.SeatFor(seat.Opponent()).VictoryPoints}", line);
+                // Stage K3: the activating model and what it has done, exactly while one activates.
+                if (state.ActiveModel is { } active)
+                {
+                    Assert.Equal($"activating {Names.Of(active)}: done {Words.Actions(state.Actions)}", parts[4]);
+                }
+                else
+                {
+                    Assert.DoesNotContain("activating ", line);
+                }
                 Assert.DoesNotContain("selected", line);
                 if (state.Phase != Phase.Activation)
                 {

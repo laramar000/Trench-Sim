@@ -157,7 +157,8 @@ public partial class BoardView : SubViewportContainer
         AddChild(_bar);
         AddChild(Dice);
         Dice.ScreenOfModel = id => BodyAt(id) is { } body && ScreenOf(body.X, body.Z, body.Y) is { } p && new Rect2(Vector2.Zero, Size).HasPoint(p) ? p : null;
-        Dice.Avoid = () => ScreenLabelBoxes().Select(b => b.Box).Concat(_bar.Visible ? [new Rect2(_bar.Position, _bar.Size)] : []);
+        Dice.Avoid = () => ScreenLabelBoxes().Select(b => b.Box).Concat(_bar.Visible ? [new Rect2(_bar.Position, _bar.Size)] : [])
+            .Concat(_strip is { Visible: true } strip ? [new Rect2(strip.Position, strip.Size)] : []);
         FocusEntered += QueueRedraw;
         FocusExited += QueueRedraw;
         Resized += () =>
@@ -242,7 +243,7 @@ public partial class BoardView : SubViewportContainer
         // Move the camera back until every corner of the table, on the ground and at wall height, is on screen.
         _distance = 5;
         PlaceCamera();
-        for (var i = 0; i < 80 && !TableInView(FitMargin); i++)
+        for (var i = 0; i < 80 && (!TableInView(FitMargin) || !TableBelowStrip()); i++)
         {
             _distance *= 1.06f;
             PlaceCamera();
@@ -616,6 +617,24 @@ public partial class BoardView : SubViewportContainer
         return true;
     }
 
+    // Stage K3: the far edge of the table (at wall height) is below the HUD strip.
+    private bool TableBelowStrip()
+    {
+        // A strip over most of a small battlefield is not avoided (the table would shrink to nothing).
+        if (_scene is null || TopInset <= 0 || TopInset > Size.Y * 0.35f)
+        {
+            return true;
+        }
+        foreach (var (x, y) in new[] { (0.0, 0.0), (_scene.Width, 0.0), (0.0, _scene.Depth), (_scene.Width, _scene.Depth) })
+        {
+            if (ScreenOf(x, y, DisplayHeight.Wall) is { } p && p.Y < TopInset + 4)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public bool InView(Vector2? point, float margin = 0) =>
         point is { } p && p.X >= Size.X * margin && p.X <= Size.X * (1 - margin) && p.Y >= Size.Y * margin && p.Y <= Size.Y * (1 - margin);
 
@@ -645,8 +664,47 @@ public partial class BoardView : SubViewportContainer
         Sync();
     }
 
+    // Stage K3: the HUD strip across the top of the battlefield (Main builds it). Its height is TopInset: the action bar
+    // and the camera's fit keep below it.
+    private Control? _strip;
+
+    public float TopInset { get; private set; }
+
+    public Control? TopStrip => _strip;
+
+    public void SetTopStrip(Control strip)
+    {
+        _strip = strip;
+        AddChild(strip);
+    }
+
+    private void PlaceStrip()
+    {
+        if (_strip is null || !_strip.Visible)
+        {
+            TopInset = 0;
+            return;
+        }
+        var want = new Vector2(Size.X, _strip.GetCombinedMinimumSize().Y);
+        if (_strip.Position != Vector2.Zero || _strip.Size != want)
+        {
+            _strip.Position = Vector2.Zero;
+            _strip.Size = want;
+        }
+        var inset = _strip.Size.Y;
+        if (Math.Abs(inset - TopInset) > 0.5f)
+        {
+            TopInset = inset;
+            if (_autoFit)
+            {
+                CallDeferred(MethodName.Fit);
+            }
+        }
+    }
+
     public override void _Process(double delta)
     {
+        PlaceStrip();
         if (Interaction.UsesCursor && _hover.Take(Time.GetTicksMsec() / 1000.0) is { } point)
         {
             Interaction.SetCursor(point.X, point.Y);
@@ -976,6 +1034,9 @@ public partial class BoardView : SubViewportContainer
     }
 
     // The labels of the action bar's buttons now (for the UI check), empty when it is hidden.
+    // Stage K3 (for the UI check): where the action bar is, when shown.
+    public Rect2? BarRect => _bar.Visible ? new Rect2(_bar.Position, _bar.Size) : null;
+
     public IReadOnlyList<string> BarLabels => _bar.Visible ? _barNow.Items.Select(i => i.Label).ToList() : [];
 
     // The texts on the bar's buttons now, keys included (for the UI check).
@@ -1091,11 +1152,11 @@ public partial class BoardView : SubViewportContainer
             candidates.Add(new Vector2(foot.X + 40, foot.Y - size.Y / 2));
             candidates.Add(new Vector2(foot.X - 40 - size.X, foot.Y - size.Y / 2));
         }
-        candidates.Add(new Vector2(8, 8));
-        candidates.Add(new Vector2(Size.X - size.X - 8, 8));
+        candidates.Add(new Vector2(8, TopInset + 8));
+        candidates.Add(new Vector2(Size.X - size.X - 8, TopInset + 8));
         candidates.Add(new Vector2(8, Size.Y - size.Y - 8));
         candidates.Add(new Vector2(Size.X - size.X - 8, Size.Y - size.Y - 8));
-        Vector2 Clamp(Vector2 at) => new(Math.Clamp(at.X, 4, Math.Max(4, Size.X - size.X - 4)), Math.Clamp(at.Y, 4, Math.Max(4, Size.Y - size.Y - 4)));
+        Vector2 Clamp(Vector2 at) => new(Math.Clamp(at.X, 4, Math.Max(4, Size.X - size.X - 4)), Math.Clamp(at.Y, TopInset + 4, Math.Max(TopInset + 4, Size.Y - size.Y - 4)));
         bool Clear(Vector2 at) => !models.Any(m => new Rect2(at, size).Grow(22).HasPoint(m));
         var chosen = candidates.Select(Clamp).FirstOrDefault(Clear, Clamp(candidates[0]));
         _bar.Position = chosen;
