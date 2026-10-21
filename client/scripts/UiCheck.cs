@@ -295,8 +295,11 @@ public partial class UiCheck : Node
         // On a fast machine trench-cli can finish the opponent's activations of this turn before the host takes its seat
         // back; then the turn is scored with no opponent event to see, so play on into the next turn until one arrives.
         var deadline = Time.GetTicksMsec() + 240_000;
-        // The previews also need one fresh activation of the host's (see below), so play on until it has had one.
-        while (Time.GetTicksMsec() < deadline && !(TurnScoredSinceStart() && (liveEvents > 0 || MatchEnded()) && (previewsChecked || MatchEnded())) && presses < 60)
+        // The previews also need one fresh activation of the host's (see below), so play on until it has had one. The
+        // hint buttons too: when trench-cli played most of the turn, the host may get a single activation in it (Windows
+        // run at ba86efb: 1 press), so play on until two have been pressed and the focus after one was checked.
+        bool HintsDone() => presses >= 2 && focusChecked;
+        while (Time.GetTicksMsec() < deadline && !(TurnScoredSinceStart() && (liveEvents > 0 || MatchEnded()) && (previewsChecked || MatchEnded()) && (HintsDone() || MatchEnded())) && presses < 60)
         {
             var before = Lines(LogText()).Count;
             // The previews need an activation that has done nothing yet: when the host takes its seat back in the middle
@@ -2191,6 +2194,12 @@ public partial class UiCheck : Node
 
     private static bool OnBoardScreen(BoardView board, double x, double y, double height) =>
         board.ScreenOf(x, y, height) is { } p && p.X >= 0 && p.Y >= 0 && p.X <= board.Size.X && p.Y <= board.Size.Y;
+
+    // Is the table point on screen, and does a click there land on it (what the battlefield picks under the pointer:
+    // platform tops first, so a ground spot drawn behind a tower picks the platform)?
+    private static bool Picks(BoardView board, double x, double y, double height) =>
+        OnBoardScreen(board, x, y, height) && board.ScreenOf(x, y, height) is { } p && board.CursorAt(p) is { } at
+        && Math.Abs(at.X - x) < 0.05 && Math.Abs(at.Y - y) < 0.05;
     private int _bloodLabelsChecked;
     private int _bloodLabelsWithMarkers;
     private readonly List<string> _bloodLabelProblems = [];
@@ -2431,9 +2440,12 @@ public partial class UiCheck : Node
             Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
             await Frames(2);
             hit = GetViewport().GuiGetHoveredControl();
-            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = at, GlobalPosition = at });
-            await Frames(2);
             during = main.LogToggleRect(start);
+            // Motion, press and release go in together, so they reach the button one after another with no real mouse
+            // event between them: on Windows a real one between the press and the release made the button ignore the
+            // click (run at ba86efb: the toggle was under the pointer, and toggled 0 times).
+            Input.ParseInputEvent(new InputEventMouseMotion { Position = at, GlobalPosition = at });
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = at, GlobalPosition = at });
             Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = at, GlobalPosition = at });
             await Frames(2);
         }
@@ -3162,8 +3174,12 @@ public partial class UiCheck : Node
         else
         {
             // The nearest ground spot whose way down is a side climb: where the shortest way across a side is at a
-            // ladder, the route takes the ladder (no roll), which is not what this check is for.
-            foreach (var p in area.Where(p => Level(p.X, p.Y) == 0 && Free(p)).OrderBy(p => Distance(p.X, p.Y, me.X, me.Y)).Take(60))
+            // ladder, the route takes the ladder (no roll), which is not what this check is for. The camera centres on
+            // the climber first, and a spot the tower hides on screen is skipped: a click there lands on the platform
+            // (Windows run at ba86efb, (18, 27.5) behind tower-n).
+            board.CentreOn(me.Id);
+            await Frames(3);
+            foreach (var p in area.Where(p => Level(p.X, p.Y) == 0 && Free(p) && Picks(board, p.X, p.Y, 0)).OrderBy(p => Distance(p.X, p.Y, me.X, me.Y)).Take(60))
             {
                 interaction.SetCursor(p.X, p.Y);
                 if (interaction.Preview is { Legal: true } side && side.Facts.Contains(Previews.SideClimbFact))
@@ -3196,6 +3212,13 @@ public partial class UiCheck : Node
         {
             board.CentreOn(me.Id);
             await Frames(3);
+        }
+        // A click must land on the spot chosen: not on a platform drawn in front of a ground spot.
+        if (!Picks(board, spot.X, spot.Y, height))
+        {
+            Write($"DUMP tower {me.Id.Value} {what}: ({spot.X}, {spot.Y}) is hidden on screen, not clicked");
+            await KeyPress(Key.Escape);
+            return (false, "");
         }
         var before = Section("LAST COMMAND");
         var rollsBefore = Lines(LogText()).Count(l => l.Contains("climb roll", StringComparison.Ordinal));
@@ -3999,8 +4022,17 @@ public partial class UiCheck : Node
             return false;
         }
         var global = board.GetGlobalTransformWithCanvas() * spot;
-        Input.ParseInputEvent(new InputEventMouseMotion { Position = global, GlobalPosition = global });
-        return await Until(() => board.Hovered?.Id == id && ((Main)_main).PointingText.Length > 0 ? "ok" : null, 3, "pointing") is not null;
+        // The motion is sent again every frame until the model shows as pointed at: on Windows the real mouse, outside
+        // the window, can make the battlefield forget a synthetic pointer before the hover is read (run at ba86efb).
+        return await Until(() =>
+        {
+            if (board.Hovered?.Id == id && ((Main)_main).PointingText.Length > 0)
+            {
+                return "ok";
+            }
+            Input.ParseInputEvent(new InputEventMouseMotion { Position = global, GlobalPosition = global });
+            return null;
+        }, 3, "pointing") is not null;
     }
 
     // With no action chosen: pointing at an enemy rings it, draws its id as large as the selected one's and adds its state

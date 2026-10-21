@@ -15,12 +15,15 @@ public sealed partial class TransportTests
         var data = Path.Combine(_dir.FullName, "records-aborted");
         // A zero rejoin window aborts the match as soon as a seat's connection drops.
         var server = await Start(TimeSpan.Zero, data: data);
-        var (one, two, _) = await ControllerPair("melee", server);
+        // Seat Two rejoins only once the server has aborted the match (see ControllerPair).
+        var aborting = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (one, two, _) = await ControllerPair("melee", server, rejoinGate: aborting.Task);
         Assert.Null(one.Snapshot().End);
         Assert.Null(two.Snapshot().End);
 
         two.Session!.Abort();
         await Until(one, s => s.End is not null);
+        aborting.SetResult();
         await Until(two, s => s.End is not null);
 
         AssertEndMatchesRecord(data, one, two, VerdictKind.Aborted);

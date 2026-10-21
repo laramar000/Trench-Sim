@@ -63,13 +63,30 @@ public sealed partial class TransportTests
         }
     }
 
+    // rejoinGate: Seat Two's reconnects wait for it. A test that drops Seat Two's connection to see the match aborted
+    // holds them until the server has aborted it: otherwise the client's immediate rejoin can reach the server before
+    // the server notices the drop, take the seat back, and the match rightly goes on (the race behind the "AnAborted"
+    // failures under load, also on Windows at ba86efb).
     private async Task<(MatchController One, MatchController Two, string Code)> ControllerPair(string scenario = "melee", MatchServer? server = null,
-        ReconnectPolicy? policy = null, TimeSpan? staleWait = null)
+        ReconnectPolicy? policy = null, TimeSpan? staleWait = null, Task? rejoinGate = null)
     {
         server ??= _server;
         var one = Controller(server, policy, staleWait);
         var welcome = Assert.IsType<Welcome>(await one.CreateAsync(scenario, Token));
-        var two = Controller(server, policy, staleWait);
+        var connects = 0;
+        var two = Controller(server, policy, staleWait, rejoinGate is null ? null : async (uri, mirror, ct) =>
+        {
+            if (Interlocked.Increment(ref connects) > 1)
+            {
+                await rejoinGate.WaitAsync(ct);
+            }
+            var session = await ClientSession.ConnectAsync(uri, ct, mirror: mirror);
+            lock (_clients)
+            {
+                _clients.Add(session);
+            }
+            return session;
+        });
         Assert.IsType<Welcome>(await two.JoinAsync(welcome.Code, Token));
         await Settle(server, welcome.Code, one.Session!, two.Session!);
         await Until(one, s => s.InputLocked is null || s.View.YourMove == false);
@@ -407,10 +424,12 @@ public sealed partial class TransportTests
     public async Task AnAbortedMatchIsShownAndItsSavedSeatsAreForgotten()
     {
         var server = await Start(TimeSpan.Zero);
-        var (one, two, code) = await ControllerPair("melee", server);
+        var aborting = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var (one, two, code) = await ControllerPair("melee", server, rejoinGate: aborting.Task);
         Assert.Equal(SavedSeatStatus.Found, Sessions.Find(server.Endpoint.ToString(), code, Seat.One).Status);
         two.Session!.Abort();
         var aborted = await Until(one, s => s.Connection == ConnectionState.Aborted);
+        aborting.SetResult();
         Assert.Contains("No result was recorded", aborted.ConnectionText);
         Assert.Empty(aborted.Hints);
         await Until(two, s => s.Connection is ConnectionState.Aborted);
