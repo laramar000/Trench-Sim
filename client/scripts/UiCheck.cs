@@ -2169,6 +2169,16 @@ public partial class UiCheck : Node
                     await LayoutChecks(board);
                     await WindowSizeChecks();
                     break;
+                case "deploy":
+                    await DevDeploy();
+                    board = Controls<BoardView>().First(b => b.IsVisibleInTree());
+                    break;
+                case "perf":
+                    await DevPerf(board);
+                    break;
+                case "views":
+                    await DevViews(board);
+                    break;
                 default:
                     if (step.StartsWith("size", StringComparison.Ordinal) && step[4..].Split('x') is [var w, var h])
                     {
@@ -2178,6 +2188,102 @@ public partial class UiCheck : Node
                     break;
             }
         }
+    }
+
+    // Dev only: both seats deploy every model and answer who activates first (hints and placements, following the turn),
+    // so the battlefield has models and no choice card over it.
+    private async Task DevDeploy()
+    {
+        for (var actions = 0; actions < 80; actions++)
+        {
+            await Frames(3);
+            var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+            if (board is null || ((Main)_main).ServerState is not { } state
+                || (state.Phase is not (Rules.Core.State.Phase.None or Rules.Core.State.Phase.PreGame or Rules.Core.State.Phase.Deployment or Rules.Core.State.Phase.Initiative) && Hint() is null))
+            {
+                break;
+            }
+            if (Hint() is { } hint)
+            {
+                var before = Section("LAST COMMAND");
+                await Press(hint, Key.Enter, null);
+                await Until(() => Section("LAST COMMAND") != before ? "answered" : null, 20, "dev-answer");
+            }
+            else if (board.Interaction.Available.Contains(InteractionMode.Place))
+            {
+                if (!await PlaceSomewhere(board))
+                {
+                    break;
+                }
+            }
+            else
+            {
+                await Frames(10);
+            }
+        }
+        await Frames(10);
+        Check("dev-deployed", true, $"phase {((Main)_main).ServerState?.Phase}; {Controls<BoardView>().First(b => b.IsVisibleInTree()).Scene?.Models.Count(m => m.X > 0)} models on the battlefield");
+    }
+
+    // Dev only (graphics stages): frame time, draw calls, objects, primitives and memory with the camera fitted to the
+    // battlefield, then close to a model; written to the log for before/after comparisons on the same machine.
+    private async Task DevPerf(BoardView board)
+    {
+        board.Select(null);
+        foreach (var (name, place) in new (string, Action)[]
+        {
+            ("fit", board.Fit),
+            ("close", () => board.CentreOn(board.Scene?.Models.FirstOrDefault(m => m.X > 0)?.Id, 8)),
+        })
+        {
+            place();
+            await Frames(30);
+            var times = new List<double>();
+            var last = Time.GetTicksUsec();
+            for (var i = 0; i < 240; i++)
+            {
+                await Frames(1);
+                var now = Time.GetTicksUsec();
+                times.Add((now - last) / 1000.0);
+                last = now;
+            }
+            times.Sort();
+            var info = (RenderingServer.RenderingInfo kind) => RenderingServer.GetRenderingInfo(kind);
+            Check($"dev-perf-{name}", true, string.Create(System.Globalization.CultureInfo.InvariantCulture,
+                $"{times.Count} frames: mean {times.Average():0.00} ms ({1000 / times.Average():0.0} fps), median {times[times.Count / 2]:0.00} ms, 95th {times[(int)(times.Count * 0.95)]:0.00} ms; "
+                + $"draw calls {info(RenderingServer.RenderingInfo.TotalDrawCallsInFrame)}, objects {info(RenderingServer.RenderingInfo.TotalObjectsInFrame)}, primitives {info(RenderingServer.RenderingInfo.TotalPrimitivesInFrame)}; "
+                + $"video memory {info(RenderingServer.RenderingInfo.VideoMemUsed) / 1048576.0:0.0} MB (textures {info(RenderingServer.RenderingInfo.TextureMemUsed) / 1048576.0:0.0} MB); "
+                + $"static memory {OS.GetStaticMemoryUsage() / 1048576.0:0.0} MB; nodes {Performance.GetMonitor(Performance.Monitor.ObjectNodeCount)}; renderer {RenderingServer.GetCurrentRenderingMethod()}"));
+        }
+    }
+
+    // Dev only: screenshots of the battlefield from the usual views, for looking at the art.
+    private async Task DevViews(BoardView board)
+    {
+        board.Select(null);
+        board.Fit();
+        await Frames(10);
+        await Shot("view-fit");
+        var models = board.Scene?.Models.Where(m => m.X > 0).ToList() ?? [];
+        if (models.Count > 0)
+        {
+            board.CentreOn(models[0].Id, 10);
+            await Frames(10);
+            await Shot("view-close-a");
+            board.CentreOn(models[^1].Id, 10);
+            await Frames(10);
+            await Shot("view-close-b");
+            board.Select(models[0].Id);
+            board.CentreOn(models[0].Id, 16);
+            await Frames(10);
+            await Shot("view-selected");
+            board.Select(null);
+        }
+        await KeyPress(Key.T);
+        await Frames(10);
+        await Shot("view-top-down");
+        await KeyPress(Key.T);
+        await Frames(5);
     }
 
     private async Task HotSeatPlay()
