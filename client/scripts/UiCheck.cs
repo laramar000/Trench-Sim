@@ -1201,7 +1201,9 @@ public partial class UiCheck : Node
             Mark("activate-key-skipped", $"no scene or Tab never reached the battlefield; focus on {Describe(Focused())}");
             return false;
         }
-        var hints = Controls<Button>().Where(b => b.IsVisibleInTree() && b.Text.StartsWith("Activate ", StringComparison.Ordinal)).Select(b => b.Text).ToList();
+        // Stage N3: the Activate choices are listed in the Menu (All choices), shown or folded.
+        var hints = ((Main)_main).MenuChoices.Where(b => b.Visible).Concat(Controls<Button>().Where(b => b.IsVisibleInTree()))
+            .Select(b => b.Text).Where(t => t.StartsWith("Activate ", StringComparison.Ordinal)).Distinct().ToList();
         for (var i = 0; i < scene.Models.Count && !(board.Selected is { Yours: true } m && hints.Any(h => IsActivateHint(h, m.Name))); i++)
         {
             await KeyPress(Key.N);
