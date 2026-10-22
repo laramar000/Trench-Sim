@@ -1987,6 +1987,7 @@ public partial class UiCheck : Node
                 controlled.Add(seat);
             }
             var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+            await TurnBannerStep(board, seat);
             if (Hint() is { } hint)
             {
                 var before = Section("LAST COMMAND");
@@ -2039,6 +2040,8 @@ public partial class UiCheck : Node
         await KeyPress(Key.F2);
         await Frames(5);
 
+        await HotSeatFullMatch();
+
         // Leaving ends both seats and stops the local server: no process is left.
         await Press(ButtonNamed("Leave"), Key.Enter, "hotseat-leave-enter");
         var stopped = false;
@@ -2069,6 +2072,162 @@ public partial class UiCheck : Node
     }
 
     // "Seat One" or "Seat Two": the seat the hot-seat line says this window controls.
+    // Battlefield UI 2, stage N5: what the turn banners and the bar's seat letter showed through the hot-seat match.
+    private string _bannerSeat = "";
+    private readonly List<string> _bannerProblems = [];
+    private readonly List<string> _bannersSeen = [];
+    private int _bannerChanges;
+    private string? _bannerTiming;
+    private bool _bannerTimingBad;
+    private ulong _bannerLooked;
+    private int _barSeatSamples;
+    private readonly List<string> _barSeatProblems = [];
+
+    // Each time the seat shown changes (following the turn or F2), the battlefield shows "SEAT B: YOUR TURN", or "SEAT B
+    // DECIDES: ..." when the rules wait for that seat's decision, in the words HotSeat.TurnBanner takes from the server's
+    // state; each one whose time runs out is gone after HotSeat.BannerSeconds. The bar, when shown, starts with the
+    // shown seat's letter.
+    private async Task TurnBannerStep(BoardView? board, string seat)
+    {
+        if (board is null || seat.Length == 0)
+        {
+            return;
+        }
+        var main = (Main)_main;
+        var letter = seat == "Seat One" ? "A" : "B";
+        if (board.BarRect is not null)
+        {
+            _barSeatSamples++;
+            if (board.BarSeatText != $"[{letter}]" && _barSeatProblems.Count < 5)
+            {
+                _barSeatProblems.Add($"{seat}: bar starts \"{board.BarSeatText}\" ({string.Join(", ", board.BarTexts)})");
+            }
+        }
+        if (seat == _bannerSeat)
+        {
+            return;
+        }
+        var first = _bannerSeat.Length == 0;
+        _bannerSeat = seat;
+        if (first)
+        {
+            // The match opens on a seat; the banner is for a change of seat.
+            return;
+        }
+        _bannerChanges++;
+        // The banner showing now, else (when the seat changed while the driver waited for an answer and its time has
+        // already run out) the newest one the battlefield showed since the last look.
+        var shownBefore = _bannerLooked;
+        var text = await Until(() => board.TurnBannerText is { Length: > 0 } t ? t
+            : board.TurnBannerHistory.LastOrDefault(h => h.Shown > shownBefore) is { Text: { } past } ? past : null, 3, "turn-banner");
+        _bannerLooked = Time.GetTicksMsec();
+        var expected = main.ShownState is { } state ? Client.Core.HotSeat.TurnBanner(state, seat == "Seat One" ? Rules.Core.State.Seat.One : Rules.Core.State.Seat.Two) : "(no state)";
+        _bannersSeen.Add(text ?? "(none)");
+        if (text != expected && _bannerProblems.Count < 5)
+        {
+            _bannerProblems.Add($"to {seat}: banner \"{text ?? "none"}\", the server's state says \"{expected}\"");
+        }
+        if (board.TurnBannerRect is { } box && (box.Position.Y < board.TopInset || box.End.X > board.Size.X || box.Position.X < 0) && _bannerProblems.Count < 5)
+        {
+            _bannerProblems.Add($"banner at {box} outside the battlefield under the HUD ({board.TopInset})");
+        }
+        // How long each banner stayed whose time ran out (not replaced by the next one).
+        var lasted = board.TurnBannerHistory.Where(h => h.Gone is not null).Select(h => (h.Gone!.Value - h.Shown) / 1000.0).ToList();
+        if (lasted.Count > 0)
+        {
+            _bannerTiming = $"{lasted.Min():0.00}-{lasted.Max():0.00}";
+            if (lasted.Any(d => Math.Abs(d - Client.Core.HotSeat.BannerSeconds) > 0.35) && !_bannerTimingBad)
+            {
+                _bannerTimingBad = true;
+                _bannerProblems.Add($"banners stayed {string.Join(", ", lasted.Select(d => d.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)))} s (expected {Client.Core.HotSeat.BannerSeconds} s)");
+            }
+        }
+    }
+
+    // Stage N5: the whole match in this one window, both seats, following the turn: every choice by a mouse click on
+    // the decision card or in the Menu, placements by clicks on the battlefield, until MATCH ENDED. The runner checks the
+    // server's record with trench-cli verify.
+    private async Task HotSeatFullMatch()
+    {
+        var main = (Main)_main;
+        var deadline = Time.GetTicksMsec() + 1_200_000;
+        var actions = 0;
+        var stuck = 0;
+        var idle = 0;
+        var refusals = new List<string>();
+        while (Time.GetTicksMsec() < deadline && !MatchOver() && stuck < 20 && actions < 2000)
+        {
+            await Frames(3);
+            var seat = HotControlled();
+            var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+            await TurnBannerStep(board, seat);
+            if (board is not null && board.Interaction.Available.Contains(InteractionMode.Place) && board.Interaction.Pending is null)
+            {
+                stuck = await PlaceSomewhere(board) ? 0 : stuck + 1;
+                actions++;
+                idle = 0;
+                continue;
+            }
+            if (Hint() is { } hint)
+            {
+                var before = Section("LAST COMMAND");
+                var events = Lines(LogText()).Count;
+                if (main.InClosedMenu(hint))
+                {
+                    await ClickButton(main.MenuButton);
+                    await Frames(3);
+                }
+                if (!GodotObject.IsInstanceValid(hint) || hint.IsQueuedForDeletion() || !hint.IsVisibleInTree())
+                {
+                    continue;
+                }
+                await ClickButton(hint);
+                var answered = await Until(() => HotControlled() != seat || Lines(LogText()).Count > events
+                    || (Section("LAST COMMAND") is var now && now != before && !now.StartsWith("SENT:", StringComparison.Ordinal)) ? "answered" : null, 20, "hotseat-match-answer");
+                var last = Section("LAST COMMAND");
+                if (answered is null || (Lines(LogText()).Count == events && last.StartsWith("REFUSED", StringComparison.Ordinal)))
+                {
+                    stuck++;
+                    if (refusals.Count < 5)
+                    {
+                        refusals.Add($"{seat} \"{hint.Text}\": {(answered is null ? "no answer" : last)}");
+                    }
+                }
+                else
+                {
+                    stuck = 0;
+                }
+                actions++;
+                idle = 0;
+                continue;
+            }
+            var count = Lines(LogText()).Count;
+            var changed = await Until(() => Lines(LogText()).Count != count || Hint() is not null || HotControlled() != seat || MatchOver()
+                || Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } b && b.Interaction.Available.Contains(InteractionMode.Place) ? "changed" : null, 5, "hotseat-match-wait");
+            if (changed is null && ++idle >= 2)
+            {
+                // Nothing to do for the seat shown and nothing moving: the other seat must act (a switch by hand is
+                // kept until the match moves on), so switch as a player would.
+                await KeyPress(Key.F2);
+                await Frames(5);
+                idle = 0;
+                stuck++;
+            }
+        }
+        var ended = Lines(LogText()).LastOrDefault(l => l.Contains("MATCH ENDED", StringComparison.Ordinal)) ?? "";
+        Check("hotseat-full-match", MatchOver() && ended.Length > 0,
+            $"{(ended.Length > 0 ? ended : "no MATCH ENDED")}; {actions} clicks and placements by both seats in this window; {Lines(LogText()).Count} events{(refusals.Count == 0 ? "" : "; " + string.Join(" | ", refusals))}");
+        // The final state hash this window shows, for the runner to compare with the server's signed record.
+        var result = MatchOver() ? await Until(() => Section("RESULT OF THE MATCH") is { Length: > 0 } r ? r : null, 30, "hotseat-result") ?? "" : "";
+        var hash = result.Split('\n').FirstOrDefault(l => l.StartsWith("Final state hash: ", StringComparison.Ordinal))?[18..] is { Length: 64 } h && h.All(char.IsAsciiHexDigitLower) ? h : null;
+        Write($"DUMP hotseat-end final_hash={hash ?? ""}");
+        Check("hotseat-turn-banner", _bannerChanges >= 2 && _bannerProblems.Count == 0 && _bannerTiming is not null,
+            $"{_bannerChanges} seat changes, each with the server's words ({_bannersSeen.Count(b => b.Contains(" DECIDES: ", StringComparison.Ordinal))} decisions): {string.Join(" | ", _bannersSeen.Distinct().Take(6))}; banners whose time ran out stayed {_bannerTiming ?? "?"} s"
+            + (_bannerProblems.Count == 0 ? "" : "; " + string.Join(" | ", _bannerProblems)));
+        Check("hotseat-bar-seat-letter", _barSeatSamples > 0 && _barSeatProblems.Count == 0,
+            $"{_barSeatSamples} looks at the action bar, each starting with the shown seat's letter" + (_barSeatProblems.Count == 0 ? "" : ": " + string.Join(" | ", _barSeatProblems)));
+    }
+
     private string HotControlled()
     {
         var text = Label("HOT-SEAT:")?.Text ?? "";
@@ -2142,25 +2301,43 @@ public partial class UiCheck : Node
         var width = TableRect.Inches(scenario.Battlefield.Width);
         var depth = TableRect.Inches(scenario.Battlefield.Height);
         // A spot outside the zone the rules refuse (the table's middle row, else the far side), on screen.
-        var outside = Enumerable.Range(0, 9).Select(i => new TablePoint(width * (i + 0.5) / 9, depth / 2))
+        var outsides = Enumerable.Range(0, 9).Select(i => new TablePoint(width * (i + 0.5) / 9, depth / 2))
             .Concat(Enumerable.Range(0, 9).Select(i => new TablePoint(bounds.X0 < width / 2 ? width - 2 : 2, depth * (i + 0.5) / 9)))
-            .FirstOrDefault(p => !Previews.Place(state, seat, actor, Previews.PointAt(p.X, p.Y)).Legal && Screen(p.X, p.Y) is not null);
+            .Where(p => !Previews.Place(state, seat, actor, Previews.PointAt(p.X, p.Y)).Legal && Screen(p.X, p.Y) is not null).ToList();
         var events = Lines(LogText()).Count;
         var sent = interaction.SentCount;
         var lastCommand = Section("LAST COMMAND");
         var refusedOk = false;
         var refusedText = "no refused spot on screen";
-        if (Screen(outside.X, outside.Y) is { } bad)
+        // Pointing at a refused spot can make the unit card taller (it shows the refusal): the spot used is one still
+        // clear of every box once pointed at (run of the N5 hot-seat check: the card grew over (2", 18")).
+        TablePoint outside = default;
+        Vector2? clear = null;
+        foreach (var spot in outsides)
         {
+            if (Screen(spot.X, spot.Y) is not { } candidate)
+            {
+                continue;
+            }
             await Until(() =>
             {
-                if (interaction.Preview is { Legal: false } && board.PlaceReason is not null && Near(interaction.Cursor, outside.X, outside.Y, 0.6))
+                if (interaction.Preview is { Legal: false } && board.PlaceReason is not null && Near(interaction.Cursor, spot.X, spot.Y, 0.6))
                 {
                     return "ok";
                 }
-                Input.ParseInputEvent(new InputEventMouseMotion { Position = bad, GlobalPosition = bad });
+                Input.ParseInputEvent(new InputEventMouseMotion { Position = candidate, GlobalPosition = candidate });
                 return null;
             }, 3, "pointing-refused");
+            await Frames(3);
+            if (Screen(spot.X, spot.Y) is { } still && still.IsEqualApprox(candidate))
+            {
+                outside = spot;
+                clear = candidate;
+                break;
+            }
+        }
+        if (clear is { } bad)
+        {
             var at = interaction.Cursor;
             var rules = Previews.Place(state, seat, interaction.Actor ?? actor, Previews.PointAt(at.X, at.Y));
             var reasonRect = board.PlaceReasonRect;
@@ -2168,12 +2345,28 @@ public partial class UiCheck : Node
             var beside = reasonRect is { } r && ghostScreen is { } gs && board.GetGlobalRect().Encloses(r) && r.Grow(80).HasPoint(gs);
             var under = GetViewport().GuiGetHoveredControl();
             var shownSeat = HotControlled();
-            await ClickAt(bad);
-            await Frames(3);
+            // The note is read on every frame after the click: the other seat's events can arrive then and redraw the
+            // battlefield (hot-seat), which clears it again.
+            string? noticeSeen = null;
+            Input.ParseInputEvent(new InputEventMouseMotion { Position = bad, GlobalPosition = bad });
+            await Frames(2);
+            foreach (var pressed in new[] { true, false })
+            {
+                Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = bad, GlobalPosition = bad });
+                for (var f = 0; f < 4; f++)
+                {
+                    await Frames(1);
+                    if ((interaction.Notice ?? "").StartsWith("Not sent: ", StringComparison.Ordinal))
+                    {
+                        noticeSeen ??= interaction.Notice;
+                    }
+                }
+            }
+            await Frames(2);
             refusedOk = rules.Refusal is { } why && board.PlaceReason == why.Text && interaction.Preview?.Refusal?.Text == why.Text && board.GhostAt is { } ghost && Near(ghost, at.X, at.Y, 0.01) && beside
                 && interaction.SentCount == sent && interaction.Pending is null && Lines(LogText()).Count == events && Section("LAST COMMAND") == lastCommand
-                && (interaction.Notice ?? "").StartsWith($"Not sent: {why.Text}", StringComparison.Ordinal);
-            refusedText = $"pointed at {at}: reason box '{board.PlaceReason}' at {reasonRect} (ghost at {ghostScreen}); rules: {rules.Refusal?.Text}; after a click: sent {sent} -> {interaction.SentCount}, notice {interaction.Notice}; under the pointer {Describe(under as Control)}; seat shown {shownSeat} -> {HotControlled()}";
+                && (noticeSeen ?? "").StartsWith($"Not sent: {why.Text}", StringComparison.Ordinal);
+            refusedText = $"pointed at {at}: reason box '{board.PlaceReason}' at {reasonRect} (ghost at {ghostScreen}); rules: {rules.Refusal?.Text}; after a click: sent {sent} -> {interaction.SentCount}, notice {noticeSeen} (now: {interaction.Notice}); the click: {board.LastClick}; controls taking clicks there: {string.Join(", ", Controls<Control>().Where(c => c.IsVisibleInTree() && c.MouseFilter != Control.MouseFilterEnum.Ignore && c.GetGlobalRect().HasPoint(bad)).Select(c => $"{Describe(c)} {c.Name}"))}; after: {Describe(GetViewport().GuiGetHoveredControl() as Control)} {(GetViewport().GuiGetHoveredControl() as Control)?.Name}; under the pointer {Describe(under as Control)}; seat shown {shownSeat} -> {HotControlled()}";
         }
         Check("deploy-refused-explained", refusedOk, refusedText);
         // A legal spot in the zone, on screen: one click sends it, once.

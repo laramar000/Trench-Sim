@@ -21,6 +21,13 @@ public partial class Main : Control
     private MatchController? _opponent;
     // Single-player (hot-seat) mode: both seats of one match, on a local server this window started; null otherwise.
     private HotSeat? _hotSeat;
+    private bool _turnBannerDue;
+
+    // Stage N5: how many turn banners were shown (for the UI check).
+    public int TurnBannersShown { get; private set; }
+
+    // The server's state of the seat shown, as last drawn (for the UI check).
+    public Rules.Core.State.MatchState? ShownState => _lastScreen?.State;
     private int _changed;
     private long _shown = -1;
     private bool _gapsShown;
@@ -516,6 +523,7 @@ public partial class Main : Control
             {
                 _controller = hot.Controller;
                 _shown = -1;
+                _turnBannerDue = true;
                 System.Threading.Interlocked.Exchange(ref _changed, 1);
             };
             _connectMessage.Text = "";
@@ -992,7 +1000,15 @@ public partial class Main : Control
             }
         }
         _boardSection.Visible = s.Board is not null;
+        _board.SeatTag = _hotSeat is { } seated ? Words.SeatLetter(seated.Active) : null;
         _board.Show(s.Board, s.State, s.Seat, s.Log);
+        // Stage N5: whenever the seat shown changes, a banner says who acts now (from the server's state of that seat).
+        if (_turnBannerDue && _hotSeat is { } turned && s.Seat == turned.Active)
+        {
+            _turnBannerDue = false;
+            TurnBannersShown++;
+            _board.ShowTurnBanner(HotSeat.TurnBanner(s.State, turned.Active), HotSeat.BannerSeconds);
+        }
         _state.Text = string.Join("\n", view.Lines());
         _models.Text = view.Models.Count == 0 ? "No models yet." : string.Join("\n", view.Models.Select(m => m.Text));
 

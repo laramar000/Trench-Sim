@@ -399,7 +399,8 @@ public static class Program
         var hot = Start("godot-hotseat", godot, [.. args], home);
         try
         {
-            Record("hotseat-exit", await hot.Exit(600) == 0 ? "PASS" : "FAIL", $"hot-seat Godot exit code {hot.ExitCode} (0 = all its checks passed)");
+            // Stage N5: the window plays a whole match, both seats, before leaving.
+            Record("hotseat-exit", await hot.Exit(1500) == 0 ? "PASS" : "FAIL", $"hot-seat Godot exit code {hot.ExitCode} (0 = all its checks passed)");
         }
         catch (Exception e)
         {
@@ -426,6 +427,24 @@ public static class Program
             var left = ServersUsing(Path.Combine(home, "hotseat-server"));
             Record("hotseat-no-server-left", left.Count == 0 ? "PASS" : "FAIL", left.Count == 0 ? "no Match.Server process uses the hot-seat folder" : string.Join("; ", left));
         }
+
+        // Stage N5: the local server's signed record of the match played in the one window, checked with trench-cli
+        // verify (the client never reads it), and its final hash is the one the window showed.
+        var data = Path.Combine(home, "hotseat-server");
+        var matches = Path.Combine(data, "matches");
+        var record = Directory.Exists(matches) ? Directory.GetFiles(matches, "*.json").OrderBy(File.GetLastWriteTimeUtc).FirstOrDefault() : null;
+        var cliDll = Path.Combine(_repo, "src", "Match.Cli", "bin", "Debug", "net10.0", "trench-cli.dll");
+        if (record is null || !File.Exists(cliDll))
+        {
+            Record("hotseat-record-verifies", "FAIL", record is null ? $"no record in {matches}" : $"{cliDll} not built");
+            return;
+        }
+        var verify = await Run("hotseat-verify", "dotnet", [cliDll, "verify", record, "--key", Path.Combine(data, "keys", "signing.pub")], 120);
+        var verdict = verify.Output.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? "";
+        var shownHash = Dumps(e2e, "hotseat", "hotseat-end").GetValueOrDefault("final_hash", "");
+        var finalHash = Regex.Match(verify.Output, @"Final hash ([0-9a-f]{64}): hash matches\.");
+        Record("hotseat-record-verifies", verify.Exit == 0 && verdict.StartsWith("Completed: ") && finalHash.Success && finalHash.Groups[1].Value == shownHash ? "PASS" : "FAIL",
+            $"trench-cli verify {Path.GetFileName(record)} --key signing.pub: exit {verify.Exit}: {verify.Output.Trim().Replace('\n', ' ')} || the window showed {(shownHash.Length == 0 ? "no final hash" : shownHash)}");
     }
 
     // Running server processes whose command line names the folder (Linux reads /proc; Windows asks WMI through PowerShell).

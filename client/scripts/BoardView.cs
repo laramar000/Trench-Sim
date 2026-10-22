@@ -58,6 +58,12 @@ public partial class BoardView : SubViewportContainer
     private readonly HBoxContainer _barRow = new();
     private string _barShown = "";
     private ActionBar _barNow = ActionBar.Empty;
+
+    // Battlefield UI 2, stage N5 (hot-seat): the letter of the seat shown, first on the action bar ("[A]"), and the banner
+    // shown for a moment whenever the seat shown changes ("SEAT B: YOUR TURN"). It never takes a click.
+    private readonly PanelContainer _turnBanner = new() { Name = "TurnBanner", Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+    private readonly Label _turnBannerText = new() { HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore };
+    private double _turnBannerUntil;
     private ModelId? _lastActive;
     // A right-click that does not drag cancels; one that drags pans.
     private Vector2? _rightFrom;
@@ -156,6 +162,14 @@ public partial class BoardView : SubViewportContainer
         _bar.AddChild(_barRow);
         AddChild(_bar);
         AddChild(Dice);
+        _turnBanner.AddThemeStyleboxOverride("panel", new StyleBoxFlat
+        {
+            BgColor = new Color(0.08f, 0.07f, 0.05f), BorderColor = new Color(0.95f, 0.8f, 0.35f), BorderWidthBottom = 2, BorderWidthTop = 2,
+            BorderWidthLeft = 2, BorderWidthRight = 2, ContentMarginLeft = 18, ContentMarginRight = 18, ContentMarginTop = 8, ContentMarginBottom = 8,
+        });
+        _turnBannerText.AddThemeColorOverride("font_color", new Color(1f, 0.93f, 0.7f));
+        _turnBanner.AddChild(_turnBannerText);
+        AddChild(_turnBanner);
         _reason.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = new Color(0.25f, 0.02f, 0.02f, 0.88f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 3, ContentMarginBottom = 3 });
         _reason.AddThemeColorOverride("font_color", new Color(1f, 0.85f, 0.8f));
         AddChild(_reason);
@@ -688,6 +702,43 @@ public partial class BoardView : SubViewportContainer
 
     public float TopInset { get; private set; }
 
+    // Stage N5: the seat letter on the action bar (hot-seat only; null hides it).
+    public string? SeatTag { get; set; }
+
+    public string BarSeatText => _bar.Visible && _barRow.GetChildCount() > 0 && _barRow.GetChild(0) is Label l && l.Name == "BarSeat" ? l.Text : "";
+
+    // Stage N5: the turn banner's text while it shows, else "".
+    public string TurnBannerText => _turnBanner.Visible ? _turnBannerText.Text : "";
+
+    public Rect2? TurnBannerRect => _turnBanner.Visible ? new Rect2(_turnBanner.Position, _turnBanner.Size) : null;
+
+    // Each banner shown: its text, when it showed and when its time ran out (null while showing or when the next one
+    // replaced it), in milliseconds since the engine started. For the UI check; the newest 50.
+    public List<(string Text, ulong Shown, ulong? Gone)> TurnBannerHistory { get; } = [];
+
+    public void ShowTurnBanner(string text, double seconds)
+    {
+        if (TurnBannerHistory.Count >= 50)
+        {
+            TurnBannerHistory.RemoveAt(0);
+        }
+        TurnBannerHistory.Add((text, Time.GetTicksMsec(), null));
+        _turnBannerText.Text = text;
+        _turnBannerText.AddThemeFontSizeOverride("font_size", (int)(26 * _textScale));
+        _turnBanner.Visible = true;
+        _turnBanner.ResetSize();
+        _turnBannerUntil = Time.GetTicksMsec() / 1000.0 + seconds;
+        PlaceTurnBanner();
+    }
+
+    private void PlaceTurnBanner()
+    {
+        var size = _turnBanner.GetCombinedMinimumSize();
+        _turnBanner.Size = size;
+        _turnBanner.Position = new Vector2(Mathf.Max(0, (Size.X - size.X) / 2), Mathf.Max(TopInset + 8, Size.Y * 0.18f));
+        MoveChild(_turnBanner, GetChildCount() - 1);
+    }
+
     public Control? TopStrip => _strip;
 
     // Stage N3: the screen's boxes on the battlefield (unit card, log drawer, ...) that its bars and menus keep clear of.
@@ -833,6 +884,21 @@ public partial class BoardView : SubViewportContainer
     public override void _Process(double delta)
     {
         PlaceStrip();
+        if (_turnBanner.Visible)
+        {
+            if (Time.GetTicksMsec() / 1000.0 >= _turnBannerUntil)
+            {
+                _turnBanner.Visible = false;
+                if (TurnBannerHistory.Count > 0)
+                {
+                    TurnBannerHistory[^1] = TurnBannerHistory[^1] with { Gone = Time.GetTicksMsec() };
+                }
+            }
+            else
+            {
+                PlaceTurnBanner();
+            }
+        }
         if (Interaction.UsesCursor && _hover.Take(Time.GetTicksMsec() / 1000.0) is { } point)
         {
             Interaction.SetCursor(point.X, point.Y);
@@ -948,8 +1014,12 @@ public partial class BoardView : SubViewportContainer
     // placing or moving, a click on a spot is the destination: sent at once when the preview says the server would
     // accept it, otherwise not sent and a note above the model says why. Shift+click adds a waypoint to a path.
     // Otherwise the click selects the model under it.
+    // What the last left click on the battlefield did (for the UI check's reports).
+    public string LastClick { get; private set; } = "";
+
     public void Click(Vector2 local, bool shift = false)
     {
+        LastClick = $"{Interaction.Mode}, chosen {Interaction.Chosen?.Value}, cursor {(Interaction.UsesCursor ? CursorAt(local)?.ToString() ?? "off the table" : "not used")}, pending {Interaction.Pending is not null}, preview {(Interaction.Preview is { } pv ? pv.Legal.ToString() : "none")}";
         // While a unit is only chosen (not activated on the server yet), a click on another of your units that may
         // activate switches to it, whatever action was being chosen.
         if (Interaction.Chosen is { } chosen && ModelAt(local) is { Yours: true } other && other.Id != chosen && Interaction.CanChoose(other.Id))
@@ -977,7 +1047,9 @@ public partial class BoardView : SubViewportContainer
         {
             if (CursorAt(local) is { } p)
             {
-                switch (Interaction.ClickAt(Math.Round(p.X * 10) / 10, Math.Round(p.Y * 10) / 10, shift))
+                var result = Interaction.ClickAt(Math.Round(p.X * 10) / 10, Math.Round(p.Y * 10) / 10, shift);
+                LastClick = $"{Interaction.Mode} at ({p.X:0.0}, {p.Y:0.0}): {result}";
+                switch (result)
                 {
                     case ClickResult.Send:
                         Confirm();
@@ -1425,7 +1497,7 @@ public partial class BoardView : SubViewportContainer
         {
             bar = ActionBar.Empty;
         }
-        var shown = $"{bar.Anchor?.Value}|{string.Join("|", bar.Items.Select(i => $"{i.Kind}:{i.Label}:{i.Enabled}:{i.Tip}"))}|{_textScale}";
+        var shown = $"{SeatTag}|{bar.Anchor?.Value}|{string.Join("|", bar.Items.Select(i => $"{i.Kind}:{i.Label}:{i.Enabled}:{i.Tip}"))}|{_textScale}";
         if (shown != _barShown)
         {
             _barShown = shown;
@@ -1434,6 +1506,13 @@ public partial class BoardView : SubViewportContainer
             {
                 _barRow.RemoveChild(child);
                 child.QueueFree();
+            }
+            if (SeatTag is { } seat && bar.Items.Count > 0)
+            {
+                var tag = new Label { Name = "BarSeat", Text = $"[{seat}]", VerticalAlignment = VerticalAlignment.Center, TooltipText = $"Seat {seat} is shown and plays." };
+                tag.AddThemeFontSizeOverride("font_size", (int)(18 * _textScale));
+                tag.AddThemeColorOverride("font_color", new Color(1f, 0.93f, 0.7f));
+                _barRow.AddChild(tag);
             }
             foreach (var item in bar.Items)
             {

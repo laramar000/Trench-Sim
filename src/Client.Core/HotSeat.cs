@@ -121,6 +121,21 @@ public sealed class HotSeat : IAsyncDisposable
         return !shown.View.YourMove && other.View.YourMove && Switch();
     }
 
+    // Battlefield UI 2, stage N5: the banner shown for a moment whenever the seat shown changes, so it is plain who
+    // decides now: "SEAT B DECIDES: spend Blood Markers ..." when the rules wait for that seat's decision (a free attack,
+    // Blood Markers, a choice before or between turns), else "SEAT B: YOUR TURN". Only words from the server's state.
+    public static string TurnBanner(MatchState state, Seat shown)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var letter = Words.SeatLetter(shown);
+        return state.Pending is { } pending && pending.Seat == shown
+            ? $"SEAT {letter} DECIDES: {Words.Decision(pending.Kind)}"
+            : $"SEAT {letter}: YOUR TURN";
+    }
+
+    // How long the banner stays, in seconds.
+    public const double BannerSeconds = 1.5;
+
     // The hot-seat line for the top of the screen: which seat is controlled, whose move it is, and how to switch.
     public string Banner()
     {
