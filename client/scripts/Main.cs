@@ -69,6 +69,9 @@ public partial class Main : Control
     private Label _hud = null!;
     private RichTextLabel _hudCentre = null!;
     private Label _hudStatus = null!;
+    private SignalIcon _signal = null!;
+    private PanelContainer _signalCard = null!;
+    private Label _signalDetails = null!;
     private PanelContainer _hudStrip = null!;
     private HBoxContainer _icons = null!;
     private IconButton _logButton = null!;
@@ -659,7 +662,24 @@ public partial class Main : Control
         }
         var hudLeft = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, MouseFilter = Control.MouseFilterEnum.Ignore };
         hudLeft.AddThemeConstantOverride("separation", 2);
-        hudLeft.AddChild(_hud);
+        // Battlefield UI 3, stage U3: the connection indicator in the corner, before the HUD line; a click opens its
+        // details card under it (the tooltip says the same).
+        _signal = new SignalIcon();
+        _signal.Pressed += () => SetSignalCard(!_signalCard.Visible);
+        var hudTop = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        hudTop.AddThemeConstantOverride("separation", 6);
+        hudTop.AddChild(_signal);
+        hudTop.AddChild(_hud);
+        hudLeft.AddChild(hudTop);
+        _signalDetails = Text("");
+        _signalDetails.Name = "ConnectionDetails";
+        _signalCard = new PanelContainer { Name = "ConnectionCard", Visible = false, SizeFlagsHorizontal = SizeFlags.ShrinkBegin, CustomMinimumSize = new Vector2(320, 0) };
+        _signalCard.AddThemeStyleboxOverride("panel", new StyleBoxFlat
+        {
+            BgColor = new Color(0.08f, 0.08f, 0.09f, 0.95f), ContentMarginLeft = 10, ContentMarginRight = 10, ContentMarginTop = 8, ContentMarginBottom = 8,
+            CornerRadiusTopLeft = 4, CornerRadiusTopRight = 4, CornerRadiusBottomLeft = 4, CornerRadiusBottomRight = 4,
+        });
+        _signalCard.AddChild(_signalDetails);
         hudLeft.AddChild(_hudStatus);
         var hudRight = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd, MouseFilter = Control.MouseFilterEnum.Ignore };
         hudRight.AddThemeConstantOverride("separation", 4);
@@ -733,6 +753,7 @@ public partial class Main : Control
         Outline(_banner);
         _banner.Modulate = new Color(1, 1, 1, 0.85f);
         hudLeft.AddChild(_banner);
+        hudLeft.AddChild(_signalCard);
         hudRight.AddChild(_bannerButtons);
         // Once the match has ended or been aborted: the result, the final state hash and the event count (M7.5). The
         // hash can be compared with the one `trench-cli verify` prints for the server's signed record.
@@ -952,7 +973,12 @@ public partial class Main : Control
         _hotLine.Text = _hotSeat is { } h
             ? $"{h.Banner()}\nLocal server {h.Server?.Endpoint} (process {h.Server?.ProcessId}); it stops when you leave or close this window."
             : "";
-        _banner.Text = $"Connection: {s.ConnectionText}{(s.OpponentAway is null ? "" : "\n" + s.OpponentAway)}{(s.Warning is null ? "" : "\nWarning: " + s.Warning)}";
+        // Stage U3: the indicator in the corner says the connection; the line under the HUD keeps only what needs
+        // attention: a connection that is not simply up (or the match ended), the opponent away, and a warning.
+        var problem = s.Connection is ConnectionState.Connected or ConnectionState.Finished ? null : $"Connection: {s.ConnectionText}";
+        _banner.Text = string.Join("\n", new[] { problem, s.OpponentAway, s.Warning is null ? null : "Warning: " + s.Warning }.Where(l => l is not null));
+        _banner.Visible = _banner.Text.Length > 0;
+        ShowSignal(s);
 
         // Buttons are rebuilt on every change; keep the keyboard focus on the same button (or a sensible one).
         var focused = GetViewport().GuiGetFocusOwner();
@@ -1110,6 +1136,38 @@ public partial class Main : Control
         _hudCentreText = places.Centre;
         _hudCentre.Text = CentreBbcode(places.Centre, plain);
     }
+
+    // Stage U3: the indicator's bars, tooltip and details card from the controller's screen (the shown seat's, in
+    // hot-seat).
+    private void ShowSignal(ScreenState s)
+    {
+        _signal.Bars = ConnectionQuality.Bars(s.Connection, s.RoundTrips ?? RoundTrips.None);
+        _signal.HighContrast = _highContrast;
+        _signal.Visible = true;
+        var details = _controller is { } c ? ConnectionQuality.Details(s, c.Endpoint.ToString(), c.Now) : [];
+        _signalDetailsText = string.Join("\n", details);
+        _signal.TooltipText = _signalDetailsText + "\nClick for these details on a card.";
+        _signalDetails.Text = _signalDetailsText;
+    }
+
+    private string _signalDetailsText = "";
+
+    private void SetSignalCard(bool open)
+    {
+        _signalCard.Visible = open;
+        if (open && _lastScreen is { } s)
+        {
+            ShowSignal(s);
+        }
+    }
+
+    public SignalIcon ConnectionIcon => _signal;
+
+    public Control ConnectionCard => _signalCard;
+
+    public string ConnectionDetailsText => _signalDetailsText;
+
+    public string ConnectionLine => _banner.Visible ? _banner.Text : "";
 
     // The status line is a step smaller than the HUD's own text.
     private float StatusFontSize() => (_theme.DefaultFontSize > 0 ? _theme.DefaultFontSize : 16) * 0.85f;
@@ -1748,6 +1806,14 @@ public partial class Main : Control
     // The server's state as this window last drew it (for the UI check: the same render as the HUD and battlefield).
     public Rules.Core.State.MatchState? ServerState => _lastScreen?.State;
 
+    public ScreenState? LastScreen => _lastScreen;
+
+    // The connection in the words the line under the HUD used before stage U3 ("Connection: Connected." and the
+    // opponent away and a warning on their own lines), now on the indicator's details; the UI checks wait on it.
+    public string ConnectionWords => _lastScreen is { } s
+        ? $"Connection: {s.ConnectionText}{(s.OpponentAway is null ? "" : "\n" + s.OpponentAway)}{(s.Warning is null ? "" : "\nWarning: " + s.Warning)}"
+        : "";
+
     public Rules.Core.State.Seat? ScreenSeat => _lastScreen?.Seat;
 
     // The panel's "POINTING AT" lines as shown (for the UI check); empty when hidden.
@@ -1851,7 +1917,8 @@ public partial class Main : Control
         }
         catch (InvalidOperationException e)
         {
-            _banner.Text += "\n" + e.Message;
+            _banner.Text += (_banner.Text.Length > 0 ? "\n" : "") + e.Message;
+            _banner.Visible = true;
         }
     }
 

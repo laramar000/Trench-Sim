@@ -66,7 +66,8 @@ public sealed record ScreenState(
     IReadOnlyList<LogLine> Log,
     BoardScene? Board,
     MatchState State,
-    MatchEnd? End = null);
+    MatchEnd? End = null,
+    RoundTrips? RoundTrips = null);
 
 public sealed class MatchControllerOptions
 {
@@ -182,7 +183,23 @@ public sealed class MatchController : IAsyncDisposable
         Feedback result;
         try
         {
+            // Stage U3 (D1-A): the time from sending to the server's answer is the only latency the client can measure.
+            var sentAt = _options.Time.GetTimestamp();
             var answer = await session.SubmitAsync(command, cancellationToken);
+            if (answer is Accepted or Rejected)
+            {
+                var took = _options.Time.GetElapsedTime(sentAt);
+                lock (_gate)
+                {
+                    _trips.Add(took);
+                    if (_trips.Count > RoundTrips.Window)
+                    {
+                        _trips.RemoveAt(0);
+                    }
+                    _tripCount++;
+                    _tripAt = _options.Time.GetUtcNow();
+                }
+            }
             result = answer switch
             {
                 Accepted => new Feedback(FeedbackKind.Accepted, $"Done: {label}."),
@@ -358,7 +375,8 @@ public sealed class MatchController : IAsyncDisposable
                 _log.Values.TakeLast(_options.LogLines).ToList(),
                 BoardScene.Of(state, seat, _names),
                 state,
-                EndOf(view, copy));
+                EndOf(view, copy),
+                _trips.Count == 0 ? RoundTrips.None : RoundTrips.Of(_trips, _tripAt) with { Count = _tripCount });
         }
     }
 
@@ -757,6 +775,16 @@ public sealed class MatchController : IAsyncDisposable
         }
         return null;
     }
+
+    // The server this controller plays on (the connection indicator's details, stage U3).
+    public Uri Endpoint => _options.Endpoint;
+
+    // Now, on the controller's clock ("measured 5 s ago").
+    public DateTimeOffset Now => _options.Time.GetUtcNow();
+
+    private readonly List<TimeSpan> _trips = [];
+    private int _tripCount;
+    private DateTimeOffset _tripAt;
 
     private void SetConnection(ConnectionState state, string text)
     {

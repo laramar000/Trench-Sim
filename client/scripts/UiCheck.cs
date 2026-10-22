@@ -1558,7 +1558,7 @@ public partial class UiCheck : Node
             && Section("MATCH").Contains("[A]") && Section("MATCH").Contains("[B]"), $"{models.Length} model lines, all with [A]/[B]");
         Check("feedback-in-words", Section("LAST COMMAND").Split(':')[0] is "DONE" or "SENT" or "REFUSED BY THE RULES" or "NOT TAKEN" or "OUT OF DATE" or "UNKNOWN" or "None yet.",
             Section("LAST COMMAND"));
-        Check("connection-in-words", Banner().StartsWith("Connection: ", StringComparison.Ordinal), Banner());
+        await ConnectionIndicatorCheck();
         // QoL I2: what was just chosen is in this window's settings file.
         var saved = ClientSettings.Parse(SettingsFile());
         // Turn the settings back so later screenshots are comparable.
@@ -1923,6 +1923,9 @@ public partial class UiCheck : Node
                     break;
                 case "decision":
                     await DecisionCardCheck();
+                    break;
+                case "connection":
+                    await ConnectionIndicatorCheck();
                     break;
                 case "layout":
                     await LayoutChecks(board);
@@ -4857,7 +4860,62 @@ public partial class UiCheck : Node
     private Godot.Label? Label(string startsWith) => Controls<Godot.Label>().FirstOrDefault(l => (l.IsVisibleInTree() || ((Main)_main).InMatchMenu(l))
         && l.Text.StartsWith(startsWith, StringComparison.Ordinal));
 
-    private string Banner() => Label("Connection: ")?.Text ?? "";
+    // Battlefield UI 3, stage U3 (connection-in-words): the indicator is in the battlefield's top-left corner, its bars
+    // and details are the controller's (state, measured round trip, server), the old connection sentence is gone while
+    // connected, and a click opens and closes its details card, sending nothing.
+    private async Task ConnectionIndicatorCheck()
+    {
+        var main = (Main)_main;
+        var icon = main.ConnectionIcon;
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        var screen = main.LastScreen;
+        var problems = new List<string>();
+        if (board is null || screen is null || !icon.IsVisibleInTree())
+        {
+            Check("connection-in-words", false, $"board {board is not null}, screen {screen is not null}, icon shown {icon.IsVisibleInTree()}");
+            return;
+        }
+        var area = board.GetGlobalRect();
+        var at = icon.GetGlobalRect();
+        if (at.Position.X > area.Position.X + 40 || at.Position.Y > area.Position.Y + 40 || !area.Encloses(at))
+        {
+            problems.Add($"icon {at} not in the top-left corner of {area}");
+        }
+        var trips = screen.RoundTrips ?? RoundTrips.None;
+        if (icon.Bars != ConnectionQuality.Bars(screen.Connection, trips))
+        {
+            problems.Add($"bars {icon.Bars} for {screen.Connection}, last {trips.Last}");
+        }
+        var details = main.ConnectionDetailsText.Split('\n');
+        if (details[0] != $"{ConnectionQuality.StateWord(screen.Connection)}: {screen.ConnectionText}"
+            || !details.Any(l => l.StartsWith("Command round trip: ", StringComparison.Ordinal))
+            || (trips.Last is { } last && !details.Any(l => l.Contains($"last {Math.Max(0, (int)Math.Round(last.TotalMilliseconds))} ms", StringComparison.Ordinal)))
+            || !details.Any(l => l.StartsWith("Server: ws", StringComparison.Ordinal)))
+        {
+            problems.Add($"details: {main.ConnectionDetailsText.Replace('\n', '|')}");
+        }
+        if (screen.Connection == ConnectionState.Connected && Controls<Godot.Label>().Any(l => l.IsVisibleInTree() && l.Text.StartsWith("Connection: ", StringComparison.Ordinal)))
+        {
+            problems.Add("the old connection sentence is still shown");
+        }
+        var lastCommand = Section("LAST COMMAND");
+        var centre = at.GetCenter();
+        await ClickAt(centre);
+        await Frames(3);
+        var opened = main.ConnectionCard.IsVisibleInTree() && Controls<Godot.Label>().Any(l => l.Name == "ConnectionDetails" && l.IsVisibleInTree() && l.Text == main.ConnectionDetailsText);
+        await ClickAt(centre);
+        await Frames(3);
+        var closed = !main.ConnectionCard.IsVisibleInTree();
+        if (!opened || !closed || Section("LAST COMMAND") != lastCommand)
+        {
+            problems.Add($"card opened {opened}, closed again {closed}, last command unchanged {Section("LAST COMMAND") == lastCommand}");
+        }
+        Check("connection-in-words", problems.Count == 0 && Banner().StartsWith("Connection: ", StringComparison.Ordinal),
+            problems.Count == 0 ? $"{icon.Bars?.ToString() ?? "x"} bars; {main.ConnectionDetailsText.Replace('\n', '|')}" : string.Join("; ", problems));
+    }
+
+    // Stage U3: the connection is on the indicator in the corner (its details), in the words the old line used.
+    private string Banner() => ((Main)_main).ConnectionIcon.IsVisibleInTree() ? ((Main)_main).ConnectionWords : "";
 
     // The body of a section: the control after its title label.
     // The compact status line over the battlefield (QoL stage C).
