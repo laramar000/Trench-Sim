@@ -1468,7 +1468,7 @@ public partial class UiCheck : Node
         var problems = new List<string>();
         var selected = board.Selected;
         var lastCommand = Section("LAST COMMAND");
-        var closedAtFirst = !main.UnitCardOpen && !main.UnitCardEverOpened;
+        var closedAtFirst = _unitCardClosedAtFirstRead ?? (!main.UnitCardOpen && !main.UnitCardEverOpened);
         main.SetUnitCard(false);
         await Frames(3);
         var view = main.PanelView;
@@ -1505,6 +1505,8 @@ public partial class UiCheck : Node
             problems.Count == 0 ? $"closed at first: {closedAtFirst}; tab \"{main.UnitTab.Text}\"; {closedRect.Size.Y:0}px closed, {openRect.Size.Y:0}px open" : $"closed at first: {closedAtFirst}; {string.Join("; ", problems)}");
     }
 
+    private bool? _unitCardClosedAtFirstRead;
+
     // Stage U4: the checks that read the unit card read it opened, as a player would open it (the card's tab or U).
     private string PanelText
     {
@@ -1512,6 +1514,8 @@ public partial class UiCheck : Node
         {
             if (!((Main)_main).UnitCardOpen)
             {
+                // The first time a check opens it, the card was closed until then (unit-tab reports it).
+                _unitCardClosedAtFirstRead ??= !((Main)_main).UnitCardEverOpened;
                 ((Main)_main).SetUnitCard(true);
             }
             return ((Main)_main).PanelText;
