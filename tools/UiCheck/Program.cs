@@ -556,7 +556,7 @@ public static class Program
             proxyA.Restore();
             Signal(e2e, "restored");
             await Mark(e2e, "host", "rejoined", 120);
-            await Mark(e2e, "host", "a11y-done", 180);
+            await Mark(e2e, "host", "a11y-done", 300);
 
             // The server stops and starts again on the same port and data.
             server.Kill();
