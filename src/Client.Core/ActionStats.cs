@@ -22,7 +22,9 @@ public static class ActionStats
                 : null,
             InteractionMode.Shoot => profile.HasRangedWeapon ? $"Shoot: weapon range {BoardScene.Inch(TableRect.Inches(profile.RangedRange))}" : "Shoot: no Ranged Weapon",
             InteractionMode.Charge => $"Charge: reach Movement {BoardScene.Inch(TableRect.Inches(profile.Movement))} plus a D6, at most {TableRect.Inches(Rules.Core.Geometry.Charging.MaxMovement).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}\"{halved}",
-            InteractionMode.Fight => profile.HasMeleeWeapon ? "Fight: Melee Weapon, against an engaged enemy" : "Fight: no Melee Weapon",
+            InteractionMode.Fight => profile.HasMeleeWeapon ? "Fight: Melee Weapon, against an engaged enemy"
+                : profile.RangedAlsoMelee ? "Fight: its ranged weapon (also Melee), against an engaged enemy"
+                : "Fight: no Melee Weapon",
             _ => null,
         };
     }

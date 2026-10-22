@@ -254,7 +254,7 @@ internal static class Board
         var body = BodyOf(state, retreater)!;
         return OnTable(state)
             .Where(o => o.Seat != retreater.Seat && o.Status == ModelStatus.Standing && !retreat.Fought.Contains(o.Id)
-                && state.Setup!.ProfileOf(o.Id)!.HasMeleeWeapon && Measure.IsWithin(body, BodyOf(state, o)!, EngagementRange))
+                && state.Setup!.ProfileOf(o.Id)!.CanMakeMeleeAttack && Measure.IsWithin(body, BodyOf(state, o)!, EngagementRange))
             .OrderBy(o => o.Id.Value, StringComparer.Ordinal)
             .ToList();
     }
@@ -275,7 +275,7 @@ internal static class Board
         {
             return Refuse(ReasonCode.ModelNotStanding, "A Down model cannot fight.");
         }
-        if (!state.Setup!.ProfileOf(attacker.Id)!.HasMeleeWeapon)
+        if (!state.Setup!.ProfileOf(attacker.Id)!.CanMakeMeleeAttack)
         {
             return Refuse(ReasonCode.NoMeleeWeapon, "That model has no Melee Weapon.");
         }

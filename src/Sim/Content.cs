@@ -32,7 +32,8 @@ public static class Content
                         m.GetProperty("weaponInjuryModifier").GetInt32(),
                         m.GetProperty("armour").GetInt32(),
                         m.TryGetProperty("meleeInjuryModifier", out var melee),
-                        melee.ValueKind == JsonValueKind.Number ? melee.GetInt32() : 0)));
+                        melee.ValueKind == JsonValueKind.Number ? melee.GetInt32() : 0,
+                        m.TryGetProperty("rangedAlsoMelee", out var also) && also.GetBoolean())));
             }
             warbands.Add(new Warband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));
         }

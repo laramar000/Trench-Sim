@@ -7,11 +7,15 @@ namespace Rules.Core.State;
 // RangedRange zero means no ranged weapon; HasMeleeWeapon says whether the model has one Melee Weapon (pp. 45-46;
 // a second Melee Weapon, Off-Hand attacks and CLEAVE are not modelled yet). Injury modifiers follow Injury Rolls (pp. 46, 48): the weapon's
 // modifier is added by the attacker, Armour (zero or negative) belongs to the target.
+// RangedAlsoMelee: the ranged weapon has "Melee" under its Range (a Dual-purpose weapon such as a Pistol, 12"/Melee;
+// pp. 56, 68, 70), so it can also make Melee Attacks (C19a). A model with a Melee Weapon attacks with that one in melee
+// (the choice between the two is not modelled, U54); without one, it attacks with the dual-purpose weapon and that
+// weapon's own injury modifier.
 public sealed record ModelProfile
 {
     public const int MaxModifier = 3;
 
-    public ModelProfile(Length movement, Length baseRadius, Length rangedRange, int rangedInjuryModifier = 0, int armour = 0, bool hasMeleeWeapon = false, int meleeInjuryModifier = 0)
+    public ModelProfile(Length movement, Length baseRadius, Length rangedRange, int rangedInjuryModifier = 0, int armour = 0, bool hasMeleeWeapon = false, int meleeInjuryModifier = 0, bool rangedAlsoMelee = false)
     {
         if (movement <= Length.Zero || movement > Length.FromInches(24))
         {
@@ -45,6 +49,10 @@ public sealed record ModelProfile
         {
             throw new ArgumentException("A model without a Melee Weapon has no melee injury modifier.", nameof(meleeInjuryModifier));
         }
+        if (rangedAlsoMelee && rangedRange <= Length.Zero)
+        {
+            throw new ArgumentException("Only a ranged weapon can also be a Melee Weapon (\"12\"/Melee\").", nameof(rangedAlsoMelee));
+        }
         Movement = movement;
         BaseRadius = baseRadius;
         RangedRange = rangedRange;
@@ -52,6 +60,7 @@ public sealed record ModelProfile
         Armour = armour;
         HasMeleeWeapon = hasMeleeWeapon;
         MeleeInjuryModifier = meleeInjuryModifier;
+        RangedAlsoMelee = rangedAlsoMelee;
     }
 
     public Length Movement { get; }
@@ -62,5 +71,15 @@ public sealed record ModelProfile
     public bool HasMeleeWeapon { get; }
     public int MeleeInjuryModifier { get; }
 
+    public bool RangedAlsoMelee { get; }
+
     public bool HasRangedWeapon => RangedRange > Length.Zero;
+
+    // Whether the model has any weapon it can make a Melee Attack with (pp. 15, 45, 68): a Melee Weapon, or a ranged
+    // weapon with "Melee" under its Range.
+    public bool CanMakeMeleeAttack => HasMeleeWeapon || RangedAlsoMelee;
+
+    // The injury modifier of the weapon the model makes Melee Attacks with: its Melee Weapon's, else its dual-purpose
+    // weapon's own (C19a).
+    public int MeleeAttackInjuryModifier => HasMeleeWeapon ? MeleeInjuryModifier : RangedAlsoMelee ? RangedInjuryModifier : 0;
 }

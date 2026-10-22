@@ -140,6 +140,21 @@ public class RetreatTests
     }
 
     [Fact]
+    [Trait("Rule", "Retreat p. 14: the free attack is made with a Melee Weapon; a 12\"/Melee weapon is one (pp. 56, 68)")]
+    public void AModelWithOnlyAPistolStillGetsItsFreeAttack()
+    {
+        var pistol = new ModelProfile(L("6"), L("0.5"), L("12"), rangedAlsoMelee: true);
+        var play = Engaged(profile: pistol);
+        play.Do(Retreat());
+        Assert.Equal(new[] { B(1) }, Board.FreeFighters(play.State, play.State.Retreat!).Select(m => m.Id).ToArray());
+
+        var unarmed = Engaged(profile: new ModelProfile(L("6"), L("0.5"), L("12")));
+        unarmed.Do(Retreat());
+        Assert.Null(unarmed.State.Retreat);   // nobody can attack, so the model retreats at once
+        Assert.Equal(P("1.5", "2"), unarmed.M(A(1)).Position);
+    }
+
+    [Fact]
     [Trait("Rule", "Retreating p. 37 with Down Results p. 49: later free attacks hit a Down model with +1 INJURY DICE")]
     public void ASecondAttackerFindsTheRetreatingModelDown()
     {

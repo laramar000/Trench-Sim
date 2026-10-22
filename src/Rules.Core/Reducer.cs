@@ -757,7 +757,7 @@ public static class Reducer
         Require(target.Id != attacker.Id && (target.Seat == attacker.Seat) == progress.FriendlyFire,
             "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one.");
         var profile = state.Setup!.ProfileOf(e.Attacker)!;
-        var weapon = progress.Kind == AttackKind.Melee ? profile.MeleeInjuryModifier : profile.RangedInjuryModifier;
+        var weapon = progress.Kind == AttackKind.Melee ? profile.MeleeAttackInjuryModifier : profile.RangedInjuryModifier;
         var armour = state.Setup.ProfileOf(e.Target)!.Armour;
         Require(e.Injury.NetDice == progress.BonusDice - progress.PenaltyDice
             && e.Injury.Modifier == InjuryRoll.CombineModifiers([weapon, armour])

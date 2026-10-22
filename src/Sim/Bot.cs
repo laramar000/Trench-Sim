@@ -98,7 +98,7 @@ public sealed class Bot(Random rng)
     {
         var seat = model.Seat;
         var kinds = new List<string>();
-        var melee = state.Setup!.ProfileOf(model.Id)!.HasMeleeWeapon;
+        var melee = state.Setup!.ProfileOf(model.Id)!.CanMakeMeleeAttack;
         var engaged = melee && NearestEnemy(state, model) is { } nearest && Gap(state, model, nearest) <= Length.Inch;
         // Melee actions are only ever proposed for a model that has a Melee Weapon, so a ranged-only warband plays
         // exactly as it did before Slice B.
@@ -236,7 +236,7 @@ public sealed class Bot(Random rng)
     {
         var scenario = state.Setup!.Scenario!;
         var enemies = Targets(state, model).ToList();
-        if (enemies.Count > 0 && ((state.Setup.ProfileOf(model.Id)!.HasRangedWeapon || state.Setup.ProfileOf(model.Id)!.HasMeleeWeapon) && rng.Next(100) < 40))
+        if (enemies.Count > 0 && ((state.Setup.ProfileOf(model.Id)!.HasRangedWeapon || state.Setup.ProfileOf(model.Id)!.CanMakeMeleeAttack) && rng.Next(100) < 40))
         {
             return enemies[0].Position!.Value;
         }

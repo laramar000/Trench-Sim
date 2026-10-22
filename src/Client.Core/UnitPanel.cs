@@ -147,7 +147,9 @@ public static class UnitPanel
             details.Add(unit.Text);
             if (state.Setup?.ProfileOf(unit.Id) is { } p)
             {
-                details.Add($"Injury modifiers of its attacks: ranged {Signed(p.RangedInjuryModifier)}, melee {Signed(p.MeleeInjuryModifier)}.");
+                details.Add(p.CanMakeMeleeAttack
+                    ? $"Injury modifiers of its attacks: ranged {Signed(p.RangedInjuryModifier)}, melee {Signed(p.MeleeAttackInjuryModifier)}."
+                    : $"Injury modifiers of its attacks: ranged {Signed(p.RangedInjuryModifier)}; it has no weapon to fight with.");
             }
         }
 
@@ -277,7 +279,15 @@ public static class UnitPanel
         var halved = unit.Active && state.ActiveModel == unit.Id && state.MovementHalved
             ? $" ({BoardScene.Inch(TableRect.Inches(p.Movement) / 2)} now, halved after standing up)" : "";
         var range = p.HasRangedWeapon ? $"Range {BoardScene.Inch(TableRect.Inches(p.RangedRange))}" : "No ranged weapon";
-        return $"Move {move}{halved} · {range} · Armour {p.Armour} · {(p.HasMeleeWeapon ? "Melee weapon" : "No melee weapon")}";
+        return $"Move {move}{halved} · {range} · Armour {p.Armour} · {MeleeWords(p)}";
+    }
+
+    // Proposal M1: what the model can fight with (1.0.2 pp. 45, 68): its Melee Weapon, its ranged weapon that also has
+    // "Melee" under its Range (a Pistol, 12"/Melee), or nothing.
+    public static string MeleeWords(ModelProfile p)
+    {
+        ArgumentNullException.ThrowIfNull(p);
+        return p.HasMeleeWeapon ? "Melee weapon" : p.RangedAlsoMelee ? "Ranged weapon also Melee" : "No melee weapon";
     }
 
     // Towers proposal, stage T4: where a unit on a tower stands, and how it can leave. Null on the ground.

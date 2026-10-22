@@ -33,7 +33,7 @@ public class UnitStatusTests
                 var halfNow = state.ActiveModel == unit.Id && state.MovementHalved;
                 var move = $"Move {In(profile.Movement)}" + (halfNow ? $" ({(profile.Movement.Thousandths / 2000.0).ToString("0.0", CultureInfo.InvariantCulture)}\" now, halved after standing up)" : "");
                 var range = profile.RangedRange.Thousandths > 0 ? $"Range {In(profile.RangedRange)}" : "No ranged weapon";
-                Assert.Contains($"{move} · {range} · Armour {profile.Armour} · {(profile.HasMeleeWeapon ? "Melee weapon" : "No melee weapon")}", panel.Unit);
+                Assert.Contains($"{move} · {range} · Armour {profile.Armour} · {(profile.HasMeleeWeapon ? "Melee weapon" : profile.RangedAlsoMelee ? "Ranged weapon also Melee" : "No melee weapon")}", panel.Unit);
                 var warband = state.SeatFor(unit.Seat);
                 Assert.Equal(warband.Fled ? "Warband: Fled" : warband.Shaken ? "Warband: Shaken" : null, panel.Unit.FirstOrDefault(l => l.StartsWith("Warband: ", StringComparison.Ordinal)));
                 Assert.Equal(model.ActivatedThisTurn && state.ActiveModel != unit.Id, panel.Unit.Contains("✓ Activated this turn"));

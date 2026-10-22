@@ -836,7 +836,7 @@ public partial class UiCheck : Node
             && (charge.Legal ? (charge.ChargePath.Count < 2 || board.OverlayTexts.Any(t => t is "ANY" or "SHORT" || t.EndsWith('+')))
                 && (charge.ChargePath.Count < 2 || InPanel(board, "Charge roll") || InPanel(board, "stops short")) : InPanel(board, $"REFUSED: {charge.Refusal!.Text}"));
         // Stage K7: a charger without a Melee Weapon is told before it charges that it cannot Fight after it (p. 45).
-        var unarmed = charge is not null && ((Main)_main).ServerState?.Setup?.ProfileOf(charge.Model) is { HasMeleeWeapon: false };
+        var unarmed = charge is not null && ((Main)_main).ServerState?.Setup?.ProfileOf(charge.Model) is { CanMakeMeleeAttack: false };
         var warned = InPanel(board, Previews.NoMeleeWeaponFact.TrimEnd('.'));
         Check("charge-warns-no-melee-weapon", charge is not null && warned == unarmed && charge.Facts.Contains(Previews.NoMeleeWeaponFact) == unarmed,
             $"{charge?.Model.Value}: no Melee Weapon {unarmed}; the panel says it cannot Fight: {warned}; panel: {PanelText.Replace('\n', '|')}");

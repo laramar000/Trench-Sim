@@ -58,7 +58,7 @@ public class ActionStatsTests
                 charges++;
             }
             var fight = ActionStats.For(state, seat, active.Id, InteractionMode.Fight)!;
-            Assert.Equal(state.Setup!.ProfileOf(active.Id)!.HasMeleeWeapon, !fight.Contains("no Melee Weapon", StringComparison.Ordinal));
+            Assert.Equal(state.Setup!.ProfileOf(active.Id)!.CanMakeMeleeAttack, !fight.Contains("no Melee Weapon", StringComparison.Ordinal));
             fights++;
         }
         Assert.True(moves > 300 && shots > 50 && charges > 50 && fights > 100, $"{moves} moves, {shots} shots, {charges} charges, {fights} fights");

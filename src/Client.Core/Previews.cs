@@ -304,7 +304,7 @@ public static class Previews
         };
         // Battlefield UI, stage K7: a charger without a Melee Weapon may still charge (1.0.2 p. 37: a charge does not of
         // itself allow a Fight), but it cannot Fight after it (p. 45); the preview says so before the charge is sent.
-        if (kind == PreviewKind.Charge && state.Setup?.ProfileOf(model) is { HasMeleeWeapon: false })
+        if (kind == PreviewKind.Charge && state.Setup?.ProfileOf(model) is { CanMakeMeleeAttack: false })
         {
             facts.Add(NoMeleeWeaponFact);
         }
@@ -477,7 +477,7 @@ public static class Previews
             return new(ReasonCode.UnknownModel, "There is no such target.", RefMelee);
         }
         var from = BodyOf(state, attacker!)!;
-        if (!state.Setup!.ProfileOf(attacker!.Id)!.HasMeleeWeapon)
+        if (!state.Setup!.ProfileOf(attacker!.Id)!.CanMakeMeleeAttack)
         {
             return new(ReasonCode.NoMeleeWeapon, "That model has no Melee Weapon.", RefMelee);
         }

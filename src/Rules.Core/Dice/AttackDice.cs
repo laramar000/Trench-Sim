@@ -18,5 +18,5 @@ public static class AttackDice
 
     // Injury Roll modifiers: the attacking weapon's modifier and the target's Armour (pp. 46, 48).
     public static int[] InjuryModifiers(ModelProfile attacker, ModelProfile target, AttackKind kind) =>
-        [kind == AttackKind.Melee ? attacker.MeleeInjuryModifier : attacker.RangedInjuryModifier, target.Armour];
+        [kind == AttackKind.Melee ? attacker.MeleeAttackInjuryModifier : attacker.RangedInjuryModifier, target.Armour];
 }
