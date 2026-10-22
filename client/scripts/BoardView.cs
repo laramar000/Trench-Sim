@@ -149,7 +149,7 @@ public partial class BoardView : SubViewportContainer
         SizeFlagsHorizontal = SizeFlags.ExpandFill;
         AddChild(_viewport);
         _viewport.AddChild(_environment);
-        _viewport.AddChild(new DirectionalLight3D { RotationDegrees = new Vector3(-60, 35, 0), LightEnergy = 0.9f });
+        _viewport.AddChild(_sun);
         _viewport.AddChild(_content);
         _viewport.AddChild(_overlay);
         _viewport.AddChild(_notes);
@@ -2375,17 +2375,71 @@ public partial class BoardView : SubViewportContainer
         _camera.Rotation = new Vector3(-pitch, yaw, 0);
     }
 
+    // Graphics stage G1 (art direction: cold grey overcast light, mud, drifting haze): one directional light with simple
+    // shadows, a grey overcast sky, filmic tone mapping and a light depth haze. All of it works in both Forward+ and
+    // Compatibility, with no global illumination, screen-space effects or volumetric fog. High contrast keeps the old
+    // flat, shadowless look on black.
+    private readonly DirectionalLight3D _sun = new() { Name = "Sun" };
+
+    public const float HazeDensity = 0.0045f;
+
     private void ApplyEnvironment()
     {
+        if (_highContrast)
+        {
+            _sun.RotationDegrees = new Vector3(-60, 35, 0);
+            _sun.LightColor = Colors.White;
+            _sun.LightEnergy = 0.9f;
+            _sun.ShadowEnabled = false;
+            _environment.Environment = new Godot.Environment
+            {
+                BackgroundMode = Godot.Environment.BGMode.Color,
+                BackgroundColor = Colors.Black,
+                AmbientLightSource = Godot.Environment.AmbientSource.Color,
+                AmbientLightColor = Colors.White,
+                AmbientLightEnergy = 0.55f,
+            };
+            return;
+        }
+        _sun.RotationDegrees = new Vector3(-52, 30, 0);
+        _sun.LightColor = new Color(0.86f, 0.89f, 0.95f);
+        _sun.LightEnergy = 1.05f;
+        _sun.ShadowEnabled = true;
+        _sun.ShadowOpacity = 0.6f;
+        _sun.ShadowBlur = 1.5f;
+        _sun.DirectionalShadowMode = DirectionalLight3D.ShadowMode.Orthogonal;
+        _sun.DirectionalShadowMaxDistance = 140;
+        var sky = new ProceduralSkyMaterial
+        {
+            SkyTopColor = new Color(0.19f, 0.21f, 0.24f),
+            SkyHorizonColor = new Color(0.43f, 0.44f, 0.45f),
+            GroundHorizonColor = new Color(0.30f, 0.29f, 0.27f),
+            GroundBottomColor = new Color(0.12f, 0.11f, 0.10f),
+            SunAngleMax = 0,
+        };
         _environment.Environment = new Godot.Environment
         {
-            BackgroundMode = Godot.Environment.BGMode.Color,
-            BackgroundColor = _highContrast ? Colors.Black : new Color(0.16f, 0.16f, 0.18f),
+            BackgroundMode = Godot.Environment.BGMode.Sky,
+            Sky = new Sky { SkyMaterial = sky },
             AmbientLightSource = Godot.Environment.AmbientSource.Color,
-            AmbientLightColor = Colors.White,
-            AmbientLightEnergy = 0.55f,
+            AmbientLightColor = new Color(0.66f, 0.69f, 0.75f),
+            AmbientLightEnergy = 0.6f,
+            TonemapMode = Godot.Environment.ToneMapper.Filmic,
+            TonemapExposure = 1.1f,
+            FogEnabled = true,
+            FogMode = Godot.Environment.FogModeEnum.Exponential,
+            FogLightColor = new Color(0.47f, 0.49f, 0.51f),
+            FogDensity = HazeDensity,
+            FogSkyAffect = 0.5f,
         };
     }
+
+    // Graphics stage G1: the colours of the battlefield (muted mud, stone, timber), and whether the haze is on.
+    public bool HazeOn => _environment.Environment?.FogEnabled == true;
+
+    public Color GroundColour => _highContrast ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.25f, 0.22f, 0.17f);
+
+    private Color ZoneColour => _highContrast ? new Color(0.36f, 0.36f, 0.36f) : new Color(0.31f, 0.30f, 0.27f);
 
     private void Rebuild()
     {
@@ -2413,8 +2467,7 @@ public partial class BoardView : SubViewportContainer
         }
         _figuresFromArt = 0;
         _figuresPlain = 0;
-        Box(new Vector3((float)scene.Width / 2, -0.05f, (float)scene.Depth / 2), new Vector3((float)scene.Width, 0.1f, (float)scene.Depth),
-            _highContrast ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.33f, 0.36f, 0.28f));
+        Box(new Vector3((float)scene.Width / 2, -0.05f, (float)scene.Depth / 2), new Vector3((float)scene.Width, 0.1f, (float)scene.Depth), GroundColour);
         // Graphics stage G0: the ground's texture from the art catalog, if any, tiled once per 6" (not in high contrast).
         _groundFromArt = false;
         if (!_highContrast && Visuals.Texture(VisualCatalog.GroundKey) is { } ground
@@ -2429,8 +2482,7 @@ public partial class BoardView : SubViewportContainer
         foreach (var zone in scene.Zones)
         {
             var area = zone.Area;
-            Box(new Vector3((float)area.CentreX, 0.01f, (float)area.CentreY), new Vector3((float)area.Width, 0.02f, (float)area.Depth),
-                _highContrast ? new Color(0.36f, 0.36f, 0.36f) : new Color(0.38f, 0.42f, 0.5f));
+            Box(new Vector3((float)area.CentreX, 0.01f, (float)area.CentreY), new Vector3((float)area.Width, 0.02f, (float)area.Depth), ZoneColour);
             // Proposal G: "ZONE A" at the zone's outer edge, away from the models deployed in it.
             var edges = new[] { (X: area.X0 + 1.2, Y: area.CentreY), (X: area.X1 - 1.2, Y: area.CentreY), (X: area.CentreX, Y: area.Y0 + 1.2), (X: area.CentreX, Y: area.Y1 - 1.2) };
             var edge = edges.OrderByDescending(e => Math.Pow(e.X - scene.Width / 2, 2) + Math.Pow(e.Y - scene.Depth / 2, 2)).First();
@@ -2517,9 +2569,9 @@ public partial class BoardView : SubViewportContainer
         _towers.Add(piece.Id);
     }
 
-    private Color DeckColour => _highContrast ? new Color(0.95f, 0.95f, 0.95f) : new Color(0.7f, 0.58f, 0.38f);
+    private Color DeckColour => _highContrast ? new Color(0.95f, 0.95f, 0.95f) : new Color(0.52f, 0.42f, 0.29f);
 
-    private Color LadderColour => _highContrast ? Colors.Yellow : new Color(0.95f, 0.78f, 0.3f);
+    private Color LadderColour => _highContrast ? Colors.Yellow : new Color(0.82f, 0.66f, 0.38f);
 
     // Graphics stage G0: the art (client/assets/catalog.json), and how much of the battlefield was drawn with it.
     public Visuals Visuals { get; } = Visuals.Load();
@@ -2657,7 +2709,7 @@ public partial class BoardView : SubViewportContainer
 
     private Color TerrainColour(TerrainShape piece) => _highContrast
         ? piece.Profile switch { TerrainProfile.Wall => new Color(0.75f, 0.75f, 0.75f), TerrainProfile.Cover => new Color(0.5f, 0.5f, 0.5f), _ => new Color(0.3f, 0.3f, 0.3f) }
-        : piece.Profile switch { TerrainProfile.Wall => new Color(0.55f, 0.53f, 0.5f), TerrainProfile.Cover => new Color(0.6f, 0.48f, 0.3f), _ => new Color(0.42f, 0.4f, 0.28f) };
+        : piece.Profile switch { TerrainProfile.Wall => new Color(0.47f, 0.46f, 0.44f), TerrainProfile.Cover => new Color(0.50f, 0.42f, 0.29f), _ => new Color(0.36f, 0.32f, 0.25f) };
 
     // The body colour: the seat's colour, with a light grey wash once the model has activated this turn (from the server's
     // state, ModelShape.Activated). Kept opaque and about 60% of the seat colour, so the seat still reads at a glance.
@@ -2813,7 +2865,7 @@ public partial class BoardView : SubViewportContainer
 
     private Color SeatColour(Seat seat) => _highContrast
         ? seat == Seat.One ? Colors.White : new Color(1f, 0.9f, 0f)
-        : seat == Seat.One ? new Color(0.35f, 0.55f, 0.95f) : new Color(0.9f, 0.35f, 0.3f);
+        : seat == Seat.One ? new Color(0.36f, 0.56f, 0.92f) : new Color(0.86f, 0.30f, 0.26f);
 
     private void Box(Vector3 centre, Vector3 size, Color colour)
     {
@@ -2931,5 +2983,7 @@ public partial class BoardView : SubViewportContainer
         Transparency = colour.A < 1 ? BaseMaterial3D.TransparencyEnum.Alpha : BaseMaterial3D.TransparencyEnum.Disabled,
         NoDepthTest = noDepth,
         ShadingMode = noDepth ? BaseMaterial3D.ShadingModeEnum.Unshaded : BaseMaterial3D.ShadingModeEnum.PerPixel,
+        // Graphics stage G1: what is drawn through walls (rings, links) is game information; the haze never dims it.
+        DisableFog = noDepth,
     };
 }

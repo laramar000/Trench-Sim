@@ -506,6 +506,7 @@ public partial class UiCheck : Node
         await UnitTabCheck(board);
         await UnitCardCollapsedCheck(board);
         await ArtFallbackCheck(board);
+        await ReadableCheck(board);
         var info = PanelText;
         Check("board-select-key", first is { Yours: true }
             && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
@@ -1574,6 +1575,87 @@ public partial class UiCheck : Node
             && failures.Count == 2 && failures.All(f => f.EndsWith("file not found", StringComparison.Ordinal)) && after == before;
         Check("art-fallback", pass,
             $"{models} models; real catalog: {before.FromArt} from art, {before.Plain} plain, ground from art {before.Ground}; missing files: {broken.FromArt} from art, {broken.Plain} plain, ground from art {broken.Ground}, noted: {string.Join(" / ", failures)}; put back: {after}");
+    }
+
+    // Graphics stage G1 (battlefield-readable): under the overcast light, shadows and haze, each standing model's body
+    // stands out from the ground right beside it (in brightness or colour), the two seats' bodies differ clearly, and the
+    // haze is on (off in high contrast). Measured on the rendered picture with the camera fitted to the battlefield.
+    private async Task ReadableCheck(BoardView board)
+    {
+        var selected = board.Selected?.Id;
+        board.Select(null);
+        board.Fit();
+        await Frames(8);
+        var image = _main.GetViewport().GetTexture().GetImage();
+        var origin = board.GetGlobalRect().Position;
+        Color Sample(Vector2 local)
+        {
+            var at = origin + local;
+            float r = 0, g = 0, b = 0;
+            var n = 0;
+            for (var dx = -1; dx <= 1; dx++)
+            {
+                for (var dy = -1; dy <= 1; dy++)
+                {
+                    var x = Math.Clamp((int)at.X + dx, 0, image.GetWidth() - 1);
+                    var y = Math.Clamp((int)at.Y + dy, 0, image.GetHeight() - 1);
+                    var c = image.GetPixel(x, y);
+                    (r, g, b, n) = (r + c.R, g + c.G, b + c.B, n + 1);
+                }
+            }
+            return new Color(r / n, g / n, b / n);
+        }
+        static float Distance(Color a, Color b) => new Vector3(a.R - b.R, a.G - b.G, a.B - b.B).Length();
+        static double Channel(float v) => v <= 0.03928 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4);
+        static double Luminance(Color c) => 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
+        var scene = board.Scene;
+        var problems = new List<string>();
+        var samples = new List<string>();
+        var bodies = new Dictionary<Rules.Core.State.Seat, List<Color>>();
+        foreach (var m in scene?.Models.Where(m => m.Status == Rules.Core.State.ModelStatus.Standing) ?? [])
+        {
+            if (board.ScreenOf(m.X, m.Y, m.Standing + 0.6) is not { } body || body.X < 0 || body.Y < 0 || body.X > board.Size.X || body.Y > board.Size.Y)
+            {
+                continue;
+            }
+            Vector2? ground = null;
+            for (var i = 0; i < 8 && ground is null; i++)
+            {
+                var angle = i * Math.PI / 4;
+                var (gx, gy) = (m.X + Math.Cos(angle) * (m.Radius + 0.9), m.Y + Math.Sin(angle) * (m.Radius + 0.9));
+                var free = gx > 0.5 && gy > 0.5 && gx < scene!.Width - 0.5 && gy < scene.Depth - 0.5 && m.Standing == 0
+                    && !scene.Models.Any(o => o.Id != m.Id && Math.Sqrt((o.X - gx) * (o.X - gx) + (o.Y - gy) * (o.Y - gy)) < o.Radius + 0.6)
+                    && !scene.Terrain.Any(t => gx > t.Area.X0 - 0.3 && gx < t.Area.X1 + 0.3 && gy > t.Area.Y0 - 0.3 && gy < t.Area.Y1 + 0.3);
+                // Only a spot below the model on screen (in front of it), so the body never hides the ground sampled.
+                if (free && board.ScreenOf(gx, gy) is { } spot && spot.Y > body.Y)
+                {
+                    ground = spot;
+                }
+            }
+            if (ground is not { } g)
+            {
+                continue;
+            }
+            var (bc, gc) = (Sample(body), Sample(g));
+            var ratio = (Math.Max(Luminance(bc), Luminance(gc)) + 0.05) / (Math.Min(Luminance(bc), Luminance(gc)) + 0.05);
+            var distance = Distance(bc, gc);
+            samples.Add($"{m.Id.Value} body {bc.ToHtml(false)} ground {gc.ToHtml(false)} ratio {ratio:0.00} distance {distance:0.00}");
+            if (ratio < 1.6 && distance < 0.25)
+            {
+                problems.Add($"{m.Id.Value} hard to see: ratio {ratio:0.00}, colour distance {distance:0.00}");
+            }
+            (bodies.TryGetValue(m.Seat, out var list) ? list : bodies[m.Seat] = []).Add(bc);
+        }
+        Color Mean(List<Color> c) => new(c.Average(x => x.R), c.Average(x => x.G), c.Average(x => x.B));
+        var seatsApart = bodies.Count == 2 ? Distance(Mean(bodies[Rules.Core.State.Seat.One]), Mean(bodies[Rules.Core.State.Seat.Two])) : 0;
+        if (bodies.Count == 2 && seatsApart < 0.3)
+        {
+            problems.Add($"the seats' bodies are only {seatsApart:0.00} apart in colour");
+        }
+        var haze = board.HazeOn == !((Main)_main).CurrentSettings.HighContrast;
+        board.Select(selected);
+        Check("battlefield-readable", samples.Count >= 2 && bodies.Count == 2 && haze && problems.Count == 0,
+            $"{samples.Count} models sampled; seats {seatsApart:0.00} apart; haze on: {board.HazeOn}; {(problems.Count == 0 ? "" : "problems: " + string.Join("; ", problems) + "; ")}{string.Join(" | ", samples)}");
     }
 
     // What is wrong with the closed card now (empty when it is only its tab, one button high, inside the battlefield).
