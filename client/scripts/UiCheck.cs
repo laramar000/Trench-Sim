@@ -737,6 +737,11 @@ public partial class UiCheck : Node
         var hovered = false;
         var clickedPoint = false;
         await MouseOn(board);
+        if (actor is not null && (board.ScreenOf(hoverAt.X, hoverAt.Y) is not { } seen || !Clickable(board, seen)))
+        {
+            board.CentreOn(actor.Id);
+            await Frames(8);
+        }
         if (board.ScreenOf(hoverAt.X, hoverAt.Y) is { } local)
         {
             var global = board.GetGlobalTransformWithCanvas() * local;
@@ -962,7 +967,7 @@ public partial class UiCheck : Node
             for (var y = 1.0; y <= 35; y += 2)
             {
                 if ((from.X - x) * (from.X - x) + (from.Y - y) * (from.Y - y) > distance * distance
-                    && scene.Models.All(m => (m.X - x) * (m.X - x) + (m.Y - y) * (m.Y - y) > 9) && board.ScreenOf(x, y) is { } spot)
+                    && scene.Models.All(m => (m.X - x) * (m.X - x) + (m.Y - y) * (m.Y - y) > 9) && board.ScreenOf(x, y) is { } spot && Clickable(board, spot))
                 {
                     return spot;
                 }
@@ -994,7 +999,8 @@ public partial class UiCheck : Node
             return;
         }
         // A spot about 2" away that no model stands on.
-        var spot = area.Where(p => board.Scene!.Models.All(m => (m.X - p.X) * (m.X - p.X) + (m.Y - p.Y) * (m.Y - p.Y) > 2.25))
+        var spot = area.Where(p => board.Scene!.Models.All(m => (m.X - p.X) * (m.X - p.X) + (m.Y - p.Y) * (m.Y - p.Y) > 2.25)
+                && board.ScreenOf(p.X, p.Y) is { } screen && Clickable(board, screen))
             .OrderBy(p => Math.Abs(Math.Sqrt((p.X - me.X) * (p.X - me.X) + (p.Y - me.Y) * (p.Y - me.Y)) - 2)).Select(p => (TablePoint?)p).FirstOrDefault();
         await MouseOn(board);
         var before = Section("LAST COMMAND");
@@ -1680,7 +1686,8 @@ public partial class UiCheck : Node
             {
                 _fillProblems.Add($"{where}: battlefield {field}");
             }
-            if (main.BattlefieldRow.GetChildCount() != 1 || Controls<Control>().Any(c => c.IsVisibleInTree() && c is Button or Godot.Label && !field.Encloses(c.GetGlobalRect()) && main.BattlefieldRow.IsAncestorOf(c)))
+            if (main.BattlefieldRow.GetChildCount() != 1 || Controls<Control>().Any(c => c.IsVisibleInTree() && c is Button or Godot.Label && !field.Encloses(c.GetGlobalRect()) && main.BattlefieldRow.IsAncestorOf(c)
+                && !Controls<BoardView>().Any(b => b.IsAncestorOf(c))))
             {
                 _columnProblems.Add($"{where}: something beside the battlefield");
             }
@@ -1777,7 +1784,7 @@ public partial class UiCheck : Node
             && hash is not null && events == lastSeq
             && (!lost || result.Contains("did not receive the server's abort message", StringComparison.Ordinal)),
             $"{result.Replace('\n', '|')} || last event [{lastSeq}]");
-        ResultOverlayCheck();
+        await ResultOverlayCheck();
         await Shot($"{_role}-match-result");
         // The Windows clipboard can be opened by one program at a time ("Unable to open clipboard" otherwise), so the
         // two windows take turns: the host copies first, then the reopened client.
@@ -1799,18 +1806,22 @@ public partial class UiCheck : Node
 
     // Stage N3: the result is a compact box at the top-centre of the battlefield, under the HUD, inside the battlefield,
     // no wider than 620px at this scale, clear of the corner icons.
-    private void ResultOverlayCheck()
+    private async Task ResultOverlayCheck()
     {
+        await Frames(3);
         var main = (Main)_main;
         var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
         var box = main.ResultBox.GetGlobalRect();
         var field = board?.GetGlobalRect();
         var icons = main.CornerIcons.GetGlobalRect();
         var centred = field is { } f && Math.Abs(box.GetCenter().X - f.GetCenter().X) <= 2;
-        var top = field is { } g && Math.Abs(box.Position.Y - (g.Position.Y + board!.TopInset + 8)) <= 2;
-        Check("result-overlay", main.ResultBox.IsVisibleInTree() && field is { } inside && inside.Encloses(box) && centred && top
+        var inset = board?.TopInset ?? 0;
+        var top = field is { } g && box.Position.Y >= g.Position.Y + inset + 2 && box.Position.Y <= g.Position.Y + inset + 14;
+        var room = (field?.Size.Y ?? 0) - inset - 16;
+        var compact = box.Size.Y <= Math.Max(160 * main.CurrentScale, room * 0.6f) + 2;
+        Check("result-overlay", main.ResultBox.IsVisibleInTree() && field is { } inside && inside.Encloses(box) && centred && top && compact
             && box.Size.X <= 620 * main.CurrentScale + 1 && !box.Intersects(icons),
-            $"result box {box} in the battlefield {field}: centred {centred}, under the HUD {top}, width {box.Size.X:0} (at most {620 * main.CurrentScale:0}); corner icons {icons}");
+            $"result box {box} in the battlefield {field}: centred {centred}, just under the HUD (inset {inset:0}) {top}, width {box.Size.X:0} (at most {620 * main.CurrentScale:0}), height {box.Size.Y:0} (at most 60% of {room:0}) {compact}; corner icons {icons}");
     }
 
     // ---- single player (hot-seat) ----
@@ -2454,6 +2465,13 @@ public partial class UiCheck : Node
     private async Task ClickModel(BoardView board, Rules.Core.State.ModelId id)
     {
         await MouseOn(board);
+        // Stage N3: a model under a box on the battlefield (the unit card, the log drawer) is centred first, as a player
+        // would move the camera.
+        if (board.Scene?.Find(id) is { } hidden && (board.ScreenOf(hidden.X, hidden.Y, hidden.Standing) is not { } seen || !Clickable(board, seen)))
+        {
+            board.CentreOn(id);
+            await Frames(8);
+        }
         if (board.Scene?.Find(id) is { } m && board.ScreenOf(m.X, m.Y, m.Standing) is { } local)
         {
             var global = board.GetGlobalTransformWithCanvas() * local;
@@ -2518,7 +2536,8 @@ public partial class UiCheck : Node
             }
             await Frames(3);
             var me = scene.Find(second)!;
-            var spot = interaction.ReachArea().Where(p => scene.Models.All(m => (m.X - p.X) * (m.X - p.X) + (m.Y - p.Y) * (m.Y - p.Y) > 2.25))
+            var spot = interaction.ReachArea().Where(p => scene.Models.All(m => (m.X - p.X) * (m.X - p.X) + (m.Y - p.Y) * (m.Y - p.Y) > 2.25)
+                    && board.ScreenOf(p.X, p.Y) is { } screen && Clickable(board, screen))
                 .OrderBy(p => Math.Abs(Math.Sqrt((p.X - me.X) * (p.X - me.X) + (p.Y - me.Y) * (p.Y - me.Y)) - 1)).Select(p => (TablePoint?)p).FirstOrDefault();
             await MouseOn(board);
             if (interaction.Mode == InteractionMode.Move && spot is { } at && board.ScreenOf(at.X, at.Y) is { } local)
@@ -2725,7 +2744,12 @@ public partial class UiCheck : Node
     private bool _followChecked;
 
     private static bool OnBoardScreen(BoardView board, double x, double y, double height) =>
-        board.ScreenOf(x, y, height) is { } p && p.X >= 0 && p.Y >= 0 && p.X <= board.Size.X && p.Y <= board.Size.Y;
+        board.ScreenOf(x, y, height) is { } p && p.X >= 0 && p.Y >= 0 && p.X <= board.Size.X && p.Y <= board.Size.Y && Clickable(board, p);
+
+    // Stage N3: a battlefield point (board-local) a click reaches: not under the HUD strip, nor under the unit card, the
+    // last command, a decision card, the log drawer or the result that the screen puts on the battlefield.
+    private static bool Clickable(BoardView board, Vector2 p) =>
+        p.Y > board.TopInset && !(board.Reserved?.Invoke() ?? []).Any(r => r.Grow(2).HasPoint(p));
 
     // Is the table point on screen, and does a click there land on it (what the battlefield picks under the pointer:
     // platform tops first, so a ground spot drawn behind a tower picks the platform)?

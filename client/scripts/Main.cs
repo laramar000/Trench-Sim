@@ -1223,10 +1223,20 @@ public partial class Main : Control
         _feedback.Modulate = new Color(1, 1, 1, (float)Math.Clamp(1 - (age - FeedbackSeconds) / 1.5, 0.0, 1.0));
         if (_decision.Visible)
         {
-            _decision.ResetSize();
+            // The title wraps at the card's width (fixed first: a wrapping label's height depends on its width, so the
+            // card is never measured narrow and tall).
+            // Centred in the room the log drawer leaves, when it is open.
+            var free = _logDrawer.Visible ? Math.Max(120, b.X - drawerWidth - 16) : b.X;
+            var width = Math.Min(460 * _scale, free - 16);
+            var titleWidth = Math.Max(40, width - 30 * _scale);
+            if (!Mathf.IsEqualApprox(_decisionTitle.CustomMinimumSize.X, titleWidth))
+            {
+                _decisionTitle.CustomMinimumSize = new Vector2(titleWidth, 0);
+            }
             var d = _decision.GetCombinedMinimumSize();
-            var width = Math.Min(Math.Max(d.X, 320 * _scale), b.X - 16);
-            Put(_decision, new Rect2((b.X - width) / 2, Math.Max(inset + 8, (b.Y - d.Y) / 2 - 40), width, d.Y));
+            width = Math.Min(Math.Max(width, d.X), free - 16);
+            var height = Math.Min(d.Y, Math.Max(60, b.Y - inset - 16));
+            Put(_decision, new Rect2(Math.Max(8, (free - width) / 2), Math.Max(inset + 8, (b.Y - height) / 2 - 40), width, height));
         }
     }
 
@@ -1362,7 +1372,8 @@ public partial class Main : Control
             return;
         }
         var width = Math.Min(Math.Max(120f, _board.Size.X - 16), 620 * _scale);
-        var room = Math.Max(60f, _board.Size.Y - _board.TopInset - 16);
+        // Stage N3: compact, at most 60% of the room under the HUD (at least 160 px); the rest scrolls inside it.
+        var room = Math.Min(Math.Max(60f, _board.Size.Y - _board.TopInset - 16), Math.Max(160 * _scale, (_board.Size.Y - _board.TopInset - 16) * 0.6f));
         _resultScroll.CustomMinimumSize = new Vector2(0, Math.Min(_endSection.GetCombinedMinimumSize().Y, room - 14));
         var size = new Vector2(width, Math.Min(_resultBox.GetCombinedMinimumSize().Y, room));
         var at = new Vector2((_board.Size.X - width) / 2, _board.TopInset + 8);
