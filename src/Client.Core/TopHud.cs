@@ -10,51 +10,64 @@ public static class TopHud
 {
     public const string Waiting = "SENT · waiting for the server";
 
-    public static string Of(MatchView view, BoardScene? scene, IReadOnlyList<LogLine> log, Seat? you, bool waiting, string? prompt = null)
+    public static string Of(MatchView view, BoardScene? scene, IReadOnlyList<LogLine> log, Seat? you, bool waiting, string? prompt = null) =>
+        string.Join(" · ", Pieces(view, scene, log, you, waiting, prompt).Select(p => p.Text));
+
+    // Battlefield UI 2, stage N3: the same words in two groups, for the two places on the battlefield: top-left, where the
+    // match stands (the seat, the turn and phase, the objectives now); top-centre, what happens now (whose move, what to
+    // do, the model activating, Victory Points, units left to activate, a command waiting). Together they are Of, word
+    // for word.
+    public static (string Left, string Centre) Split(MatchView view, BoardScene? scene, IReadOnlyList<LogLine> log, Seat? you, bool waiting, string? prompt = null)
+    {
+        var pieces = Pieces(view, scene, log, you, waiting, prompt);
+        return (string.Join(" · ", pieces.Where(p => !p.Now).Select(p => p.Text)), string.Join(" · ", pieces.Where(p => p.Now).Select(p => p.Text)));
+    }
+
+    private static List<(string Text, bool Now)> Pieces(MatchView view, BoardScene? scene, IReadOnlyList<LogLine> log, Seat? you, bool waiting, string? prompt)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(log);
-        var parts = new List<string>
+        var parts = new List<(string Text, bool Now)>
         {
-            you is { } me ? $"[{Words.SeatLetter(me)}] {Words.Seat(me).ToUpperInvariant()}" : "WATCHING",
-            Move(view),
+            (you is { } me ? $"[{Words.SeatLetter(me)}] {Words.Seat(me).ToUpperInvariant()}" : "WATCHING", false),
+            (Move(view), true),
         };
         if (view.Turn.Length > 0)
         {
-            parts.Add(view.Turn);
+            parts.Add((view.Turn, false));
         }
-        parts.Add(view.Phase);
+        parts.Add((view.Phase, false));
         // Stage K4: what the battlefield does now while you place your models ("Place ... in ZONE A: click a spot").
         if (prompt is { Length: > 0 })
         {
-            parts.Add(prompt);
+            parts.Add((prompt, true));
         }
         // Stage K3: the model activating now and what it has done.
         if (view.ActivatingShort is { } activating)
         {
-            parts.Add(activating);
+            parts.Add((activating, true));
         }
         var vp = view.Seats.OrderByDescending(s => s.IsYou).Select(s => $"{(s.IsYou ? "you" : "opponent")} {s.VictoryPoints}").ToList();
         if (vp.Count == 2 && view.Turn.Length > 0)
         {
-            parts.Add($"VP {string.Join(", ", vp)}");
+            parts.Add(($"VP {string.Join(", ", vp)}", true));
         }
         if (scene is not null && view.Phase == Words.Phase(Phase.Activation) && you is not null)
         {
             int Left(bool yours) => scene.Models.Count(m => m.Eligible && m.Yours == yours);
-            parts.Add($"to activate: you {Left(true)}, opponent {Left(false)}");
+            parts.Add(($"to activate: you {Left(true)}, opponent {Left(false)}", true));
         }
         // QoL H4: who would control each Objective if it were scored now, by the rules' own test (decision D1); the last
         // scoring is in an objective's panel.
         if (scene?.Terrain.Where(t => t.Objective).OrderBy(t => t.Id, StringComparer.Ordinal).ToList() is { Count: > 0 } objectives)
         {
-            parts.Add($"objectives now: {string.Join(" ", objectives.Select(o => $"{o.Mark} {(o.Controller is { } c ? Words.SeatLetter(c) : "–")}"))}");
+            parts.Add(($"objectives now: {string.Join(" ", objectives.Select(o => $"{o.Mark} {(o.Controller is { } c ? Words.SeatLetter(c) : "–")}"))}", false));
         }
         if (waiting)
         {
-            parts.Add(Waiting);
+            parts.Add((Waiting, true));
         }
-        return string.Join(" · ", parts.Where(p => p.Length > 0));
+        return [.. parts.Where(p => p.Text.Length > 0)];
     }
 
     // The last end-of-turn scoring of the Objectives as the combat log has it ("obj-1 to One, obj-2 to nobody"), or null.

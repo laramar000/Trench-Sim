@@ -4,7 +4,7 @@ using Godot;
 // Visible dice rolls (QoL stages F2 and F3): the server's rolls drawn as dice, one box per action. The newest box goes
 // beside its model when it fits there without covering the models in the roll, any label, the tray or the action bar
 // (DicePlacement); the other boxes, rolls without a model (morale, roll-offs) and any box whose model is off screen or
-// crowded go in the tray, the battlefield's bottom-left corner, newest at the bottom. The camera never moves for a roll.
+// crowded go in the tray, the battlefield's bottom-right corner, newest at the bottom. The camera never moves for a roll.
 // Each die slides in and settles on its real face (no other face is ever drawn); dice the rules dropped are grey and
 // struck through. A box fades after the chosen time; its ✕ closes it, and every other click goes through to the
 // battlefield. What is in a box comes only from DiceFeed
@@ -98,7 +98,7 @@ public partial class DiceTray : Control
         Layout();
     }
 
-    // Places the boxes: the newest beside its model if it fits, the rest stacked up from the bottom-left corner.
+    // Places the boxes: the newest beside its model if it fits, the rest stacked up from the bottom-right corner.
     public void Layout()
     {
         if (GetParent() is not Control parent)
@@ -158,7 +158,11 @@ public partial class DiceTray : Control
         }
     }
 
-    // The tray: boxes stacked up from the bottom-left corner, the last one at the bottom.
+    // Battlefield UI 2, stage N3: room kept free along the right edge (the open log drawer).
+    public float RightInset { get; set; }
+
+    // The tray: boxes stacked up from the bottom-right corner (stage N3: the unit card has the bottom-left), the last
+    // one at the bottom.
     private Dictionary<int, Rect2> Stack(IReadOnlyList<DiceBox> boxes)
     {
         var rects = new Dictionary<int, Rect2>();
@@ -167,7 +171,7 @@ public partial class DiceTray : Control
         {
             var size = _panels[boxes[i].Id].Size;
             y -= size.Y;
-            rects[boxes[i].Id] = new Rect2(new Vector2(Margin, y), size);
+            rects[boxes[i].Id] = new Rect2(new Vector2(Size.X - Margin - RightInset - size.X, y), size);
             y -= Spacing;
         }
         return rects;

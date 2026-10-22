@@ -60,24 +60,30 @@ public partial class Main : Control
     private BoardView _board = null!;
     private Label _boardInfo = null!;
     private Label _hud = null!;
+    private Label _hudCentre = null!;
     private PanelContainer _hudStrip = null!;
+    private HBoxContainer _icons = null!;
+    private IconButton _logButton = null!;
+    private PanelContainer _logDrawer = null!;
+    private bool _drawerOpen;
+    private PanelContainer _decision = null!;
+    private Label _decisionTitle = null!;
+    private VBoxContainer _decisionButtons = null!;
+    private double _feedbackSince;
+    private string _feedbackShown = "";
     private Button _follow = null!;
     private VBoxContainer _menuBox = null!;
     private VBoxContainer _matchMenu = null!;
     private PanelContainer _menuPanel = null!;
-    private BoxContainer _info = null!;
     private ScrollContainer _page = null!;
-    private Button _menuButton = null!;
+    private IconButton _menuButton = null!;
     private bool _menuOpen;
     private BoxContainer _split = null!;
-    private bool _stacked;
     private VBoxContainer _logBox = null!;
-    private BoxContainer _column = null!;
-    public const float StackBelow = 1100;
+    private VBoxContainer _allChoices = null!;
     private ScreenState? _lastScreen;
     private VBoxContainer _hints = null!;
     private VBoxContainer _actions = null!;
-    private ScrollContainer _actionsScroll = null!;
     private Label _notYet = null!;
     private Label _feedback = null!;
     private VBoxContainer _log = null!;
@@ -206,7 +212,7 @@ public partial class Main : Control
             return;
         }
         var height = GetViewportRect().Size.Y;
-        var below = _match.Visible && _boardSection.Visible && _pConfirm.IsVisibleInTree() && PageY(_pConfirm) + _pConfirm.Size.Y > height - 24 + 2;
+        var below = _match.Visible && _boardSection.Visible && _pConfirm.IsVisibleInTree() && PageY(_pConfirm) + _pConfirm.Size.Y > height - 2 * PageMargin.Y + 2;
         _scaleNote.Visible = below;
         if (below)
         {
@@ -247,6 +253,12 @@ public partial class Main : Control
             && _board.Interaction.Mode != InteractionMode.None && _board.Interaction.Pending is null)
         {
             _board.CancelPreview();
+            GetViewport().SetInputAsHandled();
+        }
+        // Stage N3: Esc with nothing being chosen closes the log drawer, then the Menu, wherever the keyboard is.
+        else if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape } && _match.Visible && (_drawerOpen || _menuOpen || _keySheet.Visible || _scenarioCard.Visible))
+        {
+            CloseOverlays();
             GetViewport().SetInputAsHandled();
         }
     }
@@ -583,44 +595,57 @@ public partial class Main : Control
         };
         // Proposal G3: one line on top (the HUD): this window's seat, whose move, turn, phase, VP, units left to activate,
         // the objectives of the last scoring; then the camera buttons and the Menu.
+        // Battlefield UI 2, stage N3: the HUD is words over the battlefield with a dark outline, no panel behind them:
+        // top-left where the match stands, top-centre what happens now (TopHud.Split; together they are the line the HUD
+        // always had), and the corner icons at the top-right.
         _hud = Text("");
         _hud.Name = "TopHud";
-        _menuButton = Button("Menu ▸", () => SetMenu(!_menuOpen));
+        _hudCentre = Text("");
+        _hudCentre.Name = "TopHudCentre";
+        _hudCentre.HorizontalAlignment = HorizontalAlignment.Center;
+        _menuButton = new IconButton(IconButton.Symbol.Menu, "Menu: all choices, the match code, version, text size, high contrast and the rules in this build.");
         _menuButton.Name = "MenuButton";
-        _menuButton.TooltipText = "Version, text size, high contrast, keys, the match code and the rules in this build.";
-        // Short words, so the HUD line still fits a 1000-pixel window; the tooltips say more.
-        var centre = Button("Centre", () => _board.CentreOn(_board.Selected?.Id));
-        centre.TooltipText = "Home: centre the camera on the selected unit and keep the zoom.";
-        var fit = Button("Fit", () => _board.Fit());
-        fit.TooltipText = "F: show the whole table.";
+        _menuButton.Pressed += () => SetMenu(!_menuOpen);
+        _logButton = new IconButton(IconButton.Symbol.Log, "Combat log: what the server confirmed, newest at the bottom. Esc or this button closes it.");
+        _logButton.Name = "LogButton";
+        _logButton.Pressed += () => SetLog(!_drawerOpen);
+        var keys = new IconButton(IconButton.Symbol.Keys, "Keys (?): every key and mouse use.");
+        keys.Name = "KeysButton";
+        keys.Pressed += ToggleKeySheet;
         // Proposal J3b: the scenario's scoring, endings and objectives (G).
-        var scenario = Button("Scenario", ToggleScenario);
+        var scenario = new IconButton(IconButton.Symbol.Scenario, "Scenario (G): how Victory Points are scored, how the match ends, and who controls each objective now.");
         scenario.Name = "ScenarioButton";
-        scenario.TooltipText = "G: how Victory Points are scored, how the match ends, and who controls each objective now.";
-        // Stage K3: the HUD is a strip across the top of the battlefield (over it, not above it): the line on the left,
-        // the camera buttons and the Menu on the right (they wrap on a narrow battlefield), the connection line under them.
-        _hud.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _hud.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _hud.SizeFlagsStretchRatio = 3;
-        _hud.MouseFilter = Control.MouseFilterEnum.Ignore;
-        var hudButtons = new HFlowContainer { Name = "HudButtons", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 2, Alignment = FlowContainer.AlignmentMode.End, MouseFilter = Control.MouseFilterEnum.Ignore };
-        hudButtons.AddThemeConstantOverride("h_separation", 6);
-        hudButtons.AddThemeConstantOverride("v_separation", 4);
-        foreach (var button in new Control[] { centre, fit, ResetViewButton(), scenario, _menuButton })
+        scenario.Pressed += ToggleScenario;
+        var centre = new IconButton(IconButton.Symbol.Centre, "Centre (Home): centre the camera on the selected unit and keep the zoom.");
+        centre.Name = "CentreButton";
+        centre.Pressed += () => _board.CentreOn(_board.Selected?.Id);
+        var fit = new IconButton(IconButton.Symbol.Fit, "Fit (F): show the whole table.");
+        fit.Name = "FitButton";
+        fit.Pressed += () => _board.Fit();
+        _icons = new HBoxContainer { Name = "CornerIcons", SizeFlagsHorizontal = SizeFlags.ShrinkEnd, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _icons.AddThemeConstantOverride("separation", 4);
+        foreach (var button in new Control[] { centre, fit, ResetViewButton(), scenario, keys, _logButton, _menuButton })
         {
-            hudButtons.AddChild(button);
+            _icons.AddChild(button);
         }
-        // The HUD line and the connection line on the left; the buttons for both on the right.
+        foreach (var label in new[] { _hud, _hudCentre })
+        {
+            label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            label.SizeFlagsStretchRatio = 3;
+            label.MouseFilter = Control.MouseFilterEnum.Ignore;
+            Outline(label);
+        }
         var hudLeft = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, MouseFilter = Control.MouseFilterEnum.Ignore };
         hudLeft.AddThemeConstantOverride("separation", 2);
-        var hudRight = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 2, MouseFilter = Control.MouseFilterEnum.Ignore };
-        hudRight.AddThemeConstantOverride("separation", 4);
         hudLeft.AddChild(_hud);
-        hudRight.AddChild(hudButtons);
-        var hudRow = Row(hudLeft, hudRight);
+        var hudRight = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd, MouseFilter = Control.MouseFilterEnum.Ignore };
+        hudRight.AddThemeConstantOverride("separation", 4);
+        hudRight.AddChild(_icons);
+        var hudRow = Row(hudLeft, _hudCentre, hudRight);
         hudRow.MouseFilter = Control.MouseFilterEnum.Ignore;
         _hudStrip = new PanelContainer { Name = "HudStrip", MouseFilter = Control.MouseFilterEnum.Ignore };
-        _hudStrip.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.02f, 0.02f, 0.03f, 0.78f), ContentMarginLeft = 8, ContentMarginRight = 8, ContentMarginTop = 4, ContentMarginBottom = 4 });
+        _hudStrip.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0, 0, 0, 0), ContentMarginLeft = 8, ContentMarginRight = 8, ContentMarginTop = 6, ContentMarginBottom = 4 });
         var stripRows = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
         stripRows.AddThemeConstantOverride("separation", 2);
         stripRows.AddChild(hudRow);
@@ -631,7 +656,7 @@ public partial class Main : Control
         // Stage K2: the Menu opens over the battlefield (under the HUD, at the right) instead of pushing it down; what does
         // not fit scrolls inside the Menu.
         _menuPanel = new PanelContainer { Name = "MenuPanel", Visible = false };
-        var menuLook = new StyleBoxFlat { BgColor = new Color(0.1f, 0.1f, 0.12f, 0.97f), BorderColor = new Color(0.6f, 0.6f, 0.65f) };
+        var menuLook = new StyleBoxFlat { BgColor = new Color(0.1f, 0.1f, 0.12f, 1f), BorderColor = new Color(0.6f, 0.6f, 0.65f) };
         menuLook.SetBorderWidthAll(1);
         menuLook.SetContentMarginAll(10);
         _menuPanel.AddThemeStyleboxOverride("panel", menuLook);
@@ -682,7 +707,9 @@ public partial class Main : Control
         _bannerButtons = new HFlowContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 2, Alignment = FlowContainer.AlignmentMode.End, MouseFilter = Control.MouseFilterEnum.Ignore };
         _bannerButtons.AddThemeConstantOverride("h_separation", 6);
         _bannerButtons.AddThemeConstantOverride("v_separation", 4);
-        // Stage K3: in the strip over the battlefield: the line under the HUD line, its buttons under the camera buttons.
+        // Stage K3: in the strip over the battlefield: the line under the HUD line, its buttons under the corner icons.
+        Outline(_banner);
+        _banner.Modulate = new Color(1, 1, 1, 0.85f);
         hudLeft.AddChild(_banner);
         hudRight.AddChild(_bannerButtons);
         // Once the match has ended or been aborted: the result, the final state hash and the event count (M7.5). The
@@ -710,65 +737,73 @@ public partial class Main : Control
         // Stage K2: the result is a box over the battlefield, under the HUD strip (not a section that pushes the
         // battlefield and the combat log down). It scrolls inside itself when the battlefield is too short for it.
         _resultBox = new PanelContainer { Name = "MatchResult", Visible = false, MouseFilter = Control.MouseFilterEnum.Stop };
-        _resultBox.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.04f, 0.04f, 0.06f, 0.94f), ContentMarginLeft = 10, ContentMarginRight = 10, ContentMarginTop = 6, ContentMarginBottom = 8 });
+        _resultBox.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.04f, 0.04f, 0.06f, 0.94f), BorderColor = new Color(0.95f, 0.8f, 0.3f), BorderWidthBottom = 2, BorderWidthTop = 2, ContentMarginLeft = 10, ContentMarginRight = 10, ContentMarginTop = 6, ContentMarginBottom = 8 });
         _resultScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, FocusMode = FocusModeEnum.None };
         _resultScroll.AddChild(_endSection);
         _resultBox.AddChild(_resultScroll);
         _board.AddChild(_resultBox);
-        // The battlefield (M7.4) and, beside it (proposal G), one column with the selected-unit and action panel over the
-        // combat log. The battlefield shows positions; the panel says who the unit is, what it can do and what the chosen
-        // action would do; the log says what the server confirmed. The battlefield fills the window's height.
+        // Battlefield UI 2, stage N3: the battlefield fills the window. On it: the unit card at the bottom-left, the last
+        // command's answer over it, a card for the choices that belong to no model in the middle, and the combat log as a
+        // drawer on the right edge (the log icon). The full list of choices is in the Menu, as "All choices".
         BuildLog();
-        // Plain boxes (not HBox/VBox), so they can turn from side by side to one above the other on a narrow window.
         _split = new BoxContainer { Name = "BattlefieldAndPanel", Vertical = false };
-        _split.AddThemeConstantOverride("separation", 10);
         _board.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _board.SizeFlagsStretchRatio = 7;
+        _board.SizeFlagsVertical = SizeFlags.ExpandFill;
         _split.AddChild(_board);
-        var column = new BoxContainer { Name = "RightColumn", Vertical = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, CustomMinimumSize = new Vector2(300, 0) };
-        _column = column;
-        column.AddThemeConstantOverride("separation", 8);
-        column.AddChild(BuildPanel());
-        // Stage K2: under the panel (beside it on a narrow window), what you can do, the last command and the combat log,
-        // so nothing sits below the battlefield.
-        // In a wide window one above the other; in a narrow one, side by side under the battlefield (FitBattlefield).
-        var info = new BoxContainer { Name = "InfoColumn", Vertical = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3 };
-        info.AddThemeConstantOverride("separation", 6);
-        _info = info;
-        column.AddChild(info);
+        _board.AddChild(BuildPanel());
         _hints = new VBoxContainer();
         _hints.AddThemeConstantOverride("separation", 2);
         _notYet = Text("");
-        var actions = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var actions = new VBoxContainer { Name = "AllChoicesList", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         actions.AddChild(_hints);
         actions.AddChild(_notYet);
         _actions = actions;
-        // Stage K2: many choices (four units to activate, a long note) at large text scroll inside this box, whose
-        // height FitBattlefield caps, so nothing is pushed below the window. Tab scrolls to the focused choice. The box
-        // itself never takes the focus (Windows run at 099dbc8: after a redraw the focus fell to it, not to the choice).
-        _actionsScroll = new ScrollContainer { Name = "ActionsScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, FocusMode = FocusModeEnum.None, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _actionsScroll.AddChild(actions);
-        var doing = new VBoxContainer { Name = "ActionsAndLastCommand", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        doing.AddChild(Section("Your actions", _actionsScroll));
+        _allChoices = Section("All choices", actions);
+        _allChoices.Name = "AllChoices";
         _feedback = Text("");
-        // At most three lines; the whole answer is on its tooltip.
-        _feedback.MaxLinesVisible = 3;
+        _feedback.Name = "LastCommand";
+        // At most two lines; the whole answer is on its tooltip. It fades a few seconds after it changes.
+        _feedback.MaxLinesVisible = 2;
         _feedback.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         _feedback.MouseFilter = Control.MouseFilterEnum.Pass;
-        doing.AddChild(Section("Last command", _feedback));
-        info.AddChild(doing);
+        _feedback.SizeFlagsHorizontal = SizeFlags.Fill;
+        Outline(_feedback);
+        _board.AddChild(_feedback);
+        _decision = new PanelContainer { Name = "DecisionCard", Visible = false, MouseFilter = Control.MouseFilterEnum.Stop };
+        var decisionLook = new StyleBoxFlat { BgColor = new Color(0.08f, 0.08f, 0.1f, 0.96f), BorderColor = new Color(0.95f, 0.8f, 0.3f) };
+        decisionLook.SetBorderWidthAll(2);
+        decisionLook.SetContentMarginAll(12);
+        _decision.AddThemeStyleboxOverride("panel", decisionLook);
+        var decisionColumn = new VBoxContainer();
+        decisionColumn.AddThemeConstantOverride("separation", 6);
+        _decisionTitle = Text("");
+        _decisionTitle.Name = "DecisionTitle";
+        _decisionTitle.HorizontalAlignment = HorizontalAlignment.Center;
+        _decisionButtons = new VBoxContainer { Name = "DecisionButtons" };
+        _decisionButtons.AddThemeConstantOverride("separation", 4);
+        decisionColumn.AddChild(_decisionTitle);
+        decisionColumn.AddChild(_decisionButtons);
+        _decision.AddChild(decisionColumn);
+        _board.AddChild(_decision);
         var logBox = Section("Combat log", _logScroll);
         _logScroll.TooltipText = "What the server confirmed, newest at the bottom. Tab here, then arrows or Page Up/Down to scroll; End returns to the newest. Hover a row for its full line.";
         logBox.Name = "CombatLog";
         _logBox = logBox;
         logBox.SizeFlagsVertical = SizeFlags.ExpandFill;
         logBox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        logBox.SizeFlagsStretchRatio = 2;
-        info.AddChild(logBox);
-        _split.AddChild(column);
+        _logDrawer = new PanelContainer { Name = "LogDrawer", Visible = false, MouseFilter = Control.MouseFilterEnum.Stop };
+        var drawerLook = new StyleBoxFlat { BgColor = new Color(0.05f, 0.05f, 0.07f, 0.86f), BorderColor = new Color(0.5f, 0.5f, 0.55f), BorderWidthLeft = 1 };
+        drawerLook.SetContentMarginAll(8);
+        _logDrawer.AddThemeStyleboxOverride("panel", drawerLook);
+        _logDrawer.AddChild(logBox);
+        _board.AddChild(_logDrawer);
+        _board.Reserved = Reserved;
+        _board.EscapeIdle += CloseOverlays;
         var boardBox = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         _split.SizeFlagsVertical = SizeFlags.ExpandFill;
         boardBox.AddChild(_split);
+        // All choices first in the Menu, so Tab reaches them first when it opens.
+        _matchMenu.AddChild(_allChoices);
         _board.Changed += ShowBoardInfo;
         // Stage K4: the HUD says what placing does now; it follows the battlefield's choice (the model, or Esc).
         _board.Changed += () =>
@@ -798,6 +833,7 @@ public partial class Main : Control
         _matchMenu.AddChild(Section("Match", _state));
         _models = Text("");
         _matchMenu.AddChild(Section("Models ([A] Seat One, [B] Seat Two)", _models));
+        _matchMenu.MoveChild(_allChoices, 0);
         _root.AddChild(_match);
         _scaleNote = new Label
         {
@@ -898,7 +934,8 @@ public partial class Main : Control
 
         // Buttons are rebuilt on every change; keep the keyboard focus on the same button (or a sensible one).
         var focused = GetViewport().GuiGetFocusOwner();
-        var refocus = focused is Button b && (_bannerButtons.IsAncestorOf(b) || _hints.IsAncestorOf(b)) ? b.Text : null;
+        var refocus = focused is Button b && (_bannerButtons.IsAncestorOf(b) || _hints.IsAncestorOf(b) || _decisionButtons.IsAncestorOf(b)) ? b.Text : null;
+        var refocusDecision = focused is Button d && _decisionButtons.IsAncestorOf(d);
         foreach (var child in _bannerButtons.GetChildren())
         {
             child.QueueFree();
@@ -959,14 +996,32 @@ public partial class Main : Control
         _state.Text = string.Join("\n", view.Lines());
         _models.Text = view.Models.Count == 0 ? "No models yet." : string.Join("\n", view.Models.Select(m => m.Text));
 
-        foreach (var child in _hints.GetChildren())
+        foreach (var child in _hints.GetChildren().Concat(_decisionButtons.GetChildren()))
         {
             child.QueueFree();
+        }
+        // Stage N3: the choices that belong to no model also on a card over the battlefield (the same buttons).
+        var decisions = s.Hints.Where(h => ActionHints.IsDecision(h.Command)).ToList();
+        _decision.Visible = decisions.Count > 0;
+        _decisionTitle.Text = ActionHints.DecisionTitle(decisions.Select(h => h.Command));
+        foreach (var hint in decisions)
+        {
+            var chosen = hint;
+            var button = Button(chosen.Label, () => Send(chosen));
+            button.TooltipText = $"{chosen.Label}\nA choice the rules offer now; the server accepts or refuses it.";
+            button.SetMeta("hint", true);
+            button.SetMeta("decision", true);
+            _decisionButtons.AddChild(button);
         }
         foreach (var hint in s.Hints)
         {
             var chosen = hint;
-            var button = Button(chosen.Label, () => Send(chosen));
+            // A choice made in the Menu's list closes the Menu (the battlefield shows what follows).
+            var button = Button(chosen.Label, () =>
+            {
+                Send(chosen);
+                SetMenu(false);
+            });
             // Stage K2: short words; the tooltip says where the choice comes from.
             button.TooltipText = $"{chosen.Label}\nA choice the rules offer now; the server accepts or refuses it.";
             button.SetMeta("hint", true);
@@ -986,10 +1041,15 @@ public partial class Main : Control
         _notYet.Visible = _notYet.Text.Length > 0;
         _feedback.Text = s.Feedback is { } f ? $"{FeedbackWord(f.Kind)}: {f.Text}{(f.RuleRef is null ? "" : $" (rule: {f.RuleRef})")}" : "None yet.";
         _feedback.TooltipText = _feedback.Text;
+        if (_feedback.Text != _feedbackShown)
+        {
+            _feedbackShown = _feedback.Text;
+            _feedbackSince = Time.GetTicksMsec() / 1000.0;
+        }
         ShowLog(s.Log);
         if (refocus is not null)
         {
-            var same = _bannerButtons.GetChildren().Concat(_hints.GetChildren()).OfType<Button>().FirstOrDefault(n => !n.IsQueuedForDeletion() && n.Text == refocus);
+            var same = (refocusDecision ? _decisionButtons.GetChildren() : _bannerButtons.GetChildren().Concat(_hints.GetChildren())).OfType<Button>().FirstOrDefault(n => !n.IsQueuedForDeletion() && n.Text == refocus);
             if (same is not null)
             {
                 same.GrabFocus();
@@ -1007,11 +1067,14 @@ public partial class Main : Control
     {
         _shownPrompt = _board.Interaction.Prompt;
         RefreshScenario();
-        _hud.Text = _lastScreen is { } s
-            ? TopHud.Of(s.View, _board.Scene, s.Log, s.Seat, s.Feedback is { Kind: FeedbackKind.Sending } || _board.Interaction.Pending is not null, _board.Interaction.Prompt)
-            : "";
+        var waiting = _lastScreen?.Feedback is { Kind: FeedbackKind.Sending } || _board.Interaction.Pending is not null;
+        _hudText = _lastScreen is { } s ? TopHud.Of(s.View, _board.Scene, s.Log, s.Seat, waiting, _board.Interaction.Prompt) : "";
+        var (left, centre) = _lastScreen is { } t ? TopHud.Split(t.View, _board.Scene, t.Log, t.Seat, waiting, _board.Interaction.Prompt) : ("", "");
+        _hud.Text = left;
+        _hudCentre.Text = centre;
+        _hud.AddThemeColorOverride("font_color", _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f));
         // Your move in a colour as well as in words.
-        _hud.AddThemeColorOverride("font_color", _lastScreen?.View.YourMove == true
+        _hudCentre.AddThemeColorOverride("font_color", _lastScreen?.View.YourMove == true
             ? _highContrast ? Colors.Yellow : new Color(0.6f, 1f, 0.65f)
             : _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f));
     }
@@ -1032,9 +1095,41 @@ public partial class Main : Control
             // Drawn over the action bar and the dice, and placed before it shows.
             _menuPanel.MoveToFront();
             PlaceMenu(GetViewportRect().Size);
+            // Stage N3: opened from its button (mouse or keyboard), the keyboard focus goes to the Menu's first control
+            // (the first of All choices), so Tab walks the Menu from its top.
+            if (GetViewport()?.GuiGetFocusOwner() is not { } owner || owner == _menuButton || !owner.IsVisibleInTree())
+            {
+                FirstFocusable(_matchMenu)?.GrabFocus();
+            }
         }
-        _menuButton.Text = open ? "Menu ▾" : "Menu ▸";
+        _menuButton.Lit = open;
     }
+
+    private static Control? FirstFocusable(Node root)
+    {
+        foreach (var child in root.GetChildren())
+        {
+            if (child is Control { Visible: false } || child.IsQueuedForDeletion())
+            {
+                continue;
+            }
+            if (child is Control { FocusMode: not FocusModeEnum.None } control)
+            {
+                return control;
+            }
+            if (FirstFocusable(child) is { } inner)
+            {
+                return inner;
+            }
+        }
+        return null;
+    }
+
+    // Stage N3 (for the UI check): a control in the Menu while it is closed, the Menu's choices, and opening it as its
+    // button does.
+    public bool InClosedMenu(Node node) => !_menuOpen && InMatchMenu(node);
+
+    public IReadOnlyList<Button> MenuChoices => [.. _hints.GetChildren().OfType<Button>().Where(b => !b.IsQueuedForDeletion())];
 
     private void MoveMenu(Node parent, int index, bool visible)
     {
@@ -1068,47 +1163,157 @@ public partial class Main : Control
     // battlefield keeps the full width and Confirm and Cancel stay on screen.
     private void FitBattlefield()
     {
+        // Stage N3: in a match the page has no margin, so the battlefield reaches the window's edges.
+        var margin = PageMargin;
+        if (!Mathf.IsEqualApprox(_page.OffsetTop, margin.Y) || !Mathf.IsEqualApprox(_page.OffsetLeft, margin.X))
+        {
+            _page.OffsetLeft = margin.X;
+            _page.OffsetTop = margin.Y;
+            _page.OffsetRight = -margin.X;
+            _page.OffsetBottom = -margin.Y;
+        }
         if (!_match.Visible || _split is null)
         {
             return;
         }
         var size = GetViewportRect().Size;
-        var stacked = size.X < StackBelow;
-        if (_stacked != stacked)
-        {
-            _stacked = stacked;
-            _split.Vertical = stacked;
-            _column.Vertical = !stacked;
-            _info.Vertical = !stacked;
-            _board.SizeFlagsVertical = stacked ? SizeFlags.ExpandFill : SizeFlags.Fill;
-            _board.SizeFlagsStretchRatio = stacked ? 3 : 7;
-            _column.SizeFlagsStretchRatio = stacked ? 1 : 3;
-            _logBox.SizeFlagsStretchRatio = stacked ? 1 : 2;
-            _board.CustomMinimumSize = new Vector2(0, 120);
-        }
-        // The column is wider with larger text, so the panel's buttons keep their words.
-        var columnMin = stacked ? Vector2.Zero : new Vector2(300 * _scale, 0);
-        if (_column.CustomMinimumSize != columnMin)
-        {
-            _column.CustomMinimumSize = columnMin;
-        }
-        // Stage K2: the battlefield and its column take exactly the window's height under the HUD (no minimum that would
-        // push anything below the window; the page does not scroll in a match).
+        // Stage K2: the battlefield takes exactly the window's height under anything above it (no minimum that would push
+        // anything below the window; the page does not scroll in a match). Stage N3: and the whole width.
         var top = _boardSection.GlobalPosition.Y - _root.GlobalPosition.Y;
-        var want = Math.Max(0f, size.Y - 24 - top);
+        var want = Math.Max(0f, size.Y - 2 * margin.Y - top);
         if (Math.Abs(_split.CustomMinimumSize.Y - want) > 1)
         {
             _split.CustomMinimumSize = new Vector2(0, want);
         }
+        PlaceOverlays();
         PlaceResult();
-        // At most about a fifth of the window (a third when stacked) for the choices; more scrolls inside their box.
-        var cap = Math.Max(70f * _scale, size.Y * (stacked ? 0.3f : 0.2f));
-        var actionsHeight = Math.Min(_actions.GetCombinedMinimumSize().Y, cap);
-        if (Math.Abs(_actionsScroll.CustomMinimumSize.Y - actionsHeight) > 0.5f)
-        {
-            _actionsScroll.CustomMinimumSize = new Vector2(0, actionsHeight);
-        }
         PlaceMenu(size);
+    }
+
+    // Stage N3: what lies on the battlefield, in its own coordinates. The unit card at the bottom-left (as tall as its
+    // words, at most a little over half the battlefield; more scrolls inside it, Confirm and Cancel stay at its foot),
+    // the last command's answer just over it, the log drawer along the right edge under the HUD, and the card of
+    // choices in the middle.
+    private void PlaceOverlays()
+    {
+        var b = _board.Size;
+        if (b.X < 10 || b.Y < 10)
+        {
+            return;
+        }
+        var inset = _board.TopInset;
+        var cardWidth = Math.Min(380 * _scale, Math.Max(220, b.X * 0.42f));
+        var natural = _pColumn.GetCombinedMinimumSize().Y + _pBody.GetCombinedMinimumSize().Y + 24;
+        var room = Math.Max(120, b.Y - inset - 16);
+        var cardHeight = Math.Min(natural, Math.Max(_pColumn.GetCombinedMinimumSize().Y + 60 * _scale, room * 0.58f));
+        cardHeight = Math.Min(cardHeight, room);
+        Put(_panel, new Rect2(8, b.Y - cardHeight - 8, cardWidth, cardHeight));
+        var drawerWidth = Math.Min(440 * _scale, Math.Max(240, b.X * 0.4f));
+        if (_logDrawer.Visible)
+        {
+            Put(_logDrawer, new Rect2(b.X - drawerWidth - 8, inset + 4, drawerWidth, Math.Max(80, b.Y - inset - 12)));
+        }
+        _board.Dice.RightInset = _logDrawer.Visible ? drawerWidth + 8 : 0;
+        // The last command: just over the card, as wide as it; it fades a few seconds after it changes.
+        _feedback.Size = new Vector2(cardWidth, 0);
+        _feedback.ResetSize();
+        _feedback.Size = new Vector2(cardWidth, _feedback.GetCombinedMinimumSize().Y);
+        _feedback.Position = new Vector2(8, Math.Max(inset + 4, b.Y - cardHeight - 12 - _feedback.Size.Y));
+        var age = Time.GetTicksMsec() / 1000.0 - _feedbackSince;
+        _feedback.Modulate = new Color(1, 1, 1, (float)Math.Clamp(1 - (age - FeedbackSeconds) / 1.5, 0.0, 1.0));
+        if (_decision.Visible)
+        {
+            _decision.ResetSize();
+            var d = _decision.GetCombinedMinimumSize();
+            var width = Math.Min(Math.Max(d.X, 320 * _scale), b.X - 16);
+            Put(_decision, new Rect2((b.X - width) / 2, Math.Max(inset + 8, (b.Y - d.Y) / 2 - 40), width, d.Y));
+        }
+    }
+
+    // How long the last command's line stays before it fades (it comes back when the answer changes).
+    public const double FeedbackSeconds = 6;
+
+    private static void Put(Control control, Rect2 rect)
+    {
+        if (control.Position != rect.Position || control.Size != rect.Size)
+        {
+            control.Position = rect.Position;
+            control.Size = rect.Size;
+        }
+    }
+
+    // Stage N3: where the battlefield's own bars and boxes must not go (in its coordinates): the unit card, the last
+    // command, the choices card, the log drawer and the result.
+    private IEnumerable<Rect2> Reserved()
+    {
+        foreach (var control in new Control[] { _panel, _feedback, _decision, _logDrawer, _resultBox })
+        {
+            if (control.Visible && control.GetParent() == _board)
+            {
+                yield return new Rect2(control.Position, control.Size);
+            }
+        }
+    }
+
+    // Stage N3: the combat log drawer, opened and closed by its icon (and Esc).
+    private void SetLog(bool open)
+    {
+        _drawerOpen = open;
+        if (!open && GetViewport()?.GuiGetFocusOwner() is { } focused && _logDrawer.IsAncestorOf(focused))
+        {
+            _logButton.GrabFocus();
+        }
+        _logDrawer.Visible = open;
+        _logButton.Lit = open;
+        if (open)
+        {
+            _logDrawer.MoveToFront();
+            PlaceOverlays();
+        }
+    }
+
+    public bool LogOpen => _drawerOpen;
+
+    public void OpenLog(bool open) => SetLog(open);
+
+    public IconButton LogButton => _logButton;
+
+    public Control LogDrawer => _logDrawer;
+
+    public Control DecisionCard => _decision;
+
+    public HBoxContainer CornerIcons => _icons;
+
+    public Control HudCentre => _hudCentre;
+
+    // Esc with nothing being chosen on the battlefield closes the key sheet or scenario card, then the log drawer, then
+    // the Menu.
+    private void CloseOverlays()
+    {
+        // The key sheet or the scenario card first (Esc closes them also when the keyboard is on the main window).
+        if (_keySheet.Visible || _scenarioCard.Visible)
+        {
+            _keySheet.Hide();
+            _scenarioCard.Hide();
+        }
+        else if (_drawerOpen)
+        {
+            SetLog(false);
+        }
+        else if (_menuOpen)
+        {
+            SetMenu(false);
+        }
+    }
+
+    // Words over the battlefield stay readable on any ground: a dark outline and shadow around the letters.
+    private static void Outline(Label label)
+    {
+        label.AddThemeConstantOverride("outline_size", 6);
+        label.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
+        label.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.6f));
+        label.AddThemeConstantOverride("shadow_offset_x", 1);
+        label.AddThemeConstantOverride("shadow_offset_y", 2);
     }
 
     // The Menu, when open, under the HUD row at the right, as tall as its contents or the room left.
@@ -1130,30 +1335,37 @@ public partial class Main : Control
         }
     }
 
-    public bool Stacked => _stacked && _split.Vertical;
 
     // How far down the page a control starts (whatever the page's scroll), for the UI check.
     public float PageY(Control control) => control.GlobalPosition.Y - _root.GlobalPosition.Y;
 
-    public Control RightColumn => _column;
 
     // Stage K2 (for the UI check): how tall the match screen needs to be, and the last command's line.
-    public float MatchHeight => _match.GlobalPosition.Y + _match.GetCombinedMinimumSize().Y + 12;
+    public float MatchHeight => _match.GlobalPosition.Y + _match.GetCombinedMinimumSize().Y + PageMargin.Y;
+
+    // The page's margin around the screen: none in a match (stage N3), 16 by 12 pixels elsewhere.
+    public Vector2 PageMargin => _match is not null && _match.Visible ? Vector2.Zero : new Vector2(16, 12);
 
     public Control LastCommandLabel => _feedback;
+    public string LastCommandText => _feedback.Text;
 
-    // Stage K2: the result box over the battlefield, under the HUD strip, as tall as its words or the space left.
+    public bool InMatch => _match.IsVisibleInTree();
+
+    public float CurrentScale => _scale;
+
+    // Stage K2: the result box over the battlefield, under the HUD strip, as tall as its words or the space left. Stage
+    // N3: compact, at the top-centre.
     private void PlaceResult()
     {
         if (!_resultBox.Visible)
         {
             return;
         }
-        var width = Math.Max(120f, _board.Size.X - 16);
+        var width = Math.Min(Math.Max(120f, _board.Size.X - 16), 620 * _scale);
         var room = Math.Max(60f, _board.Size.Y - _board.TopInset - 16);
         _resultScroll.CustomMinimumSize = new Vector2(0, Math.Min(_endSection.GetCombinedMinimumSize().Y, room - 14));
         var size = new Vector2(width, Math.Min(_resultBox.GetCombinedMinimumSize().Y, room));
-        var at = new Vector2(8, _board.TopInset + 8);
+        var at = new Vector2((_board.Size.X - width) / 2, _board.TopInset + 8);
         if (_resultBox.Position != at || _resultBox.Size != size)
         {
             _resultBox.Position = at;
@@ -1163,12 +1375,14 @@ public partial class Main : Control
 
     public Control ResultBox => _resultBox;
 
-    // Stage K2: the box the choices scroll in (for the UI check).
-    public ScrollContainer ActionsBox => _actionsScroll;
+    // Stage N3: the list of all choices, in the Menu (for the UI check).
+    public Control ActionsBox => _allChoices;
 
     // ---- the selected-unit and action panel (proposal G, step G1) ----
 
     private PanelContainer _panel = null!;
+    private VBoxContainer _pColumn = null!;
+    private VBoxContainer _pBody = null!;
     private Label _pTitle = null!;
     private Label _pUnit = null!;
     private Label _pUnavailable = null!;
@@ -1188,22 +1402,25 @@ public partial class Main : Control
 
     private Control BuildPanel()
     {
-        _panel = new PanelContainer { Name = "UnitPanel", SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3 };
+        // Stage N3: the unit card, over the battlefield's bottom-left corner.
+        _panel = new PanelContainer { Name = "UnitPanel", MouseFilter = Control.MouseFilterEnum.Stop };
         _panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
         {
-            BgColor = new Color(0.17f, 0.17f, 0.2f),
+            BgColor = new Color(0.12f, 0.12f, 0.15f, 0.93f),
             ContentMarginLeft = 12, ContentMarginRight = 12, ContentMarginTop = 10, ContentMarginBottom = 10,
             CornerRadiusTopLeft = 4, CornerRadiusTopRight = 4, CornerRadiusBottomLeft = 4, CornerRadiusBottomRight = 4,
         });
         var column = new VBoxContainer();
         column.AddThemeConstantOverride("separation", 8);
         _panel.AddChild(column);
+        _pColumn = column;
         // The words scroll on their own; Confirm and Cancel stay at the bottom, always in the same place.
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, VerticalScrollMode = ScrollContainer.ScrollMode.ShowAlways, SizeFlagsVertical = SizeFlags.ExpandFill };
         column.AddChild(scroll);
         var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         body.AddThemeConstantOverride("separation", 4);
         scroll.AddChild(body);
+        _pBody = body;
         _pTitle = Text("");
         _pTitle.Name = "PanelTitle";
         _pUnit = Text("");
@@ -1293,7 +1510,7 @@ public partial class Main : Control
         _pCancel.Disabled = !view.CanCancel;
         _pUndo.Disabled = !view.CanUndo;
         _pKeys.Visible = view.CanCancel;
-        ((StyleBoxFlat)_panel.GetThemeStylebox("panel")).BgColor = _highContrast ? new Color(0.05f, 0.05f, 0.05f) : new Color(0.17f, 0.17f, 0.2f);
+        ((StyleBoxFlat)_panel.GetThemeStylebox("panel")).BgColor = _highContrast ? new Color(0.02f, 0.02f, 0.02f, 0.97f) : new Color(0.12f, 0.12f, 0.15f, 0.93f);
     }
 
     // The panel as shown (for the UI check): every visible line, and its buttons.
@@ -1315,7 +1532,9 @@ public partial class Main : Control
     public string PanelKeysText => _pKeys.IsVisibleInTree() ? _pKeys.Text : "";
 
     // The status line as shown (for the UI check).
-    public string HudText => _hud.Text;
+    public string HudText => _hudText;
+
+    private string _hudText = "";
 
     // The server's state as this window last drew it (for the UI check: the same render as the HUD and battlefield).
     public Rules.Core.State.MatchState? ServerState => _lastScreen?.State;
@@ -1326,11 +1545,11 @@ public partial class Main : Control
     public string PointingText => _pPointing.IsVisibleInTree() ? _pPointing.Text : "";
 
     // QoL H2: angled, facing north, the whole table (as Shift+F).
-    private Button ResetViewButton()
+    private IconButton ResetViewButton()
     {
-        var reset = Button("Reset view", () => _board.ResetView());
+        var reset = new IconButton(IconButton.Symbol.Reset, "Reset view (Shift+F): angled view, facing north, the whole table. Double-click a unit or objective to centre on it; double-click again to zoom in.");
         reset.Name = "ResetView";
-        reset.TooltipText = "Shift+F: angled view, facing north, the whole table. Double-click a unit or objective to centre on it; double-click again to zoom in.";
+        reset.Pressed += () => _board.ResetView();
         return reset;
     }
 
@@ -1351,8 +1570,11 @@ public partial class Main : Control
     // The first hint, or else the first connection button (Rejoin now, Leave): where a keyboard user wants to be.
     private void FocusDefault()
     {
-        var target = _hints.GetChildren().Concat(_bannerButtons.GetChildren()).OfType<Button>().FirstOrDefault(n => !n.IsQueuedForDeletion());
-        target?.GrabFocus();
+        // Stage N3: only a control on screen (a decision card's choice, a Menu choice while the Menu is open, a connection
+        // button), else the Menu button.
+        var target = _decisionButtons.GetChildren().Concat(_hints.GetChildren()).Concat(_bannerButtons.GetChildren()).OfType<Button>()
+            .FirstOrDefault(n => !n.IsQueuedForDeletion() && n.IsVisibleInTree());
+        (target ?? (_match.IsVisibleInTree() ? _menuButton : null))?.GrabFocus();
     }
 
     private void ScrollLogWithKeys(InputEvent @event)

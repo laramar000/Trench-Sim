@@ -36,17 +36,39 @@ public static class ActionHints
         }
         if (state.Phase == Phase.Deployment && state.Setup?.Scenario is not null && MatchView.NextDeployer(state) == mine)
         {
-            return "Place your models on the battlefield: click Place a model on its bar, then click a spot in your zone. (Keys: L, arrows, Space; N and P choose the model.)";
+            return "Place your models on the battlefield: click a spot in your zone; the bar shows which model is next, and a click on another chip (or N and P) chooses it. (Keys: L, arrows, Space.)";
         }
         if (state.Phase == Phase.Activation && state.ActiveModel is { } active && state.FindModel(active)?.Seat == mine)
         {
-            return "Your activating model's actions are on its bar on the battlefield: click one, then click where to go (it moves at once) or click a target twice. (Keys: M, D, R, S, C, X, then Space.) End the activation on the bar or with its button.";
+            return "Your activating model's actions are on its bar on the battlefield: click one, then click where to go (it moves at once), or click a target and then Confirm beside it. (Keys: M, D, R, S, C, X, then Space.) End the activation on the bar; when nothing is left it ends by itself.";
         }
         if (state.Phase == Phase.Activation && state.ActiveModel is null && state.Setup?.Scenario is not null && TurnSequence.NextActivator(state) == mine)
         {
-            return "Click one of your units on the battlefield to choose it and see its actions. Nothing is sent until its first action, so you can click another unit to switch. (An Activate button below starts an activation at once.)";
+            return "Click one of your units on the battlefield to choose it and see its actions. Nothing is sent until its first action, so you can click another unit to switch. (An Activate choice here starts an activation at once.)";
         }
         return null;
+    }
+
+    // Battlefield UI 2, stage N3: the choices that belong to no model on the battlefield (the deployment zone, who
+    // activates or takes the Morale Check first, a failed Morale Check, a deployment without a battlefield, starting the
+    // match). They are shown on a card over the battlefield; the others are on the battlefield's bars, next to a model.
+    public static bool IsDecision(Command command) =>
+        command is StartMatch or ChooseDeploymentZone or ChooseFirstActivation or ChooseMoraleOrder or ResolveFailedMorale or DeployModel;
+
+    // The card's heading for those choices.
+    public static string DecisionTitle(IEnumerable<Command> commands)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
+        return commands.FirstOrDefault(IsDecision) switch
+        {
+            ChooseDeploymentZone => "YOUR CHOICE: which deployment zone you take",
+            ChooseFirstActivation => "YOUR CHOICE: who activates first",
+            ChooseMoraleOrder => "YOUR CHOICE: who takes the Morale Check first",
+            ResolveFailedMorale => "YOUR CHOICE: your warband failed its Morale Check",
+            DeployModel => "YOUR CHOICE: deploy a model",
+            StartMatch => "YOUR CHOICE: start the match",
+            _ => "YOUR CHOICE",
+        };
     }
 
     public static string Label(Command command, MatchState state, ContentNames names) => command switch

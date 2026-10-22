@@ -175,7 +175,8 @@ public partial class BoardView : SubViewportContainer
         AddChild(_confirmBox);
         Dice.ScreenOfModel = id => BodyAt(id) is { } body && ScreenOf(body.X, body.Z, body.Y) is { } p && new Rect2(Vector2.Zero, Size).HasPoint(p) ? p : null;
         Dice.Avoid = () => ScreenLabelBoxes().Select(b => b.Box).Concat(_bar.Visible ? [new Rect2(_bar.Position, _bar.Size)] : [])
-            .Concat(_strip is { Visible: true } strip ? [new Rect2(strip.Position, strip.Size)] : []);
+            .Concat(_strip is { Visible: true } strip ? [new Rect2(strip.Position, strip.Size)] : [])
+            .Concat(Reserved?.Invoke() ?? []);
         FocusEntered += QueueRedraw;
         FocusExited += QueueRedraw;
         Resized += () =>
@@ -689,6 +690,12 @@ public partial class BoardView : SubViewportContainer
 
     public Control? TopStrip => _strip;
 
+    // Stage N3: the screen's boxes on the battlefield (unit card, log drawer, ...) that its bars and menus keep clear of.
+    public Func<IEnumerable<Rect2>>? Reserved { get; set; }
+
+    // Stage N3: Esc with nothing to cancel on the battlefield (the screen then closes the log drawer or the Menu).
+    public event Action? EscapeIdle;
+
     public void SetTopStrip(Control strip)
     {
         _strip = strip;
@@ -1160,6 +1167,10 @@ public partial class BoardView : SubViewportContainer
                 // Towers proposal, stage T6: switch between ladders and climbing a tower's side (a Risky roll).
                 return Interaction.ToggleClimbSides();
             case Key.Escape:
+                if (Interaction.Mode == InteractionMode.None && Interaction.Pending is null)
+                {
+                    EscapeIdle?.Invoke();
+                }
                 Interaction.Cancel();
                 return true;
             case Key.N:
@@ -1430,12 +1441,15 @@ public partial class BoardView : SubViewportContainer
             candidates.Add(new Vector2(foot.X + 40, foot.Y - size.Y / 2));
             candidates.Add(new Vector2(foot.X - 40 - size.X, foot.Y - size.Y / 2));
         }
+        // Stage N3: and never over the unit card, the log drawer or the other boxes the screen keeps on the battlefield.
+        var reserved = Reserved?.Invoke().ToList() ?? [];
+        candidates.Add(new Vector2((Size.X - size.X) / 2, Size.Y - size.Y - 8));
         candidates.Add(new Vector2(8, TopInset + 8));
         candidates.Add(new Vector2(Size.X - size.X - 8, TopInset + 8));
         candidates.Add(new Vector2(8, Size.Y - size.Y - 8));
         candidates.Add(new Vector2(Size.X - size.X - 8, Size.Y - size.Y - 8));
         Vector2 Clamp(Vector2 at) => new(Math.Clamp(at.X, 4, Math.Max(4, Size.X - size.X - 4)), Math.Clamp(at.Y, TopInset + 4, Math.Max(TopInset + 4, Size.Y - size.Y - 4)));
-        bool Clear(Vector2 at) => !models.Any(m => new Rect2(at, size).Grow(22).HasPoint(m));
+        bool Clear(Vector2 at) => !models.Any(m => new Rect2(at, size).Grow(22).HasPoint(m)) && !reserved.Any(r => r.Intersects(new Rect2(at, size)));
         var chosen = candidates.Select(Clamp).FirstOrDefault(Clear, Clamp(candidates[0]));
         _bar.Position = chosen;
         _bar.Size = size;

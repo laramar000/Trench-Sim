@@ -238,15 +238,16 @@ public partial class UiCheck : Node
         await Until(() => LogText().Contains("must decide: choose a deployment zone") ? "ok" : null, 20, "zone-decision");
         Dump("joined");
         Mark("joined");
-        var hint = await Until(() => Hint() ?? (Section("YOUR ACTIONS").Contains("Nothing to do until the opponent moves") ? (Control)_main : null), 20, "hint-or-wait");
+        var hint = await Until(() => Hint() ?? (Section("ALL CHOICES").Contains("Nothing to do until the opponent moves") ? (Control)_main : null), 20, "hint-or-wait");
         if (hint is Button)
         {
+            DecisionCardCheck();
             Mark("decider");
             await Signal("hold", 60);
             await Press(Hint(), Key.Enter, "hint-enter");
             var sent = await Until(() => Section("LAST COMMAND").StartsWith("SENT:", StringComparison.Ordinal) ? Section("LAST COMMAND") : null, 10, "sent");
             Check("hint-sent-shown", sent is not null, Section("LAST COMMAND"));
-            Check("one-command-at-a-time", Hint() is null && Section("YOUR ACTIONS").Contains("waiting for the server's answer"), Section("YOUR ACTIONS").Replace('\n', '|'));
+            Check("one-command-at-a-time", Hint() is null && Section("ALL CHOICES").Contains("waiting for the server's answer"), Section("ALL CHOICES").Replace('\n', '|'));
             await Shot($"{_role}-sent");
             Mark("sent");
             var done = await Until(() => Section("LAST COMMAND").StartsWith("DONE:", StringComparison.Ordinal) ? Section("LAST COMMAND") : null, 20, "done");
@@ -255,12 +256,31 @@ public partial class UiCheck : Node
         await Until(() => LogText().Contains(" zone.") ? "ok" : null, 20, "zone-chosen");
         await Frames(5);
         Check($"zone-event-shown", LogText().Contains(" zone."), Lines(LogText()).LastOrDefault() ?? "");
-        var actions = Section("YOUR ACTIONS");
+        var actions = Section("ALL CHOICES");
         Check("positional-not-offered-explained", actions.Contains("on the battlefield") || actions.Contains("Nothing to do until the opponent moves"), actions.Replace('\n', '|'));
         await Shot($"{_role}-zone");
         Dump("zone");
         await PlacementPreviewChecks();
         Mark("zone-done");
+    }
+
+    // Stage N3: a choice that belongs to no model (here the deployment zone) is on a card over the battlefield, titled
+    // with what is being chosen, with the same choices as the Menu's list, in the same order; it covers no corner icon.
+    private void DecisionCardCheck()
+    {
+        var main = (Main)_main;
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        var card = main.DecisionCard;
+        var shown = Controls<Button>().Where(b => b.HasMeta("decision") && b.IsVisibleInTree() && !b.IsQueuedForDeletion()).Select(b => b.Text).ToList();
+        var listed = main.MenuChoices.Select(b => b.Text).ToList();
+        var title = Controls<Godot.Label>().FirstOrDefault(l => card.IsAncestorOf(l) && l.IsVisibleInTree())?.Text ?? "";
+        var rect = card.GetGlobalRect();
+        var field = board?.GetGlobalRect();
+        var icons = main.CornerIcons.GetGlobalRect();
+        var onField = field is { } f && f.Encloses(rect) && rect.Position.Y >= f.Position.Y + board!.TopInset - 1;
+        Check("decision-card", card.IsVisibleInTree() && onField && !rect.Intersects(icons) && shown.Count > 0 && shown.SequenceEqual(listed)
+            && title.StartsWith("YOUR CHOICE: which deployment zone", StringComparison.Ordinal) && Hint() is { } first && card.IsAncestorOf(first),
+            $"card {rect} on the battlefield {field}: {onField}; title \"{title}\"; choices {string.Join(" / ", shown)}; the Menu lists {string.Join(" / ", listed)}; corner icons {icons}");
     }
 
     // An event line by the opponent of the host (the host is always Seat One): "[22] Two activates b1." or "[23] b1 moves …".
@@ -373,8 +393,12 @@ public partial class UiCheck : Node
         Check("live-opponent-events", liveEvents > 0 && connections == 0, $"{liveEvents} opponent event lines arrived while connected; {connections} times not connected; {earlier} opponent event lines before the host played");
         Check("turn-scored", TurnScoredSinceStart(), Lines(LogText()).LastOrDefault() ?? "");
         Check("vp-shown", Section("MATCH").Contains("VP "), Section("MATCH").Replace('\n', '|'));
+        // Stage N3: the combat log is a drawer; opened, it shows the newest row.
+        ((Main)_main).OpenLog(true);
+        await Frames(4);
         Check("event-list-shows-newest", EventListAtBottom(), $"event list scrolled to {EventList()?.ScrollVertical} of {EventList()?.GetVScrollBar().MaxValue}");
         await Shot("host-played");
+        ((Main)_main).OpenLog(false);
     }
 
     private async Task GapsDialogChecks()
@@ -1221,24 +1245,117 @@ public partial class UiCheck : Node
 
     private static bool Near(TablePoint p, double x, double y, double within = 0.001) => Math.Abs(p.X - x) <= within && Math.Abs(p.Y - y) <= within;
 
-    // Proposal G: the selected-unit and action panel beside the battlefield, as shown.
-    // Proposal G3: the battlefield and its panel fill the window under the HUD; the combat log sits under the panel in
-    // the right-hand column, beside the battlefield.
+    // Stage N3: the battlefield fills the window under anything above it, edge to edge; the unit card is on it, at its
+    // bottom-left; the combat log is a drawer on its right edge, closed at first, opened and closed by the log icon and
+    // closed by Esc, sending nothing (log-drawer).
     private async Task LayoutChecks(BoardView board)
     {
         await Frames(3);
         var main = (Main)_main;
         var row = main.BattlefieldRow.GetGlobalRect();
-        var height = _main.GetViewportRect().Size.Y;
+        var view = _main.GetViewportRect().Size;
         // Stage K2: exactly the room under the HUD, with no minimum (nothing below the window).
-        var want = Math.Max(0f, height - 24 - main.BattlefieldTop);
-        Check("layout-battlefield-fills-window", Math.Abs(row.Size.Y - want) <= 2 && board.GetGlobalRect().Size.Y >= row.Size.Y - 2,
-            $"window {height}px; row starts {main.BattlefieldTop}px down the page, {row.Size.Y}px tall (wanted {want}); battlefield {board.GetGlobalRect().Size}");
-        var panel = Controls<PanelContainer>().FirstOrDefault(p => p.Name == "UnitPanel")?.GetGlobalRect();
-        var log = main.CombatLog.GetGlobalRect();
-        Check("layout-log-beside-battlefield", main.CombatLog.IsVisibleInTree() && panel is { } p && log.Position.X >= board.GetGlobalRect().End.X
-            && log.Position.Y >= p.End.Y && log.End.Y <= row.End.Y + 1 && log.Size.Y >= 100 && main.BattlefieldRow.IsAncestorOf(main.CombatLog),
-            $"battlefield {board.GetGlobalRect()}; panel {panel}; log {log}");
+        var want = Math.Max(0f, view.Y - 2 * main.PageMargin.Y - main.BattlefieldTop);
+        var field = board.GetGlobalRect();
+        var panel = Controls<PanelContainer>().FirstOrDefault(p => p.Name == "UnitPanel");
+        var card = panel?.GetGlobalRect();
+        Check("layout-battlefield-fills-window", Math.Abs(row.Size.Y - want) <= 2 && field.Size.Y >= row.Size.Y - 2 && field.Size.X >= view.X - 1 && field.Position.X <= 1 && field.End.Y >= view.Y - 1
+            && panel is not null && board.IsAncestorOf(panel) && card is { } c && field.Encloses(c) && c.Position.X - field.Position.X < 12 && field.End.Y - c.End.Y < 12,
+            $"window {view}; row starts {main.BattlefieldTop}px down the page, {row.Size.Y}px tall (wanted {want}); battlefield {field}; unit card {card} (on the battlefield: {panel is not null && board.IsAncestorOf(panel)})");
+        var lastCommand = Section("LAST COMMAND");
+        var closedFirst = !main.LogOpen && !main.LogDrawer.Visible;
+        await ClickButton(main.LogButton);
+        await Frames(3);
+        var drawer = main.LogDrawer.GetGlobalRect();
+        var opened = main.LogOpen && main.LogDrawer.IsVisibleInTree() && main.CombatLog.IsVisibleInTree() && field.Encloses(drawer)
+            && field.End.X - drawer.End.X < 12 && drawer.Position.Y >= field.Position.Y + board.TopInset - 1 && drawer.Size.Y >= 100 && main.LogRows.Count > 0
+            && main.LogRowRect(main.LogSounds[^1].Seq) is { } newest && drawer.Encloses(newest);
+        await ClickButton(main.LogButton);
+        await Frames(2);
+        var closedByIcon = !main.LogOpen && !main.LogDrawer.Visible;
+        await ClickButton(main.LogButton);
+        await Frames(2);
+        await KeyPress(Key.Escape);
+        await Frames(2);
+        var closedByEsc = !main.LogOpen && !main.LogDrawer.Visible;
+        Check("log-drawer", closedFirst && opened && closedByIcon && closedByEsc && Section("LAST COMMAND") == lastCommand && board.Interaction.Pending is null,
+            $"closed at first: {closedFirst}; the icon opened it along the right edge {drawer} of the battlefield {field} with the newest row in view: {opened}; the icon closed it: {closedByIcon}; Esc closed it: {closedByEsc}; nothing sent: {Section("LAST COMMAND") == lastCommand}");
+        await CornerIconChecks(board);
+    }
+
+    // Stage N3: the corner icons sit inside the battlefield's top-right corner; Menu, log, keys and scenario each open
+    // with a click and close with a second one; centre, fit and reset only move the camera; nothing is sent.
+    private async Task CornerIconChecks(BoardView board)
+    {
+        var main = (Main)_main;
+        var field = board.GetGlobalRect();
+        var icons = main.CornerIcons.GetChildren().OfType<IconButton>().ToList();
+        var lastCommand = Section("LAST COMMAND");
+        var problems = new List<string>();
+        foreach (var icon in icons)
+        {
+            var rect = icon.GetGlobalRect();
+            if (!icon.IsVisibleInTree() || !field.Encloses(rect) || rect.Position.Y > field.Position.Y + board.TopInset || rect.End.X < field.End.X - 420 * main.CurrentScale
+                || string.IsNullOrEmpty(icon.TooltipText) || rect.Size.X < 20)
+            {
+                problems.Add($"{icon.Name} at {rect} (battlefield {field})");
+            }
+        }
+        // The Menu and the log drawer close with a second click on their icon; the key sheet and the scenario card are
+        // dialogs over the window, closed with Esc.
+        async Task<bool> Toggles(IconButton icon, Func<bool> isOpen, bool dialog)
+        {
+            var before = isOpen();
+            await ClickButton(icon);
+            await Frames(3);
+            var open = isOpen();
+            if (dialog)
+            {
+                await KeyPress(Key.Escape);
+            }
+            else
+            {
+                await ClickButton(icon);
+            }
+            await Frames(3);
+            if (!open || isOpen())
+            {
+                problems.Add($"{icon.Name}: open before {before}, after a click {open}, after {(dialog ? "Esc" : "a second click")} {isOpen()}");
+            }
+            return !before && open && !isOpen();
+        }
+        foreach (var (name, open, dialog) in new (string, Func<bool>, bool)[]
+        {
+            ("IconMenu", () => main.MenuOpen, false), ("LogButton", () => main.LogOpen, false),
+            ("KeysButton", () => main.KeySheetText.Length > 0, true), ("ScenarioButton", () => main.ScenarioOpen, true),
+        })
+        {
+            var icon = icons.FirstOrDefault(i => i.Name == name || (name == "IconMenu" && i == main.MenuButton));
+            if (icon is null || !await Toggles(icon, open, dialog))
+            {
+                problems.Add($"{name} did not open and close");
+            }
+        }
+        foreach (var name in new[] { "CentreButton", "FitButton", "ResetView" })
+        {
+            if (icons.FirstOrDefault(i => i.Name == name) is { } icon)
+            {
+                await ClickButton(icon);
+                await Frames(3);
+            }
+            else
+            {
+                problems.Add($"no {name}");
+            }
+        }
+        if (Section("LAST COMMAND") != lastCommand || board.Interaction.Pending is not null)
+        {
+            problems.Add("something was sent");
+        }
+        Check("corner-icons", icons.Count == 7 && problems.Count == 0,
+            $"{string.Join(", ", icons.Select(i => $"{i.Name} \"{i.TooltipText.Split(':')[0]}\""))}; {(problems.Count == 0 ? "inside the top-right corner; Menu, log, keys and scenario open and close; nothing sent" : string.Join("; ", problems))}");
+        board.Fit();
+        await Frames(3);
     }
 
     // See-through walls: the camera is moved until a tall piece stands between it and a model; that piece (and only the
@@ -1407,6 +1524,9 @@ public partial class UiCheck : Node
         Check("high-contrast-applied", background == Colors.Black && _main.Theme?.GetColor("font_color", "Label") == Colors.White,
             $"background {background}, text {_main.Theme?.GetColor("font_color", "Label")}");
         await Shot("host-high-contrast");
+        // Stage N3: the combat log's drawer is opened with its icon, then Tab reaches the list.
+        await ClickButton(((Main)_main).LogButton);
+        await Frames(4);
         var log = EventList();
         var reached = await FocusByTab(log, 60);
         await KeyPress(Key.Home);
@@ -1420,6 +1540,8 @@ public partial class UiCheck : Node
         await KeyPress(Key.End);
         await Frames(3);
         Check("event-list-end-returns-to-newest", EventListAtBottom(), $"after End: {log?.ScrollVertical} of {log?.GetVScrollBar().MaxValue}");
+        ((Main)_main).OpenLog(false);
+        await Frames(2);
         var models = Section("MODELS").Split('\n');
         Check("seats-by-letter-not-colour", models.All(l => l.StartsWith("[A] ", StringComparison.Ordinal) || l.StartsWith("[B] ", StringComparison.Ordinal))
             && Section("MATCH").Contains("[A]") && Section("MATCH").Contains("[B]"), $"{models.Length} model lines, all with [A]/[B]");
@@ -1479,19 +1601,16 @@ public partial class UiCheck : Node
             await Frames(6);
             var size = _main.GetViewportRect().Size;
             var board = Controls<BoardView>().First(b => b.IsVisibleInTree()).GetGlobalRect();
-            var column = main.RightColumn.GetGlobalRect();
             var panel = Controls<PanelContainer>().First(p => p.Name == "UnitPanel").GetGlobalRect();
-            var log = main.CombatLog.GetGlobalRect();
-            bool OnFirstScreen(Control c) => c.IsVisibleInTree() && main.PageY(c) + c.Size.Y <= size.Y - 24 + 2;
+            bool OnFirstScreen(Control c) => c.IsVisibleInTree() && main.PageY(c) + c.Size.Y <= size.Y - 2 * main.PageMargin.Y + 2;
             var fits = PanelButtonsFit(out var words);
             var buttonsShown = OnFirstScreen(main.PanelConfirm) && OnFirstScreen(main.PanelCancel) && fits;
             var overflow = Controls<Control>().Where(c => (c is Button or Godot.Label or OptionButton) && c.IsVisibleInTree() && c.GetGlobalRect().End.X > size.X + 1)
                 .Select(Describe).ToList();
-            var placed = w < Main.StackBelow
-                ? main.Stacked && column.Position.Y >= board.End.Y && log.Position.X >= panel.End.X && board.Size.X >= size.X - 40
-                : !main.Stacked && column.Position.X >= board.End.X && log.Position.Y >= panel.End.Y;
+            // Stage N3: the battlefield has the whole width at every size, and the unit card is on it, at its bottom-left.
+            var placed = board.Size.X >= size.X - 1 && board.Encloses(panel) && panel.Position.X - board.Position.X < 12 && board.End.Y - panel.End.Y < 12;
             Check($"layout-{w}x{h}", size == new Vector2(w, h) && placed && buttonsShown && overflow.Count == 0,
-                $"window {size}; stacked {main.Stacked}; battlefield {board}; panel {panel}; log {log}; Confirm and Cancel on the first screen and fit: {buttonsShown} ({words}); "
+                $"window {size}; battlefield {board}; unit card {panel}; Confirm and Cancel on the first screen and fit: {buttonsShown} ({words}); "
                 + (overflow.Count == 0 ? "nothing past the right edge" : "past the right edge: " + string.Join("; ", overflow)));
             await Shot($"host-layout-{w}x{h}");
         }
@@ -1508,7 +1627,7 @@ public partial class UiCheck : Node
             await Frames(8);
             var factor = ClientSettings.InterfaceScales[index];
             var size = _main.GetViewportRect().Size;
-            bool OnScreen(Control c) => c.IsVisibleInTree() && main.PageY(c) + c.Size.Y <= size.Y - 24 + 2;
+            bool OnScreen(Control c) => c.IsVisibleInTree() && main.PageY(c) + c.Size.Y <= size.Y - 2 * main.PageMargin.Y + 2;
             var fits = PanelButtonsFit(out var words);
             var overflow = Controls<Control>().Where(c => (c is Button or Godot.Label or OptionButton) && c.IsVisibleInTree() && c.GetGlobalRect().End.X > size.X + 1)
                 .Select(Describe).ToList();
@@ -1517,7 +1636,7 @@ public partial class UiCheck : Node
             var note = main.ScaleNoteShown;
             Check($"layout-scale-{factor * 100:0}-{w}x{h}", scaled && (shown ? !note : note) && fits && overflow.Count == 0,
                 $"window {w}x{h} at {factor * 100:0}%: content {size} (scaled: {scaled}); Confirm and Cancel on the first screen: {shown}; note that they are below: {note}; words fit: {fits} ({words}); "
-                + $"stacked {main.Stacked}, battlefield top {main.BattlefieldTop:0}, row {main.BattlefieldRow.GetGlobalRect()}, panel {Controls<PanelContainer>().First(p => p.Name == "UnitPanel").GetGlobalRect()}, Confirm at {main.PageY(main.PanelConfirm):0}+{main.PanelConfirm.Size.Y:0}; "
+                + $"battlefield top {main.BattlefieldTop:0}, row {main.BattlefieldRow.GetGlobalRect()}, panel {Controls<PanelContainer>().First(p => p.Name == "UnitPanel").GetGlobalRect()}, Confirm at {main.PageY(main.PanelConfirm):0}+{main.PanelConfirm.Size.Y:0}; "
                 + (overflow.Count == 0 ? "nothing past the right edge" : "past the right edge: " + string.Join("; ", overflow)));
         }
         main.ChooseScale(0);
@@ -1541,23 +1660,29 @@ public partial class UiCheck : Node
                 offScreen.Add($"{where}: the match needs {main.MatchHeight:0}px of {view.Size.Y:0}");
             }
             var hud = Controls<Godot.Label>().FirstOrDefault(l => l.Name == "TopHud" && l.IsVisibleInTree());
+            // Stage N3: the combat log is a drawer; it is opened here to see it fit, and closed again.
+            main.OpenLog(true);
+            await Frames(4);
             var shown = new List<(string Name, Control? Control)>
             {
-                ("HUD", hud), ("Confirm", main.PanelConfirm), ("Cancel", main.PanelCancel), ("last command", main.LastCommandLabel), ("combat log", main.CombatLog),
+                ("HUD", hud), ("HUD centre", main.HudCentre), ("Confirm", main.PanelConfirm), ("Cancel", main.PanelCancel), ("last command", main.LastCommandLabel), ("combat log", main.CombatLog),
+                ("corner icons", main.CornerIcons),
             };
-            // The choices: their box is inside the window, and each choice is inside the box or reached by scrolling it
-            // (a box at most a fifth of the window, a third when stacked, scrolls when there are more).
-            shown.Add(("choices box", main.ActionsBox));
-            var box = main.ActionsBox.GetGlobalRect();
+            // A choice shown on the battlefield (the card of choices that belong to no model) is inside the window too.
             foreach (var hint in Controls<Button>().Where(b => b.HasMeta("hint") && b.IsVisibleInTree()))
             {
-                var r = hint.GetGlobalRect();
-                var inBox = main.ActionsBox.IsAncestorOf(hint) && r.Position.X >= box.Position.X - 1 && r.End.X <= box.End.X + 1;
-                var scrolls = main.ActionsBox.GetVScrollBar().MaxValue > main.ActionsBox.Size.Y + 1;
-                if (!inBox || (!scrolls && (r.Position.Y < box.Position.Y - 1 || r.End.Y > box.End.Y + 1)))
-                {
-                    offScreen.Add($"{where}: hint {hint.Text} at {r}, choices box {box} (scrolls: {scrolls})");
-                }
+                shown.Add(($"choice {hint.Text}", hint));
+            }
+            // Stage N3 (battlefield-fills-window, no-side-column): the battlefield is the window's whole width and height
+            // under anything above it, and nothing is beside it.
+            var field = Controls<BoardView>().First(b => b.IsVisibleInTree()).GetGlobalRect();
+            if (field.Size.X < view.Size.X - 1 || field.End.Y < view.Size.Y - 1 || field.Position.X > 1)
+            {
+                _fillProblems.Add($"{where}: battlefield {field}");
+            }
+            if (main.BattlefieldRow.GetChildCount() != 1 || Controls<Control>().Any(c => c.IsVisibleInTree() && c is Button or Godot.Label && !field.Encloses(c.GetGlobalRect()) && main.BattlefieldRow.IsAncestorOf(c)))
+            {
+                _columnProblems.Add($"{where}: something beside the battlefield");
             }
             foreach (var (name, control) in shown)
             {
@@ -1577,15 +1702,21 @@ public partial class UiCheck : Node
                 offScreen.Add($"{where}: combat log only {main.CombatLog.GetGlobalRect().Size.Y:0}px tall");
             }
             await Shot($"host-on-screen-{w}x{h}-t{text}-s{scale}");
+            main.OpenLog(false);
         }
         main.ChooseTextSize(0);
         main.ChooseScale(0);
         Check("match-on-screen", offScreen.Count == 0, offScreen.Count == 0
-            ? "1280x800, 1920x1080, 1000x700 at text 100/150% and scale 100/125/150%: nothing to scroll; HUD, Confirm, Cancel, hints, last command and combat log inside the window"
+            ? "1280x800, 1920x1080, 1000x700 at text 100/150% and scale 100/125/150%: nothing to scroll; HUD, Confirm, Cancel, the choices shown, last command, corner icons and the open combat log inside the window"
             : string.Join(" | ", offScreen));
+        Check("battlefield-fills-window", _fillProblems.Count == 0, _fillProblems.Count == 0 ? "at every size, text size and scale the battlefield is the window's whole width and height under the HUD" : string.Join(" | ", _fillProblems));
+        Check("no-side-column", _columnProblems.Count == 0, _columnProblems.Count == 0 ? "nothing beside the battlefield at any size: the unit card, last command and log are on it" : string.Join(" | ", _columnProblems));
         window.Size = original;
         await Frames(6);
     }
+
+    private readonly List<string> _fillProblems = [];
+    private readonly List<string> _columnProblems = [];
 
     // The panel's Confirm, Undo and Cancel show their whole words.
     private bool PanelButtonsFit(out string detail)
@@ -1625,7 +1756,7 @@ public partial class UiCheck : Node
             settled = await Until(() => Banner().Contains("Reconnecting", StringComparison.OrdinalIgnoreCase) ? null : Banner(), 60, "server-restart-rejoin");
         }
         Check("server-restart-clear", settled is not null && !Banner().StartsWith("Connection: Connected", StringComparison.Ordinal) && Hint() is null,
-            $"{Banner()} || actions: {Section("YOUR ACTIONS")}");
+            $"{Banner()} || actions: {Section("ALL CHOICES")}");
         await MatchResultChecks();
         Dump("server-restart");
     }
@@ -1646,6 +1777,7 @@ public partial class UiCheck : Node
             && hash is not null && events == lastSeq
             && (!lost || result.Contains("did not receive the server's abort message", StringComparison.Ordinal)),
             $"{result.Replace('\n', '|')} || last event [{lastSeq}]");
+        ResultOverlayCheck();
         await Shot($"{_role}-match-result");
         // The Windows clipboard can be opened by one program at a time ("Unable to open clipboard" otherwise), so the
         // two windows take turns: the host copies first, then the reopened client.
@@ -1663,6 +1795,22 @@ public partial class UiCheck : Node
         {
             Mark("final-hash-copied");
         }
+    }
+
+    // Stage N3: the result is a compact box at the top-centre of the battlefield, under the HUD, inside the battlefield,
+    // no wider than 620px at this scale, clear of the corner icons.
+    private void ResultOverlayCheck()
+    {
+        var main = (Main)_main;
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        var box = main.ResultBox.GetGlobalRect();
+        var field = board?.GetGlobalRect();
+        var icons = main.CornerIcons.GetGlobalRect();
+        var centred = field is { } f && Math.Abs(box.GetCenter().X - f.GetCenter().X) <= 2;
+        var top = field is { } g && Math.Abs(box.Position.Y - (g.Position.Y + board!.TopInset + 8)) <= 2;
+        Check("result-overlay", main.ResultBox.IsVisibleInTree() && field is { } inside && inside.Encloses(box) && centred && top
+            && box.Size.X <= 620 * main.CurrentScale + 1 && !box.Intersects(icons),
+            $"result box {box} in the battlefield {field}: centred {centred}, under the HUD {top}, width {box.Size.X:0} (at most {620 * main.CurrentScale:0}); corner icons {icons}");
     }
 
     // ---- single player (hot-seat) ----
@@ -2175,7 +2323,7 @@ public partial class UiCheck : Node
                 pauseSeen = true;
                 await Frames(3);
                 Check("pvp-opponent-drop-pauses", Banner().Contains("paused", StringComparison.OrdinalIgnoreCase) && Hint() is null,
-                    $"{Banner()} || actions: {Section("YOUR ACTIONS").Replace('\n', '|')}");
+                    $"{Banner()} || actions: {Section("ALL CHOICES").Replace('\n', '|')}");
                 Mark("saw-pause");
                 continue;
             }
@@ -2830,6 +2978,21 @@ public partial class UiCheck : Node
     // outcome as ResolutionLog has them, ▾ closes them, and nothing is sent.
     private async Task LogActionCheck()
     {
+        // Stage N3: in the combat log's drawer, opened for the check and closed after it.
+        ((Main)_main).OpenLog(true);
+        await Frames(4);
+        try
+        {
+            await LogActionSteps();
+        }
+        finally
+        {
+            ((Main)_main).OpenLog(false);
+        }
+    }
+
+    private async Task LogActionSteps()
+    {
         var main = (Main)_main;
         var rows = main.LogActionRows;
         var start = rows.LastOrDefault(r => main.LogAction(r)?.Outcome.Contains("injury", StringComparison.Ordinal) == true);
@@ -3237,8 +3400,8 @@ public partial class UiCheck : Node
         }
         _trayInsideChecked = true;
         var field = new Rect2(Vector2.Zero, board.Size);
-        Check("pvp-dice-tray-inside", field.Encloses(rect) && Math.Abs(rect.Position.X - DiceTray.Margin) < 1 && Math.Abs(rect.End.Y - (board.Size.Y - DiceTray.Margin)) < 1,
-            $"box {rect} in the battlefield {field}; dice {string.Join(" / ", board.Dice.Feed.Boxes.Single(b => b.Id == id).Rows.Select(r => $"{string.Join(",", r.Roll.Faces)} {r.Roll.Result}"))}");
+        Check("pvp-dice-tray-inside", field.Encloses(rect) && Math.Abs(rect.End.X - (board.Size.X - DiceTray.Margin - board.Dice.RightInset)) < 1 && Math.Abs(rect.End.Y - (board.Size.Y - DiceTray.Margin)) < 1,
+            $"box {rect} in the battlefield {field}, bottom-right (log drawer inset {board.Dice.RightInset}); dice {string.Join(" / ", board.Dice.Feed.Boxes.Single(b => b.Id == id).Rows.Select(r => $"{string.Join(",", r.Roll.Faces)} {r.Roll.Result}"))}");
     }
 
     private async Task ClickDiceBox(BoardView board, int id)
@@ -4079,9 +4242,11 @@ public partial class UiCheck : Node
         Check("pvp-labels-show-blood", _bloodLabelsChecked > 0 && _bloodLabelProblems.Count == 0,
             $"{_bloodLabelsChecked} labels checked, {_bloodLabelsWithMarkers} with markers; {string.Join(" / ", _bloodLabelProblems.Take(5))}");
         Check("pvp-nothing-to-send", Hint() is null && (board is null || board.Interaction.Available.Count == 0),
-            $"actions: {Section("YOUR ACTIONS").Replace('\n', '|')}");
+            $"actions: {Section("ALL CHOICES").Replace('\n', '|')}");
         await Shot($"{_role}-match-ended");
-        // The event list, scrolled into view, for the report.
+        // The event list, scrolled into view, for the report (stage N3: its drawer opened).
+        ((Main)_main).OpenLog(true);
+        await Frames(4);
         if (EventList() is { } eventList)
         {
             for (Node? up = eventList.GetParent(); up is not null; up = up.GetParent())
@@ -4201,6 +4366,13 @@ public partial class UiCheck : Node
         if (target is null)
         {
             return false;
+        }
+        // Stage N3: a choice in the closed Menu: the Menu is opened first with the keyboard (Tab to its button, Enter), which
+        // puts the focus on the Menu's first choice.
+        if (((Main)_main).InClosedMenu(target))
+        {
+            await Press(((Main)_main).MenuButton, Key.Enter, null);
+            await Frames(3);
         }
         // A button the screen rebuilt while Tab was pressed (the HUD's Leave is made again at each redraw) counts when the
         // focus is on its replacement: the same text in the same place in the tree (Windows runs at 099dbc8 and 50ac324:
@@ -4328,7 +4500,19 @@ public partial class UiCheck : Node
     private Button? ButtonStarting(string text) => Controls<Button>().FirstOrDefault(b => b.Text.StartsWith(text, StringComparison.Ordinal) && b.IsVisibleInTree() && !b.IsQueuedForDeletion());
 
     // A hint button: a choice the rules offer now (stage K2: short words, marked as a hint).
-    private Button? Hint() => Controls<Button>().FirstOrDefault(b => b.HasMeta("hint") && b.IsVisibleInTree() && !b.IsQueuedForDeletion());
+    // Stage N3: the choices are listed in the Menu (All choices), in the rules' order; the first is returned, as the
+    // decision card's button with the same words when that card shows it (no Menu to open), else the Menu's button
+    // (FocusByTab opens the Menu first).
+    private Button? Hint()
+    {
+        var main = (Main)_main;
+        var first = main.InMatch ? main.MenuChoices.FirstOrDefault(b => b.HasMeta("hint") && b.Visible) : null;
+        if (first is null)
+        {
+            return Controls<Button>().FirstOrDefault(b => b.HasMeta("hint") && b.IsVisibleInTree() && !b.IsQueuedForDeletion());
+        }
+        return Controls<Button>().FirstOrDefault(b => b.HasMeta("decision") && b.Text == first.Text && b.IsVisibleInTree() && !b.IsQueuedForDeletion()) ?? first;
+    }
 
     private LineEdit? Field(string startsWith, string? placeholder = null) => Controls<LineEdit>().FirstOrDefault(l => l.IsVisibleInTree() && l.GetParent() is not SpinBox
         && (placeholder is null ? l.Text.StartsWith(startsWith, StringComparison.Ordinal) : l.PlaceholderText == placeholder));
@@ -4351,10 +4535,16 @@ public partial class UiCheck : Node
 
     // The body of a section: the control after its title label.
     // The compact status line over the battlefield (QoL stage C).
-    private string Strip() => Controls<Godot.Label>().FirstOrDefault(l => l.Name == "TopHud" && l.IsVisibleInTree())?.Text ?? "";
+    // Stage N3: the HUD is split (left and top-centre); Main.HudText is the whole line.
+    private string Strip() => Controls<Godot.Label>().Any(l => l.Name == "TopHud" && l.IsVisibleInTree()) ? ((Main)_main).HudText : "";
 
     private string Section(string title)
     {
+        // Stage N3: the last command is one line over the battlefield (no heading).
+        if (title == "LAST COMMAND")
+        {
+            return ((Main)_main).LastCommandText;
+        }
         // Stage K2: the Match and Models sections are in the Menu, read whether it is open or folded (as Label does).
         bool Shown(CanvasItem l) => l.IsVisibleInTree() || ((Main)_main).InMatchMenu(l);
         var heading = Controls<Godot.Label>().FirstOrDefault(l => Shown(l) && l.Text.StartsWith(title, StringComparison.Ordinal) && l.GetParent() is VBoxContainer);
@@ -4367,7 +4557,8 @@ public partial class UiCheck : Node
     }
 
     // The combat log's rows in the narrator's full words (each row's tooltip), as the event list showed them before G4.
-    private string LogText() => ((Main)_main).CombatLog.IsVisibleInTree() ? ((Main)_main).LogFullText : "";
+    // Stage N3: the combat log's words, whether its drawer is open or closed (in a match).
+    private string LogText() => ((Main)_main).InMatch ? ((Main)_main).LogFullText : "";
 
     // The battlefield's camera and keys, in the Menu (read whether the Menu is open or folded).
     private string BoardInfo() => ((Main)_main).BoardInfoText;
@@ -4544,6 +4735,21 @@ public partial class UiCheck : Node
     // A click on a combat-log row rings exactly the models its event names. With them on screen the camera stays; with
     // them off screen it centres on them, keeping the zoom. Nothing is selected, no action starts and nothing is sent.
     private async Task LogClickChecks(BoardView board)
+    {
+        // Stage N3: in the combat log's drawer, opened for the check and closed after it.
+        ((Main)_main).OpenLog(true);
+        await Frames(4);
+        try
+        {
+            await LogClickSteps(board);
+        }
+        finally
+        {
+            ((Main)_main).OpenLog(false);
+        }
+    }
+
+    private async Task LogClickSteps(BoardView board)
     {
         var main = (Main)_main;
         var log = main.CombatLog.GetGlobalRect();
