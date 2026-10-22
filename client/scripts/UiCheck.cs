@@ -504,6 +504,7 @@ public partial class UiCheck : Node
         await Frames(2);
         var first = board.Selected;
         await UnitTabCheck(board);
+        await UnitCardCollapsedCheck(board);
         var info = PanelText;
         Check("board-select-key", first is { Yours: true }
             && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
@@ -729,7 +730,7 @@ public partial class UiCheck : Node
             && InPanel(board, "straight line ") && card.Skip(1).Where(l => move.Refusal is not { } r || l != $"{r.Text} ({r.RuleRef})").All(l => InPanel(board, l)) && ghost && still,
             $"card: {string.Join(" | ", card)}; panel: {PanelText.Replace('\n', '|')}; ghost at {board.GhostAt}; real model unmoved: {still}");
         await PanelDetailsChecks(board);
-        var confirmAtMove = ((Main)_main).PanelConfirm.GetGlobalRect();
+        var confirmAtMove = Opened.PanelConfirm.GetGlobalRect();
         await CloseShot(board, actor?.Id, "host-move-preview");
         await KeyPress(Key.Backspace);
         var removed = interaction.Waypoints.Count == 0;
@@ -802,7 +803,7 @@ public partial class UiCheck : Node
             && (InPanel(board, "Target in cover (") || InPanel(board, "Target not in cover"))
             && targetCard.Skip(1).Where(l => !l.StartsWith("target ", StringComparison.Ordinal) && (shot!.Refusal is not { } r || l != $"{r.Text} ({r.RuleRef})")).All(l => InPanel(board, l))),
             $"card: {string.Join(" | ", targetCard)}; panel: {PanelText.Replace('\n', '|')}");
-        var confirmAtShoot = ((Main)_main).PanelConfirm.GetGlobalRect();
+        var confirmAtShoot = Opened.PanelConfirm.GetGlobalRect();
         Check("panel-confirm-cancel-fixed", confirmAtShoot.IsEqualApprox(confirmAtMove) && ((Main)_main).PanelCancel.GetGlobalRect().Position.Y == confirmAtShoot.Position.Y,
             $"Confirm at {confirmAtMove} for Move, {confirmAtShoot} for Shoot; Cancel at {((Main)_main).PanelCancel.GetGlobalRect()}");
         await CloseShot(board, interaction.Target, "host-shoot-preview");
@@ -843,7 +844,7 @@ public partial class UiCheck : Node
         Check("board-charge-preview", chargeShown, $"{charge?.Headline}; {string.Join(" ", charge?.Facts ?? [])}; labels: {string.Join(" / ", board.OverlayTexts)}");
         await Shot("host-charge-preview");
         // The panel's Cancel, clicked with the mouse, stops choosing and sends nothing (as Esc does).
-        await ClickButton(((Main)_main).PanelCancel);
+        await ClickButton(Opened.PanelCancel);
         Check("board-previews-send-nothing", interaction.Mode == InteractionMode.None && board.OverlayTexts.Count == 0 && Section("LAST COMMAND") == lastCommand && Hint() is not null,
             $"mode {interaction.Mode}; last command unchanged: {Section("LAST COMMAND") == lastCommand}; hint still offered: {Hint()?.Text}");
         Dump("previews");
@@ -892,6 +893,8 @@ public partial class UiCheck : Node
     {
         var interaction = board.Interaction;
         var lastCommand = Section("LAST COMMAND");
+        await UnitCardClosedBarButtonsCheck(board);
+        _ = Opened;
         await Frames(3);
         // Stage K6: Shoot, Charge and Fight are one Combat button (BarOffered).
         var offered = interaction.BarOffered.Select(Interaction.Words).ToList();
@@ -1092,6 +1095,9 @@ public partial class UiCheck : Node
             var end0 = preview.Path[^1].At;
             var standing0 = board.Scene?.Find(preview.Model)?.Standing ?? 0;
             var checkFollow = _role == "pvp-a" && !_followChecked;
+            int? closedCardSent = null;
+            var closedCardBar = "";
+            var closedCardOnBar = false;
             var endOffScreen = false;
             if (checkFollow)
             {
@@ -1106,7 +1112,7 @@ public partial class UiCheck : Node
             if (_role == "host")
             {
                 // The panel's Confirm, clicked with the mouse, sends the previewed move (as Space does).
-                var confirm = ((Main)_main).PanelConfirm;
+                var confirm = Opened.PanelConfirm;
                 Check("panel-confirm-shows-action", !confirm.Disabled && confirm.Text == "Move here", $"Confirm \"{confirm.Text}\", disabled: {confirm.Disabled}");
                 // QoL H5: confirming again at once (Space, then Confirm again) while the move waits for its answer sends
                 // nothing more.
@@ -1118,6 +1124,20 @@ public partial class UiCheck : Node
                 await Answered(before);
                 Check("board-no-double-send", interaction.SentCount - sent == once,
                     $"Confirm, then Space and Confirm again while waiting: {interaction.SentCount - sent} command(s) sent (one confirmation sends {once})");
+            }
+            else if (_role == "pvp-a" && !_closedCardSendTried)
+            {
+                // Proposal P1 (unit-card-closed-send): with the unit card closed, the Confirm on the action bar beside the
+                // unit sends the previewed move, once.
+                _closedCardSendTried = true;
+                var main = (Main)_main;
+                main.SetUnitCard(false);
+                await Frames(3);
+                var label = main.PanelView?.ConfirmLabel ?? "";
+                closedCardSent = interaction.SentCount;
+                closedCardBar = $"bar: {string.Join(" / ", board.BarLabels)}; card shows {string.Join(",", main.UnitCardShownParts)}";
+                closedCardOnBar = label.Length > 0 && board.BarButtonAt(label) is not null && main.UnitCardShownParts.SequenceEqual(["tab"]);
+                board.PressBar(label);
             }
             else
             {
@@ -1149,6 +1169,11 @@ public partial class UiCheck : Node
             }
             var pass = answer.StartsWith("DONE:", StringComparison.Ordinal) && answer.Contains(Interaction.Describe(preview), StringComparison.Ordinal) && line is not null && shape is not null && Near(new TablePoint(shape.X, shape.Y), end.X, end.Y)
                 && (interaction.Notice ?? "").StartsWith("DONE: Move ", StringComparison.Ordinal) && interaction.Mode == InteractionMode.None;
+            if (closedCardSent is { } sentBefore)
+            {
+                Check("unit-card-closed-send", closedCardOnBar && pass && interaction.SentCount - sentBefore == 1,
+                    $"{closedCardBar}; Confirm on the bar: {closedCardOnBar}; {interaction.SentCount - sentBefore} command(s) sent; move done: {pass} ({answer})");
+            }
             return (pass, $"{preview.Headline}; last command: {answer}; event: {line}; now {shape?.Text}; notice: {interaction.Notice}");
         }
         return (false, "no direction gave a legal Move preview within 2\"");
@@ -1507,18 +1532,97 @@ public partial class UiCheck : Node
 
     private bool? _unitCardClosedAtFirstRead;
 
+    // Proposal P1 (unit-card-collapsed): closed, the unit card is only its tab: no box, no words, no Details, no buttons,
+    // no keys line; the tab is one button high, on the battlefield, and the card opens again from it.
+    private async Task UnitCardCollapsedCheck(BoardView board)
+    {
+        var main = (Main)_main;
+        main.SetUnitCard(true);
+        await Frames(3);
+        var openRect = main.UnitCardRect;
+        main.SetUnitCard(false);
+        await Frames(3);
+        var problems = CollapsedProblems(main, board);
+        var closedRect = main.UnitCardRect;
+        await ClickButton(main.UnitTab);
+        await Frames(3);
+        if (!main.UnitCardOpen || !main.UnitCardBoxShown || !main.UnitCardShownParts.Contains("words") || !main.UnitCardShownParts.Contains("buttons"))
+        {
+            problems.Add($"reopened {main.UnitCardOpen}, box {main.UnitCardBoxShown}, parts {string.Join(",", main.UnitCardShownParts)}");
+        }
+        Check("unit-card-collapsed", problems.Count == 0, problems.Count == 0
+            ? $"closed: only the tab \"{main.UnitTab.Text}\" at {closedRect} (open card {openRect}); no box, words, buttons or keys; it opens again"
+            : string.Join("; ", problems));
+    }
+
+    // What is wrong with the closed card now (empty when it is only its tab, one button high, inside the battlefield).
+    private static List<string> CollapsedProblems(Main main, BoardView board)
+    {
+        var problems = new List<string>();
+        var tab = main.UnitTab.GetGlobalRect();
+        var card = main.UnitCardRect;
+        if (main.UnitCardOpen || main.UnitCardBoxShown)
+        {
+            problems.Add($"open {main.UnitCardOpen}, box drawn {main.UnitCardBoxShown}");
+        }
+        if (!main.UnitCardShownParts.SequenceEqual(["tab"]))
+        {
+            problems.Add($"shown: {string.Join(",", main.UnitCardShownParts)}");
+        }
+        if (card.Size.Y > tab.Size.Y + 1 || card.Size.X > tab.Size.X + 1 || tab.Size.Y < 4)
+        {
+            problems.Add($"card {card} larger than its tab {tab}");
+        }
+        if (!board.GetGlobalRect().Grow(1).Encloses(tab) || tab.End.X > main.GetViewportRect().Size.X + 1 || tab.End.Y > main.GetViewportRect().Size.Y + 1)
+        {
+            problems.Add($"tab {tab} not inside the battlefield {board.GetGlobalRect()}");
+        }
+        return problems;
+    }
+
+    // Proposal P1 (unit-card-closed-bar-buttons): with the card closed, choosing an action puts Confirm, Undo and Cancel
+    // on the action bar beside the unit; the bar's Cancel stops choosing and sends nothing.
+    private async Task UnitCardClosedBarButtonsCheck(BoardView board)
+    {
+        var main = (Main)_main;
+        var interaction = board.Interaction;
+        var lastCommand = Section("LAST COMMAND");
+        var sent = interaction.SentCount;
+        main.SetUnitCard(false);
+        await Frames(3);
+        var idle = board.BarLabels.ToList();
+        var move = Interaction.Words(InteractionMode.Move);
+        board.PressBar(move);
+        await Frames(3);
+        var choosing = board.BarLabels.ToList();
+        var confirmLabel = main.PanelView?.ConfirmLabel;
+        var onBar = interaction.Mode == InteractionMode.Move && confirmLabel is not null && choosing.Contains(confirmLabel) && choosing.Contains("Cancel")
+            && !idle.Contains("Cancel") && main.UnitCardShownParts.SequenceEqual(["tab"]) && board.BarButtonAt("Cancel") is not null;
+        board.PressBar("Cancel");
+        await Frames(3);
+        var cancelled = interaction.Mode == InteractionMode.None && interaction.SentCount == sent && Section("LAST COMMAND") == lastCommand;
+        Check("unit-card-closed-bar-buttons", onBar && cancelled,
+            $"bar before: {string.Join(" / ", idle)}; choosing a move: {string.Join(" / ", choosing)} (Confirm \"{confirmLabel}\"); card shows {string.Join(",", main.UnitCardShownParts)}; "
+            + $"the bar's Cancel stopped choosing and sent nothing: {cancelled}");
+    }
+
     // Stage U4: the checks that read the unit card read it opened, as a player would open it (the card's tab or U).
-    private string PanelText
+    private string PanelText => Opened.PanelText;
+
+    // Proposal P1: the checks that use the card's own Confirm, Undo and Cancel open it first (closed, it is only its tab
+    // and those buttons are on the action bar; unit-card-collapsed and unit-card-closed-bar-buttons check that).
+    private Main Opened
     {
         get
         {
-            if (!((Main)_main).UnitCardOpen)
+            var main = (Main)_main;
+            if (!main.UnitCardOpen)
             {
                 // The first time a check opens it, the card was closed until then (unit-tab reports it).
-                _unitCardClosedAtFirstRead ??= !((Main)_main).UnitCardEverOpened;
-                ((Main)_main).SetUnitCard(true);
+                _unitCardClosedAtFirstRead ??= !main.UnitCardEverOpened;
+                main.SetUnitCard(true);
             }
-            return ((Main)_main).PanelText;
+            return main;
         }
     }
 
@@ -1591,7 +1695,9 @@ public partial class UiCheck : Node
             .Select(Describe).ToList();
         Check("text-150-fits-width", overflow.Count == 0, overflow.Count == 0 ? $"all text within {width}px" : string.Join("; ", overflow));
         await Shot("host-text-150");
-        Check("layout-text-150", PanelButtonsFit(out var buttons) && Strip().Length > 0 && ((Main)_main).PanelConfirm.IsVisibleInTree(), buttons);
+        _ = Opened;
+        await Frames(3);
+        Check("layout-text-150", PanelButtonsFit(out var buttons) && Strip().Length > 0 && Opened.PanelConfirm.IsVisibleInTree(), buttons);
         await Press(Controls<CheckButton>().FirstOrDefault(c => c.Text == "High contrast"), Key.Space, "contrast-space");
         var background = Controls<ColorRect>().FirstOrDefault()?.Color;
         Check("high-contrast-applied", background == Colors.Black && _main.Theme?.GetColor("font_color", "Label") == Colors.White,
@@ -1660,7 +1766,7 @@ public partial class UiCheck : Node
     // first screen, their words fit, and nothing runs off the right edge.
     private async Task WindowSizeChecks()
     {
-        var main = (Main)_main;
+        var main = Opened;
         // Through the window itself: without a window manager (xvfb-run) DisplayServer.WindowSetSize does not resize the view.
         var window = _main.GetWindow();
         var original = window.Size;
@@ -1739,6 +1845,21 @@ public partial class UiCheck : Node
             {
                 offScreen.Add($"{where}: the match needs {main.MatchHeight:0}px of {view.Size.Y:0}");
             }
+            // Proposal P1: closed, the card is only its tab at this size, text size and scale; opened again, it is back.
+            var sweepBoard = Controls<BoardView>().First(b => b.IsVisibleInTree());
+            main.SetUnitCard(false);
+            await Frames(3);
+            foreach (var problem in CollapsedProblems(main, sweepBoard))
+            {
+                _collapseProblems.Add($"{where}: {problem}");
+            }
+            main.SetUnitCard(true);
+            await Frames(3);
+            if (!main.UnitCardBoxShown || !sweepBoard.GetGlobalRect().Grow(1).Encloses(main.UnitCardRect))
+            {
+                _collapseProblems.Add($"{where}: reopened card {main.UnitCardRect} (box {main.UnitCardBoxShown})");
+            }
+            _collapseSamples++;
             var hud = Controls<Godot.Label>().FirstOrDefault(l => l.Name == "TopHud" && l.IsVisibleInTree());
             // Stage N3: the combat log is a drawer; it is opened here to see it fit, and closed again.
             main.OpenLog(true);
@@ -1796,6 +1917,9 @@ public partial class UiCheck : Node
         Check("menus-never-cover", _menuSamples > 0 && _menuProblems.Count == 0, _menuProblems.Count == 0
             ? $"{_menuSamples} sizes, text sizes and scales: the Menu, opened with its icon while the log drawer was open, closed the drawer (one open at a time), is opaque with high-contrast text, inside the window, and covers none of: {string.Join(", ", _menuCovered.Order(StringComparer.Ordinal))}"
             : string.Join(" | ", _menuProblems));
+        Check("unit-card-collapsed-sizes", _collapseSamples > 0 && _collapseProblems.Count == 0, _collapseProblems.Count == 0
+            ? $"{_collapseSamples} window sizes, text sizes and scales: closed, the unit card is only its tab, inside the battlefield; opened, the card is back inside it"
+            : string.Join(" | ", _collapseProblems));
         Check("no-side-column", _columnProblems.Count == 0, _columnProblems.Count == 0 ? "nothing beside the battlefield at any size: the unit card, last command and log are on it" : string.Join(" | ", _columnProblems));
         window.Size = original;
         await Frames(6);
@@ -1851,6 +1975,8 @@ public partial class UiCheck : Node
         return (Math.Max(l1, l2) + 0.05) / (Math.Min(l1, l2) + 0.05);
     }
     private readonly List<string> _columnProblems = [];
+    private readonly List<string> _collapseProblems = [];
+    private int _collapseSamples;
 
     // The panel's Confirm, Undo and Cancel show their whole words.
     private bool PanelButtonsFit(out string detail)
@@ -3102,6 +3228,7 @@ public partial class UiCheck : Node
     private bool _diceChecked;
     private bool _glideChecked;
     private bool _followChecked;
+    private bool _closedCardSendTried;
 
     private static bool OnBoardScreen(BoardView board, double x, double y, double height) =>
         board.ScreenOf(x, y, height) is { } p && p.X >= 0 && p.Y >= 0 && p.X <= board.Size.X && p.Y <= board.Size.Y && Clickable(board, p);

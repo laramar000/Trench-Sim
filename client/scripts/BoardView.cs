@@ -1524,12 +1524,32 @@ public partial class BoardView : SubViewportContainer
         UpdateBar();
     }
 
+    private bool _commandsOnBar;
+
+    // Proposal P1: Confirm, Undo and Cancel (and "waiting") are on the bar while the unit card is closed.
+    public bool CommandButtonsOnBar
+    {
+        get => _commandsOnBar;
+        set
+        {
+            if (_commandsOnBar != value)
+            {
+                _commandsOnBar = value;
+                UpdateBar();
+            }
+        }
+    }
+
     // Rebuilds the bar's buttons when what it offers changed, and keeps it next to its model without covering any model.
     private void UpdateBar()
     {
         var bar = _scene is null ? ActionBar.Empty : Interaction.Bar(_selected);
         // Proposal G: the bar next to the unit carries actions only; Confirm, Undo, Cancel and "waiting" are in the panel.
-        bar = bar with { Items = [.. bar.Items.Where(i => i.Kind is not (BarKind.Confirm or BarKind.Undo or BarKind.Cancel or BarKind.Waiting))] };
+        // Proposal P1: while the unit card is closed (only its tab shows), they are on the bar instead.
+        if (!_commandsOnBar)
+        {
+            bar = bar with { Items = [.. bar.Items.Where(i => i.Kind is not (BarKind.Confirm or BarKind.Undo or BarKind.Cancel or BarKind.Waiting))] };
+        }
         if (_barDismissed && Interaction.Mode == InteractionMode.None && Interaction.Pending is null && !bar.Items.Any(i => i.Kind == BarKind.Decide))
         {
             bar = ActionBar.Empty;

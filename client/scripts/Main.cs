@@ -1377,10 +1377,25 @@ public partial class Main : Control
         }
         var inset = _board.TopInset;
         var cardWidth = Math.Min(380 * _scale, Math.Max(220, b.X * 0.42f));
-        var natural = _pColumn.GetCombinedMinimumSize().Y + _pBody.GetCombinedMinimumSize().Y + 24;
+        var openWidth = cardWidth;
         var room = Math.Max(120, b.Y - inset - 16);
-        var cardHeight = Math.Min(natural, Math.Max(_pColumn.GetCombinedMinimumSize().Y + 60 * _scale, room * 0.58f));
-        cardHeight = Math.Min(cardHeight, room);
+        float cardHeight;
+        if (_unitOpen)
+        {
+            var natural = _pColumn.GetCombinedMinimumSize().Y + _pBody.GetCombinedMinimumSize().Y + 24;
+            cardHeight = Math.Min(natural, Math.Max(_pColumn.GetCombinedMinimumSize().Y + 60 * _scale, room * 0.58f));
+            cardHeight = Math.Min(cardHeight, room);
+        }
+        else
+        {
+            // Proposal P1: closed, the card is just its tab, as wide as its words (at most most of the battlefield; the
+            // rest is clipped and on its tooltip) and one button high.
+            var font = _pTab.GetThemeFont("font");
+            var words = font.GetStringSize(_pTab.Text, HorizontalAlignment.Left, -1, _pTab.GetThemeFontSize("font_size")).X;
+            var look = _pTab.GetThemeStylebox("normal");
+            cardWidth = Math.Min(Math.Max(120, b.X * 0.6f), words + look.GetMinimumSize().X + 6);
+            cardHeight = _panel.GetCombinedMinimumSize().Y;
+        }
         Put(_panel, new Rect2(8, b.Y - cardHeight - 8, cardWidth, cardHeight));
         var drawerWidth = Math.Min(440 * _scale, Math.Max(240, b.X * 0.4f));
         if (_logDrawer.Visible)
@@ -1389,9 +1404,9 @@ public partial class Main : Control
         }
         _board.Dice.RightInset = _logDrawer.Visible ? drawerWidth + 8 : 0;
         // The last command: just over the card, as wide as it; it fades a few seconds after it changes.
-        _feedback.Size = new Vector2(cardWidth, 0);
+        _feedback.Size = new Vector2(openWidth, 0);
         _feedback.ResetSize();
-        _feedback.Size = new Vector2(cardWidth, _feedback.GetCombinedMinimumSize().Y);
+        _feedback.Size = new Vector2(openWidth, _feedback.GetCombinedMinimumSize().Y);
         _feedback.Position = new Vector2(8, Math.Max(inset + 4, b.Y - cardHeight - 12 - _feedback.Size.Y));
         var age = Time.GetTicksMsec() / 1000.0 - _feedbackSince;
         _feedback.Modulate = new Color(1, 1, 1, (float)Math.Clamp(1 - (age - FeedbackSeconds) / 1.5, 0.0, 1.0));
@@ -1753,16 +1768,23 @@ public partial class Main : Control
     private Button _pTab = null!;
     private bool _unitOpen;
 
+    // Proposal P1: the card's own look, and none at all while it is closed (only its tab shows then).
+    private StyleBoxFlat _panelLook = null!;
+    private readonly StyleBoxEmpty _panelNone = new();
+    private ScrollContainer _pScroll = null!;
+    private Control _pButtons = null!;
+
     private Control BuildPanel()
     {
         // Stage N3: the unit card, over the battlefield's bottom-left corner.
         _panel = new PanelContainer { Name = "UnitPanel", MouseFilter = Control.MouseFilterEnum.Stop };
-        _panel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
+        _panelLook = new StyleBoxFlat
         {
             BgColor = new Color(0.12f, 0.12f, 0.15f, 0.93f),
             ContentMarginLeft = 12, ContentMarginRight = 12, ContentMarginTop = 10, ContentMarginBottom = 10,
             CornerRadiusTopLeft = 4, CornerRadiusTopRight = 4, CornerRadiusBottomLeft = 4, CornerRadiusBottomRight = 4,
-        });
+        };
+        _panel.AddThemeStyleboxOverride("panel", _panelLook);
         var column = new VBoxContainer();
         column.AddThemeConstantOverride("separation", 8);
         _panel.AddChild(column);
@@ -1774,11 +1796,12 @@ public partial class Main : Control
         _pTab.Name = "UnitTab";
         _pTab.Alignment = HorizontalAlignment.Left;
         _pTab.ClipText = true;
-        _pTab.TooltipText = "The unit's state, Blood Markers, profile and Details (key U).";
+        _pTab.TooltipText = UnitTabTip;
         column.AddChild(_pTab);
         // The words scroll on their own; Confirm and Cancel stay at the bottom, always in the same place.
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, VerticalScrollMode = ScrollContainer.ScrollMode.ShowAlways, SizeFlagsVertical = SizeFlags.ExpandFill };
         column.AddChild(scroll);
+        _pScroll = scroll;
         var body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         body.AddThemeConstantOverride("separation", 4);
         scroll.AddChild(body);
@@ -1824,7 +1847,8 @@ public partial class Main : Control
         _pConfirm.SizeFlagsStretchRatio = 2;
         // Details ▸ stays in view above the buttons however long the panel's words are; what it opens scrolls with them.
         column.AddChild(_pDetailsButton);
-        column.AddChild(Row(_pConfirm, _pUndo, _pCancel));
+        _pButtons = Row(_pConfirm, _pUndo, _pCancel);
+        column.AddChild(_pButtons);
         // QoL H5: the same keys for every action, under its buttons.
         _pKeys = Text(UnitPanelView.KeysLine);
         _pKeys.Name = "PanelKeys";
@@ -1843,7 +1867,23 @@ public partial class Main : Control
             _board.SelectedObjective, TopHud.LastScoring(_lastScreen.Log));
         _panelView = view;
         var scale = _scale;
-        _pTab.Text = $"{(_unitOpen ? "▾" : "▸")} {view.Tab}";
+        // Proposal P1: closed, the card is only its tab: no box, no words, no buttons. Confirm, Undo and Cancel are then
+        // on the action bar beside the unit (the bar's own items), and a refusal of the action being chosen is on the tab.
+        var closedRefusal = !_unitOpen && view.Refusal is { } refused ? $" · {refused}" : "";
+        _pTab.Text = $"{(_unitOpen ? "▾" : "▸")} {view.Tab}{closedRefusal}";
+        _pTab.TooltipText = closedRefusal.Length > 0 ? $"{view.Refusal}\n{UnitTabTip}" : UnitTabTip;
+        if (closedRefusal.Length > 0)
+        {
+            _pTab.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : new Color(1f, 0.55f, 0.45f));
+        }
+        else
+        {
+            _pTab.RemoveThemeColorOverride("font_color");
+        }
+        _pScroll.Visible = _unitOpen;
+        _pButtons.Visible = _unitOpen;
+        _panel.AddThemeStyleboxOverride("panel", _unitOpen ? _panelLook : _panelNone);
+        _board.CommandButtonsOnBar = !_unitOpen;
         _pTitle.Text = view.Title;
         _pTitle.AddThemeFontSizeOverride("font_size", (int)(22 * scale));
         _pTitle.Visible = _unitOpen;
@@ -1874,8 +1914,8 @@ public partial class Main : Control
         _pConfirm.Disabled = !view.CanConfirm;
         _pCancel.Disabled = !view.CanCancel;
         _pUndo.Disabled = !view.CanUndo;
-        _pKeys.Visible = view.CanCancel;
-        ((StyleBoxFlat)_panel.GetThemeStylebox("panel")).BgColor = _highContrast ? new Color(0.02f, 0.02f, 0.02f, 0.97f) : new Color(0.12f, 0.12f, 0.15f, 0.93f);
+        _pKeys.Visible = _unitOpen && view.CanCancel;
+        _panelLook.BgColor = _highContrast ? new Color(0.02f, 0.02f, 0.02f, 0.97f) : new Color(0.12f, 0.12f, 0.15f, 0.93f);
     }
 
     // The panel as shown (for the UI check): every visible line, and its buttons.
@@ -1888,6 +1928,15 @@ public partial class Main : Control
 
     // Stage U4: whether the unit card is open (closed at first: only its tab).
     public bool UnitCardOpen => _unitOpen;
+
+    public const string UnitTabTip = "The unit's state, Blood Markers, profile and Details (key U).";
+
+    // Proposal P1: whether the card's box is drawn (only while it is open), and what of it is shown now.
+    public bool UnitCardBoxShown => _panel.GetThemeStylebox("panel") == _panelLook;
+
+    public IReadOnlyList<string> UnitCardShownParts =>
+        [.. new (string Name, Control Control)[] { ("tab", _pTab), ("words", _pScroll), ("details", _pDetailsButton), ("buttons", _pButtons), ("keys", _pKeys) }
+            .Where(p => p.Control.IsVisibleInTree()).Select(p => p.Name)];
 
     public Button UnitTab => _pTab;
 
