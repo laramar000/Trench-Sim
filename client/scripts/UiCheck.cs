@@ -2523,6 +2523,9 @@ public partial class UiCheck : Node
             _autoEndChecked = true;
             var actions = interaction.PreviewState.Actions;
             var sent = interaction.SentCount;
+            // Counted from here: an earlier try's activation may have ended by itself already (run 258: a1's ended while
+            // the driver still waited after its shot).
+            var autoBefore = interaction.AutoEndsSent;
             var before = Section("LAST COMMAND");
             var noted = await Until(() => board.AutoEndText, 3, "auto-end-note");
             var name = board.Scene?.Find(me)?.Name ?? me.Value;
@@ -2530,8 +2533,8 @@ public partial class UiCheck : Node
             var answer = await Until(() => Section("LAST COMMAND") is var now && now != before && !now.StartsWith("SENT:", StringComparison.Ordinal) ? now : null, 10, "auto-end-answer") ?? Section("LAST COMMAND");
             await Frames(3);
             Check("activation-ends-itself", noted is not null && line is not null && answer.StartsWith("DONE:", StringComparison.Ordinal)
-                && interaction.SentCount == sent + 1 && interaction.AutoEndsSent == 1 && interaction.PreviewState.ActiveModel != me,
-                $"{name} after {actions}: note \"{noted}\"; no key pressed; sent {sent} -> {interaction.SentCount} ({interaction.AutoEndsSent} by itself); last command: {answer}; event: {line}");
+                && interaction.SentCount == sent + 1 && interaction.AutoEndsSent == autoBefore + 1 && interaction.PreviewState.ActiveModel != me,
+                $"{name} after {actions}: note \"{noted}\"; no key pressed; sent {sent} -> {interaction.SentCount} ({interaction.AutoEndsSent - autoBefore} by itself, {interaction.AutoEndsSent} in the match); last command: {answer}; event: {line}");
             return true;
         }
         finally
