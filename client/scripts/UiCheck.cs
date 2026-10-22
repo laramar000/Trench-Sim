@@ -1927,6 +1927,35 @@ public partial class UiCheck : Node
         }
     }
 
+    // Battlefield UI 3, stage U6 (result-details): at the end the top of the result box says who won as the server's
+    // outcome has it ("YOU WON", "YOU LOST" or "DRAW"; "SEAT A WINS" in hot-seat), the final scores by seat letter and
+    // the reason; Details is closed at first, and a click on it shows the result line, the final hash with Copy final
+    // hash, the event count and the summary.
+    private async Task ResultDetailsCheck()
+    {
+        var main = (Main)_main;
+        await Until(() => main.ResultView is not null && main.ResultBox.IsVisibleInTree() ? "ok" : null, 30, "result-view");
+        await Frames(3);
+        var closedAtFirst = !main.ResultDetailsOpen && !Controls<Godot.Label>().Any(l => l.IsVisibleInTree() && l.Text.StartsWith("Final state hash: ", StringComparison.Ordinal));
+        var view = main.ResultView;
+        var state = main.ServerState;
+        var hotSeat = _role.StartsWith("hotseat", StringComparison.Ordinal);
+        var seat = _role is "pvp-a" or "gvt-a" or "tm-a" ? Rules.Core.State.Seat.One : Rules.Core.State.Seat.Two;
+        var expected = state is { Outcome: { } outcome }
+            ? outcome.Winner is not { } w ? "DRAW" : hotSeat ? $"SEAT {Words.SeatLetter(w)} WINS" : w == seat ? "YOU WON" : "YOU LOST"
+            : null;
+        var shown = main.ResultHeadlineText;
+        var top = view is not null && state is not null && view.Headline == expected && shown.Contains(view.Headline, StringComparison.Ordinal)
+            && shown.Contains($"A {state.One.VictoryPoints} – B {state.Two.VictoryPoints}", StringComparison.Ordinal)
+            && state.Outcome is { } o && shown.Contains(Words.Reason(o.Reason), StringComparison.OrdinalIgnoreCase);
+        await ClickButton(main.ResultDetailsButton);
+        await Frames(3);
+        var opened = main.ResultDetailsOpen && Label("Final state hash: ") is not null && ButtonNamed("Copy final hash") is { } copy && copy.IsVisibleInTree()
+            && main.SummaryText.Length > 0;
+        Check("result-details", closedAtFirst && top && opened,
+            $"closed at first: {closedAtFirst}; top: {shown.Replace('\n', '|')} (wanted {expected}); Details shows the hash, Copy final hash and the summary: {opened}");
+    }
+
     // Stage N3: the result is a compact box at the top-centre of the battlefield, under the HUD, inside the battlefield,
     // no wider than 620px at this scale, clear of the corner icons.
     private async Task ResultOverlayCheck()
@@ -4572,6 +4601,7 @@ public partial class UiCheck : Node
     // screen, and nothing left to send. The runner compares the two windows with each other and with the signed record.
     private async Task PvpEnd()
     {
+        await ResultDetailsCheck();
         var result = await Until(() => Section("RESULT OF THE MATCH") is { Length: > 0 } r ? r : null, 30, "pvp-result") ?? "";
         string? Value(string prefix) => result.Split('\n').FirstOrDefault(l => l.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..];
         var hash = Value("Final state hash: ") is { Length: 64 } h && h.All(char.IsAsciiHexDigitLower) ? h : null;
@@ -5004,6 +5034,11 @@ public partial class UiCheck : Node
 
     private string Section(string title)
     {
+        // Stage U6: the result's technical lines are under Details; the checks that read them open it first.
+        if (title == "RESULT OF THE MATCH" && ((Main)_main).ResultBox.IsVisibleInTree() && !((Main)_main).ResultDetailsOpen)
+        {
+            ((Main)_main).SetResultDetails(true);
+        }
         // Stage N3: the last command is one line over the battlefield (no heading).
         if (title == "LAST COMMAND")
         {

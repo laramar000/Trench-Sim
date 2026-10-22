@@ -57,6 +57,10 @@ public partial class Main : Control
     private PanelContainer _resultBox = null!;
     private ScrollContainer _resultScroll = null!;
     private Label _summary = null!;
+    private RichTextLabel _resultTop = null!;
+    private Button _resultDetailsButton = null!;
+    private VBoxContainer _resultDetails = null!;
+    private bool _resultDetailsOpen;
     private Button _rematch = null!;
     private Label _rematchNote = null!;
     private Label _end = null!;
@@ -443,7 +447,7 @@ public partial class Main : Control
     }
 
     // For the UI check.
-    public string SummaryText => _summary.Visible ? _summary.Text : "";
+    public string SummaryText => _summary.IsVisibleInTree() ? _summary.Text : "";
 
     public bool RematchShown => _rematch.IsVisibleInTree();
 
@@ -762,24 +766,40 @@ public partial class Main : Control
         hudRight.AddChild(_bannerButtons);
         // Once the match has ended or been aborted: the result, the final state hash and the event count (M7.5). The
         // hash can be compared with the one `trench-cli verify` prints for the server's signed record.
-        _end = Text("");
+        // Battlefield UI 3, stage U6: on top, large and coloured, who won, the final scores and why (MatchResultView);
+        // under it Rematch and a small Details tab, closed at first, holding the result line, the final hash with Copy
+        // final hash, the event count, the summary and the event list.
         var endBox = new VBoxContainer();
-        endBox.AddChild(_end);
-        // QoL I4: the match in numbers (from the server's events and final state), and a rematch.
-        _summary = Text("");
-        _summary.Name = "MatchSummary";
-        endBox.AddChild(_summary);
+        endBox.AddThemeConstantOverride("separation", 6);
+        _resultTop = new RichTextLabel
+        {
+            Name = "ResultHeadline", BbcodeEnabled = true, FitContent = true, ScrollActive = false,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        endBox.AddChild(_resultTop);
         _rematch = Button("Rematch (same scenario, new code)", Rematch);
         _rematch.Name = "Rematch";
         _rematchNote = Text("");
-        endBox.AddChild(Row(Button("Copy final hash", () =>
+        _resultDetailsButton = Button("Details ▸", () => SetResultDetails(!_resultDetailsOpen));
+        _resultDetailsButton.Name = "ResultDetails";
+        _resultDetailsButton.TooltipText = "The event list, rolls passed and failed, the event count and the final state hash (Copy final hash).";
+        endBox.AddChild(Row(_rematch, _resultDetailsButton));
+        endBox.AddChild(_rematchNote);
+        _resultDetails = new VBoxContainer { Name = "ResultDetailsBox", Visible = false };
+        _end = Text("");
+        _resultDetails.AddChild(_end);
+        // QoL I4: the match in numbers (from the server's events and final state).
+        _summary = Text("");
+        _summary.Name = "MatchSummary";
+        _resultDetails.AddChild(_summary);
+        _resultDetails.AddChild(Row(Button("Copy final hash", () =>
         {
             if (_finalHash is { } hash)
             {
                 DisplayServer.ClipboardSet(hash);
             }
-        }), _rematch));
-        endBox.AddChild(_rematchNote);
+        }), Button("Event list", () => SetLog(true))));
+        endBox.AddChild(_resultDetails);
         _endSection = Section("Result of the match", endBox);
         _endSection.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         // Stage K2: the result is a box over the battlefield, under the HUD strip (not a section that pushes the
@@ -1017,6 +1037,14 @@ public partial class Main : Control
         _code2.Text = s.Code is null ? "" : $"Match code {s.Code}. You are {(s.Seat is { } seat ? $"{Words.Seat(seat)} [{Words.SeatLetter(seat)}]" : "not seated")}." +
             (_hotSeat is null && (view.Phase == Words.Phase(Rules.Core.State.Phase.PreGame) || view.Models.Count == 0) ? " Give the code to your opponent." : "");
         _resultBox.Visible = s.End is not null;
+        if (s.End is null)
+        {
+            _resultDetailsOpen = false;
+        }
+        _resultView = s.End is null ? null : MatchResultView.Of(s.State, s.Seat, _hotSeat is not null, s.End);
+        _resultTop.Text = _resultView is { } rv ? ResultBbcode(rv) : "";
+        _resultDetails.Visible = _resultDetailsOpen;
+        _resultDetailsButton.Text = _resultDetailsOpen ? "Details ▾" : "Details ▸";
         _finalHash = s.End?.Hash;
         _end.Text = s.End is { } end ? string.Join("\n", end.Lines()) : "";
         _summary.Text = s.End?.Summary is { } summary ? string.Join("\n", summary.Lines()) : "";
@@ -1646,6 +1674,54 @@ public partial class Main : Control
     }
 
     public Control ResultBox => _resultBox;
+
+    private MatchResultView? _resultView;
+
+    public MatchResultView? ResultView => _resultView;
+
+    public bool ResultDetailsOpen => _resultDetailsOpen;
+
+    public Button ResultDetailsButton => _resultDetailsButton;
+
+    public string ResultHeadlineText => _resultTop.IsVisibleInTree() ? _resultTop.GetParsedText() : "";
+
+    public void SetResultDetails(bool open)
+    {
+        _resultDetailsOpen = open;
+        _resultDetails.Visible = open;
+        _resultDetailsButton.Text = open ? "Details ▾" : "Details ▸";
+        PlaceResult();
+    }
+
+    // Stage U6: the headline in its colour (green won, red lost, gold for a seat's win in hot-seat, plain for a draw or
+    // an abort), the scores with each letter in its seat colour, and the reason; every part is also in words.
+    private string ResultBbcode(MatchResultView view)
+    {
+        static string Esc(string text) => text.Replace("[", "[lb]", StringComparison.Ordinal);
+        var plain = _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f);
+        var tone = view.Tone switch
+        {
+            ResultTone.Won => _highContrast ? Colors.Yellow : new Color(0.45f, 0.95f, 0.55f),
+            ResultTone.Lost => _highContrast ? Colors.White : new Color(1f, 0.45f, 0.4f),
+            ResultTone.SeatWins => _highContrast ? Colors.Yellow : new Color(1f, 0.85f, 0.35f),
+            _ => plain,
+        };
+        var big = (int)(30 * _scale);
+        var mid = (int)(22 * _scale);
+        var text = $"[center][font_size={big}][b][color=#{tone.ToHtml(false)}]{Esc(view.Headline)}[/color][/b][/font_size]";
+        if (view.Score is { } score)
+        {
+            var parts = score.Split(' ').Select(w => w switch
+            {
+                "A" => $"[color=#{_board.SeatColourFor(Rules.Core.State.Seat.One).ToHtml(false)}]A[/color]",
+                "B" => $"[color=#{_board.SeatColourFor(Rules.Core.State.Seat.Two).ToHtml(false)}]B[/color]",
+                _ => $"[color=#{plain.ToHtml(false)}]{Esc(w)}[/color]",
+            });
+            text += $"\n[font_size={mid}][b]{string.Join(" ", parts)}[/b][/font_size]";
+        }
+        text += $"\n[color=#{plain.ToHtml(false)}]{Esc(view.Reason)}[/color][/center]";
+        return text;
+    }
 
     // Stage N3: the list of all choices, in the Menu (for the UI check).
     public Control ActionsBox => _allChoices;

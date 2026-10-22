@@ -49,16 +49,18 @@ public static class Words
         var result = outcome.Winner is not { } winner ? "Draw"
             : mine is null ? $"{Seat(winner)} won"
             : winner == mine ? "You won" : "You lost";
-        var reason = outcome.Reason switch
-        {
-            OutcomeReason.OpponentFled => "a warband fled",
-            OutcomeReason.FinalTurnComplete => "the final turn ended",
-            OutcomeReason.AllEnemiesOutOfAction => "every enemy model is out of action",
-            OutcomeReason.VictoryPoints => "victory points after the final turn",
-            _ => outcome.Reason.ToString(),
-        };
-        return $"{result}: {reason}.";
+        return $"{result}: {Reason(outcome.Reason)}.";
     }
+
+    // Why the match ended, in words ("victory points after the final turn").
+    public static string Reason(OutcomeReason reason) => reason switch
+    {
+        OutcomeReason.OpponentFled => "a warband fled",
+        OutcomeReason.FinalTurnComplete => "the final turn ended",
+        OutcomeReason.AllEnemiesOutOfAction => "every enemy model is out of action",
+        OutcomeReason.VictoryPoints => "victory points after the final turn",
+        _ => reason.ToString(),
+    };
 
     public static string MoraleChoice(MoraleFailureChoice choice) => choice switch
     {
