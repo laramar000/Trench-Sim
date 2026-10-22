@@ -842,6 +842,7 @@ public partial class BoardView : SubViewportContainer
         Sync();
         UpdateBar();
         UpdateCombat();
+        KeepControlsOnTop();
         TickAutoEnd();
         PlaceReasonBox();
         ApplyGlides();
@@ -1298,12 +1299,43 @@ public partial class BoardView : SubViewportContainer
             box.Visible = false;
             return;
         }
-        var x = at.X + 36 + size.X <= Size.X - 4 ? at.X + 36 : at.X - 36 - size.X;
-        var position = new Vector2(Math.Clamp(x, 4, Math.Max(4, Size.X - size.X - 4)), Math.Clamp(at.Y - size.Y / 2, TopInset + 4, Math.Max(TopInset + 4, Size.Y - size.Y - 4)));
+        // Stage N4: on the side of the target that keeps clear of the screen's boxes (unit card, log drawer), if either does.
+        var reserved = Reserved?.Invoke().ToList() ?? [];
+        Vector2 At(float x) => new(Math.Clamp(x, 4, Math.Max(4, Size.X - size.X - 4)), Math.Clamp(at.Y - size.Y / 2, TopInset + 4, Math.Max(TopInset + 4, Size.Y - size.Y - 4)));
+        var right = At(at.X + 36);
+        var left = At(at.X - 36 - size.X);
+        bool Clear(Vector2 p) => !reserved.Any(r => r.Intersects(new Rect2(p, size)));
+        var preferred = at.X + 36 + size.X <= Size.X - 4 ? right : left;
+        var other = preferred == right ? left : right;
+        var position = Clear(preferred) || !Clear(other) ? preferred : other;
         if (box.Position != position || box.Size != size)
         {
             box.Position = position;
             box.Size = size;
+        }
+    }
+
+    // Battlefield UI 2, stage N4: the action bar, the combat menu and Confirm beside the target are never under a box the
+    // screen puts on the battlefield (unit card, log drawer, Menu, decision card): when one overlaps them, they move
+    // above it in the tree, so they are drawn and clicked first.
+    private void KeepControlsOnTop()
+    {
+        foreach (var box in new Control[] { _bar, _combatMenu, _confirmBox })
+        {
+            if (!box.Visible || box.GetParent() != this)
+            {
+                continue;
+            }
+            var rect = new Rect2(box.Position, box.Size);
+            for (var i = box.GetIndex() + 1; i < GetChildCount(); i++)
+            {
+                if (GetChild(i) is Control { Visible: true } over && over != _bar && over != _combatMenu && over != _confirmBox
+                    && over.MouseFilter != MouseFilterEnum.Ignore && new Rect2(over.Position, over.Size).Intersects(rect))
+                {
+                    MoveChild(box, -1);
+                    break;
+                }
+            }
         }
     }
 
@@ -1320,6 +1352,11 @@ public partial class BoardView : SubViewportContainer
     // The labels of the action bar's buttons now (for the UI check), empty when it is hidden.
     // Stage K3 (for the UI check): where the action bar is, when shown.
     public Rect2? BarRect => _bar.Visible ? new Rect2(_bar.Position, _bar.Size) : null;
+
+    // Battlefield UI 2, stage N4: the battlefield's own controls shown now (the action bar, the combat menu, Confirm beside
+    // the target), in its coordinates, which the screen's Menu keeps clear of.
+    public IEnumerable<Rect2> ControlRects() =>
+        new Control[] { _bar, _combatMenu, _confirmBox }.Where(c => c.Visible).Select(c => new Rect2(c.Position, c.Size));
 
     public IReadOnlyList<string> BarLabels => _bar.Visible ? _barNow.Items.Select(i => i.Label).ToList() : [];
 

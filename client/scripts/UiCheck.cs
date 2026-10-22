@@ -1654,6 +1654,13 @@ public partial class UiCheck : Node
         // Stage K2: in every window size, text size and interface scale tried, the page has nothing to scroll and the HUD,
         // the panel's Confirm and Cancel, the hint buttons, the last command and the combat log are all inside the window.
         var offScreen = new List<string>();
+        // Stage N4: one of the host's units chosen (nothing is sent), so its action bar is there for the Menu to keep clear of.
+        var chooser = Controls<BoardView>().First(b => b.IsVisibleInTree());
+        var selectedBefore = chooser.Selected?.Id;
+        if ((chooser.Scene?.Models.FirstOrDefault(m => m.Yours && m.Eligible) ?? chooser.Scene?.Models.FirstOrDefault(m => m.Yours)) is { } mine)
+        {
+            chooser.Select(mine.Id);
+        }
         foreach (var (w, h, text, scale) in new[] { (1280, 800, 0, 0), (1920, 1080, 0, 0), (1280, 800, 2, 0), (1280, 800, 0, 1), (1280, 800, 0, 2), (1000, 700, 0, 0), (1000, 700, 2, 0) })
         {
             window.Size = new Vector2I(w, h);
@@ -1714,20 +1721,73 @@ public partial class UiCheck : Node
                 offScreen.Add($"{where}: combat log only {main.CombatLog.GetGlobalRect().Size.Y:0}px tall");
             }
             await Shot($"host-on-screen-{w}x{h}-t{text}-s{scale}");
+            await MenuCoverCheck(main, where, view.Size);
             main.OpenLog(false);
         }
         main.ChooseTextSize(0);
         main.ChooseScale(0);
+        chooser.Select(selectedBefore);
         Check("match-on-screen", offScreen.Count == 0, offScreen.Count == 0
             ? "1280x800, 1920x1080, 1000x700 at text 100/150% and scale 100/125/150%: nothing to scroll; HUD, Confirm, Cancel, the choices shown, last command, corner icons and the open combat log inside the window"
             : string.Join(" | ", offScreen));
         Check("battlefield-fills-window", _fillProblems.Count == 0, _fillProblems.Count == 0 ? "at every size, text size and scale the battlefield is the window's whole width and height under the HUD" : string.Join(" | ", _fillProblems));
+        Check("menus-never-cover", _menuSamples > 0 && _menuProblems.Count == 0, _menuProblems.Count == 0
+            ? $"{_menuSamples} sizes, text sizes and scales: the Menu, opened with its icon while the log drawer was open, closed the drawer (one open at a time), is opaque with high-contrast text, inside the window, and covers none of: {string.Join(", ", _menuCovered.Order(StringComparer.Ordinal))}"
+            : string.Join(" | ", _menuProblems));
         Check("no-side-column", _columnProblems.Count == 0, _columnProblems.Count == 0 ? "nothing beside the battlefield at any size: the unit card, last command and log are on it" : string.Join(" | ", _columnProblems));
         window.Size = original;
         await Frames(6);
     }
 
     private readonly List<string> _fillProblems = [];
+    private readonly List<string> _menuProblems = [];
+    private readonly HashSet<string> _menuCovered = [];
+    private int _menuSamples;
+
+    // Stage N4: the Menu opened (with the log drawer open: one open at a time) covers no control the screen shows.
+    private async Task MenuCoverCheck(Main main, string where, Vector2 view)
+    {
+        // With the keyboard (Enter on the Menu button): a synthetic click lands elsewhere when the interface is scaled.
+        await Press(main.MenuButton, Key.Enter, null);
+        await Frames(4);
+        _menuSamples++;
+        var menu = main.MenuPanel.GetGlobalRect();
+        if (!main.MenuOpen || main.LogOpen || main.OpenPanels != 1)
+        {
+            _menuProblems.Add($"{where}: Menu open {main.MenuOpen}, log drawer open {main.LogOpen}, {main.OpenPanels} open");
+        }
+        foreach (var (name, rect) in main.MenuMustNotCover())
+        {
+            _menuCovered.Add(name);
+            if (rect.Intersects(menu))
+            {
+                _menuProblems.Add($"{where}: the Menu {menu} covers the {name} {rect}");
+            }
+        }
+        if (menu.Position.X < -1 || menu.Position.Y < -1 || menu.End.X > view.X + 1 || menu.End.Y > view.Y + 1 || menu.Size.Y < 40)
+        {
+            _menuProblems.Add($"{where}: the Menu at {menu} in a window of {view}");
+        }
+        var back = (main.MenuPanel.GetThemeStylebox("panel") as StyleBoxFlat)?.BgColor;
+        var ink = Controls<Godot.Label>().FirstOrDefault(l => main.MenuPanel.IsAncestorOf(l) && l.IsVisibleInTree())?.GetThemeColor("font_color");
+        if (back is not { } bg || bg.A < 0.999f || ink is not { } fg || ContrastRatio(fg, bg) < 7)
+        {
+            _menuProblems.Add($"{where}: Menu background {back}, text {ink}{(back is { } b2 && ink is { } f2 ? $" (contrast {ContrastRatio(f2, b2):0.0})" : "")}");
+        }
+        await Press(main.MenuButton, Key.Enter, null);
+        await Frames(2);
+        main.OpenLog(true);
+        await Frames(2);
+    }
+
+    // WCAG contrast ratio of two opaque colours.
+    private static double ContrastRatio(Color a, Color b)
+    {
+        static double Channel(float c) => c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        static double Luminance(Color c) => 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
+        var (l1, l2) = (Luminance(a), Luminance(b));
+        return (Math.Max(l1, l2) + 0.05) / (Math.Min(l1, l2) + 0.05);
+    }
     private readonly List<string> _columnProblems = [];
 
     // The panel's Confirm, Undo and Cancel show their whole words.

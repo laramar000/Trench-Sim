@@ -1089,10 +1089,15 @@ public partial class Main : Control
         {
             _menuButton.GrabFocus();
         }
+        if (open)
+        {
+            // Stage N4: one of the Menu, the log drawer, the key sheet and the scenario card open at a time.
+            CloseOthers(_menuPanel);
+        }
         _menuPanel.Visible = open;
         if (open)
         {
-            // Drawn over the action bar and the dice, and placed before it shows.
+            // Drawn over the dice, and placed before it shows (clear of the battlefield's controls, stage N4).
             _menuPanel.MoveToFront();
             PlaceMenu(GetViewportRect().Size);
             // Stage N3: opened from its button (mouse or keyboard), the keyboard focus goes to the Menu's first control
@@ -1268,6 +1273,10 @@ public partial class Main : Control
     // Stage N3: the combat log drawer, opened and closed by its icon (and Esc).
     private void SetLog(bool open)
     {
+        if (open)
+        {
+            CloseOthers(_logDrawer);
+        }
         _drawerOpen = open;
         if (!open && GetViewport()?.GuiGetFocusOwner() is { } focused && _logDrawer.IsAncestorOf(focused))
         {
@@ -1316,6 +1325,30 @@ public partial class Main : Control
         }
     }
 
+    // Stage N4: opening one of the Menu, the log drawer, the key sheet and the scenario card closes the others.
+    private void CloseOthers(GodotObject opening)
+    {
+        if (opening != _menuPanel && _menuOpen)
+        {
+            SetMenu(false);
+        }
+        if (opening != _logDrawer && _drawerOpen)
+        {
+            SetLog(false);
+        }
+        if (opening != _keySheet && _keySheet.Visible)
+        {
+            _keySheet.Hide();
+        }
+        if (opening != _scenarioCard && _scenarioCard.Visible)
+        {
+            _scenarioCard.Hide();
+        }
+    }
+
+    // Stage N4 (for the UI check): how many of the Menu, the log drawer, the key sheet and the scenario card are open.
+    public int OpenPanels => (_menuOpen ? 1 : 0) + (_drawerOpen ? 1 : 0) + (_keySheet.Visible ? 1 : 0) + (_scenarioCard.Visible ? 1 : 0);
+
     // Words over the battlefield stay readable on any ground: a dark outline and shadow around the letters.
     private static void Outline(Label label)
     {
@@ -1326,24 +1359,111 @@ public partial class Main : Control
         label.AddThemeConstantOverride("shadow_offset_y", 2);
     }
 
-    // The Menu, when open, under the HUD row at the right, as tall as its contents or the room left.
+    // The Menu, when open, under the HUD row, as tall as its contents or the room left. Stage N4: it never covers the
+    // battlefield's controls (the action bar, the combat menu, Confirm beside a target), the unit card or the decision
+    // card: it takes the right-hand column under the corner icons, else the left-hand or the middle one, in the tallest
+    // free space; what does not fit scrolls inside it. A place still free is kept, so it does not jump while open.
     private void PlaceMenu(Vector2 size)
     {
         if (!_menuPanel.Visible)
         {
             return;
         }
-        var width = Math.Min(680 * _scale, size.X - 32);
-        var y = _menuButton.GetGlobalRect().End.Y + 4;
-        var height = Math.Min(_matchMenu.GetCombinedMinimumSize().Y + 24, size.Y - y - 12);
-        // In the battlefield's own coordinates (the Menu is its child; it may reach below it, over the panel).
-        var rect = new Rect2(new Vector2(size.X - 16 - width, y) - _board.GlobalPosition, new Vector2(width, Math.Max(80, height)));
-        if (_menuPanel.Position != rect.Position || _menuPanel.Size != rect.Size)
+        var b = _board.Size;
+        var width = Math.Min(680 * _scale, b.X - 16);
+        var top = _menuButton.GetGlobalRect().End.Y + 4 - _board.GlobalPosition.Y;
+        var bottom = Math.Min(b.Y, size.Y - _board.GlobalPosition.Y) - 8;
+        var want = _matchMenu.GetCombinedMinimumSize().Y + 24;
+        var avoid = MenuAvoids().ToList();
+        // The first column whose tallest free span holds the Menu (or 160 px of it), else the tallest span of all.
+        Rect2? best = null;
+        foreach (var x in new[] { b.X - 8 - width, 8f, (b.X - width) / 2 })
         {
-            _menuPanel.Position = rect.Position;
-            _menuPanel.Size = rect.Size;
+            var gaps = FreeGaps(x, width, top, bottom, avoid).ToList();
+            if (gaps.Count == 0)
+            {
+                continue;
+            }
+            var gap = gaps[0];
+            var rect = new Rect2(x, gap.From, width, Math.Min(want, gap.To - gap.From));
+            if (rect.Size.Y >= Math.Min(want, 160 * _scale))
+            {
+                best = rect;
+                break;
+            }
+            if (best is not { } tallest || rect.Size.Y > tallest.Size.Y)
+            {
+                best = rect;
+            }
+        }
+        var place = best ?? new Rect2(b.X - 8 - width, top, width, Math.Max(80, bottom - top));
+        // Keep the place it has while it is still free and still as tall.
+        var now = new Rect2(_menuPanel.Position, _menuPanel.Size);
+        if (Mathf.IsEqualApprox(now.Size.X, place.Size.X) && Mathf.IsEqualApprox(now.Size.Y, place.Size.Y) && now.Position.Y >= top - 0.5f && now.End.Y <= bottom + 0.5f
+            && !avoid.Any(r => r.Intersects(now)))
+        {
+            return;
+        }
+        Put(_menuPanel, place);
+    }
+
+    // What the Menu keeps clear of, in the battlefield's coordinates.
+    private IEnumerable<Rect2> MenuAvoids()
+    {
+        foreach (var rect in _board.ControlRects())
+        {
+            yield return rect.Grow(4);
+        }
+        foreach (var control in new Control[] { _panel, _decision })
+        {
+            if (control.Visible && control.GetParent() == _board)
+            {
+                yield return new Rect2(control.Position, control.Size).Grow(4);
+            }
         }
     }
+
+    // The free spans of a column from top to bottom between the rectangles that cross it, tallest first.
+    private static IEnumerable<(float From, float To)> FreeGaps(float x, float width, float top, float bottom, IReadOnlyList<Rect2> avoid)
+    {
+        var blocks = avoid.Where(r => r.Position.X < x + width && r.End.X > x && r.End.Y > top && r.Position.Y < bottom)
+            .Select(r => (From: Math.Max(top, r.Position.Y), To: Math.Min(bottom, r.End.Y))).OrderBy(r => r.From).ToList();
+        var gaps = new List<(float From, float To)>();
+        var at = top;
+        foreach (var (from, to) in blocks)
+        {
+            if (from > at)
+            {
+                gaps.Add((at, from));
+            }
+            at = Math.Max(at, to);
+        }
+        if (bottom > at)
+        {
+            gaps.Add((at, bottom));
+        }
+        return gaps.Where(g => g.To - g.From >= 40).OrderByDescending(g => g.To - g.From);
+    }
+
+    // Stage N4 (for the UI check): what the open Menu must not cover.
+    public IReadOnlyList<(string Name, Rect2 Rect)> MenuMustNotCover()
+    {
+        var list = new List<(string, Rect2)>();
+        foreach (var (name, control) in new (string, Control)[] { ("unit card", _panel), ("decision card", _decision), ("Confirm", _pConfirm), ("Cancel", _pCancel) })
+        {
+            if (control.IsVisibleInTree())
+            {
+                list.Add((name, control.GetGlobalRect()));
+            }
+        }
+        foreach (var rect in _board.ControlRects())
+        {
+            list.Add(("battlefield control", new Rect2(rect.Position + _board.GlobalPosition, rect.Size)));
+        }
+        return list;
+    }
+
+    public Control MenuPanel => _menuPanel;
 
 
     // How far down the page a control starts (whatever the page's scroll), for the UI check.
@@ -1667,7 +1787,7 @@ public partial class Main : Control
 
     // ---- settings: text size and contrast (accessibility) ----
 
-    private HBoxContainer Settings()
+    private Container Settings()
     {
         var size = new OptionButton();
         foreach (var percent in new[] { 100, 125, 150 })
@@ -1723,7 +1843,15 @@ public partial class Main : Control
             Remember(_settings with { Sound = on });
         };
         _soundChoice = sound;
-        return Row(size, contrast, scale, dice, sound);
+        // Stage N4: the settings wrap onto more lines, so the Menu never needs more than its column's width.
+        var flow = new HFlowContainer { Name = "SettingsRow" };
+        flow.AddThemeConstantOverride("h_separation", 8);
+        flow.AddThemeConstantOverride("v_separation", 6);
+        foreach (var control in new Control[] { size, contrast, scale, dice, sound })
+        {
+            flow.AddChild(control);
+        }
+        return flow;
     }
 
     private static readonly string[] DiceChoices = ["Dice: Short (2 s)", "Dice: Normal (4 s)", "Dice: Long (8 s)", "Dice: Off"];
@@ -2072,6 +2200,7 @@ public partial class Main : Control
             _scenarioCard.Hide();
             return;
         }
+        CloseOthers(_scenarioCard);
         RefreshScenario();
         _scenarioCard.PopupCentered();
     }
@@ -2147,6 +2276,7 @@ public partial class Main : Control
         }
         else
         {
+            CloseOthers(_keySheet);
             KeySheetFitted = false;
             BuildKeySheet();
         }
