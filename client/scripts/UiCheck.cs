@@ -3639,18 +3639,19 @@ public partial class UiCheck : Node
         await Frames(2);
         // An enemy a click on its base picks (by the battlefield's own pick), clear of the HUD strip; if none is in view,
         // the camera is centred on the first one (as a double-click would) and it is looked for again.
-        Vector2? Clickable(Rules.Core.State.ModelId id) =>
+        // Stage N3: and on no box over the battlefield (run 268: the click on b1 landed on one).
+        Vector2? Pickable(Rules.Core.State.ModelId id) =>
             board.Scene?.Find(id) is { } m && board.ScreenOf(m.X, m.Y, m.Standing) is { } p && p.Y > board.TopInset + 8
-            && board.GetRect().Size is var size && p.X > 8 && p.X < size.X - 8 && p.Y < size.Y - 8 && board.ModelAt(p)?.Id == id ? p : null;
+            && board.GetRect().Size is var size && p.X > 8 && p.X < size.X - 8 && p.Y < size.Y - 8 && Clickable(board, p) && board.ModelAt(p)?.Id == id ? p : null;
         var ordered = chargeable.Concat(shootable).Concat(targets).Distinct().ToList();
-        if (ordered.Count > 0 && !ordered.Any(t => Clickable(t) is not null))
+        if (ordered.Count > 0 && !ordered.Any(t => Pickable(t) is not null))
         {
             board.CentreOn(ordered[0]);
-            await Until(() => ordered.Any(t => Clickable(t) is not null) ? "ok" : null, 3, "enemy-in-view");
+            await Until(() => ordered.Any(t => Pickable(t) is not null) ? "ok" : null, 3, "enemy-in-view");
         }
-        var enemy = ordered.Where(t => Clickable(t) is not null).Select(t => board.Scene?.Find(t)).FirstOrDefault();
+        var enemy = ordered.Where(t => Pickable(t) is not null).Select(t => board.Scene?.Find(t)).FirstOrDefault();
         var opened = false;
-        if (interaction.Mode == InteractionMode.Combat && enemy is not null && Clickable(enemy.Id) is { } local)
+        if (interaction.Mode == InteractionMode.Combat && enemy is not null && Pickable(enemy.Id) is { } local)
         {
             var at = board.GetGlobalTransformWithCanvas() * local;
             await ClickAt(at);
