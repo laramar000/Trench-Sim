@@ -241,7 +241,7 @@ public partial class UiCheck : Node
         var hint = await Until(() => Hint() ?? (Section("ALL CHOICES").Contains("Nothing to do until the opponent moves") ? (Control)_main : null), 20, "hint-or-wait");
         if (hint is Button)
         {
-            DecisionCardCheck();
+            await DecisionCardCheck();
             Mark("decider");
             await Signal("hold", 60);
             await Press(Hint(), Key.Enter, "hint-enter");
@@ -266,8 +266,10 @@ public partial class UiCheck : Node
 
     // Stage N3: a choice that belongs to no model (here the deployment zone) is on a card over the battlefield, titled
     // with what is being chosen, with the same choices as the Menu's list, in the same order; it covers no corner icon.
-    private void DecisionCardCheck()
+    private async Task DecisionCardCheck()
     {
+        // The card is laid out over a few frames after it shows (its title wraps once it has its width).
+        await Frames(4);
         var main = (Main)_main;
         var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
         var card = main.DecisionCard;
@@ -280,7 +282,7 @@ public partial class UiCheck : Node
         var onField = field is { } f && f.Encloses(rect) && rect.Position.Y >= f.Position.Y + board!.TopInset - 1;
         Check("decision-card", card.IsVisibleInTree() && onField && !rect.Intersects(icons) && shown.Count > 0 && shown.SequenceEqual(listed)
             && title.StartsWith("YOUR CHOICE: which deployment zone", StringComparison.Ordinal) && Hint() is { } first && card.IsAncestorOf(first),
-            $"card {rect} on the battlefield {field}: {onField}; title \"{title}\"; choices {string.Join(" / ", shown)}; the Menu lists {string.Join(" / ", listed)}; corner icons {icons}");
+            $"card {rect} (needs {card.GetCombinedMinimumSize()}; {string.Join(", ", All(card).OfType<Control>().Where(c => c.Visible).Select(c => $"{c.GetType().Name} {c.Size} min {c.GetCombinedMinimumSize()}"))}) on the battlefield {field}: {onField}; title \"{title}\"; choices {string.Join(" / ", shown)}; the Menu lists {string.Join(" / ", listed)}; corner icons {icons}");
     }
 
     // An event line by the opponent of the host (the host is always Seat One): "[22] Two activates b1." or "[23] b1 moves …".
@@ -1855,6 +1857,9 @@ public partial class UiCheck : Node
                     break;
                 case "shot":
                     await Shot("dev");
+                    break;
+                case "decision":
+                    await DecisionCardCheck();
                     break;
                 case "layout":
                     await LayoutChecks(board);
