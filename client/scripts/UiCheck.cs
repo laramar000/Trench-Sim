@@ -2779,11 +2779,14 @@ public partial class UiCheck : Node
         await Frames(10);
         await Frames(3);
         var strip = Strip();
-        // Proposal G3: the HUD on top (seat, whose move, turn, phase, VP, units left); the chosen unit's state is in the panel.
+        // Proposal G3: the HUD on top (seat, whose move, turn, phase, VP); the chosen unit's state is in the panel.
+        // Battlefield UI 3, stage U2: the centre is only whose move and the scores by seat letter; no count of units left.
+        var hudCentre = ((Main)_main).HudCentreText;
         Check("pvp-status-strip", strip.StartsWith("[A] SEAT ONE · YOUR MOVE · Turn ", StringComparison.Ordinal)
-            && strip.Contains($"to activate: you {units.Count}, ", StringComparison.Ordinal) && strip.Contains(" · Activation · ", StringComparison.Ordinal)
-            && strip.Contains("VP you ", StringComparison.Ordinal) && PanelHas("Chosen: not activated yet (nothing sent)"),
-            $"HUD: {strip} || panel: {PanelText.Replace('\n', '|')}");
+            && !strip.Contains("to activate", StringComparison.Ordinal) && strip.Contains(" · Activation · ", StringComparison.Ordinal)
+            && hudCentre.StartsWith("YOUR MOVE · VP A ", StringComparison.Ordinal) && hudCentre.Contains(" – B ", StringComparison.Ordinal)
+            && hudCentre.Split(" · ").Length == 2 && PanelHas("Chosen: not activated yet (nothing sent)"),
+            $"HUD: {strip} || centre: {hudCentre} || panel: {PanelText.Replace('\n', '|')}");
         Check("pvp-switch-unit-sends-nothing", interaction.Chosen == second && board.BarLabels.Contains("Not activated yet") && NothingSent(),
             $"chosen {interaction.Chosen?.Value} (wanted {second.Value}); bar: {string.Join(" / ", board.BarLabels)}; events {events} -> {Lines(LogText()).Count}");
         await CloseShot(board, second, "pvp-a-switched");

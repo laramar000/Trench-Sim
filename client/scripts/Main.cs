@@ -67,7 +67,8 @@ public partial class Main : Control
     private BoardView _board = null!;
     private Label _boardInfo = null!;
     private Label _hud = null!;
-    private Label _hudCentre = null!;
+    private RichTextLabel _hudCentre = null!;
+    private Label _hudStatus = null!;
     private PanelContainer _hudStrip = null!;
     private HBoxContainer _icons = null!;
     private IconButton _logButton = null!;
@@ -608,9 +609,21 @@ public partial class Main : Control
         // always had), and the corner icons at the top-right.
         _hud = Text("");
         _hud.Name = "TopHud";
-        _hudCentre = Text("");
-        _hudCentre.Name = "TopHudCentre";
-        _hudCentre.HorizontalAlignment = HorizontalAlignment.Center;
+        // Battlefield UI 3, stage U2: the centre is whose move and the scores only, with colour on those words; what
+        // happens now (placing prompt, model activating, a command waiting) is a smaller line under the top-left block.
+        _hudCentre = new RichTextLabel
+        {
+            Name = "TopHudCentre", BbcodeEnabled = true, FitContent = true, ScrollActive = false,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _hudCentre.AddThemeConstantOverride("outline_size", 6);
+        _hudCentre.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.9f));
+        _hudCentre.AddThemeColorOverride("font_shadow_color", new Color(0, 0, 0, 0.6f));
+        _hudCentre.AddThemeConstantOverride("shadow_offset_x", 1);
+        _hudCentre.AddThemeConstantOverride("shadow_offset_y", 2);
+        _hudStatus = Text("");
+        _hudStatus.Name = "TopHudStatus";
         _menuButton = new IconButton(IconButton.Symbol.Menu, "Menu: all choices, the match code, version, text size, high contrast and the rules in this build.");
         _menuButton.Name = "MenuButton";
         _menuButton.Pressed += () => SetMenu(!_menuOpen);
@@ -636,7 +649,7 @@ public partial class Main : Control
         {
             _icons.AddChild(button);
         }
-        foreach (var label in new[] { _hud, _hudCentre })
+        foreach (var label in new[] { _hud, _hudStatus })
         {
             label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -647,6 +660,7 @@ public partial class Main : Control
         var hudLeft = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 3, MouseFilter = Control.MouseFilterEnum.Ignore };
         hudLeft.AddThemeConstantOverride("separation", 2);
         hudLeft.AddChild(_hud);
+        hudLeft.AddChild(_hudStatus);
         var hudRight = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkEnd, MouseFilter = Control.MouseFilterEnum.Ignore };
         hudRight.AddThemeConstantOverride("separation", 4);
         hudRight.AddChild(_icons);
@@ -1085,15 +1099,63 @@ public partial class Main : Control
         RefreshScenario();
         var waiting = _lastScreen?.Feedback is { Kind: FeedbackKind.Sending } || _board.Interaction.Pending is not null;
         _hudText = _lastScreen is { } s ? TopHud.Of(s.View, _board.Scene, s.Log, s.Seat, waiting, _board.Interaction.Prompt) : "";
-        var (left, centre) = _lastScreen is { } t ? TopHud.Split(t.View, _board.Scene, t.Log, t.Seat, waiting, _board.Interaction.Prompt) : ("", "");
-        _hud.Text = left;
-        _hudCentre.Text = centre;
-        _hud.AddThemeColorOverride("font_color", _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f));
-        // Your move in a colour as well as in words.
-        _hudCentre.AddThemeColorOverride("font_color", _lastScreen?.View.YourMove == true
-            ? _highContrast ? Colors.Yellow : new Color(0.6f, 1f, 0.65f)
-            : _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f));
+        var places = _lastScreen is { } t ? TopHud.Split(t.View, _board.Scene, t.Log, t.Seat, waiting, _board.Interaction.Prompt) : new TopHud.Places("", "", "");
+        var plain = _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f);
+        _hud.Text = places.Left;
+        _hud.AddThemeColorOverride("font_color", plain);
+        _hudStatus.Text = places.Status;
+        _hudStatus.Visible = places.Status.Length > 0;
+        _hudStatus.AddThemeColorOverride("font_color", _highContrast ? Colors.White : new Color(0.8f, 0.8f, 0.78f));
+        _hudStatus.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(StatusFontSize()));
+        _hudCentreText = places.Centre;
+        _hudCentre.Text = CentreBbcode(places.Centre, plain);
     }
+
+    // The status line is a step smaller than the HUD's own text.
+    private float StatusFontSize() => (_theme.DefaultFontSize > 0 ? _theme.DefaultFontSize : 16) * 0.85f;
+
+    // Stage U2: colour on the parts that matter, the words unchanged: whose move (green when yours, amber when the
+    // opponent's) and each seat's letter in its seat colour.
+    private string CentreBbcode(string centre, Color plain)
+    {
+        static string Esc(string text) => text.Replace("[", "[lb]", StringComparison.Ordinal);
+        static string Paint(string text, Color colour) => $"[color=#{colour.ToHtml(false)}]{Esc(text)}[/color]";
+        var parts = new List<string>();
+        foreach (var piece in centre.Length == 0 ? [] : centre.Split(" · "))
+        {
+            if (piece == "YOUR MOVE")
+            {
+                parts.Add(Paint(piece, _highContrast ? Colors.Yellow : new Color(0.6f, 1f, 0.65f)));
+            }
+            else if (piece == "OPPONENT'S MOVE")
+            {
+                parts.Add(Paint(piece, _highContrast ? Colors.White : new Color(1f, 0.75f, 0.3f)));
+            }
+            else if (piece.StartsWith("VP ", StringComparison.Ordinal))
+            {
+                // "VP A 3 – B 1": the letters in their seat colours.
+                var words = piece.Split(' ');
+                parts.Add(string.Join(" ", words.Select(w => w switch
+                {
+                    "A" => Paint(w, _board.SeatColourFor(Rules.Core.State.Seat.One)),
+                    "B" => Paint(w, _board.SeatColourFor(Rules.Core.State.Seat.Two)),
+                    _ => Paint(w, plain),
+                })));
+            }
+            else
+            {
+                parts.Add(Paint(piece, plain));
+            }
+        }
+        return $"[center][b]{string.Join(Paint("  ·  ", plain), parts)}[/b][/center]";
+    }
+
+    private string _hudCentreText = "";
+
+    // The centre's words (stage U2), without the colour marks.
+    public string HudCentreText => _hudCentreText;
+
+    public string HudStatusText => _hudStatus.Visible ? _hudStatus.Text : "";
 
     // ---- the Menu (proposal G3) ----
 

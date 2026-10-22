@@ -31,7 +31,7 @@ public class TopHudTests
     }
 
     [Fact]
-    public void TheLineSaysTheSeatWhoseMoveTheTurnPhaseVictoryPointsAndWhoCanStillActivate()
+    public void TheLineSaysTheSeatWhoseMoveTheTurnPhaseAndVictoryPointsAndNoCountOfUnitsLeft()
     {
         var counted = 0;
         foreach (var state in States.Where(s => s.Setup?.Scenario is not null && s.Turn > 0).Take(4000))
@@ -46,7 +46,8 @@ public class TopHudTests
                 Assert.Equal(view.YourMove ? "YOUR MOVE" : view.WhoseMove.StartsWith("Opponent's move", StringComparison.Ordinal) ? "OPPONENT'S MOVE" : view.WhoseMove.TrimEnd('.'), parts[1]);
                 Assert.Equal(view.Turn, parts[2]);
                 Assert.Equal(view.Phase, parts[3]);
-                Assert.Contains($"VP you {state.SeatFor(seat).VictoryPoints}, opponent {state.SeatFor(seat.Opponent()).VictoryPoints}", line);
+                // Stage U2: each seat's VP by seat letter, the same in both windows.
+                Assert.Contains($"VP A {state.SeatFor(Seat.One).VictoryPoints} – B {state.SeatFor(Seat.Two).VictoryPoints}", parts);
                 // Stage K3: the activating model and what it has done, exactly while one activates.
                 if (state.ActiveModel is { } active)
                 {
@@ -57,25 +58,44 @@ public class TopHudTests
                     Assert.DoesNotContain("activating ", line);
                 }
                 Assert.DoesNotContain("selected", line);
-                if (state.Phase != Phase.Activation)
+                // Stage U2: the count of units left to activate is gone.
+                Assert.DoesNotContain("to activate", line);
+                counted++;
+            }
+        }
+        Assert.True(counted > 1000, $"only {counted} lines");
+    }
+
+    // Battlefield UI 3, stage U2: the top-centre is exactly whose move it is and the scores, from the server's state;
+    // the placing prompt, the model activating and a waiting command are on the status line; nothing is lost.
+    [Fact]
+    public void TheCentreIsOnlyWhoseMoveAndTheScoresAndTheRestIsOnTheStatusLine()
+    {
+        var checkedStates = 0;
+        foreach (var state in States.Where(s => s.Setup?.Scenario is not null).Take(3000))
+        {
+            foreach (var seat in new Seat?[] { Seat.One, Seat.Two, null })
+            {
+                foreach (var waiting in new[] { false, true })
                 {
-                    Assert.DoesNotContain("to activate", line);
-                    continue;
-                }
-                bool CanActivate(ModelState m) => m.Deployed && m.Status != ModelStatus.OutOfAction && !m.ActivatedThisTurn && m.Id != state.ActiveModel;
-                var mine = state.Models.Count(m => m.Seat == seat && m.Position is not null && CanActivate(m));
-                var theirs = state.Models.Count(m => m.Seat != seat && m.Position is not null && CanActivate(m));
-                Assert.Contains($"to activate: you {mine}, opponent {theirs}", line);
-                // For the seat to activate, "to activate" is the rules' own list of activations.
-                if (state.ActiveModel is null && state.Pending is null && TurnSequence.NextActivator(state) == seat)
-                {
-                    Assert.Equal("YOUR MOVE", parts[1]);
-                    Assert.Equal(TurnSequence.LegalCommands(state).OfType<ActivateModel>().Count(), mine);
-                    counted++;
+                    var view = MatchView.Of(state, seat, Names);
+                    var places = TopHud.Split(view, BoardScene.Of(state, seat, Names), [], seat, waiting, "a prompt");
+                    var move = view.YourMove ? "YOUR MOVE" : view.WhoseMove.StartsWith("Opponent's move", StringComparison.Ordinal) ? "OPPONENT'S MOVE" : view.WhoseMove.TrimEnd('.');
+                    var expected = view.Turn.Length > 0
+                        ? $"{move} · VP A {state.SeatFor(Seat.One).VictoryPoints} – B {state.SeatFor(Seat.Two).VictoryPoints}"
+                        : move;
+                    Assert.Equal(expected, places.Centre);
+                    var status = places.Status.Split(" · ");
+                    Assert.Equal("a prompt", status[0]);
+                    Assert.Equal(view.ActivatingShort is { } activating ? new[] { "a prompt", activating } : new[] { "a prompt" }, status.Where(p => p != TopHud.Waiting.Split(" · ")[0] && p != TopHud.Waiting.Split(" · ")[1]));
+                    Assert.Equal(waiting, places.Status.EndsWith(TopHud.Waiting, StringComparison.Ordinal));
+                    Assert.DoesNotContain("a prompt", places.Centre);
+                    Assert.DoesNotContain(TopHud.Waiting, places.Centre);
+                    checkedStates++;
                 }
             }
         }
-        Assert.True(counted > 300, $"only {counted} states");
+        Assert.True(checkedStates > 1000, $"{checkedStates} states");
     }
 
     [Fact]
@@ -83,9 +103,7 @@ public class TopHudTests
     {
         foreach (var state in States.Where(s => s.Setup?.Scenario is not null && s.Turn > 0).Take(3000))
         {
-            string Neutral(Seat seat) => string.Join("|", Hud(state, seat)
-                .Replace($"you {state.SeatFor(seat).VictoryPoints}, opponent {state.SeatFor(seat.Opponent()).VictoryPoints}", "VPS", StringComparison.Ordinal)
-                .Split(" · ").Skip(2).Where(p => !p.StartsWith("to activate", StringComparison.Ordinal)));
+            string Neutral(Seat seat) => string.Join("|", Hud(state, seat).Split(" · ").Skip(2));
             Assert.Equal(Neutral(Seat.One), Neutral(Seat.Two));
         }
     }

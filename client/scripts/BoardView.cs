@@ -2735,6 +2735,8 @@ public partial class BoardView : SubViewportContainer
     // Seats differ by colour and by the [A]/[B] letter in every label; colour is never the only sign.
     private Color ModelColour(ModelShape model) => SeatColour(model.Seat);
 
+    public Color SeatColourFor(Seat seat) => SeatColour(seat);
+
     private Color SeatColour(Seat seat) => _highContrast
         ? seat == Seat.One ? Colors.White : new Color(1f, 0.9f, 0f)
         : seat == Seat.One ? new Color(0.35f, 0.55f, 0.95f) : new Color(0.9f, 0.35f, 0.3f);

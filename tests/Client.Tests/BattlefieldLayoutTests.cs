@@ -6,7 +6,7 @@ using Rules.Core.State;
 namespace Client.Tests;
 
 // Battlefield UI 2, stage N3: the HUD's words split between the battlefield's top-left (where the match stands) and its
-// top-centre (what happens now), losing and adding nothing; and the choices that belong to no model, shown on a card.
+// top-centre (stage U2: whose move and the scores; what happens now is a status line under the top-left), losing and adding nothing; and the choices that belong to no model, shown on a card.
 public class BattlefieldLayoutTests
 {
     private static List<MatchState> States => PreviewAgreementTests.States.Value;
@@ -25,14 +25,14 @@ public class BattlefieldLayoutTests
                     var view = MatchView.Of(state, seat, Names);
                     var scene = BoardScene.Of(state, seat, Names);
                     var whole = TopHud.Of(view, scene, [], seat, waiting, "a prompt");
-                    var (left, centre) = TopHud.Split(view, scene, [], seat, waiting, "a prompt");
-                    var pieces = (left.Length == 0 ? [] : left.Split(" · ")).Concat(centre.Length == 0 ? [] : centre.Split(" · ")).Order(StringComparer.Ordinal);
+                    var (left, status, centre) = TopHud.Split(view, scene, [], seat, waiting, "a prompt");
+                    var pieces = new[] { left, status, centre }.Where(p => p.Length > 0).SelectMany(p => p.Split(" · ")).Order(StringComparer.Ordinal);
                     Assert.Equal(whole.Split(" · ").Order(StringComparer.Ordinal), pieces);
-                    // The seat, turn and phase on the left; whose move, the prompt and a waiting command at the centre.
+                    // The seat, turn and phase on the left; the prompt and a waiting command on the status line (stage U2).
                     Assert.StartsWith(seat is { } s ? $"[{Words.SeatLetter(s)}] " : "WATCHING", left, StringComparison.Ordinal);
                     Assert.Contains(view.Phase, left.Split(" · "));
-                    Assert.Contains("a prompt", centre.Split(" · "));
-                    Assert.Equal(waiting, centre.EndsWith(TopHud.Waiting, StringComparison.Ordinal));
+                    Assert.Contains("a prompt", status.Split(" · "));
+                    Assert.Equal(waiting, status.EndsWith(TopHud.Waiting, StringComparison.Ordinal));
                     checkedLines++;
                 }
             }

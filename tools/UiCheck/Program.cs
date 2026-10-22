@@ -282,14 +282,14 @@ public static class Program
             var caughtUp = Math.Max(replayedB, skippedB.Select(r => r.To).DefaultIfEmpty(0).Max());
             Record("pvp-rejoin-shows-no-old-dice", caughtUp > 20 && diceB.Count > 0 && oldB.Count == 0 ? "PASS" : "FAIL",
                 $"the rejoined window was sent the match again up to event {replayedB} and caught up on {string.Join(", ", skippedB.Select(r => $"{r.From + 1}-{r.To}"))} without showing them; it showed {diceB.Count} rolls, {oldB.Count} of them from before");
-            // Both HUD lines at the end: the same turn, phase and objectives, and each seat's VP the other way round.
+            // Both HUD lines at the end: the same turn, phase, objectives and scores (by seat letter since stage U2).
             var stripA = endA.GetValueOrDefault("strip", "");
             var stripB = endB.GetValueOrDefault("strip", "");
-            var vpA = Regex.Match(stripA, @"VP you (\d+), opponent (\d+)");
-            var vpB = Regex.Match(stripB, @"VP you (\d+), opponent (\d+)");
+            var vpA = Regex.Match(stripA, @"VP A (\d+) – B (\d+)");
+            var vpB = Regex.Match(stripB, @"VP A (\d+) – B (\d+)");
             // The HUD (proposal G3) starts with each window's own seat; the rest is shared.
             static string Shared(string strip) => string.Join("|", strip.Split(" · ").Where(p => !p.StartsWith("VP ", StringComparison.Ordinal) && !p.StartsWith('[')));
-            Record("pvp-both-same-status-strip", vpA.Success && vpB.Success && vpA.Groups[1].Value == vpB.Groups[2].Value && vpA.Groups[2].Value == vpB.Groups[1].Value
+            Record("pvp-both-same-status-strip", vpA.Success && vpB.Success && vpA.Value == vpB.Value
                 && Shared(stripA) == Shared(stripB) && stripA.Contains("objectives now: ", StringComparison.Ordinal)
                 && stripA.StartsWith("[A] SEAT ONE", StringComparison.Ordinal) && stripB.StartsWith("[B] SEAT TWO", StringComparison.Ordinal) ? "PASS" : "FAIL",
                 $"Seat One: {stripA} || Seat Two: {stripB}");
