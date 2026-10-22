@@ -27,9 +27,10 @@ public enum InteractionMode
     Combat,
 }
 
-// Stage K6: one entry of the Combat menu for the chosen enemy: the action, whether the preview says the server would take
-// it, and if not, the rules' reason (greyed out, never sent from the menu).
-public sealed record CombatEntry(InteractionMode Mode, string Label, string Key, bool Enabled, string? Why, Preview Preview);
+// Battlefield UI 3, stage U1 (approved by Jason on 2026-10-22): one entry of the Combat menu, which lists the attacks of
+// the acting model before any target is chosen: the action, whether it is open (the rules open the action and accept at
+// least one enemy as its target), how many enemies they accept, and if it is not open, the rules' reason (greyed out).
+public sealed record CombatEntry(InteractionMode Mode, string Label, string Key, bool Enabled, string? Why, int Targets);
 
 // Stage K6: what picking an entry of the Combat menu does next.
 public enum CombatPick
@@ -37,13 +38,9 @@ public enum CombatPick
     // Nothing (greyed out, or not choosing in Combat).
     None,
 
-    // Battlefield UI 2, stage N1: Shoot, Charge or Fight the preview accepts: its preview is shown with a Confirm button
-    // beside the target (Confirm shoot, Confirm charge, Confirm fight). Nothing is sent: choosing an action is not
-    // confirming it; one click on that button, or Space, sends.
-    Confirm,
-
-    // Chosen by key with a preview the rules refuse: the action is shown, nothing is sent (Space twice still sends it).
-    Shown,
+    // Stage U1: the action is chosen; the player now chooses its target (the enemies the rules accept are ringed). Nothing
+    // is sent: Confirm beside the chosen target (or Space) sends.
+    Target,
 }
 
 // What a button of the battlefield's action bar does.
@@ -230,7 +227,11 @@ public sealed class Interaction
 
     public bool IsPath => Mode is InteractionMode.Move or InteractionMode.Dash or InteractionMode.Retreat;
 
-    public bool IsTarget => Mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Combat;
+    // Stage U1: Combat itself chooses no target (it lists the attacks); Shoot, Charge and Fight do.
+    public bool IsTarget => Mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight;
+
+    // Stage U1: the attack being chosen was picked from the Combat menu, so Esc goes back to the menu first.
+    public bool FromCombat { get; private set; }
 
     // Stage K6: Shoot, Charge and Fight, which the bar offers as one Combat action.
     public static bool IsAttack(InteractionMode mode) => mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight;
@@ -314,7 +315,9 @@ public sealed class Interaction
             return;
         }
         _afterCharge = null;
-        Mode = InteractionMode.Combat;
+        // Stage U1: Fight is chosen on the charged enemy, waiting for Confirm fight (Esc goes back to the Combat menu).
+        Mode = InteractionMode.Fight;
+        FromCombat = true;
         Actor = after.Charger;
         Target = after.Target;
         _armed = false;
@@ -540,10 +543,7 @@ public sealed class Interaction
         }
         if (_verdicts is null || _verdictsVersion != Version)
         {
-            _verdicts = Mode == InteractionMode.Combat
-                // Stage K6: an enemy is a valid choice when at least one of its attacks is open; else the first reason.
-                ? [.. Targets().Select(t => CombatEntriesFor(t) is var entries && entries.Any(e => e.Enabled) ? (t, (Rejection?)null) : (t, entries.Select(e => e.Preview.Refusal).FirstOrDefault()))]
-                : [.. Targets().Select(t => (t, Previews.Target(_state, seat, Kind(Mode), actor, t).Refusal))];
+            _verdicts = [.. Targets().Select(t => (t, Previews.Target(_state, seat, Kind(Mode), actor, t).Refusal))];
             _verdictsVersion = Version;
         }
         return _verdicts;
@@ -557,7 +557,7 @@ public sealed class Interaction
     // model already chosen. Nothing is chosen or sent.
     public Preview? PreviewOf(ModelId target)
     {
-        if (!IsTarget || Mode == InteractionMode.Combat || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor)
+        if (!IsTarget || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor)
         {
             return null;
         }
@@ -678,9 +678,9 @@ public sealed class Interaction
         InteractionMode.Dash => "Move again up to the model's Movement, with a Risky roll that decides whether it works: click a spot in the shaded area (key D).",
         InteractionMode.Retreat => "Leave melee: click a spot in the shaded area, more than 1\" from every enemy; enemies within 1\" may attack first (key R).",
         InteractionMode.Shoot => "Shoot an enemy in range and in sight: click a target, then Confirm shoot beside it (key S).",
-        InteractionMode.Charge => "Charge an enemy within 12\" into melee; a D6 adds reach: in Combat (C), choose Charge on a target, then Confirm charge beside it (key 2).",
+        InteractionMode.Charge => "Charge an enemy within 12\" into melee; a D6 adds reach: in Combat (C), choose Charge, click a target, then Confirm charge beside it (key 2).",
         InteractionMode.Fight => "Attack an enemy within 1\": click a target, then Confirm fight beside it (key X).",
-        InteractionMode.Combat => "Shoot, Charge or Fight: click an enemy, choose the attack beside it (1, 2, 3), then Confirm beside the enemy (or Space); what the rules refuse is greyed out with the reason (key C).",
+        InteractionMode.Combat => "Shoot, Charge or Fight: choose the attack (1, 2, 3), click an enemy the rules accept (ringed), then Confirm beside it (or Space); an attack the rules refuse is greyed out with the reason (key C).",
         _ => "",
     };
 
@@ -829,7 +829,9 @@ public sealed class Interaction
         return true;
     }
 
-    public void Cancel()
+    // Stage U1: Esc and a right-click take an attack picked from the Combat menu back to the menu; all (the card's Cancel
+    // button) leaves the choice altogether.
+    public void Cancel(bool all = false)
     {
         if (Pending is not null || (Mode == InteractionMode.None && Notice is null))
         {
@@ -838,6 +840,16 @@ public sealed class Interaction
         if (Mode == InteractionMode.Place)
         {
             _placeDismissed = true;
+        }
+        // Stage U1: an attack picked from the Combat menu goes back to the menu; Esc again leaves Combat.
+        if (!all && FromCombat && IsAttack(Mode) && Available.Contains(InteractionMode.Combat))
+        {
+            var actor = Actor;
+            Clear();
+            Mode = InteractionMode.Combat;
+            Actor = actor;
+            Changed();
+            return;
         }
         Clear();
         Changed();
@@ -890,18 +902,22 @@ public sealed class Interaction
         return true;
     }
 
-    // Stage K6: the Combat menu for the chosen enemy: Shoot, Charge and Fight, each with the preview of that action on
-    // that target (the same check as choosing it by its key), greyed out with the rules' reason when refused.
-    public IReadOnlyList<CombatEntry> CombatEntries() => Mode == InteractionMode.Combat && Target is { } target && Pending is null ? CombatEntriesFor(target) : [];
-
-    private IReadOnlyList<CombatEntry> CombatEntriesFor(ModelId target)
+    // Stage U1: the Combat menu, before any target: Shoot, Charge and Fight for the acting model. An entry is open when the
+    // rules open that action (Previews.ActionOpen) and accept at least one enemy as its target (Previews.Target, the same
+    // check as choosing it); else it is greyed out with the rules' reason (for the nearest enemy when none is accepted).
+    public IReadOnlyList<CombatEntry> CombatEntries()
     {
-        if (_seat is not { } seat || Actor is not { } actor)
+        if (Mode != InteractionMode.Combat || Pending is not null || _seat is not { } seat || Actor is not { } actor)
         {
             return [];
         }
+        if (_combatEntries is not null && _combatVersion == Version)
+        {
+            return _combatEntries;
+        }
         var entries = new List<CombatEntry>();
         var number = 0;
+        var enemies = Targets();
         foreach (var mode in new[] { InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight })
         {
             number++;
@@ -909,22 +925,34 @@ public sealed class Interaction
             {
                 continue;
             }
-            var preview = Previews.Target(_state, seat, Kind(mode), actor, target);
-            var why = Previews.ActionOpen(_state, seat, actor, Kind(mode)) ?? preview.Refusal;
-            entries.Add(new CombatEntry(mode, Words(mode), number.ToString(System.Globalization.CultureInfo.InvariantCulture), why is null && preview.Legal,
-                why is null ? null : $"{why.Text} ({why.RuleRef})", preview));
+            var key = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (Previews.ActionOpen(_state, seat, actor, Kind(mode)) is { } closed)
+            {
+                entries.Add(new CombatEntry(mode, Words(mode), key, false, $"{closed.Text} ({closed.RuleRef})", 0));
+                continue;
+            }
+            var verdicts = enemies.Select(t => Previews.Target(_state, seat, Kind(mode), actor, t)).ToList();
+            var legal = verdicts.Count(v => v.Legal);
+            var why = legal > 0 ? null
+                : verdicts.Select(v => v.Refusal).FirstOrDefault(r => r is not null) is { } first ? $"No enemy can be the target: {first.Text} ({first.RuleRef})"
+                : "No enemy can be the target.";
+            entries.Add(new CombatEntry(mode, Words(mode), key, legal > 0, why, legal));
         }
+        _combatEntries = entries;
+        _combatVersion = Version;
         return entries;
     }
 
-    // Stage K6: picks an entry of the Combat menu (a click, or keys 1, 2 and 3). The action becomes the one being chosen,
-    // on the same target. A greyed-out entry picked by a click does nothing; by a key it shows that action's preview (so
-    // the keyboard keeps "confirm twice to send anyway"). Stage N1: nothing is ever sent from here; the caller shows the
-    // Confirm button beside the target on Confirm.
+    private IReadOnlyList<CombatEntry>? _combatEntries;
+    private long _combatVersion = -1;
+
+    // Stage U1: picks an attack from the Combat menu (a click, or keys 1, 2 and 3). The attack becomes the one being chosen,
+    // with no target yet: the player clicks an enemy the rules accept (ringed), then Confirm beside it. A greyed-out entry
+    // picked by a click does nothing; by a key it is chosen anyway (so the keyboard keeps "confirm twice to send anyway").
+    // Nothing is ever sent from here.
     public CombatPick ChooseCombat(InteractionMode mode, bool byKey = false)
     {
-        if (Pending is not null || Mode != InteractionMode.Combat || Target is not { } target || !IsAttack(mode)
-            || CombatEntriesFor(target).FirstOrDefault(e => e.Mode == mode) is not { } entry)
+        if (Pending is not null || Mode != InteractionMode.Combat || !IsAttack(mode) || CombatEntries().FirstOrDefault(e => e.Mode == mode) is not { } entry)
         {
             return CombatPick.None;
         }
@@ -933,11 +961,12 @@ public sealed class Interaction
             return CombatPick.None;
         }
         Mode = mode;
-        Target = target;
+        FromCombat = true;
+        Target = null;
         _armed = false;
         Notice = null;
         Changed();
-        return entry.Enabled ? CombatPick.Confirm : CombatPick.Shown;
+        return CombatPick.Target;
     }
 
     // Stage K4: the models of the seat shown still to place, in order (for the bar's chips and the UI check).
@@ -1292,7 +1321,7 @@ public sealed class Interaction
         InteractionMode.Place => "Click a spot in your zone to place the model. Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), N and P choose the model, Space sends.",
         _ when IsPath => "Click a spot in the shaded area to go there (Shift+click adds a waypoint for a path around something). Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), Enter fixes a point, Backspace removes one, Space sends."
             + (CanClimbSides ? (ClimbSides ? " K: back to ladders (now climbing a tower's side, a Risky roll)." : " K: climb a tower's side instead of a ladder (a Risky roll).") : ""),
-        InteractionMode.Combat => "Click an enemy (ringed when an attack on it is open), then choose Shoot, Charge or Fight beside it and Confirm (or Space) to send it; what the rules refuse is greyed out with the reason. Right-click or Esc cancels. Keys: N and P choose the enemy, 1 Shoot, 2 Charge, 3 Fight.",
+        InteractionMode.Combat => "Choose Shoot, Charge or Fight; then click an enemy the rules accept (ringed) and Confirm beside it (or Space). An attack the rules refuse is greyed out with the reason. Right-click or Esc cancels. Keys: 1 Shoot, 2 Charge, 3 Fight.",
         InteractionMode.Charge => "Click Confirm charge beside the target. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
         _ => "Click a target (valid ones are marked), then Confirm beside it. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
     };
@@ -1366,6 +1395,7 @@ public sealed class Interaction
     private void Clear()
     {
         Mode = InteractionMode.None;
+        FromCombat = false;
         Actor = null;
         Target = null;
         _armed = false;

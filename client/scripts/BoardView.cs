@@ -1030,11 +1030,8 @@ public partial class BoardView : SubViewportContainer
         }
         if (Interaction.Mode == InteractionMode.Combat)
         {
-            // Stage K6: a click chooses the enemy; its menu of attacks opens beside it.
-            if (ModelAt(local) is { Yours: false } enemy)
-            {
-                Interaction.SetTarget(enemy.Id);
-            }
+            // Battlefield UI 3, stage U1: the attack is chosen first, from the Combat menu beside the bar; a click on the
+            // battlefield chooses nothing until then.
         }
         else if (Interaction.IsTarget)
         {
@@ -1130,9 +1127,9 @@ public partial class BoardView : SubViewportContainer
         return true;
     }
 
-    public void CancelPreview()
+    public void CancelPreview(bool all = false)
     {
-        Interaction.Cancel();
+        Interaction.Cancel(all);
         Sync();
         UpdateBar();
     }
@@ -1144,7 +1141,7 @@ public partial class BoardView : SubViewportContainer
         Key.D => InteractionMode.Dash,
         Key.R => InteractionMode.Retreat,
         Key.S => InteractionMode.Shoot,
-        // Stage K6: C opens Combat (Shoot, Charge or Fight on the enemy chosen); in Combat, 2 is Charge.
+        // C opens Combat (stage U1: the menu of attacks first, then the target); in Combat, 2 is Charge.
         Key.C => InteractionMode.Combat,
         Key.X => InteractionMode.Fight,
         _ => null,
@@ -1203,7 +1200,7 @@ public partial class BoardView : SubViewportContainer
     private bool HandlePreviewKey(InputEventKey key)
     {
         var step = (float)(key.ShiftPressed ? Interaction.BigStep : Interaction.Step);
-        // Stage K6: in Combat, 1, 2 and 3 choose Shoot, Charge and Fight on the chosen enemy.
+        // In Combat, 1, 2 and 3 choose Shoot, Charge and Fight (stage U1: before any target).
         if (Interaction.Mode == InteractionMode.Combat && key.Keycode switch
             {
                 Key.Key1 or Key.Kp1 => InteractionMode.Shoot,
@@ -1265,8 +1262,8 @@ public partial class BoardView : SubViewportContainer
         Sync();
     }
 
-    // Stage K6: an entry of the Combat menu (a click on it, or 1, 2 and 3). Stage N1: it never sends; it shows that
-    // action's preview and, when the preview accepts it, Confirm shoot, Confirm charge or Confirm fight beside the target.
+    // An entry of the Combat menu (a click on it, or 1, 2 and 3). Stage U1: it chooses the attack, never a target and never
+    // a send; the player then clicks an enemy the rules accept and Confirm beside it.
     public void PickCombat(InteractionMode mode, bool byKey = false)
     {
         Interaction.ChooseCombat(mode, byKey);
@@ -1274,7 +1271,7 @@ public partial class BoardView : SubViewportContainer
         UpdateCombat();
     }
 
-    // Stage K6: the Combat menu beside the chosen enemy. Stage N1: the Confirm button beside the target of a Shoot,
+    // The Combat menu (stage U1: the attacks of the acting model, beside the bar). Stage N1: the Confirm button beside the target of a Shoot,
     // Charge or Fight the preview accepts (it was for Charge only).
     private readonly PanelContainer _combatMenu = new() { Name = "CombatMenu", Visible = false, MouseFilter = MouseFilterEnum.Stop };
     private readonly VBoxContainer _combatRows = new();
@@ -1292,6 +1289,9 @@ public partial class BoardView : SubViewportContainer
 
     public Rect2? CombatMenuRect => _combatMenu.Visible ? _combatMenu.GetGlobalRect() : null;
 
+    // Stage U1: the menu's title, which names the friendly model that attacks (null when the menu is hidden).
+    public string? CombatMenuTitle => _combatMenu.Visible && _combatRows.GetChildCount() > 0 && _combatRows.GetChild(0) is Label l && l.Name == "CombatTitle" ? l.Text : null;
+
     public Vector2? ConfirmChargeAt => Interaction.Mode == InteractionMode.Charge ? ConfirmAttackAt : null;
 
     // Stage N1: where the Confirm button beside the target is, and what it says (for the UI check); null when hidden.
@@ -1301,9 +1301,11 @@ public partial class BoardView : SubViewportContainer
 
     private void UpdateCombat()
     {
+        // Stage U1: the Combat menu lists the acting model's attacks before any target is chosen; it sits beside the bar.
         var entries = Interaction.CombatEntries();
+        var actor = Interaction.Actor is { } a ? _scene?.Find(a) : null;
         var target = Interaction.Target is { } t ? _scene?.Find(t) : null;
-        var key = $"{Interaction.Target?.Value}|{_textScale}|{string.Join("|", entries.Select(e => $"{e.Mode}:{e.Enabled}:{e.Why}"))}";
+        var key = $"{actor?.Id.Value}|{_textScale}|{string.Join("|", entries.Select(e => $"{e.Mode}:{e.Enabled}:{e.Why}:{e.Targets}"))}";
         if (key != _combatShown)
         {
             _combatShown = key;
@@ -1313,13 +1315,21 @@ public partial class BoardView : SubViewportContainer
                 child.QueueFree();
             }
             var shown = new List<(string, bool, string?)>();
+            if (actor is not null && entries.Count > 0)
+            {
+                // Which friendly model attacks.
+                var title = new Label { Name = "CombatTitle", Text = $"{actor.Name} ({UnitPanel.ShortId(actor.Id)}): choose an attack", MouseFilter = MouseFilterEnum.Ignore };
+                title.AddThemeFontSizeOverride("font_size", (int)(15 * _textScale));
+                title.AddThemeColorOverride("font_color", new Color(1f, 0.93f, 0.7f));
+                _combatRows.AddChild(title);
+            }
             foreach (var entry in entries)
             {
                 var button = new Button
                 {
                     Text = $"{entry.Label} · {entry.Key}",
                     Disabled = !entry.Enabled,
-                    TooltipText = entry.Enabled ? entry.Preview.Headline : entry.Why ?? "",
+                    TooltipText = entry.Enabled ? $"{entry.Targets} {(entry.Targets == 1 ? "enemy" : "enemies")} the rules accept as the target: choose, then click one" : entry.Why ?? "",
                     FocusMode = FocusModeEnum.None,
                     Alignment = HorizontalAlignment.Left,
                     MouseDefaultCursorShape = entry.Enabled ? CursorShape.PointingHand : CursorShape.Arrow,
@@ -1342,10 +1352,10 @@ public partial class BoardView : SubViewportContainer
             CombatMenuShown = shown;
             _combatMenu.ResetSize();
         }
-        _combatMenu.Visible = entries.Count > 0 && target is not null;
+        _combatMenu.Visible = entries.Count > 0 && actor is not null;
         if (_combatMenu.Visible)
         {
-            Beside(_combatMenu, target!);
+            PlaceCombatMenu(actor!);
         }
         _confirmBox.Visible = Interaction.IsAttack(Interaction.Mode) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
         if (_confirmBox.Visible)
@@ -1359,6 +1369,30 @@ public partial class BoardView : SubViewportContainer
             _confirmBox.ResetSize();
             _confirmButton.AddThemeFontSizeOverride("font_size", (int)(17 * _textScale));
             Beside(_confirmBox, target!);
+        }
+    }
+
+    // Stage U1: the Combat menu above the action bar (else below it), clear of the screen's boxes; beside the acting model
+    // when the bar is hidden.
+    private void PlaceCombatMenu(ModelShape actor)
+    {
+        if (!_bar.Visible)
+        {
+            Beside(_combatMenu, actor);
+            return;
+        }
+        var size = _combatMenu.GetCombinedMinimumSize();
+        var bar = new Rect2(_bar.Position, _bar.Size);
+        var reserved = Reserved?.Invoke().ToList() ?? [];
+        Vector2 Clamp(Vector2 at) => new(Math.Clamp(at.X, 4, Math.Max(4, Size.X - size.X - 4)), Math.Clamp(at.Y, TopInset + 4, Math.Max(TopInset + 4, Size.Y - size.Y - 4)));
+        var above = Clamp(new Vector2(bar.Position.X, bar.Position.Y - size.Y - 6));
+        var below = Clamp(new Vector2(bar.Position.X, bar.End.Y + 6));
+        bool Clear(Vector2 p) => !new Rect2(p, size).Intersects(bar) && !reserved.Any(r => r.Intersects(new Rect2(p, size)));
+        var position = Clear(above) || !Clear(below) ? above : below;
+        if (_combatMenu.Position != position || _combatMenu.Size != size)
+        {
+            _combatMenu.Position = position;
+            _combatMenu.Size = size;
         }
     }
 

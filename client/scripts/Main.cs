@@ -1593,7 +1593,7 @@ public partial class Main : Control
         }
         _pConfirm = Button("Confirm", () => _board.Confirm());
         _pConfirm.Name = "PanelConfirm";
-        _pCancel = Button("Cancel", () => _board.CancelPreview());
+        _pCancel = Button("Cancel", () => _board.CancelPreview(all: true));
         _pCancel.Name = "PanelCancel";
         _pConfirm.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _pCancel.SizeFlagsHorizontal = SizeFlags.ExpandFill;

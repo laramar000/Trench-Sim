@@ -37,7 +37,7 @@ public static class KeySheet
             E("move", "M"),
             E("dash", "D"),
             E("retreat", "R"),
-            E("combat: click an enemy, then shoot, charge or fight", "C"),
+            E("combat: choose shoot, charge or fight, then the enemy", "C"),
             E("shoot", "S"),
             E("fight", "X"),
         ]),
@@ -49,12 +49,12 @@ public static class KeySheet
         ]),
         ("Targets (combat, shoot, fight)", [
             E("next and previous target", "N", "P"),
-            E("in combat: shoot, charge, fight", "1", "2", "3"),
+            E("in combat, first: shoot, charge, fight", "1", "2", "3"),
             E("send the attack shown (beside the target)", "Confirm"),
         ]),
         ("Confirm and cancel", [
             E("send", "Space", "Confirm"),
-            E("cancel (sends nothing)", "Esc", "Right-click"),
+            E("cancel, or back to the combat menu (sends nothing)", "Esc", "Right-click"),
             E("keep an activation that is ending by itself", "Esc"),
         ]),
         ("Window", [

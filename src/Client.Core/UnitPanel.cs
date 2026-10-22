@@ -157,6 +157,7 @@ public static class UnitPanel
             ModelShape? target = preview?.Target is { } t ? scene?.Find(t) : null;
             actionTitle = preview switch
             {
+                null when interaction.Mode == InteractionMode.Combat => $"{verb}: choose Shoot, Charge or Fight",
                 null => interaction.IsTarget ? $"{verb}: choose a target" : $"{verb}: choose where",
                 { Kind: PreviewKind.Place } => $"PLACE {ShortId(preview.Model)} → {preview.Path[0].At}",
                 { Kind: PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat } => $"{verb} → {preview.Path[^1].At}",
