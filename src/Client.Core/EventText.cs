@@ -95,6 +95,37 @@ public static class EventText
         _ => new(null, null, Line(e).Trim()),
     };
 
+    // Battlefield UI 3, stage U5 (decision D2): whether a log row is a success or a failure, read from the event's own
+    // result only. A roll with a pass or fail (Dash, side climb, to-hit, Morale) by its outcome; an Injury Roll that
+    // downs or kills is a success and one with no effect a failure (a Minor Hit is neither); a charge that reaches is a
+    // success and one that falls short or cannot move a failure. Every other row is neutral.
+    public static RowOutcome Outcome(GameEvent e) => e switch
+    {
+        DashRolled d => Of(d.Check),
+        SideClimbRolled c => Of(c.Check),
+        RangedSuccessRolled r => Of(r.Check),
+        MeleeSuccessRolled m => Of(m.Check),
+        MoraleCheckRolled m => Of(m.Check),
+        InjuryRolled i => i.Injury.Outcome switch
+        {
+            InjuryOutcome.OutOfAction or InjuryOutcome.Down => RowOutcome.Success,
+            InjuryOutcome.MinorHit => RowOutcome.None,
+            _ => RowOutcome.Failure,
+        },
+        ChargeMoved c => c.Reached && !c.Path.IsEmpty ? RowOutcome.Success : RowOutcome.Failure,
+        _ => RowOutcome.None,
+    };
+
+    private static RowOutcome Of(SuccessRollResult check) => check.Outcome == SuccessOutcome.Failure ? RowOutcome.Failure : RowOutcome.Success;
+
+    // The mark drawn after the row's number: "✓" for a success, "✕" for a failure, none otherwise.
+    public static string Mark(RowOutcome outcome) => outcome switch
+    {
+        RowOutcome.Success => "✓",
+        RowOutcome.Failure => "✕",
+        _ => "",
+    };
+
     private static string Id(ModelId id) => id.Value.ToUpperInvariant();
 
     // Points and lengths as the panel writes them: inches to one decimal.
@@ -164,6 +195,13 @@ public static class EventText
 public sealed record CompactRow(string? Actor, string? Verb, string Rest)
 {
     public string Text => string.Join(" ", new[] { Actor, Verb, Rest }.Where(p => !string.IsNullOrEmpty(p)));
+}
+
+public enum RowOutcome
+{
+    None,
+    Success,
+    Failure,
 }
 
 public enum EventKind

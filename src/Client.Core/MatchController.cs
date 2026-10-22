@@ -44,6 +44,9 @@ public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<U
     public string? Why { get; init; }
 
     public ActionResolution? Action { get; init; }
+
+    // Stage U5: a success, a failure or neither, from the event's own result (EventText.Outcome).
+    public RowOutcome Outcome { get; init; }
 }
 
 // Everything the screen needs at one moment. Hints are empty whenever input is locked (InputLocked says why).
@@ -493,6 +496,7 @@ public sealed class MatchController : IAsyncDisposable
         {
             Why = _resolutions.WhyOf(seq)?.Text is { Length: > 0 } why ? why : null,
             Action = _resolutions.ActionAt(seq),
+            Outcome = EventText.Outcome(e),
         };
     }
 

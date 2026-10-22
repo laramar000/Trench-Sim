@@ -2064,6 +2064,8 @@ public partial class Main : Control
     private bool? _focusOverride;
 
     // For the UI check: each combat-log row's sound, as the events gave them.
+    public IReadOnlyList<RowOutcome> LogOutcomes => [.. _logRows.Select(r => r.Source.Outcome)];
+
     public IReadOnlyList<(int Seq, SoundCue? Sound, bool Replayed)> LogSounds => [.. _logRows.Select(r => (r.Seq, r.Source.Sound, r.Source.Replayed))];
 
     public int AttentionRequests { get; private set; }
@@ -2685,6 +2687,13 @@ public partial class Main : Control
             var body = row.Verb is null ? $"[color=#{colour}]{words}[/color]" : words;
             var highlight = newest || i == lastTurn;
             var head = highlight ? $"[b][lb]{seq}][/b] " : $"[lb]{seq}] ";
+            // Stage U5: a success or failure is marked after the number, in green or red and as ✓ or ✕ (the same colours
+            // in high contrast); the row's words are unchanged.
+            if (EventText.Mark(source.Outcome) is { Length: > 0 } mark)
+            {
+                var tint = source.Outcome == RowOutcome.Success ? "5fe07a" : "ff5a4e";
+                head += $"[b][color=#{tint}]{mark}[/color][/b] ";
+            }
             var dice = source.Dice is null ? "" : $"\n[color=#{(_highContrast ? "ffffff" : "a6a6a6")}]      {Escape(source.Dice)}[/color]";
             line.Text = head + body + dice;
             line.AddThemeColorOverride("default_color", highlight ? (_highContrast ? Colors.Yellow : new Color(1f, 0.95f, 0.6f)) : (_highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f)));

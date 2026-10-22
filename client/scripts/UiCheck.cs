@@ -4675,6 +4675,28 @@ public partial class UiCheck : Node
         {
             Check("pvp-event-log-tags", false, "the match screen was not found");
         }
+        // Battlefield UI 3, stage U5 (log-outcome-marks): each row of a success shows ✓ after its number and each of a
+        // failure ✕, every other row no mark, and the words after it are the row's own.
+        if (_main is Main marked)
+        {
+            var rows = marked.LogRows;
+            var outcomes = marked.LogOutcomes;
+            var wrong = new List<string>();
+            for (var i = 0; i < rows.Count && i < outcomes.Count; i++)
+            {
+                var number = rows[i].Full[..(rows[i].Full.IndexOf(']') + 1)] + " ";
+                var after = rows[i].Shown.StartsWith(number, StringComparison.Ordinal) ? rows[i].Shown[number.Length..] : "";
+                var mark = EventText.Mark(outcomes[i]);
+                var ok = mark.Length == 0 ? !after.StartsWith('✓') && !after.StartsWith('✕') : after.StartsWith(mark + " ", StringComparison.Ordinal);
+                if (!ok)
+                {
+                    wrong.Add($"{outcomes[i]}: {rows[i].Shown}");
+                }
+            }
+            var (wins, losses) = (outcomes.Count(o => o == RowOutcome.Success), outcomes.Count(o => o == RowOutcome.Failure));
+            Check("log-outcome-marks", rows.Count == outcomes.Count && wrong.Count == 0 && wins > 0 && losses > 0,
+                $"{rows.Count} rows: {wins} ✓, {losses} ✕, {rows.Count - wins - losses} unmarked; wrong: {string.Join(" / ", wrong.Take(3))}");
+        }
         Write($"DUMP pvp-end looks={(board?.Scene is { } final ? string.Join(",", final.Models.Select(m => $"{m.Id.Value}:{m.Look}:{m.Status}")) : "")}");
         SummaryCheck();
         if (_role == "gvt-a")
