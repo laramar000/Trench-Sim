@@ -514,9 +514,9 @@ public partial class UiCheck : Node
 
         // A real mouse click (left button) on an opponent's model selects it.
         var target = scene.Models.First(m => !m.Yours);
-        var local = board.ScreenOf(target.X, target.Y, target.Standing);
         var clicked = false;
         await MouseOn(board);
+        var local = await ClickableSpotOf(board, target.Id);
         if (local is { } at)
         {
             var global = board.GetGlobalTransformWithCanvas() * at;
@@ -812,10 +812,11 @@ public partial class UiCheck : Node
         var other = targets.Where(t => t != interaction.Target).Select(t => scene.Find(t)).FirstOrDefault(m => m is not null && board.ScreenOf(m.X, m.Y, m.Standing) is not null);
         var picked = targets.Count < 2;
         await MouseOn(board);
-        if (other is not null && board.ScreenOf(other.X, other.Y, other.Standing) is { } spot)
+        if (other is not null && await ClickableSpotOf(board, other.Id) is not null)
         {
-            var global = board.GetGlobalTransformWithCanvas() * spot;
             await HoverTargetCheck(board, other, lastCommand);
+            // The spot is read after pointing: pointing may have centred the camera on the model.
+            var global = board.GetGlobalTransformWithCanvas() * (board.ScreenOf(other.X, other.Y, other.Standing) ?? Vector2.Zero);
             foreach (var pressed in new[] { true, false })
             {
                 Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = global, GlobalPosition = global });
@@ -1033,7 +1034,7 @@ public partial class UiCheck : Node
         {
             for (var y = 2.0; y <= 34; y += 4)
             {
-                if (scene.Models.All(m => (m.X - x) * (m.X - x) + (m.Y - y) * (m.Y - y) > 9) && board.ScreenOf(x, y) is { } spot)
+                if (scene.Models.All(m => (m.X - x) * (m.X - x) + (m.Y - y) * (m.Y - y) > 9) && board.ScreenOf(x, y) is { } spot && Clickable(board, spot))
                 {
                     return spot;
                 }
@@ -4940,7 +4941,7 @@ public partial class UiCheck : Node
         var before = board.Selected?.Id;
         // The selected unit, else an enemy: a first click on another of your own units could try to switch the activation.
         var unit = scene.Models.Where(m => m.Id == before || !m.Yours).OrderBy(m => m.Id == before ? 0 : 1)
-            .FirstOrDefault(m => board.ScreenOf(m.X, m.Y, m.Standing) is { } p && field.HasPoint(p) && board.ModelAt(p)?.Id == m.Id);
+            .FirstOrDefault(m => board.ScreenOf(m.X, m.Y, m.Standing) is { } p && field.HasPoint(p) && Clickable(board, p) && board.ModelAt(p)?.Id == m.Id);
         var detail = "no selected or enemy unit on screen";
         var ok = false;
         if (unit is not null)
@@ -4948,7 +4949,7 @@ public partial class UiCheck : Node
             var zoom = board.Zoomed;
             await DoubleClick(board, board.ScreenOf(unit.X, unit.Y, unit.Standing)!.Value);
             var centred = Close(board.CameraTarget, unit.X, unit.Y) && Math.Abs(board.Zoomed - zoom) < 0.01f && board.Selected?.Id == unit.Id && board.FocusKey == $"model:{unit.Id.Value}";
-            var again = board.ScreenOf(unit.X, unit.Y, unit.Standing) is { } p2 && field.HasPoint(p2);
+            var again = board.ScreenOf(unit.X, unit.Y, unit.Standing) is { } p2 && field.HasPoint(p2) && Clickable(board, p2);
             if (again)
             {
                 await DoubleClick(board, board.ScreenOf(unit.X, unit.Y, unit.Standing)!.Value);
@@ -4960,7 +4961,7 @@ public partial class UiCheck : Node
         var objectiveOk = false;
         board.Fit();
         await Frames(3);
-        var objective = scene.Terrain.Where(t => t.Objective).FirstOrDefault(t => board.ScreenOf(t.Area.CentreX, t.Area.CentreY, t.Height) is { } p && field.HasPoint(p) && board.ModelAt(p) is null);
+        var objective = scene.Terrain.Where(t => t.Objective).FirstOrDefault(t => board.ScreenOf(t.Area.CentreX, t.Area.CentreY, t.Height) is { } p && field.HasPoint(p) && Clickable(board, p) && board.ModelAt(p) is null);
         if (objective is not null)
         {
             await DoubleClick(board, board.ScreenOf(objective.Area.CentreX, objective.Area.CentreY, objective.Height)!.Value);
@@ -4984,7 +4985,7 @@ public partial class UiCheck : Node
     private async Task DoubleClickTargetCheck(BoardView board, string lastCommand)
     {
         var interaction = board.Interaction;
-        if (interaction.Target is not { } target || board.Scene?.Find(target) is not { } shape || board.ScreenOf(shape.X, shape.Y, shape.Standing) is not { } spot)
+        if (interaction.Target is not { } target || board.Scene?.Find(target) is not { } shape || await ClickableSpotOf(board, target) is not { } spot)
         {
             Check("board-double-click-target-no-send", false, "no chosen target on screen");
             return;
@@ -5067,13 +5068,30 @@ public partial class UiCheck : Node
             $"J chose {first?.Value} (expected {expected.Value}), then {second?.Value} (expected {next.Value}), Shift+J {back?.Value}; the rules offer {string.Join(", ", units.Select(u => u.Value))}; camera kept while on screen: {cameraOk}; nothing sent: {nothingSent()}");
     }
 
+    // Stage N3: where a model is on screen once no box on the battlefield covers it, centring the camera on it first when
+    // one does (as a player would); null when it still cannot be clicked.
+    private async Task<Vector2?> ClickableSpotOf(BoardView board, Rules.Core.State.ModelId id)
+    {
+        if (board.Scene?.Find(id) is not { } model)
+        {
+            return null;
+        }
+        if (board.ScreenOf(model.X, model.Y, model.Standing) is not { } seen || !Clickable(board, seen))
+        {
+            board.CentreOn(id);
+            await Frames(8);
+        }
+        return board.ScreenOf(model.X, model.Y, model.Standing) is { } spot && Clickable(board, spot) ? spot : null;
+    }
+
     // ---- QoL H1: pointing at a model ----
 
     // Moves the pointer (a synthetic event, never the real mouse) over a model and waits until the battlefield and the
     // panel show it as pointed at.
     private async Task<bool> PointAt(BoardView board, Rules.Core.State.ModelId id)
     {
-        if (board.Scene?.Find(id) is not { } model || board.ScreenOf(model.X, model.Y, model.Standing) is not { } spot)
+        // Run 267: the pointer landed on a box on the battlefield, not on the model.
+        if (await ClickableSpotOf(board, id) is not { } spot)
         {
             return false;
         }
@@ -5096,7 +5114,8 @@ public partial class UiCheck : Node
     private async Task HoverInspectCheck(BoardView board, BoardScene scene, string lastCommand)
     {
         var field = new Rect2(Vector2.Zero, board.Size);
-        var foe = scene.Models.FirstOrDefault(m => !m.Yours && m.Id != board.Selected?.Id && board.ScreenOf(m.X, m.Y, m.Standing) is { } p && field.HasPoint(p));
+        bool OnScreen(ModelShape m, bool clear) => !m.Yours && m.Id != board.Selected?.Id && board.ScreenOf(m.X, m.Y, m.Standing) is { } p && field.HasPoint(p) && (!clear || Clickable(board, p));
+        var foe = scene.Models.FirstOrDefault(m => OnScreen(m, true)) ?? scene.Models.FirstOrDefault(m => OnScreen(m, false));
         if (foe is null)
         {
             Check("board-hover-inspect", false, "no enemy model on screen to point at");
