@@ -784,7 +784,6 @@ public partial class Main : Control
         _resultDetailsButton.Name = "ResultDetails";
         _resultDetailsButton.TooltipText = "The event list, rolls passed and failed, the event count and the final state hash (Copy final hash).";
         endBox.AddChild(Row(_rematch, _resultDetailsButton));
-        endBox.AddChild(_rematchNote);
         _resultDetails = new VBoxContainer { Name = "ResultDetailsBox", Visible = false };
         _end = Text("");
         _resultDetails.AddChild(_end);
@@ -800,6 +799,7 @@ public partial class Main : Control
             }
         }), Button("Event list", () => SetLog(true))));
         endBox.AddChild(_resultDetails);
+        endBox.AddChild(_rematchNote);
         _endSection = Section("Result of the match", endBox);
         _endSection.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         // Stage K2: the result is a box over the battlefield, under the HUD strip (not a section that pushes the
@@ -1680,6 +1680,9 @@ public partial class Main : Control
     public MatchResultView? ResultView => _resultView;
 
     public bool ResultDetailsOpen => _resultDetailsOpen;
+
+    // The result line, final hash and event count as shown under Details ("" while it is closed).
+    public string ResultDetailsText => _end.IsVisibleInTree() ? _end.Text : "";
 
     public Button ResultDetailsButton => _resultDetailsButton;
 

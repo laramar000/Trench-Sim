@@ -1940,7 +1940,7 @@ public partial class UiCheck : Node
         var main = (Main)_main;
         await Until(() => main.ResultView is not null && main.ResultBox.IsVisibleInTree() ? "ok" : null, 30, "result-view");
         await Frames(3);
-        var closedAtFirst = !main.ResultDetailsOpen && !Controls<Godot.Label>().Any(l => l.IsVisibleInTree() && l.Text.StartsWith("Final state hash: ", StringComparison.Ordinal));
+        var closedAtFirst = !main.ResultDetailsOpen && main.ResultDetailsText.Length == 0;
         var view = main.ResultView;
         var state = main.ServerState;
         var hotSeat = _role.StartsWith("hotseat", StringComparison.Ordinal);
@@ -1954,10 +1954,10 @@ public partial class UiCheck : Node
             && state.Outcome is { } o && shown.Contains(Words.Reason(o.Reason), StringComparison.OrdinalIgnoreCase);
         await ClickButton(main.ResultDetailsButton);
         await Frames(3);
-        var opened = main.ResultDetailsOpen && Label("Final state hash: ") is not null && ButtonNamed("Copy final hash") is { } copy && copy.IsVisibleInTree()
-            && main.SummaryText.Length > 0;
+        var parts = (open: main.ResultDetailsOpen, hash: main.ResultDetailsText.Contains("\nFinal state hash: ", StringComparison.Ordinal), copy: ButtonNamed("Copy final hash") is { } copy && copy.IsVisibleInTree(), summary: main.SummaryText.Length > 0);
+        var opened = parts.open && parts.hash && parts.copy && parts.summary;
         Check("result-details", closedAtFirst && top && opened,
-            $"closed at first: {closedAtFirst}; top: {shown.Replace('\n', '|')} (wanted {expected}); Details shows the hash, Copy final hash and the summary: {opened}");
+            $"closed at first: {closedAtFirst}; top: {shown.Replace('\n', '|')} (wanted {expected}); Details shows the hash, Copy final hash and the summary: {opened} {parts}");
     }
 
     // Stage N3: the result is a compact box at the top-centre of the battlefield, under the HUD, inside the battlefield,
