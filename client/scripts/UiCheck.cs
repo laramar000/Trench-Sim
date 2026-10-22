@@ -505,6 +505,7 @@ public partial class UiCheck : Node
         var first = board.Selected;
         await UnitTabCheck(board);
         await UnitCardCollapsedCheck(board);
+        await ArtFallbackCheck(board);
         var info = PanelText;
         Check("board-select-key", first is { Yours: true }
             && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
@@ -1553,6 +1554,26 @@ public partial class UiCheck : Node
         Check("unit-card-collapsed", problems.Count == 0, problems.Count == 0
             ? $"closed: only the tab \"{main.UnitTab.Text}\" at {closedRect} (open card {openRect}); no box, words, buttons or keys; it opens again"
             : string.Join("; ", problems));
+    }
+
+    // Graphics stage G0 (art-fallback): with an art catalog whose files are missing, every model and the ground are drawn
+    // with the plain shapes, the missing files are noted, nothing stops; the real catalog is then put back.
+    private async Task ArtFallbackCheck(BoardView board)
+    {
+        var real = board.Visuals.Catalog;
+        var before = board.ArtDrawn;
+        var models = board.Scene?.Models.Count ?? 0;
+        board.UseArt(VisualCatalog.Parse("{ \"entries\": { \"unit:default\": \"units/missing-for-ui-check.glb\", \"ground\": \"ground/missing-for-ui-check.png\" } }"));
+        await Frames(3);
+        var broken = board.ArtDrawn;
+        var failures = board.Visuals.Failures.ToList();
+        board.UseArt(real);
+        await Frames(3);
+        var after = board.ArtDrawn;
+        var pass = models > 0 && broken.FromArt == 0 && broken.Plain == models && !broken.Ground
+            && failures.Count == 2 && failures.All(f => f.EndsWith("file not found", StringComparison.Ordinal)) && after == before;
+        Check("art-fallback", pass,
+            $"{models} models; real catalog: {before.FromArt} from art, {before.Plain} plain, ground from art {before.Ground}; missing files: {broken.FromArt} from art, {broken.Plain} plain, ground from art {broken.Ground}, noted: {string.Join(" / ", failures)}; put back: {after}");
     }
 
     // What is wrong with the closed card now (empty when it is only its tab, one button high, inside the battlefield).

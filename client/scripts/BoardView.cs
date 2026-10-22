@@ -2411,8 +2411,21 @@ public partial class BoardView : SubViewportContainer
         {
             return;
         }
+        _figuresFromArt = 0;
+        _figuresPlain = 0;
         Box(new Vector3((float)scene.Width / 2, -0.05f, (float)scene.Depth / 2), new Vector3((float)scene.Width, 0.1f, (float)scene.Depth),
             _highContrast ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.33f, 0.36f, 0.28f));
+        // Graphics stage G0: the ground's texture from the art catalog, if any, tiled once per 6" (not in high contrast).
+        _groundFromArt = false;
+        if (!_highContrast && Visuals.Texture(VisualCatalog.GroundKey) is { } ground
+            && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D groundPaint })
+        {
+            groundPaint.AlbedoTexture = ground;
+            groundPaint.AlbedoColor = Colors.White;
+            groundPaint.Uv1Triplanar = true;
+            groundPaint.Uv1Scale = Vector3.One / 6f;
+            _groundFromArt = true;
+        }
         foreach (var zone in scene.Zones)
         {
             var area = zone.Area;
@@ -2508,6 +2521,21 @@ public partial class BoardView : SubViewportContainer
 
     private Color LadderColour => _highContrast ? Colors.Yellow : new Color(0.95f, 0.78f, 0.3f);
 
+    // Graphics stage G0: the art (client/assets/catalog.json), and how much of the battlefield was drawn with it.
+    public Visuals Visuals { get; } = Visuals.Load();
+    private int _figuresFromArt;
+    private int _figuresPlain;
+    private bool _groundFromArt;
+
+    public (int FromArt, int Plain, bool Ground) ArtDrawn => (_figuresFromArt, _figuresPlain, _groundFromArt);
+
+    // Draws the battlefield again with another art catalog (the UI check tries a broken one, then puts the real one back).
+    public void UseArt(VisualCatalog catalog)
+    {
+        Visuals.Use(catalog);
+        Rebuild();
+    }
+
     // The towers and ladders drawn now (for the UI check).
     private readonly List<string> _towers = [];
     private int _ladders;
@@ -2572,13 +2600,27 @@ public partial class BoardView : SubViewportContainer
             var tall = model.Status == ModelStatus.Standing ? 1.2f : 0.3f;
             var colour = BodyColour(model);
             _bodyColours[model.Id] = colour;
-            var body = new MeshInstance3D
+            // Graphics stage G0: a standing model is drawn with its figure from the art catalog when it has one, fitted to
+            // the rules' base and the plain body's height; otherwise (and while Down) with the plain body, as always.
+            if (model.Status == ModelStatus.Standing
+                && Visuals.Model(VisualCatalog.UnitKey(model.Name), VisualCatalog.DefaultUnitKey) is { } figure)
             {
-                Mesh = new CylinderMesh { TopRadius = (float)model.Radius, BottomRadius = (float)model.Radius, Height = tall, RadialSegments = 24 },
-                Position = new Vector3((float)model.X, standing + tall / 2, (float)model.Y),
-                MaterialOverride = Paint(colour),
-            };
-            _content.AddChild(body);
+                Visuals.FitOnBase(figure, new Vector3((float)model.X, standing, (float)model.Y), (float)model.Radius, tall);
+                figure.Name = $"Figure{model.Id.Value}";
+                _content.AddChild(figure);
+                _figuresFromArt++;
+            }
+            else
+            {
+                var body = new MeshInstance3D
+                {
+                    Mesh = new CylinderMesh { TopRadius = (float)model.Radius, BottomRadius = (float)model.Radius, Height = tall, RadialSegments = 24 },
+                    Position = new Vector3((float)model.X, standing + tall / 2, (float)model.Y),
+                    MaterialOverride = Paint(colour),
+                };
+                _content.AddChild(body);
+                _figuresPlain++;
+            }
             var selected = model.Id == _selected;
             // Your units the rules let you activate now: a thin, faint ring (the units you can click to choose).
             if (model.Yours && !selected && Interaction.CanChoose(model.Id))
