@@ -2071,7 +2071,7 @@ public partial class UiCheck : Node
         var area = new Rect2(new Vector2(0, board.TopInset + 8), board.Size - new Vector2(0, board.TopInset + 16));
         Vector2? Screen(double x, double y)
         {
-            if (board.ScreenOf(x, y, 0) is not { } p || !area.HasPoint(p) || board.BarRect is { } b && b.Grow(8).HasPoint(p))
+            if (board.ScreenOf(x, y, 0) is not { } p || !area.HasPoint(p) || board.BarRect is { } b && b.Grow(8).HasPoint(p) || !Clickable(board, p))
             {
                 return null;
             }
@@ -2105,12 +2105,14 @@ public partial class UiCheck : Node
             var reasonRect = board.PlaceReasonRect;
             var ghostScreen = board.GhostAt is { } g ? board.GetGlobalTransformWithCanvas() * (board.ScreenOf(g.X, g.Y, 0) ?? Vector2.Zero) : (Vector2?)null;
             var beside = reasonRect is { } r && ghostScreen is { } gs && board.GetGlobalRect().Encloses(r) && r.Grow(80).HasPoint(gs);
+            var under = GetViewport().GuiGetHoveredControl();
+            var shownSeat = HotControlled();
             await ClickAt(bad);
             await Frames(3);
             refusedOk = rules.Refusal is { } why && board.PlaceReason == why.Text && interaction.Preview?.Refusal?.Text == why.Text && board.GhostAt is { } ghost && Near(ghost, at.X, at.Y, 0.01) && beside
                 && interaction.SentCount == sent && interaction.Pending is null && Lines(LogText()).Count == events && Section("LAST COMMAND") == lastCommand
                 && (interaction.Notice ?? "").StartsWith($"Not sent: {why.Text}", StringComparison.Ordinal);
-            refusedText = $"pointed at {at}: reason box '{board.PlaceReason}' at {reasonRect} (ghost at {ghostScreen}); rules: {rules.Refusal?.Text}; after a click: sent {sent} -> {interaction.SentCount}, notice {interaction.Notice}";
+            refusedText = $"pointed at {at}: reason box '{board.PlaceReason}' at {reasonRect} (ghost at {ghostScreen}); rules: {rules.Refusal?.Text}; after a click: sent {sent} -> {interaction.SentCount}, notice {interaction.Notice}; under the pointer {Describe(under as Control)}; seat shown {shownSeat} -> {HotControlled()}";
         }
         Check("deploy-refused-explained", refusedOk, refusedText);
         // A legal spot in the zone, on screen: one click sends it, once.
