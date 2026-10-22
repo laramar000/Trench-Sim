@@ -62,6 +62,7 @@ public static class KeySheet
             E("switch seat (hot-seat)", "F2"),
             E("this sheet (Esc closes it)", "?"),
             E("the scenario card (scoring, objectives now)", "G"),
+            E("open or close the unit card (state, Blood Markers, profile)", "U"),
         ]),
     ];
 

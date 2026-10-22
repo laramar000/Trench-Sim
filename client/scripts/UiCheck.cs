@@ -503,6 +503,7 @@ public partial class UiCheck : Node
         await KeyPress(Key.N);
         await Frames(2);
         var first = board.Selected;
+        await UnitTabCheck(board);
         var info = PanelText;
         Check("board-select-key", first is { Yours: true }
             && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
@@ -1458,7 +1459,64 @@ public partial class UiCheck : Node
             overlaps.Count == 0 ? $"{boxes.Count} id, zone, objective and note labels apart" : string.Join("; ", overlaps));
     }
 
-    private string PanelText => ((Main)_main).PanelText;
+    // Battlefield UI 3, stage U4 (unit-tab): the unit card is a small tab at first, naming the selected unit, its state
+    // and Blood Markers; a click on it opens the full card (every unit line, Details) and another closes it, changing
+    // neither the selection nor anything sent; U does the same.
+    private async Task UnitTabCheck(BoardView board)
+    {
+        var main = (Main)_main;
+        var problems = new List<string>();
+        var selected = board.Selected;
+        var lastCommand = Section("LAST COMMAND");
+        var closedAtFirst = !main.UnitCardOpen && !main.UnitCardEverOpened;
+        main.SetUnitCard(false);
+        await Frames(3);
+        var view = main.PanelView;
+        var closedRect = main.UnitCardRect;
+        if (view is null || selected is null || main.UnitTab.Text != $"▸ {view.Tab}" || !view.Tab.StartsWith(UnitPanel.Heading(selected), StringComparison.Ordinal)
+            || !view.Tab.Contains(Words.Status(selected.Status), StringComparison.Ordinal) || (selected.BloodMarkers > 0) != view.Tab.Contains($"BM {selected.BloodMarkers}", StringComparison.Ordinal))
+        {
+            problems.Add($"tab \"{main.UnitTab.Text}\" for {selected?.Name}");
+        }
+        if (view is not null && main.PanelText.Split('\n').Any(l => view.Unit.Contains(l) && l.Length > 0))
+        {
+            problems.Add("unit lines shown while closed");
+        }
+        await ClickButton(main.UnitTab);
+        await Frames(3);
+        view = main.PanelView;
+        var openRect = main.UnitCardRect;
+        var opened = main.UnitCardOpen && view is not null && view.Unit.All(l => main.PanelText.Contains(l, StringComparison.Ordinal)) && main.UnitTab.Text.StartsWith('▾');
+        await ClickButton(main.UnitTab);
+        await Frames(3);
+        var closed = !main.UnitCardOpen;
+        await KeyPress(Key.U);
+        await Frames(3);
+        var byKey = main.UnitCardOpen;
+        if (!opened || !closed || !byKey || openRect.Size.Y <= closedRect.Size.Y)
+        {
+            problems.Add($"opened {opened}, closed {closed}, U opened {byKey}; card {closedRect.Size.Y:0}px closed, {openRect.Size.Y:0}px open");
+        }
+        if (board.Selected?.Id != selected?.Id || Section("LAST COMMAND") != lastCommand)
+        {
+            problems.Add("the selection or the last command changed");
+        }
+        Check("unit-tab", closedAtFirst && problems.Count == 0,
+            problems.Count == 0 ? $"closed at first: {closedAtFirst}; tab \"{main.UnitTab.Text}\"; {closedRect.Size.Y:0}px closed, {openRect.Size.Y:0}px open" : $"closed at first: {closedAtFirst}; {string.Join("; ", problems)}");
+    }
+
+    // Stage U4: the checks that read the unit card read it opened, as a player would open it (the card's tab or U).
+    private string PanelText
+    {
+        get
+        {
+            if (!((Main)_main).UnitCardOpen)
+            {
+                ((Main)_main).SetUnitCard(true);
+            }
+            return ((Main)_main).PanelText;
+        }
+    }
 
     private bool PanelHas(string text) => PanelText.Contains(text, StringComparison.Ordinal);
 

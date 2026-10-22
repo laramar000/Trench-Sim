@@ -249,6 +249,11 @@ public partial class Main : Control
             ToggleScenario();
             GetViewport().SetInputAsHandled();
         }
+        else if (@event is InputEventKey { Pressed: true, Keycode: Key.U, CtrlPressed: false, AltPressed: false } && _board is not null && _match.Visible)
+        {
+            SetUnitCard(!_unitOpen);
+            GetViewport().SetInputAsHandled();
+        }
         else if (@event is InputEventKey { Pressed: true, Keycode: Key.F2 } && _hotSeat is not null)
         {
             SwitchSeat();
@@ -1666,6 +1671,8 @@ public partial class Main : Control
     private Button _pUndo = null!;
     private bool _detailsOpen;
     private UnitPanelView? _panelView;
+    private Button _pTab = null!;
+    private bool _unitOpen;
 
     private Control BuildPanel()
     {
@@ -1681,6 +1688,15 @@ public partial class Main : Control
         column.AddThemeConstantOverride("separation", 8);
         _panel.AddChild(column);
         _pColumn = column;
+        // Battlefield UI 3, stage U4: the card is a small tab at first ("▸ A2 · Marksman · Standing · BM 1"); a click on it
+        // or U opens the unit's full lines (state, Blood Markers, profile, Details). The action being chosen, Confirm,
+        // Undo and Cancel show either way.
+        _pTab = Button("", () => SetUnitCard(!_unitOpen));
+        _pTab.Name = "UnitTab";
+        _pTab.Alignment = HorizontalAlignment.Left;
+        _pTab.ClipText = true;
+        _pTab.TooltipText = "The unit's state, Blood Markers, profile and Details (key U).";
+        column.AddChild(_pTab);
         // The words scroll on their own; Confirm and Cancel stay at the bottom, always in the same place.
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, VerticalScrollMode = ScrollContainer.ScrollMode.ShowAlways, SizeFlagsVertical = SizeFlags.ExpandFill };
         column.AddChild(scroll);
@@ -1748,11 +1764,14 @@ public partial class Main : Control
             _board.SelectedObjective, TopHud.LastScoring(_lastScreen.Log));
         _panelView = view;
         var scale = _scale;
+        _pTab.Text = $"{(_unitOpen ? "▾" : "▸")} {view.Tab}";
         _pTitle.Text = view.Title;
         _pTitle.AddThemeFontSizeOverride("font_size", (int)(22 * scale));
+        _pTitle.Visible = _unitOpen;
         _pUnit.Text = string.Join("\n", view.Unit);
+        _pUnit.Visible = _unitOpen;
         _pUnavailable.Text = view.Unavailable ?? "";
-        _pUnavailable.Visible = view.Unavailable is not null;
+        _pUnavailable.Visible = _unitOpen && view.Unavailable is not null;
         _pUnavailable.Modulate = new Color(1, 1, 1, 0.7f);
         _pActionTitle.Text = view.ActionTitle ?? "";
         _pActionTitle.Visible = view.ActionTitle is not null;
@@ -1768,10 +1787,10 @@ public partial class Main : Control
         _pPointing.Modulate = new Color(1, 1, 1, 0.85f);
         _pNotice.Text = view.Notice ?? "";
         _pNotice.Visible = view.Notice is not null;
-        _pDetailsButton.Visible = view.Details.Count > 0;
+        _pDetailsButton.Visible = _unitOpen && view.Details.Count > 0;
         _pDetailsButton.Text = _detailsOpen ? "Details ▾" : "Details ▸";
         _pDetails.Text = string.Join("\n", view.Details);
-        _pDetails.Visible = _detailsOpen && view.Details.Count > 0;
+        _pDetails.Visible = _unitOpen && _detailsOpen && view.Details.Count > 0;
         _pConfirm.Text = view.ConfirmLabel;
         _pConfirm.Disabled = !view.CanConfirm;
         _pCancel.Disabled = !view.CanCancel;
@@ -1787,6 +1806,23 @@ public partial class Main : Control
         .Where(l => l.IsVisibleInTree()).Select(l => l.Text));
 
     public bool DetailsOpen => _detailsOpen;
+
+    // Stage U4: whether the unit card is open (closed at first: only its tab).
+    public bool UnitCardOpen => _unitOpen;
+
+    public Button UnitTab => _pTab;
+
+    public bool UnitCardEverOpened { get; private set; }
+
+    public Rect2 UnitCardRect => _panel.GetGlobalRect();
+
+    public void SetUnitCard(bool open)
+    {
+        // Opening or closing the card changes nothing else: not the selection, the action or its preview.
+        _unitOpen = open;
+        UnitCardEverOpened |= open;
+        ShowPanel();
+    }
 
     public void ToggleDetails() => _pDetailsButton.EmitSignal(BaseButton.SignalName.Pressed);
 

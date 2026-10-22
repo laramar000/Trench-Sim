@@ -430,6 +430,9 @@ public sealed class Interaction
             : null;
 
     // How far the action being chosen can still take the acting model, in inches (drawn as a ring); null when none.
+    // Stage U4: the compact numbers for the action being chosen (ActionStats), or null.
+    public string? Stats => _seat is { } s && Actor is { } a ? ActionStats.For(_state, s, a, Mode) : null;
+
     public double? Reach() => _seat is { } s && Actor is { } a ? Previews.Reach(_state, s, a) : null;
 
     // The action bar for the model the player selected (or the activating one): only what can be done now. While an

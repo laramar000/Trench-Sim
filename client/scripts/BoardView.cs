@@ -1464,6 +1464,9 @@ public partial class BoardView : SubViewportContainer
     public IEnumerable<Rect2> ControlRects() =>
         new Control[] { _bar, _combatMenu, _confirmBox }.Where(c => c.Visible).Select(c => new Rect2(c.Position, c.Size));
 
+    // Stage U4: the action's numbers shown at the bar's end, or "".
+    public string BarStats => _bar.Visible && _barRow.GetNodeOrNull<Label>("ActionStats") is { } l && !l.IsQueuedForDeletion() ? l.Text : "";
+
     public IReadOnlyList<string> BarLabels => _bar.Visible ? _barNow.Items.Select(i => i.Label).ToList() : [];
 
     // The texts on the bar's buttons now, keys included (for the UI check).
@@ -1531,7 +1534,8 @@ public partial class BoardView : SubViewportContainer
         {
             bar = ActionBar.Empty;
         }
-        var shown = $"{SeatTag}|{bar.Anchor?.Value}|{string.Join("|", bar.Items.Select(i => $"{i.Kind}:{i.Label}:{i.Enabled}:{i.Tip}"))}|{_textScale}";
+        var stats = bar.Items.Count > 0 ? Interaction.Stats : null;
+        var shown = $"{SeatTag}|{stats}|{bar.Anchor?.Value}|{string.Join("|", bar.Items.Select(i => $"{i.Kind}:{i.Label}:{i.Enabled}:{i.Tip}"))}|{_textScale}";
         if (shown != _barShown)
         {
             _barShown = shown;
@@ -1563,6 +1567,14 @@ public partial class BoardView : SubViewportContainer
                 var captured = item;
                 button.Pressed += () => Run(captured);
                 _barRow.AddChild(button);
+            }
+            // Battlefield UI 3, stage U4: the numbers for the action being chosen, at the bar's end.
+            if (stats is not null)
+            {
+                var line = new Label { Name = "ActionStats", Text = stats, VerticalAlignment = VerticalAlignment.Center, MouseFilter = MouseFilterEnum.Ignore };
+                line.AddThemeFontSizeOverride("font_size", (int)(15 * _textScale));
+                line.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : new Color(0.75f, 0.9f, 1f));
+                _barRow.AddChild(line);
             }
             _bar.Visible = bar.Items.Count > 0;
             _bar.ResetSize();

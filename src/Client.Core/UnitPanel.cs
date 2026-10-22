@@ -31,6 +31,10 @@ public sealed record UnitPanelView(
     public IReadOnlyList<string> Pointing { get; init; } = [];
     public const string SentLine = "SENT · waiting for the server";
 
+    // Battlefield UI 3, stage U4: the card's closed form, one short line ("A2 · Marksman · Standing · BM 1"): the unit
+    // (or the card's title when no unit is shown), its state and its Blood Markers. The rest opens from it.
+    public string Tab { get; init; } = "";
+
     // Every line shown without opening Details (for tests and the UI check).
     public IEnumerable<string> Shown()
     {
@@ -225,6 +229,7 @@ public static class UnitPanel
             bar.Items.Any(i => i.Kind == BarKind.Undo && i.Enabled))
         {
             Pointing = PointingAt(state, interaction, unit, pointing),
+            Tab = unit is null ? title : $"{Heading(unit)} · {Words.Status(unit.Status)}{(unit.BloodMarkers > 0 ? $" · BM {unit.BloodMarkers}" : "")}",
         };
     }
 
