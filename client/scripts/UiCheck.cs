@@ -3948,7 +3948,7 @@ public partial class UiCheck : Node
                 {
                     problems.Add($"menu at {menu}, not next to the bar {bar} inside the battlefield {board.GetGlobalRect()}");
                 }
-                if (board.CombatMenuTitle is not { } title || !title.Contains($"({UnitPanel.ShortId(me)})", StringComparison.Ordinal))
+                if (board.CombatMenuTitle is not { } title || !title.StartsWith($"{UnitPanel.ShortId(me)} · ", StringComparison.Ordinal))
                 {
                     problems.Add($"menu title \"{board.CombatMenuTitle}\" does not name the attacking model {me.Value}");
                 }

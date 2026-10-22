@@ -1318,7 +1318,7 @@ public partial class BoardView : SubViewportContainer
             if (actor is not null && entries.Count > 0)
             {
                 // Which friendly model attacks.
-                var title = new Label { Name = "CombatTitle", Text = $"{actor.Name} ({UnitPanel.ShortId(actor.Id)}): choose an attack", MouseFilter = MouseFilterEnum.Ignore };
+                var title = new Label { Name = "CombatTitle", Text = $"{UnitPanel.Heading(actor)}: choose an attack", MouseFilter = MouseFilterEnum.Ignore };
                 title.AddThemeFontSizeOverride("font_size", (int)(15 * _textScale));
                 title.AddThemeColorOverride("font_color", new Color(1f, 0.93f, 0.7f));
                 _combatRows.AddChild(title);
