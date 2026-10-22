@@ -55,6 +55,7 @@ public static class KeySheet
         ("Confirm and cancel", [
             E("send", "Space", "Confirm"),
             E("cancel (sends nothing)", "Esc", "Right-click"),
+            E("keep an activation that is ending by itself", "Esc"),
         ]),
         ("Window", [
             E("rules in this build", "F1"),

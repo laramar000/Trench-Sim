@@ -236,6 +236,11 @@ public partial class Main : Control
         {
             SwitchSeat();
         }
+        // Stage N2: Esc keeps an activation that was about to end by itself, also when the board does not have the keyboard.
+        else if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape } && _board is not null && _board.KeepActivation())
+        {
+            GetViewport().SetInputAsHandled();
+        }
         // Esc cancels the action being chosen also when the board does not have the keyboard (after a click on the side
         // panel or the action bar). It only cancels; it never sends anything.
         else if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape } && _board is not null

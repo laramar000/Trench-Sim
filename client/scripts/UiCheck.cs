@@ -29,6 +29,9 @@ public partial class UiCheck : Node
         _scenario = scenario;
         _screens = DisplayServer.GetName() != "headless";
         System.IO.Directory.CreateDirectory(output);
+        // Stage N2: the driver plays its own fixed sequence, so activations do not end by themselves here, except in
+        // the pvp-a check of exactly that (AutoEndStep).
+        BoardView.AutoEndActivations = false;
     }
 
     public override async void _Ready()
@@ -2443,6 +2446,11 @@ public partial class UiCheck : Node
         {
             return;
         }
+        // Battlefield UI 2, stage N2 (pvp-a): a model left with nothing to do ends its activation by itself.
+        if (_role == "pvp-a" && !_autoEndChecked && _autoEndTries < 4 && await AutoEndStep(board))
+        {
+            return;
+        }
         if (await PvpTarget(board, Key.X, "Fight") is not null)
         {
             return;
@@ -2470,6 +2478,93 @@ public partial class UiCheck : Node
         var events = Lines(LogText()).Count;
         var (moved, _) = await SendFirstLegalMove(board);
         Answer("Move", moved ? "DONE" : Lines(LogText()).Count > events ? "OTHER" : "NOT SENT");
+    }
+
+    // Stage N2 (pvp-a, activation-ends-itself): with the activation ending by itself switched on, the model Moves, Dashes
+    // and then takes any attack the rules still allow; once Rules.Core.Activation.Finished says nothing is left, no key
+    // is pressed: the note shows, EndActivation is sent once and the server's event arrives. A failed Dash (the rules
+    // end that activation themselves) tries again at a later activation. True when it took the activation's actions.
+    private bool _autoEndChecked;
+    private int _autoEndTries;
+
+    private async Task<bool> AutoEndStep(BoardView board)
+    {
+        var interaction = board.Interaction;
+        var offered = interaction.Offered;
+        if (interaction.PreviewState.ActiveModel is not { } me || !offered.Contains(InteractionMode.Move) || !offered.Contains(InteractionMode.Dash)
+            || offered.Contains(InteractionMode.Retreat) || interaction.Chosen is not null)
+        {
+            return false;
+        }
+        _autoEndTries++;
+        BoardView.AutoEndActivations = true;
+        try
+        {
+            var events = Lines(LogText()).Count;
+            await SendFirstLegalMove(board);
+            if (!await SendPathByKeys(board, Key.D) || interaction.PreviewState.ActiveModel != me)
+            {
+                return true; // no Dash sent, or it failed and the rules ended the activation
+            }
+            foreach (var (key, label) in new[] { (Key.S, "Shoot"), (Key.X, "Fight") })
+            {
+                if (!Rules.Core.Activation.Finished(interaction.PreviewState) && interaction.PreviewState.ActiveModel == me)
+                {
+                    await PvpTarget(board, key, label);
+                }
+            }
+            await Until(() => interaction.Pending is null ? "ok" : null, 10, "auto-end-settled");
+            var finished = Rules.Core.Activation.Finished(interaction.PreviewState) && interaction.PreviewState.ActiveModel == me;
+            if (!finished)
+            {
+                Mark("auto-end-not-finished", $"{me.Value}: actions {interaction.PreviewState.Actions}");
+                return true;
+            }
+            _autoEndChecked = true;
+            var actions = interaction.PreviewState.Actions;
+            var sent = interaction.SentCount;
+            var before = Section("LAST COMMAND");
+            var noted = await Until(() => board.AutoEndText, 3, "auto-end-note");
+            var name = board.Scene?.Find(me)?.Name ?? me.Value;
+            var line = await Until(() => Lines(LogText()).Skip(events).FirstOrDefault(l => l.Contains($" {me.Value} ends its activation", StringComparison.Ordinal)), 10, "auto-ended");
+            var answer = await Until(() => Section("LAST COMMAND") is var now && now != before && !now.StartsWith("SENT:", StringComparison.Ordinal) ? now : null, 10, "auto-end-answer") ?? Section("LAST COMMAND");
+            await Frames(3);
+            Check("activation-ends-itself", noted is not null && line is not null && answer.StartsWith("DONE:", StringComparison.Ordinal)
+                && interaction.SentCount == sent + 1 && interaction.AutoEndsSent == 1 && interaction.PreviewState.ActiveModel != me,
+                $"{name} after {actions}: note \"{noted}\"; no key pressed; sent {sent} -> {interaction.SentCount} ({interaction.AutoEndsSent} by itself); last command: {answer}; event: {line}");
+            return true;
+        }
+        finally
+        {
+            BoardView.AutoEndActivations = false;
+        }
+    }
+
+    // A Move, Dash or Retreat with the keyboard: the action key, then the cursor a few inches each way until the preview
+    // is legal; Space sends it. True when it was sent and the server answered.
+    private async Task<bool> SendPathByKeys(BoardView board, Key action)
+    {
+        var interaction = board.Interaction;
+        await MouseOff(board);
+        foreach (var (key, presses) in new[] { (Key.Right, 2), (Key.Left, 2), (Key.Up, 2), (Key.Down, 2), (Key.Right, 1), (Key.Left, 1), (Key.Up, 1), (Key.Down, 1) })
+        {
+            await KeyPress(action);
+            for (var i = 0; i < presses; i++)
+            {
+                await KeyPress(key);
+            }
+            if (interaction.Preview is not { Legal: true })
+            {
+                await KeyPress(Key.Escape);
+                continue;
+            }
+            var before = Section("LAST COMMAND");
+            var events = Lines(LogText()).Count;
+            await KeyPress(Key.Space);
+            var answer = await AnswerAfter(before, events);
+            return answer.StartsWith("DONE:", StringComparison.Ordinal);
+        }
+        return false;
     }
 
     // The action key, then N through the targets until the preview looks legal; Space sends it. Null when no target

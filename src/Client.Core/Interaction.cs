@@ -684,6 +684,96 @@ public sealed class Interaction
         _ => "",
     };
 
+    // Battlefield UI 2, stage N2 (decision D3, approved by Jason on 2026-10-21): when the rules leave the activating model
+    // of the seat shown nothing to do (Rules.Core.Activation.Finished, on the server's state), the battlefield says so
+    // and, AutoEndDelay seconds later, sends EndActivation once, as the End activation button would. Esc keeps the
+    // activation going (the button still ends it). Never while a command is on its way, while a unit is only chosen, or
+    // for the seat not shown (hot-seat). The server decides; once sent for an activation it is never sent again for it,
+    // so a refusal is shown, not repeated.
+    public const double AutoEndDelay = 1.5;
+
+    // Off only for the UI check's driver, which plays its own fixed sequence of commands (on in the game).
+    public bool AutoEnd { get; set; } = true;
+
+    // The note shown while the activation is about to end by itself; null otherwise.
+    public string? AutoEndNote { get; private set; }
+
+    // How many EndActivation commands were sent by this (for the tests and the UI check).
+    public int AutoEndsSent { get; private set; }
+
+    private MatchState? _finishedFor;
+    private bool _finished;
+    private string? _autoEndKey;
+    private double _autoEndSince;
+    private string? _autoEndKept;
+    private string? _autoEndSent;
+
+    // The activation the rules say is finished and that this seat may end now, as "turn|model"; null when there is none.
+    private string? FinishedActivation()
+    {
+        if (!AutoEnd || Pending is not null || Chosen is not null || _seat is not { } seat || _server.ActiveModel is not { } active
+            || _server.FindModel(active)?.Seat != seat)
+        {
+            return null;
+        }
+        if (!ReferenceEquals(_finishedFor, _server))
+        {
+            _finishedFor = _server;
+            _finished = Activation.Finished(_server);
+        }
+        return _finished ? $"{_server.Turn}|{active.Value}" : null;
+    }
+
+    // Called every frame with the time in seconds (passed in, so it is tested without a clock). Returns the server's
+    // answer when it sent EndActivation, else null.
+    public async Task<Feedback?> TickAutoEndAsync(double now)
+    {
+        var key = FinishedActivation();
+        if (key is null || key == _autoEndKept || key == _autoEndSent)
+        {
+            if (AutoEndNote is not null)
+            {
+                AutoEndNote = null;
+                _autoEndKey = null;
+                Changed();
+            }
+            return null;
+        }
+        var active = _server.ActiveModel!.Value;
+        if (_autoEndKey != key)
+        {
+            _autoEndKey = key;
+            _autoEndSince = now;
+            AutoEndNote = $"Nothing left for {NameOf(active)} to do: its activation ends by itself. Esc keeps it going.";
+            Changed();
+            return null;
+        }
+        if (now - _autoEndSince < AutoEndDelay)
+        {
+            return null;
+        }
+        _autoEndSent = key;
+        _autoEndKey = null;
+        AutoEndNote = null;
+        AutoEndsSent++;
+        return await SendCommandAsync(new EndActivation(_server.FindModel(active)!.Seat), $"End {NameOf(active)}'s activation");
+    }
+
+    // Esc while the note is shown: the activation goes on (the End activation button ends it). False when no note was shown.
+    public bool KeepActivation()
+    {
+        if (AutoEndNote is null)
+        {
+            return false;
+        }
+        _autoEndKept = _autoEndKey;
+        _autoEndKey = null;
+        AutoEndNote = null;
+        Notice = "The activation goes on: nothing is left the rules allow but End activation.";
+        Changed();
+        return true;
+    }
+
     // Sends a command the rules offer outright (Activate, End activation), as its hint button does: once, answered by the
     // server.
     public async Task<Feedback?> SendCommandAsync(Command command, string label)

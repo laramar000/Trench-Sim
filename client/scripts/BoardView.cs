@@ -159,6 +159,9 @@ public partial class BoardView : SubViewportContainer
         _reason.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = new Color(0.25f, 0.02f, 0.02f, 0.88f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 3, ContentMarginBottom = 3 });
         _reason.AddThemeColorOverride("font_color", new Color(1f, 0.85f, 0.8f));
         AddChild(_reason);
+        _autoEnd.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = new Color(0.05f, 0.05f, 0.08f, 0.9f), BorderColor = new Color(0.95f, 0.8f, 0.3f), BorderWidthBottom = 2, ContentMarginLeft = 8, ContentMarginRight = 8, ContentMarginTop = 4, ContentMarginBottom = 4 });
+        _autoEnd.AddThemeColorOverride("font_color", new Color(1f, 0.95f, 0.8f));
+        AddChild(_autoEnd);
         var menuLook = new StyleBoxFlat { BgColor = new Color(0.08f, 0.08f, 0.1f, 0.94f), BorderColor = new Color(0.85f, 0.85f, 0.9f) };
         menuLook.SetBorderWidthAll(1);
         menuLook.SetContentMarginAll(6);
@@ -716,6 +719,44 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
+    // Battlefield UI 2, stage N2: the note that the activation ends by itself (Esc keeps it going), centred under the HUD.
+    private readonly Label _autoEnd = new() { Name = "AutoEndNote", Visible = false, MouseFilter = MouseFilterEnum.Ignore, HorizontalAlignment = HorizontalAlignment.Center };
+
+    // Off for the UI check's driver (it plays its own fixed sequence), except in its own check of this.
+    public static bool AutoEndActivations { get; set; } = true;
+
+    public string? AutoEndText => _autoEnd.Visible ? _autoEnd.Text : null;
+
+    private bool _autoEndTicking;
+
+    private async void TickAutoEnd()
+    {
+        Interaction.AutoEnd = AutoEndActivations;
+        if (!_autoEndTicking)
+        {
+            _autoEndTicking = true;
+            try
+            {
+                if (await Interaction.TickAutoEndAsync(Time.GetTicksMsec() / 1000.0) is not null)
+                {
+                    Sync();
+                }
+            }
+            finally
+            {
+                _autoEndTicking = false;
+            }
+        }
+        _autoEnd.Visible = Interaction.AutoEndNote is not null;
+        if (_autoEnd.Visible)
+        {
+            _autoEnd.Text = Interaction.AutoEndNote;
+            _autoEnd.AddThemeFontSizeOverride("font_size", (int)(17 * _textScale));
+            _autoEnd.ResetSize();
+            _autoEnd.Position = new Vector2(Math.Max(4, (Size.X - _autoEnd.Size.X) / 2), TopInset + 8);
+        }
+    }
+
     // Stage K4: the rules' reason a placement would be refused, beside the ghost (for the UI check: its words and place).
     private readonly Label _reason = new()
     {
@@ -794,6 +835,7 @@ public partial class BoardView : SubViewportContainer
         Sync();
         UpdateBar();
         UpdateCombat();
+        TickAutoEnd();
         PlaceReasonBox();
         ApplyGlides();
         UpdateMeleeLinks();
@@ -996,6 +1038,18 @@ public partial class BoardView : SubViewportContainer
     }
 
     // Esc, a right-click or the panel's Cancel: stops choosing; nothing is sent.
+    // Stage N2: Esc while the activation is about to end by itself keeps it going; false when no such note was shown.
+    public bool KeepActivation()
+    {
+        if (!Interaction.KeepActivation())
+        {
+            return false;
+        }
+        _autoEnd.Visible = false;
+        Sync();
+        return true;
+    }
+
     public void CancelPreview()
     {
         Interaction.Cancel();
@@ -1031,6 +1085,11 @@ public partial class BoardView : SubViewportContainer
         if (key.Keycode == Key.A && Interaction.Mode == InteractionMode.None)
         {
             ActivateSelected();
+            return true;
+        }
+        // Stage N2: Esc first keeps an activation that was about to end by itself.
+        if (key.Keycode == Key.Escape && KeepActivation())
+        {
             return true;
         }
         if (key.Keycode == Key.Escape && Interaction.Notice is not null)
