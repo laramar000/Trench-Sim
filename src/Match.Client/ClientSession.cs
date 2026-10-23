@@ -4,7 +4,7 @@ using Match.Protocol;
 using Rules.Core.Commands;
 using Rules.Core.State;
 
-namespace Match.Cli;
+namespace Match.Client;
 
 // One client connection. A single receive loop reads the server's messages in order: events go into the mirror (each
 // checked against the server's hash), answers (Welcome, Accepted, Rejected) into a queue. The client holds no authority:
@@ -29,6 +29,7 @@ public sealed class ClientSession : IAsyncDisposable
     private long _seq;
     private int _ids;
     private Task _receiving = Task.CompletedTask;
+    private HttpMessageInvoker? _invoker;
 
     private ClientSession(ClientWebSocket socket, MatchMirror mirror)
     {
@@ -70,6 +71,10 @@ public sealed class ClientSession : IAsyncDisposable
     // Set when the server broke the protocol or the replay failed: the copy can no longer be trusted.
     public string? Failure { get; private set; }
 
+    // Set when the server said another connection took this seat (Rejected SeatTakenOver). A client must not take the
+    // seat back on its own after that (M7, D7): the other connection is the player's newer one.
+    public bool TakenOver { get; private set; }
+
     public bool IsClosed { get; private set; }
     public WebSocketCloseStatus? CloseStatus => _socket.CloseStatus;
     public string? CloseText => _socket.CloseStatusDescription;
@@ -106,8 +111,27 @@ public sealed class ClientSession : IAsyncDisposable
     {
         var socket = new ClientWebSocket();
         socket.Options.AddSubProtocol(subProtocol);
-        await socket.ConnectAsync(endpoint, cancellationToken);
-        var session = new ClientSession(socket, mirror ?? new MatchMirror());
+        // Each connection has its own HTTP handler, disposed with it. With the shared default handler, a TCP connect
+        // that was still under way when the attempt was cancelled could finish later and linger in its pool. Settings
+        // as for a plain ClientWebSocket: no cookies, no redirects, no connection kept for reuse.
+        var invoker = new HttpMessageInvoker(new SocketsHttpHandler
+        {
+            UseCookies = false,
+            AllowAutoRedirect = false,
+            PooledConnectionLifetime = TimeSpan.Zero,
+        });
+        try
+        {
+            await socket.ConnectAsync(endpoint, invoker, cancellationToken);
+        }
+        catch
+        {
+            // A connect that failed, timed out or was cancelled leaves nothing open.
+            socket.Dispose();
+            invoker.Dispose();
+            throw;
+        }
+        var session = new ClientSession(socket, mirror ?? new MatchMirror()) { _invoker = invoker };
         session._receiving = Task.Run(session.ReceiveLoopAsync);
         return session;
     }
@@ -120,8 +144,11 @@ public sealed class ClientSession : IAsyncDisposable
 
     // Takes a seat back with its token, offering the copy this session holds. The server replays what is missing, or
     // everything if the copy is not a prefix of the match.
-    public async Task<ServerMessage> RejoinAsync(string code, string seatToken, CancellationToken cancellationToken = default) =>
-        await RequestAsync(new Rejoin(code, seatToken, Mirror.Events, Mirror.Events == 0 ? null : Mirror.Hash), cancellationToken);
+    public async Task<ServerMessage> RejoinAsync(string code, string seatToken, CancellationToken cancellationToken = default)
+    {
+        var copy = Mirror.Current;
+        return await RequestAsync(new Rejoin(code, seatToken, copy.Events, copy.Events == 0 ? null : copy.Hash), cancellationToken);
+    }
 
     // Tells the server the last token is saved. SaveToken does this automatically.
     public Task ConfirmTokenAsync(CancellationToken cancellationToken = default) => SendAsync(new TokenSaved(), cancellationToken);
@@ -277,6 +304,7 @@ public sealed class ClientSession : IAsyncDisposable
         {
         }
         _socket.Dispose();
+        _invoker?.Dispose();
     }
 
     private async Task ReceiveLoopAsync()
@@ -396,6 +424,10 @@ public sealed class ClientSession : IAsyncDisposable
                         // Not confirmed: the server keeps the previous token valid too, so nothing is lost.
                     }
                 }
+                _answers.Writer.TryWrite(message);
+                break;
+            case Rejected { Kind: RejectionKind.Protocol, Code: nameof(ProtocolError.SeatTakenOver) }:
+                TakenOver = true;
                 _answers.Writer.TryWrite(message);
                 break;
             default:

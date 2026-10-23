@@ -34,9 +34,14 @@ internal static class Board
 
     public static Scenario? ScenarioOf(MatchState state) => state.Setup?.Scenario;
 
+    // The model's base where it stands, at its elevation (a tower's height on its platform, else the ground).
     public static ModelBody? BodyOf(MatchState state, ModelState model) =>
-        model.Position is { } at && state.Setup!.ProfileOf(model.Id) is { } profile
-            ? new ModelBody(model.Id.Value, at, profile.BaseRadius)
+        model.Position is { } at ? BodyAt(state, model, at) : null;
+
+    // The model's base if it stood at this point, at the elevation the battlefield gives that point.
+    public static ModelBody? BodyAt(MatchState state, ModelState model, Point2 at) =>
+        state.Setup!.ProfileOf(model.Id) is { } profile
+            ? new ModelBody(model.Id.Value, at, profile.BaseRadius, ScenarioOf(state) is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero)
             : null;
 
     // Every model that is on the table, Down ones included (a Down model still has a base, p. 36).
@@ -58,7 +63,7 @@ internal static class Board
         var others = OnTable(state)
             .Where(m => m.Id != mover.Id)
             .Select(m => new Obstacle(BodyOf(state, m)!, m.Seat == mover.Seat ? Relation.Friendly : Relation.Enemy));
-        return Movement.CheckPath(scenario.Battlefield, BodyOf(state, mover)!, path, Allowance(state, mover), others);
+        return Movement.CheckPath(scenario.Battlefield, BodyOf(state, mover)!, path, Allowance(state, mover), others, sideClimb: true);
     }
 
     public static PlacementResult CheckPlacement(MatchState state, Seat seat, ModelState model, Point2 at)
@@ -191,9 +196,17 @@ internal static class Board
         {
             return new(ReasonCode.TargetOutOfRange, "The target of a charge must be within 12\".", "1.0.2 p. 36");
         }
-        var route = Charging.CheckRoute(ScenarioOf(state)!.Battlefield, from, to, ObstaclesFor(state, charger));
+        if (from.Elevation != to.Elevation)
+        {
+            return new(ReasonCode.ChargeRouteBlocked, Charging.CrossLevelText, Charging.RefCrossLevel);
+        }
+        var route = Charging.CheckRoute(ScenarioOf(state)!.Battlefield, from, to, ChargeObstaclesFor(state, charger, from));
         return route.IsLegal ? null : new(ReasonCode.ChargeRouteBlocked, route.Text, route.RuleRef);
     }
+
+    // The models a charge at this height can meet: those at the charger's elevation (all of them without towers).
+    private static List<Obstacle> ChargeObstaclesFor(MatchState state, ModelState charger, ModelBody from) =>
+        ObstaclesFor(state, charger).Where(o => o.Body.Elevation == from.Elevation).ToList();
 
     public static readonly Length ChargeRange = Length.FromInches(12);
 
@@ -206,7 +219,7 @@ internal static class Board
     }
 
     public static ChargePlan PlanCharge(MatchState state, ModelState charger, ModelState target, int bonus) =>
-        Charging.Plan(ScenarioOf(state)!.Battlefield, BodyOf(state, charger)!, BodyOf(state, target)!, ChargeReach(state, charger, bonus), ObstaclesFor(state, charger));
+        Charging.Plan(ScenarioOf(state)!.Battlefield, BodyOf(state, charger)!, BodyOf(state, target)!, ChargeReach(state, charger, bonus), ChargeObstaclesFor(state, charger, BodyOf(state, charger)!));
 
     // ---- Retreat (pp. 35, 37) ----
 
@@ -221,7 +234,7 @@ internal static class Board
         {
             return new(ReasonCode.MoveIllegal, result.Text, result.RuleRef);
         }
-        var end = BodyOf(state, model)!.At(path[^1]);
+        var end = BodyAt(state, model, path[^1])!;
         return OnTable(state).Any(o => o.Seat != model.Seat && Measure.IsWithin(end, BodyOf(state, o)!, EngagementRange))
             ? new(ReasonCode.RetreatEndsEngaged, "A retreating model must end its move more than 1\" from all enemy models.", "1.0.2 p. 37")
             : null;
@@ -241,7 +254,7 @@ internal static class Board
         var body = BodyOf(state, retreater)!;
         return OnTable(state)
             .Where(o => o.Seat != retreater.Seat && o.Status == ModelStatus.Standing && !retreat.Fought.Contains(o.Id)
-                && state.Setup!.ProfileOf(o.Id)!.HasMeleeWeapon && Measure.IsWithin(body, BodyOf(state, o)!, EngagementRange))
+                && state.Setup!.ProfileOf(o.Id)!.CanMakeMeleeAttack && Measure.IsWithin(body, BodyOf(state, o)!, EngagementRange))
             .OrderBy(o => o.Id.Value, StringComparer.Ordinal)
             .ToList();
     }
@@ -262,7 +275,7 @@ internal static class Board
         {
             return Refuse(ReasonCode.ModelNotStanding, "A Down model cannot fight.");
         }
-        if (!state.Setup!.ProfileOf(attacker.Id)!.HasMeleeWeapon)
+        if (!state.Setup!.ProfileOf(attacker.Id)!.CanMakeMeleeAttack)
         {
             return Refuse(ReasonCode.NoMeleeWeapon, "That model has no Melee Weapon.");
         }
@@ -302,6 +315,11 @@ internal static class Board
         foreach (var model in OnTable(state))
         {
             var body = BodyOf(state, model)!;
+            // A model on a tower is 2" above the ground piece, never on it or within 1" of it (U74).
+            if (body.Elevation != Length.Zero)
+            {
+                continue;
+            }
             var isOn = piece.Footprint.MoreThanHalfInside(body.Centre, body.Radius) == AreaDecision.MoreThanHalf;
             if (isOn || piece.Footprint.CircleWithin(body.Centre, body.Radius, EngagementRange))
             {

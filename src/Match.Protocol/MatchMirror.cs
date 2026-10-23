@@ -7,31 +7,33 @@ namespace Match.Protocol;
 // the state after it must hash to what the server sent; otherwise the copy is no longer trustworthy and Apply throws.
 public sealed class MatchMirror
 {
-    public MatchState State { get; private set; } = MatchState.None;
+    // State, event count and hash change together, in one step, so a reader on another thread (the screen) never sees
+    // the state after one event with the count or hash of another. Read Current once to use more than one of them.
+    private volatile MirrorCopy _copy = MirrorCopy.Empty;
 
-    public int Events { get; private set; }
+    public MirrorCopy Current => _copy;
 
-    public string Hash { get; private set; } = StateHash.Compute(MatchState.None);
+    public MatchState State => _copy.State;
+
+    public int Events => _copy.Events;
+
+    public string Hash => _copy.Hash;
 
     // Starts again from an empty copy (the server said this copy is not a prefix of the match).
-    public void Reset()
-    {
-        State = MatchState.None;
-        Events = 0;
-        Hash = StateHash.Compute(MatchState.None);
-    }
+    public void Reset() => _copy = MirrorCopy.Empty;
 
     public void Apply(EventPublished published)
     {
         ArgumentNullException.ThrowIfNull(published);
-        if (published.Seq != Events + 1)
+        var current = _copy;
+        if (published.Seq != current.Events + 1)
         {
-            throw new MirrorException($"Expected event {Events + 1}, got {published.Seq}.");
+            throw new MirrorException($"Expected event {current.Events + 1}, got {published.Seq}.");
         }
         MatchState next;
         try
         {
-            next = Reducer.Apply(State, published.Event);
+            next = Reducer.Apply(current.State, published.Event);
         }
         catch (InvalidEventException e)
         {
@@ -42,10 +44,14 @@ public sealed class MatchMirror
         {
             throw new MirrorException($"State after event {published.Seq} hashes to {hash}, the server says {published.Hash}.");
         }
-        State = next;
-        Events = published.Seq;
-        Hash = hash;
+        _copy = new MirrorCopy(next, published.Seq, hash);
     }
+}
+
+// The client's copy at one moment: the state after Events events, and its hash.
+public sealed record MirrorCopy(MatchState State, int Events, string Hash)
+{
+    public static readonly MirrorCopy Empty = new(MatchState.None, 0, StateHash.Compute(MatchState.None));
 }
 
 public sealed class MirrorException(string message) : Exception(message);

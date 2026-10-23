@@ -136,6 +136,16 @@ public static partial class TurnSequence
 
     // ---- validation: reasons a player can read; nothing here rolls dice or changes anything ----
 
+    // Read-only, for the client (proposal J, stage J2a, decision D1 approved by Jason on 2026-10-20): the very check
+    // Decide makes before anything happens, so a preview can ask the rules themselves whether a command would be refused
+    // and why. It rolls nothing and changes nothing; Decide's answer is the one that counts.
+    public static Rejection? Check(MatchState state, Command command)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(command);
+        return Validate(state, command);
+    }
+
     private static Rejection? Validate(MatchState state, Command command)
     {
         if (!IsKnown(command))

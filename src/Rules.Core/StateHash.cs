@@ -34,7 +34,7 @@ public static class StateHash
                 foreach (var m in setup.Models)
                 {
                     var prof = m.Profile!;
-                    Line(sb, "profile", $"{m.Id.Value},move={prof.Movement.Thousandths},radius={prof.BaseRadius.Thousandths},range={prof.RangedRange.Thousandths},weapon={prof.RangedInjuryModifier},armour={prof.Armour},melee={Bool(prof.HasMeleeWeapon)},meleeMod={prof.MeleeInjuryModifier}");
+                    Line(sb, "profile", $"{m.Id.Value},move={prof.Movement.Thousandths},radius={prof.BaseRadius.Thousandths},range={prof.RangedRange.Thousandths},weapon={prof.RangedInjuryModifier},armour={prof.Armour},melee={Bool(prof.HasMeleeWeapon)},meleeMod={prof.MeleeInjuryModifier}{(prof.RangedAlsoMelee ? ",rangedAlsoMelee=yes" : "")}");
                 }
             }
         }
@@ -54,7 +54,7 @@ public static class StateHash
         Line(sb, "movementHalved", state.MovementHalved);
         Line(sb, "scoredTurn", state.ScoredTurn);
         Line(sb, "inProgress", state.InProgress is { } r
-            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}"
+            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}"
             : null);
         Line(sb, "retreat", state.Retreat is { } t
             ? $"{t.Model.Value}:{Path(t.Path)}:{string.Join(";", t.Fought.Select(f => f.Value))}:{Bool(t.Closed)}"
@@ -112,6 +112,11 @@ public static class StateHash
         foreach (var t in field.Terrain)
         {
             Line(sb, "terrain", $"{t.Id},{Rectangle(t.Footprint)},{t.Profile},{(int)t.Kind},{t.Surface},walkable={Bool(t.IsWalkable)}");
+            // Towers only (towers proposal, T1), so every battlefield without one hashes exactly as before.
+            if (t.Climb is { } climb)
+            {
+                Line(sb, "climb", $"{t.Id},height={climb.Height.Thousandths},{string.Join(";", climb.Ladders.Select(l => $"{l.Id}@{Point(l.At)}"))}");
+            }
         }
         Line(sb, "objectives", string.Join(",", scenario.ObjectiveIds));
     }

@@ -71,6 +71,44 @@ public sealed record DashRolled : GameEvent
     public SuccessRollResult Check { get; }
 }
 
+// A Move or Dash climbs a tower's side away from its ladders (towers proposal, stage T6; p. 39, U75): the Risky Success
+// Roll comes next. On a Success the model makes the whole move; on a Failure it moves only to where the climb starts
+// and its activation ends. Path is the whole move as declared.
+public sealed record SideClimbDeclared : GameEvent
+{
+    public SideClimbDeclared(ModelId model, MoveKind kind, ImmutableArray<Point2> path)
+    {
+        if (!Enum.IsDefined(kind))
+        {
+            throw new ArgumentException("Unknown move kind.", nameof(kind));
+        }
+        if (path.IsDefault || path.IsEmpty || path.Length > ModelMoved.MaxWaypoints)
+        {
+            throw new ArgumentException($"A move has 1 to {ModelMoved.MaxWaypoints} waypoints.", nameof(path));
+        }
+        Model = model;
+        Kind = kind;
+        Path = path;
+    }
+
+    public ModelId Model { get; }
+    public MoveKind Kind { get; }
+    public ImmutableArray<Point2> Path { get; }
+}
+
+public sealed record SideClimbRolled : GameEvent
+{
+    public SideClimbRolled(ModelId model, SuccessRollResult check)
+    {
+        ArgumentNullException.ThrowIfNull(check);
+        Model = model;
+        Check = check;
+    }
+
+    public ModelId Model { get; }
+    public SuccessRollResult Check { get; }
+}
+
 public enum MarkerSpendPurpose
 {
     ReduceSuccessRoll,  // -1 DICE per marker on a Success Roll for the model holding them
@@ -117,7 +155,7 @@ public sealed record RangedAttackDeclared : GameEvent
         {
             throw new ArgumentException("Inconsistent attack declaration.");
         }
-        if (penaltyDice != (longRange ? 1 : 0) + (inCover ? 1 : 0))
+        if (penaltyDice != AttackDice.ShotPenalty(longRange, inCover))
         {
             throw new ArgumentException("Penalty dice must be the Long Range and Cover modifiers.", nameof(penaltyDice));
         }
@@ -296,7 +334,7 @@ public sealed record MeleeAttackDeclared : GameEvent
     public ModelId Target { get; }
     public bool FreeFight { get; }
     public string? DefendedObstacleId { get; }
-    public int PenaltyDice => DefendedObstacleId is null ? 0 : 1;
+    public int PenaltyDice => AttackDice.FightPenalty(DefendedObstacleId is not null);
 }
 
 public sealed record MeleeSuccessRolled : GameEvent

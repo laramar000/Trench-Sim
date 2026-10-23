@@ -309,6 +309,19 @@ public static class Wire
             [(typeof(TerrainBlock), "walkable")] = nameof(TerrainBlock.IsWalkable),
         };
 
+        // Optional fields that are left out when null, so data without them (every match before the towers) is written
+        // exactly as before. Reading already treats an init property as optional.
+        private static readonly HashSet<(Type, string)> OmitWhenNull =
+        [
+            (typeof(TerrainBlock), nameof(TerrainBlock.Climb)),
+        ];
+
+        // Optional flags left out when false, for the same reason (every match before dual-purpose weapons).
+        private static readonly HashSet<(Type, string)> OmitWhenFalse =
+        [
+            (typeof(ModelProfile), nameof(ModelProfile.RangedAlsoMelee)),
+        ];
+
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();
 
         private readonly ConstructorInfo _constructor;
@@ -438,8 +451,17 @@ public static class Wire
         {
             foreach (var member in _members)
             {
+                var memberValue = member.Property.GetValue(value);
+                if (memberValue is null && member.Parameter is null && OmitWhenNull.Contains((Type, member.Property.Name)))
+                {
+                    continue;
+                }
+                if (memberValue is false && member.Parameter is null && OmitWhenFalse.Contains((Type, member.Property.Name)))
+                {
+                    continue;
+                }
                 writer.WritePropertyName(member.Utf8Name);
-                JsonSerializer.Serialize(writer, member.Property.GetValue(value), member.Property.PropertyType, options);
+                JsonSerializer.Serialize(writer, memberValue, member.Property.PropertyType, options);
             }
         }
     }

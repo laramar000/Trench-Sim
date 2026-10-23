@@ -70,6 +70,9 @@ public enum RollStage
     TargetRoll,  // the D6 of a Ranged Attack at a target within 1" of a friendly model (p. 42)
     TargetChoice, // that D6 was 1-3: the shooter chooses which friendly model is hit
     FightRoll,   // the Success Roll of a Melee Attack
+    ClimbRoll,   // the Risky Success Roll of a climb up or down a tower's side (towers stage T6)
+    ClimbMove,   // that roll succeeded: the whole move follows
+    ClimbStop,   // it failed: the model moves only to where the climb starts, then its activation ends
 }
 
 public enum AttackKind
@@ -81,6 +84,7 @@ public enum AttackKind
 // A Dash or Ranged Attack that is part-way through, between the player's command and its last die. It exists
 // only while a Blood Marker decision is pending or inside one Decide call; no dice are rolled early.
 // BonusDice and PenaltyDice are the dice for the next roll (Success or Injury), including spent markers.
+// A climb up a tower's side (Climb* stages) keeps its whole path in DashPath and its action (Move or Dash) in ClimbAction.
 public sealed record RollInProgress(
     RollStage Stage,
     ModelId Actor,
@@ -93,7 +97,8 @@ public sealed record RollInProgress(
     AttackKind Kind = AttackKind.Ranged,
     bool FreeFight = false,
     bool FriendlyFire = false,
-    int ChargeDie = 0);
+    int ChargeDie = 0,
+    ActionsTaken ClimbAction = ActionsTaken.None);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.

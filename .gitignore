@@ -13,3 +13,14 @@ TestResults/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Godot editor cache and generated files (client/)
+.godot/
+*.translation
+client/Client.sln
+
+# M7.3 UI check results (tools/UiCheck)
+ui-check-results/
+
+# Test center results (tools/TestCenter)
+test-results/

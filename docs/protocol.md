@@ -87,6 +87,7 @@ Example:
 ## Values on the wire
 
 - **Objects:** an object is the parameters of its public constructor, read back through that constructor. A value the rules' own constructors refuse is refused on the wire as `InvalidValue`; for example, a point beyond ±200 inches or a die of 7.
+- **Optional init fields:** a public init property the constructor does not take is written after the parameters and is optional on reading. One of them, a terrain piece's `climb` (towers proposal, stage T1: a tower's height and ladders), is left out when null, so a battlefield without towers is written exactly as before and every existing record keeps its bytes. A client built before towers refuses a match that has one (an unknown field); clients and the server ship together, so the protocol version is unchanged.
 - **Lengths and coordinates:** whole thousandths of an inch.
 - **Ids:** model ids are strings.
 - **Enums:** by exact name. Numbers, other casing and comma lists are refused. A flags enum is an array of names.
