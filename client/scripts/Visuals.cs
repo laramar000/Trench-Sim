@@ -154,6 +154,19 @@ public sealed class Visuals
         return box ?? new Aabb(Vector3.Zero, Vector3.Zero);
     }
 
+    // Graphics stage G3: the parts of a figure named "Accent..." (its sash, a pennant) are drawn with the given material,
+    // so the seat colour and the activated wash are the client's, never baked into the art. Returns how many parts.
+    public static int PaintAccent(Node3D figure, Material material)
+    {
+        var painted = 0;
+        foreach (var mesh in figure.FindChildren("Accent*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
+        {
+            mesh.MaterialOverride = material;
+            painted++;
+        }
+        return painted;
+    }
+
     // Scales the model evenly to the given height, narrower still if it would be wider than the base, and stands its
     // bottom centre on the given point. The rules' base and position are unchanged; only the drawing fits them.
     public static void FitOnBase(Node3D model, Vector3 at, float radius, float height)

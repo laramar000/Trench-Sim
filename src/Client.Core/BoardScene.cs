@@ -119,6 +119,9 @@ public sealed record ModelShape(
     // Towers proposal, stage T4: the tower the model stands on, if any (its Standing is then the tower's height).
     public string? TowerId { get; init; }
 
+    // The model's type from the content ("Sharpshooter"), which picks its figure (graphics stage G3); null if unknown.
+    public string? Type { get; init; }
+
     public string Where => TowerId is not null ? $"on the tower ({BoardScene.Inch(Standing)} up)" : HighGround ? "on high ground" : "on the ground";
 }
 
@@ -182,7 +185,7 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
             models.Add(new ModelShape(model.Id, names.Of(model.Id), model.Seat, Words.SeatLetter(model.Seat),
                 TableRect.Inches(body.Centre.X), TableRect.Inches(body.Centre.Y), TableRect.Inches(body.Radius),
                 level.Level == ModelLevel.High, standing, model.Status, state.ActiveModel == model.Id, model.Seat == you,
-                model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers) { TowerId = tower?.Id });
+                model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers) { TowerId = tower?.Id, Type = names.TypeOf(model.Id) });
         }
         return new BoardScene(TableRect.Inches(field.Width), TableRect.Inches(field.Height), zones, terrain, models)
         {

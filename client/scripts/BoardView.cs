@@ -2425,8 +2425,10 @@ public partial class BoardView : SubViewportContainer
 
     private void Rebuild()
     {
+        // Taken out of the tree at once, so the new nodes get their names (Figurea1, BaseRima1) and not Godot's renamed ones.
         foreach (var child in _content.GetChildren())
         {
+            _content.RemoveChild(child);
             child.QueueFree();
         }
         _bodyColours.Clear();
@@ -2563,6 +2565,30 @@ public partial class BoardView : SubViewportContainer
 
     public (int FromArt, int Plain, bool Ground) ArtDrawn => (_figuresFromArt, _figuresPlain, _groundFromArt);
 
+    // Graphics stage G3, for the UI check: how a model's figure is drawn now, or null when it has the plain body. Box: the
+    // figure's meshes in world space (Godot units: x, height, table y); Accent: the colour its accent parts are painted;
+    // Rim: the radius of the base drawn under it.
+    public (Aabb Box, Color? Accent, float? Rim)? FigureOf(ModelId id)
+    {
+        if (_content.GetNodeOrNull<Node3D>($"Figure{id.Value}") is not { } holder || !IsInstanceValid(holder))
+        {
+            return null;
+        }
+        Aabb? box = null;
+        Color? accent = null;
+        foreach (var mesh in holder.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
+        {
+            var b = mesh.GlobalTransform * mesh.Mesh.GetAabb();
+            box = box is { } a ? a.Merge(b) : b;
+            if (mesh.Name.ToString().StartsWith("Accent", StringComparison.Ordinal) && mesh.MaterialOverride is StandardMaterial3D m)
+            {
+                accent = m.AlbedoColor;
+            }
+        }
+        var rim = _content.GetNodeOrNull<MeshInstance3D>($"BaseRim{id.Value}")?.Mesh is CylinderMesh c ? c.TopRadius : (float?)null;
+        return box is { } found ? (found, accent, rim) : null;
+    }
+
     // Draws the battlefield again with another art catalog (the UI check tries a broken one, then puts the real one back).
     public void UseArt(VisualCatalog catalog)
     {
@@ -2634,14 +2660,33 @@ public partial class BoardView : SubViewportContainer
             var tall = model.Status == ModelStatus.Standing ? 1.2f : 0.3f;
             var colour = BodyColour(model);
             _bodyColours[model.Id] = colour;
-            // Graphics stage G0: a standing model is drawn with its figure from the art catalog when it has one, fitted to
-            // the rules' base and the plain body's height; otherwise (and while Down) with the plain body, as always.
-            if (model.Status == ModelStatus.Standing
-                && Visuals.Model(VisualCatalog.UnitKey(model.Name), VisualCatalog.DefaultUnitKey) is { } figure)
+            // Graphics stages G0 and G3: a model is drawn with its figure from the art catalog when it has one (not in high
+            // contrast), fitted inside the rules' base and to the plain body's height, standing or (Down) lying; otherwise
+            // with the plain body, as always. The figure's holder sits where the plain body would, so everything that
+            // follows a model (glides, see-through walls) treats both alike.
+            if (!_highContrast && Visuals.Model(model.Type is { } type ? VisualCatalog.UnitKey(type) : VisualCatalog.DefaultUnitKey, VisualCatalog.DefaultUnitKey) is { } figure)
             {
-                Visuals.FitOnBase(figure, new Vector3((float)model.X, standing, (float)model.Y), (float)model.Radius, tall);
-                figure.Name = $"Figure{model.Id.Value}";
-                _content.AddChild(figure);
+                var holder = new Node3D
+                {
+                    Name = $"Figure{model.Id.Value}",
+                    Position = new Vector3((float)model.X, standing + tall / 2, (float)model.Y),
+                    // Decoration only: each figure faces the middle of the battlefield.
+                    Rotation = new Vector3(0, Mathf.Atan2((float)(_scene!.Width / 2 - model.X), (float)(_scene.Depth / 2 - model.Y)), 0),
+                };
+                Node3D shape = figure;
+                if (model.Status != ModelStatus.Standing)
+                {
+                    // Down: the figure lies on its back across the base.
+                    shape = new Node3D { Name = "Lying" };
+                    figure.RotationDegrees = new Vector3(-90, 0, 0);
+                    shape.AddChild(figure);
+                }
+                Visuals.FitOnBase(shape, new Vector3(0, -tall / 2, 0), (float)model.Radius, tall);
+                // The seat colour is drawn flat (unshaded), so the side reads the same in light and shade.
+                Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
+                holder.AddChild(shape);
+                _content.AddChild(holder);
+                FigureBase(model, standing, colour);
                 _figuresFromArt++;
             }
             else
@@ -2696,6 +2741,27 @@ public partial class BoardView : SubViewportContainer
     // The body colour: the seat's colour, with a light grey wash once the model has activated this turn (from the server's
     // state, ModelShape.Activated). Kept opaque and about 60% of the seat colour, so the seat still reads at a glance.
     public const float ActivatedWash = 0.4f;
+
+    // Graphics stage G3: under a figure, its base at the rules' exact radius: a rim in the body colour (the seat, washed
+    // grey once activated) around a charcoal top.
+    private void FigureBase(ModelShape model, float standing, Color colour)
+    {
+        var r = (float)model.Radius;
+        _content.AddChild(new MeshInstance3D
+        {
+            Name = $"BaseRim{model.Id.Value}",
+            Mesh = new CylinderMesh { TopRadius = r, BottomRadius = r, Height = 0.05f, RadialSegments = 16 },
+            Position = new Vector3((float)model.X, standing + 0.025f, (float)model.Y),
+            MaterialOverride = Paint(colour),
+        });
+        _content.AddChild(new MeshInstance3D
+        {
+            Name = $"BaseTop{model.Id.Value}",
+            Mesh = new CylinderMesh { TopRadius = r - 0.07f, BottomRadius = r - 0.07f, Height = 0.06f, RadialSegments = 16 },
+            Position = new Vector3((float)model.X, standing + 0.03f, (float)model.Y),
+            MaterialOverride = Paint(new Color(0.13f, 0.13f, 0.14f)),
+        });
+    }
 
     private Color BodyColour(ModelShape model)
     {

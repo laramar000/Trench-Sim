@@ -34,6 +34,10 @@ public sealed class ContentNames
     // "Sharpshooter (a1)", or just "a1" when names are not known.
     public string Of(ModelId id) => _names.TryGetValue(id.Value, out var name) ? $"{name} ({id.Value})" : id.Value;
 
+    // The model's type as the content names it ("Sharpshooter"), or null when the content does not know it (graphics:
+    // the art catalog's key).
+    public string? TypeOf(ModelId id) => _names.TryGetValue(id.Value, out var name) ? name : null;
+
     // The scenario names the server offers, and the content file each uses (as Sim.ScenarioSetups does).
     // A test size ("ranged-2v2") uses the first models of the same file.
     public static string? FileFor(string scenario) => BaseOf(scenario) switch

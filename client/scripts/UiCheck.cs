@@ -507,6 +507,7 @@ public partial class UiCheck : Node
         await UnitCardCollapsedCheck(board);
         await ArtFallbackCheck(board);
         await ReadableCheck(board);
+        UnitFiguresCheck(board);
         var info = PanelText;
         Check("board-select-key", first is { Yours: true }
             && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
@@ -1587,6 +1588,45 @@ public partial class UiCheck : Node
             $"{models} models; real catalog: {before.FromArt} from art, {before.Plain} plain, ground from art {before.Ground}; missing files: {broken.FromArt} from art, {broken.Plain} plain, ground from art {broken.Ground}, noted: {string.Join(" / ", failures)}; put back: {after}");
     }
 
+    // Graphics stage G3 (unit-figures): every model is drawn with its figure from the art catalog; the figure stands on
+    // the model's spot, inside its base, 1.2" tall (lying no higher than 0.3" while Down), its accent painted with the
+    // model's body colour (seat, grey wash once activated), on a base drawn at the rules' exact radius.
+    private void UnitFiguresCheck(BoardView board)
+    {
+        var problems = new List<string>();
+        var models = board.Scene?.Models ?? [];
+        foreach (var m in models)
+        {
+            if (board.FigureOf(m.Id) is not { } f)
+            {
+                problems.Add($"{m.Id.Value} has no figure");
+                continue;
+            }
+            var centre = f.Box.GetCenter();
+            var half = f.Box.Size / 2;
+            var standing = m.Status == Rules.Core.State.ModelStatus.Standing;
+            if (Math.Abs(centre.X - m.X) > 0.15 || Math.Abs(centre.Z - m.Y) > 0.15 || half.X > m.Radius + 0.01 || half.Z > m.Radius + 0.01)
+            {
+                problems.Add($"{m.Id.Value} outside its base: centre ({centre.X:0.00}, {centre.Z:0.00}) for ({m.X:0.00}, {m.Y:0.00}), half {half.X:0.00} x {half.Z:0.00}, radius {m.Radius:0.00}");
+            }
+            if (Math.Abs(f.Box.Position.Y - m.Standing) > 0.02 || (standing ? Math.Abs(f.Box.Size.Y - 1.2) > 0.02 : f.Box.Size.Y > 0.31))
+            {
+                problems.Add($"{m.Id.Value} height {f.Box.Size.Y:0.00} from {f.Box.Position.Y:0.00} ({m.Status} at {m.Standing:0.00})");
+            }
+            if (f.Accent is not { } accent || board.BodyColourOf(m.Id) is not { } body || !accent.IsEqualApprox(body))
+            {
+                problems.Add($"{m.Id.Value} accent {f.Accent?.ToHtml(false)} for body {board.BodyColourOf(m.Id)?.ToHtml(false)}");
+            }
+            if (f.Rim is not { } rim || Math.Abs(rim - m.Radius) > 0.001)
+            {
+                problems.Add($"{m.Id.Value} base drawn at {f.Rim} for radius {m.Radius:0.000}");
+            }
+        }
+        var drawn = board.ArtDrawn;
+        Check("unit-figures", models.Count > 0 && problems.Count == 0 && drawn.FromArt == models.Count && drawn.Plain == 0,
+            $"{models.Count} models, {drawn.FromArt} figures, {drawn.Plain} plain; {(problems.Count == 0 ? "each inside its base, at its height, accent = body colour, base at the rules' radius" : string.Join("; ", problems))}; catalog {board.Visuals.Catalog.Entries.Count} entries; art problems: {string.Join(" / ", board.Visuals.Failures)}");
+    }
+
     // Graphics stage G1 (battlefield-readable): under the overcast light, each standing model's body stands out from the
     // ground right beside it (in brightness or colour), the two seats' bodies differ clearly, and there is no fog and no
     // dynamic shadow (PS1-style cheap lighting). Measured on the rendered picture with the camera fitted to the battlefield.
@@ -2297,6 +2337,9 @@ public partial class UiCheck : Node
                     break;
                 case "readable":
                     await ReadableCheck(board);
+                    break;
+                case "figures":
+                    UnitFiguresCheck(board);
                     break;
                 default:
                     if (step.StartsWith("size", StringComparison.Ordinal) && step[4..].Split('x') is [var w, var h])

@@ -22,3 +22,7 @@ Rules:
 
 | File | Source | Author | Licence | Date | Changes |
 |---|---|---|---|---|---|
+| `units/rifleman.glb` | tools/art/make_figures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-23 | None: generated as is. Rifleman: long rifle across the chest, brimmed helmet, pack. Sharpshooter, Marksman. |
+| `units/skirmisher.glb` | tools/art/make_figures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-23 | None: generated as is. Skirmisher: hooded, leaning forward, short bayonet carbine, satchel. Skirmisher, Runner. |
+| `units/shield.glb` | tools/art/make_figures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-23 | None: generated as is. Shield: great helm, pauldrons, iron pavise, raised mace. Bulwark, Shieldbearer. |
+| `units/standard.glb` | tools/art/make_figures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-23 | None: generated as is. Standard: tall pole, pennant, finial and lantern. Banner Carrier, Lamp Keeper. |
