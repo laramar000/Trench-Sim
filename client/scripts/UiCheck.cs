@@ -1587,16 +1587,32 @@ public partial class UiCheck : Node
             $"{models} models; real catalog: {before.FromArt} from art, {before.Plain} plain, ground from art {before.Ground}; missing files: {broken.FromArt} from art, {broken.Plain} plain, ground from art {broken.Ground}, noted: {string.Join(" / ", failures)}; put back: {after}");
     }
 
-    // Graphics stage G1 (battlefield-readable): under the overcast light, shadows and haze, each standing model's body
-    // stands out from the ground right beside it (in brightness or colour), the two seats' bodies differ clearly, and the
-    // haze is on (off in high contrast). Measured on the rendered picture with the camera fitted to the battlefield.
+    // Graphics stage G1 (battlefield-readable): under the overcast light, each standing model's body stands out from the
+    // ground right beside it (in brightness or colour), the two seats' bodies differ clearly, and there is no fog and no
+    // dynamic shadow (PS1-style cheap lighting). Measured on the rendered picture with the camera fitted to the battlefield.
     private async Task ReadableCheck(BoardView board)
     {
         var selected = board.Selected?.Id;
         board.Select(null);
         board.Fit();
+        // The id labels float over the bodies at this zoom; hidden while the picture is taken, so a body is sampled and
+        // not its label.
+        // (A redraw may make new labels meanwhile, so this repeats until a frame passes with none shown.)
         await Frames(8);
+        var labels = new List<Label3D>();
+        for (var tries = 0; tries < 20; tries++)
+        {
+            var shown = board.FindChildren("*", "Label3D", true, false).OfType<Label3D>().Where(l => IsInstanceValid(l) && l.Visible).ToList();
+            if (shown.Count == 0 && tries > 0)
+            {
+                break;
+            }
+            shown.ForEach(l => l.Visible = false);
+            labels.AddRange(shown);
+            await Frames(2);
+        }
         var image = _main.GetViewport().GetTexture().GetImage();
+        labels.Where(IsInstanceValid).ToList().ForEach(l => l.Visible = true);
         var origin = board.GetGlobalRect().Position;
         Color Sample(Vector2 local)
         {
@@ -1622,6 +1638,7 @@ public partial class UiCheck : Node
         var problems = new List<string>();
         var samples = new List<string>();
         var bodies = new Dictionary<Rules.Core.State.Seat, List<Color>>();
+        var fresh = new Dictionary<Rules.Core.State.Seat, List<Color>>();
         foreach (var m in scene?.Models.Where(m => m.Status == Rules.Core.State.ModelStatus.Standing) ?? [])
         {
             if (board.ScreenOf(m.X, m.Y, m.Standing + 0.6) is not { } body || body.X < 0 || body.Y < 0 || body.X > board.Size.X || body.Y > board.Size.Y)
@@ -1634,7 +1651,8 @@ public partial class UiCheck : Node
                 var angle = i * Math.PI / 4;
                 var (gx, gy) = (m.X + Math.Cos(angle) * (m.Radius + 0.9), m.Y + Math.Sin(angle) * (m.Radius + 0.9));
                 var free = gx > 0.5 && gy > 0.5 && gx < scene!.Width - 0.5 && gy < scene.Depth - 0.5 && m.Standing == 0
-                    && !scene.Models.Any(o => o.Id != m.Id && Math.Sqrt((o.X - gx) * (o.X - gx) + (o.Y - gy) * (o.Y - gy)) < o.Radius + 0.6)
+                    // No other body near enough to stand in front of the spot on screen.
+                && !scene.Models.Any(o => o.Id != m.Id && Math.Sqrt((o.X - gx) * (o.X - gx) + (o.Y - gy) * (o.Y - gy)) < o.Radius + 1.6)
                     && !scene.Terrain.Any(t => gx > t.Area.X0 - 0.3 && gx < t.Area.X1 + 0.3 && gy > t.Area.Y0 - 0.3 && gy < t.Area.Y1 + 0.3);
                 // Only a spot below the model on screen (in front of it), so the body never hides the ground sampled.
                 if (free && board.ScreenOf(gx, gy) is { } spot && spot.Y > body.Y)
@@ -1655,17 +1673,23 @@ public partial class UiCheck : Node
                 problems.Add($"{m.Id.Value} hard to see: ratio {ratio:0.00}, colour distance {distance:0.00}");
             }
             (bodies.TryGetValue(m.Seat, out var list) ? list : bodies[m.Seat] = []).Add(bc);
+            if (!m.Activated)
+            {
+                (fresh.TryGetValue(m.Seat, out var freshList) ? freshList : fresh[m.Seat] = []).Add(bc);
+            }
         }
         Color Mean(List<Color> c) => new(c.Average(x => x.R), c.Average(x => x.G), c.Average(x => x.B));
-        var seatsApart = bodies.Count == 2 ? Distance(Mean(bodies[Rules.Core.State.Seat.One]), Mean(bodies[Rules.Core.State.Seat.Two])) : 0;
+        // The seats are compared on models not yet activated (an activated one is greyed on purpose), when each seat has one.
+        var compare = fresh.Count == 2 ? fresh : bodies;
+        var seatsApart = compare.Count == 2 ? Distance(Mean(compare[Rules.Core.State.Seat.One]), Mean(compare[Rules.Core.State.Seat.Two])) : 0;
         if (bodies.Count == 2 && seatsApart < 0.3)
         {
             problems.Add($"the seats' bodies are only {seatsApart:0.00} apart in colour");
         }
-        var haze = board.HazeOn == !((Main)_main).CurrentSettings.HighContrast;
+        var cheap = !board.FogOn && !board.ShadowsOn;
         board.Select(selected);
-        Check("battlefield-readable", samples.Count >= 2 && bodies.Count == 2 && haze && problems.Count == 0,
-            $"{samples.Count} models sampled; seats {seatsApart:0.00} apart; haze on: {board.HazeOn}; {(problems.Count == 0 ? "" : "problems: " + string.Join("; ", problems) + "; ")}{string.Join(" | ", samples)}");
+        Check("battlefield-readable", samples.Count >= 2 && bodies.Count == 2 && cheap && problems.Count == 0,
+            $"{samples.Count} models sampled; seats {seatsApart:0.00} apart; fog: {board.FogOn}; shadows: {board.ShadowsOn}; {(problems.Count == 0 ? "" : "problems: " + string.Join("; ", problems) + "; ")}{string.Join(" | ", samples)}");
     }
 
     // What is wrong with the closed card now (empty when it is only its tab, one button high, inside the battlefield).
@@ -2271,6 +2295,9 @@ public partial class UiCheck : Node
                 case "views":
                     await DevViews(board);
                     break;
+                case "readable":
+                    await ReadableCheck(board);
+                    break;
                 default:
                     if (step.StartsWith("size", StringComparison.Ordinal) && step[4..].Split('x') is [var w, var h])
                     {
@@ -2291,7 +2318,7 @@ public partial class UiCheck : Node
             await Frames(3);
             var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
             if (board is null || ((Main)_main).ServerState is not { } state
-                || (state.Phase is not (Rules.Core.State.Phase.None or Rules.Core.State.Phase.PreGame or Rules.Core.State.Phase.Deployment or Rules.Core.State.Phase.Initiative) && Hint() is null))
+                || state.Phase is not (Rules.Core.State.Phase.None or Rules.Core.State.Phase.PreGame or Rules.Core.State.Phase.Deployment or Rules.Core.State.Phase.Initiative))
             {
                 break;
             }

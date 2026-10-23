@@ -2375,13 +2375,12 @@ public partial class BoardView : SubViewportContainer
         _camera.Rotation = new Vector3(-pitch, yaw, 0);
     }
 
-    // Graphics stage G1 (art direction: cold grey overcast light, mud, drifting haze): one directional light with simple
-    // shadows, a grey overcast sky, filmic tone mapping and a light depth haze. All of it works in both Forward+ and
-    // Compatibility, with no global illumination, screen-space effects or volumetric fog. High contrast keeps the old
-    // flat, shadowless look on black.
-    private readonly DirectionalLight3D _sun = new() { Name = "Sun" };
-
-    public const float HazeDensity = 0.0045f;
+    // Graphics stage G1 (art direction: cold grey overcast light, mud). PS1-style cheap lighting: one cool directional
+    // light with no dynamic shadows, a flat overcast background, a cool ambient and no fog, so the battlefield stays
+    // sharp and the frame costs what it did before G1 (measured: shadows and haze made a frame about 75% slower in
+    // software rendering, and the haze washed out the models). Works the same in Forward+ and Compatibility. High
+    // contrast keeps the old flat look on black.
+    private readonly DirectionalLight3D _sun = new() { Name = "Sun", ShadowEnabled = false };
 
     private void ApplyEnvironment()
     {
@@ -2390,7 +2389,6 @@ public partial class BoardView : SubViewportContainer
             _sun.RotationDegrees = new Vector3(-60, 35, 0);
             _sun.LightColor = Colors.White;
             _sun.LightEnergy = 0.9f;
-            _sun.ShadowEnabled = false;
             _environment.Environment = new Godot.Environment
             {
                 BackgroundMode = Godot.Environment.BGMode.Color,
@@ -2403,40 +2401,24 @@ public partial class BoardView : SubViewportContainer
         }
         _sun.RotationDegrees = new Vector3(-52, 30, 0);
         _sun.LightColor = new Color(0.86f, 0.89f, 0.95f);
-        _sun.LightEnergy = 1.05f;
-        _sun.ShadowEnabled = true;
-        _sun.ShadowOpacity = 0.6f;
-        _sun.ShadowBlur = 1.5f;
-        _sun.DirectionalShadowMode = DirectionalLight3D.ShadowMode.Orthogonal;
-        _sun.DirectionalShadowMaxDistance = 140;
-        var sky = new ProceduralSkyMaterial
-        {
-            SkyTopColor = new Color(0.19f, 0.21f, 0.24f),
-            SkyHorizonColor = new Color(0.43f, 0.44f, 0.45f),
-            GroundHorizonColor = new Color(0.30f, 0.29f, 0.27f),
-            GroundBottomColor = new Color(0.12f, 0.11f, 0.10f),
-            SunAngleMax = 0,
-        };
+        _sun.LightEnergy = 1.0f;
         _environment.Environment = new Godot.Environment
         {
-            BackgroundMode = Godot.Environment.BGMode.Sky,
-            Sky = new Sky { SkyMaterial = sky },
+            BackgroundMode = Godot.Environment.BGMode.Color,
+            BackgroundColor = new Color(0.17f, 0.18f, 0.19f),
             AmbientLightSource = Godot.Environment.AmbientSource.Color,
-            AmbientLightColor = new Color(0.66f, 0.69f, 0.75f),
-            AmbientLightEnergy = 0.6f,
-            TonemapMode = Godot.Environment.ToneMapper.Filmic,
-            TonemapExposure = 1.1f,
-            FogEnabled = true,
-            FogMode = Godot.Environment.FogModeEnum.Exponential,
-            FogLightColor = new Color(0.47f, 0.49f, 0.51f),
-            FogDensity = HazeDensity,
-            FogSkyAffect = 0.5f,
+            AmbientLightColor = new Color(0.70f, 0.72f, 0.78f),
+            AmbientLightEnergy = 0.5f,
         };
     }
 
-    // Graphics stage G1: the colours of the battlefield (muted mud, stone, timber), and whether the haze is on.
-    public bool HazeOn => _environment.Environment?.FogEnabled == true;
+    // No fog or haze over the battlefield (kept off so nothing on it is dimmed; the UI check reads it).
+    public bool FogOn => _environment.Environment?.FogEnabled == true;
 
+    // Whether the sun casts dynamic shadows (kept off: PS1-style cheap lighting).
+    public bool ShadowsOn => _sun.ShadowEnabled;
+
+    // Graphics stage G1: the colours of the battlefield (muted mud, stone, timber).
     public Color GroundColour => _highContrast ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.25f, 0.22f, 0.17f);
 
     private Color ZoneColour => _highContrast ? new Color(0.36f, 0.36f, 0.36f) : new Color(0.31f, 0.30f, 0.27f);
@@ -2983,7 +2965,5 @@ public partial class BoardView : SubViewportContainer
         Transparency = colour.A < 1 ? BaseMaterial3D.TransparencyEnum.Alpha : BaseMaterial3D.TransparencyEnum.Disabled,
         NoDepthTest = noDepth,
         ShadingMode = noDepth ? BaseMaterial3D.ShadingModeEnum.Unshaded : BaseMaterial3D.ShadingModeEnum.PerPixel,
-        // Graphics stage G1: what is drawn through walls (rings, links) is game information; the haze never dims it.
-        DisableFog = noDepth,
     };
 }
