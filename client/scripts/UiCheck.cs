@@ -1613,9 +1613,9 @@ public partial class UiCheck : Node
             {
                 problems.Add($"{m.Id.Value} height {f.Box.Size.Y:0.00} from {f.Box.Position.Y:0.00} ({m.Status} at {m.Standing:0.00})");
             }
-            if (f.Accent is not { } accent || board.BodyColourOf(m.Id) is not { } body || !accent.IsEqualApprox(body))
+            if (f.Accent is not { } accent || f.Base is not { } baseTop || board.BodyColourOf(m.Id) is not { } body || !accent.IsEqualApprox(body) || !baseTop.IsEqualApprox(body))
             {
-                problems.Add($"{m.Id.Value} accent {f.Accent?.ToHtml(false)} for body {board.BodyColourOf(m.Id)?.ToHtml(false)}");
+                problems.Add($"{m.Id.Value} accent {f.Accent?.ToHtml(false)} and base {f.Base?.ToHtml(false)} for body {board.BodyColourOf(m.Id)?.ToHtml(false)}");
             }
             if (f.Rim is not { } rim || Math.Abs(rim - m.Radius) > 0.001)
             {
@@ -1624,7 +1624,7 @@ public partial class UiCheck : Node
         }
         var drawn = board.ArtDrawn;
         Check("unit-figures", models.Count > 0 && problems.Count == 0 && drawn.FromArt == models.Count && drawn.Plain == 0,
-            $"{models.Count} models, {drawn.FromArt} figures, {drawn.Plain} plain; {(problems.Count == 0 ? "each inside its base, at its height, accent = body colour, base at the rules' radius" : string.Join("; ", problems))}; catalog {board.Visuals.Catalog.Entries.Count} entries; art problems: {string.Join(" / ", board.Visuals.Failures)}");
+            $"{models.Count} models, {drawn.FromArt} figures, {drawn.Plain} plain; {(problems.Count == 0 ? "each inside its base, at its height, accent and base = body colour, base at the rules' radius" : string.Join("; ", problems))}; catalog {board.Visuals.Catalog.Entries.Count} entries; art problems: {string.Join(" / ", board.Visuals.Failures)}");
     }
 
     // Graphics stage G1 (battlefield-readable): under the overcast light, each standing model's body stands out from the
@@ -1686,6 +1686,7 @@ public partial class UiCheck : Node
                 continue;
             }
             Vector2? ground = null;
+            (double X, double Y)? groundAt = null;
             for (var i = 0; i < 8 && ground is null; i++)
             {
                 var angle = i * Math.PI / 4;
@@ -1698,6 +1699,7 @@ public partial class UiCheck : Node
                 if (free && board.ScreenOf(gx, gy) is { } spot && spot.Y > body.Y)
                 {
                     ground = spot;
+                    groundAt = (gx, gy);
                 }
             }
             if (ground is not { } g)
@@ -1707,8 +1709,11 @@ public partial class UiCheck : Node
             // Graphics stage G3: a figure is not one colour (a rifle or a shield may cover its sash from this camera), so the
             // body is sampled at several heights up its middle and the point that stands out most is the one compared.
             var gc = Sample(g);
+            // The base counts too: the point of its top halfway to its edge, on the side of the ground sampled (in front).
+            var toward = new Vector2((float)(groundAt!.Value.X - m.X), (float)(groundAt.Value.Y - m.Y)).Normalized() * (float)(m.Radius * 0.6);
             var bc = new[] { 0.35, 0.5, 0.6, 0.7, 0.85 }
                 .Select(h => board.ScreenOf(m.X, m.Y, m.Standing + h))
+                .Append(board.ScreenOf(m.X + toward.X, m.Y + toward.Y, m.Standing + 0.06))
                 .OfType<Vector2>()
                 .Select(Sample)
                 .DefaultIfEmpty(Sample(body))

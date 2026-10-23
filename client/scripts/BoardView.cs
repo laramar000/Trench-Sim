@@ -2574,8 +2574,8 @@ public partial class BoardView : SubViewportContainer
 
     // Graphics stage G3, for the UI check: how a model's figure is drawn now, or null when it has the plain body. Box: the
     // figure's meshes in world space (Godot units: x, height, table y); Accent: the colour its accent parts are painted;
-    // Rim: the radius of the base drawn under it.
-    public (Aabb Box, Color? Accent, float? Rim)? FigureOf(ModelId id)
+    // Rim: the radius of the base drawn under it; Base: the colour of the base's top.
+    public (Aabb Box, Color? Accent, float? Rim, Color? Base)? FigureOf(ModelId id)
     {
         if (_content.GetNodeOrNull<Node3D>($"Figure{id.Value}") is not { } holder || !IsInstanceValid(holder))
         {
@@ -2593,7 +2593,8 @@ public partial class BoardView : SubViewportContainer
             }
         }
         var rim = _content.GetNodeOrNull<MeshInstance3D>($"BaseRim{id.Value}")?.Mesh is CylinderMesh c ? c.TopRadius : (float?)null;
-        return box is { } found ? (found, accent, rim) : null;
+        var top = _content.GetNodeOrNull<MeshInstance3D>($"BaseTop{id.Value}")?.MaterialOverride is StandardMaterial3D t ? t.AlbedoColor : (Color?)null;
+        return box is { } found ? (found, accent, rim, top) : null;
     }
 
     // Draws the battlefield again with another art catalog (the UI check tries a broken one, then puts the real one back).
@@ -2749,8 +2750,9 @@ public partial class BoardView : SubViewportContainer
     // state, ModelShape.Activated). Kept opaque and about 60% of the seat colour, so the seat still reads at a glance.
     public const float ActivatedWash = 0.4f;
 
-    // Graphics stage G3: under a figure, its base at the rules' exact radius: a rim in the body colour (the seat, washed
-    // grey once activated) around a charcoal top.
+    // Graphics stage G3: under a figure, its base at the rules' exact radius, drawn flat in the body colour (the seat,
+    // washed grey once activated), so a model reads as a patch of its side's colour even when the whole battlefield is in
+    // view and the figure itself is only a few pixels; a dark edge keeps it apart from the ground and the rings.
     private void FigureBase(ModelShape model, float standing, Color colour)
     {
         var r = (float)model.Radius;
@@ -2759,14 +2761,14 @@ public partial class BoardView : SubViewportContainer
             Name = $"BaseRim{model.Id.Value}",
             Mesh = new CylinderMesh { TopRadius = r, BottomRadius = r, Height = 0.05f, RadialSegments = 16 },
             Position = new Vector3((float)model.X, standing + 0.025f, (float)model.Y),
-            MaterialOverride = Paint(colour),
+            MaterialOverride = Paint(new Color(0.10f, 0.10f, 0.11f)),
         });
         _content.AddChild(new MeshInstance3D
         {
             Name = $"BaseTop{model.Id.Value}",
-            Mesh = new CylinderMesh { TopRadius = r - 0.07f, BottomRadius = r - 0.07f, Height = 0.06f, RadialSegments = 16 },
+            Mesh = new CylinderMesh { TopRadius = r - 0.04f, BottomRadius = r - 0.04f, Height = 0.06f, RadialSegments = 16 },
             Position = new Vector3((float)model.X, standing + 0.03f, (float)model.Y),
-            MaterialOverride = Paint(new Color(0.13f, 0.13f, 0.14f)),
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
         });
     }
 
