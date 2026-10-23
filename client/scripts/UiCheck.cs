@@ -703,6 +703,9 @@ public partial class UiCheck : Node
     {
         var lastCommand = Section("LAST COMMAND");
         var interaction = board.Interaction;
+        // Proposal P1: the card is opened, and laid out, before anything on it is read or measured.
+        _ = Opened;
+        await Frames(3);
         if (!await FocusByTab(board, 80) || board.Scene is not { } scene)
         {
             Check("board-move-preview", false, $"Tab never reached the battlefield; focus on {Describe(Focused())}");
@@ -732,6 +735,8 @@ public partial class UiCheck : Node
             && InPanel(board, "straight line ") && card.Skip(1).Where(l => move.Refusal is not { } r || l != $"{r.Text} ({r.RuleRef})").All(l => InPanel(board, l)) && ghost && still,
             $"card: {string.Join(" | ", card)}; panel: {PanelText.Replace('\n', '|')}; ghost at {board.GhostAt}; real model unmoved: {still}");
         await PanelDetailsChecks(board);
+        _ = Opened;
+        await Frames(2);
         var confirmAtMove = Opened.PanelConfirm.GetGlobalRect();
         await CloseShot(board, actor?.Id, "host-move-preview");
         await KeyPress(Key.Backspace);
@@ -805,6 +810,8 @@ public partial class UiCheck : Node
             && (InPanel(board, "Target in cover (") || InPanel(board, "Target not in cover"))
             && targetCard.Skip(1).Where(l => !l.StartsWith("target ", StringComparison.Ordinal) && (shot!.Refusal is not { } r || l != $"{r.Text} ({r.RuleRef})")).All(l => InPanel(board, l))),
             $"card: {string.Join(" | ", targetCard)}; panel: {PanelText.Replace('\n', '|')}");
+        _ = Opened;
+        await Frames(2);
         var confirmAtShoot = Opened.PanelConfirm.GetGlobalRect();
         Check("panel-confirm-cancel-fixed", confirmAtShoot.IsEqualApprox(confirmAtMove) && ((Main)_main).PanelCancel.GetGlobalRect().Position.Y == confirmAtShoot.Position.Y,
             $"Confirm at {confirmAtMove} for Move, {confirmAtShoot} for Shoot; Cancel at {((Main)_main).PanelCancel.GetGlobalRect()}");
@@ -1175,6 +1182,9 @@ public partial class UiCheck : Node
             {
                 Check("unit-card-closed-send", closedCardOnBar && pass && interaction.SentCount - sentBefore == 1,
                     $"{closedCardBar}; Confirm on the bar: {closedCardOnBar}; {interaction.SentCount - sentBefore} command(s) sent; move done: {pass} ({answer})");
+                // The checks after this one expect the card open, laid out as before.
+                ((Main)_main).SetUnitCard(true);
+                await Frames(3);
             }
             return (pass, $"{preview.Headline}; last command: {answer}; event: {line}; now {shape?.Text}; notice: {interaction.Notice}");
         }
@@ -4294,6 +4304,10 @@ public partial class UiCheck : Node
         {
             return false;
         }
+        // Proposal P1: open the card (and let it lay out) first, so reading it later does not move the action bar and
+        // the combat menu after their positions were taken.
+        _ = Opened;
+        await Frames(3);
         var seat = state.FindModel(me)!.Seat;
         bool Open(InteractionMode mode, Rules.Core.State.ModelId target, out string? why)
         {

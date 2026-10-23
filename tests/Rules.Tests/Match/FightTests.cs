@@ -185,7 +185,7 @@ public class FightTests
     }
 
     // Proposal M1: a Pistol-like ranged weapon, 12"/Melee, with a +1 injury modifier, and no Melee Weapon.
-    private static readonly ModelProfile Pistoleer = new(L("6"), L("0.5"), L("12"), rangedInjuryModifier: 1, rangedAlsoMelee: true);
+    private static readonly ModelProfile Pistoleer = new(L("6"), L("0.5"), L("12"), rangedInjuryModifier: 1) { RangedAlsoMelee = true };
 
     [Fact]
     [Trait("Rule", "Battlekit p. 68 and PISTOL p. 56: a weapon with \"Melee\" under its Range is also a Melee Weapon")]
@@ -221,7 +221,7 @@ public class FightTests
     [Trait("Rule", "Melee Attacks p. 45: a Melee Weapon is used before a dual-purpose weapon (U54, one weapon)")]
     public void AModelWithBothFightsWithItsMeleeWeapon()
     {
-        var both = new ModelProfile(L("6"), L("0.5"), L("12"), rangedInjuryModifier: 2, hasMeleeWeapon: true, meleeInjuryModifier: -1, rangedAlsoMelee: true);
+        var both = new ModelProfile(L("6"), L("0.5"), L("12"), rangedInjuryModifier: 2, hasMeleeWeapon: true, meleeInjuryModifier: -1) { RangedAlsoMelee = true };
         Assert.Equal(-1, both.MeleeAttackInjuryModifier);
         Assert.Equal(1, Pistoleer.MeleeAttackInjuryModifier);
         Assert.True(Pistoleer.CanMakeMeleeAttack);

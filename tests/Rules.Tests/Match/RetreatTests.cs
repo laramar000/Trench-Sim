@@ -143,7 +143,7 @@ public class RetreatTests
     [Trait("Rule", "Retreat p. 14: the free attack is made with a Melee Weapon; a 12\"/Melee weapon is one (pp. 56, 68)")]
     public void AModelWithOnlyAPistolStillGetsItsFreeAttack()
     {
-        var pistol = new ModelProfile(L("6"), L("0.5"), L("12"), rangedAlsoMelee: true);
+        var pistol = new ModelProfile(L("6"), L("0.5"), L("12")) { RangedAlsoMelee = true };
         var play = Engaged(profile: pistol);
         play.Do(Retreat());
         Assert.Equal(new[] { B(1) }, Board.FreeFighters(play.State, play.State.Retreat!).Select(m => m.Id).ToArray());

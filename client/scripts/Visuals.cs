@@ -27,13 +27,13 @@ public sealed class Visuals
         {
             return visuals;
         }
-        try
+        if (VisualCatalog.TryParse(Godot.FileAccess.GetFileAsString(path), out var problem) is { } catalog)
         {
-            visuals._catalog = VisualCatalog.Parse(Godot.FileAccess.GetFileAsString(path));
+            visuals._catalog = catalog;
         }
-        catch (Exception e) when (e is FormatException or System.Text.Json.JsonException)
+        else
         {
-            visuals._failures.Add($"{VisualCatalog.FileName}: {e.Message}");
+            visuals._failures.Add($"{VisualCatalog.FileName}: {problem}");
         }
         return visuals;
     }

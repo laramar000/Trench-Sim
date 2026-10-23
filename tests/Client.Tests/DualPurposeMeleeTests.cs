@@ -37,7 +37,7 @@ public class DualPurposeMeleeTests
                 continue;
             }
             var range = profile.HasRangedWeapon ? profile.RangedRange : Length.FromInches(12);
-            var pistol = WithProfile(state, active.Id, new ModelProfile(profile.Movement, profile.BaseRadius, range, 0, profile.Armour, rangedAlsoMelee: true));
+            var pistol = WithProfile(state, active.Id, new ModelProfile(profile.Movement, profile.BaseRadius, range, 0, profile.Armour) { RangedAlsoMelee = true });
             Assert.True(Previews.Target(pistol, active.Seat, PreviewKind.Fight, active.Id, enemy.Id).Legal);
             Assert.Null(TurnSequence.Check(pistol, new Rules.Core.Commands.FightModel(active.Seat, active.Id, enemy.Id)));
             Assert.Equal("Fight: its ranged weapon (also Melee), against an engaged enemy", ActionStats.For(pistol, active.Seat, active.Id, InteractionMode.Fight));

@@ -51,6 +51,22 @@ public sealed class VisualCatalog
         return new(entries);
     }
 
+    // The catalog, or null and why it could not be read (the Godot client keeps to its allowed assemblies, so the JSON
+    // errors are caught here).
+    public static VisualCatalog? TryParse(string json, out string? problem)
+    {
+        try
+        {
+            problem = null;
+            return Parse(json);
+        }
+        catch (Exception e) when (e is FormatException or JsonException)
+        {
+            problem = e.Message;
+            return null;
+        }
+    }
+
     // Why an entry is not allowed, or null.
     public static string? Problem(string key, string path)
     {

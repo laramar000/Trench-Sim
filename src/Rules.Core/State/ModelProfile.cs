@@ -15,7 +15,7 @@ public sealed record ModelProfile
 {
     public const int MaxModifier = 3;
 
-    public ModelProfile(Length movement, Length baseRadius, Length rangedRange, int rangedInjuryModifier = 0, int armour = 0, bool hasMeleeWeapon = false, int meleeInjuryModifier = 0, bool rangedAlsoMelee = false)
+    public ModelProfile(Length movement, Length baseRadius, Length rangedRange, int rangedInjuryModifier = 0, int armour = 0, bool hasMeleeWeapon = false, int meleeInjuryModifier = 0)
     {
         if (movement <= Length.Zero || movement > Length.FromInches(24))
         {
@@ -49,10 +49,6 @@ public sealed record ModelProfile
         {
             throw new ArgumentException("A model without a Melee Weapon has no melee injury modifier.", nameof(meleeInjuryModifier));
         }
-        if (rangedAlsoMelee && rangedRange <= Length.Zero)
-        {
-            throw new ArgumentException("Only a ranged weapon can also be a Melee Weapon (\"12\"/Melee\").", nameof(rangedAlsoMelee));
-        }
         Movement = movement;
         BaseRadius = baseRadius;
         RangedRange = rangedRange;
@@ -60,7 +56,6 @@ public sealed record ModelProfile
         Armour = armour;
         HasMeleeWeapon = hasMeleeWeapon;
         MeleeInjuryModifier = meleeInjuryModifier;
-        RangedAlsoMelee = rangedAlsoMelee;
     }
 
     public Length Movement { get; }
@@ -71,7 +66,22 @@ public sealed record ModelProfile
     public bool HasMeleeWeapon { get; }
     public int MeleeInjuryModifier { get; }
 
-    public bool RangedAlsoMelee { get; }
+    // An init property rather than a constructor parameter, and left off the wire when false, so every setup without it
+    // (all existing records and their content fingerprints) is written exactly as before.
+    public bool RangedAlsoMelee
+    {
+        get => _rangedAlsoMelee;
+        init
+        {
+            if (value && RangedRange <= Length.Zero)
+            {
+                throw new ArgumentException("Only a ranged weapon can also be a Melee Weapon (\"12\"/Melee\").", nameof(RangedAlsoMelee));
+            }
+            _rangedAlsoMelee = value;
+        }
+    }
+
+    private readonly bool _rangedAlsoMelee;
 
     public bool HasRangedWeapon => RangedRange > Length.Zero;
 
