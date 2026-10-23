@@ -42,9 +42,23 @@ public sealed class Visuals
     public void Use(VisualCatalog catalog)
     {
         _catalog = catalog;
-        _models.Clear();
+        Release();
         _textures.Clear();
         _failures.Clear();
+    }
+
+    // Frees the loaded originals (they are never in the scene tree, so nothing else frees them; left at exit, Godot
+    // reports their meshes and shaders as leaked). The copies handed out belong to the battlefield.
+    public void Release()
+    {
+        foreach (var original in _models.Values)
+        {
+            if (original is not null && GodotObject.IsInstanceValid(original))
+            {
+                original.Free();
+            }
+        }
+        _models.Clear();
     }
 
     // A new copy of the model for the first key that has an entry, or null for the plain shape.

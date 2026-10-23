@@ -1704,7 +1704,15 @@ public partial class UiCheck : Node
             {
                 continue;
             }
-            var (bc, gc) = (Sample(body), Sample(g));
+            // Graphics stage G3: a figure is not one colour (a rifle or a shield may cover its sash from this camera), so the
+            // body is sampled at several heights up its middle and the point that stands out most is the one compared.
+            var gc = Sample(g);
+            var bc = new[] { 0.35, 0.5, 0.6, 0.7, 0.85 }
+                .Select(h => board.ScreenOf(m.X, m.Y, m.Standing + h))
+                .OfType<Vector2>()
+                .Select(Sample)
+                .DefaultIfEmpty(Sample(body))
+                .MaxBy(c => Distance(c, gc));
             var ratio = (Math.Max(Luminance(bc), Luminance(gc)) + 0.05) / (Math.Min(Luminance(bc), Luminance(gc)) + 0.05);
             var distance = Distance(bc, gc);
             samples.Add($"{m.Id.Value} body {bc.ToHtml(false)} ground {gc.ToHtml(false)} ratio {ratio:0.00} distance {distance:0.00}");

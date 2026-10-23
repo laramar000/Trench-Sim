@@ -2559,6 +2559,13 @@ public partial class BoardView : SubViewportContainer
 
     // Graphics stage G0: the art (client/assets/catalog.json), and how much of the battlefield was drawn with it.
     public Visuals Visuals { get; } = Visuals.Load();
+
+    // Graphics stage G3: the art's loaded originals are freed with the battlefield.
+    public override void _ExitTree()
+    {
+        Visuals.Release();
+        base._ExitTree();
+    }
     private int _figuresFromArt;
     private int _figuresPlain;
     private bool _groundFromArt;
