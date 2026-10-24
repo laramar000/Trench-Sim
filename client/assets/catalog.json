@@ -1,5 +1,5 @@
 {
-  "note": "Which art file draws which thing (graphics stages G0, G2, G3). Keys: unit:<model name from content>, unit:default, ground, terrain:<Low|Cover|Wall>, decal:<crater|duckboard>. Paths are inside client/assets. A thing with no entry, or whose file is missing or broken, is drawn with the plain shapes. Art is decoration only; the rules' shapes and sizes never change.",
+  "note": "Which art file draws which thing (graphics stages G0, G2, G3). Keys: unit:<model name from content>, unit:default, ground, terrain:<Low|Cover|Wall|Tower>, decal:<crater|duckboard>. Paths are inside client/assets. A thing with no entry, or whose file is missing or broken, is drawn with the plain shapes. Art is decoration only; the rules' shapes and sizes never change.",
   "entries": {
     "unit:Sharpshooter": "units/rifleman.glb",
     "unit:Marksman": "units/rifleman.glb",
@@ -11,8 +11,9 @@
     "unit:Lamp Keeper": "units/standard.glb",
     "ground": "ground/mud.png",
     "terrain:Low": "terrain/rubble.png",
-    "terrain:Cover": "terrain/sandbags.png",
+    "terrain:Cover": "terrain/burlap.png",
     "terrain:Wall": "terrain/stone.png",
+    "terrain:Tower": "terrain/timber.png",
     "decal:crater": "ground/crater.png",
     "decal:duckboard": "ground/duckboard.png"
   }

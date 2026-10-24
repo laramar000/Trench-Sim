@@ -29,18 +29,18 @@ public static class GroundDecor
     public static IReadOnlyList<DecalSpot> For(BoardScene scene)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        var random = new Random(Seed(scene));
+        var random = new Spread(Key(scene));
         var spots = new List<DecalSpot>();
         var craters = (int)Math.Round(scene.Width * scene.Depth / 160);
         var duckboards = (int)Math.Round(scene.Width * scene.Depth / 500);
         for (var tries = 0; tries < 400 && spots.Count < craters + duckboards; tries++)
         {
             var crater = spots.Count(s => s.Kind == Crater) < craters;
-            var size = crater ? 1.4 + random.NextDouble() * 1.4 : 3.0 + random.NextDouble() * 1.5;
+            var size = crater ? 1.4 + random.Next() * 1.4 : 3.0 + random.Next() * 1.5;
             var spot = new DecalSpot(
                 crater ? Crater : Duckboard,
-                random.NextDouble() * scene.Width,
-                random.NextDouble() * scene.Depth,
+                random.Next() * scene.Width,
+                random.Next() * scene.Depth,
                 size,
                 crater ? size : 0.8,
                 random.Next(0, 360));
@@ -72,17 +72,9 @@ public static class GroundDecor
             && !others.Any(o => Math.Pow(o.X - spot.X, 2) + Math.Pow(o.Y - spot.Y, 2) < Math.Pow(o.Reach + spot.Reach, 2));
     }
 
-    // A stable number from the layout (string.GetHashCode changes from run to run, so FNV-1a over fixed text).
-    private static int Seed(BoardScene scene)
-    {
-        var text = string.Join(";", new[] { Invariant($"{scene.Width:0.###}x{scene.Depth:0.###}") }
+    // The layout as fixed text (sizes and positions, invariant culture), the key of the spread.
+    private static string Key(BoardScene scene) =>
+        string.Join(";", new[] { Invariant($"{scene.Width:0.###}x{scene.Depth:0.###}") }
             .Concat(scene.Zones.Select(z => Invariant($"{z.Id}:{z.Area.X0:0.###},{z.Area.Y0:0.###},{z.Area.X1:0.###},{z.Area.Y1:0.###}")))
             .Concat(scene.Terrain.Select(t => Invariant($"{t.Id}:{t.Area.X0:0.###},{t.Area.Y0:0.###},{t.Area.X1:0.###},{t.Area.Y1:0.###}"))));
-        var hash = 2166136261u;
-        foreach (var c in text)
-        {
-            hash = (hash ^ c) * 16777619u;
-        }
-        return (int)(hash & 0x7fffffff);
-    }
 }

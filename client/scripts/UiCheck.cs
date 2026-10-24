@@ -509,6 +509,7 @@ public partial class UiCheck : Node
         await ReadableCheck(board);
         UnitFiguresCheck(board);
         GroundDecorCheck(board);
+        TerrainModelsCheck(board);
         var info = PanelText;
         Check("board-select-key", first is { Yours: true }
             && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
@@ -1663,6 +1664,30 @@ public partial class UiCheck : Node
             $"{decals.Count} decals drawn of {wanted} for this layout; {scene.Terrain.Count} terrain pieces, {board.TerrainFromArt} textured; ground textured {board.ArtDrawn.Ground}; {(problems.Count == 0 ? "all flat and clear of terrain" : string.Join("; ", problems))}");
     }
 
+    // Graphics stage G4 (terrain-models): every terrain piece is drawn with its models (sandbags, wire and rubble, ruined
+    // wall, timber tower), and what is drawn stays inside the rules' footprint and under the piece's height.
+    private void TerrainModelsCheck(BoardView board)
+    {
+        var problems = new List<string>();
+        var terrain = board.Scene?.Terrain ?? [];
+        foreach (var piece in terrain)
+        {
+            if (board.TerrainDrawn(piece.Id) is not { } box)
+            {
+                problems.Add($"{piece.Id} is a plain box");
+                continue;
+            }
+            var a = piece.Area;
+            if (box.Position.X < a.X0 - 0.01 || box.End.X > a.X1 + 0.01 || box.Position.Z < a.Y0 - 0.01 || box.End.Z > a.Y1 + 0.01
+                || box.Position.Y < -0.01 || box.End.Y > piece.Height + 0.01)
+            {
+                problems.Add($"{piece.Id} drawn {box.Position.X:0.00}..{box.End.X:0.00} x {box.Position.Z:0.00}..{box.End.Z:0.00}, up to {box.End.Y:0.00}, for {a.X0:0.00}..{a.X1:0.00} x {a.Y0:0.00}..{a.Y1:0.00} and {piece.Height:0.00}");
+            }
+        }
+        Check("terrain-models", terrain.Count > 0 && problems.Count == 0,
+            $"{terrain.Count} pieces; {(problems.Count == 0 ? "each drawn with its models, inside its footprint and under its height" : string.Join("; ", problems))}");
+    }
+
     // Graphics stage G1 (battlefield-readable): under the overcast light, each standing model's body stands out from the
     // ground right beside it (in brightness or colour), the two seats' bodies differ clearly, and there is no fog and no
     // dynamic shadow (PS1-style cheap lighting). Measured on the rendered picture with the camera fitted to the battlefield.
@@ -2392,6 +2417,7 @@ public partial class UiCheck : Node
                     break;
                 case "decor":
                     GroundDecorCheck(board);
+                    TerrainModelsCheck(board);
                     break;
                 default:
                     if (step.StartsWith("size", StringComparison.Ordinal) && step[4..].Split('x') is [var w, var h])

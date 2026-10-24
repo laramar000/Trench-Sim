@@ -37,6 +37,9 @@ public sealed class VisualCatalog
 
     public static string DecalKey(string kind) => $"decal:{kind}";
 
+    // Graphics stage G4: the texture of a tower (a Wall that models climb), drawn as timber rather than stone.
+    public const string TowerKey = "terrain:Tower";
+
     // { "entries": { "unit:default": "units/soldier.glb" } }; paths are relative to client/assets.
     public static VisualCatalog Parse(string json)
     {

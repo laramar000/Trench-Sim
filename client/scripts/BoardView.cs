@@ -2501,14 +2501,21 @@ public partial class BoardView : SubViewportContainer
         {
             var area = piece.Area;
             var h = (float)piece.Height;
-            Box(new Vector3((float)area.CentreX, h / 2, (float)area.CentreY), new Vector3((float)area.Width, h, (float)area.Depth), TerrainColour(piece));
-            // Graphics stage G2: the piece's texture for its kind (rubble, sandbags, stone), tiled once per 2". The box is
-            // still the rules' footprint and height.
-            if (!_highContrast && Visuals.Texture(VisualCatalog.TerrainKey(piece.Profile)) is { } surface
-                && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D piecePaint })
+            // Graphics stages G2 and G4: with its texture (rubble, sandbags, stone, timber), a piece is drawn as its models
+            // (TerrainDress: a sandbag ring, rough ground with wire, a ruined wall, a timber tower), every part inside the
+            // rules' footprint and under its height, in one mesh; without it, as the plain box.
+            if (!_highContrast && Visuals.Texture(TerrainDress.TextureKey(piece)) is { } surface)
             {
-                Textured(piecePaint, surface, 2f);
+                var dressed = Paint(Colors.White);
+                Textured(dressed, surface, 2f);
+                dressed.VertexColorUseAsAlbedo = true;
+                dressed.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+                _content.AddChild(new MeshInstance3D { Name = $"Terrain{piece.Id}", Mesh = TerrainMesh.Build(TerrainDress.For(piece)), MaterialOverride = dressed });
                 _terrainFromArt++;
+            }
+            else
+            {
+                Box(new Vector3((float)area.CentreX, h / 2, (float)area.CentreY), new Vector3((float)area.Width, h, (float)area.Depth), TerrainColour(piece));
             }
             if (piece.Height >= SeeThrough.MinHeight && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D paint })
             {
@@ -2605,8 +2612,14 @@ public partial class BoardView : SubViewportContainer
     private int _terrainFromArt;
     private int _decals;
 
-    // Graphics stage G2, for the UI checks: how many terrain pieces have their texture, and the ground decals drawn now.
+    // Graphics stages G2 and G4, for the UI checks: how many terrain pieces are drawn with their models, and the ground
+    // decals drawn now.
     public int TerrainFromArt => _terrainFromArt;
+
+    // The box around a piece's drawn models (Godot units), or null when it is the plain box.
+    public Aabb? TerrainDrawn(string id) => _content.GetNodeOrNull<MeshInstance3D>($"Terrain{id}") is { } mesh && IsInstanceValid(mesh)
+        ? mesh.GlobalTransform * mesh.GetAabb()
+        : null;
 
     public IReadOnlyList<(string Name, Aabb Box)> Decals => [.. Enumerable.Range(0, _decals)
         .Select(i => _content.GetNodeOrNull<MeshInstance3D>($"Decal{i}")).OfType<MeshInstance3D>()

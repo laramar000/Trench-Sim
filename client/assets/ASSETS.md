@@ -30,5 +30,6 @@ Rules:
 | `ground/crater.png` | tools/art/make_textures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-24 | None: generated as is. Shell crater decal with a wet bowl and raised rim, 64x64, cut-out edge. |
 | `ground/duckboard.png` | tools/art/make_textures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-24 | None: generated as is. Broken duckboard decal, 128x32, cut-out gaps. |
 | `terrain/rubble.png` | tools/art/make_textures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-24 | None: generated as is. Rubble of brick and stone for Low terrain, 128x128. |
-| `terrain/sandbags.png` | tools/art/make_textures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-24 | None: generated as is. Stacked sandbags for Cover terrain, 128x128. |
 | `terrain/stone.png` | tools/art/make_textures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-24 | None: generated as is. Sooted masonry blocks for Wall terrain, 128x128. |
+| `terrain/burlap.png` | tools/art/make_textures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-24 | None: generated as is. Sacking for the sandbags of Cover terrain, 128x128. |
+| `terrain/timber.png` | tools/art/make_textures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-24 | None: generated as is. Rough planks for towers, 128x128. |

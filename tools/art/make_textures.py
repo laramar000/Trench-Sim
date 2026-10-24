@@ -7,7 +7,8 @@ texture's average colour stays close to the plain colour of that kind of terrain
 contrast with the side colours.
 
 - ground/mud.png: churned mud with ruts and wet patches (tiles once per 6").
-- terrain/rubble.png (Low), terrain/sandbags.png (Cover), terrain/stone.png (Wall): tile once per 2".
+- terrain/rubble.png (Low), terrain/burlap.png (Cover: the sandbags' sacking), terrain/stone.png (Wall), terrain/timber.png
+  (towers): tile once per 2".
 - ground/crater.png and ground/duckboard.png: flat decals with cut-out edges, laid on open ground.
 
 Run: python3 tools/art/make_textures.py (needs numpy and Pillow; same input gives the same bytes).
@@ -190,16 +191,47 @@ def duckboard(rng, w=128, h=32):
     return psx(rgb, alpha)
 
 
+def burlap(rng, size=128):
+    """Sacking for sandbags: a coarse weave with damp stains."""
+    yy, xx = np.mgrid[0:size, 0:size]
+    weave = 0.88 + 0.12 * (((xx // 2) + (yy // 2)) % 2)
+    n = fractal(rng, size, (4, 8, 16), (0.5, 0.3, 0.2))
+    rgb = shade(colour("80705a"), weave * (0.8 + 0.4 * n))
+    stain = noise(rng, size, 5) > 0.68
+    rgb[stain] *= 0.78
+    return psx(rgb)
+
+
+def timber(rng, size=128):
+    """Rough planks for towers: vertical boards with dark gaps, grain and nail heads."""
+    rgb = np.zeros((size, size, 3))
+    board = 16
+    grain = fractal(rng, size, (2, 4, 8, 32), (0.2, 0.3, 0.3, 0.2))
+    for b in range(size // board):
+        tone = 0.8 + 0.3 * rng.random()
+        rgb[:, b * board:(b + 1) * board] = colour("6e5236") * tone
+        rgb[:, b * board] = colour("2a2016")
+        for y in (int(rng.integers(4, 12)), int(rng.integers(68, 76))):
+            rgb[y, b * board + 3] = colour("3a3a38")
+            rgb[y, b * board + board - 4] = colour("3a3a38")
+    streaks = 0.85 + 0.3 * np.abs(np.sin(np.arange(size)[None, :] * 1.7 + grain * 9))
+    rgb *= (streaks * (0.85 + 0.3 * grain))[:, :, None]
+    return psx(rgb)
+
+
 def main():
     rng = np.random.default_rng(1916)
     out = {
         "ground/mud.png": mud(rng),
         "terrain/stone.png": stone(rng),
-        "terrain/sandbags.png": sandbags(rng),
+        "terrain/sandbags.png": sandbags(rng),  # drawn to keep the random sequence of the other textures; not saved
         "terrain/rubble.png": rubble(rng),
         "ground/crater.png": crater(rng),
         "ground/duckboard.png": duckboard(rng),
+        "terrain/burlap.png": burlap(rng),
+        "terrain/timber.png": timber(rng),
     }
+    out.pop("terrain/sandbags.png")
     for path, image in out.items():
         full = os.path.join(ASSETS, path)
         os.makedirs(os.path.dirname(full), exist_ok=True)

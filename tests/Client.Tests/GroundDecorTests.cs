@@ -46,3 +46,20 @@ public class GroundDecorTests
         Assert.True(GroundDecor.Lift < GroundDecor.MaxHeight);
     }
 }
+
+// The spread used to lay out decoration is a fixed hash: the same key always gives the same numbers, all in 0..1.
+public class SpreadTests
+{
+    [Fact]
+    public void TheSameKeyGivesTheSameNumbersInRange()
+    {
+        var a = new Spread("wall-1");
+        var b = new Spread("wall-1");
+        var numbers = Enumerable.Range(0, 1000).Select(_ => a.Next()).ToList();
+        Assert.Equal(numbers, Enumerable.Range(0, 1000).Select(_ => b.Next()));
+        Assert.All(numbers, n => Assert.InRange(n, 0, 0.9999999));
+        Assert.True(numbers.Min() < 0.05 && numbers.Max() > 0.95);
+        var other = new Spread("wall-2");
+        Assert.NotEqual(numbers.Take(5), Enumerable.Range(0, 5).Select(_ => other.Next()));
+    }
+}
