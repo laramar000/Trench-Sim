@@ -2349,7 +2349,10 @@ public partial class Main : Control
         {
             if (_highContrast)
             {
-                _theme.ClearStylebox(state, "Button");
+                if (_theme.HasStylebox(state, "Button"))
+                {
+                    _theme.ClearStylebox(state, "Button");
+                }
             }
             else
             {
