@@ -17,7 +17,7 @@ public static class AssetManifest
     public const long MaxFileBytes = 8L * 1024 * 1024;
 
     // Files that are not art: the manifest, the catalog, folder keepers, and what Godot writes beside imported files.
-    private static readonly string[] NotArt = [FileName, VisualCatalog.FileName, ".gitkeep"];
+    private static readonly string[] NotArt = [FileName, VisualCatalog.FileName, ".gitkeep", ".gdignore"];
     private static readonly string[] GodotSidecars = [".import", ".uid"];
 
     public sealed record Entry(string File, string Source, string Author, string Licence, string Date, string Changes);

@@ -32,6 +32,11 @@ public class UnitFiguresTests
         Assert.Equal(4, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
+    // The figures are read at run time, so the editor never imports them: an import would write their textures out as
+    // loose PNG files beside them (unlisted art).
+    [Fact]
+    public void TheEditorLeavesTheFiguresFolderAlone() => Assert.True(File.Exists(Path.Combine(Assets, "units", ".gdignore")));
+
     public static TheoryData<string> Figures => new() { "units/rifleman.glb", "units/skirmisher.glb", "units/shield.glb", "units/standard.glb" };
 
     [Theory]
