@@ -25,3 +25,4 @@ ui-check-results/
 # Test center results (tools/TestCenter)
 test-results/
 __pycache__/
+tools/art/.makehuman/

@@ -1,26 +1,37 @@
 #!/usr/bin/env python3
-"""Graphics stage G3 (revised 2026-10-24): builds the four original unit figures (client/assets/units/*.glb).
+"""Graphics stage G3 (revised 2026-10-24): builds the four unit figures (client/assets/units/*.glb).
 
-Made for this project (licence "Original"). Modelled in Blender (headless, the pip module bpy): rounded bodies from a
-skin modifier, then reduced to about 1,100 triangles. One 128x128 PS1-style texture per figure: the part colours with
-grime noise and ambient occlusion baked in, cut to 15-bit colour, drawn with nearest filtering. Each figure stands on
-y = 0, faces +z and is exactly 1.2" tall. The seat colour is never baked in: the parts the client paints with it (sash,
-mantle, shield face, pennant) are one untextured node named "Accent".
+Each figure starts from the MakeHuman base body (CC0 1.0, github.com/makehumancommunity/makehuman at commit MAKEHUMAN
+below), posed with MakeHuman's own skeleton and weights, reduced to about 1,400 triangles, and dressed with
+equipment made for this project (greatcoat skirt, helmet, rifle, shield, banner...). One 128x128 PS1-style texture per
+figure: part colours with grime noise and ambient occlusion baked in, cut to 15-bit colour, drawn with nearest
+filtering. Each figure stands on y = 0, faces +z and is exactly 1.2" tall. The seat colour is never baked in: the
+parts the client paints with it (sash, mantle, shield face, pennant) are one untextured node named "Accent".
 
-Run: python3 -m pip install bpy==5.1.2 (Python 3.11 to 3.13), then python3 tools/art/make_figures.py
-(one Blender run per figure; writes client/assets/units/<figure>.glb). The texture bake is not byte-for-byte repeatable,
-so a rerun gives the same shapes with slightly different texture pixels.
+Run: python3 -m pip install bpy==5.1.2 (Python 3.11 to 3.13), then python3 tools/art/make_figures.py. It fetches the
+MakeHuman body, skeleton and shape files once (git sparse checkout into tools/art/.makehuman, not committed), then runs
+Blender once per figure. The texture bake is not byte-for-byte repeatable, so a rerun gives the same shapes with
+slightly different texture pixels.
 """
 import os, subprocess, sys
 FIGURES = ("rifleman", "skirmisher", "shield", "standard")
-if len(sys.argv) < 3 or sys.argv[-3] != "--figure":
-    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "client", "assets", "units")
+MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
+HERE = os.path.dirname(os.path.abspath(__file__))
+if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
+    mh = os.path.join(HERE, ".makehuman")
+    if not os.path.isdir(os.path.join(mh, "makehuman", "data", "rigs")):
+        subprocess.run(["git", "clone", "-q", "--filter=blob:none", "--no-checkout", "https://github.com/makehumancommunity/makehuman", mh], check=True)
+        subprocess.run(["git", "-C", mh, "sparse-checkout", "set", "makehuman/data/3dobjs", "makehuman/data/rigs", "makehuman/data/targets/macrodetails"], check=True)
+        subprocess.run(["git", "-C", mh, "checkout", "-q", MAKEHUMAN], check=True)
+    out = os.path.abspath(os.path.join(HERE, "..", "..", "client", "assets", "units"))
     for name in FIGURES:
-        subprocess.run([sys.executable, os.path.abspath(__file__), "--figure", name, os.path.abspath(out)], check=True)
+        subprocess.run([sys.executable, os.path.abspath(__file__), "--figure", name, out, mh], check=True)
     sys.exit(0)
-import bpy, bmesh, math
+# Builds one modelled figure (Body textured PSX-style + untextured Accent) in headless Blender.
+import bpy, bmesh, math, os, sys
 from mathutils import Vector, Euler
-role, outdir = sys.argv[-2], sys.argv[-1]
+role, outdir, mhdir = sys.argv[-3], sys.argv[-2], sys.argv[-1]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import makehuman_body as human
 bpy.ops.wm.read_factory_settings(use_empty=True)
 scn = bpy.context.scene
 scn.cycles.seed = 0
@@ -64,99 +75,129 @@ def bar(a, b, w, m, sides=6):
 def box(loc, size, m, rot=(0,0,0)):
     bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=rot); o = bpy.context.object; o.scale = size; return add(o, m)
 
-# Front is -Y. lean tilts the upper body forward.
-def soldier(lean=0.0, head="brodie"):
-    f = lambda z: -lean*max(0, z-0.95)   # forward offset grows with height
-    for s in (-1, 1):
-        x = 0.11*s
-        chain([(x,0,0.95),(x*1.05,-0.02 if s<0 else 0.03,0.52),(x*1.05,0,0.12)], [(0.085,0.09),(0.065,0.065),(0.056,0.056)], "trousers")
-        for z in (0.16, 0.24, 0.32):  # puttee wraps
-            bpy.ops.mesh.primitive_torus_add(major_radius=0.058, minor_radius=0.008, major_segments=10, minor_segments=4, location=(x*1.05,0,z))
-            add(bpy.context.object, "cloth")
-        chain([(x,0,0.14),(x,0,0.03),(x,-0.09,0.03)], [(0.06,0.06),(0.055,0.05),(0.045,0.04)], "boots")
-    chain([(0,0,0.68),(0,f(0.95),0.95),(0,f(1.2),1.2),(0,f(1.42),1.42)], [(0.21,0.16),(0.17,0.12),(0.19,0.12),(0.2,0.11)], "coat")
-    for z in (1.0, 1.1, 1.2, 1.3):  # brass buttons down the front
-        sphere((0.0, f(z)-0.125, z), 0.014, "brass", seg=6, rings=4)
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.175, minor_radius=0.02, major_segments=20, minor_segments=4, location=(0,0,0.95))
-    t = bpy.context.object; t.scale = (1,0.72,1); add(t, "leather")
-    box((0.0,-0.13,0.95), (0.06,0.02,0.05), "brass")  # buckle
-    hy, hz = f(1.6), 1.6
-    chain([(0,f(1.42),1.42),(0,f(1.52),1.52)], [0.055,0.05], "skin")
-    sphere((0,hy-0.01,hz), 0.1, "skin", (0.9,1.0,1.1))
-    for s in (-1,1): sphere((0.035*s, hy-0.095, hz+0.01), 0.013, "dark", seg=6, rings=4)   # eyes
-    box((0, hy-0.1, hz-0.05), (0.035,0.01,0.008), "dark")   # mouth line
-    if head == "brodie":
-        sphere((0,hy-0.01,hz+0.04), 0.13, "helmet", (1,1.05,0.55), seg=14)
-        bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.19, depth=0.015, location=(0,hy-0.01,hz+0.035)); add(bpy.context.object, "helmet")
-    elif head == "hood":
-        sphere((0,hy+0.02,hz+0.02), 0.14, "cloth", (1,1.05,1.15), seg=12)
-        chain([(0,hy+0.1,hz+0.05),(0,hy+0.2,hz-0.1)], [0.06,0.02], "cloth")
-    elif head == "greathelm":
-        bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.125, depth=0.27, location=(0,hy,hz+0.02)); add(bpy.context.object, "iron")
-        box((0,hy-0.125,hz+0.04), (0.17,0.012,0.022), "dark")   # eye slit
-        bar((0,hy-0.13,hz-0.09), (0,hy-0.13,hz+0.12), 0.012, "iron")  # nose ridge... cross
-        sphere((0,hy,hz+0.155), 0.125, "iron", (1,1,0.35))
-    return f
-def arm(sh, hand, m="coat", out=0.08):
-    sh, hand = Vector(sh), Vector(hand)
-    el = (sh+hand)/2 + Vector((out if sh.x>0 else -out, 0.05, -0.12))
-    chain([sh, el, hand], [0.06,0.05,0.045], m)
-    sphere(tuple(hand), 0.042, "skin", seg=8, rings=6)
+
+DATA = os.path.join(mhdir, "makehuman", "data")
+FLOOR = 0.8168
+def P(x, y, h): return Vector((x, y, h - FLOOR))      # a point h metres above the floor
+def lift(v): return Vector((v.x, v.y, v.z + FLOOR))
+
+def human_body(pose, coat=True):
+    body, rig = human.load(DATA)
+    for s in ("L", "R"):      # legs together, straight
+        x = 0.1 if s == "L" else -0.1
+        for b in ("upperleg01", "upperleg02"): human.aim(rig, f"{b}.{s}", P(x, 0.0, 0.47))
+        for b in ("lowerleg01", "lowerleg02"): human.aim(rig, f"{b}.{s}", P(x, 0.02, 0.08))
+        human.aim(rig, f"foot.{s}", P(x*1.05, -0.14, 0.02))
+    pose(rig)
+    hands = {s: lift(human.world(rig, f"wrist.{s}", "head")) for s in ("L", "R")}
+    eyes = [lift(human.world(rig, f"eye.{s}", "head")) for s in ("L", "R")]
+    headp = lift(human.world(rig, "head", "head")); headtop = lift(human.world(rig, "head", "tail"))
+    faces = human.bake_pose(body, rig)
+    body.location.z = FLOOR; bpy.context.view_layer.objects.active = body
+    bpy.ops.object.select_all(action='DESELECT'); body.select_set(True)
+    bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
+    order = {"head": "skin", "hand": "skin", "foot": "boots", "shin": "cloth", "thigh": "trousers", "torso": "coat"}
+    slots = list(dict.fromkeys(order.values()))
+    for m in slots: body.data.materials.append(M[m])
+    for f, p in zip(body.data.polygons, faces): f.material_index = slots.index(order[p])
+    if coat:   # the uniform sits a little proud of the body
+        out = {i for f, p in zip(body.data.polygons, faces) if p in ("torso", "thigh") for i in f.vertices}
+        for v in body.data.vertices:
+            if v.index in out: v.co += v.normal * 0.012
+    d = body.modifiers.new("d", "DECIMATE"); d.ratio = 900 / sum(len(p.vertices)-2 for p in body.data.polygons)
+    bpy.ops.object.modifier_apply(modifier="d")
+    bpy.ops.object.shade_smooth()
+    body_parts = body
+    globals()["body"].append(body)
+    for e in eyes: sphere(tuple(e + Vector((0, -0.012, 0))), 0.012, "dark", seg=6, rings=4)
+    return hands, headp, headtop
+
+def coat_skirt(lean=0.0):
+    # greatcoat skirt: an open, flared tube from the belt to the knee
+    bpy.ops.mesh.primitive_cone_add(vertices=14, radius1=0.21, radius2=0.165, depth=0.46, end_fill_type='NOTHING', location=(0, -lean*0.08, 0.76))
+    o = bpy.context.object; o.scale = (1, 0.78, 1); o.rotation_euler = (lean*0.25, 0, 0)
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(o, "coat")
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.17, minor_radius=0.018, major_segments=20, minor_segments=4, location=(0, 0, 0.98))
+    t = bpy.context.object; t.scale = (1, 0.75, 1); add(t, "leather")
+    box((0, -0.125, 0.98), (0.06, 0.02, 0.05), "brass")
+    for z in (1.08, 1.18, 1.28): sphere((0, -0.13 + (z-1.0)*0.0, z), 0.012, "brass", seg=6, rings=4)
+
+def brodie(c):
+    sphere(tuple(c + Vector((0, 0, 0.03))), 0.125, "helmet", (1, 1.05, 0.55), seg=14)
+    bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.18, depth=0.012, location=tuple(c + Vector((0, 0, 0.025)))); add(bpy.context.object, "helmet")
 
 def rifleman():
-    f = soldier()
-    hr, hl = Vector((-0.08,-0.24,1.05)), Vector((0.12,-0.26,1.30))
-    arm((-0.23,0,1.38), hr); arm((0.23,0,1.38), hl)
-    d = (hl-hr).normalized(); butt, muz = hr-d*0.25, hl+d*0.45
-    bar(butt, hr+d*0.25, 0.03, "wood"); bar(hr+d*0.25, muz-d*0.1, 0.022, "wood")
-    bar(hr+d*0.1, muz, 0.011, "metal"); bar(muz, muz+d*0.18, 0.006, "iron", sides=4)
-    chain([(0,0.17,1.05),(0,0.17,1.3)], [(0.15,0.07),(0.14,0.07)], "leather")   # pack
-    bar((0,0.17,1.33),(0,0.17,1.33), 0.0, "leather") if False else None
-    skin([(0.2,0.05,1.40),(-0.15,-0.13,0.98)], [(0,1)], [(0.04,0.016),(0.04,0.016)], "accent", subdiv=0)  # sash
+    def pose(r):
+        human.reach(r, "R", P(-0.24, 0.02, 1.08), P(-0.07, -0.22, 1.0))
+        human.reach(r, "L", P(0.26, -0.1, 1.12), P(0.1, -0.28, 1.27))
+    hands, hp, top = human_body(pose)
+    coat_skirt(); brodie(Vector((0, 0, top.z - 0.07)) + Vector((hp.x, hp.y, 0)))
+    hr, hl = hands["R"] + Vector((0, -0.04, -0.02)), hands["L"] + Vector((0, -0.04, -0.02))
+    d = (hl - hr).normalized(); butt, muz = hr - d*0.25, hl + d*0.45
+    bar(butt, hr + d*0.25, 0.028, "wood"); bar(hr + d*0.25, muz - d*0.1, 0.02, "wood")
+    bar(hr + d*0.1, muz, 0.01, "metal"); bar(muz, muz + d*0.18, 0.006, "iron", sides=4)
+    chain([(0, 0.15, 1.05), (0, 0.15, 1.3)], [(0.15, 0.07), (0.14, 0.07)], "leather")
+    skin([(0.15, -0.03, 1.43), (0.0, -0.155, 1.22), (-0.16, -0.12, 0.99)], [(0, 1), (1, 2)], [(0.045, 0.016)]*3, "accent", subdiv=0)
 def skirmisher():
-    f = soldier(lean=0.35, head="hood")
-    hr, hl = Vector((-0.12,-0.3,1.0)), Vector((0.1,-0.42,1.12))
-    arm((-0.23,f(1.38),1.38), hr); arm((0.23,f(1.38),1.38), hl)
-    d = (hl-hr).normalized()
-    bar(hr-d*0.18, hl+d*0.05, 0.025, "wood"); bar(hr, hl+d*0.3, 0.01, "metal"); bar(hl+d*0.3, hl+d*0.45, 0.006, "iron", sides=4)
-    chain([(0.2,0.0,0.85),(0.2,0.05,0.75)], [(0.08,0.05),(0.07,0.05)], "leather")   # satchel
-    sphere((-0.18,-0.06,0.9), 0.035, "iron", seg=8, rings=6)  # grenade
-    bar((-0.18,-0.06,0.93),(-0.18,-0.06,0.97), 0.008, "wood")
-    sphere((0,f(1.42)+0.04,1.42), 0.22, "accent", (1.1,0.85,0.45), seg=12, rings=6)  # mantle
+    def pose(r):
+        human.aim(r, "spine03", P(0, -0.12, 1.4)); human.aim(r, "neck01", P(0, -0.2, 1.6))
+        human.reach(r, "R", P(-0.25, -0.05, 1.0), P(-0.1, -0.3, 0.98))
+        human.reach(r, "L", P(0.24, -0.2, 1.05), P(0.08, -0.42, 1.08))
+    hands, hp, top = human_body(pose)
+    coat_skirt(lean=0.2)
+    c = Vector((hp.x, hp.y, top.z - 0.08))
+    sphere(tuple(c + Vector((0, 0.02, 0.0))), 0.135, "cloth", (1, 1.08, 1.12), seg=12)
+    chain([tuple(c + Vector((0, 0.1, 0.0))), tuple(c + Vector((0, 0.22, -0.15)))], [0.06, 0.02], "cloth")
+    hr, hl = hands["R"] + Vector((0, -0.04, 0)), hands["L"] + Vector((0, -0.04, 0))
+    d = (hl - hr).normalized()
+    bar(hr - d*0.18, hl + d*0.05, 0.024, "wood"); bar(hr, hl + d*0.3, 0.01, "metal"); bar(hl + d*0.3, hl + d*0.45, 0.006, "iron", sides=4)
+    chain([(0.2, 0.0, 0.85), (0.2, 0.05, 0.75)], [(0.08, 0.05), (0.07, 0.05)], "leather")
+    sphere((-0.19, -0.06, 0.92), 0.035, "iron", seg=8, rings=6)
+    sphere((0, -0.03, 1.40), 0.21, "accent", (1.1, 0.9, 0.42), seg=12, rings=6)
 def shield():
-    f = soldier(head="greathelm")
-    for s in (-1,1): sphere((0.24*s,0,1.42), 0.1, "iron", (1,1,0.7))   # pauldrons
-    hl = Vector((0.18,-0.28,1.05)); hr = Vector((-0.28,-0.1,1.55))
-    arm((0.24,0,1.38), hl); arm((-0.24,0,1.38), hr, out=0.12)
-    # pavise: tall shield in front of left side, with bone cross; face = accent
-    box((0.12,-0.36,0.85), (0.42,0.04,0.78), "wood")
-    box((0.12,-0.385,0.87), (0.36,0.012,0.7), "accent")
-    box((0.12,-0.395,0.9), (0.05,0.01,0.5), "bone"); box((0.12,-0.395,1.02), (0.26,0.01,0.05), "bone")
-    bar(hr-Vector((0,0,0.15)), hr+Vector((0,0,0.3)), 0.018, "wood")
-    sphere(tuple(hr+Vector((0,0,0.35))), 0.06, "iron", seg=8, rings=6)
+    def pose(r):
+        human.reach(r, "L", P(0.3, -0.08, 1.12), P(0.16, -0.3, 1.05))
+        human.reach(r, "R", P(-0.33, -0.02, 1.4), P(-0.3, -0.1, 1.62))
+    hands, hp, top = human_body(pose)
+    coat_skirt()
+    c = Vector((hp.x, hp.y, top.z - 0.09))
+    bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.125, depth=0.26, location=tuple(c)); add(bpy.context.object, "iron")
+    box(tuple(c + Vector((0, -0.124, 0.02))), (0.17, 0.012, 0.022), "dark")
+    box(tuple(c + Vector((0, -0.128, -0.06))), (0.02, 0.01, 0.14), "iron")
+    sphere(tuple(c + Vector((0, 0, 0.13))), 0.125, "iron", (1, 1, 0.35))
+    for s in (-1, 1): sphere((0.2*s, 0, 1.38), 0.1, "iron", (1.1, 1.1, 0.7))
+    hl = hands["L"]
+    box((hl.x, hl.y - 0.07, 0.85), (0.42, 0.04, 0.78), "wood")
+    box((hl.x, hl.y - 0.095, 0.87), (0.36, 0.012, 0.7), "accent")
+    box((hl.x, hl.y - 0.105, 0.9), (0.05, 0.01, 0.5), "bone"); box((hl.x, hl.y - 0.105, 1.02), (0.26, 0.01, 0.05), "bone")
+    hr = hands["R"]; up = Vector((0, 0, 1))
+    bar(hr - up*0.12, hr + up*0.3, 0.017, "wood")
+    sphere(tuple(hr + up*0.34), 0.055, "iron", seg=8, rings=6)
     for a in range(6):
-        p = hr+Vector((0,0,0.35)); o = Vector((math.cos(a)*0.06, math.sin(a)*0.06, 0))
-        bar(p+o*0.5, p+o*1.4, 0.015, "iron", sides=4)
+        p = hr + up*0.34; o = Vector((math.cos(a)*0.055, math.sin(a)*0.055, 0))
+        bar(p + o*0.5, p + o*1.4, 0.014, "iron", sides=4)
 def standard():
-    f = soldier()
-    hr, hl = Vector((-0.12,-0.18,1.0)), Vector((-0.12,-0.2,1.35))
-    arm((-0.23,0,1.38), hr); arm((0.23,0,1.38), hl, out=0.02)
-    base, top = Vector((-0.12,-0.2,0.05)), Vector((-0.12,-0.2,2.0))
-    bar(base, top, 0.018, "wood")
-    sphere(tuple(top+Vector((0,0,0.03))), 0.035, "brass", seg=8, rings=6)
-    bar(top+Vector((0,0,0.03)), top+Vector((0,0,0.15)), 0.01, "brass", sides=4)
-    bar(top-Vector((0,0,0.05)), top-Vector((-0.42,0,0.05)), 0.008, "wood")    # crossbar
-    me = bpy.data.meshes.new("pennant")   # swallow-tail banner hanging from crossbar
-    x0, x1, zt, zb = -0.12, 0.30, top.z-0.05, top.z-0.65
-    me.from_pydata([(x0,-0.2,zt),(x1,-0.2,zt),(x1,-0.2,zb),((x0+x1)/2,-0.2,zb+0.15),(x0,-0.2,zb)], [], [(0,4,3,2,1)])
+    def pose(r):
+        human.reach(r, "R", P(-0.24, -0.02, 1.08), P(-0.15, -0.2, 1.02))
+        human.reach(r, "L", P(0.12, -0.18, 1.2), P(-0.1, -0.22, 1.36))
+    hands, hp, top = human_body(pose)
+    coat_skirt(); brodie(Vector((hp.x, hp.y, top.z - 0.07)))
+    x, y = hands["R"].x - 0.0, hands["R"].y - 0.04
+    base, tip = Vector((x, y, 0.05)), Vector((x, y, 2.0))
+    bar(base, tip, 0.017, "wood")
+    sphere(tuple(tip + Vector((0, 0, 0.03))), 0.035, "brass", seg=8, rings=6)
+    bar(tip + Vector((0, 0, 0.03)), tip + Vector((0, 0, 0.15)), 0.01, "brass", sides=4)
+    bar(tip - Vector((0, 0, 0.05)), tip - Vector((-0.42, 0, 0.05)), 0.008, "wood")
+    me = bpy.data.meshes.new("pennant"); x0, x1, zt, zb = x, x + 0.42, tip.z - 0.05, tip.z - 0.65
+    me.from_pydata([(x0, y, zt), (x1, y, zt), (x1, y, zb), ((x0 + x1)/2, y, zb + 0.15), (x0, y, zb)], [], [(0, 4, 3, 2, 1)])
     o = bpy.data.objects.new("pennant", me); scn.collection.objects.link(o)
-    sol = o.modifiers.new("sol","SOLIDIFY"); sol.thickness = 0.015; add(o, "accent")
-    bar(top-Vector((-0.42,0,0.05)), top-Vector((-0.42,0,0.2)), 0.004, "metal", sides=4)   # lantern chain
-    box(tuple(top-Vector((-0.42,0,0.27))), (0.07,0.07,0.1), "glow"); 
-    box(tuple(top-Vector((-0.42,0,0.21))), (0.09,0.09,0.02), "iron"); box(tuple(top-Vector((-0.42,0,0.33))), (0.09,0.09,0.02), "iron")
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.015; add(o, "accent")
+    L = tip - Vector((-0.42, 0, 0))
+    bar(L - Vector((0, 0, 0.05)), L - Vector((0, 0, 0.2)), 0.004, "metal", sides=4)
+    box(tuple(L - Vector((0, 0, 0.27))), (0.07, 0.07, 0.1), "glow")
+    box(tuple(L - Vector((0, 0, 0.21))), (0.09, 0.09, 0.02), "iron"); box(tuple(L - Vector((0, 0, 0.33))), (0.09, 0.09, 0.02), "iron")
 
 {"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard}[role]()
-
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o
@@ -174,7 +215,7 @@ n = len(B.data.polygons)
 # count tris properly
 def tris(o): return sum(len(p.vertices)-2 for p in o.data.polygons)
 t = tris(B)
-if t > 1100: d = B.modifiers.new("d","DECIMATE"); d.ratio = 1100/t; bpy.ops.object.modifier_apply(modifier="d")
+if t > 1400: d = B.modifiers.new("d","DECIMATE"); d.ratio = 1400/t; bpy.ops.object.modifier_apply(modifier="d")
 bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris()
 bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.02); bpy.ops.object.mode_set(mode='OBJECT')
 img = bpy.data.images.new(role, 128, 128)
@@ -215,4 +256,4 @@ for o in (A, B):
 allp = [(o.matrix_world @ v.co) for o in (A, B) for v in o.data.vertices]
 w = max(max(p.x for p in allp)-min(p.x for p in allp), max(p.y for p in allp)-min(p.y for p in allp))
 print(f"FIG {role} body_tris={tris(B)} accent_tris={tris(A)} height={max(p.z for p in allp):.3f} width={w:.3f}")
-bpy.ops.export_scene.gltf(filepath=f"{outdir}/{role}.glb", export_format='GLB', export_yup=True, export_extras=False, export_animations=False)
+bpy.ops.export_scene.gltf(filepath=f"{outdir}/{role}.glb", export_format='GLB', export_yup=True)

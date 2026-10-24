@@ -50,11 +50,11 @@ public class UnitFiguresTests
             .SelectMany(m => m.GetProperty("primitives").EnumerateArray())
             .Select(p => accessors[p.GetProperty("attributes").GetProperty("POSITION").GetInt32()])
             .ToList();
-        // PS1-style budget: at most 1,400 triangles and one PNG texture of at most 128 x 128, sampled nearest.
+        // PS1-style budget: at most 1,600 triangles and one PNG texture of at most 128 x 128, sampled nearest.
         var triangles = root.GetProperty("meshes").EnumerateArray()
             .SelectMany(m => m.GetProperty("primitives").EnumerateArray())
             .Sum(p => (p.TryGetProperty("indices", out var i) ? accessors[i.GetInt32()] : accessors[p.GetProperty("attributes").GetProperty("POSITION").GetInt32()]).GetProperty("count").GetInt32() / 3);
-        Assert.InRange(triangles, 1, 1400);
+        Assert.InRange(triangles, 1, 1600);
         var images = root.GetProperty("images").EnumerateArray().ToList();
         Assert.Single(images);
         Assert.Equal("image/png", images[0].GetProperty("mimeType").GetString());
