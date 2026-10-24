@@ -11,8 +11,9 @@ public sealed class VisualCatalog
     public const string FileName = "catalog.json";
 
     // The kinds of things an entry can draw, as the start of its key: "unit:Sharpshooter" (a model by its content name),
-    // "unit:default" (any model without its own entry), and "ground" (the battlefield's surface).
-    public static readonly IReadOnlyList<string> Kinds = ["unit:", "ground"];
+    // "unit:default" (any model without its own entry), "ground" (the battlefield's surface), "terrain:Wall" (the
+    // texture of a terrain profile: Low, Cover or Wall) and "decal:crater" (a flat decoration on open ground).
+    public static readonly IReadOnlyList<string> Kinds = ["unit:", "ground", "terrain:", "decal:"];
 
     // The file types an entry may point at (Godot scenes and glTF models, and textures for the ground).
     public static readonly IReadOnlyList<string> FileTypes = [".glb", ".gltf", ".tscn", ".png"];
@@ -30,6 +31,11 @@ public sealed class VisualCatalog
     public const string DefaultUnitKey = "unit:default";
 
     public const string GroundKey = "ground";
+
+    // Graphics stage G2: the texture of a kind of terrain (by its rules profile), and a ground decoration.
+    public static string TerrainKey(Rules.Core.Geometry.TerrainProfile profile) => $"terrain:{profile}";
+
+    public static string DecalKey(string kind) => $"decal:{kind}";
 
     // { "entries": { "unit:default": "units/soldier.glb" } }; paths are relative to client/assets.
     public static VisualCatalog Parse(string json)

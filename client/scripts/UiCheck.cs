@@ -508,6 +508,7 @@ public partial class UiCheck : Node
         await ArtFallbackCheck(board);
         await ReadableCheck(board);
         UnitFiguresCheck(board);
+        GroundDecorCheck(board);
         var info = PanelText;
         Check("board-select-key", first is { Yours: true }
             && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
@@ -1627,6 +1628,41 @@ public partial class UiCheck : Node
             $"{models.Count} models, {drawn.FromArt} figures, {drawn.Plain} plain; {(problems.Count == 0 ? "each inside its base, at its height, accent and base = body colour, base at the rules' radius" : string.Join("; ", problems))}; catalog {board.Visuals.Catalog.Entries.Count} entries; art problems: {string.Join(" / ", board.Visuals.Failures)}");
     }
 
+    // Graphics stage G2 (ground-decor): every terrain piece has its texture, and the ground decals are the ones the layout
+    // gives (GroundDecor), each flat (no higher than 0.1") and clear of every terrain piece's footprint.
+    private void GroundDecorCheck(BoardView board)
+    {
+        var problems = new List<string>();
+        if (board.Scene is not { } scene)
+        {
+            Check("ground-decor", false, "no battlefield");
+            return;
+        }
+        var wanted = GroundDecor.For(scene).Count;
+        var decals = board.Decals;
+        foreach (var (name, box) in decals)
+        {
+            if (box.End.Y > GroundDecor.MaxHeight)
+            {
+                problems.Add($"{name} reaches {box.End.Y:0.000}\"");
+            }
+            foreach (var piece in scene.Terrain)
+            {
+                var a = piece.Area;
+                if (box.Position.X < a.X1 && box.End.X > a.X0 && box.Position.Z < a.Y1 && box.End.Z > a.Y0)
+                {
+                    problems.Add($"{name} overlaps {piece.Id}");
+                }
+            }
+        }
+        if (board.TerrainFromArt != scene.Terrain.Count)
+        {
+            problems.Add($"{board.TerrainFromArt} of {scene.Terrain.Count} terrain pieces textured");
+        }
+        Check("ground-decor", wanted > 0 && decals.Count == wanted && problems.Count == 0,
+            $"{decals.Count} decals drawn of {wanted} for this layout; {scene.Terrain.Count} terrain pieces, {board.TerrainFromArt} textured; ground textured {board.ArtDrawn.Ground}; {(problems.Count == 0 ? "all flat and clear of terrain" : string.Join("; ", problems))}");
+    }
+
     // Graphics stage G1 (battlefield-readable): under the overcast light, each standing model's body stands out from the
     // ground right beside it (in brightness or colour), the two seats' bodies differ clearly, and there is no fog and no
     // dynamic shadow (PS1-style cheap lighting). Measured on the rendered picture with the camera fitted to the battlefield.
@@ -2353,6 +2389,9 @@ public partial class UiCheck : Node
                     break;
                 case "figures":
                     UnitFiguresCheck(board);
+                    break;
+                case "decor":
+                    GroundDecorCheck(board);
                     break;
                 default:
                     if (step.StartsWith("size", StringComparison.Ordinal) && step[4..].Split('x') is [var w, var h])

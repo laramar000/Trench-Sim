@@ -2451,17 +2451,42 @@ public partial class BoardView : SubViewportContainer
         }
         _figuresFromArt = 0;
         _figuresPlain = 0;
+        _terrainFromArt = 0;
         Box(new Vector3((float)scene.Width / 2, -0.05f, (float)scene.Depth / 2), new Vector3((float)scene.Width, 0.1f, (float)scene.Depth), GroundColour);
         // Graphics stage G0: the ground's texture from the art catalog, if any, tiled once per 6" (not in high contrast).
         _groundFromArt = false;
         if (!_highContrast && Visuals.Texture(VisualCatalog.GroundKey) is { } ground
             && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D groundPaint })
         {
-            groundPaint.AlbedoTexture = ground;
-            groundPaint.AlbedoColor = Colors.White;
-            groundPaint.Uv1Triplanar = true;
-            groundPaint.Uv1Scale = Vector3.One / 6f;
+            Textured(groundPaint, ground, 6f);
             _groundFromArt = true;
+        }
+        // Graphics stage G2: flat craters and duckboards on open ground, clear of every terrain piece and zone.
+        _decals = 0;
+        if (!_highContrast)
+        {
+            foreach (var spot in GroundDecor.For(scene))
+            {
+                if (Visuals.Texture(VisualCatalog.DecalKey(spot.Kind)) is not { } decal)
+                {
+                    continue;
+                }
+                _content.AddChild(new MeshInstance3D
+                {
+                    Name = $"Decal{_decals}",
+                    Mesh = new PlaneMesh { Size = new Vector2((float)spot.Width, (float)spot.Depth) },
+                    Position = new Vector3((float)spot.X, (float)GroundDecor.Lift, (float)spot.Y),
+                    RotationDegrees = new Vector3(0, (float)spot.TurnDegrees, 0),
+                    MaterialOverride = new StandardMaterial3D
+                    {
+                        AlbedoTexture = decal,
+                        Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
+                        AlphaScissorThreshold = 0.5f,
+                        TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
+                    },
+                });
+                _decals++;
+            }
         }
         foreach (var zone in scene.Zones)
         {
@@ -2477,6 +2502,14 @@ public partial class BoardView : SubViewportContainer
             var area = piece.Area;
             var h = (float)piece.Height;
             Box(new Vector3((float)area.CentreX, h / 2, (float)area.CentreY), new Vector3((float)area.Width, h, (float)area.Depth), TerrainColour(piece));
+            // Graphics stage G2: the piece's texture for its kind (rubble, sandbags, stone), tiled once per 2". The box is
+            // still the rules' footprint and height.
+            if (!_highContrast && Visuals.Texture(VisualCatalog.TerrainKey(piece.Profile)) is { } surface
+                && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D piecePaint })
+            {
+                Textured(piecePaint, surface, 2f);
+                _terrainFromArt++;
+            }
             if (piece.Height >= SeeThrough.MinHeight && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D paint })
             {
                 _terrainPaint[piece.Id] = paint;
@@ -2569,6 +2602,26 @@ public partial class BoardView : SubViewportContainer
     private int _figuresFromArt;
     private int _figuresPlain;
     private bool _groundFromArt;
+    private int _terrainFromArt;
+    private int _decals;
+
+    // Graphics stage G2, for the UI checks: how many terrain pieces have their texture, and the ground decals drawn now.
+    public int TerrainFromArt => _terrainFromArt;
+
+    public IReadOnlyList<(string Name, Aabb Box)> Decals => [.. Enumerable.Range(0, _decals)
+        .Select(i => _content.GetNodeOrNull<MeshInstance3D>($"Decal{i}")).OfType<MeshInstance3D>()
+        .Where(IsInstanceValid).Select(d => (d.Name.ToString(), d.GlobalTransform * d.GetAabb()))];
+
+    // A PS1-style texture on a plain box: white so the texture shows its own colours, tiled in world inches (triplanar),
+    // sampled as crisp pixels. The colour's alpha (the see-through fade) still works on top.
+    private static void Textured(StandardMaterial3D paint, Texture2D texture, float tile)
+    {
+        paint.AlbedoTexture = texture;
+        paint.AlbedoColor = Colors.White;
+        paint.Uv1Triplanar = true;
+        paint.Uv1Scale = Vector3.One / tile;
+        paint.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
+    }
 
     public (int FromArt, int Plain, bool Ground) ArtDrawn => (_figuresFromArt, _figuresPlain, _groundFromArt);
 
