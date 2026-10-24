@@ -510,6 +510,7 @@ public partial class UiCheck : Node
         UnitFiguresCheck(board);
         GroundDecorCheck(board);
         TerrainModelsCheck(board);
+        UiThemeCheck();
         var info = PanelText;
         Check("board-select-key", first is { Yours: true }
             && Section("MODELS").Contains($"[{first.SeatLetter}] {first.Name}:", StringComparison.Ordinal)
@@ -1666,6 +1667,49 @@ public partial class UiCheck : Node
 
     // Graphics stage G4 (terrain-models): every terrain piece is drawn with its models (sandbags, wire and rubble, ruined
     // wall, timber tower), and what is drawn stays inside the rules' footprint and under the piece's height.
+    // Graphics stage G6: iron and parchment colours and the heading font, with every box and button keeping its size.
+    private void UiThemeCheck()
+    {
+        var problems = new List<string>();
+        if (UiLook.Heading is not { } heading)
+        {
+            Check("ui-theme", false, $"the heading font {UiLook.HeadingFontPath} did not load");
+            return;
+        }
+        var background = Controls<ColorRect>().FirstOrDefault()?.Color;
+        if (background != UiLook.Background || _main.Theme?.GetColor("font_color", "Label") != UiLook.Text)
+        {
+            problems.Add($"background {background}, text {_main.Theme?.GetColor("font_color", "Label")}");
+        }
+        var titles = Controls<Godot.Label>().Where(l => l.Name == "SectionTitle").ToList();
+        foreach (var title in titles)
+        {
+            var size = title.GetThemeFontSize("font_size");
+            if (title.GetThemeFont("font") != heading || size != UiLook.HeadingSize(_main.Theme!.DefaultFontSize) || title.GetThemeColor("font_color") != UiLook.Gold)
+            {
+                problems.Add($"{Describe(title)} not in the heading font at {UiLook.HeadingSize(_main.Theme!.DefaultFontSize)}px in gold");
+            }
+            else if (title.IsVisibleInTree() && heading.GetStringSize(title.Text, HorizontalAlignment.Left, -1, size).X > title.Size.X + 1)
+            {
+                problems.Add($"{Describe(title)} does not fit");
+            }
+        }
+        var fallback = ThemeDB.GetDefaultTheme();
+        foreach (var state in new[] { "normal", "hover", "pressed", "disabled" })
+        {
+            var box = _main.Theme?.HasStylebox(state, "Button") == true ? _main.Theme.GetStylebox(state, "Button") : null;
+            var plain = fallback.GetStylebox(state, "Button");
+            if (box is not StyleBoxFlat flat || flat.BorderColor != UiLook.Iron
+                || new[] { Side.Left, Side.Top, Side.Right, Side.Bottom }.Any(s => !Mathf.IsEqualApprox(box.GetMargin(s), plain.GetMargin(s))))
+            {
+                problems.Add($"button {state}: {box?.GetType().Name ?? "Godot's own"}");
+            }
+        }
+        Check("ui-theme", titles.Count > 0 && problems.Count == 0,
+            $"heading font {heading.GetFontName()}; {titles.Count} section titles in it at {UiLook.HeadingSize(_main.Theme!.DefaultFontSize)}px, gold, fitting; " +
+            $"iron and parchment buttons with Godot's margins; {(problems.Count == 0 ? "all as wanted" : string.Join("; ", problems))}");
+    }
+
     private void TerrainModelsCheck(BoardView board)
     {
         var problems = new List<string>();
@@ -1953,6 +1997,10 @@ public partial class UiCheck : Node
         var background = Controls<ColorRect>().FirstOrDefault()?.Color;
         Check("high-contrast-applied", background == Colors.Black && _main.Theme?.GetColor("font_color", "Label") == Colors.White,
             $"background {background}, text {_main.Theme?.GetColor("font_color", "Label")}");
+        var plainHeadings = Controls<Godot.Label>().Where(l => l.Name == "SectionTitle" && l.HasThemeFontOverride("font")).Select(Describe).ToList();
+        var plainButtons = _main.Theme?.HasStylebox("normal", "Button") != true;
+        Check("ui-theme-high-contrast", plainHeadings.Count == 0 && plainButtons,
+            $"section titles in the heading font: {(plainHeadings.Count == 0 ? "none" : string.Join("; ", plainHeadings))}; buttons Godot's own: {plainButtons}");
         await Shot("host-high-contrast");
         // Stage N3: the combat log's drawer is opened with its icon, then Tab reaches the list.
         await ClickButton(((Main)_main).LogButton);
@@ -2421,6 +2469,9 @@ public partial class UiCheck : Node
                     break;
                 case "effects":
                     await DevEffects(board);
+                    break;
+                case "theme":
+                    UiThemeCheck();
                     break;
                 default:
                     if (step.StartsWith("size", StringComparison.Ordinal) && step[4..].Split('x') is [var w, var h])

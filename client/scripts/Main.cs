@@ -83,6 +83,7 @@ public partial class Main : Control
     private bool _drawerOpen;
     private PanelContainer _decision = null!;
     private Label _decisionTitle = null!;
+    private readonly List<Label> _headings = [];
     private VBoxContainer _decisionButtons = null!;
     private double _feedbackSince;
     private string _feedbackShown = "";
@@ -125,7 +126,7 @@ public partial class Main : Control
         Theme = _theme;
         _baseTitle = GetWindow().Title;
         AddChild(_sounds);
-        _background = new ColorRect { Color = new Color(0.12f, 0.12f, 0.14f) };
+        _background = new ColorRect { Color = UiLook.Background };
         _background.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_background);
 
@@ -685,7 +686,8 @@ public partial class Main : Control
         _signalCard = new PanelContainer { Name = "ConnectionCard", Visible = false, SizeFlagsHorizontal = SizeFlags.ShrinkBegin, CustomMinimumSize = new Vector2(320, 0) };
         _signalCard.AddThemeStyleboxOverride("panel", new StyleBoxFlat
         {
-            BgColor = new Color(0.08f, 0.08f, 0.09f, 0.95f), ContentMarginLeft = 10, ContentMarginRight = 10, ContentMarginTop = 8, ContentMarginBottom = 8,
+            BgColor = new Color(0.085f, 0.078f, 0.07f, 0.95f), BorderColor = UiLook.Iron, BorderWidthLeft = 1, BorderWidthRight = 1, BorderWidthTop = 1, BorderWidthBottom = 1,
+            ContentMarginLeft = 10, ContentMarginRight = 10, ContentMarginTop = 8, ContentMarginBottom = 8,
             CornerRadiusTopLeft = 4, CornerRadiusTopRight = 4, CornerRadiusBottomLeft = 4, CornerRadiusBottomRight = 4,
         });
         _signalCard.AddChild(_signalDetails);
@@ -707,7 +709,7 @@ public partial class Main : Control
         // Stage K2: the Menu opens over the battlefield (under the HUD, at the right) instead of pushing it down; what does
         // not fit scrolls inside the Menu.
         _menuPanel = new PanelContainer { Name = "MenuPanel", Visible = false };
-        var menuLook = new StyleBoxFlat { BgColor = new Color(0.1f, 0.1f, 0.12f, 1f), BorderColor = new Color(0.6f, 0.6f, 0.65f) };
+        var menuLook = new StyleBoxFlat { BgColor = new Color(UiLook.Panel, 1f), BorderColor = UiLook.Iron };
         menuLook.SetBorderWidthAll(1);
         menuLook.SetContentMarginAll(10);
         _menuPanel.AddThemeStyleboxOverride("panel", menuLook);
@@ -805,7 +807,7 @@ public partial class Main : Control
         // Stage K2: the result is a box over the battlefield, under the HUD strip (not a section that pushes the
         // battlefield and the combat log down). It scrolls inside itself when the battlefield is too short for it.
         _resultBox = new PanelContainer { Name = "MatchResult", Visible = false, MouseFilter = Control.MouseFilterEnum.Stop };
-        _resultBox.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.04f, 0.04f, 0.06f, 0.94f), BorderColor = new Color(0.95f, 0.8f, 0.3f), BorderWidthBottom = 2, BorderWidthTop = 2, ContentMarginLeft = 10, ContentMarginRight = 10, ContentMarginTop = 6, ContentMarginBottom = 8 });
+        _resultBox.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.06f, 0.055f, 0.05f, 0.94f), BorderColor = UiLook.Gold, BorderWidthBottom = 2, BorderWidthTop = 2, ContentMarginLeft = 10, ContentMarginRight = 10, ContentMarginTop = 6, ContentMarginBottom = 8 });
         _resultScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, FocusMode = FocusModeEnum.None };
         _resultScroll.AddChild(_endSection);
         _resultBox.AddChild(_resultScroll);
@@ -838,7 +840,7 @@ public partial class Main : Control
         Outline(_feedback);
         _board.AddChild(_feedback);
         _decision = new PanelContainer { Name = "DecisionCard", Visible = false, MouseFilter = Control.MouseFilterEnum.Stop };
-        var decisionLook = new StyleBoxFlat { BgColor = new Color(0.08f, 0.08f, 0.1f, 0.96f), BorderColor = new Color(0.95f, 0.8f, 0.3f) };
+        var decisionLook = new StyleBoxFlat { BgColor = new Color(0.085f, 0.078f, 0.07f, 0.96f), BorderColor = UiLook.Gold };
         decisionLook.SetBorderWidthAll(2);
         decisionLook.SetContentMarginAll(12);
         _decision.AddThemeStyleboxOverride("panel", decisionLook);
@@ -860,7 +862,7 @@ public partial class Main : Control
         logBox.SizeFlagsVertical = SizeFlags.ExpandFill;
         logBox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _logDrawer = new PanelContainer { Name = "LogDrawer", Visible = false, MouseFilter = Control.MouseFilterEnum.Stop };
-        var drawerLook = new StyleBoxFlat { BgColor = new Color(0.05f, 0.05f, 0.07f, 0.86f), BorderColor = new Color(0.5f, 0.5f, 0.55f), BorderWidthLeft = 1 };
+        var drawerLook = new StyleBoxFlat { BgColor = new Color(0.065f, 0.06f, 0.055f, 0.86f), BorderColor = UiLook.Iron, BorderWidthLeft = 1 };
         drawerLook.SetContentMarginAll(8);
         _logDrawer.AddThemeStyleboxOverride("panel", drawerLook);
         _logDrawer.AddChild(logBox);
@@ -1159,12 +1161,12 @@ public partial class Main : Control
         var waiting = _lastScreen?.Feedback is { Kind: FeedbackKind.Sending } || _board.Interaction.Pending is not null;
         _hudText = _lastScreen is { } s ? TopHud.Of(s.View, _board.Scene, s.Log, s.Seat, waiting, _board.Interaction.Prompt) : "";
         var places = _lastScreen is { } t ? TopHud.Split(t.View, _board.Scene, t.Log, t.Seat, waiting, _board.Interaction.Prompt) : new TopHud.Places("", "", "");
-        var plain = _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f);
+        var plain = _highContrast ? Colors.White : UiLook.Text;
         _hud.Text = places.Left;
         _hud.AddThemeColorOverride("font_color", plain);
         _hudStatus.Text = places.Status;
         _hudStatus.Visible = places.Status.Length > 0;
-        _hudStatus.AddThemeColorOverride("font_color", _highContrast ? Colors.White : new Color(0.8f, 0.8f, 0.78f));
+        _hudStatus.AddThemeColorOverride("font_color", _highContrast ? Colors.White : UiLook.Muted);
         _hudStatus.AddThemeFontSizeOverride("font_size", Mathf.RoundToInt(StatusFontSize()));
         _hudCentreText = places.Centre;
         _hudCentre.Text = CentreBbcode(places.Centre, plain);
@@ -1716,7 +1718,7 @@ public partial class Main : Control
     private string ResultBbcode(MatchResultView view)
     {
         static string Esc(string text) => text.Replace("[", "[lb]", StringComparison.Ordinal);
-        var plain = _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f);
+        var plain = _highContrast ? Colors.White : UiLook.Text;
         var tone = view.Tone switch
         {
             ResultTone.Won => _highContrast ? Colors.Yellow : new Color(0.45f, 0.95f, 0.55f),
@@ -1780,7 +1782,7 @@ public partial class Main : Control
         _panel = new PanelContainer { Name = "UnitPanel", MouseFilter = Control.MouseFilterEnum.Stop };
         _panelLook = new StyleBoxFlat
         {
-            BgColor = new Color(0.12f, 0.12f, 0.15f, 0.93f),
+            BgColor = UiLook.Panel, BorderColor = UiLook.Iron, BorderWidthLeft = 1, BorderWidthRight = 1, BorderWidthTop = 1, BorderWidthBottom = 1,
             ContentMarginLeft = 12, ContentMarginRight = 12, ContentMarginTop = 10, ContentMarginBottom = 10,
             CornerRadiusTopLeft = 4, CornerRadiusTopRight = 4, CornerRadiusBottomLeft = 4, CornerRadiusBottomRight = 4,
         };
@@ -1915,7 +1917,8 @@ public partial class Main : Control
         _pCancel.Disabled = !view.CanCancel;
         _pUndo.Disabled = !view.CanUndo;
         _pKeys.Visible = _unitOpen && view.CanCancel;
-        _panelLook.BgColor = _highContrast ? new Color(0.02f, 0.02f, 0.02f, 0.97f) : new Color(0.12f, 0.12f, 0.15f, 0.93f);
+        _panelLook.BgColor = _highContrast ? new Color(0.02f, 0.02f, 0.02f, 0.97f) : UiLook.Panel;
+        _panelLook.BorderColor = _highContrast ? Colors.White : UiLook.Iron;
     }
 
     // The panel as shown (for the UI check): every visible line, and its buttons.
@@ -2329,13 +2332,35 @@ public partial class Main : Control
     private void ApplyTheme()
     {
         _theme.DefaultFontSize = (int)(18 * _scale);
-        var text = _highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f);
-        _background.Color = _highContrast ? Colors.Black : new Color(0.12f, 0.12f, 0.14f);
+        var text = _highContrast ? Colors.White : UiLook.Text;
+        _background.Color = _highContrast ? Colors.Black : UiLook.Background;
         foreach (var type in new[] { "Label", "Button", "LineEdit", "OptionButton", "CheckButton" })
         {
             _theme.SetColor("font_color", type, text);
         }
         _theme.SetColor("font_focus_color", "Button", _highContrast ? Colors.Yellow : Colors.White);
+        // Stage G6: iron and parchment buttons (Godot's default boxes, recoloured; their margins stay). High contrast
+        // keeps Godot's own.
+        foreach (var (state, bg) in new[]
+        {
+            ("normal", new Color(0.17f, 0.155f, 0.135f, 0.9f)), ("hover", new Color(0.24f, 0.215f, 0.18f, 0.95f)),
+            ("pressed", new Color(0.09f, 0.085f, 0.075f, 0.95f)), ("disabled", new Color(0.13f, 0.12f, 0.11f, 0.6f)),
+        })
+        {
+            if (_highContrast)
+            {
+                _theme.ClearStylebox(state, "Button");
+            }
+            else
+            {
+                _theme.SetStylebox(state, "Button", UiLook.Button(state, bg, UiLook.Iron));
+            }
+        }
+        foreach (var heading in _headings)
+        {
+            UiLook.MakeHeading(heading, _theme.DefaultFontSize, _highContrast);
+            heading.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : UiLook.Gold);
+        }
         _board?.SetLook(_scale, _highContrast);
         if (_pTitle is not null)
         {
@@ -2877,10 +2902,14 @@ public partial class Main : Control
         return row;
     }
 
-    private static VBoxContainer Section(string title, Control body)
+    private VBoxContainer Section(string title, Control body)
     {
         var box = new VBoxContainer();
-        box.AddChild(Text(title.ToUpperInvariant()));
+        // Stage G6: section titles in the heading font, in gold (set again by ApplyTheme at each scale).
+        var heading = Text(title.ToUpperInvariant());
+        heading.Name = "SectionTitle";
+        _headings.Add(heading);
+        box.AddChild(heading);
         box.AddChild(body);
         box.AddChild(new HSeparator());
         return box;

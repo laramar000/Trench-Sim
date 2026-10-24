@@ -33,3 +33,5 @@ Rules:
 | `terrain/stone.png` | tools/art/make_textures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-24 | None: generated as is. Sooted masonry blocks for Wall terrain, 128x128. |
 | `terrain/burlap.png` | tools/art/make_textures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-24 | None: generated as is. Sacking for the sandbags of Cover terrain, 128x128. |
 | `terrain/timber.png` | tools/art/make_textures.py (made for this project) | Trench Sim project (Claude) | Original | 2026-10-24 | None: generated as is. Rough planks for towers, 128x128. |
+| `ui/PirataOne-Regular.ttf` | https://github.com/google/fonts/tree/main/ofl/pirataone (commit e7db6ca) | Rodrigo Fuenzalida, Nicolas Massi | OFL-1.1 | 2026-10-24 | None: used as is. Blackletter heading font (unit card title, choice card title, section titles, match result). Its licence is ui/PirataOne-OFL.txt. |
+| `ui/PirataOne-OFL.txt` | https://github.com/google/fonts/tree/main/ofl/pirataone (commit e7db6ca) | Rodrigo Fuenzalida, Nicolas Massi | OFL-1.1 | 2026-10-24 | None: the font's licence, kept beside it as the OFL asks. |
