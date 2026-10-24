@@ -35,6 +35,9 @@ public partial class BoardView : SubViewportContainer
 
     private readonly SubViewport _viewport = new() { OwnWorld3D = true, HandleInputLocally = false, Msaa3D = Viewport.Msaa.Msaa2X };
     private readonly Node3D _content = new();
+
+    // Graphics stage G5: event effects live here, not in _content, so a redraw does not cut them short.
+    private readonly Node3D _effects = new() { Name = "Effects" };
     private readonly Camera3D _camera = new() { Fov = 50, Near = 0.1f, Far = 1000 };
     private readonly WorldEnvironment _environment = new();
     private readonly Node3D _overlay = new();
@@ -151,6 +154,7 @@ public partial class BoardView : SubViewportContainer
         _viewport.AddChild(_environment);
         _viewport.AddChild(_sun);
         _viewport.AddChild(_content);
+        _viewport.AddChild(_effects);
         _viewport.AddChild(_overlay);
         _viewport.AddChild(_notes);
         _viewport.AddChild(_camera);
@@ -1928,12 +1932,86 @@ public partial class BoardView : SubViewportContainer
             {
                 AddNote(note);
             }
+            // Graphics stage G5: an event's effects, only for an event this window sees as it happens (not caught up).
+            if (line.Effects.Count > 0)
+            {
+                EffectLines.Add((line.Seq, line.Effects.Count, line.Replayed));
+                if (!line.Replayed)
+                {
+                    foreach (var cue in line.Effects)
+                    {
+                        PlayEffect(cue);
+                        EffectsPlayed.Add((line.Seq, cue));
+                    }
+                }
+            }
             if (line.Motion is { } motion && before.TryGetValue(motion.Model, out var from))
             {
                 StartGlide(motion, from);
             }
         }
         _lastSeq = newest;
+    }
+
+    // ---- event effects (graphics stage G5) ----
+
+    // Every event with effects this window took in (its number, how many effects, caught up or not), and the effects it
+    // played (for the UI check: all of the live ones, none of the caught-up ones).
+    public List<(int Seq, int Count, bool Replayed)> EffectLines { get; } = [];
+
+    public List<(int Seq, EffectCue Cue)> EffectsPlayed { get; } = [];
+
+    public int EffectsShowing => _effects.GetChildCount();
+
+    // For the dev pictures only: show an effect without an event (never used in play).
+    public void ShowEffectForPicture(EffectCue cue) => PlayEffect(cue);
+
+    // PS1-style: a few flat, unshaded squares that face the camera, grow and fade, then go. No lights, no particles.
+    private void PlayEffect(EffectCue cue)
+    {
+        if (_scene?.Find(cue.At) is not { } model)
+        {
+            return;
+        }
+        var at = new Vector3((float)model.X, (float)model.Standing, (float)model.Y);
+        switch (cue.Kind)
+        {
+            case EffectKind.MuzzleFlash:
+                Puff(at + new Vector3(0, 0.85f, 0), Vector3.Zero, 0.5f, 0.4f, new Color(1f, 0.9f, 0.45f), 0.35f);
+                break;
+            case EffectKind.HitPuff:
+                for (var i = 0; i < 4; i++)
+                {
+                    var away = new Vector3(Mathf.Cos(i * 1.7f), 0.6f, Mathf.Sin(i * 1.7f)) * 0.35f;
+                    Puff(at + new Vector3(0, 0.7f, 0), away, 0.3f, 0.4f, new Color(0.72f, 0.2f, 0.15f), 0.7f);
+                }
+                break;
+            default:
+                for (var i = 0; i < 5; i++)
+                {
+                    var side = new Vector3(Mathf.Cos(i * 1.3f), 0, Mathf.Sin(i * 1.3f)) * ((float)model.Radius + 0.35f);
+                    Puff(at + side + new Vector3(0, 0.15f, 0), new Vector3(0, 0.6f, 0), 0.4f, 0.5f, new Color(0.58f, 0.49f, 0.37f), 0.9f);
+                }
+                break;
+        }
+    }
+
+    private void Puff(Vector3 from, Vector3 drift, float size, float grow, Color colour, float seconds)
+    {
+        var paint = new StandardMaterial3D
+        {
+            AlbedoColor = colour,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+        };
+        var puff = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(size, size) }, Position = from, MaterialOverride = paint };
+        _effects.AddChild(puff);
+        var tween = puff.CreateTween().SetParallel();
+        tween.TweenProperty(puff, "position", from + drift, seconds);
+        tween.TweenProperty(puff, "scale", Vector3.One * (1 + grow / size), seconds);
+        tween.TweenProperty(paint, "albedo_color:a", 0f, seconds);
+        tween.Chain().TweenCallback(Callable.From(puff.QueueFree));
     }
 
     // ---- see-through walls (XCOM-style UX) ----

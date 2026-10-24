@@ -2419,6 +2419,9 @@ public partial class UiCheck : Node
                     GroundDecorCheck(board);
                     TerrainModelsCheck(board);
                     break;
+                case "effects":
+                    await DevEffects(board);
+                    break;
                 default:
                     if (step.StartsWith("size", StringComparison.Ordinal) && step[4..].Split('x') is [var w, var h])
                     {
@@ -2498,6 +2501,26 @@ public partial class UiCheck : Node
     }
 
     // Dev only: screenshots of the battlefield from the usual views, for looking at the art.
+    // Dev pictures of the event effects (graphics stage G5) on the first two models, close up.
+    private async Task DevEffects(BoardView board)
+    {
+        if (board.Scene?.Models is not { Count: > 1 } models)
+        {
+            return;
+        }
+        board.Select(null);
+        board.CentreOn(models[0].Id, 6);
+        await Frames(10);
+        foreach (var (name, kind) in new[] { ("effect-flash", EffectKind.MuzzleFlash), ("effect-dirt", EffectKind.DirtPuff), ("effect-hit", EffectKind.HitPuff) })
+        {
+            board.ShowEffectForPicture(new EffectCue(kind, models[0].Id));
+            await Frames(1);
+            await Shot(name);
+            await Frames(60);
+        }
+        Write($"DEV effects showing after: {board.EffectsShowing}");
+    }
+
     private async Task DevViews(BoardView board)
     {
         board.Select(null);
@@ -4392,6 +4415,7 @@ public partial class UiCheck : Node
                 problems.Add($"[{row.Seq}] shown though this window caught up on it without showing it");
             }
         }
+        EffectEndCheck(board);
         var twice = shown.GroupBy(r => r.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         var compared = shown.Count(r => logged.ContainsKey(r.Seq));
         Check("pvp-dice-shown-once-as-logged", shown.Count > 0 && compared > 0 && problems.Count == 0 && twice.Count == 0,
@@ -4404,6 +4428,26 @@ public partial class UiCheck : Node
         {
             Check("pvp-dice-stacked", _diceStacks.All(s => s.EndsWith("in order", StringComparison.Ordinal)), string.Join(" / ", _diceStacks.Distinct().Take(6)));
         }
+    }
+
+    // Graphics stage G5 (event-effects): each shot and blow this window saw as it happened played its effects (a flash at
+    // the shooter, a puff where the target was hit or missed), exactly once; events it caught up on (rejoin) played none.
+    private void EffectEndCheck(BoardView board)
+    {
+        var problems = new List<string>();
+        var played = board.EffectsPlayed.GroupBy(p => p.Seq).ToDictionary(g => g.Key, g => g.Count());
+        foreach (var (seq, count, replayed) in board.EffectLines)
+        {
+            var got = played.GetValueOrDefault(seq);
+            if (replayed ? got != 0 : got != count)
+            {
+                problems.Add($"[{seq}] {(replayed ? "caught up" : "live")}: {got} played of {count}");
+            }
+        }
+        var twice = board.EffectLines.GroupBy(l => l.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+        var live = board.EffectLines.Count(l => !l.Replayed);
+        Check("event-effects", live > 0 && problems.Count == 0 && twice.Count == 0,
+            $"{board.EffectLines.Count} events with effects ({live} live, {board.EffectLines.Count - live} caught up), {board.EffectsPlayed.Count} effects played; taken in twice: {string.Join(",", twice)}; {string.Join(" / ", problems.Take(5))}");
     }
 
     // The faces the combat log lists for a roll: "rolled 5, 2, 6; kept ...", "D6 4", or a roll-off's rounds.

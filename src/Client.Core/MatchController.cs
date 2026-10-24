@@ -47,6 +47,9 @@ public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<U
 
     // Stage U5: a success, a failure or neither, from the event's own result (EventText.Outcome).
     public RowOutcome Outcome { get; init; }
+
+    // Graphics stage G5: the effects the battlefield shows for this event (none for most).
+    public IReadOnlyList<EffectCue> Effects { get; init; } = [];
 }
 
 // Everything the screen needs at one moment. Hints are empty whenever input is locked (InputLocked says why).
@@ -497,6 +500,7 @@ public sealed class MatchController : IAsyncDisposable
             Why = _resolutions.WhyOf(seq)?.Text is { Length: > 0 } why ? why : null,
             Action = _resolutions.ActionAt(seq),
             Outcome = EventText.Outcome(e),
+            Effects = EffectCues.Of(e),
         };
     }
 
