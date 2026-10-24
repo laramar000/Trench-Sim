@@ -1,288 +1,218 @@
 #!/usr/bin/env python3
-"""Graphics stage G3: builds the four original low-poly unit figures as glTF binaries (client/assets/units/*.glb).
+"""Graphics stage G3 (revised 2026-10-24): builds the four original unit figures (client/assets/units/*.glb).
 
-Made for this project (licence "Original"), from boxes and prisms only, flat-shaded (PS1 style), no textures.
-Every figure is modelled in inches, standing on y = 0, facing +z, exactly 1.2" tall and at most 0.9" wide, so the
-client scales it by about 1 to the plain body's height and it stays inside a 25 mm base. The seat colour is never
-baked in: the parts the client paints with the model's seat colour (the sash, the pennant) are one node named
-"Accent". Run: python3 tools/art/make_figures.py (writes the files; same input gives the same bytes).
+Made for this project (licence "Original"). Modelled in Blender (headless, the pip module bpy): rounded bodies from a
+skin modifier, then reduced to about 1,100 triangles. One 128x128 PS1-style texture per figure: the part colours with
+grime noise and ambient occlusion baked in, cut to 15-bit colour, drawn with nearest filtering. Each figure stands on
+y = 0, faces +z and is exactly 1.2" tall. The seat colour is never baked in: the parts the client paints with it (sash,
+mantle, shield face, pennant) are one untextured node named "Accent".
+
+Run: python3 -m pip install bpy==5.1.2 (Python 3.11 to 3.13), then python3 tools/art/make_figures.py
+(one Blender run per figure; writes client/assets/units/<figure>.glb). The texture bake is not byte-for-byte repeatable,
+so a rerun gives the same shapes with slightly different texture pixels.
 """
-import json
-import math
-import os
-import struct
-import sys
+import os, subprocess, sys
+FIGURES = ("rifleman", "skirmisher", "shield", "standard")
+if len(sys.argv) < 3 or sys.argv[-3] != "--figure":
+    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "client", "assets", "units")
+    for name in FIGURES:
+        subprocess.run([sys.executable, os.path.abspath(__file__), "--figure", name, os.path.abspath(out)], check=True)
+    sys.exit(0)
+import bpy, bmesh, math
+from mathutils import Vector, Euler
+role, outdir = sys.argv[-2], sys.argv[-1]
+bpy.ops.wm.read_factory_settings(use_empty=True)
+scn = bpy.context.scene
+scn.cycles.seed = 0
 
-HEIGHT = 1.2
-MAX_WIDTH = 0.9
+def lin(h): return tuple(((int(h[i:i+2],16)/255+0.055)/1.055)**2.4 for i in (0,2,4))
+def mat(name, hexc, noise=0.25, scale=40.0):
+    m = bpy.data.materials.new(name); m.use_nodes = True
+    nt = m.node_tree; b = nt.nodes["Principled BSDF"]; rgb = lin(hexc)
+    tex = nt.nodes.new("ShaderNodeTexNoise"); tex.inputs["Scale"].default_value = scale; tex.inputs["Detail"].default_value = 6
+    ramp = nt.nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.elements[0].color = (*[c*(1-noise) for c in rgb], 1)
+    ramp.color_ramp.elements[1].color = (*[min(1, c*(1+noise*0.6)) for c in rgb], 1)
+    nt.links.new(tex.outputs["Fac"], ramp.inputs["Fac"]); nt.links.new(ramp.outputs["Color"], b.inputs["Base Color"])
+    return m
+M = {k: mat(k, *v) for k, v in {
+ "coat": ("5a5040",), "trousers": ("4a4436",), "skin": ("b89a80", 0.12), "helmet": ("4c5048",),
+ "leather": ("4a3020",), "wood": ("6a4a2c", 0.3, 8), "metal": ("3a3a3c",), "iron": ("55555a", 0.35, 20),
+ "boots": ("2a2420",), "dark": ("141210", 0.05), "brass": ("8a6a2a", 0.1), "bone": ("c8bca0", 0.15),
+ "cloth": ("3e3a34",), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0)}.items()}
+body, accent = [], []
+def add(o, m):
+    o.data.materials.append(M[m]); (accent if m == "accent" else body).append(o); return o
+def skin(verts, edges, radii, m, subdiv=1):
+    me = bpy.data.meshes.new("s"); me.from_pydata(verts, edges, [])
+    o = bpy.data.objects.new("s", me); scn.collection.objects.link(o)
+    o.modifiers.new("skin", "SKIN").use_smooth_shade = True
+    for i, r in enumerate(radii): o.data.skin_vertices[0].data[i].radius = r if isinstance(r, tuple) else (r, r)
+    o.data.skin_vertices[0].data[0].use_root = True
+    if subdiv: o.modifiers.new("sub", "SUBSURF").levels = subdiv
+    return add(o, m)
+def chain(pts, radii, m, subdiv=1):
+    return skin([tuple(p) for p in pts], [(i, i+1) for i in range(len(pts)-1)], radii, m, subdiv)
+def sphere(loc, r, m, scale=(1,1,1), seg=12, rings=8):
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=seg, ring_count=rings, radius=r, location=loc)
+    o = bpy.context.object; o.scale = scale; bpy.ops.object.shade_smooth(); return add(o, m)
+def bar(a, b, w, m, sides=6):
+    a, b = Vector(a), Vector(b); v = b-a
+    bpy.ops.mesh.primitive_cylinder_add(vertices=sides, radius=w, depth=v.length, location=(a+b)/2)
+    o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0,0,1)).rotation_difference(v)
+    return add(o, m)
+def box(loc, size, m, rot=(0,0,0)):
+    bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=rot); o = bpy.context.object; o.scale = size; return add(o, m)
 
-# Muted palette from the art direction (umber, olive, charcoal, gunmetal, bone, parchment, rust, candlelight).
-PALETTE = {
-    "coat": (0.30, 0.25, 0.19),
-    "olive": (0.31, 0.31, 0.22),
-    "charcoal": (0.15, 0.15, 0.16),
-    "gunmetal": (0.30, 0.32, 0.35),
-    "bone": (0.80, 0.75, 0.62),
-    "leather": (0.34, 0.23, 0.15),
-    "wood": (0.42, 0.31, 0.19),
-    "rust": (0.48, 0.26, 0.15),
-    "candle": (0.95, 0.74, 0.30),
-    "accent": (0.75, 0.75, 0.75),  # replaced at run time by the seat colour
-}
-
-
-def rot_x(p, a):
-    x, y, z = p
-    c, s = math.cos(a), math.sin(a)
-    return (x, y * c - z * s, y * s + z * c)
-
-
-def rot_z(p, a):
-    x, y, z = p
-    c, s = math.cos(a), math.sin(a)
-    return (x * c - y * s, x * s + y * c, z)
-
-
-class Part:
-    """Triangles of one material, flat-shaded."""
-
-    def __init__(self):
-        self.tris = []
-
-    def quad(self, a, b, c, d):
-        self.tris += [(a, b, c), (a, c, d)]
-
-    def box(self, centre, size, tilt_x=0.0, tilt_z=0.0, taper=1.0):
-        """A box (taper < 1 narrows its top), turned about x then z around its own centre."""
-        cx, cy, cz = centre
-        hx, hy, hz = size[0] / 2, size[1] / 2, size[2] / 2
-        corners = []
-        for y in (-hy, hy):
-            k = taper if y > 0 else 1.0
-            for x, z in ((-hx, -hz), (hx, -hz), (hx, hz), (-hx, hz)):
-                corners.append((x * k, y, z * k))
-        moved = []
-        for p in corners:
-            p = rot_x(p, tilt_x)
-            p = rot_z(p, tilt_z)
-            moved.append((p[0] + cx, p[1] + cy, p[2] + cz))
-        b0, b1, b2, b3, t0, t1, t2, t3 = moved
-        self.quad(b0, b3, b2, b1)  # bottom
-        self.quad(t0, t1, t2, t3)  # top
-        self.quad(b0, b1, t1, t0)  # back (-z)
-        self.quad(b1, b2, t2, t1)  # right (+x)
-        self.quad(b2, b3, t3, t2)  # front (+z)
-        self.quad(b3, b0, t0, t3)  # left (-x)
-
-    def pyramid(self, base_centre, half, height):
-        """A four-sided point (helmet spike, hood, banner finial)."""
-        cx, cy, cz = base_centre
-        a, b, c, d = (cx - half, cy, cz - half), (cx + half, cy, cz - half), (cx + half, cy, cz + half), (cx - half, cy, cz + half)
-        top = (cx, cy + height, cz)
-        self.quad(a, d, c, b)
-        self.tris += [(a, b, top), (b, c, top), (c, d, top), (d, a, top)]
-
-
-class Figure:
-    def __init__(self, name):
-        self.name = name
-        self.parts = {}
-
-    def part(self, material):
-        return self.parts.setdefault(material, Part())
-
-    # The body every figure shares, chunky so it reads from the high camera: boots, legs, greatcoat skirt, torso, a sash
-    # and a shoulder mantle in the seat colour (Accent, seen from every side and from above), bone mask, helmet.
-    def soldier(self, lean=0.0, helmet="brim"):
-        p = self.part
-        p("charcoal").box((-0.11, 0.05, 0.03), (0.16, 0.10, 0.24))
-        p("charcoal").box((0.11, 0.05, 0.03), (0.16, 0.10, 0.24))
-        p("olive").box((-0.11, 0.24, 0.0), (0.15, 0.30, 0.16))
-        p("olive").box((0.11, 0.24, 0.0), (0.15, 0.30, 0.16))
-        p("coat").box((0.0, 0.42, 0.0), (0.50, 0.24, 0.34), taper=0.85)
-        p("coat").box((0.0, 0.64, 0.0), (0.44, 0.30, 0.30), tilt_x=lean)
-        p("accent").box((0.0, 0.62, 0.0), (0.47, 0.14, 0.33), tilt_x=lean)
-        p("leather").box((0.0, 0.53, 0.0), (0.46, 0.04, 0.32))
-        shoulder_z = math.sin(lean) * 0.16
-        p("accent").box((0.0, 0.81, shoulder_z), (0.58, 0.07, 0.36), taper=0.8)
-        head_z = math.sin(lean) * 0.25
-        p("bone").box((0.0, 0.92, head_z), (0.19, 0.17, 0.19))
-        p("charcoal").box((0.0, 0.93, head_z + 0.097), (0.13, 0.035, 0.01))  # eye slit
-        if helmet == "brim":
-            p("gunmetal").box((0.0, 1.015, head_z), (0.34, 0.03, 0.34))
-            p("gunmetal").box((0.0, 1.06, head_z), (0.22, 0.08, 0.22), taper=0.7)
-        elif helmet == "hood":
-            p("coat").box((0.0, 0.97, head_z - 0.02), (0.26, 0.15, 0.26))
-            p("coat").pyramid((0.0, 1.045, head_z - 0.03), 0.12, 0.12)
-        elif helmet == "great":
-            p("gunmetal").box((0.0, 0.97, head_z), (0.25, 0.25, 0.25), taper=0.9)
-            p("rust").box((0.0, 1.11, head_z), (0.05, 0.05, 0.20))
-        return head_z
-
-    def arms(self, left, right):
-        """Each arm: (shoulder-to-hand tilt about x, tilt about z)."""
-        for side, (tx, tz) in ((-1, left), (1, right)):
-            self.part("coat").box((side * 0.28, 0.64, 0.07), (0.12, 0.32, 0.12), tilt_x=tx, tilt_z=tz)
-
+# Front is -Y. lean tilts the upper body forward.
+def soldier(lean=0.0, head="brodie"):
+    f = lambda z: -lean*max(0, z-0.95)   # forward offset grows with height
+    for s in (-1, 1):
+        x = 0.11*s
+        chain([(x,0,0.95),(x*1.05,-0.02 if s<0 else 0.03,0.52),(x*1.05,0,0.12)], [(0.085,0.09),(0.065,0.065),(0.056,0.056)], "trousers")
+        for z in (0.16, 0.24, 0.32):  # puttee wraps
+            bpy.ops.mesh.primitive_torus_add(major_radius=0.058, minor_radius=0.008, major_segments=10, minor_segments=4, location=(x*1.05,0,z))
+            add(bpy.context.object, "cloth")
+        chain([(x,0,0.14),(x,0,0.03),(x,-0.09,0.03)], [(0.06,0.06),(0.055,0.05),(0.045,0.04)], "boots")
+    chain([(0,0,0.68),(0,f(0.95),0.95),(0,f(1.2),1.2),(0,f(1.42),1.42)], [(0.21,0.16),(0.17,0.12),(0.19,0.12),(0.2,0.11)], "coat")
+    for z in (1.0, 1.1, 1.2, 1.3):  # brass buttons down the front
+        sphere((0.0, f(z)-0.125, z), 0.014, "brass", seg=6, rings=4)
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.175, minor_radius=0.02, major_segments=20, minor_segments=4, location=(0,0,0.95))
+    t = bpy.context.object; t.scale = (1,0.72,1); add(t, "leather")
+    box((0.0,-0.13,0.95), (0.06,0.02,0.05), "brass")  # buckle
+    hy, hz = f(1.6), 1.6
+    chain([(0,f(1.42),1.42),(0,f(1.52),1.52)], [0.055,0.05], "skin")
+    sphere((0,hy-0.01,hz), 0.1, "skin", (0.9,1.0,1.1))
+    for s in (-1,1): sphere((0.035*s, hy-0.095, hz+0.01), 0.013, "dark", seg=6, rings=4)   # eyes
+    box((0, hy-0.1, hz-0.05), (0.035,0.01,0.008), "dark")   # mouth line
+    if head == "brodie":
+        sphere((0,hy-0.01,hz+0.04), 0.13, "helmet", (1,1.05,0.55), seg=14)
+        bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.19, depth=0.015, location=(0,hy-0.01,hz+0.035)); add(bpy.context.object, "helmet")
+    elif head == "hood":
+        sphere((0,hy+0.02,hz+0.02), 0.14, "cloth", (1,1.05,1.15), seg=12)
+        chain([(0,hy+0.1,hz+0.05),(0,hy+0.2,hz-0.1)], [0.06,0.02], "cloth")
+    elif head == "greathelm":
+        bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.125, depth=0.27, location=(0,hy,hz+0.02)); add(bpy.context.object, "iron")
+        box((0,hy-0.125,hz+0.04), (0.17,0.012,0.022), "dark")   # eye slit
+        bar((0,hy-0.13,hz-0.09), (0,hy-0.13,hz+0.12), 0.012, "iron")  # nose ridge... cross
+        sphere((0,hy,hz+0.155), 0.125, "iron", (1,1,0.35))
+    return f
+def arm(sh, hand, m="coat", out=0.08):
+    sh, hand = Vector(sh), Vector(hand)
+    el = (sh+hand)/2 + Vector((out if sh.x>0 else -out, 0.05, -0.12))
+    chain([sh, el, hand], [0.06,0.05,0.045], m)
+    sphere(tuple(hand), 0.042, "skin", seg=8, rings=6)
 
 def rifleman():
-    f = Figure("rifleman")
-    f.soldier()
-    f.arms((-0.9, 0.2), (-0.9, -0.2))
-    # A long rifle held up across the chest: stock low on the right, barrel high on the left (the tallest point).
-    f.part("wood").box((0.04, 0.78, 0.22), (0.07, 0.62, 0.07), tilt_z=0.62)
-    f.part("gunmetal").box((-0.19, 1.13, 0.22), (0.04, 0.22, 0.04), tilt_z=0.62)
-    f.part("leather").box((0.0, 0.68, -0.18), (0.30, 0.22, 0.08))  # pack
-    return f
-
-
+    f = soldier()
+    hr, hl = Vector((-0.08,-0.24,1.05)), Vector((0.12,-0.26,1.30))
+    arm((-0.23,0,1.38), hr); arm((0.23,0,1.38), hl)
+    d = (hl-hr).normalized(); butt, muz = hr-d*0.25, hl+d*0.45
+    bar(butt, hr+d*0.25, 0.03, "wood"); bar(hr+d*0.25, muz-d*0.1, 0.022, "wood")
+    bar(hr+d*0.1, muz, 0.011, "metal"); bar(muz, muz+d*0.18, 0.006, "iron", sides=4)
+    chain([(0,0.17,1.05),(0,0.17,1.3)], [(0.15,0.07),(0.14,0.07)], "leather")   # pack
+    bar((0,0.17,1.33),(0,0.17,1.33), 0.0, "leather") if False else None
+    skin([(0.2,0.05,1.40),(-0.15,-0.13,0.98)], [(0,1)], [(0.04,0.016),(0.04,0.016)], "accent", subdiv=0)  # sash
 def skirmisher():
-    f = Figure("skirmisher")
-    f.soldier(lean=0.28, helmet="hood")
-    f.arms((-1.2, 0.1), (-1.2, -0.1))
-    # A short carbine thrust forward and up, bayonet first (the tallest point).
-    f.part("wood").box((0.05, 0.86, 0.30), (0.07, 0.32, 0.07), tilt_x=0.75)
-    f.part("gunmetal").box((0.05, 1.10, 0.43), (0.035, 0.22, 0.035), tilt_x=0.75)
-    f.part("leather").box((0.26, 0.47, 0.06), (0.10, 0.15, 0.18))  # satchel
-    f.part("rust").box((-0.27, 0.47, 0.0), (0.06, 0.16, 0.06))  # grenade
-    return f
-
-
+    f = soldier(lean=0.35, head="hood")
+    hr, hl = Vector((-0.12,-0.3,1.0)), Vector((0.1,-0.42,1.12))
+    arm((-0.23,f(1.38),1.38), hr); arm((0.23,f(1.38),1.38), hl)
+    d = (hl-hr).normalized()
+    bar(hr-d*0.18, hl+d*0.05, 0.025, "wood"); bar(hr, hl+d*0.3, 0.01, "metal"); bar(hl+d*0.3, hl+d*0.45, 0.006, "iron", sides=4)
+    chain([(0.2,0.0,0.85),(0.2,0.05,0.75)], [(0.08,0.05),(0.07,0.05)], "leather")   # satchel
+    sphere((-0.18,-0.06,0.9), 0.035, "iron", seg=8, rings=6)  # grenade
+    bar((-0.18,-0.06,0.93),(-0.18,-0.06,0.97), 0.008, "wood")
+    sphere((0,f(1.42)+0.04,1.42), 0.22, "accent", (1.1,0.85,0.45), seg=12, rings=6)  # mantle
 def shield():
-    f = Figure("shield")
-    f.soldier(helmet="great")
-    f.part("gunmetal").box((-0.30, 0.84, 0.0), (0.18, 0.09, 0.30))  # pauldrons
-    f.part("gunmetal").box((0.30, 0.84, 0.0), (0.18, 0.09, 0.30))
-    f.arms((-0.5, 0.15), (0.0, -0.1))
-    # A tall iron pavise in front, its face in the seat colour, a pointed top, a rust band and a bone cross.
-    f.part("gunmetal").box((0.0, 0.50, 0.28), (0.70, 0.80, 0.05))
-    f.part("gunmetal").pyramid((0.0, 0.90, 0.28), 0.12, 0.12)
-    f.part("accent").box((0.0, 0.50, 0.31), (0.58, 0.66, 0.015))
-    f.part("rust").box((0.0, 0.62, 0.325), (0.66, 0.06, 0.02))
-    f.part("bone").box((0.0, 0.42, 0.325), (0.09, 0.32, 0.02))
-    f.part("bone").box((0.0, 0.49, 0.325), (0.26, 0.08, 0.02))
-    # A raised mace behind the shield (the tallest point).
-    f.part("wood").box((0.33, 0.96, 0.0), (0.05, 0.40, 0.05))
-    f.part("charcoal").box((0.33, 1.17, 0.0), (0.12, 0.12, 0.12))
-    return f
-
-
+    f = soldier(head="greathelm")
+    for s in (-1,1): sphere((0.24*s,0,1.42), 0.1, "iron", (1,1,0.7))   # pauldrons
+    hl = Vector((0.18,-0.28,1.05)); hr = Vector((-0.28,-0.1,1.55))
+    arm((0.24,0,1.38), hl); arm((-0.24,0,1.38), hr, out=0.12)
+    # pavise: tall shield in front of left side, with bone cross; face = accent
+    box((0.12,-0.36,0.85), (0.42,0.04,0.78), "wood")
+    box((0.12,-0.385,0.87), (0.36,0.012,0.7), "accent")
+    box((0.12,-0.395,0.9), (0.05,0.01,0.5), "bone"); box((0.12,-0.395,1.02), (0.26,0.01,0.05), "bone")
+    bar(hr-Vector((0,0,0.15)), hr+Vector((0,0,0.3)), 0.018, "wood")
+    sphere(tuple(hr+Vector((0,0,0.35))), 0.06, "iron", seg=8, rings=6)
+    for a in range(6):
+        p = hr+Vector((0,0,0.35)); o = Vector((math.cos(a)*0.06, math.sin(a)*0.06, 0))
+        bar(p+o*0.5, p+o*1.4, 0.015, "iron", sides=4)
 def standard():
-    f = Figure("standard")
-    f.soldier()
-    f.arms((-0.4, 0.0), (-0.6, -0.2))
-    # A tall pole (the tallest point) with a crossbar, a pennant in the seat colour, a finial and a hanging lantern.
-    f.part("wood").box((0.36, 0.64, 0.10), (0.05, 1.16, 0.05))
-    f.part("wood").box((0.20, 1.10, 0.10), (0.36, 0.035, 0.035))
-    f.part("accent").box((0.17, 0.93, 0.10), (0.30, 0.30, 0.02))
-    f.part("bone").pyramid((0.36, 1.22, 0.10), 0.035, 0.07)
-    f.part("gunmetal").box((0.05, 1.04, 0.10), (0.012, 0.09, 0.012))
-    f.part("candle").box((0.05, 0.95, 0.10), (0.08, 0.10, 0.08))
-    return f
+    f = soldier()
+    hr, hl = Vector((-0.12,-0.18,1.0)), Vector((-0.12,-0.2,1.35))
+    arm((-0.23,0,1.38), hr); arm((0.23,0,1.38), hl, out=0.02)
+    base, top = Vector((-0.12,-0.2,0.05)), Vector((-0.12,-0.2,2.0))
+    bar(base, top, 0.018, "wood")
+    sphere(tuple(top+Vector((0,0,0.03))), 0.035, "brass", seg=8, rings=6)
+    bar(top+Vector((0,0,0.03)), top+Vector((0,0,0.15)), 0.01, "brass", sides=4)
+    bar(top-Vector((0,0,0.05)), top-Vector((-0.42,0,0.05)), 0.008, "wood")    # crossbar
+    me = bpy.data.meshes.new("pennant")   # swallow-tail banner hanging from crossbar
+    x0, x1, zt, zb = -0.12, 0.30, top.z-0.05, top.z-0.65
+    me.from_pydata([(x0,-0.2,zt),(x1,-0.2,zt),(x1,-0.2,zb),((x0+x1)/2,-0.2,zb+0.15),(x0,-0.2,zb)], [], [(0,4,3,2,1)])
+    o = bpy.data.objects.new("pennant", me); scn.collection.objects.link(o)
+    sol = o.modifiers.new("sol","SOLIDIFY"); sol.thickness = 0.015; add(o, "accent")
+    bar(top-Vector((-0.42,0,0.05)), top-Vector((-0.42,0,0.2)), 0.004, "metal", sides=4)   # lantern chain
+    box(tuple(top-Vector((-0.42,0,0.27))), (0.07,0.07,0.1), "glow"); 
+    box(tuple(top-Vector((-0.42,0,0.21))), (0.09,0.09,0.02), "iron"); box(tuple(top-Vector((-0.42,0,0.33))), (0.09,0.09,0.02), "iron")
 
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard}[role]()
 
-FIGURES = [rifleman, skirmisher, shield, standard]
-
-
-def normal(a, b, c):
-    u = [b[i] - a[i] for i in range(3)]
-    v = [c[i] - a[i] for i in range(3)]
-    n = (u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0])
-    length = math.sqrt(sum(x * x for x in n)) or 1.0
-    return tuple(x / length for x in n)
-
-
-def bounds(figure):
-    pts = [p for part in figure.parts.values() for t in part.tris for p in t]
-    lo = [min(p[i] for p in pts) for i in range(3)]
-    hi = [max(p[i] for p in pts) for i in range(3)]
-    return lo, hi
-
-
-def normalise(figure):
-    """Stands the figure on y = 0 and scales it to exactly HEIGHT; checks the width."""
-    lo, hi = bounds(figure)
-    k = HEIGHT / (hi[1] - lo[1])
-    for part in figure.parts.values():
-        part.tris = [tuple((p[0] * k, (p[1] - lo[1]) * k, p[2] * k) for p in t) for t in part.tris]
-    lo, hi = bounds(figure)
-    width = max(hi[0] - lo[0], hi[2] - lo[2])
-    if width > MAX_WIDTH + 1e-6:
-        sys.exit(f"{figure.name} is {width:.3f}\" wide, over {MAX_WIDTH}\"")
-    return lo, hi
-
-
-def r6(x):
-    return float(f"{x:.6f}")
-
-
-def write_glb(figure, path):
-    lo, hi = normalise(figure)
-    buffer = bytearray()
-    accessors, views, materials, primitives = [], [], [], {"Body": [], "Accent": []}
-    for material in sorted(figure.parts):
-        part = figure.parts[material]
-        pos, nor = [], []
-        # The shapes above are wound clockwise seen from outside; glTF's front faces are counter-clockwise.
-        for t in [(t[0], t[2], t[1]) for t in part.tris]:
-            n = normal(*t)
-            for p in t:
-                pos.append(tuple(r6(x) for x in p))
-                nor.append(tuple(r6(x) for x in n))
-        index = len(materials)
-        # The palette is written as sRGB (as seen on screen); glTF colour factors are linear.
-        colour = tuple(r6(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4) for c in PALETTE[material])
-        mat = {"name": material, "pbrMetallicRoughness": {"baseColorFactor": [*colour, 1.0], "metallicFactor": 0.0, "roughnessFactor": 1.0}}
-        if material == "candle":
-            mat["emissiveFactor"] = list(colour)
-        materials.append(mat)
-        attrs = {}
-        for key, data in (("POSITION", pos), ("NORMAL", nor)):
-            offset = len(buffer)
-            for v in data:
-                buffer += struct.pack("<3f", *v)
-            views.append({"buffer": 0, "byteOffset": offset, "byteLength": len(data) * 12, "target": 34962})
-            acc = {"bufferView": len(views) - 1, "componentType": 5126, "count": len(data), "type": "VEC3"}
-            if key == "POSITION":
-                acc["min"] = [min(v[i] for v in data) for i in range(3)]
-                acc["max"] = [max(v[i] for v in data) for i in range(3)]
-            accessors.append(acc)
-            attrs[key] = len(accessors) - 1
-        primitives["Accent" if material == "accent" else "Body"].append({"attributes": attrs, "material": index, "mode": 4})
-    meshes, nodes = [], []
-    for name in ("Body", "Accent"):
-        if primitives[name]:
-            meshes.append({"name": name, "primitives": primitives[name]})
-            nodes.append({"name": name, "mesh": len(meshes) - 1})
-    root = {"name": "Figure", "children": list(range(1, len(nodes) + 1))}
-    gltf = {
-        "asset": {"version": "2.0", "generator": "Trench Sim tools/art/make_figures.py"},
-        "scene": 0,
-        "scenes": [{"name": figure.name, "nodes": [0]}],
-        "nodes": [root, *nodes],
-        "meshes": meshes,
-        "materials": materials,
-        "accessors": accessors,
-        "bufferViews": views,
-        "buffers": [{"byteLength": len(buffer)}],
-    }
-    text = json.dumps(gltf, separators=(",", ":")).encode()
-    text += b" " * (-len(text) % 4)
-    buffer += b"\0" * (-len(buffer) % 4)
-    body = struct.pack("<II", len(text), 0x4E4F534A) + text + struct.pack("<II", len(buffer), 0x004E4942) + buffer
-    with open(path, "wb") as out:
-        out.write(struct.pack("<III", 0x46546C67, 2, 12 + len(body)) + body)
-    triangles = sum(len(p.tris) for p in figure.parts.values())
-    return triangles, os.path.getsize(path), hi[0] - lo[0], hi[2] - lo[2]
-
-
-def main():
-    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "client", "assets", "units")
-    for make in FIGURES:
-        figure = make()
-        triangles, size, wx, wz = write_glb(figure, os.path.join(out, f"{figure.name}.glb"))
-        print(f"{figure.name}.glb: {triangles} triangles, {size} bytes, {wx:.2f} x {wz:.2f} x {HEIGHT}\"")
-
-
-if __name__ == "__main__":
-    main()
+def join(objs, name):
+    for o in objs:
+        bpy.context.view_layer.objects.active = o
+        for mdf in list(o.modifiers): bpy.ops.object.modifier_apply(modifier=mdf.name)
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in objs: o.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]; bpy.ops.object.join()
+    o = bpy.context.object; o.name = name; o.data.name = name
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    return o
+B = join(body, "Body"); A = join(accent, "Accent")
+# decimate body to budget, triangulate
+bpy.ops.object.select_all(action='DESELECT'); B.select_set(True); bpy.context.view_layer.objects.active = B
+n = len(B.data.polygons)
+# count tris properly
+def tris(o): return sum(len(p.vertices)-2 for p in o.data.polygons)
+t = tris(B)
+if t > 1100: d = B.modifiers.new("d","DECIMATE"); d.ratio = 1100/t; bpy.ops.object.modifier_apply(modifier="d")
+bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris()
+bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.02); bpy.ops.object.mode_set(mode='OBJECT')
+img = bpy.data.images.new(role, 128, 128)
+for m in B.data.materials:
+    tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; m.node_tree.nodes.active = tn
+scn.render.engine = 'CYCLES'; scn.cycles.device = 'CPU'; scn.render.bake.margin = 2
+scn.cycles.samples = 8; bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}); col = list(img.pixels)
+scn.cycles.samples = 32; bpy.ops.object.bake(type='AO'); ao = list(img.pixels)
+px = []
+for i in range(0, len(col), 4):
+    for c in range(3):
+        v = (col[i+c]*(0.35+0.65*ao[i+c])) ** (1/2.2); px.append((round(v*31)/31) ** 2.2)   # 15-bit colour
+    px.append(1.0)
+img.pixels = px; img.pack()
+m = bpy.data.materials.new(f"{role}Body"); m.use_nodes = True; b = m.node_tree.nodes["Principled BSDF"]
+b.inputs["Roughness"].default_value = 1.0
+tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; tn.interpolation = 'Closest'
+m.node_tree.links.new(tn.outputs["Color"], b.inputs["Base Color"])
+B.data.materials.clear(); B.data.materials.append(m)
+# Accent: one flat material, untextured
+while A.data.uv_layers: A.data.uv_layers.remove(A.data.uv_layers[0])
+A.data.materials.clear(); am = bpy.data.materials.new("Accent"); am.use_nodes = True; A.data.materials.append(am)
+bpy.ops.object.select_all(action='DESELECT'); A.select_set(True); bpy.context.view_layer.objects.active = A
+bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris(); bpy.ops.object.mode_set(mode='OBJECT')
+# scale to the game's 1.2 tall, feet at 0, centred
+allz = [ (o.matrix_world @ v.co) for o in (A, B) for v in o.data.vertices]
+h = max(p.z for p in allz); k = 1.2 / h
+for o in (A, B):
+    o.select_set(True)
+for o in (A,B): o.scale = (k,k,k)
+bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+low = min((o.matrix_world @ v.co).z for o in (A, B) for v in o.data.vertices)
+for o in (A, B):
+    for v in o.data.vertices: v.co.z -= low
+top = max((o.matrix_world @ v.co).z for o in (A, B) for v in o.data.vertices)
+for o in (A, B):
+    for v in o.data.vertices: v.co *= 1.2 / top
+allp = [(o.matrix_world @ v.co) for o in (A, B) for v in o.data.vertices]
+w = max(max(p.x for p in allp)-min(p.x for p in allp), max(p.y for p in allp)-min(p.y for p in allp))
+print(f"FIG {role} body_tris={tris(B)} accent_tris={tris(A)} height={max(p.z for p in allp):.3f} width={w:.3f}")
+bpy.ops.export_scene.gltf(filepath=f"{outdir}/{role}.glb", export_format='GLB', export_yup=True, export_extras=False, export_animations=False)

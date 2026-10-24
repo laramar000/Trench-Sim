@@ -118,6 +118,7 @@ public sealed class Visuals
                 _failures.Add($"{path}: could not be read ({error})");
                 return null;
             }
+            UseNearestFilter(model);
             return model;
         }
         catch (Exception e)
@@ -166,6 +167,22 @@ public sealed class Visuals
             Walk(child, Transform3D.Identity);
         }
         return box ?? new Aabb(Vector3.Zero, Vector3.Zero);
+    }
+
+    // PS1-style textures stay crisp pixels up close: every textured material of a loaded model samples its texture with
+    // nearest filtering (no smoothing, no mipmaps).
+    private static void UseNearestFilter(Node3D model)
+    {
+        foreach (var mesh in model.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
+        {
+            for (var i = 0; mesh.Mesh is { } m && i < m.GetSurfaceCount(); i++)
+            {
+                if (m.SurfaceGetMaterial(i) is BaseMaterial3D material)
+                {
+                    material.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
+                }
+            }
+        }
     }
 
     // Graphics stage G3: the parts of a figure named "Accent..." (its sash, a pennant) are drawn with the given material,
