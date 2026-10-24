@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard")
+FIGURES = ("rifleman", "skirmisher", "shield", "standard")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -50,7 +50,8 @@ M = {k: mat(k, *v) for k, v in {
  "coat": ("5a5040",), "trousers": ("4a4436",), "skin": ("b89a80", 0.12), "helmet": ("4c5048",),
  "leather": ("4a3020",), "wood": ("6a4a2c", 0.3, 8), "metal": ("3a3a3c",), "iron": ("55555a", 0.35, 20),
  "boots": ("2a2420",), "dark": ("141210", 0.05), "brass": ("8a6a2a", 0.1), "bone": ("c8bca0", 0.15),
- "cloth": ("3e3a34",), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0)}.items()}
+ "cloth": ("3e3a34",), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0),
+ "robe": ("3e3428", 0.3), "rags": ("6a5c46", 0.3), "rope": ("7e6c48", 0.2, 60), "blood": ("4e1610", 0.2)}.items()}
 body, accent = [], []
 def add(o, m):
     o.data.materials.append(M[m]); (accent if m == "accent" else body).append(o); return o
@@ -81,7 +82,7 @@ FLOOR = 0.8168
 def P(x, y, h): return Vector((x, y, h - FLOOR))      # a point h metres above the floor
 def lift(v): return Vector((v.x, v.y, v.z + FLOOR))
 
-def human_body(pose, coat=True):
+def human_body(pose, coat=True, dress=None):
     body, rig = human.load(DATA)
     for s in ("L", "R"):      # legs together, straight
         x = 0.1 if s == "L" else -0.1
@@ -96,7 +97,7 @@ def human_body(pose, coat=True):
     body.location.z = FLOOR; bpy.context.view_layer.objects.active = body
     bpy.ops.object.select_all(action='DESELECT'); body.select_set(True)
     bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
-    order = {"head": "skin", "hand": "skin", "foot": "boots", "shin": "cloth", "thigh": "trousers", "torso": "coat"}
+    order = {"head": "skin", "hand": "skin", "foot": "boots", "shin": "cloth", "thigh": "trousers", "torso": "coat", **(dress or {})}
     slots = list(dict.fromkeys(order.values()))
     for m in slots: body.data.materials.append(M[m])
     for f, p in zip(body.data.polygons, faces): f.material_index = slots.index(order[p])
@@ -197,7 +198,66 @@ def standard():
     box(tuple(L - Vector((0, 0, 0.27))), (0.07, 0.07, 0.1), "glow")
     box(tuple(L - Vector((0, 0, 0.21))), (0.09, 0.09, 0.02), "iron"); box(tuple(L - Vector((0, 0, 0.33))), (0.09, 0.09, 0.02), "iron")
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard}[role]()
+def pilgrim():
+    # Trench Pilgrim (an original figure after the faction's described look): an iron capirote (a tall pointed iron hood
+    # over the whole head, eye slit, riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud and
+    # blood, a rope belt with a rosary, a tabard (seat colour) with a bone cross, rag-wrapped bare feet, a nail-studded
+    # trench club raised in the right hand and an iron warcross held out in the left.
+    def pose(r):
+        human.reach(r, "R", P(-0.3, -0.02, 1.12), P(-0.3, -0.24, 1.3))
+        human.reach(r, "L", P(0.25, -0.16, 1.08), P(0.14, -0.36, 1.18))
+    hands, hp, top = human_body(pose, dress={"foot": "skin", "shin": "rags", "thigh": "robe", "torso": "robe"})
+    import random; rnd = random.Random(1916)
+    # long robe with a torn hem
+    bpy.ops.mesh.primitive_cone_add(vertices=18, radius1=0.25, radius2=0.165, depth=0.86, end_fill_type='NOTHING', location=(0, 0, 0.55))
+    o = bpy.context.object; o.scale = (1, 0.8, 1)
+    for v in o.data.vertices:
+        if v.co.z < 0: v.co.z += rnd.uniform(0.0, 0.1)
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(o, "robe")
+    # rope belt, knot and rosary ending in a small cross
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.165, minor_radius=0.016, major_segments=20, minor_segments=4, location=(0, 0, 0.98))
+    t = bpy.context.object; t.scale = (1, 0.78, 1); add(t, "rope")
+    chain([(0.07, -0.135, 0.97), (0.08, -0.15, 0.8)], [0.014, 0.012], "rope", subdiv=0)
+    for i in range(6): sphere((-0.06 + i*0.004, -0.14 - i*0.006, 0.95 - i*0.04), 0.012, "bone", seg=6, rings=4)
+    box((-0.036, -0.18, 0.67), (0.012, 0.012, 0.07), "bone"); box((-0.036, -0.18, 0.685), (0.045, 0.012, 0.012), "bone")
+    # tabard down the front, ragged at the bottom, with a bone cross
+    y0, y1 = -0.135, -0.2
+    pts = [(-0.1, y0, 1.38), (0.1, y0, 1.38), (0.11, y1, 0.5), (0.05, y1, 0.44), (0.0, y1, 0.52), (-0.06, y1, 0.42), (-0.11, y1, 0.5)]
+    me = bpy.data.meshes.new("tabard"); me.from_pydata(pts, [], [(0, 6, 5, 4, 3, 2, 1)])
+    tb = bpy.data.objects.new("tabard", me); scn.collection.objects.link(tb); tb.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(tb, "accent")
+    box((0, -0.19, 1.05), (0.045, 0.016, 0.34), "bone"); box((0, -0.186, 1.15), (0.17, 0.016, 0.045), "bone")
+    # sackcloth hood over the shoulders, then the iron capirote
+    c = Vector((hp.x, hp.y - 0.03, top.z))
+    bpy.ops.mesh.primitive_cone_add(vertices=14, radius1=0.24, radius2=0.11, depth=0.2, end_fill_type='NOTHING', location=(c.x, c.y, 1.42))
+    h = bpy.context.object; h.scale = (1, 0.85, 1); h.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(h, "rags")
+    base = top.z - 0.36; tip = top.z + 0.26
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.19, radius2=0.0, depth=tip - base, location=(c.x, c.y, (base + tip) / 2))
+    cap = bpy.context.object; cap.scale = (1, 1.1, 1); add(cap, "iron")
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.19, minor_radius=0.016, major_segments=12, minor_segments=4, location=(c.x, c.y, base + 0.01))
+    bpy.context.object.scale = (1, 1.1, 1); add(bpy.context.object, "metal")
+    for a in range(8):   # rivets round the rim
+        ang = a * math.pi / 4
+        sphere((c.x + math.cos(ang)*0.195, c.y + math.sin(ang)*0.215, base + 0.03), 0.01, "brass", seg=4, rings=3)
+    ez = top.z - 0.12   # eye slit, with a cross above it
+    box((c.x, c.y - 0.14, ez), (0.13, 0.03, 0.026), "dark")
+    box((c.x, c.y - 0.1, ez + 0.11), (0.02, 0.02, 0.11), "brass"); box((c.x, c.y - 0.097, ez + 0.13), (0.075, 0.02, 0.02), "brass")
+    # trench club: a short shaft and a heavy head bound with iron and studded with nails
+    hr = hands["R"]; d = (Vector((-0.25, -0.35, 1.0))).normalized()
+    head = hr + d*0.3
+    bar(hr - d*0.1, head, 0.022, "wood")
+    bar(head - d*0.03, head + d*0.2, 0.055, "wood", sides=8)
+    bar(head + d*0.03, head + d*0.08, 0.06, "iron", sides=8)
+    for i in range(10):
+        ang = i * 2.4; along = 0.06 + (i % 3) * 0.045
+        side = d.cross(Vector((math.cos(ang), math.sin(ang), 0))).normalized()
+        p = head + d*(along + 0.02)
+        bar(p + side*0.045, p + side*0.095, 0.008, "metal", sides=4)
+    # iron warcross held out in the left hand
+    hl = hands["L"] + Vector((0, -0.03, 0))
+    bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
+    bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
+
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o
