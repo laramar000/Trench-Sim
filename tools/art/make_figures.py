@@ -52,15 +52,17 @@ M = {k: mat(k, *v) for k, v in {
  "boots": ("2a2420",), "dark": ("141210", 0.05), "brass": ("8a6a2a", 0.1), "bone": ("c8bca0", 0.15),
  "cloth": ("3e3a34",), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0),
  "robe": ("3e3428", 0.3), "rags": ("6a5c46", 0.3), "rope": ("7e6c48", 0.2, 60), "blood": ("4e1610", 0.2)}.items()}
-# The face, painted like a PS1 character's (MGS1 style): flat warm skin, clear brows, shadowed eye sockets (no eyes), a shaded nose
+# The face, painted like a PS1 character's (MGS1 style): flat warm skin, clear brows, empty eye sockets (no eyes), a shaded nose
 # and a mouth line, 32x32 pixels, projected onto the front of the head. No modelled eyes: the paint carries the face.
 FACE_SKIN = "d6ae8c"
 FACE_BOX = None
+EYE_SOCKET_DEPTH = 0.014   # how deep the empty eye sockets are pressed in
+EYE_SOCKET_R = 0.026
 def face_pixels():
     W = H = 32
     def hexc(h): return [int(h[i:i+2], 16) / 255 for i in (0, 2, 4)]
     skin, shade, dark = hexc(FACE_SKIN), hexc("b88a6c"), hexc("8a6050")
-    brow, socket, mouth, lip = hexc("4a3428"), hexc("3e2a22"), hexc("a8685a"), hexc("c8927a")
+    brow, mouth, lip = hexc("4a3428"), hexc("a8685a"), hexc("c8927a")
     px = {}
     for y in range(H):
         for x in range(W):
@@ -71,13 +73,6 @@ def face_pixels():
     def put(c, xs, ys):
         for x in xs:
             for y in ys: px[(x, y)] = c
-    # no eyes: each eye is a soft shadow pooled in its socket under the brow, darkest at the centre
-    for cx in (10.5, 22.0):
-        for y in range(10, 18):
-            for x in range(5, 28):
-                d = ((x + 0.5 - cx) / 4.2) ** 2 + ((y + 0.5 - 13.8) / 2.8) ** 2
-                if d < 1 and (x, y) in px:
-                    px[(x, y)] = socket if d < 0.35 else dark if d < 0.7 else shade
     put(brow, list(range(8, 13)) + list(range(20, 25)), [11])          # brows, level and calm
     put(shade, [15], range(15, 20)); put(shade, [14, 18], [19])        # nose
     put(dark, [15, 17], [20])                                          # nostrils
@@ -169,13 +164,22 @@ def human_body(pose, coat=True, dress=None):
         out = {i for f, p in zip(body.data.polygons, faces) if p in ("torso", "thigh") for i in f.vertices}
         for v in body.data.vertices:
             if v.index in out: v.co += v.normal * 0.012
+    # no eyes: press each eye socket in, deepest at its centre, so the game's light shades the hollow by itself
+    head = {i for f, p in zip(body.data.polygons, faces) if p == "head" for i in f.vertices}
+    for v in body.data.vertices:
+        if v.index not in head: continue
+        for e in eyes:
+            dxz = ((v.co.x - e.x) / 1.15) ** 2 + ((v.co.z - e.z) / 0.95) ** 2
+            if dxz < EYE_SOCKET_R ** 2 and v.co.y < e.y + 0.012:
+                v.co.y += EYE_SOCKET_DEPTH * (1 - dxz / EYE_SOCKET_R ** 2)
     d = body.modifiers.new("d", "DECIMATE"); d.ratio = 900 / sum(len(p.vertices)-2 for p in body.data.polygons)
     bpy.ops.object.modifier_apply(modifier="d")
     bpy.ops.object.shade_smooth()
     body_parts = body
     globals()["body"].append(body)
-    # fill the eye sockets (MakeHuman's eyes are separate meshes) and the mouth slit, so the painted face covers them
-    for e in eyes: sphere(tuple(e + Vector((0, -0.006, 0))), 0.02, "face", (1.1, 1, 0.9), seg=8, rings=6)
+    # close the back of each socket (MakeHuman's eyes are separate meshes), and fill the mouth slit so the painted
+    # mouth covers it
+    for e in eyes: sphere(tuple(e + Vector((0, EYE_SOCKET_DEPTH + 0.008, 0))), 0.026, "face", (1.15, 0.8, 0.95), seg=10, rings=6)
     mid = (eyes[0] + eyes[1]) / 2
     sphere(tuple(mid + Vector((0, 0.0, -0.08))), 0.026, "face", (1.3, 0.7, 0.6), seg=8, rings=6)
     return hands, headp, headtop
