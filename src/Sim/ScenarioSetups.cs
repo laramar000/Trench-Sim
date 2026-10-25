@@ -3,8 +3,8 @@ using Rules.Core.State;
 
 namespace Sim;
 
-// The scenarios a server offers: Claim No Man's Land with the practice warbands from the content files. The first
-// warband in a file takes Seat One (models a1, a2, ...), the second Seat Two (b1, b2, ...).
+// The scenarios a server offers: Claim No Man's Land, on a map from content/maps, with the practice warbands from the
+// content files. The first warband in a file takes Seat One (models a1, a2, ...), the second Seat Two (b1, b2, ...).
 public static class ScenarioSetups
 {
     // Smaller sides for quick tests: "ranged-1v1" ... "melee-3v3" take the first N models of each warband, in file
@@ -46,6 +46,17 @@ public static class ScenarioSetups
         var take = size ?? int.MaxValue;
         var models = warbands[0].Models.Take(take).Select((m, i) => new SetupModel(new ModelId($"a{i + 1}"), Seat.One, m.Profile))
             .Concat(warbands[1].Models.Take(take).Select((m, i) => new SetupModel(new ModelId($"b{i + 1}"), Seat.Two, m.Profile)));
-        return towers ? ClaimNoMansLand.CreateTowersSetup(models) : ClaimNoMansLand.CreateSetup(models);
+        var map = MapFiles.Load(Path.Combine(MapFiles.FolderNextTo(contentPath), (towers ? TowersMap : PlainMap) + ".json"));
+        if (!map.IsFor(ClaimNoMansLand.ScenarioId))
+        {
+            throw new MapFormatException($"Map '{map.Id}' is not made for {ClaimNoMansLand.ScenarioId}.");
+        }
+        return new MatchSetup(ClaimNoMansLand.RulesVersion, ClaimNoMansLand.ScenarioId, ClaimNoMansLand.TurnLimit, RulesProfile.Default,
+            [ClaimNoMansLand.West, ClaimNoMansLand.East], models, map.ToScenario());
     }
+
+    // Trench and maps plan, stage S1: the layouts come from the map files in content/maps. They are the same layouts as
+    // ClaimNoMansLand.Create and CreateWithTowers, which stay in Rules.Core as the reference the map tests compare with.
+    public const string PlainMap = "claim-no-mans-land";
+    public const string TowersMap = "claim-no-mans-land-towers";
 }
