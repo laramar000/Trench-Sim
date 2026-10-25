@@ -16,13 +16,21 @@ C# code. The format is described at the top of `src/Sim/MapFiles.cs`.
 - **Trenches (stage S3):** a `low` piece with `"depth"` (1/2" to under 3") is a trench section (U80 to U83 in
   `docs/interpretations.md`). All trenches on a map share one depth and nothing may overlap one; sections that touch
   form a network.
+- **Set-up rules (stage S4):** `MapDefinition.Problems(baseRadius)` (Rules.Core `MapLayout.Check`) lists what a layout
+  breaks; every content map must have none, for the largest base in the content (`MapFileTests`).
+  - Blocking terrain (p. 146, U85): from anywhere a base fits wholly in its deployment zone it must be able to move,
+    on the ground, until its centre is out of the zone, and to every Objective. Towers and unwalkable pieces block.
+  - Archetype spacing (pp. 65-67, U84, U86), only for a map that names its `archetype`, edge to edge: No Man's Land
+    3" between pieces and trenches wholly in one zone; Decimated Ruins 3" between pieces, ruins (`"ruin": true`)
+    chained within 9", no trenches; Trench Lines one trench network from an edge to the opposite edge, other pieces
+    1" from trenches and 3" from each other. Touching trench sections are one trench.
 
 ## Maps
 
 | Id | Scenario | Notes |
 | --- | --- | --- |
 | `claim-no-mans-land` | Claim No Man's Land | The fixed layout (U32) |
-| `claim-no-mans-land-towers` | Claim No Man's Land | The same layout with two 2" towers and, since stage S3, six 1" trench sections in the deployment zones (the Test Center's default map) |
+| `claim-no-mans-land-towers` | Claim No Man's Land | The same layout with two 2" towers and, since stage S3, six 1" trench sections in the deployment zones (the Test Center's default map). A test layout closer than No Man's Land spacing, so it names no archetype |
 
 `ClaimNoMansLand.Create` and `CreateWithTowers` in Rules.Core build the same two layouts in code. They stay as the
 reference: `MapFileTests` checks the files match them, so setups, state hashes and record fingerprints are unchanged.
@@ -30,6 +38,6 @@ reference: `MapFileTests` checks the files match them, so setups, state hashes a
 ## Adding a map
 
 1. Add `content/maps/<id>.json`.
-2. Add a test that loads it and checks what it is for.
+2. Add a test that loads it and checks what it is for. `MapFileTests` checks it keeps the set-up rules.
 
 The rules engine does not change.

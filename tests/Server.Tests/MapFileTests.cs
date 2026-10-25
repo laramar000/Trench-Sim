@@ -53,6 +53,43 @@ public class MapFileTests
         Assert.All(maps.Values, m => Assert.True(m.IsFor(ClaimNoMansLand.ScenarioId)));
     }
 
+    // Trench-maps stage S4: the largest base any content model has.
+    private static Rules.Core.Geometry.Length LargestBase =>
+        new[] { "test-warbands.json", "melee-warbands.json" }
+            .SelectMany(f => Sim.Content.Parse(File.ReadAllText(Content(f))))
+            .SelectMany(w => w.Models)
+            .Max(m => m.Profile.BaseRadius);
+
+    [Fact]
+    public void EveryMapFileKeepsTheSetUpRules()
+    {
+        Assert.Equal(Rules.Core.Geometry.Length.Parse("0.63"), LargestBase);
+        var maps = MapFiles.LoadFolder(Maps);
+        // The plain map is a No Man's Land set-up (p. 65); the tower test map is closer than that and names no archetype.
+        Assert.Equal("no-mans-land", maps["claim-no-mans-land"].Archetype);
+        Assert.Null(maps["claim-no-mans-land-towers"].Archetype);
+        foreach (var map in maps.Values)
+        {
+            Assert.True(map.Problems(LargestBase).IsEmpty, $"{map.Id}: {string.Join("; ", map.Problems(LargestBase))}");
+        }
+    }
+
+    [Fact]
+    public void AMapThatBreaksTheSetUpRulesIsReported()
+    {
+        // obj-1 moved to 2" from wall-1 (No Man's Land wants 3", p. 65), and a wall in front of the west zone (p. 146).
+        var close = MapFiles.Parse(Edit("\"rect\": [\"10\", \"4\", \"14\", \"8\"]", "\"rect\": [\"10\", \"5\", \"14\", \"9\"]"));
+        Assert.Equal(["'obj-1' and 'wall-1' must be at least 3.000\" apart. (1.0.2 p. 65)"], close.Problems(LargestBase).Select(p => p.ToString()));
+        var walled = MapFiles.Parse(Edit("\"terrain\": [", "\"terrain\": [\n    { \"id\": \"blocker\", \"rect\": [\"6\", \"0\", \"7\", \"36\"], \"profile\": \"wall\" },"));
+        var problems = walled.Problems(LargestBase);
+        Assert.Contains(problems, p => p.Kind == Rules.Core.Geometry.LayoutProblemKind.ZoneBlockedIn && p.Ids.SequenceEqual(["west"]));
+        Assert.Equal(5, problems.Count(p => p.Kind == Rules.Core.Geometry.LayoutProblemKind.ObjectiveOutOfReach));
+        // A ruin flag travels, and only true or false is taken.
+        var ruins = MapFiles.Parse(Edit("\"id\": \"obj-5\",", "\"id\": \"obj-5\", \"ruin\": true,"));
+        Assert.Equal(["obj-5"], ruins.RuinIds.AsEnumerable());
+        Assert.Contains("ruin must be true or false", Assert.Throws<MapFormatException>(() => MapFiles.Parse(Edit("\"id\": \"obj-5\",", "\"id\": \"obj-5\", \"ruin\": 1,"))).Message);
+    }
+
     [Fact]
     public void ABuiltOutputHasTheMapFiles() =>
         Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "content", MapFiles.Folder, "claim-no-mans-land-towers.json")));

@@ -24,12 +24,14 @@ namespace Sim;
 //   terrain     pieces: { id, rect or parts, profile: "low" | "cover" | "wall", kind (optional): any of "difficult",
 //               "dangerous", "impassable", surface (optional): "ground" | "high", walkable (optional),
 //               climb (optional): { height, ladders: [{ id, at: [x, y] }] },
-//               depth (optional): inches, makes a "low" piece a trench section (trench-maps stage S3, U80) }
+//               depth (optional): inches, makes a "low" piece a trench section (trench-maps stage S3, U80),
+//               ruin (optional): true for a ruined building or corner, spaced by the Decimated Ruins rules (stage S4) }
 //   rect        [x1, y1, x2, y2] in inches: the lower-left and upper-right corners
 //   parts       instead of rect, for a ground piece shaped like an L, T or plus: a list of two or more rects that
 //               do not overlap and are joined along shared edges (trench-maps stage S2)
 // Every rule a TerrainBlock, Battlefield or Scenario checks still applies, and the loader adds map rules on top:
-// pieces may touch but not overlap, and the file name must match the id.
+// pieces may touch but not overlap, and the file name must match the id. The set-up rules that need the whole layout
+// (blocking terrain, archetype spacing; trench-maps stage S4) are MapDefinition.Problems: content maps must have none.
 public sealed record MapDefinition(
     string Id,
     string Name,
@@ -38,6 +40,21 @@ public sealed record MapDefinition(
     Battlefield Battlefield,
     ImmutableArray<string> ObjectiveIds)
 {
+    // Pieces marked as ruins (only the Decimated Ruins spacing reads them).
+    public ImmutableArray<string> RuinIds { get; init; } = [];
+
+    public Archetype? ArchetypeKind => Archetype switch
+    {
+        "no-mans-land" => Rules.Core.Geometry.Archetype.NoMansLand,
+        "decimated-ruins" => Rules.Core.Geometry.Archetype.DecimatedRuins,
+        "trench-lines" => Rules.Core.Geometry.Archetype.TrenchLines,
+        _ => null,
+    };
+
+    // What the layout breaks of the set-up rules (p. 146, pp. 65-67), for a base of the given radius; empty when none.
+    public ImmutableArray<LayoutProblem> Problems(Length baseRadius) =>
+        MapLayout.Check(Battlefield, ObjectiveIds, baseRadius, ArchetypeKind, RuinIds);
+
     public bool IsFor(string scenarioId) => Supports.Contains(scenarioId, StringComparer.Ordinal);
 
     public Scenario ToScenario() => new(Battlefield, ObjectiveIds);
@@ -116,7 +133,8 @@ public static class MapFiles
                     var zoneId = Text(o, "id");
                     return Build($"zone '{zoneId}'", () => new DeploymentZone(zoneId, Footprint.Of(RectOf(o, $"zone '{zoneId}'"))));
                 }).ToList();
-                var terrain = Array(root, "terrain").Select((t, i) => Piece(t, i)).ToList();
+                var pieces = Array(root, "terrain").Select((t, i) => Piece(t, i)).ToList();
+                var terrain = pieces.Select(p => p.Block).ToList();
                 for (var i = 0; i < terrain.Count; i++)
                 {
                     for (var j = i + 1; j < terrain.Count; j++)
@@ -131,7 +149,10 @@ public static class MapFiles
                 var objectives = Texts(root, "objectives");
                 // The Scenario's own checks: two zones, objectives are walkable pieces on this battlefield, no repeats.
                 Build("the objectives", () => new Scenario(battlefield, objectives));
-                return new MapDefinition(id, name, archetype, [.. supports], battlefield, [.. objectives.Order(StringComparer.Ordinal)]);
+                return new MapDefinition(id, name, archetype, [.. supports], battlefield, [.. objectives.Order(StringComparer.Ordinal)])
+                {
+                    RuinIds = [.. pieces.Where(p => p.Ruin).Select(p => p.Block.Id).Order(StringComparer.Ordinal)],
+                };
             }
             catch (MapFormatException e) when (!e.Message.StartsWith(source, StringComparison.Ordinal))
             {
@@ -140,10 +161,10 @@ public static class MapFiles
         }
     }
 
-    private static TerrainBlock Piece(JsonElement element, int index)
+    private static (TerrainBlock Block, bool Ruin) Piece(JsonElement element, int index)
     {
         var o = Object(element, $"terrain piece {index + 1}");
-        Only(o, $"terrain piece {index + 1}", "id", "rect", "parts", "profile", "kind", "surface", "walkable", "climb", "depth");
+        Only(o, $"terrain piece {index + 1}", "id", "rect", "parts", "profile", "kind", "surface", "walkable", "climb", "depth", "ruin");
         var id = Text(o, "id");
         var what = $"terrain '{id}'";
         var profile = Text(o, "profile") switch
@@ -208,7 +229,17 @@ public static class MapFiles
             }).ToList();
             climb = Build($"{what} climb", () => new Climb(LengthOf(co, "height"), ladders));
         }
-        return Build(what, () => new TerrainBlock(id, footprint, profile, kind, surface, walkable) { Climb = climb, Depth = depth });
+        var ruin = false;
+        if (o.TryGetProperty("ruin", out var r))
+        {
+            ruin = r.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                _ => throw new MapFormatException($"{what}: ruin must be true or false."),
+            };
+        }
+        return (Build(what, () => new TerrainBlock(id, footprint, profile, kind, surface, walkable) { Climb = climb, Depth = depth }), ruin);
     }
 
     private static bool Overlap(Rect a, Rect b) =>
