@@ -387,7 +387,7 @@ public static class Movement
         var spans = new List<(Int128 Start, Int128 End)>();
         foreach (var footprint in difficult)
         {
-            if (footprint.TryCrossing(a, b, out var lo, out var hi))
+            foreach (var (lo, hi) in footprint.Crossings(a, b))
             {
                 spans.Add((lo.Num * (den / lo.Den), hi.Num * (den / hi.Den)));
             }

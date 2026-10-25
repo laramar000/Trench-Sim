@@ -498,9 +498,9 @@ public static class Charging
             }
 
             var cornerRadius = CornerRadius(radius);
-            foreach (var terrain in _blocking)
+            // Every part's corners: the outline's outer corners are among them (trench-maps stage S2).
+            foreach (var r in _blocking.SelectMany(t => t.Footprint.Parts))
             {
-                var r = terrain.Footprint.Bounds;
                 // Each corner of the rectangle swept by the base is a quarter circle, from the straight edge
                 // out to the next one.
                 for (var j = 0; j <= 8; j++)

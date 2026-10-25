@@ -9,6 +9,10 @@ C# code. The format is described at the top of `src/Sim/MapFiles.cs`.
   so it is hashed, recorded, signed and sent to both clients exactly as before. Clients never read map files.
 - **Checks:** every check the rules types already make (ids, bounds, towers, objectives), plus map checks: pieces
   may touch but not overlap, unknown fields are refused, and the file name must equal the id.
+- **Shapes (stage S2):** a piece is one rectangle (`rect`) or, for a ground piece, joined rectangles (`parts`): two
+  to 16 rectangles that do not overlap and are joined along shared edges, for L, T and plus shapes. Seams between
+  parts are inside the piece. Platforms, roofs, towers and deployment zones stay one rectangle. A one-rectangle piece
+  is stored, sent and hashed exactly as before; joined parts travel as a list of rectangles.
 
 ## Maps
 

@@ -21,10 +21,12 @@ namespace Sim;
 //   supports    scenario ids the map was built for
 //   zones       exactly two deployment zones: { id, rect }
 //   objectives  ids of terrain pieces that are Objectives (may be empty)
-//   terrain     pieces: { id, rect, profile: "low" | "cover" | "wall", kind (optional): any of "difficult",
+//   terrain     pieces: { id, rect or parts, profile: "low" | "cover" | "wall", kind (optional): any of "difficult",
 //               "dangerous", "impassable", surface (optional): "ground" | "high", walkable (optional),
 //               climb (optional): { height, ladders: [{ id, at: [x, y] }] } }
 //   rect        [x1, y1, x2, y2] in inches: the lower-left and upper-right corners
+//   parts       instead of rect, for a ground piece shaped like an L, T or plus: a list of two or more rects that
+//               do not overlap and are joined along shared edges (trench-maps stage S2)
 // Every rule a TerrainBlock, Battlefield or Scenario checks still applies, and the loader adds map rules on top:
 // pieces may touch but not overlap, and the file name must match the id.
 public sealed record MapDefinition(
@@ -118,7 +120,7 @@ public static class MapFiles
                 {
                     for (var j = i + 1; j < terrain.Count; j++)
                     {
-                        if (Overlap(terrain[i].Footprint.Bounds, terrain[j].Footprint.Bounds))
+                        if (terrain[i].Footprint.Parts.Any(a => terrain[j].Footprint.Parts.Any(b => Overlap(a, b))))
                         {
                             throw new MapFormatException($"terrain '{terrain[i].Id}' and '{terrain[j].Id}' overlap (pieces may touch, not overlap).");
                         }
@@ -140,7 +142,7 @@ public static class MapFiles
     private static TerrainBlock Piece(JsonElement element, int index)
     {
         var o = Object(element, $"terrain piece {index + 1}");
-        Only(o, $"terrain piece {index + 1}", "id", "rect", "profile", "kind", "surface", "walkable", "climb");
+        Only(o, $"terrain piece {index + 1}", "id", "rect", "parts", "profile", "kind", "surface", "walkable", "climb");
         var id = Text(o, "id");
         var what = $"terrain '{id}'";
         var profile = Text(o, "profile") switch
@@ -184,7 +186,7 @@ public static class MapFiles
                 _ => throw new MapFormatException($"{what}: walkable must be true or false."),
             };
         }
-        var rect = RectOf(o, what);
+        var footprint = FootprintOf(o, what);
         Climb? climb = null;
         if (o.TryGetProperty("climb", out var c))
         {
@@ -204,7 +206,7 @@ public static class MapFiles
             }).ToList();
             climb = Build($"{what} climb", () => new Climb(LengthOf(co, "height"), ladders));
         }
-        return Build(what, () => new TerrainBlock(id, Footprint.Of(rect), profile, kind, surface, walkable) { Climb = climb });
+        return Build(what, () => new TerrainBlock(id, footprint, profile, kind, surface, walkable) { Climb = climb });
     }
 
     private static bool Overlap(Rect a, Rect b) =>
@@ -222,9 +224,37 @@ public static class MapFiles
         }
     }
 
-    private static Rect RectOf(JsonElement o, string what)
+    // A piece's "rect", or its "parts" (two or more joined rects), never both.
+    private static Footprint FootprintOf(JsonElement o, string what)
     {
-        var r = Texts(o, "rect");
+        var hasRect = o.TryGetProperty("rect", out _);
+        if (o.TryGetProperty("parts", out _))
+        {
+            if (hasRect)
+            {
+                throw new MapFormatException($"{what}: give rect or parts, not both.");
+            }
+            var parts = Array(o, "parts").Select((part, i) =>
+            {
+                if (part.ValueKind != JsonValueKind.Array)
+                {
+                    throw new MapFormatException($"{what}: part {i + 1} must be a list [x1, y1, x2, y2].");
+                }
+                return RectOf(part.EnumerateArray().Select(e => e.ValueKind == JsonValueKind.String && e.GetString() is { Length: > 0 } s ? s : throw new MapFormatException($"{what}: part {i + 1} must be a list of text.")).ToList(), $"{what} part {i + 1}");
+            }).ToList();
+            if (parts.Count < 2)
+            {
+                throw new MapFormatException($"{what}: parts needs two or more rects (use rect for one).");
+            }
+            return Build(what, () => Footprint.Join(parts));
+        }
+        return Footprint.Of(RectOf(o, what));
+    }
+
+    private static Rect RectOf(JsonElement o, string what) => RectOf(Texts(o, "rect"), what);
+
+    private static Rect RectOf(List<string> r, string what)
+    {
         if (r.Count != 4)
         {
             throw new MapFormatException($"{what}: rect needs four numbers [x1, y1, x2, y2].");

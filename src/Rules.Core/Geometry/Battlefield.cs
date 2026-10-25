@@ -67,6 +67,11 @@ public sealed record TerrainBlock
         {
             throw new ArgumentException("Only a Wall can have a High surface.", nameof(surface));
         }
+        // Trench-maps stage S2: joined parts are for ground pieces; levels and towers keep one rectangle.
+        if (surface == SurfaceLevel.High && !footprint.IsSingle)
+        {
+            throw new ArgumentException("A High piece (platform, roof or tower) must be one rectangle.", nameof(footprint));
+        }
 
         var impassable = kind.HasFlag(TerrainKind.Impassable);
         var effective = walkable ?? (!impassable && (profile != TerrainProfile.Wall || surface == SurfaceLevel.High));
@@ -143,6 +148,10 @@ public sealed record DeploymentZone
     {
         ZoneId = IdRules.Check(zoneId, nameof(zoneId));
         ArgumentNullException.ThrowIfNull(area);
+        if (!area.IsSingle)
+        {
+            throw new ArgumentException("A deployment zone must be one rectangle.", nameof(area));
+        }
         Area = area;
     }
 

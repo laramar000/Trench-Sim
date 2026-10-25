@@ -83,7 +83,44 @@ public class MapFileTests
         { "\"objectives\": [\"obj-1\"", "\"objectives\": [\"nowhere\"", "Objective 'nowhere'" },
         { "{\n      \"id\": \"west\",", "{\n      \"id\": \"north\",\n      \"rect\": [\"6\", \"30\", \"30\", \"36\"]\n    },\n    {\n      \"id\": \"west\",", "exactly two deployment zones" },
         { "\"width\": \"36\"", "\"width\": \"thirty\"", "not a length in inches" },
+        // Joined parts (stage S2).
+        { "\"rect\": [\"10\", \"4\", \"14\", \"8\"]", "\"rect\": [\"10\", \"4\", \"14\", \"8\"], \"parts\": []", "rect or parts, not both" },
+        { "\"rect\": [\"10\", \"4\", \"14\", \"8\"]", "\"parts\": [[\"10\", \"4\", \"14\", \"8\"]]", "two or more rects" },
+        { "\"rect\": [\"10\", \"4\", \"14\", \"8\"]", "\"parts\": [[\"10\", \"4\", \"14\", \"8\"], [\"12\", \"4\", \"16\", \"8\"]]", "overlap" },
+        { "\"rect\": [\"10\", \"4\", \"14\", \"8\"]", "\"parts\": [[\"10\", \"4\", \"12\", \"8\"], [\"13\", \"4\", \"14\", \"8\"]]", "joined along shared edges" },
+        { "\"rect\": [\"10\", \"4\", \"14\", \"8\"]", "\"parts\": [[\"10\", \"4\", \"14\", \"8\"], \"x\"]", "part 2 must be a list" },
+        { "\"rect\": [\"10\", \"4\", \"14\", \"8\"]", "\"parts\": [[\"10\", \"4\", \"14\", \"8\"], [\"14\", \"4\", \"15\"]]", "rect needs four numbers" },
     };
+
+    [Fact]
+    public void AGroundPieceCanBeJoinedParts()
+    {
+        // obj-1 as an L of two parts instead of a 4" square.
+        var map = MapFiles.Parse(Edit("\"rect\": [\"10\", \"4\", \"14\", \"8\"]", "\"parts\": [[\"12\", \"4\", \"14\", \"6\"], [\"10\", \"4\", \"12\", \"8\"]]"), "claim-no-mans-land.json");
+        var piece = map.Battlefield.Terrain.Single(t => t.Id == "obj-1");
+        Assert.Equal(2, piece.Footprint.Parts.Length);
+        Assert.Equal("10.000", piece.Footprint.Parts[0].Min.X.ToString().TrimEnd('"'));
+        // A joined piece's setup travels and hashes; the coded layout's hash is not this one.
+        var coded = ScenarioSetups.FromFolder(Path.Combine(Repository.Root(), "content")).First(s => !s.Key.EndsWith(ScenarioSetups.TowersSuffix, StringComparison.Ordinal)).Value;
+        var setup = new MatchSetup(coded.RulesVersion, coded.ScenarioId, coded.TurnLimit, coded.Profile, coded.ZoneIds, coded.Models, map.ToScenario());
+        Assert.NotEqual(
+            StateHash.Compute(Reducer.Apply(MatchState.None, new MatchCreated(coded))),
+            StateHash.Compute(Reducer.Apply(MatchState.None, new MatchCreated(setup))));
+        var json = Json(map.ToScenario());
+        Assert.Equal(json, Json(System.Text.Json.JsonSerializer.Deserialize<Scenario>(json, Wire.Options)!));
+    }
+
+    [Fact]
+    public void AHighPieceCannotBeJoinedParts()
+    {
+        var text = File.ReadAllText(Path.Combine(Maps, "claim-no-mans-land-towers.json"));
+        var at = text.IndexOf("\"surface\": \"high\"", StringComparison.Ordinal);
+        Assert.True(at > 0);
+        var rectAt = text.LastIndexOf("\"rect\":", at, StringComparison.Ordinal);
+        var end = text.IndexOf(']', rectAt) + 1;
+        var broken = text[..rectAt] + "\"parts\": [[\"0\", \"0\", \"1\", \"1\"], [\"1\", \"0\", \"2\", \"1\"]]" + text[end..];
+        Assert.Contains("must be one rectangle", Assert.Throws<MapFormatException>(() => MapFiles.Parse(broken, "t.json")).Message);
+    }
 
     [Theory]
     [MemberData(nameof(Broken))]

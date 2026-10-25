@@ -98,7 +98,8 @@ public static class StateHash
 
     private static string Path(IEnumerable<Point2> path) => string.Join(";", path.Select(Point));
 
-    private static string Rectangle(Footprint f) => $"{Point(f.Bounds.Min)}-{Point(f.Bounds.Max)}";
+    // One rectangle as before; joined parts (trench-maps stage S2) in their fixed order, joined by "+".
+    private static string Rectangle(Footprint f) => string.Join("+", f.Parts.Select(p => $"{Point(p.Min)}-{Point(p.Max)}"));
 
     // Terrain and zones are written in id order (the Battlefield already sorts them).
     private static void WriteScenario(StringBuilder sb, Scenario scenario)

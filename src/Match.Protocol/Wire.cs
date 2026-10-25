@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -97,17 +98,35 @@ public static class Wire
             writer.WriteStringValue(value.Value);
     }
 
-    // M3 footprints are rectangles, built only through Footprint.Of: one travels as its rectangle.
+    // A one-rectangle footprint travels as its rectangle, as since M3. Joined parts (trench-maps stage S2) travel as an
+    // array of rectangles, rebuilt and checked through Footprint.Join.
     private sealed class FootprintConverter : JsonConverter<Footprint>
     {
         public override Footprint Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
+            if (reader.TokenType == JsonTokenType.StartArray)
+            {
+                // An ImmutableArray, not Rect[]: an array of a Rules.Core type would be taken for a Rules.Core object.
+                var parts = JsonSerializer.Deserialize<ImmutableArray<Rect>>(ref reader, options);
+                if (parts.IsDefault || parts.Length < 2)
+                {
+                    throw new JsonException("A footprint of one rectangle travels as that rectangle.");
+                }
+                return Construct(() => Footprint.Join(parts));
+            }
             var rect = JsonSerializer.Deserialize<Rect>(ref reader, options);
             return Construct(() => Footprint.Of(rect));
         }
 
-        public override void Write(Utf8JsonWriter writer, Footprint value, JsonSerializerOptions options) =>
-            JsonSerializer.Serialize(writer, value.Bounds, options);
+        public override void Write(Utf8JsonWriter writer, Footprint value, JsonSerializerOptions options)
+        {
+            if (value.IsSingle)
+            {
+                JsonSerializer.Serialize(writer, value.Bounds, options);
+                return;
+            }
+            JsonSerializer.Serialize(writer, value.Parts, options);
+        }
     }
 
     // Enums travel by exact name only: no numbers and no case folding. A [Flags] enum is an array of the names of its set

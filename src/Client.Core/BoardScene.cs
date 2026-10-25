@@ -61,6 +61,10 @@ public sealed record TerrainShape(string Id, TableRect Area, TerrainProfile Prof
     // the rules (not a display convention), and its platform is reached only by these ladders.
     public IReadOnlyList<LadderShape> Ladders { get; init; } = [];
 
+    // Trench-maps stage S2: the rectangles the piece is made of, in the rules' fixed order. Just Area for one rectangle;
+    // Area is then the bounding box of the parts.
+    public IReadOnlyList<TableRect> Parts { get; init; } = [Area];
+
     public bool Tower => Ladders.Count > 0;
 
     // The short words drawn on a tower's platform: "TOWER 2.0"".
@@ -164,6 +168,7 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
                 t.IsPlatform, objective, TerrainLabel(t, objective), objective ? Rules.Core.Objectives.ControllerNow(state, t.Id) : null)
             {
                 Ladders = t.Climb is { } c ? [.. c.Ladders.Select(l => new LadderShape(l.Id, TablePoint.Of(l.At), Climb.SideOf(t.Footprint.Bounds, l.At)!.Value))] : [],
+                Parts = [.. t.Footprint.Parts.Select(TableRect.Of)],
             };
         }).ToList();
         var models = new List<ModelShape>();
