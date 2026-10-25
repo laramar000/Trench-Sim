@@ -38,6 +38,12 @@ public static class SightRules
 public sealed record SightRay(Point2 From, Point2 To, IReadOnlyList<string> Crossed, IReadOnlyList<string> Obstructing)
 {
     public string? BlockedBy => Obstructing.Count == 0 ? null : Obstructing[0];
+
+    // Heights of the two ends above the table, for height-based sight (HeightSight, stage L1). Zero for today's
+    // top-down rays.
+    public Length FromHeight { get; init; }
+
+    public Length ToHeight { get; init; }
 }
 
 public sealed record SightResult(

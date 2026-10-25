@@ -47,6 +47,18 @@ public sealed record Footprint
             && lo.CompareTo(hi) < 0;
     }
 
+    // The 3D segment from (a, aHeight) to (b, bHeight) passes through the inside of the box standing on the footprint
+    // from height bottom to top. Touching a face, an edge or a corner does not count (U13). Exact.
+    internal bool SegmentCrossesBoxInside(Point2 a, Length aHeight, Point2 b, Length bHeight, Length bottom, Length top)
+    {
+        var lo = ExactMath.Ratio.Of(0, 1);
+        var hi = ExactMath.Ratio.Of(1, 1);
+        return ExactMath.Slab(a.X.Thousandths, b.X.Thousandths - a.X.Thousandths, Bounds.Min.X.Thousandths, Bounds.Max.X.Thousandths, true, ref lo, ref hi)
+            && ExactMath.Slab(a.Y.Thousandths, b.Y.Thousandths - a.Y.Thousandths, Bounds.Min.Y.Thousandths, Bounds.Max.Y.Thousandths, true, ref lo, ref hi)
+            && ExactMath.Slab(aHeight.Thousandths, bHeight.Thousandths - aHeight.Thousandths, bottom.Thousandths, top.Thousandths, true, ref lo, ref hi)
+            && lo.CompareTo(hi) < 0;
+    }
+
     // The part of the segment a-b inside the (closed) footprint, as fractions lo..hi of its length.
     internal bool TryCrossing(Point2 a, Point2 b, out ExactMath.Ratio lo, out ExactMath.Ratio hi)
     {
