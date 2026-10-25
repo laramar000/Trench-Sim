@@ -34,9 +34,10 @@ public readonly record struct TablePoint(double X, double Y)
     public override string ToString() => $"({BoardScene.Inch(X)}, {BoardScene.Inch(Y)})";
 }
 
-// One of the rules' sight rays (SightResult.Rays): from the attacker's base centre to a point on the target's base.
-// BlockedBy names the terrain piece that blocks it, or is null when the ray is clear.
-public sealed record PreviewRay(TablePoint From, TablePoint To, string? BlockedBy)
+// One of the rules' sight rays (SightResult.Rays): from the attacker's eye above its base centre to one of the nine
+// points on the target, each at its height above the table in inches (line-of-sight stage L2). BlockedBy names the
+// terrain piece that blocks it, or is null when the ray is clear.
+public sealed record PreviewRay(TablePoint From, TablePoint To, string? BlockedBy, double FromHeight = 0, double ToHeight = 0)
 {
     public bool Clear => BlockedBy is null;
 }
@@ -713,12 +714,12 @@ public static class Previews
         return null;
     }
 
-    // Line of sight and cover from the rules (Cover.Of, which asks LineOfSight.Between): the facts in words and the rays
-    // to draw. Never a 3D raycast: the picture's heights play no part (M7.4 Q4).
+    // Line of sight and cover from the rules (Cover.Of, which asks HeightSight.Between): the facts in words and the rays
+    // to draw. Never a Godot raycast: the rules' heights decide, and the picture is drawn at the same heights.
     private static CoverResult Sight(MatchState state, ModelBody from, ModelBody to, List<string> facts, List<PreviewRay> rays)
     {
         var cover = Cover.Of(state.Setup!.Scenario!.Battlefield, from, to);
-        rays.AddRange(cover.Sight.Rays.Select(r => new PreviewRay(TablePoint.Of(r.From), TablePoint.Of(r.To), r.BlockedBy)));
+        rays.AddRange(cover.Sight.Rays.Select(r => new PreviewRay(TablePoint.Of(r.From), TablePoint.Of(r.To), r.BlockedBy, TableRect.Inches(r.FromHeight), TableRect.Inches(r.ToHeight))));
         var seeing = cover.Sight.Visibility switch
         {
             Visibility.None => "not visible",
@@ -728,10 +729,6 @@ public static class Previews
         var blockers = cover.Sight.Rays.Where(r => r.BlockedBy is not null).Select(r => r.BlockedBy!).Distinct().ToList();
         facts.Add($"Line of sight: {seeing}, {cover.Sight.Visible} of {cover.Sight.Total} sight rays clear{(blockers.Count > 0 ? $", blocked by {string.Join(", ", blockers)}" : "")}.");
         facts.Add(cover.InCover ? $"{CoverFact} ({cover.TerrainId})." : "Target not in cover.");
-        if (cover.Sight.Attacker.Level == ModelLevel.High)
-        {
-            facts.Add("Attacker on high ground: it sees over ground-level walls.");
-        }
         return cover;
     }
 

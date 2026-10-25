@@ -49,8 +49,8 @@ public static class SightHeights
     }
 }
 
-// Height-based line of sight (line-of-sight plan, stage L1): not yet used by any rule. Today's LineOfSight stays the
-// rule until stage L2 switches over.
+// Height-based line of sight (line-of-sight plan, stage L1). Since stage L2 it is the rules' line of sight: Cover.Of
+// asks it, and shots, forced shots, charges, Fight and the client's previews all go through Cover.Of.
 //  - Rays run from the attacker's eye (above its base centre) to nine points on the target: three heights (Points)
 //    times left, middle and right, set across the line between the two models at 0.8 of the base radius.
 //  - A ray is blocked by a piece when it passes through the inside of the piece's box: its footprint, from the ground

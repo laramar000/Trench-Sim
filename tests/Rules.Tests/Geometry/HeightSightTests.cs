@@ -1,13 +1,12 @@
-using System.Text.Json;
 using Rules.Core.Geometry;
-using Xunit.Abstractions;
 using static Rules.Tests.Geometry.Geo;
 
 namespace Rules.Tests.Geometry;
 
-// Line-of-sight plan, stage L1: the height-based sight calculation, tested as pure geometry. No rule uses it yet.
+// Line-of-sight plan, stage L1: the height-based sight calculation (U77), tested as pure geometry. The ten ruled
+// scenes (GoldenSceneTests) check it through the rules since stage L2.
 // Test numbers are the plan's twelve tests (7 waits for trenches, 10 and 11 for stage L2).
-public class HeightSightTests(ITestOutputHelper output)
+public class HeightSightTests
 {
     private static TerrainBlock Tower(string id, string x1, string y1, string x2, string y2, string height = "2") =>
         new(id, F(x1, y1, x2, y2), TerrainProfile.Wall, TerrainKind.Open, SurfaceLevel.High, walkable: true)
@@ -202,52 +201,5 @@ public class HeightSightTests(ITestOutputHelper output)
             h = (h ^ b) * 16777619u;
         }
         return h.ToString("X8", System.Globalization.CultureInfo.InvariantCulture);
-    }
-
-    // The ten ruled scenes: today's answer, and what the height-based calculation gives. Stage L2 re-rules each scene
-    // that changes; this list is what Jason reviews before that. The test pins both, so the list cannot go stale.
-    public static TheoryData<string, string, string> Comparison => new()
-    {
-        { "01-open-field.json", "Full 4/4", "Full 9/9 ooo/ooo/ooo" },
-        { "02-barricade-cover.json", "Full 4/4", "Partial 3/9 xxx/xxx/ooo" },
-        { "03-wall-corner.json", "Partial 1/5", "None 0/9 xxx/xxx/xxx" },
-        { "04-narrow-gap.json", "Partial 2/4", "Partial 3/9 xox/xox/xox" },
-        { "05-behind-long-wall.json", "None 0/4", "None 0/9 xxx/xxx/xxx" },
-        { "06-high-ground-over-wall.json", "Full 5/5", "None 0/9 xxx/xxx/xxx" },
-        { "07-roof-target-behind-wall.json", "None 0/4", "None 0/9 xxx/xxx/xxx" },
-        { "08-roof-to-roof-tower.json", "None 0/4", "Full 9/9 ooo/ooo/ooo" },
-        { "09-roof-edge-boundary.json", "Full 4/4", "Full 9/9 ooo/ooo/ooo" },
-        { "10-grazing-corner.json", "Full 1/1", "Partial 6/9 oox/oox/oox" },
-    };
-
-    [Theory]
-    [MemberData(nameof(Comparison))]
-    public void TheRuledScenesComparedWithToday(string file, string today, string withHeights)
-    {
-        using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Scenes", file)));
-        var root = doc.RootElement;
-        static string Num(JsonElement e) => e.GetDecimal().ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
-        var terrain = root.GetProperty("terrain").EnumerateArray().Select(t =>
-        {
-            var r = t.GetProperty("rect").EnumerateArray().Select(Num).ToArray();
-            return new TerrainBlock(
-                t.GetProperty("id").GetString()!,
-                F(r[0], r[1], r[2], r[3]),
-                Enum.Parse<TerrainProfile>(t.GetProperty("profile").GetString()!),
-                Enum.Parse<TerrainKind>(t.GetProperty("kind").GetString()!),
-                Enum.Parse<SurfaceLevel>(t.GetProperty("surface").GetString()!),
-                t.TryGetProperty("walkable", out var w) ? w.GetBoolean() : null);
-        }).ToList();
-        var size = root.GetProperty("fieldSize").GetInt32().ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var field = new Battlefield(L(size), L(size), terrain, []);
-        ModelBody BodyOf(string id) => Body(id, Num(root.GetProperty(id).GetProperty("x")), Num(root.GetProperty(id).GetProperty("y")), Num(root.GetProperty(id).GetProperty("radius")));
-        ISightSampler? sampler = root.TryGetProperty("samplePoints", out var pts)
-            ? new FixedSampler(pts.EnumerateArray().Select(p => P(Num(p[0]), Num(p[1]))).ToArray())
-            : null;
-        var old = LineOfSight.Between(field, BodyOf("attacker"), BodyOf("target"), sampler);
-        var now = HeightSight.Between(field, BodyOf("attacker"), BodyOf("target"));
-        output.WriteLine($"{file}: today {old.Visibility} {old.Visible}/{old.Total}; with heights {now.Visibility} {now.Visible}/{now.Total} {Grid(now)}");
-        Assert.Equal(today, $"{old.Visibility} {old.Visible}/{old.Total}");
-        Assert.Equal(withHeights, $"{now.Visibility} {now.Visible}/{now.Total} {Grid(now)}");
     }
 }

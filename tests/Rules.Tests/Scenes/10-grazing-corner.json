@@ -30,19 +30,13 @@
   "expect": {
     "attackerLevel": "Ground",
     "targetLevel": "Ground",
-    "visibility": "Full",
-    "visible": 1,
-    "total": 1,
+    "visibility": "Partial",
+    "visible": 6,
+    "total": 9,
     "cover": false,
     "coverBy": null
   },
   "status": "provisional",
-  "basis": "U13: grazing an edge or corner does not block",
-  "ruling": "The ray from (4,12) to (10,18) touches the wall only at (6,14), so it is not blocked.",
-  "samplePoints": [
-    [
-      10,
-      18
-    ]
-  ]
+  "basis": "U13: grazing an edge or corner does not block; U77",
+  "ruling": "The middle ray from (4,12) to (10,18) touches the wall only at its corner (6,14), so it is not blocked; the right-hand column passes through the wall: Partial, and the wall does not touch the target, so no cover. (Before L2: one fixed ray, Full 1/1.)"
 }

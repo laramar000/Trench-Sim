@@ -1818,12 +1818,13 @@ public partial class BoardView : SubViewportContainer
         _ => _highContrast ? Colors.Yellow : new Color(1f, 0.3f, 0.25f),
     };
 
-    // A dark outline under a bright bar, raised above the table at the models' own levels; drawn under the labels.
+    // A dark outline under a bright bar, from the attacker's eye (1.1" above its base) to the target's body point (0.7"),
+    // the heights the rules' sight uses (U77); drawn under the labels.
     private void DrawTargetLine(TargetLine line)
     {
         var colour = ToneColour(line.Tone);
-        var from = (_scene?.Find(line.Attacker) is { } a ? (float)a.Standing : 0f) + 0.7f;
-        var to = (_scene?.Find(line.Target) is { } t ? (float)t.Standing : 0f) + 0.7f;
+        var from = (_scene?.Find(line.Attacker) is { } a ? (float)a.Standing : 0f) + (float)TableRect.Inches(SightHeights.Eye);
+        var to = (_scene?.Find(line.Target) is { } t ? (float)t.Standing : 0f) + (float)TableRect.Inches(SightHeights.Points[1]);
         Bar(line.From, from, line.To, to, new Color(0, 0, 0, 0.75f), 0.42f, 0.06f);
         Bar(line.From, from + 0.03f, line.To, to + 0.03f, colour, 0.26f, 0.1f);
         TargetLineDrawn = (line, colour);

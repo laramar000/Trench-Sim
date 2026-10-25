@@ -8,10 +8,9 @@ namespace Client.Core;
 // M7.4: the battlefield as the 3D view draws it, in inches, built only from the server's state. No Godot here: the
 // Godot client turns this into shapes, so the same description serves placeholder shapes now and real art later.
 //
-// The rules are 2D with two levels (ground, or on a High platform); they have no heights (U17). The heights below are
-// display conventions only, chosen by Jason (M7.4 Q2): they change the picture, never a rule. Line of sight and cover
-// always come from the rules geometry, not from the picture. Towers (towers proposal) are the exception: a tower has a
-// height in the rules, and it is drawn at that height.
+// Terrain is drawn at the heights the rules' line of sight uses (SightHeights, U77; chosen by Jason in M7.4 Q2 and kept
+// for line-of-sight stage L2). A test checks they stay equal, so what is drawn and what the rules see cannot drift
+// apart. Line of sight and cover always come from the rules, never from the picture. A tower is drawn at its height.
 public static class DisplayHeight
 {
     public const double Low = 0.25;
