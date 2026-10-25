@@ -404,3 +404,28 @@ public sealed record FriendlyTargetChosen : GameEvent
     // Elevated position above the model shot at (p. 43, stage L3); left off the wire when false.
     public bool Elevated { get; init; }
 }
+
+// ---- Trench Warfare (trench-maps stage S6, Scenario IV, pp. 161-163) ----
+
+// The roles roll-off winner chose who attacks. The defender takes the zone holding the trench lines (U88).
+public sealed record AttackerChosen(Seat Seat, Seat Attacker) : GameEvent;
+
+// One trench section at the end of a Turn: the defending and attacking models in it, and what each side scores.
+public sealed record TrenchResult(string TrenchId, int Defenders, int Attackers, int DefenderPoints, int AttackerPoints);
+
+// Victory Points for the trench sections at the end of a Turn (p. 163).
+public sealed record TrenchesScored : GameEvent
+{
+    public TrenchesScored(int turn, IEnumerable<TrenchResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        Turn = turn;
+        Results = [.. results];
+    }
+
+    public int Turn { get; }
+    public ImmutableArray<TrenchResult> Results { get; }
+}
+
+// The attacker's game-length D6 at the end of Turn 4 (p. 162): 1-2, the game ends now (LastTurn 4); 3+, after Turn 5.
+public sealed record GameLengthRolled(Seat Seat, int Die, int LastTurn) : GameEvent;

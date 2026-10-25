@@ -104,7 +104,8 @@ public class ForgedLogTests
                 }
             }
         }
-        Assert.Equal(Enum.GetValues<RollOffPurpose>().ToHashSet(), purposes);
+        // The Roles roll-off is only in Trench Warfare (stage S6); Server.Tests.TrenchWarfareTests forges it the same way.
+        Assert.Equal(Enum.GetValues<RollOffPurpose>().Where(p => p != RollOffPurpose.Roles).ToHashSet(), purposes);
         Assert.True(ties >= 2, $"only {ties} tied roll-offs were checked");
     }
 

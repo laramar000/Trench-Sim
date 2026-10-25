@@ -209,6 +209,8 @@ public class BattlefieldUxTests
     [InlineData("melee-towers", 4)]
     [InlineData("ranged-1v1-towers", 1)]
     [InlineData("melee-3v3-towers", 3)]
+    [InlineData("ranged-2v2-trench-warfare", 2)]
+    [InlineData("melee-1v1-trench-warfare", 1)]
     public void SmallTestRostersHaveTheFirstModelsOfEachSideAndPlayToTheEnd(string scenario, int size)
     {
         var all = ScenarioSetups.FromFolder(Path.Combine(Repository.Root, "content"));
@@ -240,6 +242,8 @@ public class BattlefieldUxTests
     [InlineData("melee-2v2", "melee, 2 v 2 (test roster)")]
     [InlineData("ranged-towers", "ranged with towers (normal roster)")]
     [InlineData("melee-1v1-towers", "melee with towers, 1 v 1 (test roster)")]
+    [InlineData("ranged-trench-warfare", "ranged, Trench Warfare (normal roster)")]
+    [InlineData("melee-2v2-trench-warfare", "melee, Trench Warfare, 2 v 2 (test roster)")]
     public void EveryScenarioHasALabel(string scenario, string label)
     {
         Assert.Equal(label, ContentNames.Label(scenario));

@@ -44,6 +44,9 @@ public static class EventText
         WarbandRecovered w => $"{w.Seat} recovers.",
         WarbandFled w => $"{w.Seat} flees ({w.Reason}).",
         ObjectivesScored o => $"Turn {o.Turn} scoring: {string.Join(", ", o.Results.Where(r => r.Controller is not null).Select(r => $"{r.ObjectiveId} to {r.Controller}"))}{(o.Results.All(r => r.Controller is null) ? "nobody controls an Objective" : "")}.",
+        AttackerChosen a => $"{a.Attacker} attacks; {a.Attacker.Opponent()} defends.",
+        TrenchesScored t => $"Turn {t.Turn} trench scoring: {string.Join(", ", t.Results.Select(r => $"{r.TrenchId} defender +{r.DefenderPoints}, attacker +{r.AttackerPoints}"))}.",
+        GameLengthRolled g => $"{g.Seat} rolls {g.Die} for the game's length: {(g.LastTurn == Rules.Core.Scenarios.TrenchWarfare.LengthRollTurn ? "the game ends now" : $"the game ends after Turn {g.LastTurn}")}.",
         MatchEnded m => $"MATCH ENDED: {(m.Winner is { } w ? $"{w} wins" : "draw")} ({m.Reason}).",
         _ => null,
     };
@@ -136,7 +139,7 @@ public static class EventText
     // What kind of event it is, for the event list's tag and colour (QoL stage D). Display only.
     public static EventKind Kind(GameEvent e) => e switch
     {
-        MatchCreated or RollOffResolved or DeploymentZoneChosen or DeploymentOrderSet or ModelDeployed => EventKind.Setup,
+        MatchCreated or RollOffResolved or DeploymentZoneChosen or DeploymentOrderSet or ModelDeployed or AttackerChosen => EventKind.Setup,
         TurnStarted or TurnEnded or PhaseEntered or InitiativeDetermined or FirstActivationChosen or MoraleOrderSet => EventKind.Turn,
         ActivationStarted or ActivationEnded => EventKind.Activation,
         ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved => EventKind.Movement,
@@ -146,7 +149,8 @@ public static class EventText
         InjuryRolled or MarkersSpent => EventKind.Injury,
         ModelStoodUp or MoraleCheckRolled or WarbandShaken or WarbandRecovered or WarbandFled => EventKind.Status,
         DecisionRequested => EventKind.Decision,
-        ObjectivesScored => EventKind.Scoring,
+        ObjectivesScored or TrenchesScored => EventKind.Scoring,
+        GameLengthRolled => EventKind.Turn,
         MatchEnded => EventKind.MatchEnd,
         _ => EventKind.Other,
     };
@@ -181,6 +185,7 @@ public static class EventText
         InjuryRolled i => Faces(i.Injury.Dice, i.Injury.NetDice) + (i.Injury.Modifier == 0 ? "" : $", modifier {i.Injury.Modifier:+0;-0}"),
         ChargeRolled c => $"Dice: D6 {c.Die}",
         ShootingTargetRolled t => $"Dice: D6 {t.Die}",
+        GameLengthRolled g => $"Dice: D6 {g.Die}",
         _ => null,
     };
 

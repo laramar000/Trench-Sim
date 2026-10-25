@@ -64,6 +64,10 @@ public class ClientCoreTests
         // Nor do they climb a tower's side (stage T6): those two are built here too.
         seen.TryAdd(typeof(SideClimbDeclared), new SideClimbDeclared(new ModelId("a1"), MoveKind.Move, [Previews.PointAt(16, 5.8), Previews.PointAt(17, 5.8)]));
         seen.TryAdd(typeof(SideClimbRolled), new SideClimbRolled(new ModelId("a1"), Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(1), 0, 0, risky: true)));
+        // These matches are all Claim No Man's Land; Trench Warfare's events (stage S6) are built here.
+        seen.TryAdd(typeof(AttackerChosen), new AttackerChosen(Seat.One, Seat.Two));
+        seen.TryAdd(typeof(TrenchesScored), new TrenchesScored(1, [new TrenchResult("trench-m", 1, 0, 2, 0)]));
+        seen.TryAdd(typeof(GameLengthRolled), new GameLengthRolled(Seat.Two, 2, 4));
         var all = typeof(GameEvent).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(GameEvent)) && !t.IsAbstract).ToList();
         Assert.True(all.Count >= 30, $"{all.Count} event types");
         Assert.Empty(all.Where(t => !seen.ContainsKey(t)).Select(t => t.Name));
@@ -81,7 +85,7 @@ public class ClientCoreTests
         var rolls = new HashSet<Type>
         {
             typeof(RollOffResolved), typeof(DashRolled), typeof(SideClimbRolled), typeof(RangedSuccessRolled), typeof(MeleeSuccessRolled),
-            typeof(MoraleCheckRolled), typeof(InjuryRolled), typeof(ChargeRolled), typeof(ShootingTargetRolled),
+            typeof(MoraleCheckRolled), typeof(InjuryRolled), typeof(ChargeRolled), typeof(ShootingTargetRolled), typeof(GameLengthRolled),
         };
         foreach (var e in Matches.Value.SelectMany(m => m.Log))
         {

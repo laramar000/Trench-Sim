@@ -240,7 +240,15 @@ public sealed class Bot(Random rng)
         {
             return enemies[0].Position!.Value;
         }
-        var id = scenario.ObjectiveIds[rng.Next(scenario.ObjectiveIds.Length)];
+        // Trench Warfare has no Objectives: its trench sections score (trench-maps stage S6). Without either, the enemy.
+        var goals = scenario.ObjectiveIds.IsEmpty
+            ? [.. Rules.Core.Scenarios.TrenchWarfare.ScoringSections(scenario.Battlefield).Select(t => t.Id)]
+            : scenario.ObjectiveIds;
+        if (goals.IsEmpty)
+        {
+            return enemies.Count > 0 ? enemies[0].Position!.Value : model.Position!.Value;
+        }
+        var id = goals[rng.Next(goals.Length)];
         var bounds = scenario.Battlefield.Terrain.First(t => t.Id == id).Footprint.Bounds;
         return At((bounds.Min.X.Thousandths + bounds.Max.X.Thousandths) / 2, (bounds.Min.Y.Thousandths + bounds.Max.Y.Thousandths) / 2);
     }

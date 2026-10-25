@@ -43,6 +43,7 @@ public partial class Main : Control
     private LineEdit _server = null!;
     private SpinBox _window = null!;
     private OptionButton _scenario = null!;
+    private OptionButton _map = null!;
     private LineEdit _code = null!;
     private VBoxContainer _saved = null!;
     private Label _connectMessage = null!;
@@ -323,6 +324,11 @@ public partial class Main : Control
             _scenario.SetItemMetadata(_scenario.ItemCount - 1, choice);
         }
         _connect.AddChild(Row(Text("Scenario:"), _scenario, Button("Create match", () => Create(ChosenScenario()))));
+        // Trench-maps stage S7: a preset map that fits the scenario, or the scenario's own.
+        _map = new OptionButton { Name = "MapChoice" };
+        _scenario.ItemSelected += _ => RefreshMaps(null);
+        RefreshMaps(null);
+        _connect.AddChild(Row(Text("Map:"), _map));
         _connect.AddChild(Text("The 1 v 1, 2 v 2 and 3 v 3 choices are small test rosters (each side's first models) for trying mechanics quickly; " +
             "the normal roster is the full warbands."));
         _connect.AddChild(Row(Text("Single player:"), Button("Hot-seat: play both sides in this window", StartHotSeat)));
@@ -440,12 +446,38 @@ public partial class Main : Control
     // QoL I4: the window that created the match (or a hot-seat) can start the same match again: same scenario and side
     // size, a new match code. A window that joined waits for the other's new code.
     private string? _createdScenario;
+    private string? _createdMap;
 
     private void Create(string scenario)
     {
         _createdScenario = scenario;
-        Start(c => c.CreateAsync(scenario));
+        var map = ChosenMap();
+        _createdMap = map;
+        Start(c => c.CreateAsync(scenario, map));
     }
+
+    // The map list for the chosen scenario: its own map first, then the presets that fit it; keeps `select` if listed.
+    private void RefreshMaps(string? select)
+    {
+        _map.Clear();
+        _map.AddItem(MapChoices.DefaultLabel);
+        _map.SetItemMetadata(0, "");
+        foreach (var choice in MapChoices.For(ChosenScenario()))
+        {
+            _map.AddItem(choice.Name);
+            _map.SetItemMetadata(_map.ItemCount - 1, choice.Id);
+            if (choice.Id == select)
+            {
+                _map.Select(_map.ItemCount - 1);
+            }
+        }
+        if (select is null)
+        {
+            _map.Select(0);
+        }
+    }
+
+    private string? ChosenMap() => _map.ItemCount == 0 || _map.Selected < 0 || _map.GetItemMetadata(_map.Selected).AsString() is not { Length: > 0 } id ? null : id;
 
     // For the UI check.
     public string SummaryText => _summary.IsVisibleInTree() ? _summary.Text : "";
@@ -477,6 +509,7 @@ public partial class Main : Control
                 _scenario.Select(i);
             }
         }
+        RefreshMaps(_createdMap);
         if (hot)
         {
             StartHotSeat();
@@ -519,6 +552,8 @@ public partial class Main : Control
         }
         var scenario = ChosenScenario();
         _createdScenario = scenario;
+        var map = ChosenMap();
+        _createdMap = map;
         try
         {
             var server = await LocalServer.StartAsync(repository, LocalServer.DefaultDataDirectory(),
@@ -529,7 +564,7 @@ public partial class Main : Control
                 Endpoint = server.Endpoint,
                 // The local server runs with its default --rejoin-window of 300 seconds.
                 Policy = ReconnectPolicy.ForRejoinWindow(TimeSpan.FromSeconds(300)),
-            }), scenario, server);
+            }), scenario, map, server);
             _hotSeat = hot;
             hot.Busy = () => _board.Interaction.Pending is not null;
             hot.Other.Changed += () => System.Threading.Interlocked.Exchange(ref _changed, 1);
@@ -564,6 +599,7 @@ public partial class Main : Control
         }
         _server.Text = test.Server;
         _scenario.Select(Math.Max(0, ContentNames.Choices.ToList().IndexOf(test.Scenario)));
+        RefreshMaps(null);
         _code.Text = test.Code ?? "";
         RefreshSaved();
         switch (test.Mode)

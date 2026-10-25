@@ -51,25 +51,33 @@ public sealed class ContentNames
     // The tower layouts ("ranged-towers", towers proposal stage T3) come last, so the earlier choices keep their places.
     public static IReadOnlyList<string> Choices { get; } =
         ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3", "ranged-towers", "melee-towers",
-            "ranged-1v1-towers", "ranged-2v2-towers", "ranged-3v3-towers", "melee-1v1-towers", "melee-2v2-towers", "melee-3v3-towers"];
+            "ranged-1v1-towers", "ranged-2v2-towers", "ranged-3v3-towers", "melee-1v1-towers", "melee-2v2-towers", "melee-3v3-towers",
+            // Trench-maps stage S6: Scenario IV, Trench Warfare, on its map.
+            "ranged-trench-warfare", "melee-trench-warfare", "ranged-1v1-trench-warfare", "ranged-2v2-trench-warfare", "ranged-3v3-trench-warfare",
+            "melee-1v1-trench-warfare", "melee-2v2-trench-warfare", "melee-3v3-trench-warfare"];
 
     public const string TowersSuffix = "-towers";
+    public const string TrenchWarfareSuffix = "-trench-warfare";
+
+    // The roster part of a scenario name and the words for its map: ("melee-2v2", " with towers").
+    private static (string Roster, string Map) Split(string scenario) =>
+        scenario.EndsWith(TowersSuffix, StringComparison.Ordinal) ? (scenario[..^TowersSuffix.Length], " with towers")
+        : scenario.EndsWith(TrenchWarfareSuffix, StringComparison.Ordinal) ? (scenario[..^TrenchWarfareSuffix.Length], ", Trench Warfare")
+        : (scenario, "");
 
     // The words for a scenario in the create-match list: "ranged (normal roster)", "melee, 2 v 2 (test roster)",
     // "ranged with towers (normal roster)", "melee with towers, 1 v 1 (test roster)". Battlefield UI stage K7: the melee
     // warbands have shooters and fighters, so their normal roster says "melee (shooting and close combat)".
     public static string Label(string scenario)
     {
-        var towers = scenario.EndsWith(TowersSuffix, StringComparison.Ordinal);
-        var name = towers ? scenario[..^TowersSuffix.Length] : scenario;
-        var map = towers ? " with towers" : "";
+        var (name, map) = Split(scenario);
         return name is "ranged" or "melee"
             ? $"{name}{map} ({(name == "melee" ? "shooting and close combat" : "normal roster")})"
             : $"{name[..^4]}{map}, {name[^3]} v {name[^1]} (test roster)";
     }
 
     private static string BaseOf(string scenario) =>
-        scenario.EndsWith(TowersSuffix, StringComparison.Ordinal) ? BaseOf(scenario[..^TowersSuffix.Length])
+        Split(scenario).Roster != scenario ? BaseOf(Split(scenario).Roster)
         : scenario.Length > 4 && scenario[^4] == '-' && scenario[^2] == 'v' && char.IsAsciiDigit(scenario[^3]) && scenario[^3] == scenario[^1]
             ? scenario[..^4]
             : scenario;
@@ -93,7 +101,7 @@ public sealed class ContentNames
         {
             return Ids($"This client's content file {file} could not be read.");
         }
-        var sized = scenario.EndsWith(TowersSuffix, StringComparison.Ordinal) ? scenario[..^TowersSuffix.Length] : scenario;
+        var sized = Split(scenario).Roster;
         if (sized != BaseOf(sized))
         {
             // A test size: the first models of each warband, as Sim.ScenarioSetups builds it.

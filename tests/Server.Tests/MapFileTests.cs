@@ -32,8 +32,9 @@ public class MapFileTests
     public void EveryOfferedSetupIsUnchanged()
     {
         var all = ScenarioSetups.FromFolder(Path.Combine(Repository.Root(), "content"));
-        Assert.Equal(16, all.Count);
-        foreach (var (name, setup) in all)
+        // 16 Claim No Man's Land names, and since stage S6 eight Trench Warfare ones (TrenchWarfareTests).
+        Assert.Equal(24, all.Count);
+        foreach (var (name, setup) in all.Where(s => !s.Key.EndsWith(ScenarioSetups.TrenchWarfareSuffix, StringComparison.Ordinal)))
         {
             var coded = name.EndsWith(ScenarioSetups.TowersSuffix, StringComparison.Ordinal)
                 ? ClaimNoMansLand.CreateTowersSetup(setup.Models)
@@ -49,8 +50,12 @@ public class MapFileTests
     public void EveryMapFileLoadsAndNamesItsScenario()
     {
         var maps = MapFiles.LoadFolder(Maps);
-        Assert.Equal(["claim-no-mans-land", "claim-no-mans-land-towers"], maps.Keys.Order(StringComparer.Ordinal));
-        Assert.All(maps.Values, m => Assert.True(m.IsFor(ClaimNoMansLand.ScenarioId)));
+        // Since stage S7 with five presets (PresetMapTests).
+        Assert.Equal(["broken-line", "claim-no-mans-land", "claim-no-mans-land-towers", "crossfire", "dust", "ruined-village", "shell-holes", "trench-warfare"],
+            maps.Keys.Order(StringComparer.Ordinal));
+        string[] trench = [ScenarioSetups.TrenchWarfareMap, "dust", "broken-line"];
+        Assert.All(maps.Values.Where(m => !trench.Contains(m.Id)), m => Assert.True(m.IsFor(ClaimNoMansLand.ScenarioId)));
+        Assert.All(trench, id => Assert.True(maps[id].IsFor(Rules.Core.Scenarios.TrenchWarfare.ScenarioId)));
     }
 
     // Trench-maps stage S4: the largest base any content model has.

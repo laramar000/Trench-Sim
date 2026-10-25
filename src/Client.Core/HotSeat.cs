@@ -49,7 +49,11 @@ public sealed class HotSeat : IAsyncDisposable
     public event Action? Switched;
 
     // Creates the match as Seat One and joins it as Seat Two. On failure everything started here is stopped again.
-    public static async Task<HotSeat> StartAsync(Func<MatchController> newController, string scenario, LocalServer? server,
+    public static Task<HotSeat> StartAsync(Func<MatchController> newController, string scenario, LocalServer? server,
+        CancellationToken cancellationToken = default) => StartAsync(newController, scenario, null, server, cancellationToken);
+
+    // Trench-maps stage S7: on one of the server's preset maps; a null map is the scenario's own.
+    public static async Task<HotSeat> StartAsync(Func<MatchController> newController, string scenario, string? map, LocalServer? server,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(newController);
@@ -57,7 +61,7 @@ public sealed class HotSeat : IAsyncDisposable
         MatchController? two = null;
         try
         {
-            if (await one.CreateAsync(scenario, cancellationToken) is not Welcome welcome)
+            if (await one.CreateAsync(scenario, map, cancellationToken) is not Welcome welcome)
             {
                 throw new LocalServerException("The server did not create the match.");
             }

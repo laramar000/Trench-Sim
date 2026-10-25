@@ -34,6 +34,7 @@ public static class Words
     public static string Decision(DecisionKind kind) => kind switch
     {
         DecisionKind.ChooseDeploymentZone => "choose a deployment zone",
+        DecisionKind.ChooseAttacker => "choose who attacks",
         DecisionKind.ChooseFirstActivation => "choose who activates first",
         DecisionKind.ChooseMoraleOrder => "choose which warband takes its Morale Check first",
         DecisionKind.FailedMorale => "choose what a failed Morale Check means (become Shaken, or Sound Retreat)",

@@ -1,0 +1,183 @@
+{
+  "format": 1,
+  "id": "dust",
+  "name": "Dust",
+  "notes": "Preset for Trench Warfare (stage S7), after the structure of a well-known two-site map, not its geometry: the defender holds two trench complexes, site A to the north and site B to the south, each an L, and a connector trench between them. The south is a long open approach with only wire and a few craters; the north is a tight route between ruined walls; the middle crossing has sandbags.",
+  "width": "36",
+  "height": "36",
+  "archetype": "no-mans-land",
+  "supports": [
+    "trench-warfare"
+  ],
+  "zones": [
+    {
+      "id": "west",
+      "rect": [
+        "0",
+        "0",
+        "6",
+        "36"
+      ]
+    },
+    {
+      "id": "east",
+      "rect": [
+        "30",
+        "0",
+        "36",
+        "36"
+      ]
+    }
+  ],
+  "objectives": [],
+  "terrain": [
+    {
+      "id": "site-b",
+      "parts": [
+        [
+          "31",
+          "2",
+          "33.5",
+          "10"
+        ],
+        [
+          "33.5",
+          "2",
+          "36",
+          "4.5"
+        ]
+      ],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "connector",
+      "rect": [
+        "32",
+        "13",
+        "34.5",
+        "21"
+      ],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "site-a",
+      "parts": [
+        [
+          "31",
+          "24",
+          "33.5",
+          "32"
+        ],
+        [
+          "33.5",
+          "29.5",
+          "36",
+          "32"
+        ]
+      ],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "wire-1",
+      "rect": [
+        "13",
+        "4",
+        "22",
+        "5.5"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "wire-2",
+      "rect": [
+        "23",
+        "9",
+        "27",
+        "10.5"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "crater-s",
+      "rect": [
+        "17",
+        "9.5",
+        "20",
+        "11"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "ruin-1",
+      "rect": [
+        "10",
+        "26",
+        "16",
+        "27"
+      ],
+      "profile": "wall"
+    },
+    {
+      "id": "ruin-2",
+      "rect": [
+        "10",
+        "30",
+        "16",
+        "31"
+      ],
+      "profile": "wall"
+    },
+    {
+      "id": "ruin-3",
+      "rect": [
+        "19",
+        "27",
+        "20",
+        "33"
+      ],
+      "profile": "wall"
+    },
+    {
+      "id": "ruin-4",
+      "rect": [
+        "23",
+        "29",
+        "27",
+        "32"
+      ],
+      "profile": "cover"
+    },
+    {
+      "id": "sandbags-1",
+      "rect": [
+        "14",
+        "15",
+        "17",
+        "18"
+      ],
+      "profile": "cover"
+    },
+    {
+      "id": "sandbags-2",
+      "rect": [
+        "21",
+        "18",
+        "24",
+        "21"
+      ],
+      "profile": "cover"
+    }
+  ]
+}

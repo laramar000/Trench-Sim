@@ -9,7 +9,7 @@ namespace Match.Cli;
 public static class CommandParser
 {
     public const string Help = """
-        zone <id>                 choose a deployment zone
+        zone <id>                 choose a deployment zone     attacker One|Two      Trench Warfare: who attacks
         deploy <model>            deploy (no battlefield)      place <model> <x,y>   set up at a point
         first One|Two             choose who activates first   order One|Two         Morale order
         activate <model>          start an activation          end                   end the activation
@@ -35,6 +35,7 @@ public static class CommandParser
             "deploy" => new DeployModel(seat, Model(One(args))),
             "place" => new PlaceModel(seat, Model(Arg(args, 0)), Point(Arg(args, 1))),
             "first" => new ChooseFirstActivation(seat, SeatName(One(args))),
+            "attacker" => new ChooseAttacker(seat, SeatName(One(args))),
             "order" => new ChooseMoraleOrder(seat, SeatName(One(args))),
             "activate" => new ActivateModel(seat, Model(One(args))),
             "end" => new EndActivation(seat),

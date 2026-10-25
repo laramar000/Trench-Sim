@@ -266,4 +266,5 @@ Listed so nothing is dropped silently. Each moves into the table above when a mi
 | Battlekit (weapons, grenades, shields, equipment) | Battlekit, p. 68 | With content that uses them |
 | Terrain types and battlefield archetypes | Trench Crusade Terrain, p. 58 | After M8 (M3 uses box terrain only) |
 | Campaign rules | Campaign Rules, p. 87 | Out of scope until after M8 |
+| Scenario IV, Trench Warfare | Scenarios, pp. 161-163 | Built in trench-maps stage S6 without Mine Markers or Glorious Deeds (U88) |
 | Other scenarios | Scenarios, from p. 144 (end page not verified) | After M8 |

@@ -1,5 +1,6 @@
 using Rules.Core.Events;
 using Rules.Core.Dice;
+using Rules.Core.State;
 
 namespace Sim;
 
@@ -41,6 +42,9 @@ public static class Narrator
         WarbandRecovered w => $"{w.Seat} recovers.",
         WarbandFled w => $"{w.Seat} flees ({w.Reason}).",
         ObjectivesScored o => $"Turn {o.Turn} scoring: {string.Join(", ", o.Results.Where(r => r.Controller is not null).Select(r => $"{r.ObjectiveId} to {r.Controller}"))}{(o.Results.All(r => r.Controller is null) ? "nobody controls an Objective" : "")}.",
+        AttackerChosen a => $"{a.Attacker} attacks; {a.Attacker.Opponent()} defends.",
+        TrenchesScored t => $"Turn {t.Turn} trench scoring: {string.Join(", ", t.Results.Select(r => $"{r.TrenchId} defender +{r.DefenderPoints}, attacker +{r.AttackerPoints}"))}.",
+        GameLengthRolled g => $"{g.Seat} rolls {g.Die} for the game's length: {(g.LastTurn == Rules.Core.Scenarios.TrenchWarfare.LengthRollTurn ? "the game ends now" : $"the game ends after Turn {g.LastTurn}")}.",
         MatchEnded m => $"MATCH ENDED: {(m.Winner is { } w ? $"{w} wins" : "draw")} ({m.Reason}).",
         _ => null,
     };

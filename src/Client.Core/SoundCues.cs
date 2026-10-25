@@ -20,7 +20,7 @@ public static class SoundCues
     public static SoundCue? Of(GameEvent e) => e switch
     {
         ActivationStarted => SoundCue.Activation,
-        ObjectivesScored => SoundCue.Scoring,
+        ObjectivesScored or TrenchesScored => SoundCue.Scoring,
         _ => DiceRolls.Of(e)?.Verdict switch
         {
             RollVerdict.Pass or RollVerdict.Critical => SoundCue.Pass,

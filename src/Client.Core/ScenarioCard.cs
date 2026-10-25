@@ -43,6 +43,10 @@ public static class ScenarioCard
             lines.Add("TRENCHES");
             lines.AddRange(TrenchLines(field.Battlefield.Terrain.Count(t => t.IsTrench), depth).Select(s => "  " + s));
         }
+        if (Rules.Core.Scenarios.TrenchWarfare.Is(state.Setup) && state.Setup!.Scenario is { } trenchField)
+        {
+            return TrenchCard(state, lines, trenchField, you);
+        }
         lines.Add("OBJECTIVES (who controls each now; click one to centre on it)");
         var rows = rules.ObjectiveIds.Order(StringComparer.Ordinal).Select(id =>
         {
@@ -69,6 +73,34 @@ public static class ScenarioCard
     }
 
     private static Seat Other(Seat seat) => seat == Seat.One ? Seat.Two : Seat.One;
+
+    // Trench-maps stage S6: Trench Warfare's rows are its scoring trench sections, with who is in each now and what it
+    // would score (Rules.Core.TrenchScores, the end-of-turn test itself).
+    private static ScenarioCardView TrenchCard(MatchState state, List<string> lines, Scenario field, Seat? you)
+    {
+        if (state.Attacker is { } attacker)
+        {
+            lines.Add($"ROLES: {Words.Seat(attacker)}{(attacker == you ? " (you)" : "")} attacks, {Words.Seat(attacker.Opponent())}{(attacker.Opponent() == you ? " (you)" : "")} defends.");
+        }
+        lines.Add("TRENCH SECTIONS (who is in each now; click one to centre on it)");
+        var results = TrenchScores.Now(state).ToDictionary(r => r.TrenchId, StringComparer.Ordinal);
+        var rows = Rules.Core.Scenarios.TrenchWarfare.ScoringSections(field.Battlefield).Select(t =>
+        {
+            var text = results.TryGetValue(t.Id, out var r)
+                ? $"{t.Id}: {r.Defenders} defending, {r.Attackers} attacking (defender +{r.DefenderPoints}, attacker +{r.AttackerPoints})"
+                : $"{t.Id}: the roles are not chosen yet";
+            return new ScenarioRow(t.Id, "=", null, text);
+        }).ToList();
+        string? projection = null;
+        if (state.Turn >= 1 && state.Outcome is null && state.Attacker is { } a)
+        {
+            var points = new Dictionary<Seat, int> { [a] = results.Values.Sum(r => r.AttackerPoints), [a.Opponent()] = results.Values.Sum(r => r.DefenderPoints) };
+            projection = you is { } me
+                ? $"{PreviewPrefix}you +{points[me]}, opponent +{points[Other(me)]}"
+                : $"{PreviewPrefix}{Words.Seat(Seat.One)} +{points[Seat.One]}, {Words.Seat(Seat.Two)} +{points[Seat.Two]}";
+        }
+        return new ScenarioCardView(Title, lines, rows, projection);
+    }
 
     // Towers proposal, stage T4: what the towers allow, in the rules' own numbers and with their provisional readings.
     // Trench-maps stage S3: what the trenches do, in words, with their rulings.

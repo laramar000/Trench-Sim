@@ -14,6 +14,7 @@ public enum DecisionKind
     SpendMarkersOnInjuryRoll,  // the attacker may spend the target's Blood Markers for +1 INJURY DICE each (p. 28)
     FreeFight,                 // a model retreats: its opponent may attack it with each engaged model (p. 37)
     ChooseFriendlyTarget,      // a shot into melee rolled 1-3: the shooter picks which of its own models is the target (p. 42)
+    ChooseAttacker,            // Trench Warfare: the roles roll-off winner chooses who attacks (p. 161)
 }
 
 // A choice only one player can make. While one is pending, nothing else may happen.
@@ -131,6 +132,14 @@ public sealed record MatchState
     public RetreatInProgress? Retreat { get; init; }
     public int ScoredTurn { get; init; }
     public MatchOutcome? Outcome { get; init; }
+
+    // Trench Warfare (trench-maps stage S6): the attacking seat once chosen, and the last Turn once the game-length
+    // roll has decided it. Null in every other scenario.
+    public Seat? Attacker { get; init; }
+    public int? LastTurn { get; init; }
+
+    // The Turn after which the game ends: the game-length roll's answer, else the setup's turn limit.
+    public int FinalTurn => LastTurn ?? Setup?.TurnLimit ?? 0;
 
     // A roll-off that has been rolled but not yet used (see RollOffResult).
     public RollOffResult? RollOff { get; init; }

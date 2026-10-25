@@ -30,6 +30,9 @@ public sealed record ResolveFailedMorale(Seat Seat, MoraleFailureChoice Choice) 
 
 public sealed record ChooseMoraleOrder(Seat Seat, Seat First) : Command;
 
+// Trench Warfare (p. 161): the roles roll-off winner chooses which seat attacks; the other defends.
+public sealed record ChooseAttacker(Seat Seat, Seat Attacker) : Command;
+
 // ---- M4: commands that need a battlefield (a MatchSetup with a Scenario) ----
 
 // Sets a model up at a point inside its deployment zone (Scenario I, p. 152). Replaces DeployModel when there is a battlefield.

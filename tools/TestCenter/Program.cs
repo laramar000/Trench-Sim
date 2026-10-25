@@ -163,7 +163,9 @@ public static class Program
 
     // The scenarios the server offers (Sim.ScenarioSetups): the normal rosters and the small test sizes.
     private static readonly string[] Scenarios = ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3", "ranged-towers", "melee-towers",
-        "ranged-1v1-towers", "ranged-2v2-towers", "ranged-3v3-towers", "melee-1v1-towers", "melee-2v2-towers", "melee-3v3-towers"];
+        "ranged-1v1-towers", "ranged-2v2-towers", "ranged-3v3-towers", "melee-1v1-towers", "melee-2v2-towers", "melee-3v3-towers",
+        "ranged-trench-warfare", "melee-trench-warfare", "ranged-1v1-trench-warfare", "ranged-2v2-trench-warfare", "ranged-3v3-trench-warfare",
+        "melee-1v1-trench-warfare", "melee-2v2-trench-warfare", "melee-3v3-trench-warfare"];
 
     private static bool Takes(string option) => option is "--godot" or "--client-args-a" or "--client-args-b";
 
@@ -175,7 +177,7 @@ public static class Program
 
     private static int Usage()
     {
-        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests | match [ranged|melee|ranged-1v1 ... melee-3v3, ranged-towers, melee-towers, ranged-1v1-towers ... melee-3v3-towers] | editor | check [<record>] | cleanup]");
+        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests | match [ranged|melee|ranged-1v1 ... melee-3v3, ranged-towers, melee-towers, ranged-1v1-towers ... melee-3v3-towers, ranged-trench-warfare ... melee-3v3-trench-warfare] | editor | check [<record>] | cleanup]");
         Console.WriteLine("         [--godot <path>] [--no-questions] [--opengl]");
         return 3;
     }

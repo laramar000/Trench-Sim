@@ -543,6 +543,14 @@ public partial class BoardView : SubViewportContainer
     {
         if (_scene?.Objective(id) is not { } objective)
         {
+            // Trench-maps stage S6: a Trench Warfare row names a trench section; centre on it, selecting nothing.
+            if (_scene?.Terrain.FirstOrDefault(t => t.Id == id) is { } piece)
+            {
+                _autoFit = false;
+                _target = new Vector3((float)piece.Area.CentreX, 0, (float)piece.Area.CentreY);
+                _focusKey = $"terrain:{piece.Id}";
+                PlaceCamera();
+            }
             return;
         }
         SelectObjective(objective.Id);

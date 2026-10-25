@@ -19,7 +19,7 @@ public class ScenarioMapTests
     [Fact]
     public void ClaimNoMansLandIsBuiltFromItsDefinitionExactlyAsBefore()
     {
-        foreach (var (name, setup) in Scenarios.All)
+        foreach (var (name, setup) in Scenarios.All.Where(s => s.Value.ScenarioId == ClaimNoMansLand.ScenarioId))
         {
             var coded = name.EndsWith(ScenarioSetups.TowersSuffix, StringComparison.Ordinal)
                 ? ClaimNoMansLand.CreateTowersSetup(setup.Models)

@@ -152,6 +152,10 @@ public sealed class MatchController : IAsyncDisposable
     public Task<ServerMessage> CreateAsync(string scenario, CancellationToken cancellationToken = default) =>
         StartAsync((s, ct) => s.CreateAsync(scenario, ct), cancellationToken);
 
+    // Trench-maps stage S7: on one of the server's preset maps; a null map is the scenario's own.
+    public Task<ServerMessage> CreateAsync(string scenario, string? map, CancellationToken cancellationToken = default) =>
+        map is null ? CreateAsync(scenario, cancellationToken) : StartAsync((s, ct) => s.CreateAsync(scenario, map, ct), cancellationToken);
+
     public Task<ServerMessage> JoinAsync(string code, CancellationToken cancellationToken = default) =>
         StartAsync((s, ct) => s.JoinAsync(code, ct), cancellationToken);
 

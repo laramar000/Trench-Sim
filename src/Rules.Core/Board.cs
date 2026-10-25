@@ -306,6 +306,32 @@ internal static class Board
 
     // ---- Objectives (Scenario I, p. 152) ----
 
+    // Trench Warfare (p. 163): each scoring trench section, with the defending and attacking models in it (U81: more
+    // than half the base in the trench network, in the section the trench test names; Down models count, as they do
+    // for Objectives) and the points each side scores for it.
+    public static IReadOnlyList<Events.TrenchResult> TrenchResults(MatchState state)
+    {
+        var field = ScenarioOf(state)!.Battlefield;
+        var attacker = state.Attacker!.Value;
+        var defenders = new Dictionary<string, int>(StringComparer.Ordinal);
+        var attackers = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var model in OnTable(state))
+        {
+            if (Trenches.Of(field, BodyOf(state, model)!) is { } trench)
+            {
+                var counts = model.Seat == attacker ? attackers : defenders;
+                counts[trench.Id] = counts.GetValueOrDefault(trench.Id) + 1;
+            }
+        }
+        return [.. Scenarios.TrenchWarfare.ScoringSections(field).Select(t =>
+        {
+            var d = defenders.GetValueOrDefault(t.Id);
+            var a = attackers.GetValueOrDefault(t.Id);
+            var (dp, ap) = Scenarios.TrenchWarfare.Points(d, a);
+            return new Events.TrenchResult(t.Id, d, a, dp, ap);
+        })];
+    }
+
     // The seat that controls the Objective piece, if any: more friendly models on, in or within 1" than enemy models;
     // but if exactly one side has models on the piece, that side controls it. "On" is read as more than half the base
     // on the piece (U36); Down models count, Out of Action ones are off the table.

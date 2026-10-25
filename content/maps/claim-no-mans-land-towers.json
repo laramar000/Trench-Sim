@@ -2,7 +2,7 @@
   "format": 1,
   "id": "claim-no-mans-land-towers",
   "name": "Claim No Man's Land with towers and trenches",
-  "notes": "Fixed layout for Scenario I (1.0.2 pp. 151-153). The book prints no table size, zone depth or terrain, so these are chosen (U32). Two 2\" towers with ladders on their west and east sides (towers proposal). 1\" deep trenches in both deployment zones, mirrored (trench-maps stage S3): to the south a section with a bend, to the north two straight sections joined end to end. A test layout, not a No Man's Land set-up: the towers stand 2\" from the objectives and the bent trenches 2.2\" from the rough ground, closer than p. 65's 3\", so it names no archetype (trench-maps stage S4).",
+  "notes": "Fixed layout for Scenario I (1.0.2 pp. 151-153). The book prints no table size, zone depth or terrain, so these are chosen (U32). Two 2\" towers with ladders on their west and east sides (towers proposal). 1\" deep trenches in both deployment zones, mirrored (trench-maps stage S3): to the south a section with a bend, to the north two straight sections joined end to end. A test layout, not a No Man's Land set-up: the towers stand 2.5\" from the objectives and the bent trenches 2.2\" from the rough ground, closer than p. 65's 3\", so it names no archetype (trench-maps stage S4).",
   "width": "36",
   "height": "36",
   "supports": ["claim-no-mans-land"],

@@ -33,6 +33,7 @@ C# code. The format is described at the top of `src/Sim/MapFiles.cs`.
 | Id | Scenario | Notes |
 | --- | --- | --- |
 | `claim-no-mans-land` | Claim No Man's Land | The fixed layout (U32) |
+| `trench-warfare` | Trench Warfare | Stage S6: three 8" trench sections in the east zone (the defender's, U88), No Man's Land terrain between the zones. Server names `ranged-trench-warfare`, `melee-2v2-trench-warfare` and so on |
 | `claim-no-mans-land-towers` | Claim No Man's Land | The same layout with two 2" towers and, since stage S3, six 1" trench sections in the deployment zones (the Test Center's default map). A test layout closer than No Man's Land spacing, so it names no archetype |
 
 `ClaimNoMansLand.Create` and `CreateWithTowers` in Rules.Core build the same two layouts in code. They stay as the

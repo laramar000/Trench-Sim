@@ -49,7 +49,11 @@ public sealed record MatchView(
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(names);
         var setup = state.Setup;
-        var turn = setup is null ? "" : state.Turn == 0 ? $"Turn limit {setup.TurnLimit}" : $"Turn {state.Turn} of {setup.TurnLimit}";
+        // Trench Warfare (trench-maps stage S6): 4 or 5 Turns until the attacker's game-length roll says which.
+        var last = Rules.Core.Scenarios.TrenchWarfare.Is(setup) && state.LastTurn is null
+            ? $"{Rules.Core.Scenarios.TrenchWarfare.LengthRollTurn} or {Rules.Core.Scenarios.TrenchWarfare.TurnLimit}"
+            : state.FinalTurn.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var turn = setup is null ? "" : state.Turn == 0 ? $"Turn limit {last}" : $"Turn {state.Turn} of {last}";
         var (whose, yours) = Whose(state, you);
         var seats = new[] { Seat.One, Seat.Two }.Select(s =>
         {

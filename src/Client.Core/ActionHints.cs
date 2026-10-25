@@ -53,7 +53,7 @@ public static class ActionHints
     // activates or takes the Morale Check first, a failed Morale Check, a deployment without a battlefield, starting the
     // match). They are shown on a card over the battlefield; the others are on the battlefield's bars, next to a model.
     public static bool IsDecision(Command command) =>
-        command is StartMatch or ChooseDeploymentZone or ChooseFirstActivation or ChooseMoraleOrder or ResolveFailedMorale or DeployModel;
+        command is StartMatch or ChooseDeploymentZone or ChooseAttacker or ChooseFirstActivation or ChooseMoraleOrder or ResolveFailedMorale or DeployModel;
 
     // The card's heading for those choices.
     public static string DecisionTitle(IEnumerable<Command> commands)
@@ -62,6 +62,7 @@ public static class ActionHints
         return commands.FirstOrDefault(IsDecision) switch
         {
             ChooseDeploymentZone => "YOUR CHOICE: which deployment zone you take",
+            ChooseAttacker => "YOUR CHOICE: who attacks the trenches",
             ChooseFirstActivation => "YOUR CHOICE: who activates first",
             ChooseMoraleOrder => "YOUR CHOICE: who takes the Morale Check first",
             ResolveFailedMorale => "YOUR CHOICE: your warband failed its Morale Check",
@@ -74,6 +75,7 @@ public static class ActionHints
     public static string Label(Command command, MatchState state, ContentNames names) => command switch
     {
         ChooseDeploymentZone z => $"Take the {z.ZoneId} deployment zone",
+        ChooseAttacker a => a.Attacker == a.Seat ? "Attack: the opponent defends the trenches" : "Defend the trenches: the opponent attacks",
         DeployModel d => $"Deploy {names.Of(d.Model)}",
         ChooseFirstActivation f => f.First == f.Seat ? "Activate first yourself" : "Let the opponent activate first",
         ChooseMoraleOrder m => m.First == m.Seat ? "Take your Morale Check first" : "Let the opponent take its Morale Check first",

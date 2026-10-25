@@ -20,6 +20,10 @@ public sealed record ScenarioRules(
 {
     public static ScenarioRules? Of(MatchSetup? setup)
     {
+        if (setup?.Scenario is { } trenches && TrenchWarfare.Is(setup))
+        {
+            return TrenchWarfareRules(setup, trenches);
+        }
         if (setup?.Scenario is not { } scenario || setup.ScenarioId != ClaimNoMansLand.ScenarioId)
         {
             return null;
@@ -44,6 +48,37 @@ public sealed record ScenarioRules(
             [
                 "The table, deployment zones and terrain are a fixed layout: the book does not print them (U32).",
                 "What counts as \"on\" an Objective is an interpretation (U36).",
+                "Equal Victory Points being a draw is an interpretation: the book is silent on a tie (U40).",
+            ]);
+    }
+
+    // Trench-maps stage S6: Scenario IV.
+    private static ScenarioRules TrenchWarfareRules(MatchSetup setup, Scenario scenario)
+    {
+        var sections = TrenchWarfare.ScoringSections(scenario.Battlefield);
+        return new ScenarioRules(
+            TrenchWarfare.ScenarioId,
+            "Trench Warfare (Scenario IV)",
+            "1.0.2 pp. 161-163",
+            [],
+            0,
+            setup.TurnLimit,
+            [
+                $"At the end of each Turn, each trench section at least {TrenchWarfare.ScoringLength} long ({string.Join(", ", sections.Select(t => t.Id))}) scores:",
+                $"the defender {TrenchWarfare.DefenderHeld} VP if a defending model is in it, {TrenchWarfare.DefenderAlone} VP if no attacking model is;",
+                $"the attacker {TrenchWarfare.AttackerHeld} VP if an attacking model is in it, {TrenchWarfare.AttackerAlone} VP if no defending model is.",
+                "A model is in a trench when more than half its base is in the trench network (U81). Down models count; Out of Action models do not.",
+            ],
+            [
+                $"At the end of Turn {TrenchWarfare.LengthRollTurn} the attacker rolls a D6: on 1-{TrenchWarfare.EndsOnOrBelow} the game ends, otherwise it ends after Turn {TrenchWarfare.TurnLimit}. The warband with more Victory Points wins; equal points are a draw.",
+                "A warband with no model left on the battlefield loses at once.",
+                "A warband that flees (a failed Morale test while Shaken, or choosing to Sound the Retreat) loses at once (p. 50).",
+            ],
+            [
+                "A roll-off decides the roles: its winner chooses who attacks (a one-off game, p. 161). The attacker deploys first, then the players alternate (p. 162).",
+                "The defender takes the deployment zone with the map's trench lines and the attacker the other: the zone roll-off is not played (U88).",
+                "A trench section's length is the longer side of the rectangle around it (U88).",
+                "Not built yet: Mine Markers and duds, Glorious Deeds, the defender's halved ducats and Infiltrators.",
                 "Equal Victory Points being a draw is an interpretation: the book is silent on a tie (U40).",
             ]);
     }

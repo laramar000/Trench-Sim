@@ -32,6 +32,12 @@ public static class ScenarioSetups
             {
                 all[$"{name}-{size}v{size}{TowersSuffix}"] = Setup(path, maps[TowersMap], size);
             }
+            // Trench-maps stage S6: Scenario IV on its map ("ranged-trench-warfare", "melee-2v2-trench-warfare").
+            all[name + TrenchWarfareSuffix] = Setup(path, maps[TrenchWarfareMap], definition: TrenchWarfare.Definition);
+            foreach (var size in TestSizes)
+            {
+                all[$"{name}-{size}v{size}{TrenchWarfareSuffix}"] = Setup(path, maps[TrenchWarfareMap], size, TrenchWarfare.Definition);
+            }
         }
         return all;
     }
@@ -46,18 +52,22 @@ public static class ScenarioSetups
     public static MatchSetup Setup(string contentPath, int? size = null, bool towers = false) =>
         Setup(contentPath, MapFiles.Load(Path.Combine(MapFiles.FolderNextTo(contentPath), (towers ? TowersMap : PlainMap) + ".json")), size);
 
-    public static MatchSetup Setup(string contentPath, MapDefinition map, int? size = null)
+    public static MatchSetup Setup(string contentPath, MapDefinition map, int? size = null, ScenarioDefinition? definition = null)
     {
         var warbands = Content.Load(contentPath);
         var take = size ?? int.MaxValue;
         var models = warbands[0].Models.Take(take).Select((m, i) => new SetupModel(new ModelId($"a{i + 1}"), Seat.One, m.Profile))
             .Concat(warbands[1].Models.Take(take).Select((m, i) => new SetupModel(new ModelId($"b{i + 1}"), Seat.Two, m.Profile)));
-        return OnMap(ClaimNoMansLand.Definition, map, models, RulesProfile.Default);
+        return OnMap(definition ?? ClaimNoMansLand.Definition, map, models, RulesProfile.Default);
     }
 
     // Trench-maps stage S5: the scenarios this build plays, by id.
     public static readonly IReadOnlyDictionary<string, ScenarioDefinition> Definitions =
-        new Dictionary<string, ScenarioDefinition>(StringComparer.Ordinal) { [ClaimNoMansLand.ScenarioId] = ClaimNoMansLand.Definition };
+        new Dictionary<string, ScenarioDefinition>(StringComparer.Ordinal)
+        {
+            [ClaimNoMansLand.ScenarioId] = ClaimNoMansLand.Definition,
+            [TrenchWarfare.ScenarioId] = TrenchWarfare.Definition,
+        };
 
     // The same match on another map: the setup's scenario, models and rules profile, with the map's battlefield.
     // Refused (MapFormatException) when the map is not made for the scenario or does not fit what it needs.
@@ -113,4 +123,8 @@ public static class ScenarioSetups
     // ClaimNoMansLand.Create and CreateWithTowers, which stay in Rules.Core as the reference the map tests compare with.
     public const string PlainMap = "claim-no-mans-land";
     public const string TowersMap = "claim-no-mans-land-towers";
+
+    // Trench-maps stage S6.
+    public const string TrenchWarfareSuffix = "-trench-warfare";
+    public const string TrenchWarfareMap = "trench-warfare";
 }

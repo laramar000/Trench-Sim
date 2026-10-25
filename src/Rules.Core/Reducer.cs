@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Rules.Core.Dice;
 using Rules.Core.Events;
 using Rules.Core.Geometry;
+using Rules.Core.Scenarios;
 using Rules.Core.State;
 
 namespace Rules.Core;
@@ -84,6 +85,9 @@ public static class Reducer
             MeleeSuccessRolled x => OnMeleeSuccessRolled(state, x),
             ShootingTargetRolled x => OnShootingTargetRolled(state, x),
             FriendlyTargetChosen x => OnFriendlyTargetChosen(state, x),
+            AttackerChosen x => OnAttackerChosen(state, x),
+            TrenchesScored x => OnTrenchesScored(state, x),
+            GameLengthRolled x => OnGameLengthRolled(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
     }
@@ -108,9 +112,17 @@ public static class Reducer
                 RollOffPurpose.DeploymentZone => e is PhaseEntered { Phase: Phase.Deployment }
                     || e is DecisionRequested { Kind: DecisionKind.ChooseDeploymentZone },
                 RollOffPurpose.DeploymentOrder => e is DeploymentOrderSet,
+                RollOffPurpose.Roles => e is PhaseEntered { Phase: Phase.Deployment }
+                    || e is DecisionRequested { Kind: DecisionKind.ChooseAttacker },
                 _ => e is InitiativeDetermined,
             };
             Require(uses, $"The {rollOff.Purpose} roll-off has to be used before anything else happens.");
+            return;
+        }
+
+        if (LengthRollOwed(state))
+        {
+            Require(e is GameLengthRolled, "At the end of Turn 4 the attacker rolls for the game's length.");
             return;
         }
 
@@ -184,7 +196,7 @@ public static class Reducer
         {
             return OutcomeReason.AllEnemiesOutOfAction;
         }
-        if (state.Phase == Phase.Morale && state.TurnEnded && state.Turn >= state.Setup!.TurnLimit)
+        if (state.Phase == Phase.Morale && state.TurnEnded && state.Turn >= state.FinalTurn && !LengthRollOwed(state))
         {
             return scenario is null ? OutcomeReason.FinalTurnComplete : OutcomeReason.VictoryPoints;
         }
@@ -225,7 +237,11 @@ public static class Reducer
         switch (e.Purpose)
         {
             case RollOffPurpose.DeploymentZone:
-                Require(state.Phase == Phase.PreGame && state.Pending is null, "The deployment-zone roll-off comes first, before Deployment.");
+                Require(state.Phase == Phase.PreGame && state.Pending is null && !TrenchWarfare.Is(state.Setup), "The deployment-zone roll-off comes first, before Deployment.");
+                break;
+            case RollOffPurpose.Roles:
+                Require(state.Phase == Phase.PreGame && state.Pending is null && TrenchWarfare.Is(state.Setup) && state.Attacker is null,
+                    "In Trench Warfare the roles roll-off comes first, before Deployment.");
                 break;
             case RollOffPurpose.DeploymentOrder:
                 Require(state.Phase == Phase.Deployment && state.Pending is null && state.One.ZoneId is not null && state.DeploymentFirst is null
@@ -251,6 +267,11 @@ public static class Reducer
             case DecisionKind.ChooseDeploymentZone:
                 Require(state.Phase == Phase.Deployment && state.One.ZoneId is null, "Zones are chosen once, at the start of Deployment.");
                 Require(state.RollOff == new RollOffResult(RollOffPurpose.DeploymentZone, e.Seat), "The winner of the deployment-zone roll-off chooses the zone.");
+                state = state with { RollOff = null };
+                break;
+            case DecisionKind.ChooseAttacker:
+                Require(state.Phase == Phase.Deployment && state.Attacker is null && state.One.ZoneId is null, "The roles are chosen once, at the start of Deployment.");
+                Require(state.RollOff == new RollOffResult(RollOffPurpose.Roles, e.Seat), "The winner of the roles roll-off chooses who attacks.");
                 state = state with { RollOff = null };
                 break;
             case DecisionKind.ChooseFirstActivation:
@@ -311,6 +332,12 @@ public static class Reducer
     {
         Require(state.Phase == Phase.Deployment && state.Pending is null && state.One.ZoneId is not null && state.DeploymentFirst is null,
             "Deployment order is set once, after the zones are chosen.");
+        // Trench Warfare: the attacker deploys first (p. 162).
+        if (state.Attacker is { } attacker)
+        {
+            Require(state.RollOff is null && e.First == attacker, "In Trench Warfare the attacker deploys first.");
+            return state with { DeploymentFirst = e.First };
+        }
         // The warband with more models deploys first; equal warbands roll off and the winner starts (p. 152, R7).
         var one = TurnRules.WarbandSize(state, Seat.One);
         var two = TurnRules.WarbandSize(state, Seat.Two);
@@ -348,7 +375,7 @@ public static class Reducer
         switch ((state.Phase, e.Phase))
         {
             case (Phase.PreGame, Phase.Deployment):
-                Require(state.RollOff is { Purpose: RollOffPurpose.DeploymentZone }, "Deployment starts after the deployment-zone roll-off.");
+                Require(state.RollOff is { Purpose: RollOffPurpose.DeploymentZone or RollOffPurpose.Roles }, "Deployment starts after the deployment-zone (or roles) roll-off.");
                 break;
             case (Phase.Initiative, Phase.Activation):
                 Require(state.FirstActivator is not null, "Nobody has chosen who activates first.");
@@ -365,7 +392,7 @@ public static class Reducer
     private static MatchState OnTurnStarted(MatchState state, TurnStarted e)
     {
         Require(e.Turn == state.Turn + 1, "Turns count up by one.");
-        Require(e.Turn <= state.Setup!.TurnLimit, "The match has no more turns.");
+        Require(e.Turn <= state.FinalTurn, "The match has no more turns.");
         if (state.Phase == Phase.Deployment)
         {
             Require(state.Turn == 0 && state.Models.All(m => m.Deployed) && state.Pending is null, "Deployment is not finished.");
@@ -518,6 +545,7 @@ public static class Reducer
             && TurnRules.MoraleRemaining(state).Count == 0 && !state.One.Fled && !state.Two.Fled,
             "The turn cannot end yet.");
         Require(Board.ScenarioOf(state) is not { ObjectiveIds.Length: > 0 } || state.ScoredTurn == state.Turn, "The turn's Objectives have not been scored.");
+        Require(!TrenchWarfare.Is(state.Setup) || state.ScoredTurn == state.Turn, "The turn's trench sections have not been scored.");
         return state with { TurnEnded = true };
     }
 
@@ -540,7 +568,7 @@ public static class Reducer
                     "A winner by elimination needs a warband with no models left on the battlefield.");
                 break;
             case OutcomeReason.VictoryPoints:
-                Require(scenario is not null && state.Phase == Phase.Morale && state.TurnEnded && state.Turn == state.Setup!.TurnLimit
+                Require(scenario is not null && state.Phase == Phase.Morale && state.TurnEnded && state.Turn == state.FinalTurn
                     && !state.One.Fled && !state.Two.Fled && e.Winner == WinnerByPoints(state),
                     "The winner must be the warband with more Victory Points once the final turn is complete.");
                 break;
@@ -947,6 +975,49 @@ public static class Reducer
             Two = state.Two with { VictoryPoints = two },
             ScoredTurn = state.Turn,
         };
+    }
+
+    // ---- Trench Warfare (trench-maps stage S6) ----
+
+    // The end of Turn 4 of Trench Warfare, before the attacker's game-length roll.
+    internal static bool LengthRollOwed(MatchState state) =>
+        TrenchWarfare.Is(state.Setup) && state.Phase == Phase.Morale && state.TurnEnded && state.Turn == TrenchWarfare.LengthRollTurn
+        && state.LastTurn is null && !state.One.Fled && !state.Two.Fled;
+
+    private static MatchState OnAttackerChosen(MatchState state, AttackerChosen e)
+    {
+        Require(state.Pending == new PendingDecision(DecisionKind.ChooseAttacker, e.Seat), "No choice of attacker is pending for that seat.");
+        Require(Enum.IsDefined(e.Attacker), "Unknown seat.");
+        var zones = state.Setup!.ZoneIds;
+        var defenderZone = TrenchWarfare.DefenderZone(Board.ScenarioOf(state)!.Battlefield);
+        Require(defenderZone is not null && zones.Contains(defenderZone), "The map has no trench lines in a deployment zone.");
+        var attackerZone = zones[0] == defenderZone ? zones[1] : zones[0];
+        var next = TurnRules.WithSeat(state, e.Attacker, state.SeatFor(e.Attacker) with { ZoneId = attackerZone });
+        next = TurnRules.WithSeat(next, e.Attacker.Opponent(), next.SeatFor(e.Attacker.Opponent()) with { ZoneId = defenderZone });
+        return next with { Pending = null, Attacker = e.Attacker };
+    }
+
+    private static MatchState OnTrenchesScored(MatchState state, TrenchesScored e)
+    {
+        Require(TrenchWarfare.Is(state.Setup) && state.Attacker is not null && state.Phase == Phase.Morale && !state.TurnEnded && state.Pending is null
+            && TurnRules.MoraleRemaining(state).Count == 0 && e.Turn == state.Turn && state.ScoredTurn < state.Turn, "Trench sections are scored once, at the end of a turn.");
+        Require(Board.TrenchResults(state).SequenceEqual(e.Results), "The scores must match who is in each trench section.");
+        var attacker = state.Attacker!.Value;
+        var defending = e.Results.Sum(r => r.DefenderPoints);
+        var attacking = e.Results.Sum(r => r.AttackerPoints);
+        var next = TurnRules.WithSeat(state, attacker, state.SeatFor(attacker) with { VictoryPoints = state.SeatFor(attacker).VictoryPoints + attacking });
+        next = TurnRules.WithSeat(next, attacker.Opponent(), next.SeatFor(attacker.Opponent()) with { VictoryPoints = next.SeatFor(attacker.Opponent()).VictoryPoints + defending });
+        return next with { ScoredTurn = state.Turn };
+    }
+
+    private static MatchState OnGameLengthRolled(MatchState state, GameLengthRolled e)
+    {
+        Require(LengthRollOwed(state), "The game-length roll is made once, at the end of Turn 4.");
+        Require(e.Seat == state.Attacker, "The attacker rolls for the game's length.");
+        Require(e.Die is >= 1 and <= 6, "A D6 is 1 to 6.");
+        Require(e.LastTurn == (e.Die <= TrenchWarfare.EndsOnOrBelow ? TrenchWarfare.LengthRollTurn : TrenchWarfare.TurnLimit),
+            "On a 1 or 2 the game ends now; on a 3 or more it ends after Turn 5.");
+        return state with { LastTurn = e.LastTurn };
     }
 
     private static void Require(bool condition, string message)
