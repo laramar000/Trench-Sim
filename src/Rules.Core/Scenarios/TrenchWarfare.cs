@@ -9,9 +9,9 @@ namespace Rules.Core.Scenarios;
 // Built: the attacker and defender roll-off, whose winner chooses who attacks (p. 161, a one-off game); the defender
 // takes the deployment zone holding the map's trench lines and the attacker the other (U88); the attacker deploys
 // first and the players alternate (p. 162); at the end of each Turn each trench section at least 8" long scores (p. 163);
-// at the end of Turn 4 the attacker rolls a D6 and on 1-2 the game ends, otherwise after Turn 5 (p. 162).
-// Not built (listed on the scenario card): Mine Markers and duds, Glorious Deeds, the defender's halved ducats,
-// Infiltrators.
+// at the end of Turn 4 the attacker rolls a D6 and on 1-2 the game ends, otherwise after Turn 5 (p. 162); the defender's
+// 12 Mine Markers with 4 secret duds (p. 162, U93; Geometry/Mines.cs).
+// Not built (listed on the scenario card): Glorious Deeds, the defender's halved ducats, Infiltrators.
 public static class TrenchWarfare
 {
     public const string ScenarioId = "trench-warfare";

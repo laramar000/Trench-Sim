@@ -15,6 +15,7 @@ public enum DecisionKind
     FreeFight,                 // a model retreats: its opponent may attack it with each engaged model (p. 37)
     ChooseFriendlyTarget,      // a shot into melee rolled 1-3: the shooter picks which of its own models is the target (p. 42)
     ChooseAttacker,            // Trench Warfare: the roles roll-off winner chooses who attacks (p. 161)
+    LayMines,                  // Trench Warfare: the defender sets up the Mine Markers and secretly picks the duds (p. 162)
 }
 
 // A choice only one player can make. While one is pending, nothing else may happen.
@@ -105,6 +106,22 @@ public sealed record RollInProgress(
 // models that have attacked; Closed means the opponent declined the rest.
 public sealed record RetreatInProgress(ModelId Model, ImmutableArray<Point2> Path, ImmutableArray<ModelId> Fought, bool Closed = false);
 
+// A move halted by a Mine Marker (Trench Warfare, p. 162; U93), between the move event and the rest of the move. Path is
+// the move's whole path, Stops every halt on it in order, Index the halt the model is at. Revealed: the marker there has
+// been revealed; Live: it was live and its Injury Roll is still to come. EndsActivation: the move ends the activation
+// once it is finished (a failed side climb, U75).
+public sealed record MineStop(
+    ModelId Model,
+    ImmutableArray<Point2> Path,
+    ImmutableArray<MineStopPoint> Stops,
+    int Index = 0,
+    bool Revealed = false,
+    bool Live = false,
+    bool EndsActivation = false)
+{
+    public MineStopPoint Current => Stops[Index];
+}
+
 // The whole match at one moment. Immutable: only Reducer.Apply produces a new one, one event at a time.
 // ImmutableArray fields compare by reference, so compare states by StateHash, not by ==.
 public sealed record MatchState
@@ -137,6 +154,15 @@ public sealed record MatchState
     // roll has decided it. Null in every other scenario.
     public Seat? Attacker { get; init; }
     public int? LastTurn { get; init; }
+
+    // Trench Warfare's Mine Markers (p. 162): those still on the table, whether they have been set up, and the duds. The
+    // duds are secret: a view that does not know them (the attacker's) has DudsKnown false and Duds empty, and the state
+    // hash leaves both out, so every view hashes the same.
+    public ImmutableArray<MineMarker> Mines { get; init; } = [];
+    public bool MinesLaid { get; init; }
+    public ImmutableArray<string> Duds { get; init; } = [];
+    public bool DudsKnown { get; init; }
+    public MineStop? MineStop { get; init; }
 
     // The Turn after which the game ends: the game-length roll's answer, else the setup's turn limit.
     public int FinalTurn => LastTurn ?? Setup?.TurnLimit ?? 0;

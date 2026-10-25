@@ -47,6 +47,10 @@ public static class EventText
         AttackerChosen a => $"{a.Attacker} attacks; {a.Attacker.Opponent()} defends.",
         TrenchesScored t => $"Turn {t.Turn} trench scoring: {string.Join(", ", t.Results.Select(r => $"{r.TrenchId} defender +{r.DefenderPoints}, attacker +{r.AttackerPoints}"))}.",
         GameLengthRolled g => $"{g.Seat} rolls {g.Die} for the game's length: {(g.LastTurn == Rules.Core.Scenarios.TrenchWarfare.LengthRollTurn ? "the game ends now" : $"the game ends after Turn {g.LastTurn}")}.",
+        MinesLaid l => $"{l.Seat} sets up {l.Markers.Length} Mine Markers; {Rules.Core.Geometry.Mines.Duds} of them are secret duds.",
+        MineRevealed r => $"  {r.Model} halts by {r.Marker}: {(r.Live ? "a live mine" : "a dud")}.",
+        MineExploded x => $"  {x.Marker} explodes under {x.Model}: Injury Roll {x.Injury.Total}: {x.Injury.Outcome}, and SHRAPNEL adds a Blood Marker.",
+        MoveResumed m => m.Path.IsEmpty ? $"  {m.Model} carries on." : $"  {m.Model} carries on to {m.Path[^1]}.",
         MatchEnded m => $"MATCH ENDED: {(m.Winner is { } w ? $"{w} wins" : "draw")} ({m.Reason}).",
         _ => null,
     };
@@ -88,6 +92,15 @@ public static class EventText
         MeleeAttackDeclared m => new(Id(m.Attacker), m.FreeFight ? "ATTACKS" : "FIGHTS", Id(m.Target) + (m.FreeFight ? " (retreating)" : "") + (m.DefendedObstacleId is { } o ? $" (defended obstacle: {o})" : "")),
         MeleeSuccessRolled r => new(Id(r.Attacker), "ROLLS", $"{r.Check.Dice.Total} to hit {Id(r.Target)}: {r.Check.Outcome}"),
         FriendlyTargetChosen f => new(Id(f.Attacker), "MUST SHOOT", $"its own {Id(f.Victim)}"),
+        MineRevealed r => new(Id(r.Model), "HALTS", $"by {r.Marker}: {(r.Live ? "LIVE MINE" : "a dud")}"),
+        MineExploded x => x.Injury.Outcome switch
+        {
+            InjuryOutcome.OutOfAction => new(Id(x.Model), "BLOWN UP", $"by {x.Marker} (Out of Action)"),
+            InjuryOutcome.Down => new(Id(x.Model), "BLOWN DOWN", $"by {x.Marker}"),
+            InjuryOutcome.MinorHit => new(Id(x.Model), "HIT", $"by {x.Marker} (Minor Hit, +1 SHRAPNEL)"),
+            _ => new(Id(x.Model), "HIT", $"by {x.Marker} (No Effect, +1 SHRAPNEL)"),
+        },
+        MoveResumed m => new(Id(m.Model), "CARRIES ON", m.Path.IsEmpty ? "" : $"→ {At(m.Path[^1])}"),
         InjuryRolled i => i.Injury.Outcome switch
         {
             InjuryOutcome.OutOfAction => new(Id(i.Attacker), "KILLS", $"{Id(i.Target)} (Out of Action)"),
@@ -116,6 +129,8 @@ public static class EventText
             _ => RowOutcome.Failure,
         },
         ChargeMoved c => c.Reached && !c.Path.IsEmpty ? RowOutcome.Success : RowOutcome.Failure,
+        // From the moving model's side: a dud is a relief, a live mine is not.
+        MineRevealed r => r.Live ? RowOutcome.Failure : RowOutcome.Success,
         _ => RowOutcome.None,
     };
 
@@ -139,14 +154,14 @@ public static class EventText
     // What kind of event it is, for the event list's tag and colour (QoL stage D). Display only.
     public static EventKind Kind(GameEvent e) => e switch
     {
-        MatchCreated or RollOffResolved or DeploymentZoneChosen or DeploymentOrderSet or ModelDeployed or AttackerChosen => EventKind.Setup,
+        MatchCreated or RollOffResolved or DeploymentZoneChosen or DeploymentOrderSet or ModelDeployed or AttackerChosen or MinesLaid => EventKind.Setup,
         TurnStarted or TurnEnded or PhaseEntered or InitiativeDetermined or FirstActivationChosen or MoraleOrderSet => EventKind.Turn,
         ActivationStarted or ActivationEnded => EventKind.Activation,
-        ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved => EventKind.Movement,
+        ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved or MineRevealed or MoveResumed => EventKind.Movement,
         RangedAttackDeclared or ShootingTargetRolled or FriendlyTargetChosen or RangedSuccessRolled => EventKind.Shooting,
         ChargeDeclared or ChargeRolled or ChargeMoved => EventKind.Charge,
         MeleeAttackDeclared or MeleeSuccessRolled or FreeFightsDeclined => EventKind.Fight,
-        InjuryRolled or MarkersSpent => EventKind.Injury,
+        InjuryRolled or MarkersSpent or MineExploded => EventKind.Injury,
         ModelStoodUp or MoraleCheckRolled or WarbandShaken or WarbandRecovered or WarbandFled => EventKind.Status,
         DecisionRequested => EventKind.Decision,
         ObjectivesScored or TrenchesScored => EventKind.Scoring,
@@ -183,6 +198,7 @@ public static class EventText
         MeleeSuccessRolled m => Faces(m.Check.Dice, m.Check.NetDice),
         MoraleCheckRolled m => Faces(m.Check.Dice, m.Check.NetDice),
         InjuryRolled i => Faces(i.Injury.Dice, i.Injury.NetDice) + (i.Injury.Modifier == 0 ? "" : $", modifier {i.Injury.Modifier:+0;-0}"),
+        MineExploded x => Faces(x.Injury.Dice, x.Injury.NetDice) + (x.Injury.Modifier == 0 ? "" : $", modifier {x.Injury.Modifier:+0;-0}"),
         ChargeRolled c => $"Dice: D6 {c.Die}",
         ShootingTargetRolled t => $"Dice: D6 {t.Die}",
         GameLengthRolled g => $"Dice: D6 {g.Die}",

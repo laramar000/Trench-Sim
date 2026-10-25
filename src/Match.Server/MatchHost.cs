@@ -93,7 +93,7 @@ internal sealed class MatchHost
             _started = true;
         }
         _outbox.Send(connection, WelcomeFor(seat, token, replayFrom: 0));
-        _outbox.SendBacklog(connection, _log);
+        _outbox.SendBacklog(connection, ViewOf(seat, _log));
 
         if (starts)
         {
@@ -159,7 +159,7 @@ internal sealed class MatchHost
         }
 
         _outbox.Send(connection, WelcomeFor(seat, token, replayFrom));
-        _outbox.SendBacklog(connection, _log.Skip(replayFrom).ToList());
+        _outbox.SendBacklog(connection, ViewOf(seat, _log.Skip(replayFrom)));
         switch (Status)
         {
             case MatchStatus.Aborted:
@@ -407,7 +407,13 @@ internal sealed class MatchHost
         }
         foreach (var p in published)
         {
-            Broadcast(p);
+            foreach (var seat in new[] { Rules.Core.State.Seat.One, Rules.Core.State.Seat.Two })
+            {
+                if (Slot(seat).Connection is { } connection)
+                {
+                    _outbox.Send(connection, ViewFor(seat, p));
+                }
+            }
         }
         return true;
     }
@@ -417,6 +423,13 @@ internal sealed class MatchHost
         _state = Reducer.Apply(_state, e);
         _log.Add(new EventPublished(_log.Count + 1, e, StateHash.Compute(_state)));
     }
+
+    // Trench Warfare's duds are the defender's secret (p. 162, U93): every other seat is sent MinesLaid without them. The
+    // hash is the same either way, since the state hash leaves the duds out. The log and the record keep them.
+    internal static EventPublished ViewFor(Seat seat, EventPublished published) =>
+        published.Event is MinesLaid { Duds.IsEmpty: false } laid && laid.Seat != seat ? published with { Event = laid.Secret() } : published;
+
+    private static List<ServerMessage> ViewOf(Seat seat, IEnumerable<EventPublished> log) => [.. log.Select(p => ViewFor(seat, p))];
 
     private void Broadcast(ServerMessage message)
     {

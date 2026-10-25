@@ -68,12 +68,19 @@ public class ClientCoreTests
         seen.TryAdd(typeof(AttackerChosen), new AttackerChosen(Seat.One, Seat.Two));
         seen.TryAdd(typeof(TrenchesScored), new TrenchesScored(1, [new TrenchResult("trench-m", 1, 0, 2, 0)]));
         seen.TryAdd(typeof(GameLengthRolled), new GameLengthRolled(Seat.Two, 2, 4));
+        // And its Mine Markers (p. 162).
+        var markers = Enumerable.Range(0, Rules.Core.Geometry.Mines.Count).Select(i => new Rules.Core.Geometry.MineMarker(Rules.Core.Geometry.Mines.IdOf(i), Previews.PointAt(20, 1 + 2 * i))).ToList();
+        seen.TryAdd(typeof(MinesLaid), new MinesLaid(Seat.Two, [.. markers], []));
+        seen.TryAdd(typeof(MineRevealed), new MineRevealed("mine-3", new ModelId("a1"), live: true));
+        seen.TryAdd(typeof(MineExploded), new MineExploded(new ModelId("a1"), "mine-3", Rules.Core.Dice.InjuryRoll.Roll(new SeededDice(2))));
+        seen.TryAdd(typeof(MoveResumed), new MoveResumed(new ModelId("a1"), [Previews.PointAt(20, 8)]));
         var all = typeof(GameEvent).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(GameEvent)) && !t.IsAbstract).ToList();
         Assert.True(all.Count >= 30, $"{all.Count} event types");
         Assert.Empty(all.Where(t => !seen.ContainsKey(t)).Select(t => t.Name));
         foreach (var (type, e) in seen)
         {
             var line = EventText.Line(e);
+            Assert.Equal(Narrator.Describe(e), EventText.Describe(e));
             Assert.False(string.IsNullOrWhiteSpace(line));
             Assert.NotEqual(type.Name + ".", line);
         }
@@ -86,6 +93,7 @@ public class ClientCoreTests
         {
             typeof(RollOffResolved), typeof(DashRolled), typeof(SideClimbRolled), typeof(RangedSuccessRolled), typeof(MeleeSuccessRolled),
             typeof(MoraleCheckRolled), typeof(InjuryRolled), typeof(ChargeRolled), typeof(ShootingTargetRolled), typeof(GameLengthRolled),
+            typeof(MineExploded),
         };
         foreach (var e in Matches.Value.SelectMany(m => m.Log))
         {

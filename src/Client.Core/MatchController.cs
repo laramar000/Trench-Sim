@@ -499,7 +499,7 @@ public sealed class MatchController : IAsyncDisposable
     private LogLine Line(int seq, Rules.Core.Events.GameEvent e, MatchState state)
     {
         _resolutions.Add(seq, e, state.Setup);
-        return new LogLine(seq, EventText.Line(e), EventText.Dice(e), UnitNotes.Of(e), EventText.Kind(e), EventText.Compact(e), Motions.Of(e), DiceRolls.Step(e), seq <= _replayUntil, EventModels.Of(e), SoundCues.Of(e))
+        return new LogLine(seq, EventText.Line(e), EventText.Dice(e), UnitNotes.Of(e), EventText.Kind(e), EventText.Compact(e), Motions.Of(e, state), DiceRolls.Step(e), seq <= _replayUntil, EventModels.Of(e), SoundCues.Of(e))
         {
             Why = _resolutions.WhyOf(seq)?.Text is { Length: > 0 } why ? why : null,
             Action = _resolutions.ActionAt(seq),

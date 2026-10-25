@@ -205,8 +205,30 @@ public static class Previews
                 : climbs.Count == 1 ? "One ladder climb" : $"{climbs.Count} ladder climbs";
             facts.Add($"{what}: each counts its {BoardScene.Inch(climbs[0])} height in the distance (U66{(side ? ", U75" : "")}).");
         }
+        if (refusal is null && state.FindModel(model) is { } walker && MineFact(state, walker, path) is { } mined)
+        {
+            facts.Add(mined);
+        }
         return new Preview(kind, model, command, refusal, facts, marks, RadiusOf(state, model), null, [], [], null, allowance);
     }
+
+    // Trench Warfare (p. 162): the Mine Markers a path would halt at, in order, by the rules' own test (Mines.Stops).
+    // Null when it passes none.
+    public static string? MineFact(MatchState state, ModelState mover, IReadOnlyList<Point2> path)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(mover);
+        ArgumentNullException.ThrowIfNull(path);
+        if (state.Mines.IsEmpty || path.Count == 0 || state.Setup?.Scenario is not { } scenario || BodyOf(state, mover) is not { } body)
+        {
+            return null;
+        }
+        var stops = Mines.Stops(scenario.Battlefield, body, path, state.Mines, Bodies(state, mover.Id));
+        return stops.IsEmpty ? null : MineFactStart + $" {(stops.Length == 1 ? "a Mine Marker" : $"{stops.Length} Mine Markers")} on the way ({string.Join(", ", stops.Select(s => s.Marker))}): " +
+            "each is revealed, and a live one makes an Injury Roll; a model taken Down stops there (p. 162).";
+    }
+
+    public const string MineFactStart = "MINES: halts at";
 
     private static Rejection? CheckMove(MatchState state, Seat seat, ModelId id, ImmutableArray<Point2> path, PreviewKind kind, List<string> facts)
     {
@@ -466,6 +488,10 @@ public static class Previews
         if (plan is not null)
         {
             charge.AddRange(Marks(state, charger.Id, plan.Path));
+            if (MineFact(state, charger, plan.Path) is { } mined)
+            {
+                facts.Add(mined);
+            }
         }
         return null;
     }

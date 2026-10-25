@@ -911,6 +911,7 @@ public partial class Main : Control
         // All choices first in the Menu, so Tab reaches them first when it opens.
         _matchMenu.AddChild(_allChoices);
         _board.Changed += ShowBoardInfo;
+        _board.Changed += ShowMineCard;
         // Stage K4: the HUD says what placing does now; it follows the battlefield's choice (the model, or Esc).
         _board.Changed += () =>
         {
@@ -1140,6 +1141,8 @@ public partial class Main : Control
             button.SetMeta("decision", true);
             _decisionButtons.AddChild(button);
         }
+        _mineCardShown = null;
+        ShowMineCard();
         foreach (var hint in s.Hints)
         {
             var chosen = hint;
@@ -1189,6 +1192,78 @@ public partial class Main : Control
     }
 
     private string? _shownPrompt;
+
+    // What the mine card shows now, so a hover (which also changes the board) does not rebuild its buttons.
+    private string? _mineCardShown;
+
+    // Mines stage M3 (Trench Warfare, p. 162): while this seat lays its 12 Mine Markers, the decision card says how many
+    // are placed and which are duds, with buttons to fill in the rest at random, undo, clear and lay them (sent only when
+    // the rules would accept the layout; the server checks it again).
+    private void ShowMineCard()
+    {
+        if (_board.Interaction.Mines is not { } laying)
+        {
+            if (_mineCardShown is not null)
+            {
+                _mineCardShown = null;
+                foreach (var child in _decisionButtons.GetChildren())
+                {
+                    _decisionButtons.RemoveChild(child);
+                    child.QueueFree();
+                }
+                _decision.Visible = false;
+            }
+            return;
+        }
+        var key = $"{laying.Status}|{laying.Note}|{laying.Ready}";
+        if (key == _mineCardShown)
+        {
+            return;
+        }
+        _mineCardShown = key;
+        foreach (var child in _decisionButtons.GetChildren())
+        {
+            _decisionButtons.RemoveChild(child);
+            child.QueueFree();
+        }
+        _decision.Visible = true;
+        _decisionTitle.Text = "YOUR CHOICE: lay 12 Mine Markers, 4 secret duds";
+        var words = Text(laying.Note.Length > 0 ? $"{laying.Status}\n{laying.Note}" : laying.Status);
+        words.Name = "MineStatus";
+        words.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        words.CustomMinimumSize = new Vector2(360, 0);
+        _decisionButtons.AddChild(words);
+        void Add(string name, string label, Action act, bool enabled = true)
+        {
+            var button = Button(label, act);
+            button.Name = name;
+            button.Disabled = !enabled;
+            button.SetMeta("decision", true);
+            _decisionButtons.AddChild(button);
+        }
+        Add("MineRandom", "Fill in at random", () =>
+        {
+            laying.FillAtRandom(new Spread(Guid.NewGuid().ToString()));
+            _board.MinesChanged();
+        });
+        Add("MineUndo", "Undo", () =>
+        {
+            laying.Undo();
+            _board.MinesChanged();
+        }, laying.Placed.Count > 0);
+        Add("MineClear", "Clear", () =>
+        {
+            laying.Clear();
+            _board.MinesChanged();
+        }, laying.Placed.Count > 0);
+        Add("MineLay", "Lay the mines", () =>
+        {
+            if (laying.Ready)
+            {
+                Send(new ActionHint("Lay the mines", laying.Command));
+            }
+        }, laying.Ready);
+    }
 
     private void ShowStrip()
     {

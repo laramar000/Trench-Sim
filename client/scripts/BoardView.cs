@@ -1038,6 +1038,17 @@ public partial class BoardView : SubViewportContainer
     public void Click(Vector2 local, bool shift = false)
     {
         LastClick = $"{Interaction.Mode}, chosen {Interaction.Chosen?.Value}, cursor {(Interaction.UsesCursor ? CursorAt(local)?.ToString() ?? "off the table" : "not used")}, pending {Interaction.Pending is not null}, preview {(Interaction.Preview is { } pv ? pv.Legal.ToString() : "none")}";
+        // Mines stage M3: while the defender lays the Mine Markers, a click places, makes a dud or takes one back up.
+        if (Interaction.Mines is { } laying)
+        {
+            if (CursorAt(local) is { } spot)
+            {
+                laying.Click(Math.Round(spot.X * 10) / 10, Math.Round(spot.Y * 10) / 10);
+                LastClick = $"Mines at ({spot.X:0.0}, {spot.Y:0.0}): {laying.Note}";
+            }
+            MinesChanged();
+            return;
+        }
         // While a unit is only chosen (not activated on the server yet), a click on another of your units that may
         // activate switches to it, whatever action was being chosen.
         if (Interaction.Chosen is { } chosen && ModelAt(local) is { Yours: true } other && other.Id != chosen && Interaction.CanChoose(other.Id))
@@ -1686,6 +1697,21 @@ public partial class BoardView : SubViewportContainer
         TargetLineDrawn = null;
         TargetLinesDrawn = 0;
         Climbs = 0;
+        LayingDrawn = 0;
+        if (_scene is not null && Interaction.Mines is { } laying)
+        {
+            foreach (var (id, at, dud) in laying.Shapes)
+            {
+                DrawMine(_overlay, at.X, at.Y, Rules.Core.Geometry.Mines.MarkerRadius.Thousandths / 1000.0, dud ? MineKnown.Dud : MineKnown.Live,
+                    new MineShape(id, at.X, at.Y, 0.5, dud ? MineKnown.Dud : MineKnown.Live).Mark);
+                LayingDrawn++;
+            }
+            var c = Interaction.Cursor;
+            var level = (float)LevelAt(c.X, c.Y) + 0.1f;
+            Segment(new TablePoint(c.X - 0.4, c.Y), new TablePoint(c.X + 0.4, c.Y), level, Colors.White, 0.08f);
+            Segment(new TablePoint(c.X, c.Y - 0.4), new TablePoint(c.X, c.Y + 0.4), level, Colors.White, 0.08f);
+            return;
+        }
         if (_scene is null || Interaction.Mode == InteractionMode.None)
         {
             return;
@@ -2828,6 +2854,23 @@ public partial class BoardView : SubViewportContainer
                 });
             }
         }
+        // Mines stage M3: the Mine Placement Area shaded while the defender lays the markers, and every Mine Marker on the
+        // table as a flat disc with its mark ("M3", "M3 dud" for the defender): rust where it is unknown, grey a dud, red
+        // live. Drawn only; the server decides where a model halts.
+        MinesDrawn = 0;
+        if (scene.MineArea is { } mineArea)
+        {
+            foreach (var cell in TrenchPits.Around(mineArea, holes))
+            {
+                Box(new Vector3((float)cell.CentreX, 0.025f, (float)cell.CentreY), new Vector3((float)cell.Width, 0.02f, (float)cell.Depth),
+                    _highContrast ? new Color(0.45f, 0.45f, 0.1f) : new Color(0.42f, 0.3f, 0.18f));
+            }
+        }
+        foreach (var mine in scene.Mines)
+        {
+            DrawMine(_content, mine.X, mine.Y, mine.Radius, mine.Known, mine.Mark);
+            MinesDrawn++;
+        }
         foreach (var model in scene.Models)
         {
             var firstNode = _content.GetChildCount();
@@ -2840,6 +2883,39 @@ public partial class BoardView : SubViewportContainer
         {
             DrawMeleeLink(scene.Find(link.One), scene.Find(link.Two));
         }
+    }
+
+    // Mine Markers on the table (stage M3), and how many the last rebuild drew (for the UI check).
+    public int MinesDrawn { get; private set; }
+
+    // The markers being laid on this screen (stage M3), not sent yet; for the UI check.
+    public int LayingDrawn { get; private set; }
+
+    private void DrawMine(Node3D into, double x, double y, double radius, MineKnown known, string mark)
+    {
+        var level = (float)LevelAt(x, y);
+        var colour = _highContrast
+            ? known switch { MineKnown.Live => Colors.Yellow, MineKnown.Dud => new Color(0.6f, 0.6f, 0.6f), _ => Colors.White }
+            : known switch { MineKnown.Live => new Color(0.8f, 0.15f, 0.1f), MineKnown.Dud => new Color(0.5f, 0.5f, 0.48f), _ => new Color(0.55f, 0.32f, 0.15f) };
+        into.AddChild(new MeshInstance3D
+        {
+            Mesh = new CylinderMesh { TopRadius = (float)radius, BottomRadius = (float)radius, Height = 0.12f, RadialSegments = 20 },
+            Position = new Vector3((float)x, level + 0.06f, (float)y),
+            MaterialOverride = Paint(colour),
+        });
+        var label = MakeLabel(mark, new Vector3((float)x, level + 0.5f, (float)y), 0.5f);
+        into.AddChild(label);
+        if (into == _content)
+        {
+            _fixedLabels.Add(label);
+        }
+    }
+
+    // Redraws the markers being laid and tells the screen (the decision card) after a click or a button on it.
+    public void MinesChanged()
+    {
+        DrawPreview();
+        Changed?.Invoke();
     }
 
     // Towers proposal, stage T4: what is accessible on a tower, drawn plainly. The platform top is a walkable deck in a

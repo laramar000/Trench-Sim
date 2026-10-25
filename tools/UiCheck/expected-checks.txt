@@ -227,6 +227,18 @@ hotseat: hotseat-bar-seat-letter
 hotseat: hotseat-full-match
 hotseat: hotseat-server-stopped
 hotseat-record-verifies
+hotseat-mines-exit
+hotseat-mines: mines-choose-scenario
+hotseat-mines: mines-start-enter
+hotseat-mines: mines-hotseat-started
+hotseat-mines: mines-card
+hotseat-mines: mines-click-places
+hotseat-mines: mines-fill
+hotseat-mines: mines-filled
+hotseat-mines: mines-lay
+hotseat-mines: mines-laid
+godot-hotseat-mines: engine errors
+hotseat-mines-no-server-left
 pvp-b-hard-killed
 pvp-a-exit
 pvp-b-rejoin-exit

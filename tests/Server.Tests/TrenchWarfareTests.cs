@@ -79,8 +79,13 @@ public class TrenchWarfareTests
         Assert.False(TurnSequence.Decide(state, new ChooseDeploymentZone(roll.Winner, "west"), new SeededDice(1)).IsAccepted);
 
         var chosen = TurnSequence.Decide(state, new ChooseAttacker(roll.Winner, Seat.Two), new SeededDice(1));
-        Assert.Equal(new GameEvent[] { new AttackerChosen(roll.Winner, Seat.Two), new DeploymentOrderSet(Seat.Two) }, chosen.Events.ToArray());
+        // The defender sets up the Mine Markers next, before anyone deploys (p. 162).
+        Assert.Equal(new GameEvent[] { new AttackerChosen(roll.Winner, Seat.Two), new DecisionRequested(DecisionKind.LayMines, Seat.One) }, chosen.Events.ToArray());
         state = chosen.State!;
+        var laid = TurnSequence.Decide(state, Assert.Single(TurnSequence.LegalCommands(state)), new SeededDice(1));
+        Assert.IsType<MinesLaid>(laid.Events[0]);
+        Assert.Equal(new DeploymentOrderSet(Seat.Two), laid.Events[^1]);
+        state = laid.State!;
         Assert.Equal(Seat.Two, state.Attacker);
         Assert.Equal("west", state.Two.ZoneId);
         Assert.Equal("east", state.One.ZoneId);
@@ -126,7 +131,8 @@ public class TrenchWarfareTests
     [Fact]
     public void ModelsInATrenchSectionAreCountedForIt()
     {
-        var events = Played(Name, 2);
+        // A match that reaches the end of Turn 1 (a 1v1 match can end sooner, a mine taking out the only attacker).
+        var events = Enumerable.Range(2, 20).Select(seed => Played(Name, seed)).First(e => e.Any(x => x is TrenchesScored));
         // The state just before the first scoring, with one model of each side moved into trench-m.
         var index = events.FindIndex(e => e is TrenchesScored);
         var before = Replay(events.Take(index));

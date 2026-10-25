@@ -1,3 +1,4 @@
+using Rules.Core.Geometry;
 using Rules.Core.Scenarios;
 using Rules.Core.State;
 
@@ -78,7 +79,9 @@ public sealed record ScenarioRules(
                 "A roll-off decides the roles: its winner chooses who attacks (a one-off game, p. 161). The attacker deploys first, then the players alternate (p. 162).",
                 "The defender takes the deployment zone with the map's trench lines and the attacker the other: the zone roll-off is not played (U88).",
                 "A trench section's length is the longer side of the rectangle around it (U88).",
-                "Not built yet: Mine Markers and duds, Glorious Deeds, the defender's halved ducats and Infiltrators.",
+                $"Before deployment the defender sets up {Mines.Count} Mine Markers (1\" discs) in the {Mines.PlacementDepth} strip of its zone facing the attacker, {Mines.Duds} of them secret duds known only to the defender and the server (p. 162, U93).",
+                $"A model whose base comes within {Mines.TriggerRange} of a marker halts there and the marker is revealed: a live mine makes an Injury Roll (no Blood Markers) and adds 1 SHRAPNEL marker; a dud does nothing. Then the move goes on unless the model is taken Down.",
+                "Not built yet: Glorious Deeds, the defender's halved ducats and Infiltrators.",
                 "Equal Victory Points being a draw is an interpretation: the book is silent on a tie (U40).",
             ]);
     }

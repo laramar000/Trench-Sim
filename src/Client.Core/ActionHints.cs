@@ -21,8 +21,9 @@ public static class ActionHints
         {
             return [];
         }
+        // The Mine Markers are set up on the battlefield (MineLaying), not from the rules' one suggested layout.
         return TurnSequence.LegalCommands(state)
-            .Where(c => CommandSeats.Of(c) == mine)
+            .Where(c => CommandSeats.Of(c) == mine && c is not LayMines)
             .Select(c => new ActionHint(Label(c, state, names), c))
             .ToList();
     }
@@ -30,6 +31,10 @@ public static class ActionHints
     // When it is this seat's turn to do something that is done on the battlefield rather than with a hint, says how.
     public static string? NotYetOffered(MatchState state, Seat? seat)
     {
+        if (seat is { } layer && state.Pending is { Kind: DecisionKind.LayMines } lay && lay.Seat == layer)
+        {
+            return "Set up your 12 Mine Markers on the battlefield: click in the shaded strip in front of your zone to place one, click a marker to make it a dud (4 of them; only you see which), then Lay the mines on the card. Or let the card fill them in at random.";
+        }
         if (seat is not { } mine || state.Pending is not null || state.Outcome is not null)
         {
             return null;

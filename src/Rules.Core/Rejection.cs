@@ -47,6 +47,8 @@ public enum ReasonCode
     NotACandidate,
     // M4 reducer hardening
     UnknownCommand,
+    // Trench Warfare's Mine Markers (p. 162)
+    MinesIllegal,
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.

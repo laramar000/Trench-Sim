@@ -67,6 +67,24 @@ internal static class Board
         return Movement.CheckPath(scenario.Battlefield, BodyOf(state, mover)!, path, Allowance(state, mover), others, sideClimb: true);
     }
 
+    // Trench Warfare: the Mine Placement Area, the 12" of No Man's Land next to the defender's zone (p. 161, U93). Null
+    // before the roles are chosen or when the zones do not face each other.
+    public static Rect? MinePlacementArea(MatchState state)
+    {
+        if (ScenarioOf(state) is not { } scenario || state.Attacker is not { } attacker
+            || state.SeatFor(attacker.Opponent()).ZoneId is not { } defending || state.SeatFor(attacker).ZoneId is not { } attacking)
+        {
+            return null;
+        }
+        return Mines.PlacementArea(scenario.Battlefield, defending, attacking);
+    }
+
+    // Where a move along this path from the model's place would halt for Mine Markers still on the table (p. 162).
+    public static System.Collections.Immutable.ImmutableArray<MineStopPoint> MineStops(MatchState state, ModelState mover, IReadOnlyList<Point2> path) =>
+        state.Mines.IsEmpty || ScenarioOf(state) is not { } scenario || BodyOf(state, mover) is not { } body
+            ? []
+            : Mines.Stops(scenario.Battlefield, body, path, state.Mines, AllBodies(state, mover.Id));
+
     public static PlacementResult CheckPlacement(MatchState state, Seat seat, ModelState model, Point2 at)
     {
         var scenario = ScenarioOf(state)!;

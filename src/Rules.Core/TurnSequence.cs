@@ -110,6 +110,11 @@ public static partial class TurnSequence
                 commands.Add(new ChooseAttacker(pending.Seat, Seat.One));
                 commands.Add(new ChooseAttacker(pending.Seat, Seat.Two));
                 break;
+            case DecisionKind.LayMines:
+                // One legal layout; any other legal one may be sent instead.
+                var suggested = SuggestedMines(state);
+                commands.Add(new LayMines(pending.Seat, suggested, [.. Enumerable.Range(0, Mines.Duds).Select(Mines.IdOf)]));
+                break;
             case DecisionKind.ChooseFirstActivation:
                 commands.Add(new ChooseFirstActivation(pending.Seat, Seat.One));
                 commands.Add(new ChooseFirstActivation(pending.Seat, Seat.Two));
@@ -200,6 +205,10 @@ public static partial class TurnSequence
             if (HasUndefinedChoice(command))
             {
                 return new(ReasonCode.InvalidChoice, "That is not one of the choices on offer.", RefTurn);
+            }
+            if (command is LayMines mines)
+            {
+                return ValidateMines(state, mines);
             }
             return command is ChooseDeploymentZone z && !state.Setup!.ZoneIds.Contains(z.ZoneId)
                 ? new(ReasonCode.UnknownZone, "That is not one of the scenario's deployment zones.", RefDeployment)
@@ -301,7 +310,7 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker;
+        or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
@@ -317,6 +326,7 @@ public static partial class TurnSequence
     {
         ChooseDeploymentZone => DecisionKind.ChooseDeploymentZone,
         ChooseAttacker => DecisionKind.ChooseAttacker,
+        LayMines => DecisionKind.LayMines,
         ChooseFirstActivation => DecisionKind.ChooseFirstActivation,
         ChooseMoraleOrder => DecisionKind.ChooseMoraleOrder,
         ResolveFailedMorale => DecisionKind.FailedMorale,
@@ -327,6 +337,7 @@ public static partial class TurnSequence
     {
         ChooseDeploymentZone c => c.Seat,
         ChooseAttacker c => c.Seat,
+        LayMines c => c.Seat,
         ChooseFirstActivation c => c.Seat,
         ChooseMoraleOrder c => c.Seat,
         ResolveFailedMorale c => c.Seat,
@@ -357,6 +368,9 @@ public static partial class TurnSequence
                 break;
             case ChooseAttacker c:
                 run.Emit(new AttackerChosen(c.Seat, c.Attacker));
+                break;
+            case LayMines c:
+                run.Emit(new MinesLaid(c.Seat, [.. c.Markers.Select((at, i) => new MineMarker(Mines.IdOf(i), at))], c.Duds));
                 break;
             case DeployModel c:
                 run.Emit(new ModelDeployed(c.Seat, c.Model));
@@ -400,6 +414,11 @@ public static partial class TurnSequence
             return false;
         }
 
+        if (s.MineStop is { } stop)
+        {
+            return AdvanceMine(run, s, stop, dice);
+        }
+
         if (s.InProgress is not null)
         {
             return AdvanceRoll(run, s, dice);
@@ -432,6 +451,12 @@ public static partial class TurnSequence
 
     private static bool AdvanceDeployment(Run run, MatchState s, IDiceSource dice)
     {
+        if (s.DeploymentFirst is null && s.Attacker is { } defended && !s.MinesLaid)
+        {
+            // Trench Warfare: before any model is deployed the defender sets up the Mine Markers (p. 162).
+            run.Emit(new DecisionRequested(DecisionKind.LayMines, defended.Opponent()));
+            return true;
+        }
         if (s.DeploymentFirst is null && s.Attacker is { } attacker)
         {
             // Trench Warfare: the attacker deploys first, then the players alternate (p. 162).

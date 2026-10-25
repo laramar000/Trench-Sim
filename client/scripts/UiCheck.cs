@@ -54,6 +54,9 @@ public partial class UiCheck : Node
                 case "hotseat":
                     await HotSeatPlay();
                     break;
+                case "hotseat-mines":
+                    await HotSeatMines();
+                    break;
                 case "pvp-a":
                     await PvpCreate();
                     break;
@@ -2902,6 +2905,94 @@ public partial class UiCheck : Node
             + (_bannerProblems.Count == 0 ? "" : "; " + string.Join(" | ", _bannerProblems)));
         Check("hotseat-bar-seat-letter", _barSeatSamples > 0 && _barSeatProblems.Count == 0,
             $"{_barSeatSamples} looks at the action bar, each starting with the shown seat's letter" + (_barSeatProblems.Count == 0 ? "" : ": " + string.Join(" | ", _barSeatProblems)));
+    }
+
+    // Mines stage M3 (hotseat-mines, Trench Warfare on "ranged-1v1-trench-warfare"): after the attacker is chosen the
+    // defender's screen lays the 12 Mine Markers. The decision card says so and offers Lay only when the layout is
+    // legal; a click in the shaded strip places a marker; "Fill in at random" completes a legal layout; "Lay the mines"
+    // sends it once; the server's MinesLaid is in the log and the board draws 12 markers, marked dud only for the defender.
+    private async Task HotSeatMines()
+    {
+        await ChooseOption(Option("ranged"), _scenario, "mines-choose-scenario");
+        await Press(ButtonNamed(HotSeatButton), Key.Enter, "mines-start-enter");
+        var line = await Until(() => Label("HOT-SEAT:")?.Text, 300, "mines-hotseat");
+        Check("mines-hotseat-started", line is not null, (line ?? "the hot-seat match screen did not appear").Replace('\n', '|'));
+        if (line is null)
+        {
+            return;
+        }
+        await Until(() => Banner().StartsWith("Connection: Connected", StringComparison.Ordinal) ? "ok" : null, 20, "mines-connected");
+        await Frames(5);
+        if (Dialog<AcceptDialog>() is not null)
+        {
+            await KeyPress(Key.Escape);
+        }
+        BoardView? board = null;
+        var deadline = Time.GetTicksMsec() + 120_000;
+        while (Time.GetTicksMsec() < deadline)
+        {
+            await Frames(3);
+            board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+            if (board?.Interaction.Mines is not null)
+            {
+                break;
+            }
+            // The choices before the mines (who attacks, then the deployment order) on the decision card, by mouse.
+            if (Controls<Button>().FirstOrDefault(b => b.HasMeta("decision") && b.IsVisibleInTree() && !b.IsQueuedForDeletion() && !b.Disabled) is { } hint)
+            {
+                var events = Lines(LogText()).Count;
+                Mark("hint", $"{HotControlled()}: {hint.Text}");
+                await ClickAt(hint.GetGlobalRect().GetCenter());
+                await Until(() => Lines(LogText()).Count > events || board?.Interaction.Mines is not null ? "answered" : null, 20, "mines-answer");
+            }
+        }
+        if (board?.Interaction.Mines is not { } laying)
+        {
+            Check("mines-card", false, $"the Mine Markers were never asked for; log: {string.Join(" | ", Lines(LogText()).TakeLast(4))}");
+            return;
+        }
+        var defender = HotControlled();
+        await Frames(5);
+        var card = Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && l.Text.StartsWith("YOUR CHOICE: lay 12 Mine Markers", StringComparison.Ordinal));
+        var lay = Controls<Button>().FirstOrDefault(b => b.Name == "MineLay" && b.IsVisibleInTree());
+        Check("mines-card", card is not null && lay is { Disabled: true } && ButtonNamed("Fill in at random") is not null && board.Scene?.MineArea is not null,
+            $"title {card?.Text}; Lay {(lay is null ? "missing" : lay.Disabled ? "disabled" : "enabled")}; area {board.Scene?.MineArea}; seat {defender}");
+        // One click in the strip places a marker (the rules' own check decides where one may go).
+        await MouseOn(board);
+        var area = board.Scene!.MineArea!.Value;
+        var field = laying.State.Setup!.Scenario!.Battlefield;
+        Vector2? Screen(TablePoint p) =>
+            board.ScreenOf(p.X, p.Y, 0) is { } local && Clickable(board, local) && !(board.BarRect is { } bar && bar.Grow(8).HasPoint(local))
+            && Rules.Core.Geometry.Mines.Problem(field, laying.AreaRect, Previews.PointAt(p.X, p.Y), []) is null
+                ? board.GetGlobalTransformWithCanvas() * local : null;
+        var spot = Enumerable.Range(0, 5).SelectMany(i => Enumerable.Range(0, 9).Select(j => new TablePoint(Math.Round(area.X0 + (area.X1 - area.X0) * (i + 0.5) / 5, 1), Math.Round(area.Y0 + (area.Y1 - area.Y0) * (j + 0.5) / 9, 1))))
+            .Select(Screen).FirstOrDefault(p => p is not null);
+        if (spot is { } at)
+        {
+            await ClickAt(at);
+            await Frames(3);
+        }
+        Check("mines-click-places", laying.Placed.Count == 1 && board.LayingDrawn == 1 && Label("Mine Markers 1 of 12") is not null,
+            $"clicked at {spot}; placed {laying.Placed.Count}, drawn {board.LayingDrawn}; note: {laying.Note}; click: {board.LastClick}");
+        await Press(ButtonNamed("Fill in at random"), Key.Enter, "mines-fill");
+        await Frames(5);
+        lay = Controls<Button>().FirstOrDefault(b => b.Name == "MineLay" && b.IsVisibleInTree() && !b.IsQueuedForDeletion());
+        Check("mines-filled", laying.Ready && board.LayingDrawn == 12 && lay is { Disabled: false },
+            $"placed {laying.Placed.Count}, duds {laying.DudCount}, drawn {board.LayingDrawn}, Lay {(lay is null ? "missing" : lay.Disabled ? "disabled" : "enabled")}; {laying.Note}");
+        var before = Lines(LogText()).Count;
+        await Press(lay, Key.Enter, "mines-lay");
+        var laid = await Until(() => Lines(LogText()).Skip(before).FirstOrDefault(l => l.Contains(" sets up 12 Mine Markers", StringComparison.Ordinal)), 20, "mines-laid");
+        await Until(() => Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { Scene.Mines.Count: 12, MinesDrawn: 12 } ? "ok" : null, 10, "mines-drawn");
+        await Frames(5);
+        var shown = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        var scene = shown?.Scene;
+        var seat = HotControlled();
+        var duds = scene?.Mines.Count(m => m.Known == MineKnown.Dud) ?? -1;
+        var unknown = scene?.Mines.Count(m => m.Known == MineKnown.Unknown) ?? -1;
+        // The defender's screen knows the 4 duds; the attacker's (the hot-seat window may already show it) knows none.
+        var secretOk = seat == defender ? duds == 4 && unknown == 0 : duds == 0 && unknown == 12;
+        Check("mines-laid", laid is not null && shown is { MinesDrawn: 12 } && scene?.MineArea is null && shown.Interaction.Mines is null && secretOk,
+            $"log: {laid}; drawn {shown?.MinesDrawn}; seat shown {seat} (defender {defender}): {duds} duds, {unknown} unknown");
     }
 
     private string HotControlled()

@@ -236,7 +236,11 @@ public sealed class Interaction
     // Stage K6: Shoot, Charge and Fight, which the bar offers as one Combat action.
     public static bool IsAttack(InteractionMode mode) => mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight;
 
-    public bool UsesCursor => IsPath || Mode == InteractionMode.Place;
+    public bool UsesCursor => IsPath || Mode == InteractionMode.Place || Mines is not null;
+
+    // Trench Warfare (p. 162): while this seat must set up its Mine Markers, the markers put down so far on this screen.
+    // A click on the battlefield goes to it, and the decision card sends the whole layout.
+    public MineLaying? Mines { get; private set; }
 
     // A new state from the server. The choice in progress is kept while it still makes sense, and cleared (with a
     // notice) when the match has moved on: another activation, the end of your deployment turn, a decision to make.
@@ -277,6 +281,18 @@ public sealed class Interaction
                 Clear();
                 Notice = "The match moved on, so the preview was cleared.";
             }
+        }
+        // A new laying for a new decision (or seat); the markers already put down are kept while it is the same one.
+        if (seat is { } layer && state.Pending is { Kind: DecisionKind.LayMines } lay && lay.Seat == layer)
+        {
+            if (Mines is not { } laying || laying.Seat != layer || !ReferenceEquals(laying.State.Setup, state.Setup))
+            {
+                Mines = new MineLaying(state, layer);
+            }
+        }
+        else
+        {
+            Mines = null;
         }
         FightAfterCharge();
         if (AutoPlace() && Notice == SeatShownNotice)

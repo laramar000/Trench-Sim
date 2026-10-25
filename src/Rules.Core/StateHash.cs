@@ -71,6 +71,16 @@ public static class StateHash
         {
             Line(sb, "lastTurn", last);
         }
+        // Mine Markers (Trench Warfare, p. 162), once set up. The duds are secret and never written, so the attacker's view
+        // of the match, which does not know them, hashes the same as the server's.
+        if (state.MinesLaid)
+        {
+            Line(sb, "mines", string.Join(";", state.Mines.Select(m => $"{m.Id}@{Point(m.At)}")));
+        }
+        if (state.MineStop is { } stop)
+        {
+            Line(sb, "mineStop", $"{stop.Model.Value}:{Path(stop.Path)}:{string.Join(";", stop.Stops.Select(p => $"{p.Marker}@{Point(p.At)}#{p.Next}"))}:{stop.Index}:{Bool(stop.Revealed)}:{Bool(stop.Live)}:{Bool(stop.EndsActivation)}");
+        }
 
         foreach (var seat in new[] { state.One, state.Two })
         {

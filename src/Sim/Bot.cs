@@ -52,8 +52,37 @@ public sealed class Bot(Random rng)
             DecisionKind.FreeFight => rng.Next(100) < 85
                 ? legal.OrderBy(c => c is FreeFight ? 0 : 1)
                 : legal.OrderBy(_ => rng.Next()),
+            // Trench Warfare: Mine Markers at random spots in the Mine Placement Area, 4 of them duds at random.
+            DecisionKind.LayMines => RandomMines(state, pending.Seat).Concat(legal),
             _ => legal.OrderBy(_ => rng.Next()),
         };
+    }
+
+    private IEnumerable<Command> RandomMines(MatchState state, Seat seat)
+    {
+        var field = state.Setup!.Scenario!.Battlefield;
+        if (Mines.PlacementArea(field, state.SeatFor(seat).ZoneId!, state.SeatFor(seat.Opponent()).ZoneId!) is not { } area)
+        {
+            yield break;
+        }
+        var r = Mines.MarkerRadius.Thousandths;
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var placed = new List<Point2>();
+            for (var i = 0; i < 2000 && placed.Count < Mines.Count; i++)
+            {
+                var at = At(rng.NextInt64(area.Min.X.Thousandths + r, area.Max.X.Thousandths - r + 1), rng.NextInt64(area.Min.Y.Thousandths + r, area.Max.Y.Thousandths - r + 1));
+                if (Mines.Problem(field, area, at, placed) is null)
+                {
+                    placed.Add(at);
+                }
+            }
+            if (placed.Count == Mines.Count)
+            {
+                var duds = Enumerable.Range(0, Mines.Count).OrderBy(_ => rng.Next()).Take(Mines.Duds).Order().Select(Mines.IdOf);
+                yield return new LayMines(seat, [.. placed], [.. duds]);
+            }
+        }
     }
 
     // ---- deployment ----

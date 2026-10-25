@@ -84,6 +84,9 @@ public static class Program
         // 4. Single player (hot-seat): one Godot window starts its own local server and plays both seats.
         await HotSeat(godot);
 
+        // 4b. Mines stage M3: a hot-seat window on Trench Warfare lays the defender's Mine Markers by mouse and buttons.
+        await HotSeatMines(godot);
+
         // 5. M7.5 stage 5b: two Godot clients play a whole melee match, one is killed and rejoins, and the signed record
         // is checked with trench-cli verify.
         await PvpMatch(godot);
@@ -385,6 +388,45 @@ public static class Program
             }
             var left = ServersUsing(data);
             Record("pvp-no-server-left", left.Count == 0 ? "PASS" : "FAIL", left.Count == 0 ? "no Match.Server process uses this match's data folder" : string.Join("; ", left));
+        }
+    }
+
+    private static async Task HotSeatMines(string godot)
+    {
+        var e2e = Path.Combine(_out, "e2e");
+        Directory.CreateDirectory(e2e);
+        var home = Path.Combine(_out, "home-hotseat-mines");
+        var args = new List<string> { "--audio-driver", "Dummy" };
+        args.AddRange(_renderer);
+        args.AddRange(["--path", Path.Combine(_repo, "client"), "--", "--ui-check", "hotseat-mines", "--out", e2e, "--scenario", "ranged-1v1-trench-warfare"]);
+        var hot = Start("godot-hotseat-mines", godot, [.. args], home);
+        try
+        {
+            Record("hotseat-mines-exit", await hot.Exit(600) == 0 ? "PASS" : "FAIL", $"hot-seat Godot exit code {hot.ExitCode} (0 = all its checks passed)");
+        }
+        catch (Exception e)
+        {
+            Record("hotseat-mines-exit", "FAIL", $"{e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            hot.Kill();
+            var log = Path.Combine(e2e, "hotseat-mines.log");
+            if (File.Exists(log))
+            {
+                foreach (var line in File.ReadAllLines(log))
+                {
+                    var check = Regex.Match(line, @"CHECK (\S+) (PASS|FAIL) ?(.*)$");
+                    if (check.Success)
+                    {
+                        Record($"hotseat-mines: {check.Groups[1].Value}", check.Groups[2].Value, check.Groups[3].Value);
+                    }
+                }
+            }
+            var errors = EngineErrors(hot.Lines);
+            Record("godot-hotseat-mines: engine errors", errors.Count == 0 ? "PASS" : "FAIL", errors.Count == 0 ? "none in the output" : string.Join(" | ", errors.Take(5)));
+            var left = ServersUsing(Path.Combine(home, "hotseat-server"));
+            Record("hotseat-mines-no-server-left", left.Count == 0 ? "PASS" : "FAIL", left.Count == 0 ? "no Match.Server process uses the hot-seat folder" : string.Join("; ", left));
         }
     }
 

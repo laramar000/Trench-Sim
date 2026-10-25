@@ -137,6 +137,23 @@ public sealed record ModelShape(
     public string Where => TowerId is not null ? $"on the tower ({BoardScene.Inch(Standing)} up)" : HighGround ? "on high ground" : "on the ground";
 }
 
+// Trench Warfare's Mine Markers still on the table (p. 162). Known says what this seat knows: the attacker sees only
+// markers; the defender, who picked the duds, sees which are duds and which are live. Display only.
+public enum MineKnown
+{
+    Unknown,
+    Dud,
+    Live,
+}
+
+public sealed record MineShape(string Id, double X, double Y, double Radius, MineKnown Known)
+{
+    // The short mark drawn on the marker: "M3", with "dud" or "live" for the defender.
+    public string Mark => $"M{Id[(Id.LastIndexOf('-') + 1)..]}{Known switch { MineKnown.Dud => " dud", MineKnown.Live => " live", _ => "" }}";
+
+    public string Text => $"Mine Marker {Id} at ({BoardScene.Inch(X)}, {BoardScene.Inch(Y)}){Known switch { MineKnown.Dud => ", a dud (only you know)", MineKnown.Live => ", live (only you know)", _ => ", live or a dud (secret)" }}.";
+}
+
 // A model's turn state on the battlefield: activating now, already activated this turn, can still activate, or neither
 // (deployment, or the match is between phases).
 public enum UnitLook
@@ -152,6 +169,11 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
     // QoL I5: the enemy pairs the rules say are engaged now (Rules.Core.Engagement.Pairs, decision D1), each drawn as a
     // short line between the two bases. Display only.
     public IReadOnlyList<EngagedPair> Links { get; init; } = [];
+
+    // Trench Warfare: the Mine Markers on the table, and while they are still to be set up the Mine Placement Area.
+    public IReadOnlyList<MineShape> Mines { get; init; } = [];
+
+    public TableRect? MineArea { get; init; }
 
     // Null when the match has no battlefield yet (before the Welcome, or a setup without a scenario).
     public static BoardScene? Of(MatchState state, Seat? you, ContentNames names)
@@ -206,6 +228,11 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
         return new BoardScene(TableRect.Inches(field.Width), TableRect.Inches(field.Height), zones, terrain, models)
         {
             Links = [.. Engagement.Pairs(state).Where(p => models.Any(m => m.Id == p.One) && models.Any(m => m.Id == p.Two))],
+            Mines = [.. state.Mines.Select(m => new MineShape(m.Id, TableRect.Inches(m.At.X), TableRect.Inches(m.At.Y), TableRect.Inches(Rules.Core.Geometry.Mines.MarkerRadius),
+                !state.DudsKnown ? MineKnown.Unknown : state.Duds.Contains(m.Id) ? MineKnown.Dud : MineKnown.Live))],
+            MineArea = state.Pending is { Kind: DecisionKind.LayMines } && state.Attacker is { } attacker
+                && state.SeatFor(attacker.Opponent()).ZoneId is { } defending && state.SeatFor(attacker).ZoneId is { } attacking
+                && Rules.Core.Geometry.Mines.PlacementArea(field, defending, attacking) is { } area ? TableRect.Of(area) : null,
         };
     }
 

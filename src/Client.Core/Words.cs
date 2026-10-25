@@ -42,6 +42,7 @@ public static class Words
         DecisionKind.SpendMarkersOnInjuryRoll => "spend Blood Markers for the Injury Roll, or none",
         DecisionKind.FreeFight => "attack the retreating model with each engaged model, or decline",
         DecisionKind.ChooseFriendlyTarget => "choose which of its own models the shot hits",
+        DecisionKind.LayMines => "set up the 12 Mine Markers and secretly pick 4 duds",
         _ => kind.ToString(),
     };
 

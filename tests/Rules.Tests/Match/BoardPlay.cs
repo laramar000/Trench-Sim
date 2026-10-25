@@ -16,7 +16,7 @@ public sealed class BoardPlay
 {
     public static readonly ModelProfile Rifleman = new(L("6"), L("0.5"), L("18"));
 
-    public BoardPlay(int perSide = 2, Func<ModelId, ModelProfile>? profileFor = null, int turnLimit = ClaimNoMansLand.TurnLimit, Scenario? scenario = null)
+    public BoardPlay(int perSide = 2, Func<ModelId, ModelProfile>? profileFor = null, int turnLimit = ClaimNoMansLand.TurnLimit, Scenario? scenario = null, string? scenarioId = null)
     {
         profileFor ??= _ => Rifleman;
         var models = Enumerable.Range(1, perSide).Select(i => new ModelId($"A{i}"))
@@ -24,7 +24,7 @@ public sealed class BoardPlay
             .Select(id => new SetupModel(id, id.Value[0] == 'A' ? Seat.One : Seat.Two, profileFor(id)))
             .ToList();
         var template = ClaimNoMansLand.CreateSetup(models);
-        Setup = new MatchSetup(template.RulesVersion, template.ScenarioId, turnLimit, template.Profile, template.ZoneIds, models, scenario ?? template.Scenario);
+        Setup = new MatchSetup(template.RulesVersion, scenarioId ?? template.ScenarioId, turnLimit, template.Profile, template.ZoneIds, models, scenario ?? template.Scenario);
         var created = new MatchCreated(Setup);
         State = Reducer.Apply(MatchState.None, created);
         Log.Add(created);
@@ -79,6 +79,40 @@ public sealed class BoardPlay
         Do(new ChooseFirstActivation(Seat.One, first));
         Assert.Equal(Phase.Activation, State.Phase);
         _ = perSide;
+        return this;
+    }
+
+    // Trench Warfare (pp. 161-162) on its preset map: seat One attacks from the west, seat Two defends the east and sets
+    // up these Mine Markers, then A1.. and B1.. deploy as in ToActivation (B models at x 35, clear of the trenches).
+    public static BoardPlay TrenchWarfare(int perSide = 1, Func<ModelId, ModelProfile>? profileFor = null, params TerrainBlock[] extra) =>
+        new(perSide, profileFor, Rules.Core.Scenarios.TrenchWarfare.TurnLimit, TrenchField(extra), Rules.Core.Scenarios.TrenchWarfare.ScenarioId);
+
+    // The preset Trench Warfare layout's table, zones and trench sections (content/maps/trench-warfare.json), and any
+    // other pieces a test needs.
+    public static Scenario TrenchField(params TerrainBlock[] extra)
+    {
+        TerrainBlock Trench(string id, string y1, string y2) => new(id, F("31.5", y1, "34", y2), TerrainProfile.Low) { Depth = L("1") };
+        var zones = new[] { new DeploymentZone("west", F("0", "0", "6", "36")), new DeploymentZone("east", F("30", "0", "36", "36")) };
+        return new Scenario(Field("36", [Trench("trench-s", "2", "10"), Trench("trench-m", "14", "22"), Trench("trench-n", "26", "34"), .. extra], zones), []);
+    }
+
+    public BoardPlay ToTrenchActivation(ImmutableArray<Point2> markers, ImmutableArray<string> duds, Seat first = Seat.One)
+    {
+        Do(new StartMatch(), 6, 1);
+        Do(new ChooseAttacker(Seat.One, Seat.One));
+        Do(new LayMines(Seat.Two, markers, duds));
+        var placed = 0;
+        var total = State.Models.Length;
+        while (State.Phase == Phase.Deployment)
+        {
+            var seat = NextDeployer();
+            var next = State.Models.First(m => m.Seat == seat && !m.Deployed);
+            var index = int.Parse(next.Id.Value[1..]);
+            placed++;
+            Do(new PlaceModel(seat, next.Id, P(seat == Seat.One ? "2" : "35", (3 + 8 * (index - 1)).ToString())), placed == total ? [6, 1] : []);
+        }
+        Do(new ChooseFirstActivation(Seat.One, first));
+        Assert.Equal(Phase.Activation, State.Phase);
         return this;
     }
 

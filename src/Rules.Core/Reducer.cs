@@ -88,6 +88,10 @@ public static class Reducer
             AttackerChosen x => OnAttackerChosen(state, x),
             TrenchesScored x => OnTrenchesScored(state, x),
             GameLengthRolled x => OnGameLengthRolled(state, x),
+            MinesLaid x => OnMinesLaid(state, x),
+            MineRevealed x => OnMineRevealed(state, x),
+            MineExploded x => OnMineExploded(state, x),
+            MoveResumed x => OnMoveResumed(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
     }
@@ -126,6 +130,14 @@ public static class Reducer
             return;
         }
 
+        if (state.MineStop is { } stop)
+        {
+            // A halted move: the marker is revealed, a live one detonates, then the model carries on (p. 162).
+            var next = !stop.Revealed ? e is MineRevealed : stop.Live ? e is MineExploded : e is MoveResumed;
+            Require(next, "A move halted at a Mine Marker: the marker is revealed, a live mine detonates, and the model carries on.");
+            return;
+        }
+
         if (state.MustEndActivation)
         {
             Require(e is ActivationEnded { Reason: ActivationEndReason.RiskyFailure } lost && lost.Model == state.ActiveModel,
@@ -155,7 +167,7 @@ public static class Reducer
         }
 
         if (state.Phase == Phase.Activation && state.ActiveModel is { } active && state.Pending is null && state.InProgress is null
-            && state.Retreat is null && Board.ScenarioOf(state) is not null && state.FindModel(active) is { } model && model.Status != ModelStatus.Standing)
+            && state.Retreat is null && state.MineStop is null && Board.ScenarioOf(state) is not null && state.FindModel(active) is { } model && model.Status != ModelStatus.Standing)
         {
             if (state.Actions == ActionsTaken.None && !state.MovementHalved)
             {
@@ -302,6 +314,10 @@ public static class Reducer
                     && state.FindModel(victim) is { BloodMarkers: > 0 }, "Only the attacker may spend the target's markers, once, before an Injury Roll.");
                 state = state with { InProgress = injuring! with { MarkersAsked = true } };
                 break;
+            case DecisionKind.LayMines:
+                Require(TrenchWarfare.Is(state.Setup) && state.Phase == Phase.Deployment && state.Attacker is { } attacking && attacking.Opponent() == e.Seat
+                    && !state.MinesLaid && state.DeploymentFirst is null, "The defender sets up the Mine Markers once, after the roles are chosen and before deployment.");
+                break;
             case DecisionKind.FreeFight:
                 Require(state.Retreat is { Closed: false } retreat && state.InProgress is null && state.Phase == Phase.Activation
                     && state.FindModel(retreat.Model) is { } retreater && retreater.Seat.Opponent() == e.Seat
@@ -336,6 +352,7 @@ public static class Reducer
         if (state.Attacker is { } attacker)
         {
             Require(state.RollOff is null && e.First == attacker, "In Trench Warfare the attacker deploys first.");
+            Require(state.MinesLaid, "In Trench Warfare the defender sets up the Mine Markers before deployment.");
             return state with { DeploymentFirst = e.First };
         }
         // The warband with more models deploys first; equal warbands roll off and the winner starts (p. 152, R7).
@@ -459,7 +476,7 @@ public static class Reducer
     {
         Require(state.Phase == Phase.Activation && state.ActiveModel == e.Model, "That model is not the one activating.");
         Require(Enum.IsDefined(e.Reason), "Unknown end reason.");
-        Require(state.InProgress is null && state.Pending is null && state.Retreat is null, "An action is still being resolved.");
+        Require(state.InProgress is null && state.Pending is null && state.Retreat is null && state.MineStop is null, "An action is still being resolved.");
         if (e.Reason == ActivationEndReason.TakenDown)
         {
             Require(state.FindModel(e.Model)!.Status != ModelStatus.Standing, "An activation ends as taken Down only when the model is Down or Out of Action.");
@@ -689,11 +706,12 @@ public static class Reducer
                 "A climbing move follows its roll: the whole path on a Success, only up to the climb on a Failure.");
             var climbed = Board.CheckMove(state, model, e.Path);
             Require(climbed.IsLegal && climbed.Cost == e.Cost, "The move must follow a legal path at the recorded cost.");
-            return TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
+            var climbedTo = TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
             {
                 InProgress = null,
                 MustEndActivation = climb.Stage == RollStage.ClimbStop,
             };
+            return HaltAtMine(state, climbedTo, e.Model, e.Path);
         }
         if (e.Kind == MoveKind.Move)
         {
@@ -707,11 +725,12 @@ public static class Reducer
         var check = Board.CheckMove(state, model, e.Path);
         Require(check.IsLegal && check.Cost == e.Cost, "The move must follow a legal path at the recorded cost.");
         Require(check.SideClimb is null, "A move that climbs a tower's side needs its Risky Success Roll first.");
-        return TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
+        var after = TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
         {
             Actions = e.Kind == MoveKind.Move ? state.Actions | ActionsTaken.Move : state.Actions,
             InProgress = null,
         };
+        return HaltAtMine(state, after, e.Model, e.Path);
     }
 
     private static MatchState OnMarkersSpent(MatchState state, MarkersSpent e)
@@ -827,7 +846,7 @@ public static class Reducer
         var plan = Board.PlanCharge(state, charger, state.FindModel(e.Target)!, progress.ChargeDie);
         Require(plan.Path.SequenceEqual(e.Path) && plan.Cost == e.Cost && plan.Reached == e.Reached, "The charge move must be the one the rules plan from the Charge Bonus.");
         var moved = e.Path.IsEmpty ? charger : charger with { Position = e.Path[^1] };
-        return TurnRules.WithModel(state, moved) with { InProgress = null };
+        return HaltAtMine(state, TurnRules.WithModel(state, moved) with { InProgress = null }, e.Model, e.Path);
     }
 
     private static MatchState OnRetreatDeclared(MatchState state, RetreatDeclared e)
@@ -858,11 +877,9 @@ public static class Reducer
             Require(retreater.Status == ModelStatus.Standing && e.Path.SequenceEqual(retreat.Path) && Board.CheckRetreat(state, retreater, e.Path) is null
                 && Board.RetreatCost(state, retreater, e.Path) == e.Cost, "A standing model finishes its retreat along the declared path at the recorded cost.");
             retreater = retreater with { Position = e.Path[^1] };
+            return HaltAtMine(state, TurnRules.WithModel(state, retreater) with { Retreat = null }, e.Model, e.Path);
         }
-        else
-        {
-            Require(retreater.Status != ModelStatus.Standing, "Only a model taken Down or Out of Action by a free attack stays where it is.");
-        }
+        Require(retreater.Status != ModelStatus.Standing, "Only a model taken Down or Out of Action by a free attack stays where it is.");
         return TurnRules.WithModel(state, retreater) with { Retreat = null };
     }
 
@@ -1018,6 +1035,96 @@ public static class Reducer
         Require(e.LastTurn == (e.Die <= TrenchWarfare.EndsOnOrBelow ? TrenchWarfare.LengthRollTurn : TrenchWarfare.TurnLimit),
             "On a 1 or 2 the game ends now; on a 3 or more it ends after Turn 5.");
         return state with { LastTurn = e.LastTurn };
+    }
+
+    // ---- Trench Warfare's Mine Markers (p. 162, U93) ----
+
+    private static MatchState OnMinesLaid(MatchState state, MinesLaid e)
+    {
+        Require(state.Pending == new PendingDecision(DecisionKind.LayMines, e.Seat), "No Mine Markers are waiting on that seat.");
+        Require(Board.MinePlacementArea(state) is { } area
+            && Mines.Problem(Board.ScenarioOf(state)!.Battlefield, area, [.. e.Markers.Select(m => m.At)]) is null,
+            "The Mine Markers must be set up legally within the Mine Placement Area.");
+        return state with
+        {
+            Pending = null,
+            Mines = e.Markers,
+            MinesLaid = true,
+            Duds = e.Duds,
+            DudsKnown = !e.Duds.IsEmpty,
+        };
+    }
+
+    // A move event halted by a Mine Marker: the model stops at the first halt instead of the end of its path, and the
+    // rest of the move waits in MineStop. Before is the state the move started from.
+    private static MatchState HaltAtMine(MatchState before, MatchState after, ModelId id, ImmutableArray<Point2> path)
+    {
+        if (after.Mines.IsEmpty || path.IsDefaultOrEmpty)
+        {
+            return after;
+        }
+        var stops = Board.MineStops(before, before.FindModel(id)!, path);
+        if (stops.IsEmpty)
+        {
+            return after;
+        }
+        var moved = after.FindModel(id)!;
+        return TurnRules.WithModel(after, moved with { Position = stops[0].At }) with
+        {
+            MineStop = new MineStop(id, path, stops, EndsActivation: after.MustEndActivation),
+            MustEndActivation = false,
+        };
+    }
+
+    private static MatchState OnMineRevealed(MatchState state, MineRevealed e)
+    {
+        Require(state.MineStop is { Revealed: false } stop && stop.Model == e.Model && stop.Current.Marker == e.Marker && state.Pending is null,
+            "Only the Mine Marker the model halted at is revealed.");
+        Require(!state.DudsKnown || e.Live == !state.Duds.Contains(e.Marker), "A dud is revealed as a dud and a live mine as live.");
+        return state with
+        {
+            Mines = [.. state.Mines.Where(m => m.Id != e.Marker)],
+            MineStop = state.MineStop! with { Revealed = true, Live = e.Live },
+        };
+    }
+
+    private static MatchState OnMineExploded(MatchState state, MineExploded e)
+    {
+        Require(state.MineStop is { Revealed: true, Live: true } stop && stop.Model == e.Model && stop.Current.Marker == e.Marker && state.Pending is null,
+            "Only a live mine that was just revealed detonates.");
+        var model = state.FindModel(e.Model)!;
+        var armour = state.Setup!.ProfileOf(e.Model)!.Armour;
+        Require(e.Injury.NetDice == 0 && e.Injury.Modifier == InjuryRoll.CombineModifiers([armour]) && e.Injury.TargetAlreadyDown == (model.Status == ModelStatus.Down),
+            "A mine's Injury Roll has no extra dice and no weapon modifier, only the model's armour.");
+        var markers = Math.Min(BloodMarkers.Max, model.BloodMarkers + e.Injury.BloodMarkers + MineExploded.ShrapnelMarkers);
+        var hurt = e.Injury.Outcome switch
+        {
+            InjuryOutcome.OutOfAction => model with { Status = ModelStatus.OutOfAction, Position = null, BloodMarkers = markers },
+            InjuryOutcome.Down => model with { Status = ModelStatus.Down, BloodMarkers = markers },
+            _ => model with { BloodMarkers = markers },
+        };
+        // Taken Down or Out of Action: the move is over (and so is the activation, p. 49). Otherwise it carries on.
+        return TurnRules.WithModel(state, hurt) with
+        {
+            MineStop = hurt.Status == ModelStatus.Standing ? state.MineStop! with { Live = false } : null,
+        };
+    }
+
+    private static MatchState OnMoveResumed(MatchState state, MoveResumed e)
+    {
+        Require(state.MineStop is { Revealed: true, Live: false } stop && stop.Model == e.Model && state.Pending is null && state.Phase == Phase.Activation,
+            "A halted move carries on only once its Mine Marker has been dealt with.");
+        var halted = state.MineStop!;
+        var model = state.FindModel(e.Model)!;
+        Require(model.Status == ModelStatus.Standing, "Only a standing model carries on.");
+        var next = halted.Index + 1 < halted.Stops.Length ? halted.Stops[halted.Index + 1] : null;
+        Require(Mines.Between(halted.Path, halted.Current, next).SequenceEqual(e.Path), "The model carries on along the rest of its path.");
+        var at = next?.At ?? halted.Path[^1];
+        return TurnRules.WithModel(state, model with { Position = at }) with
+        {
+            MineStop = next is null ? null : halted with { Index = halted.Index + 1, Revealed = false, Live = false },
+            MustEndActivation = next is null && halted.EndsActivation,
+        };
     }
 
     private static void Require(bool condition, string message)
