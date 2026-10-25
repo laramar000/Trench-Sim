@@ -52,7 +52,7 @@ M = {k: mat(k, *v) for k, v in {
  "boots": ("2a2420",), "dark": ("141210", 0.05), "brass": ("8a6a2a", 0.1), "bone": ("c8bca0", 0.15),
  "cloth": ("3e3a34",), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0),
  "robe": ("3e3428", 0.3), "rags": ("6a5c46", 0.3), "rope": ("7e6c48", 0.2, 60), "blood": ("4e1610", 0.2)}.items()}
-# The face, painted like a PS1 character's (MGS1 style): flat warm skin, clear brows, small dark eyes, a shaded nose
+# The face, painted like a PS1 character's (MGS1 style): flat warm skin, clear brows, shadowed eye sockets (no eyes), a shaded nose
 # and a mouth line, 32x32 pixels, projected onto the front of the head. No modelled eyes: the paint carries the face.
 FACE_SKIN = "d6ae8c"
 FACE_BOX = None
@@ -60,7 +60,7 @@ def face_pixels():
     W = H = 32
     def hexc(h): return [int(h[i:i+2], 16) / 255 for i in (0, 2, 4)]
     skin, shade, dark = hexc(FACE_SKIN), hexc("b88a6c"), hexc("8a6050")
-    brow, eye, white, mouth, lip = hexc("4a3428"), hexc("2e241c"), hexc("e4dccc"), hexc("a8685a"), hexc("c8927a")
+    brow, socket, mouth, lip = hexc("4a3428"), hexc("3e2a22"), hexc("a8685a"), hexc("c8927a")
     px = {}
     for y in range(H):
         for x in range(W):
@@ -71,10 +71,14 @@ def face_pixels():
     def put(c, xs, ys):
         for x in xs:
             for y in ys: px[(x, y)] = c
+    # no eyes: each eye is a soft shadow pooled in its socket under the brow, darkest at the centre
+    for cx in (10.5, 22.0):
+        for y in range(10, 18):
+            for x in range(5, 28):
+                d = ((x + 0.5 - cx) / 4.2) ** 2 + ((y + 0.5 - 13.8) / 2.8) ** 2
+                if d < 1 and (x, y) in px:
+                    px[(x, y)] = socket if d < 0.35 else dark if d < 0.7 else shade
     put(brow, list(range(8, 13)) + list(range(20, 25)), [11])          # brows, level and calm
-    put(white, list(range(8, 13)) + list(range(20, 25)), [13, 14])     # eyes, two pixels tall
-    put(eye, [10, 11, 21, 22], [13, 14])
-    put(shade, list(range(8, 13)) + list(range(20, 25)), [12])         # upper lids
     put(shade, [15], range(15, 20)); put(shade, [14, 18], [19])        # nose
     put(dark, [15, 17], [20])                                          # nostrils
     put(mouth, range(13, 20), [23]); put(lip, range(14, 19), [24])     # mouth: small, closed
@@ -85,7 +89,7 @@ def face_pixels():
             c = px.get((x, y)); out += (c + [1.0]) if c else [0, 0, 0, 0]
     return out
 def face_material(eyes):
-    # projects the painted face onto the front of the head: eye line at row 14, eyes 11.5 pixels apart
+    # projects the painted face onto the front of the head: socket line at row 14, sockets 11.5 pixels apart
     img = bpy.data.images.new("face", 32, 32, alpha=True); img.pixels = face_pixels()
     mid = (eyes[0] + eyes[1]) / 2; sep = abs(eyes[0].x - eyes[1].x) or 0.062
     W = sep * 32 / 11.5; Hh = W * 1.35   # MakeHuman's face is longer than wide
