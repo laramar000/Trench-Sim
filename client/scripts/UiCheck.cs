@@ -808,6 +808,13 @@ public partial class UiCheck : Node
         Check("board-shoot-preview", sightShown || (early && InPanel(board, shot!.Refusal!.Text)),
             $"{shot?.Headline}; {shot?.Rays.Count} rays, {shot?.Rays.Count(r => r.Clear)} clear; labels: {string.Join(" / ", board.OverlayTexts)}");
         TargetLineCheck(board, shot);
+        // Line-of-sight stage L5: the chosen target's shot guide is drawn (GUIDE beside the 3 x 3 points), the piece giving
+        // cover is the one outlined, and the panel says the rules and the guide apart.
+        var guideWords = shot is null ? null : ShotGuide.Words(shot.Rays);
+        Check("board-shot-guide", early || (shot?.Target is { } guided && guideWords is not null && board.GuideDrawnFor == guided
+                && board.OverlayTexts.Contains(ShotGuide.Label.ToUpperInvariant()) && board.GuideOutline == shot.CoverId
+                && InPanel(board, guideWords) && InPanel(board, PreviewCard.RulesHeading)),
+            $"guide for {board.GuideDrawnFor?.Value ?? "none"} (target {shot?.Target?.Value}), outline {board.GuideOutline ?? "none"} (cover {shot?.CoverId ?? "none"}); {guideWords}");
         var aimed = interaction.Target is { } t && scene.Find(t) is { } targetShape ? targetShape : null;
         IReadOnlyList<string> targetCard = shot is null || aimed is null ? [] : PreviewCard.Lines(shot, aimed);
         Check("board-preview-card-target", early || (aimed is not null && InPanel(board, $"SHOOT → {UnitPanel.Heading(aimed)}") && InPanel(board, "Line of sight: ")

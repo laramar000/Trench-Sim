@@ -76,6 +76,12 @@ public sealed record Preview(
 
     public bool Legal => Refusal is null;
 
+    // The terrain piece the rules say gives the target cover (stage L5 outlines it), read back from the cover fact
+    // Previews.Sight writes; null when the target is not in cover.
+    public string? CoverId => Facts.FirstOrDefault(f => f.StartsWith(Previews.CoverFact + " (", StringComparison.Ordinal)) is { } fact
+        ? fact[(Previews.CoverFact.Length + 2)..^2]
+        : null;
+
     public string Verb => Kind switch
     {
         PreviewKind.Place => "Place",
@@ -383,7 +389,7 @@ public static class Previews
             facts.Add("Elevated position: 3\" or more above the target (+1 DICE, p. 43).");
         }
         dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, AttackDice.ShotPenalty(longRange, cover.InCover),
-            [.. new[] { longRange ? "long range" : null, cover.InCover ? "cover" : null }.OfType<string>()], AttackDice.ShotBonus(elevated));
+            [.. new[] { longRange ? "Long Range, p. 43" : null, cover.InCover ? "Cover, pp. 38, 43" : null }.OfType<string>()], AttackDice.ShotBonus(elevated));
         return null;
     }
 
@@ -507,7 +513,7 @@ public static class Previews
             return new(ReasonCode.NoLineOfSight, "The target must be in the attacker's Line of Sight.", RefMelee);
         }
         dice = DicePreview.Of(state, attacker, target, AttackKind.Melee, AttackDice.FightPenalty(cover.InCover),
-            cover.InCover ? ["defended obstacle"] : []);
+            cover.InCover ? ["Defended Obstacle, p. 45"] : []);
         return null;
     }
 

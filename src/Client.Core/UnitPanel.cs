@@ -323,7 +323,17 @@ public static class UnitPanel
         var lines = new List<string> { UnitPanelView.PointingPrefix + Heading(pointing) };
         if (!pointing.Yours && interaction.PreviewOf(pointing.Id) is { } preview)
         {
+            lines.Add(PreviewCard.RulesHeading);
             lines.AddRange(preview.Facts.Where(PreviewCard.IsTargetFact).Select(f => f.TrimEnd('.')));
+            // Line-of-sight stage L5: the hit roll's modifiers with their pages, and the guide's sight points in words.
+            if (preview.Dice is { } dice && preview.Target is { } aimed)
+            {
+                lines.AddRange(dice.Lines(preview.Model, aimed).Where(l => l.StartsWith("Hit roll", StringComparison.Ordinal)));
+            }
+            if (preview.Kind == PreviewKind.Shoot && ShotGuide.Words(preview.Rays) is { } guide)
+            {
+                lines.Add(guide);
+            }
             lines.Add(preview.Refusal is { } refused ? $"✕ {refused.Text}" : "✓ can be the target: click to choose it");
             return lines;
         }

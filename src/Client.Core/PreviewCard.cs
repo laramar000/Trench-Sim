@@ -16,6 +16,8 @@ public static class PreviewCard
             || fact.StartsWith("Engaged:", StringComparison.Ordinal) || fact == Previews.NoMeleeWeaponFact;
     }
 
+    public const string RulesHeading = "Rules (the server decides):";
+
     public static IReadOnlyList<string> Lines(Preview preview, ModelShape? target = null)
     {
         ArgumentNullException.ThrowIfNull(preview);
@@ -51,6 +53,8 @@ public static class PreviewCard
                 {
                     lines.Add($"target {target.Label}");
                 }
+                // Line-of-sight stage L5: what the rules decide is under "Rules", the picture of the rays under "Guide".
+                lines.Add(RulesHeading);
                 foreach (var fact in preview.Facts)
                 {
                     // The rules' facts about the target, in their own words: distance and range, sight, cover, long
@@ -67,6 +71,10 @@ public static class PreviewCard
                         lines.AddRange(dice.Lines(preview.Model, aimed));
                     }
                     lines.Add("dice: rolled by the server");
+                }
+                if (preview.Kind == PreviewKind.Shoot && ShotGuide.Words(preview.Rays) is { } guide)
+                {
+                    lines.Add(guide);
                 }
                 break;
         }

@@ -36,11 +36,11 @@ public sealed record DicePreview(
         var t = target.Value.ToUpperInvariant();
         var lines = new List<string>
         {
-            HitPenalty == 0 ? "Hit roll: no penalty dice" : $"Hit roll: -{HitPenalty} DICE ({string.Join(", ", HitReasons)})",
+            HitPenalty == 0 ? "Hit roll: no penalty dice" : $"Hit roll: -{HitPenalty} DICE ({string.Join("; ", HitReasons)})",
         };
         if (HitBonus > 0)
         {
-            lines.Insert(0, $"Hit roll: +{HitBonus} DICE (elevated position, 3\" or more above the target, p. 43)");
+            lines.Insert(0, $"Hit roll: +{HitBonus} DICE (Elevated position, 3\" or more above the target, p. 43)");
         }
         if (Risky)
         {

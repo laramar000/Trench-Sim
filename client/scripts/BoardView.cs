@@ -1664,6 +1664,8 @@ public partial class BoardView : SubViewportContainer
         _overlayTexts.Clear();
         _crossed.Clear();
         _sightIcons.Clear();
+        GuideDrawnFor = null;
+        GuideOutline = null;
         AreaPoints = 0;
         GhostAt = null;
         _reasonAt = null;
@@ -1749,6 +1751,10 @@ public partial class BoardView : SubViewportContainer
                 {
                     DrawTargetLine(line);
                 }
+                if (preview.Kind == PreviewKind.Shoot && preview.Target is { } aimed && _scene.Find(aimed) is { } aimedShape)
+                {
+                    DrawShotGuide(preview, aimedShape);
+                }
                 if (preview.Target is { } targetId && _scene.Find(targetId) is { } target)
                 {
                     var spot = new TablePoint(target.X, target.Y);
@@ -1801,6 +1807,12 @@ public partial class BoardView : SubViewportContainer
                 _crossed.Add(id);
             }
         }
+        // Line-of-sight stage L5: pointing at an enemy in Shoot, before one is chosen, draws its shot guide.
+        if (Interaction.Mode == InteractionMode.Shoot && Interaction.Target is null && Hovered is { Yours: false } pointed
+            && Interaction.PreviewOf(pointed.Id) is { Kind: PreviewKind.Shoot } pointedShot)
+        {
+            DrawShotGuide(pointedShot, pointed);
+        }
         // Line-of-sight stage L4: an eye above every enemy (open, half closed or struck through) and a shield when it
         // would be in cover, from the rules' own sight and cover.
         foreach (var sight in Interaction.TargetSights())
@@ -1813,6 +1825,60 @@ public partial class BoardView : SubViewportContainer
         if (Interaction.IsPath)
         {
             Area(Interaction.ReachArea(), _highContrast ? new Color(1, 1, 1, 0.35f) : new Color(0.45f, 0.75f, 1f, 0.28f));
+        }
+    }
+
+    // Stage L5 (for the UI check): the target whose shot guide is drawn now, and the piece outlined as its cover.
+    public ModelId? GuideDrawnFor { get; private set; }
+
+    public string? GuideOutline { get; private set; }
+
+    // The shot guide: the middle body ray from the shooter's eye, solid while clear and broken from where it is blocked;
+    // the 3 x 3 sight points above the target with GUIDE beside them; and the piece that gives cover outlined in gold.
+    private void DrawShotGuide(Preview preview, ModelShape target)
+    {
+        GuideDrawnFor = target.Id;
+        var ink = _highContrast ? Colors.White : new Color(0.85f, 0.80f, 0.69f);
+        foreach (var piece in ShotGuide.Line(preview.Rays, _scene!))
+        {
+            if (piece.Clear)
+            {
+                Bar(piece.From, (float)piece.FromHeight, piece.To, (float)piece.ToHeight, ink, 0.07f, 0.04f);
+                continue;
+            }
+            var length = Math.Sqrt(Math.Pow(piece.To.X - piece.From.X, 2) + Math.Pow(piece.To.Y - piece.From.Y, 2));
+            var dashes = Math.Max(2, (int)(length / 0.3));
+            for (var i = 0; i < dashes; i += 2)
+            {
+                double At(double k, double a, double b) => a + (b - a) * k;
+                var (k0, k1) = ((double)i / dashes, (double)(i + 1) / dashes);
+                Bar(new TablePoint(At(k0, piece.From.X, piece.To.X), At(k0, piece.From.Y, piece.To.Y)), (float)At(k0, piece.FromHeight, piece.ToHeight),
+                    new TablePoint(At(k1, piece.From.X, piece.To.X), At(k1, piece.From.Y, piece.To.Y)), (float)At(k1, piece.FromHeight, piece.ToHeight),
+                    ink, 0.07f, 0.04f);
+            }
+        }
+        if (preview.Rays.Count == 9)
+        {
+            var figure = ShotGuide.Figure(preview.Rays);
+            var scale = 32 * _textScale / SightIcons.Size;
+            var pixel = (_topDown ? 0.0035f : 0.0012f) * scale * 1.5f;
+            var at = new Vector3((float)target.X, LabelHeight(target), (float)target.Y);
+            _overlay.AddChild(Icon(IconTexture(string.Concat(figure), figure, gold: false), at, pixel, new Vector2(0, (AboveLabel / scale + 18) / 1.5f), false));
+            var tag = MakeLabel(ShotGuide.Label.ToUpperInvariant(), at, 0.45f);
+            Raise(tag, AboveLabel + 18 * scale + 26 * _textScale);
+            _overlay.AddChild(tag);
+            _overlayTexts.Add(tag.Text);
+        }
+        if (preview.CoverId is { } coverId && _scene!.Terrain.FirstOrDefault(t => t.Id == coverId) is { } cover)
+        {
+            GuideOutline = coverId;
+            var gold = _highContrast ? Colors.Cyan : new Color(0.79f, 0.64f, 0.15f);
+            var h = (float)cover.Height + 0.03f;
+            var r = cover.Area;
+            Segment(new TablePoint(r.X0, r.Y0), new TablePoint(r.X1, r.Y0), h, gold, 0.08f);
+            Segment(new TablePoint(r.X1, r.Y0), new TablePoint(r.X1, r.Y1), h, gold, 0.08f);
+            Segment(new TablePoint(r.X1, r.Y1), new TablePoint(r.X0, r.Y1), h, gold, 0.08f);
+            Segment(new TablePoint(r.X0, r.Y1), new TablePoint(r.X0, r.Y0), h, gold, 0.08f);
         }
     }
 
@@ -3111,6 +3177,11 @@ public partial class BoardView : SubViewportContainer
         }
         var before = _hovered;
         _hovered = id;
+        // Stage L5: the shot guide follows the pointer, so the preview is drawn again.
+        if (Interaction.IsTarget)
+        {
+            _drawnVersion = -1;
+        }
         foreach (var changed in new[] { before, id })
         {
             if (changed is { } m && _idLabels.TryGetValue(m, out var label) && IsInstanceValid(label))
