@@ -35,9 +35,26 @@ C# code. The format is described at the top of `src/Sim/MapFiles.cs`.
 | `claim-no-mans-land` | Claim No Man's Land | The fixed layout (U32) |
 | `trench-warfare` | Trench Warfare | Stage S6: three 8" trench sections in the east zone (the defender's, U88), No Man's Land terrain between the zones. Server names `ranged-trench-warfare`, `melee-2v2-trench-warfare` and so on |
 | `claim-no-mans-land-towers` | Claim No Man's Land | The same layout with two 2" towers and, since stage S3, six 1" trench sections in the deployment zones (the Test Center's default map). A test layout closer than No Man's Land spacing, so it names no archetype |
+| `ruined-village`, `shell-holes`, `crossfire` | Claim No Man's Land | Stage S7 presets: the five Objectives on the printed marker positions (U32) as ruined houses, shell holes or sandbag positions |
+| `dust`, `broken-line` | Trench Warfare | Stage S7 presets: Dust has two L-shaped trench sites and a connector; Broken Line has three straight sections behind a cratered No Man's Land |
 
 `ClaimNoMansLand.Create` and `CreateWithTowers` in Rules.Core build the same two layouts in code. They stay as the
 reference: `MapFileTests` checks the files match them, so setups, state hashes and record fingerprints are unchanged.
+
+## Generated maps
+
+Stage S8: a map can also be made from a seed. Its id names the kind, the generator version and the seed, for
+example `generated-trench-lines-v1-42`, so a match record that names the map says how to make it again, and the
+record's map hash says it was that map (`trench-cli verify` makes it again to check the setup). The same id gives
+the same map on every machine and build: the generator uses its own SplitMix64 numbers and whole half-inches,
+and a test pins the hash of one map. A change that moves any map must raise `MapGenerator.Version`.
+
+Every generated map keeps the set-up rules of its archetype for a base up to 1" radius (each try that does not is
+thrown away and the next one, from the same seed, is made). `MapFiles.ToJson` writes one as a map file.
+
+| Kind | Archetype | What it makes |
+| --- | --- | --- |
+| `trench-lines` | Trench Lines (p. 67, U89) | One trench line of 4"-12" sections, 2.5" or 3" wide, from one edge to the opposite edge, with bends, sometimes a dead end or a crossroads; then two ruined corners, two areas of difficult ground and two landmarks, 1" from trenches and 3" from each other. No scenario this build plays uses Trench Lines yet, so the server makes these maps but no match takes one |
 
 ## Adding a map
 

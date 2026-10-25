@@ -29,6 +29,15 @@ public class TerrainDressTests
         data.Add(new TerrainShape("odd-wall", new TableRect(1, 1, 2, 7), TerrainProfile.Wall, 3, false, false, "Wall"));
         data.Add(new TerrainShape("odd-cover", new TableRect(3, 3, 4.2, 5), TerrainProfile.Cover, 0.75, false, false, "Cover"));
         data.Add(new TerrainShape("odd-low", new TableRect(5, 5, 6, 9), TerrainProfile.Low, 0.25, false, false, "Low"));
+        // Trench-maps stage S8: ruined corners and other joined pieces, dressed one rectangle at a time, nothing in the
+        // corner the L leaves open (Inside checks the piece's parts, not the box around them).
+        foreach (var (profile, height) in new[] { (TerrainProfile.Wall, 3.0), (TerrainProfile.Cover, 0.75), (TerrainProfile.Low, 0.25) })
+        {
+            data.Add(new TerrainShape($"corner-{profile}", new TableRect(10, 10, 14.5, 14), profile, height, false, false, "Corner")
+            {
+                Parts = [new TableRect(10, 10, 14.5, 10.5), new TableRect(10, 10.5, 10.5, 14)],
+            });
+        }
         return data;
     }
 

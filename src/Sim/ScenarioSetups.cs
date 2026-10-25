@@ -111,6 +111,14 @@ public static class ScenarioSetups
         return maps;
     }
 
+    // Trench-maps stage S8: a map by id, from the content maps or, for a generated id, made from its seed; null if neither.
+    public static MapDefinition? MapById(IReadOnlyDictionary<string, MapDefinition> maps, string id)
+    {
+        ArgumentNullException.ThrowIfNull(maps);
+        ArgumentNullException.ThrowIfNull(id);
+        return maps.GetValueOrDefault(id) ?? MapGenerator.FromId(id);
+    }
+
     // The largest base radius of any model in the content's warband files.
     public static Length LargestBase(string contentFolder) =>
         WarbandFiles.Select(f => Path.Combine(contentFolder, f)).Where(File.Exists)

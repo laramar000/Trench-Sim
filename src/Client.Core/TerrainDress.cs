@@ -71,18 +71,25 @@ public static class TerrainDress
         if (piece.Tower)
         {
             Tower(piece, parts);
+            return parts;
         }
-        else if (piece.Profile == TerrainProfile.Wall)
+        // Trench-maps stage S8: a piece made of joined rectangles (a ruined corner) is dressed one rectangle at a time,
+        // so nothing is drawn in the corner it leaves open.
+        foreach (var part in piece.Parts)
         {
-            Wall(piece, random, parts);
-        }
-        else if (piece.Profile == TerrainProfile.Cover)
-        {
-            Sandbags(piece, random, parts);
-        }
-        else
-        {
-            Rough(piece, random, parts);
+            var one = piece.Parts.Count == 1 ? piece : piece with { Area = part, Parts = [part] };
+            if (piece.Profile == TerrainProfile.Wall)
+            {
+                Wall(one, random, parts);
+            }
+            else if (piece.Profile == TerrainProfile.Cover)
+            {
+                Sandbags(one, random, parts);
+            }
+            else
+            {
+                Rough(one, random, parts);
+            }
         }
         return parts;
     }
@@ -93,9 +100,10 @@ public static class TerrainDress
         ArgumentNullException.ThrowIfNull(piece);
         ArgumentNullException.ThrowIfNull(part);
         const double hair = 1e-6;
-        var a = piece.Area;
-        return part.Corners().All(c => c.X >= a.X0 - hair && c.X <= a.X1 + hair && c.Z >= a.Y0 - hair && c.Z <= a.Y1 + hair
-            && c.Y >= -hair && c.Y <= piece.Height + hair);
+        // In one of the piece's rectangles (stage S8: a joined piece's dress stays out of the corner it leaves open).
+        var corners = part.Corners().ToList();
+        return piece.Parts.Any(a => corners.All(c => c.X >= a.X0 - hair && c.X <= a.X1 + hair && c.Z >= a.Y0 - hair && c.Z <= a.Y1 + hair
+            && c.Y >= -hair && c.Y <= piece.Height + hair));
     }
 
     // Cover: a ring of sandbags round the footprint, in courses with staggered joints, as high as the piece.

@@ -255,7 +255,8 @@ public sealed class Lobby
         }
         if (create.Map is { } mapId)
         {
-            if (!_maps.TryGetValue(mapId, out var map))
+            // Trench-maps stage S8: a generated id ("generated-trench-lines-v1-42") is made from its seed here.
+            if (ScenarioSetups.MapById(_maps, mapId) is not { } map)
             {
                 Refuse(from, ProtocolError.UnknownMap, "No such map on this server.");
                 return;
@@ -284,7 +285,7 @@ public sealed class Lobby
 
         var host = new MatchHost(code, MatchIds.New(), create.Scenario, setup, _newDice(), _outbox, _recorder, _rejoinWindow, now)
         {
-            Map = setup.Scenario is { } played ? _mapIdByHash.GetValueOrDefault(RecordFormat.MapHash(played)) : null,
+            Map = create.Map ?? (setup.Scenario is { } played ? _mapIdByHash.GetValueOrDefault(RecordFormat.MapHash(played)) : null),
         };
         _matches.Add(code, host);
         _seated.Add(from, (host, Seat.One));

@@ -161,6 +161,137 @@ public static class MapFiles
         }
     }
 
+    // Trench-maps stage S8: a map written as a format-1 file, so a generated map can be saved, read and checked like
+    // any other. Parse(ToJson(map)) gives the same battlefield (the generator tests check this for every kind).
+    public static string ToJson(MapDefinition map, string? notes = null)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        static string In(Length l)
+        {
+            var abs = Math.Abs(l.Thousandths);
+            var text = $"{(l.Thousandths < 0 ? "-" : "")}{abs / 1000}.{abs % 1000:000}".TrimEnd('0').TrimEnd('.');
+            return text;
+        }
+        static string[] RectText(Rect r) => [In(r.Min.X), In(r.Min.Y), In(r.Max.X), In(r.Max.Y)];
+        var ruins = map.RuinIds.ToHashSet(StringComparer.Ordinal);
+        var field = map.Battlefield;
+        using var stream = new MemoryStream();
+        using (var w = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
+        {
+            void Strings(string name, IEnumerable<string> values)
+            {
+                w.WriteStartArray(name);
+                foreach (var v in values)
+                {
+                    w.WriteStringValue(v);
+                }
+                w.WriteEndArray();
+            }
+            w.WriteStartObject();
+            w.WriteNumber("format", Format);
+            w.WriteString("id", map.Id);
+            w.WriteString("name", map.Name);
+            if (notes is not null)
+            {
+                w.WriteString("notes", notes);
+            }
+            w.WriteString("width", In(field.Width));
+            w.WriteString("height", In(field.Height));
+            if (map.Archetype is { } archetype)
+            {
+                w.WriteString("archetype", archetype);
+            }
+            Strings("supports", map.Supports);
+            w.WriteStartArray("zones");
+            foreach (var z in field.Zones)
+            {
+                w.WriteStartObject();
+                w.WriteString("id", z.ZoneId);
+                Strings("rect", RectText(z.Area.Bounds));
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+            Strings("objectives", map.ObjectiveIds);
+            w.WriteStartArray("terrain");
+            foreach (var t in field.Terrain)
+            {
+                w.WriteStartObject();
+                w.WriteString("id", t.Id);
+                if (t.Footprint.Parts.Length == 1)
+                {
+                    Strings("rect", RectText(t.Footprint.Parts[0]));
+                }
+                else
+                {
+                    w.WriteStartArray("parts");
+                    foreach (var part in t.Footprint.Parts)
+                    {
+                        w.WriteStartArray();
+                        foreach (var v in RectText(part))
+                        {
+                            w.WriteStringValue(v);
+                        }
+                        w.WriteEndArray();
+                    }
+                    w.WriteEndArray();
+                }
+                w.WriteString("profile", t.Profile switch { TerrainProfile.Low => "low", TerrainProfile.Cover => "cover", _ => "wall" });
+                var kinds = new List<string>();
+                if (t.Kind.HasFlag(TerrainKind.Difficult))
+                {
+                    kinds.Add("difficult");
+                }
+                if (t.Kind.HasFlag(TerrainKind.Dangerous))
+                {
+                    kinds.Add("dangerous");
+                }
+                if (t.Kind.HasFlag(TerrainKind.Impassable))
+                {
+                    kinds.Add("impassable");
+                }
+                if (kinds.Count > 0)
+                {
+                    Strings("kind", kinds);
+                }
+                if (t.Surface == SurfaceLevel.High)
+                {
+                    w.WriteString("surface", "high");
+                }
+                if (t.IsWalkable != new TerrainBlock(t.Id, t.Footprint, t.Profile, t.Kind, t.Surface).IsWalkable)
+                {
+                    w.WriteBoolean("walkable", t.IsWalkable);
+                }
+                if (t.Climb is { } climb)
+                {
+                    w.WriteStartObject("climb");
+                    w.WriteString("height", In(climb.Height));
+                    w.WriteStartArray("ladders");
+                    foreach (var l in climb.Ladders)
+                    {
+                        w.WriteStartObject();
+                        w.WriteString("id", l.Id);
+                        Strings("at", [In(l.At.X), In(l.At.Y)]);
+                        w.WriteEndObject();
+                    }
+                    w.WriteEndArray();
+                    w.WriteEndObject();
+                }
+                if (t.Depth is { } depth)
+                {
+                    w.WriteString("depth", In(depth));
+                }
+                if (ruins.Contains(t.Id))
+                {
+                    w.WriteBoolean("ruin", true);
+                }
+                w.WriteEndObject();
+            }
+            w.WriteEndArray();
+            w.WriteEndObject();
+        }
+        return System.Text.Encoding.UTF8.GetString(stream.ToArray()) + "\n";
+    }
+
     private static (TerrainBlock Block, bool Ruin) Piece(JsonElement element, int index)
     {
         var o = Object(element, $"terrain piece {index + 1}");

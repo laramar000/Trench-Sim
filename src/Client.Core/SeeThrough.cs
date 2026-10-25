@@ -20,7 +20,7 @@ public static class SeeThrough
         var hiding = new HashSet<string>();
         foreach (var piece in terrain.Where(p => p.Height >= MinHeight))
         {
-            if (points.Any(p => SegmentHitsBox(camera, p, piece.Area, piece.Height)))
+            if (points.Any(p => piece.Parts.Any(part => SegmentHitsBox(camera, p, part, piece.Height))))
             {
                 hiding.Add(piece.Id);
             }

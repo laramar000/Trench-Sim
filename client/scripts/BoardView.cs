@@ -1896,11 +1896,13 @@ public partial class BoardView : SubViewportContainer
             GuideOutline = coverId;
             var gold = _highContrast ? Colors.Cyan : new Color(0.79f, 0.64f, 0.15f);
             var h = (float)cover.Height + 0.03f;
-            var r = cover.Area;
-            Segment(new TablePoint(r.X0, r.Y0), new TablePoint(r.X1, r.Y0), h, gold, 0.08f);
-            Segment(new TablePoint(r.X1, r.Y0), new TablePoint(r.X1, r.Y1), h, gold, 0.08f);
-            Segment(new TablePoint(r.X1, r.Y1), new TablePoint(r.X0, r.Y1), h, gold, 0.08f);
-            Segment(new TablePoint(r.X0, r.Y1), new TablePoint(r.X0, r.Y0), h, gold, 0.08f);
+            foreach (var r in cover.Parts)
+            {
+                Segment(new TablePoint(r.X0, r.Y0), new TablePoint(r.X1, r.Y0), h, gold, 0.08f);
+                Segment(new TablePoint(r.X1, r.Y0), new TablePoint(r.X1, r.Y1), h, gold, 0.08f);
+                Segment(new TablePoint(r.X1, r.Y1), new TablePoint(r.X0, r.Y1), h, gold, 0.08f);
+                Segment(new TablePoint(r.X0, r.Y1), new TablePoint(r.X0, r.Y0), h, gold, 0.08f);
+            }
         }
     }
 
@@ -2212,21 +2214,24 @@ public partial class BoardView : SubViewportContainer
     private MeshInstance3D Outline(TerrainShape piece, Color colour)
     {
         var mesh = new ImmediateMesh();
-        var a = piece.Area;
         var h = (float)piece.Height;
-        var corners = new[] { new Vector2((float)a.X0, (float)a.Y0), new Vector2((float)a.X1, (float)a.Y0), new Vector2((float)a.X1, (float)a.Y1), new Vector2((float)a.X0, (float)a.Y1) };
         mesh.SurfaceBegin(Mesh.PrimitiveType.Lines);
-        for (var i = 0; i < 4; i++)
+        // Each rectangle of the piece outlined (stage S8: joined pieces).
+        foreach (var a in piece.Parts)
         {
-            var p = corners[i];
-            var q = corners[(i + 1) % 4];
-            foreach (var y in new[] { 0.02f, h })
+            var corners = new[] { new Vector2((float)a.X0, (float)a.Y0), new Vector2((float)a.X1, (float)a.Y0), new Vector2((float)a.X1, (float)a.Y1), new Vector2((float)a.X0, (float)a.Y1) };
+            for (var i = 0; i < 4; i++)
             {
-                mesh.SurfaceAddVertex(new Vector3(p.X, y, p.Y));
-                mesh.SurfaceAddVertex(new Vector3(q.X, y, q.Y));
+                var p = corners[i];
+                var q = corners[(i + 1) % 4];
+                foreach (var y in new[] { 0.02f, h })
+                {
+                    mesh.SurfaceAddVertex(new Vector3(p.X, y, p.Y));
+                    mesh.SurfaceAddVertex(new Vector3(q.X, y, q.Y));
+                }
+                mesh.SurfaceAddVertex(new Vector3(p.X, 0.02f, p.Y));
+                mesh.SurfaceAddVertex(new Vector3(p.X, h, p.Y));
             }
-            mesh.SurfaceAddVertex(new Vector3(p.X, 0.02f, p.Y));
-            mesh.SurfaceAddVertex(new Vector3(p.X, h, p.Y));
         }
         mesh.SurfaceEnd();
         var outline = new MeshInstance3D
@@ -2789,7 +2794,11 @@ public partial class BoardView : SubViewportContainer
             }
             else
             {
-                Box(new Vector3((float)area.CentreX, h / 2, (float)area.CentreY), new Vector3((float)area.Width, h, (float)area.Depth), TerrainColour(piece));
+                // One box per rectangle (stage S8: a ruined corner is two joined walls, not the box around them).
+                foreach (var part in piece.Parts)
+                {
+                    Box(new Vector3((float)part.CentreX, h / 2, (float)part.CentreY), new Vector3((float)part.Width, h, (float)part.Depth), TerrainColour(piece));
+                }
             }
             if (piece.Height >= SeeThrough.MinHeight && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D paint })
             {

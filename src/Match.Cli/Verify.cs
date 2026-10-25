@@ -109,8 +109,9 @@ public static class Verify
             try
             {
                 var setup = ScenarioSetups.FromFolder(content).GetValueOrDefault(checkedBody.Scenario);
-                // A match created on another map (trench-maps stage S5): the same models on that map file.
-                if (setup is not null && checkedBody.Map is { } mapId && ScenarioSetups.Maps(content).GetValueOrDefault(mapId) is { } map)
+                // A match created on another map (trench-maps stage S5): the same models on that map file, or on the map a
+                // generated id makes again from its seed (stage S8).
+                if (setup is not null && checkedBody.Map is { } mapId && ScenarioSetups.MapById(ScenarioSetups.Maps(content), mapId) is { } map)
                 {
                     setup = ScenarioSetups.OnMap(setup, map);
                 }
