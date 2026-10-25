@@ -12,14 +12,24 @@ namespace Match.Protocol;
 public abstract record ClientMessage;
 
 // Create a match of a named scenario. The sender takes Seat One and receives the match code to give the opponent.
+// Map (trench-maps stage S5, optional, left off when null): play the scenario's models on another of the server's
+// maps instead of the one the name comes with. The map must be made for the scenario and fit what it needs.
 public sealed record CreateMatch : ClientMessage
 {
+    private readonly string? _map;
+
     public CreateMatch(string scenario)
     {
         Scenario = Ids.Check(scenario, nameof(scenario));
     }
 
     public string Scenario { get; }
+
+    public string? Map
+    {
+        get => _map;
+        init => _map = value is null ? null : Ids.Check(value, nameof(Map));
+    }
 }
 
 // Join a match by its code. The sender takes the seat still free; nobody chooses a seat.
@@ -212,6 +222,10 @@ public enum ProtocolError
     MatchPaused,
     MatchFinished,
     SeatTakenOver,
+
+    // Trench-maps stage S5: no map with that id on this server, or it does not fit the scenario.
+    UnknownMap,
+    MapDoesNotFit,
 }
 
 // Where a match is, as Welcome reports it.

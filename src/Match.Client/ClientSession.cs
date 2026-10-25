@@ -139,6 +139,10 @@ public sealed class ClientSession : IAsyncDisposable
     public async Task<ServerMessage> CreateAsync(string scenario, CancellationToken cancellationToken = default) =>
         await RequestAsync(new CreateMatch(scenario), cancellationToken);
 
+    // Trench-maps stage S5: the scenario's models on another of the server's maps.
+    public async Task<ServerMessage> CreateAsync(string scenario, string map, CancellationToken cancellationToken = default) =>
+        await RequestAsync(new CreateMatch(scenario) { Map = map }, cancellationToken);
+
     public async Task<ServerMessage> JoinAsync(string code, CancellationToken cancellationToken = default) =>
         await RequestAsync(new JoinMatch(code), cancellationToken);
 

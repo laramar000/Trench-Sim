@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Rules.Core.Dice;
 using Rules.Core.State;
+using Sim;
 
 namespace Match.Server;
 
@@ -18,6 +19,9 @@ public sealed class MatchServerOptions
     public int Port { get; init; }
 
     public IReadOnlyDictionary<string, MatchSetup>? Scenarios { get; init; }
+
+    // Trench-maps stage S5: the maps a CreateMatch may name; null is the content maps next to the program.
+    public IReadOnlyDictionary<string, MapDefinition>? Maps { get; init; }
 
     // The server's dice, one source per match. Tests inject seeded dice; the real server uses RandomDice.
     public Func<IDiceSource> NewDice { get; init; } = () => new RandomDice();
@@ -98,7 +102,8 @@ public sealed class MatchServer : IAsyncDisposable
             maxMatches: options.MaxMatches,
             time: options.Time,
             rejoinWindow: options.RejoinWindow,
-            recorder: (IMatchRecorder?)data?.Writer ?? NullRecorder.Instance);
+            recorder: (IMatchRecorder?)data?.Writer ?? NullRecorder.Instance,
+            maps: options.Maps ?? ScenarioCatalog.Maps);
         _ticker = options.Time.CreateTimer(_ => Lobby.Tick(), null, options.TickInterval, options.TickInterval);
 
         // A client that does not answer a ping within twice the interval is dropped; a zero interval turns pings off.

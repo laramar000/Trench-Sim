@@ -24,6 +24,9 @@ C# code. The format is described at the top of `src/Sim/MapFiles.cs`.
     3" between pieces and trenches wholly in one zone; Decimated Ruins 3" between pieces, ruins (`"ruin": true`)
     chained within 9", no trenches; Trench Lines one trench network from an edge to the opposite edge, other pieces
     1" from trenches and 3" from each other. Touching trench sections are one trench.
+- **Scenario and map (stage S5):** a scenario's rules are a `ScenarioDefinition` (Rules.Core) with what it needs
+  from a map (U87). `ScenarioSetups.OnMap` puts a setup's models on another map, refusing a map not made for the
+  scenario or not fitting it. `CreateMatch` may name a `map`; the record keeps the map id and `mapHash`.
 
 ## Maps
 

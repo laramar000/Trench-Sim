@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using Rules.Core.Geometry;
 using Rules.Core.Scenarios;
 using Rules.Core.State;
 
@@ -14,20 +16,21 @@ public static class ScenarioSetups
 
     public static IReadOnlyDictionary<string, MatchSetup> FromFolder(string folder)
     {
+        var maps = Maps(folder);
         var all = new Dictionary<string, MatchSetup>(StringComparer.Ordinal);
-        foreach (var (name, file) in new[] { ("ranged", "test-warbands.json"), ("melee", "melee-warbands.json") })
+        foreach (var (name, file) in new[] { ("ranged", WarbandFiles[0]), ("melee", WarbandFiles[1]) })
         {
             var path = Path.Combine(folder, file);
-            all[name] = Setup(path);
+            all[name] = Setup(path, maps[PlainMap]);
             foreach (var size in TestSizes)
             {
-                all[$"{name}-{size}v{size}"] = Setup(path, size);
+                all[$"{name}-{size}v{size}"] = Setup(path, maps[PlainMap], size);
             }
-            all[name + TowersSuffix] = Setup(path, towers: true);
+            all[name + TowersSuffix] = Setup(path, maps[TowersMap]);
             // The small test rosters on the tower layout too ("ranged-1v1-towers"): the Test Center plays on towers by default.
             foreach (var size in TestSizes)
             {
-                all[$"{name}-{size}v{size}{TowersSuffix}"] = Setup(path, size, towers: true);
+                all[$"{name}-{size}v{size}{TowersSuffix}"] = Setup(path, maps[TowersMap], size);
             }
         }
         return all;
@@ -40,20 +43,71 @@ public static class ScenarioSetups
     // The scenario name for a content scenario and a side size; null size is the normal roster.
     public static string Name(string scenario, int? size) => size is { } n ? $"{scenario}-{n}v{n}" : scenario;
 
-    public static MatchSetup Setup(string contentPath, int? size = null, bool towers = false)
+    public static MatchSetup Setup(string contentPath, int? size = null, bool towers = false) =>
+        Setup(contentPath, MapFiles.Load(Path.Combine(MapFiles.FolderNextTo(contentPath), (towers ? TowersMap : PlainMap) + ".json")), size);
+
+    public static MatchSetup Setup(string contentPath, MapDefinition map, int? size = null)
     {
         var warbands = Content.Load(contentPath);
         var take = size ?? int.MaxValue;
         var models = warbands[0].Models.Take(take).Select((m, i) => new SetupModel(new ModelId($"a{i + 1}"), Seat.One, m.Profile))
             .Concat(warbands[1].Models.Take(take).Select((m, i) => new SetupModel(new ModelId($"b{i + 1}"), Seat.Two, m.Profile)));
-        var map = MapFiles.Load(Path.Combine(MapFiles.FolderNextTo(contentPath), (towers ? TowersMap : PlainMap) + ".json"));
-        if (!map.IsFor(ClaimNoMansLand.ScenarioId))
-        {
-            throw new MapFormatException($"Map '{map.Id}' is not made for {ClaimNoMansLand.ScenarioId}.");
-        }
-        return new MatchSetup(ClaimNoMansLand.RulesVersion, ClaimNoMansLand.ScenarioId, ClaimNoMansLand.TurnLimit, RulesProfile.Default,
-            [ClaimNoMansLand.West, ClaimNoMansLand.East], models, map.ToScenario());
+        return OnMap(ClaimNoMansLand.Definition, map, models, RulesProfile.Default);
     }
+
+    // Trench-maps stage S5: the scenarios this build plays, by id.
+    public static readonly IReadOnlyDictionary<string, ScenarioDefinition> Definitions =
+        new Dictionary<string, ScenarioDefinition>(StringComparer.Ordinal) { [ClaimNoMansLand.ScenarioId] = ClaimNoMansLand.Definition };
+
+    // The same match on another map: the setup's scenario, models and rules profile, with the map's battlefield.
+    // Refused (MapFormatException) when the map is not made for the scenario or does not fit what it needs.
+    public static MatchSetup OnMap(MatchSetup setup, MapDefinition map)
+    {
+        ArgumentNullException.ThrowIfNull(setup);
+        var definition = Definitions.GetValueOrDefault(setup.ScenarioId)
+            ?? throw new MapFormatException($"Scenario '{setup.ScenarioId}' has no definition in this build.");
+        return OnMap(definition, map, setup.Models, setup.Profile);
+    }
+
+    private static MatchSetup OnMap(ScenarioDefinition definition, MapDefinition map, IEnumerable<SetupModel> models, RulesProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        if (!map.IsFor(definition.Id))
+        {
+            throw new MapFormatException($"Map '{map.Id}' is not made for {definition.Id}.");
+        }
+        var unmet = definition.Unmet(map.ToScenario(), map.ArchetypeKind);
+        if (!unmet.IsEmpty)
+        {
+            throw new MapFormatException($"Map '{map.Id}' does not fit {definition.Id}: {string.Join(" ", unmet)}");
+        }
+        return definition.Setup(map.ToScenario(), map.ArchetypeKind, models, profile);
+    }
+
+    // Trench-maps stage S5: the maps a server offers, from content/maps next to the warband files, each checked
+    // against the set-up rules (stage S4) for the largest base in the content. A map that breaks them stops the load.
+    public static IReadOnlyDictionary<string, MapDefinition> Maps(string contentFolder)
+    {
+        var maps = MapFiles.LoadFolder(Path.Combine(contentFolder, MapFiles.Folder));
+        var largest = LargestBase(contentFolder);
+        foreach (var map in maps.Values)
+        {
+            var problems = map.Problems(largest);
+            if (!problems.IsEmpty)
+            {
+                throw new MapFormatException($"Map '{map.Id}' breaks the set-up rules: {string.Join("; ", problems)}");
+            }
+        }
+        return maps;
+    }
+
+    // The largest base radius of any model in the content's warband files.
+    public static Length LargestBase(string contentFolder) =>
+        WarbandFiles.Select(f => Path.Combine(contentFolder, f)).Where(File.Exists)
+            .SelectMany(Content.Load).SelectMany(w => w.Models).Select(m => m.Profile.BaseRadius)
+            .DefaultIfEmpty(Length.HalfInch).Max();
+
+    public static readonly ImmutableArray<string> WarbandFiles = ["test-warbands.json", "melee-warbands.json"];
 
     // Trench and maps plan, stage S1: the layouts come from the map files in content/maps. They are the same layouts as
     // ClaimNoMansLand.Create and CreateWithTowers, which stay in Rules.Core as the reference the map tests compare with.

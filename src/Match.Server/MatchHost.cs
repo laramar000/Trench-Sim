@@ -58,6 +58,9 @@ internal sealed class MatchHost
     public string MatchId { get; }
     public string Scenario { get; }
     public DateTimeOffset CreatedAt { get; }
+
+    // Trench-maps stage S5: the id of the server's map file the match is played on, when the layout is one of them.
+    public string? Map { get; init; }
     public MatchStatus Status { get; private set; } = MatchStatus.Waiting;
     public MatchState State => _state;
     public IReadOnlyList<EventPublished> Log => _log;
@@ -450,7 +453,11 @@ internal sealed class MatchHost
     {
         var events = _log.Select(p => new RecordedEvent(p.Seq, p.Event, p.Hash)).ToList();
         _recorder.MatchClosed(new MatchRecordBody(MatchId, Code, CreatedAt, now, RecordFormat.CurrentEngine(RecordStore.Build),
-            Scenario, RecordFormat.ContentFingerprint(_setup), events, result));
+            Scenario, RecordFormat.ContentFingerprint(_setup), events, result)
+        {
+            Map = Map,
+            MapHash = _setup.Scenario is { } played ? RecordFormat.MapHash(played) : null,
+        });
     }
 
     private void Refuse(ConnectionId to, SubmitCommand submit, SeatSlot slot, ProtocolError error, string text) =>

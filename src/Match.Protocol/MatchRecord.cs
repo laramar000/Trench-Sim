@@ -42,6 +42,11 @@ public static class RecordFormat
     public static string ContentFingerprint(MatchSetup setup) =>
         "sha256:" + Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(setup, Wire.Options)));
 
+    // Trench-maps stage S5: the fingerprint of a map as played, its battlefield and Objectives exactly as the setup
+    // holds them. Two map files with the same layout have the same hash.
+    public static string MapHash(Scenario map) =>
+        "sha256:" + Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(map, Wire.Options)));
+
     public static byte[] EncodeBody(MatchRecordBody body) => JsonSerializer.SerializeToUtf8Bytes(body, Options);
 
     // What the signature is over: the domain prefix, then the body bytes exactly as stored.
@@ -176,6 +181,25 @@ public sealed record MatchRecordBody
     public string ContentFingerprint { get; }
     public IReadOnlyList<RecordedEvent> Events { get; }
     public RecordResult Result { get; }
+
+    // Trench-maps stage S5 (both optional, left off when null, as in every record before): the id of the map file
+    // the match was played on and RecordFormat.MapHash of its layout. A verifier checks the hash against the setup.
+    public string? Map
+    {
+        get => _map;
+        init => _map = value is null ? null : Ids.Check(value, nameof(Map));
+    }
+
+    public string? MapHash
+    {
+        get => _mapHash;
+        init => _mapHash = value is null || RecordKeys.IsSha256Id(value)
+            ? value
+            : throw new ArgumentException("A map hash is sha256:<64 hex>.", nameof(MapHash));
+    }
+
+    private readonly string? _map;
+    private readonly string? _mapHash;
 }
 
 public sealed record RecordSignature(string Alg, string KeyId, string Value);

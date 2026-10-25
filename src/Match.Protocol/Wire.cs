@@ -334,6 +334,9 @@ public static class Wire
         [
             (typeof(TerrainBlock), nameof(TerrainBlock.Climb)),
             (typeof(TerrainBlock), nameof(TerrainBlock.Depth)),
+            (typeof(CreateMatch), nameof(CreateMatch.Map)),
+            (typeof(MatchRecordBody), nameof(MatchRecordBody.Map)),
+            (typeof(MatchRecordBody), nameof(MatchRecordBody.MapHash)),
         ];
 
         // Optional flags left out when false, for the same reason (every match before dual-purpose weapons).

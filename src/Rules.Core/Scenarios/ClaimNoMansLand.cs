@@ -18,6 +18,11 @@ public static class ClaimNoMansLand
     public const string West = "west";
     public const string East = "east";
 
+    // Trench-maps stage S5: the scenario apart from its map. Five Objective pieces (p. 152) and the No Man's Land
+    // archetype (p. 151), deploying west then east.
+    public static readonly ScenarioDefinition Definition =
+        new(ScenarioId, RulesVersion, TurnLimit, [West, East], new MapNeeds([West, East], 5, Archetype.NoMansLand));
+
     private static TerrainBlock Piece(string id, string x1, string y1, string x2, string y2, TerrainProfile profile, TerrainKind kind = TerrainKind.Open) =>
         new(id, Rect(x1, y1, x2, y2), profile, kind);
 

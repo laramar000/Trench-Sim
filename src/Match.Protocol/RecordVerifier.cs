@@ -191,6 +191,10 @@ public static class RecordVerifier
         {
             return Invalid(VerdictReason.BadSetup, "The content fingerprint does not match the setup.", record);
         }
+        if (record.MapHash is { } mapHash && (created.Setup.Scenario is not { } played || RecordFormat.MapHash(played) != mapHash))
+        {
+            return Invalid(VerdictReason.BadSetup, "The map hash does not match the setup's map.", record);
+        }
 
         // 10. Every event, in order, through the reducer, against its stored hash.
         var state = MatchState.None;

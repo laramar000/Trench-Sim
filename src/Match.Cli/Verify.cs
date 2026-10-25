@@ -109,9 +109,14 @@ public static class Verify
             try
             {
                 var setup = ScenarioSetups.FromFolder(content).GetValueOrDefault(checkedBody.Scenario);
+                // A match created on another map (trench-maps stage S5): the same models on that map file.
+                if (setup is not null && checkedBody.Map is { } mapId && ScenarioSetups.Maps(content).GetValueOrDefault(mapId) is { } map)
+                {
+                    setup = ScenarioSetups.OnMap(setup, map);
+                }
                 same = setup is not null && RecordFormat.ContentFingerprint(setup) == checkedBody.ContentFingerprint;
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException or InvalidOperationException)
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException or InvalidOperationException or MapFormatException)
             {
                 same = false;
             }

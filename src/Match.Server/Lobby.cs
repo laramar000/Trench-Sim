@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Match.Protocol;
 using Rules.Core.Dice;
 using Rules.Core.State;
+using Sim;
 
 namespace Match.Server;
 
@@ -47,6 +48,8 @@ public sealed class Lobby
 
     private readonly object _gate = new();
     private readonly IReadOnlyDictionary<string, MatchSetup> _scenarios;
+    private readonly IReadOnlyDictionary<string, MapDefinition> _maps;
+    private readonly Dictionary<string, string> _mapIdByHash = new(StringComparer.Ordinal);
     private readonly Func<IDiceSource> _newDice;
     private readonly Func<string> _newCode;
     private readonly Outbox _outbox;
@@ -67,9 +70,15 @@ public sealed class Lobby
         int maxMatches = 64,
         TimeProvider? time = null,
         TimeSpan? rejoinWindow = null,
-        IMatchRecorder? recorder = null)
+        IMatchRecorder? recorder = null,
+        IReadOnlyDictionary<string, MapDefinition>? maps = null)
     {
         _scenarios = scenarios;
+        _maps = maps ?? new Dictionary<string, MapDefinition>(StringComparer.Ordinal);
+        foreach (var map in _maps.Values.OrderBy(m => m.Id, StringComparer.Ordinal))
+        {
+            _mapIdByHash.TryAdd(RecordFormat.MapHash(map.ToScenario()), map.Id);
+        }
         _newDice = newDice;
         _outbox = outbox;
         _newCode = newCode ?? RandomCode;
@@ -244,6 +253,23 @@ public sealed class Lobby
             Refuse(from, ProtocolError.UnknownScenario, "No such scenario on this server.");
             return;
         }
+        if (create.Map is { } mapId)
+        {
+            if (!_maps.TryGetValue(mapId, out var map))
+            {
+                Refuse(from, ProtocolError.UnknownMap, "No such map on this server.");
+                return;
+            }
+            try
+            {
+                setup = ScenarioSetups.OnMap(setup, map);
+            }
+            catch (MapFormatException e)
+            {
+                Refuse(from, ProtocolError.MapDoesNotFit, e.Message);
+                return;
+            }
+        }
         if (_matches.Count >= _maxMatches)
         {
             Refuse(from, ProtocolError.ServerBusy, "The server has no room for another match.");
@@ -256,7 +282,10 @@ public sealed class Lobby
         }
         while (_matches.ContainsKey(code));
 
-        var host = new MatchHost(code, MatchIds.New(), create.Scenario, setup, _newDice(), _outbox, _recorder, _rejoinWindow, now);
+        var host = new MatchHost(code, MatchIds.New(), create.Scenario, setup, _newDice(), _outbox, _recorder, _rejoinWindow, now)
+        {
+            Map = setup.Scenario is { } played ? _mapIdByHash.GetValueOrDefault(RecordFormat.MapHash(played)) : null,
+        };
         _matches.Add(code, host);
         _seated.Add(from, (host, Seat.One));
         host.Seat(Seat.One, from, now);

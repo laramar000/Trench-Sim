@@ -41,7 +41,7 @@ Version 2 (M6) replaces version 1; the server speaks only version 2.
 
 | type | fields | meaning |
 |---|---|---|
-| `CreateMatch` | `scenario` | Creates a match of a named scenario (`ranged`, `melee`). The sender takes seat One. |
+| `CreateMatch` | `scenario`, optional `map` | Creates a match of a named scenario (`ranged`, `melee`). The sender takes seat One. With `map` (trench-maps stage S5, left out when not given), the scenario's models play on that server map instead; a map the server lacks is refused `UnknownMap`, one not made for the scenario or not fitting it `MapDoesNotFit`. |
 | `JoinMatch` | `code` | Joins by match code. The sender takes seat Two. No message can choose a seat. |
 | `SubmitCommand` | `commandId`, `seq`, `knownEvents`, `command` | A command for the sender's own seat. |
 | `Rejoin` | `code`, `seatToken`, `knownEvents`, `knownHash` | Takes a seat back after a lost connection. See Rejoining. |
