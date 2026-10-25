@@ -1663,6 +1663,7 @@ public partial class BoardView : SubViewportContainer
         }
         _overlayTexts.Clear();
         _crossed.Clear();
+        _sightIcons.Clear();
         AreaPoints = 0;
         GhostAt = null;
         _reasonAt = null;
@@ -1800,10 +1801,85 @@ public partial class BoardView : SubViewportContainer
                 _crossed.Add(id);
             }
         }
+        // Line-of-sight stage L4: an eye above every enemy (open, half closed or struck through) and a shield when it
+        // would be in cover, from the rules' own sight and cover.
+        foreach (var sight in Interaction.TargetSights())
+        {
+            if (_scene.Find(sight.Model) is { } model)
+            {
+                SightIcon(model, sight);
+            }
+        }
         if (Interaction.IsPath)
         {
             Area(Interaction.ReachArea(), _highContrast ? new Color(1, 1, 1, 0.35f) : new Color(0.45f, 0.75f, 1f, 0.28f));
         }
+    }
+
+    // Stage L4 (for the UI check): the sight icons drawn now, by model.
+    public IReadOnlyDictionary<ModelId, TargetSight> SightIconsDrawn => _sightIcons;
+
+    private readonly Dictionary<ModelId, TargetSight> _sightIcons = [];
+    private readonly Dictionary<(string, bool, bool), ImageTexture> _iconTextures = [];
+
+    private void SightIcon(ModelShape model, TargetSight sight)
+    {
+        _sightIcons[model.Id] = sight;
+        // A fixed-size icon as tall as a line of label text, above the model's own label.
+        var scale = 32 * _textScale / SightIcons.Size;
+        var pixel = (_topDown ? 0.0035f : 0.0012f) * scale;
+        var at = new Vector3((float)model.X, LabelHeight(model), (float)model.Y);
+        var lift = AboveLabel / scale;
+        var dim = sight.Mark == SightMark.Blocked;
+        _overlay.AddChild(Icon(IconTexture(sight.Mark.ToString(), SightIcons.For(sight.Mark), gold: false), at, pixel,
+            new Vector2(sight.Cover ? -9 : 0, lift), dim));
+        if (sight.Cover)
+        {
+            _overlay.AddChild(Icon(IconTexture("Shield", SightIcons.Shield, gold: true), at, pixel, new Vector2(9, lift), dim));
+        }
+    }
+
+    private static Sprite3D Icon(Texture2D texture, Vector3 at, float pixel, Vector2 offset, bool dim) =>
+        new()
+        {
+            Texture = texture,
+            Position = at,
+            Offset = offset,
+            Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+            FixedSize = true,
+            PixelSize = pixel,
+            TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
+            NoDepthTest = true,
+            RenderPriority = 11,
+            Modulate = dim ? new Color(1, 1, 1, 0.55f) : Colors.White,
+            Shaded = false,
+        };
+
+    // Bone or gold paint on an iron outline; black and white in high contrast.
+    private ImageTexture IconTexture(string name, string[] rows, bool gold)
+    {
+        if (_iconTextures.TryGetValue((name, gold, _highContrast), out var cached))
+        {
+            return cached;
+        }
+        var light = _highContrast ? Colors.White : gold ? new Color(0.79f, 0.64f, 0.15f) : new Color(0.85f, 0.80f, 0.69f);
+        var dark = _highContrast ? Colors.Black : new Color(0.12f, 0.11f, 0.10f);
+        var image = Image.CreateEmpty(SightIcons.Size, SightIcons.Size, false, Image.Format.Rgba8);
+        for (var y = 0; y < SightIcons.Size; y++)
+        {
+            for (var x = 0; x < SightIcons.Size; x++)
+            {
+                image.SetPixel(x, y, rows[y][x] switch
+                {
+                    '#' => light,
+                    'X' => dark,
+                    _ => new Color(0, 0, 0, 0),
+                });
+            }
+        }
+        var texture = ImageTexture.CreateFromImage(image);
+        _iconTextures[(name, gold, _highContrast)] = texture;
+        return texture;
     }
 
     // Stage K5 (for the UI check): the target line drawn now and its colour, and how many were drawn.

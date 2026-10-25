@@ -3807,6 +3807,44 @@ public partial class UiCheck : Node
     private int _fightRefused;
     private readonly List<string> _fightProblems = [];
 
+    // Line-of-sight stage L4: in a target mode every enemy on the battlefield has one sight icon, the icon is the rules'
+    // own answer (TargetSights on the state the previews use), and in Shoot an enemy drawn as hidden is one the rules
+    // refuse for line of sight.
+    private int _sightSamples;
+    private int _sightIconsChecked;
+    private readonly List<string> _sightProblems = [];
+
+    private void SightIconsSample(BoardView board)
+    {
+        var interaction = board.Interaction;
+        if (interaction.Actor is not { } actor)
+        {
+            return;
+        }
+        _sightSamples++;
+        var rules = Client.Core.TargetSights.Of(interaction.PreviewState, actor);
+        var drawn = board.SightIconsDrawn;
+        if (drawn.Count != rules.Count)
+        {
+            _sightProblems.Add($"{drawn.Count} icons for {rules.Count} enemies");
+        }
+        var verdicts = interaction.TargetVerdicts().ToDictionary(v => v.Model, v => v.Refusal);
+        foreach (var sight in rules)
+        {
+            _sightIconsChecked++;
+            if (!drawn.TryGetValue(sight.Model, out var shown) || shown != sight)
+            {
+                _sightProblems.Add($"{sight.Model.Value}: drawn {(shown is null ? "none" : TargetSights.Words(shown))}, rules {TargetSights.Words(sight)}");
+            }
+            // A legal shot is never at a hidden enemy, and a shot refused for line of sight is always at one.
+            if (interaction.Mode == InteractionMode.Shoot && verdicts.TryGetValue(sight.Model, out var refusal)
+                && (refusal is null ? sight.Mark == SightMark.Blocked : refusal.Code == Rules.Core.ReasonCode.NoLineOfSight && sight.Mark != SightMark.Blocked))
+            {
+                _sightProblems.Add($"{sight.Model.Value}: icon {TargetSights.Words(sight)} but the Shoot verdict is '{refusal?.Text ?? "legal"}'");
+            }
+        }
+    }
+
     // In Fight: every enemy the rules accept as a target (TurnSequence.Check on the state the previews use) has a ring and
     // the ENGAGED tag, every other one is crossed; the panel's verdicts are the rules' own.
     private void FightTargetsSample(BoardView board)
@@ -4870,6 +4908,11 @@ public partial class UiCheck : Node
             await Frames(2);
             FightTargetsSample(board);
         }
+        if (_role == "pvp-a" && interaction.IsTarget)
+        {
+            await Frames(2);
+            SightIconsSample(board);
+        }
         var count = interaction.Mode == InteractionMode.None ? 0 : interaction.Targets().Count;
         for (var i = 0; i < count && interaction.Preview is not { Legal: true }; i++)
         {
@@ -5245,6 +5288,11 @@ public partial class UiCheck : Node
                 if (_chargesLooked > 0)
                 {
                     FightAfterChargeEnd();
+                }
+                if (_sightSamples > 0)
+                {
+                    Check("board-target-icons", _sightProblems.Count == 0,
+                        $"{_sightSamples} looks in target modes, {_sightIconsChecked} icons checked against the rules' sight and cover; {string.Join(" / ", _sightProblems.Take(4))}");
                 }
                 if (_fightSamples > 0)
                 {

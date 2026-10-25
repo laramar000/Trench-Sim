@@ -10,14 +10,14 @@ public class BoardSceneHeightTests
     [Fact]
     public void DisplayHeightsAreTheRulesSightHeights()
     {
-        Assert.Equal(TableRect.Inches(SightHeights.Low), DisplayHeight.Low);
-        Assert.Equal(TableRect.Inches(SightHeights.Cover), DisplayHeight.Cover);
-        Assert.Equal(TableRect.Inches(SightHeights.Wall), DisplayHeight.Wall);
+        Assert.Equal(DisplayHeight.Low, TableRect.Inches(SightHeights.Low));
+        Assert.Equal(DisplayHeight.Cover, TableRect.Inches(SightHeights.Cover));
+        Assert.Equal(DisplayHeight.Wall, TableRect.Inches(SightHeights.Wall));
         foreach (var profile in Enum.GetValues<TerrainProfile>())
         {
             var piece = new TerrainBlock("p", Footprint.Of(new Rect(new Point2(Length.Zero, Length.Zero), new Point2(Length.Inch, Length.Inch))), profile,
                 TerrainKind.Open);
-            Assert.Equal(TableRect.Inches(SightHeights.TopOf(piece)), DisplayHeight.Of(profile));
+            Assert.Equal(DisplayHeight.Of(profile), TableRect.Inches(SightHeights.TopOf(piece)));
         }
     }
 }

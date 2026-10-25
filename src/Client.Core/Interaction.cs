@@ -555,6 +555,25 @@ public sealed class Interaction
     private List<(ModelId, Rejection?)>? _verdicts;
     private long _verdictsVersion = -1;
 
+    // Line-of-sight stage L4: in the target modes, how the acting model sees every enemy (the icon above it), from the
+    // rules (TargetSights, Cover.Of). Empty outside the target modes.
+    public IReadOnlyList<TargetSight> TargetSights()
+    {
+        if (!IsTarget || Actor is not { } actor)
+        {
+            return [];
+        }
+        if (_sights is null || _sightsVersion != Version)
+        {
+            _sights = Client.Core.TargetSights.Of(_state, actor);
+            _sightsVersion = Version;
+        }
+        return _sights;
+    }
+
+    private IReadOnlyList<TargetSight>? _sights;
+    private long _sightsVersion = -1;
+
     // Pointing at a model in Shoot, Charge or Fight (QoL H1): the preview of choosing it as the target, from the same rules
     // check as a click (Previews.Target on the same state), before anything is chosen. Null outside target modes or for the
     // model already chosen. Nothing is chosen or sent.
