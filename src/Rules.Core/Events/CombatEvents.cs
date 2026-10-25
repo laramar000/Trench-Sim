@@ -136,9 +136,9 @@ public sealed record MarkersSpent : GameEvent
     public MarkerSpendPurpose Purpose { get; }
 }
 
-// A Ranged Attack was declared with every fact the modifiers depend on (pp. 42-44). Level fields are logged for
-// the elevation bonus that Gate 1 does not apply (U35). Bonus and penalty are the dice for the Success Roll
-// before any Blood Markers are spent.
+// A Ranged Attack was declared with every fact the modifiers depend on (pp. 42-44). Elevated (stage L3, p. 43) is the
+// +1 DICE for standing 3" or more above the target. Bonus and penalty are the dice for the Success Roll before any
+// Blood Markers are spent.
 public sealed record RangedAttackDeclared : GameEvent
 {
     public RangedAttackDeclared(
@@ -180,6 +180,12 @@ public sealed record RangedAttackDeclared : GameEvent
 
     // The target is within 1" of one of the shooter's own models: a D6 decides who is shot (p. 42).
     public bool IntoMelee { get; init; }
+
+    // Elevated position (p. 43, line-of-sight stage L3): the attacker stands 3" or more above the target, +1 DICE. Left
+    // off the wire when false, so every earlier record reads and writes as before.
+    public bool Elevated { get; init; }
+
+    public int BonusDice => AttackDice.ShotBonus(Elevated);
 }
 
 public sealed record RangedSuccessRolled : GameEvent
@@ -394,4 +400,7 @@ public sealed record FriendlyTargetChosen : GameEvent
     public bool LongRange { get; }
     public bool InCover { get; }
     public string? CoverTerrainId { get; }
+
+    // Elevated position above the model shot at (p. 43, stage L3); left off the wire when false.
+    public bool Elevated { get; init; }
 }

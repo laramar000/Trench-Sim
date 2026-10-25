@@ -35,6 +35,19 @@ public static class SightHeights
         };
     }
 
+    // Elevated position (p. 43): the attacker is at least 3" higher than the target, measured by their bases.
+    public static readonly Length ElevatedBy = Length.FromInches(3);
+
+    // Is the attacker's base at least 3" higher than the target's (p. 43, line-of-sight stage L3)? A separate fact from
+    // sight and cover; it adds +1 DICE to a Ranged Attack. Bases stand at the heights StandingHeight gives.
+    public static bool IsElevated(Battlefield battlefield, ModelBody attacker, ModelBody target)
+    {
+        ArgumentNullException.ThrowIfNull(battlefield);
+        var a = StandingHeight(battlefield, attacker, Elevation.Of(battlefield, attacker));
+        var t = StandingHeight(battlefield, target, Elevation.Of(battlefield, target));
+        return a - t >= ElevatedBy;
+    }
+
     // How high the base stands: its own elevation (a tower's height), or the top of the walkable High piece it is on.
     public static Length StandingHeight(Battlefield battlefield, ModelBody body, ModelPosition position)
     {

@@ -21,3 +21,17 @@ public class BoardSceneHeightTests
         }
     }
 }
+
+// Line-of-sight stage L3: the dice preview names the Elevated position bonus with its page.
+public class ElevatedDicePreviewTests
+{
+    [Fact]
+    public void TheHitRollShowsTheBonusDie()
+    {
+        var dice = new DicePreview(1, ["long range"], false, 0, 0, 0, 0) { HitBonus = 1 };
+        var lines = dice.Lines(new Rules.Core.State.ModelId("a1"), new Rules.Core.State.ModelId("b1"));
+        Assert.Equal("Hit roll: +1 DICE (elevated position, 3\" or more above the target, p. 43)", lines[0]);
+        Assert.Equal("Hit roll: -1 DICE (long range)", lines[1]);
+        Assert.DoesNotContain(new DicePreview(0, [], false, 0, 0, 0, 0).Lines(new("a1"), new("b1")), l => l.Contains("elevated", StringComparison.Ordinal));
+    }
+}

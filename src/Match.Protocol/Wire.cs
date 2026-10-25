@@ -320,6 +320,8 @@ public static class Wire
         private static readonly HashSet<(Type, string)> OmitWhenFalse =
         [
             (typeof(ModelProfile), nameof(ModelProfile.RangedAlsoMelee)),
+            (typeof(RangedAttackDeclared), nameof(RangedAttackDeclared.Elevated)),
+            (typeof(FriendlyTargetChosen), nameof(FriendlyTargetChosen.Elevated)),
         ];
 
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();

@@ -377,8 +377,13 @@ public static class Previews
         {
             facts.Add("Shooting into melee: one of your models is within 1\" of the target, so the shot may hit it (the server rolls).");
         }
+        var elevated = SightHeights.IsElevated(state.Setup!.Scenario!.Battlefield, from, to);
+        if (elevated)
+        {
+            facts.Add("Elevated position: 3\" or more above the target (+1 DICE, p. 43).");
+        }
         dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, AttackDice.ShotPenalty(longRange, cover.InCover),
-            [.. new[] { longRange ? "long range" : null, cover.InCover ? "cover" : null }.OfType<string>()]);
+            [.. new[] { longRange ? "long range" : null, cover.InCover ? "cover" : null }.OfType<string>()], AttackDice.ShotBonus(elevated));
         return null;
     }
 

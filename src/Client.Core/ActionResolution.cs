@@ -122,7 +122,7 @@ public sealed class ResolutionLog
                 break;
             case RangedAttackDeclared r:
                 Start(seq, r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}", AttackKind.Ranged, r.Target);
-                ShotParts(r.LongRange, r.CoverTerrainId);
+                ShotParts(r.LongRange, r.CoverTerrainId, r.Elevated);
                 break;
             case MeleeAttackDeclared m:
                 Start(seq, m.Attacker, $"{Id(m.Attacker)} {(m.FreeFight ? "MAKES A FREE ATTACK ON" : "FIGHTS")} {Id(m.Target)}", AttackKind.Melee, m.Target);
@@ -156,7 +156,7 @@ public sealed class ResolutionLog
             case FriendlyTargetChosen f:
                 action.Target = f.Victim;
                 action.Dice.Clear();
-                ShotParts(f.LongRange, f.CoverTerrainId);
+                ShotParts(f.LongRange, f.CoverTerrainId, f.Elevated);
                 action.Steps.Add($"Friendly target: {Id(f.Victim)}");
                 action.Outcome.Add($"shoots {Id(f.Victim)}");
                 break;
@@ -215,8 +215,12 @@ public sealed class ResolutionLog
         _actions.Add(_current);
     }
 
-    private void ShotParts(bool longRange, string? coverId)
+    private void ShotParts(bool longRange, string? coverId, bool elevated)
     {
+        if (elevated)
+        {
+            _current!.Dice.Add(new("Elevated position", AttackDice.ShotBonus(true)));
+        }
         if (longRange)
         {
             _current!.Dice.Add(new("Long Range", -AttackDice.ShotPenalty(true, false)));

@@ -18,12 +18,15 @@ public sealed record DicePreview(
     int AttackerMarkers,
     int TargetMarkers)
 {
-    internal static DicePreview Of(MatchState state, ModelState attacker, ModelState target, AttackKind kind, int hitPenalty, IReadOnlyList<string> reasons)
+    // Elevated position (p. 43, line-of-sight stage L3): +1 DICE on the hit roll when 3" or more above the target.
+    public int HitBonus { get; init; }
+
+    internal static DicePreview Of(MatchState state, ModelState attacker, ModelState target, AttackKind kind, int hitPenalty, IReadOnlyList<string> reasons, int hitBonus = 0)
     {
         var setup = state.Setup!;
         var modifier = InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(setup.ProfileOf(attacker.Id)!, setup.ProfileOf(target.Id)!, kind));
         var bonus = AttackDice.InjuryBonus(critical: false, meleeOnDownTarget: kind == AttackKind.Melee && target.Status == ModelStatus.Down);
-        return new(hitPenalty, reasons, state.IsShaken(attacker.Seat), bonus, modifier, attacker.BloodMarkers, target.BloodMarkers);
+        return new(hitPenalty, reasons, state.IsShaken(attacker.Seat), bonus, modifier, attacker.BloodMarkers, target.BloodMarkers) { HitBonus = hitBonus };
     }
 
     // The lines the preview card and the panel show, short enough to read at a glance.
@@ -35,6 +38,10 @@ public sealed record DicePreview(
         {
             HitPenalty == 0 ? "Hit roll: no penalty dice" : $"Hit roll: -{HitPenalty} DICE ({string.Join(", ", HitReasons)})",
         };
+        if (HitBonus > 0)
+        {
+            lines.Insert(0, $"Hit roll: +{HitBonus} DICE (elevated position, 3\" or more above the target, p. 43)");
+        }
         if (Risky)
         {
             lines.Add("RISKY: your warband is Shaken");

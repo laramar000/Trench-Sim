@@ -10,6 +10,9 @@ public static class AttackDice
     // Ranged Attack Success Roll: 1 penalty die for Long Range and 1 for a target in Cover (pp. 42-44).
     public static int ShotPenalty(bool longRange, bool inCover) => (longRange ? 1 : 0) + (inCover ? 1 : 0);
 
+    // Ranged Attack Success Roll: 1 bonus die for an Elevated position, 3" or more above the target (p. 43).
+    public static int ShotBonus(bool elevated) => elevated ? 1 : 0;
+
     // Melee Attack Success Roll: 1 penalty die when the target defends an obstacle (pp. 45-46).
     public static int FightPenalty(bool defendedObstacle) => defendedObstacle ? 1 : 0;
 

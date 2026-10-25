@@ -720,12 +720,12 @@ public static class Reducer
         var facts = Board.Assess(state, attacker, target!);
         Require(facts.IsLegal, "The attack is not legal here.");
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId
-            && facts.AttackerLevel == e.AttackerLevel && facts.TargetLevel == e.TargetLevel, "The declared modifiers do not match the positions.");
+            && facts.AttackerLevel == e.AttackerLevel && facts.TargetLevel == e.TargetLevel && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
         Require(facts.IntoMelee == e.IntoMelee, "A target within 1\" of a friendly model needs the D6 that decides who is shot, and no other does.");
         return state with
         {
             Actions = state.Actions | ActionsTaken.Shoot,
-            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, 0, e.PenaltyDice),
+            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, e.BonusDice, e.PenaltyDice),
         };
     }
 
@@ -915,7 +915,7 @@ public static class Reducer
         var intended = Board.BodyOf(state, state.FindModel(progress.Target!.Value)!)!;
         Require(victim is not null && Board.FriendsNear(state, shooter, intended).Any(m => m.Id == e.Victim), "The shot must be aimed at one of the shooter's own models within 1\" of the target.");
         var facts = Board.ForcedShotFacts(state, shooter, victim!);
-        Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId, "The declared modifiers do not match the positions.");
+        Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
         return state with
         {
             Pending = null,
@@ -924,7 +924,7 @@ public static class Reducer
                 Stage = RollStage.ShotRoll,
                 Target = e.Victim,
                 FriendlyFire = true,
-                BonusDice = 0,
+                BonusDice = AttackDice.ShotBonus(e.Elevated),
                 PenaltyDice = AttackDice.ShotPenalty(e.LongRange, e.InCover),
                 MarkersAsked = false,
             },

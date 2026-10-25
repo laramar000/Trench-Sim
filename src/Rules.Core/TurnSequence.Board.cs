@@ -302,7 +302,7 @@ public static partial class TurnSequence
                     facts.AttackerLevel,
                     facts.TargetLevel,
                     AttackDice.ShotPenalty(facts.LongRange, facts.InCover))
-                { IntoMelee = facts.IntoMelee });
+                { IntoMelee = facts.IntoMelee, Elevated = facts.Elevated });
                 // A shot into melee asks about markers only once the D6 has settled who is shot (p. 42).
                 if (attacker.BloodMarkers > 0 && !facts.IntoMelee)
                 {
@@ -338,7 +338,7 @@ public static partial class TurnSequence
             case ChooseFriendlyTarget c:
                 var shooter = state.FindModel(state.InProgress!.Actor)!;
                 var forced = Board.ForcedShotFacts(state, shooter, state.FindModel(c.Victim)!);
-                run.Emit(new FriendlyTargetChosen(shooter.Id, c.Victim, forced.LongRange, forced.InCover, forced.CoverTerrainId));
+                run.Emit(new FriendlyTargetChosen(shooter.Id, c.Victim, forced.LongRange, forced.InCover, forced.CoverTerrainId) { Elevated = forced.Elevated });
                 if (shooter.BloodMarkers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, shooter.Seat.Opponent()));

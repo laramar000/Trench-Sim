@@ -14,7 +14,8 @@ internal sealed record AttackAssessment(
     string? CoverTerrainId = null,
     ModelLevel AttackerLevel = ModelLevel.Ground,
     ModelLevel TargetLevel = ModelLevel.Ground,
-    bool IntoMelee = false)
+    bool IntoMelee = false,
+    bool Elevated = false)
 {
     public bool IsLegal => Refusal is null;
 }
@@ -130,7 +131,8 @@ internal static class Board
             CoverTerrainId: cover.TerrainId,
             AttackerLevel: cover.Sight.Attacker.Level,
             TargetLevel: cover.Sight.Target.Level,
-            IntoMelee: intoMelee);
+            IntoMelee: intoMelee,
+            Elevated: SightHeights.IsElevated(scenario.Battlefield, from, to));
     }
 
     // The attacker's own models (on the table, Down ones included) within 1" of a target: the models a shot at that
@@ -143,7 +145,7 @@ internal static class Board
 
     // Long Range and Cover for a shot at a model the shooter was forced to target (p. 42): the modifiers follow the
     // positions as for any shot, but Line of Sight and range no longer decide whether the shot may be made (U51).
-    public static (bool LongRange, bool InCover, string? CoverTerrainId) ForcedShotFacts(MatchState state, ModelState attacker, ModelState victim)
+    public static (bool LongRange, bool InCover, string? CoverTerrainId, bool Elevated) ForcedShotFacts(MatchState state, ModelState attacker, ModelState victim)
     {
         var from = BodyOf(state, attacker)!;
         var to = BodyOf(state, victim)!;
@@ -151,7 +153,7 @@ internal static class Board
         var cover = Cover.Of(ScenarioOf(state)!.Battlefield, from, to);
         var half = Length.FromThousandths(profile.RangedRange.Thousandths / 2);
         var inCover = cover.InCover && cover.Sight.Visibility != Visibility.None;
-        return (!Measure.IsWithin(from, to, half), inCover, inCover ? cover.TerrainId : null);
+        return (!Measure.IsWithin(from, to, half), inCover, inCover ? cover.TerrainId : null, SightHeights.IsElevated(ScenarioOf(state)!.Battlefield, from, to));
     }
 
     // ---- Charge (pp. 34, 36-37) ----
