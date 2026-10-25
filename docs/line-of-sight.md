@@ -18,6 +18,27 @@ Since stage L2 of the line-of-sight plan (2026-10-25) the rules see in three dim
 - **Who decides.** The server, through `Cover.Of`, for shots, forced shots, charges and Fight. The client's previews
   call the same function, so they cannot disagree. No Godot raycast decides anything.
 
+## Elevated position (stage L3)
+
++1 DICE to a Ranged Attack when the attacker's base stands at least 3" higher than the target's (p. 43, U79). Exactly
+3" counts. It is recorded on the attack declaration and shown in the dice preview with its page. Towers are under 3", so
+it cannot happen on today's maps; trenches make it reachable.
+
+## On screen (stages L4 to L6)
+
+Everything shown comes from the same rules function the server uses (`Cover.Of`). Nothing on screen decides anything.
+
+- **Target icons (L4).** In Shoot, Charge and Fight every enemy gets an eye above it: open for Full, half closed for
+  Partial, struck through and dimmed for None, with a gold shield when it would be in cover. Black and white in high
+  contrast. The icons are drawn from 16 x 16 text masks in `Client.Core/TargetSights.cs` (no image files).
+- **Shot guide (L5).** Pointing at or choosing a Shoot target draws a thin line from the shooter's eye to the target's
+  body point, solid while clear and broken from where it is blocked; a 3 x 3 figure of the nine points (head, body,
+  legs) above the target with GUIDE beside it; and the cover piece outlined in gold. The panel lists the rules' facts
+  under "Rules (the server decides):", the hit-roll modifiers with their pages, and the guide's points in words.
+- **Movement visibility (L6).** While choosing where to move, the same icons show how the model would see each enemy
+  from the end of the path, at the height of that point. Movement rules are unchanged. Measured at about 0.2 ms per
+  destination with five models on the table (`DestinationSightsTests`), against an 80 ms pointer interval.
+
 ## What changed in stage L2
 
 The ten ruled scenes (`tests/Rules.Tests/Scenes`), before and after. Each scene's ruling says what it was before.

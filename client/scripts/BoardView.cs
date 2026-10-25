@@ -1741,6 +1741,14 @@ public partial class BoardView : SubViewportContainer
                 }
                 var end = preview.Path[^1];
                 Ring(end.At, preview.Radius, colour, (float)end.Height);
+                // Line-of-sight stage L6: the enemies the model would see from the end of the path, as the target icons.
+                foreach (var sight in Interaction.DestinationSights())
+                {
+                    if (_scene.Find(sight.Model) is { } enemy)
+                    {
+                        SightIcon(enemy, sight);
+                    }
+                }
                 Ghost(end.At, preview.Model, preview.Radius, colour, (float)end.Height);
                 // Proposal G: the distances (used, left, straight line) are in the panel beside the battlefield.
                 break;

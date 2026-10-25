@@ -730,6 +730,12 @@ public partial class UiCheck : Node
             && InPanel(board, $"MOVE → {move.Path[^1].At}") && InPanel(board, $"{BoardScene.Inch(move.Path[^1].Inches)} used") && (move.Legal || PanelHas("REFUSED: "))
             && board.OverlayTexts.Contains(BoardScene.Inch(move.Path[1].Inches)),
             $"from {actor?.Text}; {move?.Headline}; path {string.Join(" -> ", move?.Path.Select(p => $"{p.At} {BoardScene.Inch(p.Inches)}") ?? [])}; labels: {string.Join(" / ", board.OverlayTexts)}");
+        // Line-of-sight stage L6: from the end of an accepted path every enemy has the icon the rules give from there.
+        var fromThere = interaction.DestinationSights();
+        var iconsDrawn = board.SightIconsDrawn;
+        Check("board-move-sight-icons", move is { Legal: false } ? iconsDrawn.Count == 0
+                : fromThere.Count > 0 && iconsDrawn.Count == fromThere.Count && fromThere.All(f => iconsDrawn.TryGetValue(f.Model, out var d) && d == f),
+            $"{(move is { Legal: true } ? "accepted" : "refused")} path; {fromThere.Count} enemies, {iconsDrawn.Count} icons: {string.Join(", ", fromThere.Select(f => $"{f.Model.Value} {TargetSights.Words(f)}"))}");
         // Stage B: the card says how far (the rules' path cost), of how much, what is left and the straight line; a
         // see-through ghost marks the end while the real model has not moved.
         IReadOnlyList<string> card = move is null ? [] : PreviewCard.Lines(move);

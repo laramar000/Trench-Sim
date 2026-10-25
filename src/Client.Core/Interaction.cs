@@ -574,6 +574,30 @@ public sealed class Interaction
     private IReadOnlyList<TargetSight>? _sights;
     private long _sightsVersion = -1;
 
+    // Line-of-sight stage L6: while choosing where to move (Move, Dash, Retreat), how the model would see every enemy from
+    // the end of a path the preview accepts, at the height the battlefield gives that point. The same rules function as
+    // the target icons; it changes nothing about movement. Empty otherwise.
+    public IReadOnlyList<TargetSight> DestinationSights()
+    {
+        if (!IsPath || Actor is not { } actor || Preview is not { Legal: true, Path.Count: > 1 } preview)
+        {
+            return [];
+        }
+        if (_destination is null || _destinationVersion != Version)
+        {
+            var end = preview.Path[^1].At;
+            var at = new Rules.Core.Geometry.Point2(
+                Rules.Core.Geometry.Length.FromThousandths((long)Math.Round(end.X * 1000)),
+                Rules.Core.Geometry.Length.FromThousandths((long)Math.Round(end.Y * 1000)));
+            _destination = Client.Core.TargetSights.Of(_state, actor, at);
+            _destinationVersion = Version;
+        }
+        return _destination;
+    }
+
+    private IReadOnlyList<TargetSight>? _destination;
+    private long _destinationVersion = -1;
+
     // Pointing at a model in Shoot, Charge or Fight (QoL H1): the preview of choosing it as the target, from the same rules
     // check as a click (Previews.Target on the same state), before anything is chosen. Null outside target modes or for the
     // model already chosen. Nothing is chosen or sent.

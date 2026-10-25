@@ -66,3 +66,73 @@ public class TargetSightsTests
         Assert.Same(SightIcons.HalfEye, SightIcons.For(SightMark.Partial));
     }
 }
+
+// Line-of-sight stage L6: while choosing a destination, the icons say how the model would see each enemy from there.
+public class DestinationSightsTests(Xunit.Abstractions.ITestOutputHelper output)
+{
+    private static List<MatchState> States => PreviewAgreementTests.States.Value;
+
+    private static Point2 PointOf(TablePoint p) =>
+        new(Length.FromThousandths((long)Math.Round(p.X * 1000)), Length.FromThousandths((long)Math.Round(p.Y * 1000)));
+
+    [Fact]
+    public void TheIconsAtTheEndOfAnAcceptedPathAreTheRulesSightFromThere()
+    {
+        var looked = 0;
+        foreach (var state in States.Where(s => s.Phase == Phase.Activation && s.Pending is null && s.Actions == ActionsTaken.None && s.ActiveModel is { } a
+                     && s.FindModel(a)!.Status == ModelStatus.Standing).Take(60))
+        {
+            var seat = state.FindModel(state.ActiveModel!.Value)!.Seat;
+            var interaction = new Interaction();
+            interaction.Update(state, seat);
+            Assert.Empty(interaction.DestinationSights());
+            if (!interaction.Start(InteractionMode.Move))
+            {
+                continue;
+            }
+            Assert.Empty(interaction.DestinationSights()); // no path yet
+            foreach (var (dx, dy) in new[] { (2, 0), (-2, 0), (0, 2), (0, -2) })
+            {
+                interaction.MoveCursor(dx, dy);
+                var preview = interaction.Preview;
+                var before = preview;
+                var sights = interaction.DestinationSights();
+                if (preview is not { Legal: true })
+                {
+                    Assert.Empty(sights);
+                    interaction.MoveCursor(-dx, -dy);
+                    continue;
+                }
+                Assert.Equal(TargetSights.Of(state, state.ActiveModel!.Value, PointOf(preview.Path[^1].At)), sights);
+                Assert.Same(before, interaction.Preview); // asking changes nothing about the move
+                looked++;
+                interaction.MoveCursor(-dx, -dy);
+            }
+            interaction.Cancel();
+            Assert.Empty(interaction.DestinationSights());
+        }
+        Assert.True(looked > 20, $"only {looked} accepted paths looked at");
+    }
+
+    [Fact]
+    public void ItIsQuickEnoughToFollowThePointer()
+    {
+        var state = States.Last(s => s.Phase == Phase.Activation && s.ActiveModel is not null);
+        var actor = state.ActiveModel!.Value;
+        var at = state.FindModel(actor)!.Position!.Value;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var n = 0;
+        for (var x = 0; x < 20; x++)
+        {
+            for (var y = 0; y < 20; y++)
+            {
+                TargetSights.Of(state, actor, new Point2(at.X + Length.FromThousandths(x * 50), at.Y + Length.FromThousandths(y * 50)));
+                n++;
+            }
+        }
+        watch.Stop();
+        output.WriteLine($"{n} destinations, {state.Models.Count(m => m.Position is not null)} models on the table: {watch.Elapsed.TotalMilliseconds / n:0.000} ms each");
+        // Generous bound: the pointer is sampled every 80 ms (BoardView.HoverSeconds).
+        Assert.True(watch.Elapsed.TotalMilliseconds / n < 20, $"{watch.Elapsed.TotalMilliseconds / n:0.000} ms per destination");
+    }
+}
