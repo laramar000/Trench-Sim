@@ -47,11 +47,70 @@ def mat(name, hexc, noise=0.25, scale=40.0):
     nt.links.new(tex.outputs["Fac"], ramp.inputs["Fac"]); nt.links.new(ramp.outputs["Color"], b.inputs["Base Color"])
     return m
 M = {k: mat(k, *v) for k, v in {
- "coat": ("5a5040",), "trousers": ("4a4436",), "skin": ("b89a80", 0.12), "helmet": ("4c5048",),
+ "coat": ("5a5040",), "trousers": ("4a4436",), "skin": ("d6ae8c", 0.04), "helmet": ("4c5048",),
  "leather": ("4a3020",), "wood": ("6a4a2c", 0.3, 8), "metal": ("3a3a3c",), "iron": ("55555a", 0.35, 20),
  "boots": ("2a2420",), "dark": ("141210", 0.05), "brass": ("8a6a2a", 0.1), "bone": ("c8bca0", 0.15),
  "cloth": ("3e3a34",), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0),
  "robe": ("3e3428", 0.3), "rags": ("6a5c46", 0.3), "rope": ("7e6c48", 0.2, 60), "blood": ("4e1610", 0.2)}.items()}
+# The face, painted like a PS1 character's (MGS1 style): flat warm skin, clear brows, small dark eyes, a shaded nose
+# and a mouth line, 32x32 pixels, projected onto the front of the head. No modelled eyes: the paint carries the face.
+FACE_SKIN = "d6ae8c"
+FACE_BOX = None
+def face_pixels():
+    W = H = 32
+    def hexc(h): return [int(h[i:i+2], 16) / 255 for i in (0, 2, 4)]
+    skin, shade, dark = hexc(FACE_SKIN), hexc("b88a6c"), hexc("8a6050")
+    brow, eye, white, mouth, lip = hexc("4a3428"), hexc("2e241c"), hexc("e4dccc"), hexc("a8685a"), hexc("c8927a")
+    px = {}
+    for y in range(H):
+        for x in range(W):
+            dx, dy = (x + 0.5 - 16) / 14, (y + 0.5 - 15) / 17
+            if dx*dx + dy*dy > 1: continue
+            k = 1 - 0.12 * dx * dx                                      # the sides a little darker
+            px[(x, y)] = [c * k for c in skin]
+    def put(c, xs, ys):
+        for x in xs:
+            for y in ys: px[(x, y)] = c
+    put(brow, list(range(8, 13)) + list(range(20, 25)), [11])          # brows, level and calm
+    put(white, list(range(8, 13)) + list(range(20, 25)), [13, 14])     # eyes, two pixels tall
+    put(eye, [10, 11, 21, 22], [13, 14])
+    put(shade, list(range(8, 13)) + list(range(20, 25)), [12])         # upper lids
+    put(shade, [15], range(15, 20)); put(shade, [14, 18], [19])        # nose
+    put(dark, [15, 17], [20])                                          # nostrils
+    put(mouth, range(13, 20), [23]); put(lip, range(14, 19), [24])     # mouth: small, closed
+    put(shade, range(14, 19), [28])                                    # chin
+    out = []
+    for y in reversed(range(H)):                                      # Blender images start at the bottom row
+        for x in range(W):
+            c = px.get((x, y)); out += (c + [1.0]) if c else [0, 0, 0, 0]
+    return out
+def face_material(eyes):
+    # projects the painted face onto the front of the head: eye line at row 14, eyes 11.5 pixels apart
+    img = bpy.data.images.new("face", 32, 32, alpha=True); img.pixels = face_pixels()
+    mid = (eyes[0] + eyes[1]) / 2; sep = abs(eyes[0].x - eyes[1].x) or 0.062
+    W = sep * 32 / 11.5; Hh = W * 1.35   # MakeHuman's face is longer than wide
+    u0 = mid.x - 16.25 / 32 * W; z0 = mid.z - (1 - 14 / 32) * Hh
+    global FACE_BOX; FACE_BOX = (u0, z0, W, Hh, mid.y)
+    m = mat("face", FACE_SKIN, 0.03); nt = m.node_tree; b = nt.nodes["Principled BSDF"]; base = b.inputs["Base Color"].links[0].from_socket
+    tc = nt.nodes.new("ShaderNodeTexCoord"); sep_ = nt.nodes.new("ShaderNodeSeparateXYZ"); nt.links.new(tc.outputs["Object"], sep_.inputs[0])
+    def lin_map(sock, a, w):
+        n1 = nt.nodes.new("ShaderNodeMath"); n1.operation = 'SUBTRACT'; n1.inputs[1].default_value = a; nt.links.new(sock, n1.inputs[0])
+        n2 = nt.nodes.new("ShaderNodeMath"); n2.operation = 'DIVIDE'; n2.inputs[1].default_value = w; nt.links.new(n1.outputs[0], n2.inputs[0])
+        return n2.outputs[0]
+    comb = nt.nodes.new("ShaderNodeCombineXYZ")
+    nt.links.new(lin_map(sep_.outputs["X"], u0, W), comb.inputs["X"]); nt.links.new(lin_map(sep_.outputs["Z"], z0, Hh), comb.inputs["Y"])
+    tex = nt.nodes.new("ShaderNodeTexImage"); tex.image = img; tex.interpolation = 'Closest'; tex.extension = 'CLIP'
+    nt.links.new(comb.outputs[0], tex.inputs["Vector"])
+    # only on faces that look forward (front of the head), not the sides or back
+    geo = nt.nodes.new("ShaderNodeNewGeometry"); sn = nt.nodes.new("ShaderNodeSeparateXYZ"); nt.links.new(geo.outputs["Normal"], sn.inputs[0])
+    f1 = nt.nodes.new("ShaderNodeMath"); f1.operation = 'MULTIPLY_ADD'; f1.inputs[1].default_value = -3.0; f1.inputs[2].default_value = -0.6
+    f1.use_clamp = True; nt.links.new(sn.outputs["Y"], f1.inputs[0])
+    f2 = nt.nodes.new("ShaderNodeMath"); f2.operation = 'MULTIPLY'; nt.links.new(f1.outputs[0], f2.inputs[0]); nt.links.new(tex.outputs["Alpha"], f2.inputs[1])
+    mix = nt.nodes.new("ShaderNodeMix"); mix.data_type = 'RGBA'
+    nt.links.new(f2.outputs[0], mix.inputs["Factor"]); nt.links.new(base, mix.inputs[6]); nt.links.new(tex.outputs["Color"], mix.inputs[7])
+    nt.links.new(mix.outputs[2], b.inputs["Base Color"])
+    M["face"] = m
+
 body, accent = [], []
 def add(o, m):
     o.data.materials.append(M[m]); (accent if m == "accent" else body).append(o); return o
@@ -97,7 +156,8 @@ def human_body(pose, coat=True, dress=None):
     body.location.z = FLOOR; bpy.context.view_layer.objects.active = body
     bpy.ops.object.select_all(action='DESELECT'); body.select_set(True)
     bpy.ops.object.transform_apply(location=True, rotation=False, scale=False)
-    order = {"head": "skin", "hand": "skin", "foot": "boots", "shin": "cloth", "thigh": "trousers", "torso": "coat", **(dress or {})}
+    face_material(eyes)
+    order = {"head": "face", "hand": "skin", "foot": "boots", "shin": "cloth", "thigh": "trousers", "torso": "coat", **(dress or {})}
     slots = list(dict.fromkeys(order.values()))
     for m in slots: body.data.materials.append(M[m])
     for f, p in zip(body.data.polygons, faces): f.material_index = slots.index(order[p])
@@ -110,7 +170,10 @@ def human_body(pose, coat=True, dress=None):
     bpy.ops.object.shade_smooth()
     body_parts = body
     globals()["body"].append(body)
-    for e in eyes: sphere(tuple(e + Vector((0, -0.012, 0))), 0.012, "dark", seg=6, rings=4)
+    # fill the eye sockets (MakeHuman's eyes are separate meshes) and the mouth slit, so the painted face covers them
+    for e in eyes: sphere(tuple(e + Vector((0, -0.006, 0))), 0.02, "face", (1.1, 1, 0.9), seg=8, rings=6)
+    mid = (eyes[0] + eyes[1]) / 2
+    sphere(tuple(mid + Vector((0, 0.0, -0.08))), 0.026, "face", (1.3, 0.7, 0.6), seg=8, rings=6)
     return hands, headp, headtop
 
 def coat_skirt(lean=0.0):
@@ -230,17 +293,21 @@ def pilgrim():
     c = Vector((hp.x, hp.y - 0.03, top.z))
     bpy.ops.mesh.primitive_cone_add(vertices=14, radius1=0.24, radius2=0.11, depth=0.2, end_fill_type='NOTHING', location=(c.x, c.y, 1.42))
     h = bpy.context.object; h.scale = (1, 0.85, 1); h.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(h, "rags")
-    base = top.z - 0.36; tip = top.z + 0.26
-    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.19, radius2=0.0, depth=tip - base, location=(c.x, c.y, (base + tip) / 2))
-    cap = bpy.context.object; cap.scale = (1, 1.1, 1); add(cap, "iron")
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.19, minor_radius=0.016, major_segments=12, minor_segments=4, location=(c.x, c.y, base + 0.01))
-    bpy.context.object.scale = (1, 1.1, 1); add(bpy.context.object, "metal")
+    # narrow and tall: a close-fitting iron hood (oval, just wider than the head) rising straight to the crown, then a
+    # long spike, like the faction's capirotes
+    base = top.z - 0.34; crown = top.z + 0.01; tip = top.z + 0.42
+    bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.112, depth=crown - base, location=(c.x, c.y, (base + crown) / 2))
+    o = bpy.context.object; o.scale = (1, 1.18, 1); add(o, "iron")
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.112, radius2=0.0, depth=tip - crown, location=(c.x, c.y, (crown + tip) / 2))
+    cap = bpy.context.object; cap.scale = (1, 1.18, 1); add(cap, "iron")
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.115, minor_radius=0.012, major_segments=12, minor_segments=4, location=(c.x, c.y, base + 0.01))
+    bpy.context.object.scale = (1, 1.18, 1); add(bpy.context.object, "metal")
     for a in range(8):   # rivets round the rim
         ang = a * math.pi / 4
-        sphere((c.x + math.cos(ang)*0.195, c.y + math.sin(ang)*0.215, base + 0.03), 0.01, "brass", seg=4, rings=3)
+        sphere((c.x + math.cos(ang)*0.118, c.y + math.sin(ang)*0.139, base + 0.03), 0.008, "brass", seg=4, rings=3)
     ez = top.z - 0.12   # eye slit, with a cross above it
-    box((c.x, c.y - 0.14, ez), (0.13, 0.03, 0.026), "dark")
-    box((c.x, c.y - 0.1, ez + 0.11), (0.02, 0.02, 0.11), "brass"); box((c.x, c.y - 0.097, ez + 0.13), (0.075, 0.02, 0.02), "brass")
+    box((c.x, c.y - 0.128, ez), (0.12, 0.03, 0.024), "dark")
+    box((c.x, c.y - 0.125, ez + 0.1), (0.02, 0.02, 0.11), "brass"); box((c.x, c.y - 0.122, ez + 0.12), (0.075, 0.02, 0.02), "brass")
     # trench club: a short shaft and a heavy head bound with iron and studded with nails
     hr = hands["R"]; d = (Vector((-0.25, -0.35, 1.0))).normalized()
     head = hr + d*0.3
@@ -278,6 +345,20 @@ t = tris(B)
 if t > 1400: d = B.modifiers.new("d","DECIMATE"); d.ratio = 1400/t; bpy.ops.object.modifier_apply(modifier="d")
 bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris()
 bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.02); bpy.ops.object.mode_set(mode='OBJECT')
+# The rest of the figure goes in the bottom three quarters of the texture; the front of the head gets the top-left
+# 32x32 pixels, mapped straight from the front, and the painted face is written there pixel for pixel after the bake.
+fi = [i for i, m in enumerate(B.data.materials) if m.name.startswith("face")]
+bm = bmesh.new(); bm.from_mesh(B.data); uv = bm.loops.layers.uv.active
+for f in bm.faces:
+    # the front half of the head: in front of the eyes' plane (plus a little), not facing backwards
+    front = f.material_index in fi and FACE_BOX is not None and f.normal.y < 0.3 and f.calc_center_median().y < FACE_BOX[4] + 0.03
+    for l in f.loops:
+        if front:
+            u0, z0, w, h, _ = FACE_BOX; co = l.vert.co
+            l[uv].uv = (min(1, max(0, (co.x - u0) / w)) * 0.25, 0.75 + min(1, max(0, (co.z - z0) / h)) * 0.25)
+        else:
+            l[uv].uv = (l[uv].uv.x, l[uv].uv.y * 0.75)
+bm.to_mesh(B.data); bm.free()
 img = bpy.data.images.new(role, 128, 128)
 for m in B.data.materials:
     tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; m.node_tree.nodes.active = tn
@@ -287,8 +368,16 @@ scn.cycles.samples = 32; bpy.ops.object.bake(type='AO'); ao = list(img.pixels)
 px = []
 for i in range(0, len(col), 4):
     for c in range(3):
-        v = (col[i+c]*(0.35+0.65*ao[i+c])) ** (1/2.2); px.append((round(v*31)/31) ** 2.2)   # 15-bit colour
+        v = (col[i+c]*(0.55+0.45*ao[i+c])) ** (1/2.2); px.append((round(v*31)/31) ** 2.2)   # 15-bit colour
     px.append(1.0)
+if fi:
+    fp = face_pixels()
+    for y in range(32):
+        for x in range(32):
+            a = fp[(y*32 + x)*4 + 3]
+            if a > 0:
+                i = ((96 + y) * 128 + x) * 4
+                for c in range(3): px[i + c] = round(fp[(y*32 + x)*4 + c] * 31) / 31   # 15-bit, like the rest
 img.pixels = px; img.pack()
 m = bpy.data.materials.new(f"{role}Body"); m.use_nodes = True; b = m.node_tree.nodes["Principled BSDF"]
 b.inputs["Roughness"].default_value = 1.0
