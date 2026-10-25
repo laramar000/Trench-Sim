@@ -1,8 +1,8 @@
 {
   "format": 1,
   "id": "claim-no-mans-land-towers",
-  "name": "Claim No Man's Land with towers",
-  "notes": "Fixed layout for Scenario I (1.0.2 pp. 151-153). The book prints no table size, zone depth or terrain, so these are chosen (U32). Two 2\" towers with ladders on their west and east sides (towers proposal).",
+  "name": "Claim No Man's Land with towers and trenches",
+  "notes": "Fixed layout for Scenario I (1.0.2 pp. 151-153). The book prints no table size, zone depth or terrain, so these are chosen (U32). Two 2\" towers with ladders on their west and east sides (towers proposal). 1\" deep trenches in both deployment zones, mirrored (trench-maps stage S3): to the south a section with a bend, to the north two straight sections joined end to end.",
   "width": "36",
   "height": "36",
   "archetype": "no-mans-land",
@@ -105,6 +105,42 @@
           }
         ]
       }
+    },
+    {
+      "id": "trench-sw",
+      "parts": [["1.5", "4", "4", "12"], ["4", "9.5", "6", "12"]],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-nw",
+      "rect": ["1.5", "24", "4", "30"],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-nw-2",
+      "rect": ["1.5", "30", "4", "34"],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-se",
+      "parts": [["32", "4", "34.5", "12"], ["30", "9.5", "32", "12"]],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-ne",
+      "rect": ["32", "24", "34.5", "30"],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-ne-2",
+      "rect": ["32", "30", "34.5", "34"],
+      "profile": "low",
+      "depth": "1"
     }
   ]
 }

@@ -13,13 +13,16 @@ C# code. The format is described at the top of `src/Sim/MapFiles.cs`.
   to 16 rectangles that do not overlap and are joined along shared edges, for L, T and plus shapes. Seams between
   parts are inside the piece. Platforms, roofs, towers and deployment zones stay one rectangle. A one-rectangle piece
   is stored, sent and hashed exactly as before; joined parts travel as a list of rectangles.
+- **Trenches (stage S3):** a `low` piece with `"depth"` (1/2" to under 3") is a trench section (U80 to U83 in
+  `docs/interpretations.md`). All trenches on a map share one depth and nothing may overlap one; sections that touch
+  form a network.
 
 ## Maps
 
 | Id | Scenario | Notes |
 | --- | --- | --- |
 | `claim-no-mans-land` | Claim No Man's Land | The fixed layout (U32) |
-| `claim-no-mans-land-towers` | Claim No Man's Land | The same layout with two 2" towers |
+| `claim-no-mans-land-towers` | Claim No Man's Land | The same layout with two 2" towers and, since stage S3, six 1" trench sections in the deployment zones (the Test Center's default map) |
 
 `ClaimNoMansLand.Create` and `CreateWithTowers` in Rules.Core build the same two layouts in code. They stay as the
 reference: `MapFileTests` checks the files match them, so setups, state hashes and record fingerprints are unchanged.

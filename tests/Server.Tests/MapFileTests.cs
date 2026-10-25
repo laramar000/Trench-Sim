@@ -110,6 +110,24 @@ public class MapFileTests
         Assert.Equal(json, Json(System.Text.Json.JsonSerializer.Deserialize<Scenario>(json, Wire.Options)!));
     }
 
+    private static IReadOnlyDictionary<string, MatchSetup> Setups => ScenarioSetups.FromFolder(Path.Combine(Repository.Root(), "content"));
+
+    // Trench-maps stage S3: a trench's depth travels with it; a piece that is not a trench is written exactly as before.
+    [Fact]
+    public void ATrenchDepthTravelsAndIsLeftOutForOtherPieces()
+    {
+        var plain = Json(ClaimNoMansLand.Create());
+        Assert.DoesNotContain("depth", plain, StringComparison.Ordinal);
+        var towers = Json(ClaimNoMansLand.CreateWithTowers());
+        Assert.Equal(6, towers.Split("\"depth\":").Length - 1);
+        var read = System.Text.Json.JsonSerializer.Deserialize<Scenario>(towers, Wire.Options)!;
+        Assert.Equal(6, read.Battlefield.Terrain.Count(t => t.IsTrench));
+        Assert.Equal(towers, Json(read));
+        var canonical = StateHash.Canonical(Reducer.Apply(MatchState.None, new MatchCreated(Setups["ranged-towers"])));
+        Assert.Equal(6, canonical.Split('\n').Count(l => l.StartsWith("trench=", StringComparison.Ordinal) && l.Contains(",depth=1000", StringComparison.Ordinal)));
+        Assert.DoesNotContain("\ntrench=", StateHash.Canonical(Reducer.Apply(MatchState.None, new MatchCreated(Setups["ranged"]))), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void AHighPieceCannotBeJoinedParts()
     {

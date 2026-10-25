@@ -28,8 +28,10 @@ public class TowerTests
         var scenario = ClaimNoMansLand.CreateWithTowers();
         var towers = scenario.Battlefield.Terrain.Where(t => t.IsTower).ToList();
         Assert.Equal(["tower-n", "tower-s"], towers.Select(t => t.Id));
-        // The rest of the layout is the plain one, piece for piece.
-        Assert.Equal(plain.Battlefield.Terrain, scenario.Battlefield.Terrain.Where(t => !t.IsTower));
+        // The rest of the layout is the plain one, piece for piece, with the trenches of stage S3 in the zones.
+        Assert.Equal(plain.Battlefield.Terrain, scenario.Battlefield.Terrain.Where(t => !t.IsTower && !t.IsTrench));
+        Assert.Equal(6, scenario.Battlefield.Terrain.Count(t => t.IsTrench));
+        Assert.All(scenario.Battlefield.Terrain.Where(t => t.IsTrench), t => Assert.Contains(scenario.Battlefield.Zones, z => t.Footprint.IsWithin(z.Area)));
         Assert.Equal(plain.ObjectiveIds.ToArray(), scenario.ObjectiveIds.ToArray());
         foreach (var tower in towers)
         {

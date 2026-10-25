@@ -38,6 +38,11 @@ public static class ScenarioCard
             lines.Add("TOWERS");
             lines.AddRange(TowerLines(towers).Select(s => "  " + s));
         }
+        if (state.Setup!.Scenario is { } field && field.Battlefield.TrenchDepth is { } depth)
+        {
+            lines.Add("TRENCHES");
+            lines.AddRange(TrenchLines(field.Battlefield.Terrain.Count(t => t.IsTrench), depth).Select(s => "  " + s));
+        }
         lines.Add("OBJECTIVES (who controls each now; click one to centre on it)");
         var rows = rules.ObjectiveIds.Order(StringComparer.Ordinal).Select(id =>
         {
@@ -66,6 +71,18 @@ public static class ScenarioCard
     private static Seat Other(Seat seat) => seat == Seat.One ? Seat.Two : Seat.One;
 
     // Towers proposal, stage T4: what the towers allow, in the rules' own numbers and with their provisional readings.
+    // Trench-maps stage S3: what the trenches do, in words, with their rulings.
+    public static IReadOnlyList<string> TrenchLines(int count, Rules.Core.Geometry.Length depth)
+    {
+        var deep = BoardScene.Inch(TableRect.Inches(depth));
+        return
+        [
+            $"{count} trench section{(count == 1 ? "" : "s")}, {deep} deep. Their sides are crossed as open ground: no extra cost, no roll (p. 62, U80).",
+            $"A model more than half in a trench stands on its floor, {deep} below the ground (U81). Distances are measured on the table, so models fight across the edge (U82).",
+            "Seen from far off, a model in a trench may show only its head: the trench's edge hides the rest and gives it cover while it is partly seen (p. 38, U83).",
+        ];
+    }
+
     public static IReadOnlyList<string> TowerLines(IReadOnlyList<Rules.Core.Geometry.TerrainBlock> towers)
     {
         ArgumentNullException.ThrowIfNull(towers);

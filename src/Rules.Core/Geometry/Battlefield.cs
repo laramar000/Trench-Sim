@@ -140,6 +140,38 @@ public sealed record TerrainBlock
     private readonly Climb? _climb;
 
     public bool IsTower => _climb is not null;
+
+    // Trench-maps stage S3: a trench section is a Low, walkable ground piece with a depth (U80). Its sides are under 3"
+    // and crossed as Open terrain (p. 62), so movement treats it as any walkable ground piece; its floor is below the
+    // ground, which only sight, cover and the Elevated position read (U81 to U83). Null for every other piece, which
+    // then behaves exactly as before. Depth is 1/2" (the least that gives cover, p. 38) up to under 3" (from 3" a side
+    // must be climbed or jumped, p. 62, which is not built).
+    public Length? Depth
+    {
+        get => _depth;
+        init
+        {
+            if (value is { } depth)
+            {
+                if (Profile != TerrainProfile.Low || Surface != SurfaceLevel.Ground || !IsWalkable)
+                {
+                    throw new ArgumentException("A trench must be a Low, walkable piece on the ground.", nameof(Depth));
+                }
+                if (depth < MinTrenchDepth || depth >= MaxTrenchDepthExclusive)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(Depth), "A trench must be at least 1/2\" deep (the least that gives cover, p. 38) and under 3\" (deeper sides must be climbed or jumped, p. 62, which is not built).");
+                }
+            }
+            _depth = value;
+        }
+    }
+
+    private readonly Length? _depth;
+
+    public bool IsTrench => _depth is not null;
+
+    public static readonly Length MinTrenchDepth = Length.Parse("0.5");
+    public static readonly Length MaxTrenchDepthExclusive = Length.FromInches(3);
 }
 
 public sealed record DeploymentZone
@@ -212,6 +244,22 @@ public sealed record Battlefield
                 throw new ArgumentException($"Terrain '{other.Id}' overlaps tower '{tower.Id}'.");
             }
         }
+        // Trenches (trench-maps stage S3, U80): one depth for all, so a network of sections that touch has one floor; and
+        // nothing overlaps a trench (pieces may touch it), so the ground around it is plain.
+        var trenches = Terrain.Where(t => t.IsTrench).ToList();
+        if (trenches.Select(t => t.Depth!.Value).Distinct().Count() > 1)
+        {
+            throw new ArgumentException("All trenches on a battlefield must have the same depth.");
+        }
+        foreach (var trench in trenches)
+        {
+            if (Terrain.FirstOrDefault(t => t.Id != trench.Id && t.Footprint.OverlapsInside(trench.Footprint)) is { } other)
+            {
+                throw new ArgumentException($"Terrain '{other.Id}' overlaps trench '{trench.Id}'.");
+            }
+        }
+        TrenchDepth = trenches.Count > 0 ? trenches[0].Depth!.Value : null;
+        TrenchParts = [.. trenches.SelectMany(t => t.Footprint.Parts.Select(p => (t.Id, p)))];
     }
 
     public Length Width { get; }
@@ -219,6 +267,11 @@ public sealed record Battlefield
     public Footprint Area { get; }
     public ImmutableArray<TerrainBlock> Terrain { get; }
     public ImmutableArray<DeploymentZone> Zones { get; }
+
+    // The trenches' one depth (null with no trench), and every part of every trench with its piece's id, in id order.
+    public Length? TrenchDepth { get; }
+
+    internal ImmutableArray<(string Id, Rect Part)> TrenchParts { get; }
 
     public DeploymentZone? Zone(string zoneId) => Zones.FirstOrDefault(z => z.ZoneId == zoneId);
 }

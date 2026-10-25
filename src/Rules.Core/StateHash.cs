@@ -118,6 +118,11 @@ public static class StateHash
             {
                 Line(sb, "climb", $"{t.Id},height={climb.Height.Thousandths},{string.Join(";", climb.Ladders.Select(l => $"{l.Id}@{Point(l.At)}"))}");
             }
+            // Trenches only (trench-maps stage S3), likewise.
+            if (t.Depth is { } depth)
+            {
+                Line(sb, "trench", $"{t.Id},depth={depth.Thousandths}");
+            }
         }
         Line(sb, "objectives", string.Join(",", scenario.ObjectiveIds));
     }

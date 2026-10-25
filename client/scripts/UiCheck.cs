@@ -1670,9 +1670,11 @@ public partial class UiCheck : Node
                 }
             }
         }
-        if (board.TerrainFromArt != scene.Terrain.Count)
+        // Trenches are drawn as pits in the ground, not dressed (trench-maps stage S3).
+        var dressed = scene.Terrain.Count(t => !t.Trench);
+        if (board.TerrainFromArt != dressed)
         {
-            problems.Add($"{board.TerrainFromArt} of {scene.Terrain.Count} terrain pieces textured");
+            problems.Add($"{board.TerrainFromArt} of {dressed} terrain pieces textured");
         }
         Check("ground-decor", wanted > 0 && decals.Count == wanted && problems.Count == 0,
             $"{decals.Count} decals drawn of {wanted} for this layout; {scene.Terrain.Count} terrain pieces, {board.TerrainFromArt} textured; ground textured {board.ArtDrawn.Ground}; {(problems.Count == 0 ? "all flat and clear of terrain" : string.Join("; ", problems))}");
@@ -1726,7 +1728,7 @@ public partial class UiCheck : Node
     private void TerrainModelsCheck(BoardView board)
     {
         var problems = new List<string>();
-        var terrain = board.Scene?.Terrain ?? [];
+        var terrain = (board.Scene?.Terrain ?? []).Where(t => !t.Trench).ToList();
         foreach (var piece in terrain)
         {
             if (board.TerrainDrawn(piece.Id) is not { } box)
@@ -5003,6 +5005,50 @@ public partial class UiCheck : Node
 
     // ---- towers (towers proposal, stage T4; gvt-a plays "ranged-towers") ----
 
+    // Trench-maps stage S3 (trench-drawn, gvt-a at its first activation, on the default tower map): the six trenches are
+    // drawn as pits at the rules' 1" depth with nothing above the ground, no ground box covers a trench part, the ground
+    // and the trench parts together cover the table exactly, every model the scene puts below the ground stands on a
+    // trench's floor, and each trench's panel words say what it does.
+    private void TrenchDrawnCheck(BoardView board, BoardScene scene)
+    {
+        var trenches = scene.Terrain.Where(t => t.Trench).ToList();
+        var problems = new List<string>();
+        foreach (var trench in trenches)
+        {
+            if (!board.PitsDrawn.TryGetValue(trench.Id, out var floor) || Math.Abs(floor + trench.Depth) > 1e-9 || trench.Height != 0)
+            {
+                problems.Add($"{trench.Id} not drawn as a pit {trench.Depth}\" deep");
+            }
+            if (!trench.Label.StartsWith($"Trench, {BoardScene.Inch(trench.Depth)} deep", StringComparison.Ordinal))
+            {
+                problems.Add($"{trench.Id} says '{trench.Label}'");
+            }
+        }
+        var holes = TrenchPits.Holes(scene);
+        foreach (var cell in board.GroundCells)
+        {
+            if (holes.FirstOrDefault(h => h.X0 < cell.X1 - 1e-9 && cell.X0 < h.X1 - 1e-9 && h.Y0 < cell.Y1 - 1e-9 && cell.Y0 < h.Y1 - 1e-9) is { Width: > 0 } hole)
+            {
+                problems.Add($"ground {cell} covers trench part {hole}");
+            }
+        }
+        var covered = board.GroundCells.Sum(c => c.Width * c.Depth) + holes.Sum(h => h.Width * h.Depth);
+        if (Math.Abs(covered - scene.Width * scene.Depth) > 1e-6)
+        {
+            problems.Add($"ground and trenches cover {covered:0.000} sq in of {scene.Width * scene.Depth:0.000}");
+        }
+        foreach (var model in scene.Models.Where(m => m.Standing < 0))
+        {
+            if (TrenchPits.At(scene, model.X, model.Y) is not { } trench || Math.Abs(model.Standing + trench.Depth) > 1e-9)
+            {
+                problems.Add($"{model.Id.Value} drawn {model.Standing}\" down outside a trench floor");
+            }
+        }
+        Check("trench-drawn", trenches.Count == 6 && trenches.All(t => t.Depth == 1) && problems.Count == 0,
+            $"{trenches.Count} trenches ({string.Join(", ", trenches.Select(t => $"{t.Id} {t.Parts.Count} part{(t.Parts.Count == 1 ? "" : "s")}"))}), {board.GroundCells.Count} ground boxes around them, " +
+            $"{scene.Models.Count(m => m.Standing < 0)} models in a trench; {(problems.Count == 0 ? "pits at 1\" with the ground around them exactly" : string.Join("; ", problems))}");
+    }
+
     private bool _towerDrawnChecked;
     private bool _towerClimbed;
     private bool _towerDescended;
@@ -5024,6 +5070,7 @@ public partial class UiCheck : Node
         if (!_towerDrawnChecked)
         {
             _towerDrawnChecked = true;
+            TrenchDrawnCheck(board, scene);
             var labels = All(board).OfType<Label3D>().Where(l => !l.IsQueuedForDeletion() && l.Visible).Select(l => l.Text).ToList();
             var sides = towers.Select(t => string.Join("+", t.Ladders.Select(l => l.SideWord).Order(StringComparer.Ordinal))).ToList();
             Check("tower-drawn", towers.Count == 2 && board.TowersDrawn.Order(StringComparer.Ordinal).SequenceEqual(towers.Select(t => t.Id).Order(StringComparer.Ordinal))

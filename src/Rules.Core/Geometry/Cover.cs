@@ -15,6 +15,9 @@ public sealed record CoverResult(bool InCover, string? TerrainId, SightResult Si
 //  * it hides at least one of the target's points, and the target is still partly seen (Partial). A target seen in
 //    full has no cover; a target seen not at all cannot be targeted. A ray merely crossing a piece gives nothing.
 // The platform a model stands on never blocks sight to it (U19), so it gives that model no cover (U21).
+// A trench (trench-maps stage S3, U83) gives cover to a model in it when its edge hides at least one of the model's
+// points (the ray is named for the target's trench) and the model is still partly seen. A trench is at least 1/2" deep
+// and holds the base, so the height, touching and width tests are met by what makes a model "in" it.
 // If several pieces qualify, the lowest id is reported.
 public static class Cover
 {
@@ -28,8 +31,17 @@ public static class Cover
             return new CoverResult(false, null, sight);
         }
 
+        var inTrench = battlefield.TrenchDepth is not null ? Trenches.Of(battlefield, target)?.Id : null;
         foreach (var terrain in battlefield.Terrain)
         {
+            if (terrain.IsTrench)
+            {
+                if (terrain.Id == inTrench && sight.Rays.Any(r => r.Obstructing.Contains(terrain.Id)))
+                {
+                    return new CoverResult(true, terrain.Id, sight);
+                }
+                continue;
+            }
             if (SightHeights.TopOf(terrain) < MinimumHeight
                 || !terrain.Footprint.CircleTouches(target.Centre, target.Radius)
                 || !terrain.Footprint.IsAtLeastAsWideAcross(attacker.Centre, target.Centre, target.Radius * 2))

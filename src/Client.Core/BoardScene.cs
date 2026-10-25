@@ -65,6 +65,15 @@ public sealed record TerrainShape(string Id, TableRect Area, TerrainProfile Prof
     // Area is then the bounding box of the parts.
     public IReadOnlyList<TableRect> Parts { get; init; } = [Area];
 
+    // Trench-maps stage S3: a trench's depth below the ground in inches (the rules' own depth), zero for any other piece.
+    // A trench has nothing above the ground, so its Height is zero; it is drawn as a pit.
+    public double Depth { get; init; }
+
+    public bool Trench => Depth > 0;
+
+    // Is the table point inside one of the piece's parts (edges included)?
+    public bool Holds(double x, double y) => Parts.Any(p => p.Contains(x, y));
+
     public bool Tower => Ladders.Count > 0;
 
     // The short words drawn on a tower's platform: "TOWER 2.0"".
@@ -164,11 +173,12 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
         {
             var objective = scenario.ObjectiveIds.Contains(t.Id);
             // A tower is drawn at its own height, with its ladders (towers proposal, stage T4).
-            return new TerrainShape(t.Id, TableRect.Of(t.Footprint.Bounds), t.Profile, t.Climb is { } climb ? TableRect.Inches(climb.Height) : DisplayHeight.Of(t.Profile),
+            return new TerrainShape(t.Id, TableRect.Of(t.Footprint.Bounds), t.Profile, t.Climb is { } climb ? TableRect.Inches(climb.Height) : t.IsTrench ? 0 : DisplayHeight.Of(t.Profile),
                 t.IsPlatform, objective, TerrainLabel(t, objective), objective ? Rules.Core.Objectives.ControllerNow(state, t.Id) : null)
             {
                 Ladders = t.Climb is { } c ? [.. c.Ladders.Select(l => new LadderShape(l.Id, TablePoint.Of(l.At), Climb.SideOf(t.Footprint.Bounds, l.At)!.Value))] : [],
                 Parts = [.. t.Footprint.Parts.Select(TableRect.Of)],
+                Depth = t.Depth is { } depth ? TableRect.Inches(depth) : 0,
             };
         }).ToList();
         var models = new List<ModelShape>();
@@ -183,8 +193,10 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
             var level = Elevation.Of(field, body);
             // On a tower: the tower's own height (towers proposal, stage T4); on another platform: its display height.
             var tower = Towers.TowerAt(field, at);
+            // In a trench: its floor, below the ground (trench-maps stage S3; the rules' own test, U81).
             var standing = tower?.Climb is { } climb ? TableRect.Inches(climb.Height)
                 : level.Level == ModelLevel.High && field.Terrain.FirstOrDefault(t => t.Id == level.PlatformId) is { } platform ? DisplayHeight.Of(platform.Profile)
+                : Trenches.Of(field, body) is not null ? -TableRect.Inches(field.TrenchDepth!.Value)
                 : 0;
             models.Add(new ModelShape(model.Id, names.Of(model.Id), model.Seat, Words.SeatLetter(model.Seat),
                 TableRect.Inches(body.Centre.X), TableRect.Inches(body.Centre.Y), TableRect.Inches(body.Radius),
@@ -267,6 +279,11 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
             // Towers proposal, stage T4: what is accessible, in words.
             var sides = string.Join(" and ", climb.Ladders.Select(l => Climb.SideOf(t.Footprint.Bounds, l.At)!.Value).Order().Select(side => side.ToString().ToLowerInvariant()));
             return $"Tower, {Inch(TableRect.Inches(climb.Height))} high: models stand and fight on its platform, reached by its ladders ({sides} side{(climb.Ladders.Length > 1 ? "s" : "")}) or by climbing a side with a Risky roll; from the ground it blocks movement and sight";
+        }
+        if (t.Depth is { } depth)
+        {
+            // Trench-maps stage S3: what a trench does, in words (U80 to U83).
+            return $"Trench, {Inch(TableRect.Inches(depth))} deep: its sides are crossed as open ground; a model more than half in it stands on the floor, hidden below the edge from far away and in cover while partly seen{(objective ? "; Objective" : "")}";
         }
         var words = new List<string>
         {

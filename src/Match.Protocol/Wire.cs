@@ -333,6 +333,7 @@ public static class Wire
         private static readonly HashSet<(Type, string)> OmitWhenNull =
         [
             (typeof(TerrainBlock), nameof(TerrainBlock.Climb)),
+            (typeof(TerrainBlock), nameof(TerrainBlock.Depth)),
         ];
 
         // Optional flags left out when false, for the same reason (every match before dual-purpose weapons).

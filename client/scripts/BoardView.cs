@@ -613,6 +613,12 @@ public partial class BoardView : SubViewportContainer
                 return top;
             }
         }
+        // Trench-maps stage S3: over a trench, the point on its floor the pointer looks at, when the floor is seen there.
+        if (_scene is { } scene && TableAt(local) is { } ground && TrenchPits.At(scene, ground.X, ground.Y) is { } trench
+            && TableAt(local, -trench.Depth) is { } floor && trench.Holds(floor.X, floor.Y))
+        {
+            return floor;
+        }
         return TableAt(local);
     }
 
@@ -2319,10 +2325,12 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
-    // The height a base centred at this table point stands at: a tower's height inside its footprint, else the ground
-    // (as Rules.Core.Geometry.Towers.ElevationAt; display only).
+    // The height a base centred at this table point stands at: a tower's height inside its footprint, a trench's floor
+    // when the centre is in one (trench-maps stage S3), else the ground (as Rules.Core.Geometry.Towers.ElevationAt and the
+    // rules' U81; display only).
     private double LevelAt(double x, double y) =>
-        _scene?.Terrain.FirstOrDefault(t => t.Tower && t.Area.X0 < x && x < t.Area.X1 && t.Area.Y0 < y && y < t.Area.Y1)?.Height ?? 0;
+        _scene?.Terrain.FirstOrDefault(t => t.Tower && t.Area.X0 < x && x < t.Area.X1 && t.Area.Y0 < y && y < t.Area.Y1)?.Height
+        ?? (_scene is { } scene && TrenchPits.At(scene, x, y) is { } trench ? -trench.Depth : 0);
 
     private bool OnScreen(Vector2? at) => at is { } p && p.X >= 0 && p.Y >= 0 && p.X <= Size.X && p.Y <= Size.Y;
 
@@ -2670,6 +2678,8 @@ public partial class BoardView : SubViewportContainer
         _terrainPaint.Clear();
         _terrainOutlines.Clear();
         _towers.Clear();
+        _pits.Clear();
+        _groundCells.Clear();
         _ladders = 0;
         _seeThroughKey = null;
         _faded.Clear();
@@ -2681,14 +2691,32 @@ public partial class BoardView : SubViewportContainer
         _figuresFromArt = 0;
         _figuresPlain = 0;
         _terrainFromArt = 0;
-        Box(new Vector3((float)scene.Width / 2, -0.05f, (float)scene.Depth / 2), new Vector3((float)scene.Width, 0.1f, (float)scene.Depth), GroundColour);
-        // Graphics stage G0: the ground's texture from the art catalog, if any, tiled once per 6" (not in high contrast).
+        // Trench-maps stage S3: with trenches the ground is boxes around their parts, reaching below the deepest floor, so
+        // their sides are the trench walls; each part gets a floor at its depth. Without trenches, the one flat box as before.
+        var holes = TrenchPits.Holes(scene);
+        var below = (float)TrenchPits.Deepest(scene) + 0.1f;
         _groundFromArt = false;
-        if (!_highContrast && Visuals.Texture(VisualCatalog.GroundKey) is { } ground
-            && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D groundPaint })
+        var groundArt = _highContrast ? null : Visuals.Texture(VisualCatalog.GroundKey);
+        foreach (var cell in TrenchPits.Around(new TableRect(0, 0, scene.Width, scene.Depth), holes))
         {
-            Textured(groundPaint, ground, 6f);
-            _groundFromArt = true;
+            Box(new Vector3((float)cell.CentreX, -below / 2, (float)cell.CentreY), new Vector3((float)cell.Width, below, (float)cell.Depth), GroundColour);
+            _groundCells.Add(cell);
+            // Graphics stage G0: the ground's texture from the art catalog, if any, tiled once per 6" (not in high contrast).
+            if (groundArt is not null && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D groundPaint })
+            {
+                Textured(groundPaint, groundArt, 6f);
+                _groundFromArt = true;
+            }
+        }
+        foreach (var trench in scene.Terrain.Where(t => t.Trench))
+        {
+            foreach (var part in trench.Parts)
+            {
+                var floor = (float)trench.Depth;
+                Box(new Vector3((float)part.CentreX, -floor - (below - floor) / 2, (float)part.CentreY), new Vector3((float)part.Width, below - floor, (float)part.Depth), TrenchFloorColour);
+                DrawDuckboards(part, floor);
+            }
+            _pits[trench.Id] = -trench.Depth;
         }
         // Graphics stage G2: flat craters and duckboards on open ground, clear of every terrain piece and zone.
         _decals = 0;
@@ -2720,7 +2748,11 @@ public partial class BoardView : SubViewportContainer
         foreach (var zone in scene.Zones)
         {
             var area = zone.Area;
-            Box(new Vector3((float)area.CentreX, 0.01f, (float)area.CentreY), new Vector3((float)area.Width, 0.02f, (float)area.Depth), ZoneColour);
+            // Not over a trench, so the pit stays open.
+            foreach (var cell in TrenchPits.Around(area, holes))
+            {
+                Box(new Vector3((float)cell.CentreX, 0.01f, (float)cell.CentreY), new Vector3((float)cell.Width, 0.02f, (float)cell.Depth), ZoneColour);
+            }
             // Proposal G: "ZONE A" at the zone's outer edge, away from the models deployed in it.
             var edges = new[] { (X: area.X0 + 1.2, Y: area.CentreY), (X: area.X1 - 1.2, Y: area.CentreY), (X: area.CentreX, Y: area.Y0 + 1.2), (X: area.CentreX, Y: area.Y1 - 1.2) };
             var edge = edges.OrderByDescending(e => Math.Pow(e.X - scene.Width / 2, 2) + Math.Pow(e.Y - scene.Depth / 2, 2)).First();
@@ -2728,6 +2760,11 @@ public partial class BoardView : SubViewportContainer
         }
         foreach (var piece in scene.Terrain)
         {
+            // A trench is the pit drawn with the ground above.
+            if (piece.Trench)
+            {
+                continue;
+            }
             var area = piece.Area;
             var h = (float)piece.Height;
             // Graphics stages G2 and G4: with its texture (rubble, sandbags, stone, timber), a piece is drawn as its models
@@ -2823,6 +2860,38 @@ public partial class BoardView : SubViewportContainer
     }
 
     private Color DeckColour => _highContrast ? new Color(0.95f, 0.95f, 0.95f) : new Color(0.52f, 0.42f, 0.29f);
+
+    // Trench-maps stage S3: a trench's floor, darker mud than the ground (high contrast: near black), and its duckboards.
+    private Color TrenchFloorColour => _highContrast ? new Color(0.06f, 0.06f, 0.06f) : new Color(0.17f, 0.14f, 0.10f);
+
+    private Color DuckboardColour => _highContrast ? new Color(0.55f, 0.55f, 0.55f) : new Color(0.40f, 0.31f, 0.20f);
+
+    // Duckboards along the part's long side: slats 0.2" wide every 0.5", inset 0.3" from the walls, lying on the floor.
+    // Decoration only, under 0.05" high.
+    private void DrawDuckboards(TableRect part, float floor)
+    {
+        var along = part.Width >= part.Depth;
+        var length = along ? part.Width : part.Depth;
+        var across = (along ? part.Depth : part.Width) - 0.6;
+        if (across <= 0.2)
+        {
+            return;
+        }
+        for (var at = 0.25; at + 0.2 <= length; at += 0.5)
+        {
+            var (x, y) = along ? (part.X0 + at + 0.1, part.CentreY) : (part.CentreX, part.Y0 + at + 0.1);
+            var size = along ? new Vector3(0.2f, 0.03f, (float)across) : new Vector3((float)across, 0.03f, 0.2f);
+            Box(new Vector3((float)x, -floor + 0.015f, (float)y), size, DuckboardColour);
+        }
+    }
+
+    // Trench-maps stage S3, for the UI check: each trench drawn as a pit (its id and floor height) and the ground boxes.
+    private readonly Dictionary<string, double> _pits = [];
+    private readonly List<TableRect> _groundCells = [];
+
+    public IReadOnlyDictionary<string, double> PitsDrawn => _pits;
+
+    public IReadOnlyList<TableRect> GroundCells => _groundCells;
 
     private Color LadderColour => _highContrast ? Colors.Yellow : new Color(0.82f, 0.66f, 0.38f);
 

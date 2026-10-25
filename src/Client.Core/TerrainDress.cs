@@ -63,6 +63,11 @@ public static class TerrainDress
         ArgumentNullException.ThrowIfNull(piece);
         var random = new Spread(piece.Id);
         var parts = new List<DressPart>();
+        // A trench is drawn as a pit in the ground (BoardView, TrenchPits), not dressed.
+        if (piece.Trench)
+        {
+            return parts;
+        }
         if (piece.Tower)
         {
             Tower(piece, parts);

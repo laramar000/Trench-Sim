@@ -23,7 +23,8 @@ namespace Sim;
 //   objectives  ids of terrain pieces that are Objectives (may be empty)
 //   terrain     pieces: { id, rect or parts, profile: "low" | "cover" | "wall", kind (optional): any of "difficult",
 //               "dangerous", "impassable", surface (optional): "ground" | "high", walkable (optional),
-//               climb (optional): { height, ladders: [{ id, at: [x, y] }] } }
+//               climb (optional): { height, ladders: [{ id, at: [x, y] }] },
+//               depth (optional): inches, makes a "low" piece a trench section (trench-maps stage S3, U80) }
 //   rect        [x1, y1, x2, y2] in inches: the lower-left and upper-right corners
 //   parts       instead of rect, for a ground piece shaped like an L, T or plus: a list of two or more rects that
 //               do not overlap and are joined along shared edges (trench-maps stage S2)
@@ -142,7 +143,7 @@ public static class MapFiles
     private static TerrainBlock Piece(JsonElement element, int index)
     {
         var o = Object(element, $"terrain piece {index + 1}");
-        Only(o, $"terrain piece {index + 1}", "id", "rect", "parts", "profile", "kind", "surface", "walkable", "climb");
+        Only(o, $"terrain piece {index + 1}", "id", "rect", "parts", "profile", "kind", "surface", "walkable", "climb", "depth");
         var id = Text(o, "id");
         var what = $"terrain '{id}'";
         var profile = Text(o, "profile") switch
@@ -187,6 +188,7 @@ public static class MapFiles
             };
         }
         var footprint = FootprintOf(o, what);
+        Length? depth = o.TryGetProperty("depth", out _) ? LengthOf(o, "depth") : null;
         Climb? climb = null;
         if (o.TryGetProperty("climb", out var c))
         {
@@ -206,7 +208,7 @@ public static class MapFiles
             }).ToList();
             climb = Build($"{what} climb", () => new Climb(LengthOf(co, "height"), ladders));
         }
-        return Build(what, () => new TerrainBlock(id, footprint, profile, kind, surface, walkable) { Climb = climb });
+        return Build(what, () => new TerrainBlock(id, footprint, profile, kind, surface, walkable) { Climb = climb, Depth = depth });
     }
 
     private static bool Overlap(Rect a, Rect b) =>

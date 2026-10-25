@@ -21,8 +21,22 @@ Since stage L2 of the line-of-sight plan (2026-10-25) the rules see in three dim
 ## Elevated position (stage L3)
 
 +1 DICE to a Ranged Attack when the attacker's base stands at least 3" higher than the target's (p. 43, U79). Exactly
-3" counts. It is recorded on the attack declaration and shown in the dice preview with its page. Towers are under 3", so
-it cannot happen on today's maps; trenches make it reachable.
+3" counts. It is recorded on the attack declaration and shown in the dice preview with its page. Towers are under 3";
+since stage L7 a model on a 2" tower is 3" above a model in a 1" trench, so it happens on the default tower map.
+
+## Trenches (stage L7, with trench stage S3)
+
+- **Below the ground.** A model more than half in a trench stands on its floor, the trench's depth below the ground
+  (U81). The ground is solid except inside trenches down to their floor; a ray through it is blocked, grazing is not
+  (U83). The blocker is named as the target's trench when its edge hides the point, else the shooter's own trench,
+  else "the ground".
+- **Cover.** A model in a trench has cover when its trench's edge hides at least one of its points and it is still
+  partly seen.
+- **Distances** ignore the depth (U82), so models fight across a trench's edge.
+- **What it means at 1" deep** (the default map): a shooter on open ground far away sees only the head of a model in
+  the trench, which then has cover; from the rim the whole model is seen; two models along one trench see each other
+  in full; a model in the trench sees out over the edge (its eye is 0.1" above the ground). Round a bend the ground
+  hides legs and body. At 2.5" deep a model in the trench sees nothing outside it, and nothing outside sees it.
 
 ## On screen (stages L4 to L6)
 

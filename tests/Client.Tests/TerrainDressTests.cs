@@ -13,7 +13,8 @@ public class TerrainDressTests
         .Where(s => s.Phase == Phase.Activation)
         .Select(s => BoardScene.Of(s, Seat.One, ContentNames.None))
         .OfType<BoardScene>()
-        .SelectMany(s => s.Terrain)
+        // Trenches are drawn as pits, not dressed (TrenchClientTests).
+        .SelectMany(s => s.Terrain.Where(t => !t.Trench))
         .GroupBy(t => (t.Id, t.Area, t.Height))
         .Select(g => g.First());
 
