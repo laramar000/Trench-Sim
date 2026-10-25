@@ -129,6 +129,41 @@ public static class HeightSight
         return new SightResult(kind, visible, rays.Count, rays, from, to);
     }
 
+    // Line-of-sight stage L8: sight to a point on the battlefield or on a terrain piece (p. 30). The point is 1 mm across
+    // and 1 mm high (a base of 0.02" radius, 0.039" tall) standing where a base there would stand: the ground, the top
+    // of the walkable High piece under it, or a trench floor (U81). It is seen if any part of it is; with terrain as
+    // boxes from the ground up, the top of the point is seen whenever any lower part is, so one ray, from the eye to its
+    // top centre, decides (U92). The ray is blocked as Between's rays are. No scenario this build plays has Markers yet.
+    public static readonly Length PointRadius = Length.FromThousandths(20);
+    public static readonly Length PointHeight = Length.FromThousandths(39);
+
+    public static SightRay ToPoint(Battlefield battlefield, ModelBody attacker, Point2 point)
+    {
+        ArgumentNullException.ThrowIfNull(battlefield);
+        ArgumentNullException.ThrowIfNull(attacker);
+        var marker = new ModelBody("point", point, PointRadius);
+        var from = Elevation.Of(battlefield, attacker);
+        var to = Elevation.Of(battlefield, marker);
+        var eye = SightHeights.StandingHeight(battlefield, attacker, from) + SightHeights.Eye;
+        var foot = SightHeights.StandingHeight(battlefield, marker, to);
+        var top = foot + PointHeight;
+        var attackerTrench = eye - SightHeights.Eye < Length.Zero ? Trenches.Of(battlefield, attacker)?.Id : null;
+        var targetTrench = foot < Length.Zero ? Trenches.Of(battlefield, marker)?.Id : null;
+        var crossed = battlefield.Terrain.Where(t => t.Footprint.SegmentCrossesInside(attacker.Centre, point)).ToList();
+        var obstructing = crossed
+            .Where(t => t.Id != from.PlatformId && t.Id != to.PlatformId)
+            .Where(t => t.Footprint.SegmentCrossesBoxInside(attacker.Centre, eye, point, top, Length.Zero, SightHeights.TopOf(t)))
+            .Select(t => t.Id)
+            .ToArray();
+        if (battlefield.TrenchDepth is { } depth && GroundBlock(battlefield, depth, attacker.Centre, eye, point, top, attackerTrench, targetTrench) is { } ground)
+        {
+            obstructing = [.. obstructing.Append(ground).Order(StringComparer.Ordinal)];
+        }
+        return new SightRay(attacker.Centre, point, crossed.Select(t => t.Id).ToArray(), obstructing) { FromHeight = eye, ToHeight = top };
+    }
+
+    public static bool SeesPoint(Battlefield battlefield, ModelBody attacker, Point2 point) => ToPoint(battlefield, attacker, point).Obstructing.Count == 0;
+
     // Left, middle and right on the target, across the line from the attacker (left as the attacker looks at it).
     // Rounded half away from zero, so every machine uses the same points. Bases at the same spot give the middle only.
     internal static IReadOnlyList<Point2> Sample(ModelBody attacker, ModelBody target)

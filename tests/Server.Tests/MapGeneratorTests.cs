@@ -1,6 +1,8 @@
 using Match.Protocol;
 using Match.Server;
 using Rules.Core.Geometry;
+using Rules.Core.Scenarios;
+using Rules.Core.State;
 using Sim;
 
 namespace Server.Tests;
@@ -49,9 +51,10 @@ public class MapGeneratorTests
     public void ThousandTrenchLinesMapsAllKeepTheSetUpRules()
     {
         var acrossNorth = 0;
-        for (var seed = 0; seed < 1000; seed++)
+        var all = Thousand(MapGenerator.TrenchLines);
+        for (var seed = 0; seed < all.Count; seed++)
         {
-            var map = MapGenerator.Generate(MapGenerator.TrenchLines, seed);
+            var map = all[seed];
             Assert.Equal(MapGenerator.IdOf(MapGenerator.TrenchLines, seed), map.Id);
             Assert.Equal(Archetype.TrenchLines, map.ArchetypeKind);
             Assert.Empty(MapLayout.Check(map.Battlefield, map.ObjectiveIds, MapGenerator.DesignBaseRadius, Archetype.TrenchLines, map.RuinIds));
@@ -127,5 +130,120 @@ public class MapGeneratorTests
         var two = harness.Connect();
         two.Send(new CreateMatch("ranged") { Map = "generated-trench-lines-v9-5" });
         Assert.Equal(nameof(ProtocolError.UnknownMap), Assert.IsType<Rejected>(two.LastAnswer).Code);
+    }
+
+    // Stage S9: a thousand seeds of each kind, made in parallel (each map on its own; the result does not depend on order).
+    private static List<MapDefinition> Thousand(string kind)
+    {
+        var maps = new MapDefinition[1000];
+        Parallel.For(0, maps.Length, seed => maps[seed] = MapGenerator.Generate(kind, seed));
+        return [.. maps];
+    }
+
+    private static void KeepsTheRules(MapDefinition map)
+    {
+        Assert.Empty(MapLayout.Check(map.Battlefield, map.ObjectiveIds, MapGenerator.DesignBaseRadius, map.ArchetypeKind, map.RuinIds));
+        Assert.DoesNotContain(map.Battlefield.Terrain, t => t.Kind.HasFlag(TerrainKind.Dangerous));
+        foreach (var t in map.Battlefield.Terrain.Where(t => t.IsTrench))
+        {
+            var b = t.Footprint.Bounds;
+            var (length, width) = b.Width > b.Height ? (b.Width, b.Height) : (b.Height, b.Width);
+            Assert.InRange(length.Thousandths, 4000, 12000);
+            Assert.InRange(width.Thousandths, 2000, 4000);
+        }
+    }
+
+    [Fact]
+    public void ThousandClaimNoMansLandMapsAllFitTheScenario()
+    {
+        var withTrenches = 0;
+        foreach (var map in Thousand(MapGenerator.ClaimNoMansLand))
+        {
+            KeepsTheRules(map);
+            Assert.Equal(Archetype.NoMansLand, map.ArchetypeKind);
+            Assert.Equal(["obj-1", "obj-2", "obj-3", "obj-4", "obj-5"], map.ObjectiveIds.AsEnumerable());
+            // The Objectives on the printed marker positions (U32), as on the fixed map.
+            var plain = ScenarioCatalog.Maps[ScenarioSetups.PlainMap].Battlefield;
+            Assert.All(map.ObjectiveIds, o => Assert.Equal(plain.Terrain.Single(t => t.Id == o).Footprint, map.Battlefield.Terrain.Single(t => t.Id == o).Footprint));
+            var setup = ScenarioSetups.OnMap(Scenarios.All["ranged"], map);
+            Assert.Equal(ClaimNoMansLand.ScenarioId, setup.ScenarioId);
+            withTrenches += map.Battlefield.Terrain.Any(t => t.IsTrench) ? 1 : 0;
+        }
+        Assert.InRange(withTrenches, 500, 1000);
+    }
+
+    [Fact]
+    public void ThousandTrenchWarfareMapsAllFitTheScenario()
+    {
+        var zones = new HashSet<string>();
+        foreach (var map in Thousand(MapGenerator.TrenchWarfare))
+        {
+            KeepsTheRules(map);
+            Assert.Equal(3, TrenchWarfare.ScoringSections(map.Battlefield).Length);
+            zones.Add(TrenchWarfare.DefenderZone(map.Battlefield)!);
+            var setup = ScenarioSetups.OnMap(Scenarios.All["melee-2v2" + ScenarioSetups.TrenchWarfareSuffix], map);
+            Assert.Equal(TrenchWarfare.ScenarioId, setup.ScenarioId);
+            Assert.Throws<MapFormatException>(() => ScenarioSetups.OnMap(Scenarios.All["ranged"], map));
+        }
+        Assert.Equal(["east", "west"], zones.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void ThousandDecimatedRuinsMapsAllKeepTheRuinsRules()
+    {
+        foreach (var map in Thousand(MapGenerator.DecimatedRuins))
+        {
+            KeepsTheRules(map);
+            Assert.Equal(Archetype.DecimatedRuins, map.ArchetypeKind);
+            // p. 66: at least six ruined buildings, chained within 9" (checked above), no trenches.
+            Assert.True(map.RuinIds.Count(r => r.StartsWith("ruin-", StringComparison.Ordinal)) >= 6, map.Id);
+            Assert.DoesNotContain(map.Battlefield.Terrain, t => t.IsTrench);
+            Assert.Empty(map.Supports);
+        }
+    }
+
+    [Fact]
+    public void EachKindsFirstMapIsPinned()
+    {
+        // Pinned like the Trench Lines map: a change that moves any of them must come with a new Version.
+        Assert.Equal(PinnedClaim, RecordFormat.MapHash(MapGenerator.Generate(MapGenerator.ClaimNoMansLand, 1).ToScenario()));
+        Assert.Equal(PinnedTrenchWarfare, RecordFormat.MapHash(MapGenerator.Generate(MapGenerator.TrenchWarfare, 1).ToScenario()));
+        Assert.Equal(PinnedRuins, RecordFormat.MapHash(MapGenerator.Generate(MapGenerator.DecimatedRuins, 1).ToScenario()));
+        foreach (var kind in MapGenerator.Kinds)
+        {
+            var map = MapGenerator.Generate(kind, 77);
+            var again = MapFiles.Parse(MapFiles.ToJson(map), kind);
+            Assert.Equal(RecordFormat.MapHash(map.ToScenario()), RecordFormat.MapHash(again.ToScenario()));
+            Assert.Equal(map.RuinIds.AsEnumerable(), again.RuinIds.AsEnumerable());
+        }
+    }
+
+    private const string PinnedClaim = "sha256:0e6a5244390ec730eb543425c3651f031faccb09d51d91cf9b4324e8f65048cb";
+    private const string PinnedTrenchWarfare = "sha256:3959b1d4e771657e0b3da3735c28864ec44e8eaa6c3a1ea21b0de2dabff2a2f5";
+    private const string PinnedRuins = "sha256:fb35e17da65e7c66deaa58d55f75932b69ae4f1b128f7ac3063cf0d027df7a26";
+
+    [Fact]
+    public void ARandomMapRequestGetsANewMapAndTheRecordNamesIt()
+    {
+        var recorder = new CapturingRecorder();
+        var harness = new Harness(recorder: recorder, mapSeed: () => 4242);
+        var one = harness.Connect();
+        one.Send(new CreateMatch("ranged-1v1") { Map = "generated-claim-no-mans-land" });
+        var two = harness.Connect();
+        two.Send(new JoinMatch(one.Welcome!.Code));
+        var created = Assert.IsType<Rules.Core.Events.MatchCreated>(harness.Lobby.LogOf(one.Welcome.Code)![0].Event);
+        var made = MapGenerator.Generate(MapGenerator.ClaimNoMansLand, 4242);
+        Assert.Equal(RecordFormat.MapHash(made.ToScenario()), RecordFormat.MapHash(created.Setup.Scenario!));
+        Play.ToEnd(one, two, 1);
+        var record = Assert.Single(recorder.Closed);
+        Assert.Equal("generated-claim-no-mans-land-v1-4242", record.Map);
+        Assert.Equal(RecordFormat.MapHash(made.ToScenario()), record.MapHash);
+        // Trench Warfare takes its own random map and not Claim's.
+        var three = harness.Connect();
+        three.Send(new CreateMatch("ranged-1v1" + ScenarioSetups.TrenchWarfareSuffix) { Map = "generated-trench-warfare" });
+        Assert.NotNull(three.Welcome);
+        var four = harness.Connect();
+        four.Send(new CreateMatch("ranged-1v1" + ScenarioSetups.TrenchWarfareSuffix) { Map = "generated-claim-no-mans-land" });
+        Assert.Equal(nameof(ProtocolError.MapDoesNotFit), Assert.IsType<Rejected>(four.LastAnswer).Code);
     }
 }

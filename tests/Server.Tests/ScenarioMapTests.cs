@@ -135,4 +135,9 @@ public class ScenarioMapTests
 
     private static RecordVerdict Verify(MatchRecordBody body, System.Security.Cryptography.ECDsa key) =>
         RecordVerifier.Verify(RecordFormat.Sign(body, key), [new TrustedKey(RecordKeys.KeyIdOf(key), key)]);
+
+    // Stage S10: the campaign tables count as built exactly the scenarios this build plays.
+    [Fact]
+    public void TheCampaignTablesKnowWhichScenariosAreBuilt() =>
+        Assert.Equal(ScenarioSetups.Definitions.Keys.Order(StringComparer.Ordinal), CampaignTables.Built.Order(StringComparer.Ordinal));
 }

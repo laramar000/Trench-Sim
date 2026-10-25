@@ -52,6 +52,7 @@ public sealed class Lobby
     private readonly Dictionary<string, string> _mapIdByHash = new(StringComparer.Ordinal);
     private readonly Func<IDiceSource> _newDice;
     private readonly Func<string> _newCode;
+    private readonly Func<int> _newMapSeed;
     private readonly Outbox _outbox;
     private readonly int _maxMatches;
     private readonly TimeProvider _time;
@@ -71,7 +72,8 @@ public sealed class Lobby
         TimeProvider? time = null,
         TimeSpan? rejoinWindow = null,
         IMatchRecorder? recorder = null,
-        IReadOnlyDictionary<string, MapDefinition>? maps = null)
+        IReadOnlyDictionary<string, MapDefinition>? maps = null,
+        Func<int>? newMapSeed = null)
     {
         _scenarios = scenarios;
         _maps = maps ?? new Dictionary<string, MapDefinition>(StringComparer.Ordinal);
@@ -86,6 +88,7 @@ public sealed class Lobby
         _time = time ?? TimeProvider.System;
         _rejoinWindow = rejoinWindow ?? DefaultRejoinWindow;
         _recorder = recorder ?? NullRecorder.Instance;
+        _newMapSeed = newMapSeed ?? (() => RandomNumberGenerator.GetInt32(int.MaxValue));
     }
 
     public static TimeSpan DefaultRejoinWindow { get; } = TimeSpan.FromMinutes(5);
@@ -253,7 +256,14 @@ public sealed class Lobby
             Refuse(from, ProtocolError.UnknownScenario, "No such scenario on this server.");
             return;
         }
-        if (create.Map is { } mapId)
+        var mapId = create.Map;
+        // Trench-maps stage S9: "generated-<kind>" asks for a new map: the server picks the seed, and the record names
+        // the map it made ("generated-<kind>-v1-<seed>").
+        if (mapId is not null && MapGenerator.IsRequest(mapId, out var kind))
+        {
+            mapId = MapGenerator.IdOf(kind, _newMapSeed());
+        }
+        if (mapId is not null)
         {
             // Trench-maps stage S8: a generated id ("generated-trench-lines-v1-42") is made from its seed here.
             if (ScenarioSetups.MapById(_maps, mapId) is not { } map)
@@ -285,7 +295,7 @@ public sealed class Lobby
 
         var host = new MatchHost(code, MatchIds.New(), create.Scenario, setup, _newDice(), _outbox, _recorder, _rejoinWindow, now)
         {
-            Map = create.Map ?? (setup.Scenario is { } played ? _mapIdByHash.GetValueOrDefault(RecordFormat.MapHash(played)) : null),
+            Map = mapId ?? (setup.Scenario is { } played ? _mapIdByHash.GetValueOrDefault(RecordFormat.MapHash(played)) : null),
         };
         _matches.Add(code, host);
         _seated.Add(from, (host, Seat.One));

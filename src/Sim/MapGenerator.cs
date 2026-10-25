@@ -25,7 +25,12 @@ public static class MapGenerator
     public const string Prefix = "generated-";
     public const string TrenchLines = "trench-lines";
 
-    public static readonly ImmutableArray<string> Kinds = [TrenchLines];
+    // Trench-maps stage S9: No Man's Land maps for the two scenarios this build plays, and Decimated Ruins.
+    public const string ClaimNoMansLand = Rules.Core.Scenarios.ClaimNoMansLand.ScenarioId;
+    public const string TrenchWarfare = Rules.Core.Scenarios.TrenchWarfare.ScenarioId;
+    public const string DecimatedRuins = "decimated-ruins";
+
+    public static readonly ImmutableArray<string> Kinds = [TrenchLines, ClaimNoMansLand, TrenchWarfare, DecimatedRuins];
 
     // The largest base a generated map is checked for: 1" radius (a 50 mm base is 0.984").
     public static readonly Length DesignBaseRadius = Length.Inch;
@@ -66,6 +71,16 @@ public static class MapGenerator
         return false;
     }
 
+    // Stage S9: "generated-<kind>" with no version or seed asks the server to pick a seed (a new map each match).
+    public static bool IsRequest(string id, out string kind)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        kind = Kinds.FirstOrDefault(k => id == Prefix + k) ?? "";
+        return kind.Length > 0;
+    }
+
+    public static string RequestOf(string kind) => Kinds.Contains(kind) ? Prefix + kind : throw new ArgumentException($"No generator for '{kind}'.", nameof(kind));
+
     // The map a generated id names, or null when the id is not one.
     public static MapDefinition? FromId(string id) => TryParse(id, out var kind, out var seed) ? Generate(kind, seed) : null;
 
@@ -78,9 +93,13 @@ public static class MapGenerator
             var map = kind switch
             {
                 TrenchLines => TrenchLinesMap(id, seed, random),
+                ClaimNoMansLand => ClaimMap(id, seed, random),
+                TrenchWarfare => TrenchWarfareMap(id, seed, random),
+                DecimatedRuins => RuinsMap(id, seed, random),
                 _ => null,
             };
-            if (map is not null && map.Problems(DesignBaseRadius).IsEmpty)
+            if (map is not null && map.Problems(DesignBaseRadius).IsEmpty
+                && map.Supports.All(s => ScenarioSetups.Definitions[s].Unmet(map.ToScenario(), map.ArchetypeKind).IsEmpty))
             {
                 return map;
             }
@@ -207,10 +226,166 @@ public static class MapGenerator
         }
 
         var battlefield = new Battlefield(TableSize, TableSize, [.. trenches, .. others], Zones);
-        return new MapDefinition(id, $"Trench Lines {seed.ToString(CultureInfo.InvariantCulture)}", TrenchLines, [], battlefield, [])
+        return new MapDefinition(id, $"Generated Trench Lines {seed.ToString(CultureInfo.InvariantCulture)}", TrenchLines, [], battlefield, [])
         {
             RuinIds = [.. ruins.Order(StringComparer.Ordinal)],
         };
+    }
+
+    // Stage S9 (pp. 65-66, U90). Pieces are placed one at a time at random spots on the half-inch grid, each at least
+    // 3" from every piece already down; a piece with no room after its tries is left out, except where a count is
+    // required (Decimated Ruins' six ruined buildings, Trench Warfare's three trench sections).
+    private sealed class Layout(MapRandom random)
+    {
+        public readonly List<TerrainBlock> Pieces = [];
+        public readonly List<string> Ruins = [];
+
+        public bool Place(string id, Func<MapRandom, int, int, Footprint> shape, Func<string, Footprint, TerrainBlock> make,
+            (int X1, int Y1, int X2, int Y2) area, bool ruin = false, Func<Footprint, bool>? also = null)
+        {
+            for (var t = 0; t < 100; t++)
+            {
+                var footprint = shape(random, random.Between(area.X1, area.X2), random.Between(area.Y1, area.Y2));
+                var b = footprint.Bounds;
+                if (b.Max.X > H(area.X2) || b.Max.Y > H(area.Y2))
+                {
+                    continue;
+                }
+                if (Pieces.All(x => MapLayout.GapSquared(x.Footprint, footprint) >= Square(Length.FromInches(3))) && (also?.Invoke(footprint) ?? true))
+                {
+                    Pieces.Add(make(id, footprint));
+                    if (ruin)
+                    {
+                        Ruins.Add(id);
+                    }
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // The No Man's Land pieces this game has rules for (p. 65): two ruined buildings, two ruined corners, two areas
+        // of difficult ground and two landmarks, as many as fit. Hills and dangerous ground are left out (U90).
+        public void NoMansLandPieces((int X1, int Y1, int X2, int Y2) area)
+        {
+            for (var i = 1; i <= 2; i++)
+            {
+                Place($"ruin-{i}", Building, Cover, area, ruin: true);
+                Place($"corner-{i}", Corner, WallPiece, area, ruin: true);
+                Place($"crater-{i}", Patch, Rough, area);
+                Place($"landmark-{i}", Landmark, Cover, area);
+            }
+        }
+
+        public MapDefinition Map(string id, string name, string archetype, ImmutableArray<string> supports, IEnumerable<string> objectives) =>
+            new(id, name, archetype, supports, new Battlefield(TableSize, TableSize, Pieces, Zones), [.. objectives.Order(StringComparer.Ordinal)])
+            {
+                RuinIds = [.. Ruins.Order(StringComparer.Ordinal)],
+            };
+    }
+
+    private static readonly (int X1, int Y1, int X2, int Y2) WholeTable = (0, 0, Table, Table);
+
+    private static TerrainBlock Cover(string id, Footprint f) => new(id, f, TerrainProfile.Cover);
+
+    private static TerrainBlock WallPiece(string id, Footprint f) => new(id, f, TerrainProfile.Wall);
+
+    private static TerrainBlock Rough(string id, Footprint f) => new(id, f, TerrainProfile.Low, TerrainKind.Difficult);
+
+    private static TerrainBlock Trench(string id, Footprint f) => new(id, f, TerrainProfile.Low) { Depth = TrenchDepth };
+
+    // A ruined building: 3" to 5" each way, cover a model can stand in (as the preset ruined houses).
+    private static Footprint Building(MapRandom random, int x, int y) =>
+        Footprint.Of(R(x, y, x + random.Between(6, 10), y + random.Between(6, 10)));
+
+    // Claim No Man's Land: the five Objectives on the printed marker positions (U32), each a sandbag position, a ruined
+    // house or a shell hole; up to two trench sections 4" to 8" long in each deployment zone (p. 65: trenches only
+    // wholly within a zone); then the other pieces anywhere.
+    private static readonly (string Id, int X1, int Y1, int X2, int Y2)[] ClaimObjectives =
+    [
+        ("obj-1", 20, 8, 28, 16), ("obj-2", 20, 56, 28, 64), ("obj-3", 44, 8, 52, 16), ("obj-4", 44, 56, 52, 64), ("obj-5", 32, 32, 40, 40),
+    ];
+
+    private static MapDefinition? ClaimMap(string id, int seed, MapRandom random)
+    {
+        var layout = new Layout(random);
+        foreach (var (objective, x1, y1, x2, y2) in ClaimObjectives)
+        {
+            var f = Footprint.Of(R(x1, y1, x2, y2));
+            switch (random.Below(3))
+            {
+                case 0:
+                    layout.Pieces.Add(Cover(objective, f));
+                    break;
+                case 1:
+                    layout.Pieces.Add(Cover(objective, f));
+                    layout.Ruins.Add(objective);
+                    break;
+                default:
+                    layout.Pieces.Add(new TerrainBlock(objective, f, TerrainProfile.Low));
+                    break;
+            }
+        }
+        foreach (var (zone, x1) in new[] { ("west", 0), ("east", Table - 12) })
+        {
+            var count = random.Between(0, 2);
+            for (var i = 1; i <= count; i++)
+            {
+                var width = random.OneIn(2) ? 5 : 6;
+                layout.Place($"trench-{zone}-{i}", (r, x, y) => Footprint.Of(R(x, y, x + width, y + r.Between(8, 16))), Trench, (x1, 0, x1 + 12, Table));
+            }
+        }
+        layout.NoMansLandPieces(WholeTable);
+        return layout.Map(id, $"Generated No Man's Land {seed.ToString(CultureInfo.InvariantCulture)}", "no-mans-land", [ClaimNoMansLand], ClaimObjectives.Select(o => o.Id));
+    }
+
+    // Trench Warfare: the defender's three trench sections, 8" to 9.5" long, 2.5" or 3" wide, all in one deployment zone
+    // (west or east) and 3" or more apart (p. 162, U88); nothing else in either zone; the other pieces between the zones.
+    private static MapDefinition? TrenchWarfareMap(string id, int seed, MapRandom random)
+    {
+        var layout = new Layout(random);
+        var x1 = random.OneIn(2) ? 0 : Table - 12;
+        var lengths = new[] { random.Between(16, 19), random.Between(16, 19), random.Between(16, 19) };
+        // The spare height, split into the room before, between and after the sections.
+        var spare = Table - lengths.Sum() - 2 * 6;
+        var cuts = new[] { random.Between(0, spare), random.Between(0, spare), random.Between(0, spare) }.Order().ToArray();
+        var y = cuts[0];
+        for (var i = 0; i < 3; i++)
+        {
+            var width = random.OneIn(2) ? 5 : 6;
+            var x = random.Between(x1, x1 + 12 - width);
+            layout.Pieces.Add(Trench($"trench-{i + 1}", Footprint.Of(R(x, y, x + width, y + lengths[i]))));
+            y += lengths[i] + 6 + (i < 2 ? cuts[i + 1] - cuts[i] : 0);
+        }
+        layout.NoMansLandPieces((12, 0, Table - 12, Table));
+        return layout.Map(id, $"Generated Trench Warfare {seed.ToString(CultureInfo.InvariantCulture)}", "no-mans-land", [TrenchWarfare], []);
+    }
+
+    // Decimated Ruins (p. 66): the ruins first, each after the first between 3" and 9" from one already down: six ruined
+    // buildings and two ruined corners. Then two areas of difficult ground and two landmarks, 3" from everything.
+    // Dangerous ground is left out (U90). No scenario this build plays uses Decimated Ruins yet.
+    private static MapDefinition? RuinsMap(string id, int seed, MapRandom random)
+    {
+        var layout = new Layout(random);
+        bool NearARuin(Footprint f) =>
+            layout.Ruins.Count == 0 || layout.Pieces.Any(p => layout.Ruins.Contains(p.Id) && MapLayout.GapSquared(p.Footprint, f) <= Square(Length.FromInches(9)));
+        for (var i = 1; i <= 6; i++)
+        {
+            if (!layout.Place($"ruin-{i}", Building, Cover, WholeTable, ruin: true, also: NearARuin))
+            {
+                return null;
+            }
+        }
+        for (var i = 1; i <= 2; i++)
+        {
+            layout.Place($"corner-{i}", Corner, WallPiece, WholeTable, ruin: true, also: NearARuin);
+        }
+        for (var i = 1; i <= 2; i++)
+        {
+            layout.Place($"crater-{i}", Patch, Rough, WholeTable);
+            layout.Place($"landmark-{i}", Landmark, Cover, WholeTable);
+        }
+        return layout.Map(id, $"Generated Decimated Ruins {seed.ToString(CultureInfo.InvariantCulture)}", DecimatedRuins, [], []);
     }
 
     private static long Square(Length l) => l.Thousandths * l.Thousandths;

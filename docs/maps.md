@@ -55,6 +55,13 @@ thrown away and the next one, from the same seed, is made). `MapFiles.ToJson` wr
 | Kind | Archetype | What it makes |
 | --- | --- | --- |
 | `trench-lines` | Trench Lines (p. 67, U89) | One trench line of 4"-12" sections, 2.5" or 3" wide, from one edge to the opposite edge, with bends, sometimes a dead end or a crossroads; then two ruined corners, two areas of difficult ground and two landmarks, 1" from trenches and 3" from each other. No scenario this build plays uses Trench Lines yet, so the server makes these maps but no match takes one |
+| `claim-no-mans-land` | No Man's Land (p. 65, U90) | For Claim No Man's Land: the five Objectives on the printed marker positions (U32), up to two trench sections in each zone, then ruined buildings, ruined corners, difficult ground and landmarks 3" apart |
+| `trench-warfare` | No Man's Land (p. 65, U88, U90) | For Trench Warfare: the defender's three 8"+ sections in one zone, the other pieces between the zones |
+| `decimated-ruins` | Decimated Ruins (p. 66, U90) | Six ruined buildings and two ruined corners chained 3"-9" apart, then difficult ground and landmarks. No scenario this build plays uses it yet |
+
+Stage S9: `generated-claim-no-mans-land` or `generated-trench-warfare` (no version or seed) asks the server for a new
+map: the server picks the seed and the record names the map, for example `generated-claim-no-mans-land-v1-1234`.
+The client's Map picker offers these as "Random map (a new one each match)".
 
 ## Adding a map
 

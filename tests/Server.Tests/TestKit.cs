@@ -28,7 +28,7 @@ internal sealed class Harness
     private long _next;
 
     // A zero rejoin window gives M5's behaviour (a disconnect aborts at once); the M6 tests pass a window and a clock.
-    public Harness(int seed = 1, Func<IDiceSource>? dice = null, int maxMatches = 64, TimeSpan? rejoinWindow = null, TimeProvider? time = null, IMatchRecorder? recorder = null)
+    public Harness(int seed = 1, Func<IDiceSource>? dice = null, int maxMatches = 64, TimeSpan? rejoinWindow = null, TimeProvider? time = null, IMatchRecorder? recorder = null, Func<int>? mapSeed = null)
     {
         Lobby = new Lobby(
             Scenarios.All,
@@ -39,7 +39,8 @@ internal sealed class Harness
             time,
             rejoinWindow ?? TimeSpan.Zero,
             recorder,
-            ScenarioCatalog.Maps);
+            ScenarioCatalog.Maps,
+            mapSeed);
     }
 
     // Connections the Lobby asked the transport to close.

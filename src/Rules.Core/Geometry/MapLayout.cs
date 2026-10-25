@@ -65,6 +65,31 @@ public static class MapLayout
         return [.. problems];
     }
 
+    // How much of a base near the table's edge is on the table. The exact answer (BaseArea) depends only on the
+    // centre's distances to the four edges, each capped at the radius (its sums use differences only), so it is worked
+    // out once per such case and kept: every map checked for the same base asks the same few hundred corner cases.
+    // An immutable map swapped whole: two checks at once may both work a case out (the same answer), and one of the
+    // two additions may be lost, which only costs working it out again. No locks, so Rules.Core needs no threading.
+    private static ImmutableDictionary<(long R, long Left, long Right, long Bottom, long Top), AreaDecision> edgeCases =
+        ImmutableDictionary<(long R, long Left, long Right, long Bottom, long Top), AreaDecision>.Empty;
+
+    private static AreaDecision OnTable(Footprint area, Rect table, Point2 p, Length radius)
+    {
+        long r = radius.Thousandths, x = p.X.Thousandths, y = p.Y.Thousandths;
+        if (x < table.Min.X.Thousandths || x > table.Max.X.Thousandths || y < table.Min.Y.Thousandths || y > table.Max.Y.Thousandths)
+        {
+            return area.MoreThanHalfInside(p, radius);
+        }
+        var key = (r, Math.Min(r, x - table.Min.X.Thousandths), Math.Min(r, table.Max.X.Thousandths - x), Math.Min(r, y - table.Min.Y.Thousandths), Math.Min(r, table.Max.Y.Thousandths - y));
+        var cases = edgeCases;
+        if (!cases.TryGetValue(key, out var known))
+        {
+            known = area.MoreThanHalfInside(p, radius);
+            edgeCases = cases.SetItem(key, known);
+        }
+        return known;
+    }
+
     // Squared edge-to-edge distance between two footprints, in square thousandths (0 when they touch).
     public static long GapSquared(Footprint a, Footprint b)
     {
@@ -101,6 +126,8 @@ public static class MapLayout
         return false;
     }
 
+    private static readonly (int, int)[] Steps = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+
     private static IEnumerable<LayoutProblem> Reach(Battlefield battlefield, IReadOnlyCollection<string> objectiveIds, Length radius)
     {
         var step = GridStep.Thousandths;
@@ -109,14 +136,46 @@ public static class MapLayout
         var blockers = battlefield.Terrain.Where(t => !t.IsWalkable || t.IsTower).ToList();
         Point2 At(int i, int j) => new(Length.FromThousandths(i * step), Length.FromThousandths(j * step));
 
+        // Stage S8 speed-up, same answers: the exact tests run only where a cheap box test cannot rule them out. A base
+        // wholly on the table is more than half on it; a base can only overlap a piece near the box around it.
+        var r = radius.Thousandths;
+        var table = battlefield.Area.Bounds;
+        var boxes = blockers.Select(t => t.Footprint.Bounds).ToList();
+        bool Near(Rect box, long x1, long y1, long x2, long y2) =>
+            x1 - r <= box.Max.X.Thousandths && box.Min.X.Thousandths <= x2 + r && y1 - r <= box.Max.Y.Thousandths && box.Min.Y.Thousandths <= y2 + r;
+        bool Blocked(Point2 p)
+        {
+            for (var k = 0; k < blockers.Count; k++)
+            {
+                if (Near(boxes[k], p.X.Thousandths, p.Y.Thousandths, p.X.Thousandths, p.Y.Thousandths) && blockers[k].Footprint.CircleOverlaps(p, radius))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        bool SweepBlocked(Point2 a, Point2 b)
+        {
+            long x1 = Math.Min(a.X.Thousandths, b.X.Thousandths), y1 = Math.Min(a.Y.Thousandths, b.Y.Thousandths);
+            long x2 = Math.Max(a.X.Thousandths, b.X.Thousandths), y2 = Math.Max(a.Y.Thousandths, b.Y.Thousandths);
+            for (var k = 0; k < blockers.Count; k++)
+            {
+                if (Near(boxes[k], x1, y1, x2, y2) && blockers[k].Footprint.SweptCircleOverlaps(a, b, radius))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         var free = new bool[nx, ny];
         for (var i = 0; i < nx; i++)
         {
             for (var j = 0; j < ny; j++)
             {
                 var p = At(i, j);
-                free[i, j] = battlefield.Area.MoreThanHalfInside(p, radius) == AreaDecision.MoreThanHalf
-                    && !blockers.Any(t => t.Footprint.CircleOverlaps(p, radius));
+                free[i, j] = (Shapes.CircleInsideRect(p, radius, table) || OnTable(battlefield.Area, table, p, radius) == AreaDecision.MoreThanHalf)
+                    && !Blocked(p);
             }
         }
 
@@ -137,14 +196,14 @@ public static class MapLayout
                 while (queue.Count > 0)
                 {
                     var (ci, cj) = queue.Dequeue();
-                    foreach (var (di, dj) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                    foreach (var (di, dj) in Steps)
                     {
                         var (ni, nj) = (ci + di, cj + dj);
                         if (ni < 0 || nj < 0 || ni >= nx || nj >= ny || !free[ni, nj] || label[ni, nj] != 0)
                         {
                             continue;
                         }
-                        if (blockers.Any(t => t.Footprint.SweptCircleOverlaps(At(ci, cj), At(ni, nj), radius)))
+                        if (SweepBlocked(At(ci, cj), At(ni, nj)))
                         {
                             continue;
                         }
@@ -203,7 +262,7 @@ public static class MapLayout
                 {
                     for (var j = 0; j < ny; j++)
                     {
-                        if (free[i, j] && objective.Footprint.CircleOverlaps(At(i, j), radius))
+                        if (free[i, j] && Near(objective.Footprint.Bounds, i * step, j * step, i * step, j * step) && objective.Footprint.CircleOverlaps(At(i, j), radius))
                         {
                             reached.Add(label[i, j]);
                         }
