@@ -8,7 +8,9 @@ C# code. The format is described at the top of `src/Sim/MapFiles.cs`.
 - **Who reads it:** the server, through `Sim.ScenarioSetups`. The finished `Battlefield` goes into the match setup,
   so it is hashed, recorded, signed and sent to both clients exactly as before. Clients never read map files.
 - **Checks:** every check the rules types already make (ids, bounds, towers, objectives), plus map checks: pieces
-  may touch but not overlap, unknown fields are refused, and the file name must equal the id.
+  may touch but not overlap, two separate Cover or Wall pieces (towers included) may not touch at all, along an edge
+  or at a corner, because sight would pass along the seam (U94; Low pieces and trench sections may still touch, see
+  U94 for why), unknown fields are refused, and the file name must equal the id.
 - **Shapes (stage S2):** a piece is one rectangle (`rect`) or, for a ground piece, joined rectangles (`parts`): two
   to 16 rectangles that do not overlap and are joined along shared edges, for L, T and plus shapes. Seams between
   parts are inside the piece. Platforms, roofs, towers and deployment zones stay one rectangle. A one-rectangle piece
@@ -51,6 +53,8 @@ and a test pins the hash of one map. A change that moves any map must raise `Map
 
 Every generated map keeps the set-up rules of its archetype for a base up to 1" radius (each try that does not is
 thrown away and the next one, from the same seed, is made). `MapFiles.ToJson` writes one as a map file.
+Known limitation: a generated map is used without passing through the map loader, so the U94 check on touching
+Cover and Wall pieces does not run on it; the generator's spacing (below) keeps such pieces apart.
 
 | Kind | Archetype | What it makes |
 | --- | --- | --- |

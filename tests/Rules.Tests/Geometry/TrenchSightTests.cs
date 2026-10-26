@@ -166,4 +166,73 @@ public class TrenchSightTests
         Assert.Null(Trenches.Of(field, Body("a", "5", "5")));
         Assert.DoesNotContain(See(field, Body("a", "5", "5"), Body("b", "15", "5")).Rays, r => r.Obstructing.Contains(HeightSight.GroundId));
     }
+
+    // Line-of-sight review 2026-10-25 (Stage 1): trench-edge cover as U83 has it today, at the depths U80 allows. The
+    // trench is the straight one above (y 10 to 12.5). "Rim" is a ground model touching the trench's edge (centre y 9.5);
+    // "far" is a ground model 8" back (centre y 2). Targets stand mid-trench (11.25) or against the near wall (10.6).
+    [Theory]
+    [InlineData("0.5", "9.5", "11.25", Visibility.Full, 9, false, true)]
+    [InlineData("0.5", "2", "11.25", Visibility.Partial, 6, true, false)]
+    [InlineData("1", "9.5", "11.25", Visibility.Full, 9, false, true)]
+    [InlineData("1", "9.5", "10.6", Visibility.Full, 9, false, true)]
+    [InlineData("1", "2", "11.25", Visibility.Partial, 3, true, false)]
+    [InlineData("2", "9.5", "11.25", Visibility.Full, 9, false, true)]
+    [InlineData("2", "9.5", "10.6", Visibility.Partial, 6, true, true)]
+    [InlineData("2", "2", "11.25", Visibility.None, 0, false, false)]
+    public void TrenchEdgeCoverByDepthAndDistance(string depth, string attackerY, string targetY, Visibility seen, int points, bool cover, bool withinAnInch)
+    {
+        var field = Straight(depth);
+        var attacker = Body("a", "12", attackerY);
+        var target = Body("t", "12", targetY);
+        var result = Cover.Of(field, attacker, target);
+        Assert.Equal((seen, points), (result.Sight.Visibility, result.Sight.Visible));
+        Assert.Equal(cover, result.InCover);
+        Assert.Equal(cover ? "trench" : null, result.TerrainId);
+        Assert.Equal(withinAnInch, Measure.IsWithin(attacker, target, Length.Inch));
+    }
+
+    [Fact]
+    public void AModelInTheTrenchSeesOutInFullWhileOnlyItsHeadIsSeen()
+    {
+        // 1" deep: the far shooter sees 3 of the model's points (cover); the model sees all of the shooter, who has no cover.
+        var field = Straight();
+        var inside = Body("t", "12", "11.25");
+        var outside = Body("a", "12", "2");
+        Assert.Equal(3, HeightSight.Between(field, outside, inside).Visible);
+        var back = Cover.Of(field, inside, outside);
+        Assert.Equal(Visibility.Full, back.Sight.Visibility);
+        Assert.False(back.InCover);
+    }
+
+    [Fact]
+    public void AModelExactlyHalfInTheTrenchStandsOnTheGroundWithoutTrenchCover()
+    {
+        // U81: exactly half in is not in; it stands on the ground, and a trench is never cover to a model on the ground.
+        var field = Straight();
+        var straddler = Body("t", "12", "10");
+        Assert.Null(Trenches.Of(field, straddler));
+        var result = Cover.Of(field, Body("a", "12", "2"), straddler);
+        Assert.Equal(Visibility.Full, result.Sight.Visibility);
+        Assert.False(result.InCover);
+    }
+
+    [Fact]
+    [Trait("Rule", "OPEN QUESTION T1 (review 2026-10-25): not decided; this pins today's result only")]
+    public void T1_AtTheRimOfAVeryDeepTrenchAModelWithinAnInchCannotBeSeen()
+    {
+        // A 2.9" trench (the deepest U80 allows). The attacker touches the edge from outside; the target hugs the near wall
+        // inside. They are within 1" (U82), but the attacker's eye is above its base centre, 0.5" back from the edge, and
+        // every ray to the target's points passes through the solid ground at the rim, so there is no Line of Sight and a
+        // Melee Attack would be refused (p. 45). No map has a trench deeper than 1".
+        var field = Straight("2.9");
+        var attacker = Body("a", "12", "9.5");
+        var target = Body("t", "12", "10.6");
+        Assert.True(Measure.IsWithin(attacker, target, Length.Inch));
+        var result = Cover.Of(field, attacker, target);
+        Assert.Equal(Visibility.None, result.Sight.Visibility);
+        Assert.False(result.InCover);
+        Assert.All(result.Sight.Rays, r => Assert.Equal(["trench"], r.Obstructing));
+        // Mid-trench the same attacker sees the whole model.
+        Assert.Equal(Visibility.Full, HeightSight.Between(field, attacker, Body("m", "12", "11.25")).Visibility);
+    }
 }

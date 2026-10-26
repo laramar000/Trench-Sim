@@ -75,7 +75,10 @@ public class HeightSightTests
     [Theory]
     [InlineData("11", "13", "ooo/ooo/ooo")]        // a 2" gap: every point is seen
     [InlineData("11.95", "12.05", "xox/xox/xox")]  // a 0.1" gap on the line: the middle column is seen
-    [InlineData("12.6", "12.7", "xxx/xxx/xxx")]    // a 0.1" slit off the line: no point is seen (the documented limit)
+    // A 0.1" slit off the line: no point is seen, and rightly so. No straight line from the eye passes through a slit at
+    // x 6-7 and y 12.6-12.7 (it would need a slope of at least 0.15 at x 6 and at most 0.14 at x 7), so nothing of the
+    // target can be seen through it. This is not the sampling limit; SightLimitTests shows a slit the nine points miss.
+    [InlineData("12.6", "12.7", "xxx/xxx/xxx")]
     public void Test5_NarrowGapsBetweenTwoWalls(string gapFrom, string gapTo, string grid)
     {
         var field = Field("24", Wall("south", "6", "0", "7", gapFrom), Wall("north", "6", gapTo, "7", "24"));

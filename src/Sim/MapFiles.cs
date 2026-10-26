@@ -30,7 +30,8 @@ namespace Sim;
 //   parts       instead of rect, for a ground piece shaped like an L, T or plus: a list of two or more rects that
 //               do not overlap and are joined along shared edges (trench-maps stage S2)
 // Every rule a TerrainBlock, Battlefield or Scenario checks still applies, and the loader adds map rules on top:
-// pieces may touch but not overlap, and the file name must match the id. The set-up rules that need the whole layout
+// pieces may touch but not overlap (two separate pieces that both block sight may not touch at all, U94), and the
+// file name must match the id. The set-up rules that need the whole layout
 // (blocking terrain, archetype spacing; trench-maps stage S4) are MapDefinition.Problems: content maps must have none.
 public sealed record MapDefinition(
     string Id,
@@ -144,6 +145,13 @@ public static class MapFiles
                             throw new MapFormatException($"terrain '{terrain[i].Id}' and '{terrain[j].Id}' overlap (pieces may touch, not overlap).");
                         }
                     }
+                }
+                if (TouchingSightBlockers(terrain) is { Count: > 0 } touching)
+                {
+                    throw new MapFormatException(
+                        $"{string.Join("; ", touching.Select(t => $"terrain '{t.A}' and '{t.B}' touch {t.How}"))}: two separate pieces that block sight " +
+                        "may not touch, because sight would pass along the seam between them (U94). Make them one piece with \"parts\" " +
+                        "(ground pieces of one profile) or leave a gap between them.");
                 }
                 var battlefield = Build("the battlefield", () => new Battlefield(LengthOf(root, "width"), LengthOf(root, "height"), terrain, zones));
                 var objectives = Texts(root, "objectives");
@@ -371,6 +379,51 @@ public static class MapFiles
             };
         }
         return (Build(what, () => new TerrainBlock(id, footprint, profile, kind, surface, walkable) { Climb = climb, Depth = depth }), ruin);
+    }
+
+    // U94: separate Cover or Wall pieces (towers included) whose footprints touch, along an edge or at a corner. A sight
+    // ray running exactly along the seam only grazes each piece (U13), so neither blocks it. Low pieces and trenches are
+    // left out on purpose: a Low piece is a 0.25" box in the sight code and can block a ray to or from a model in a trench
+    // near its edge, so two touching Low pieces can leak too, but a Low piece is under the 1/2" that cover needs and never
+    // gives cover; touching trench sections are one open space (U83). Pairs by id (the lower first), sorted, so the answer
+    // never depends on the file's order.
+    private static List<(string A, string B, string How)> TouchingSightBlockers(IReadOnlyList<TerrainBlock> terrain)
+    {
+        var blockers = terrain.Where(t => !t.IsTrench && t.Profile is TerrainProfile.Cover or TerrainProfile.Wall).OrderBy(t => t.Id, StringComparer.Ordinal).ToList();
+        var found = new List<(string A, string B, string How)>();
+        for (var i = 0; i < blockers.Count; i++)
+        {
+            for (var j = i + 1; j < blockers.Count; j++)
+            {
+                var edge = false;
+                var corner = false;
+                foreach (var a in blockers[i].Footprint.Parts)
+                {
+                    foreach (var b in blockers[j].Footprint.Parts)
+                    {
+                        var xOverlap = Math.Min(a.Max.X.Thousandths, b.Max.X.Thousandths) - Math.Max(a.Min.X.Thousandths, b.Min.X.Thousandths);
+                        var yOverlap = Math.Min(a.Max.Y.Thousandths, b.Max.Y.Thousandths) - Math.Max(a.Min.Y.Thousandths, b.Min.Y.Thousandths);
+                        if (xOverlap < 0 || yOverlap < 0)
+                        {
+                            continue;
+                        }
+                        if (xOverlap == 0 && yOverlap == 0)
+                        {
+                            corner = true;
+                        }
+                        else if (xOverlap == 0 || yOverlap == 0)
+                        {
+                            edge = true;
+                        }
+                    }
+                }
+                if (edge || corner)
+                {
+                    found.Add((blockers[i].Id, blockers[j].Id, edge ? "along an edge" : "at a corner"));
+                }
+            }
+        }
+        return found;
     }
 
     private static bool Overlap(Rect a, Rect b) =>
