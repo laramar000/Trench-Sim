@@ -1905,7 +1905,7 @@ public partial class BoardView : SubViewportContainer
                     ink, 0.07f, 0.04f);
             }
         }
-        if (preview.Rays.Count == 9)
+        if (preview.Rays.Count >= 9)
         {
             var figure = ShotGuide.Figure(preview.Rays);
             var scale = 32 * _textScale / SightIcons.Size;

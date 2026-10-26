@@ -3,7 +3,7 @@ using static Rules.Tests.Geometry.Geo;
 
 namespace Rules.Tests.Geometry;
 
-// Line-of-sight stage 2b-1 (approved by Jason 2026-10-26): the gap search, built but not used by the rules. When the
+// Line-of-sight stage 2b-1 (approved by Jason 2026-10-26; the rules' sight since stage 2b-2, U95): the gap search. When the
 // nine rays see nothing it looks between them for a sideways gap. These tests check it against a brute-force answer: 801
 // points along the line between the target's side columns, at the three sample heights, each ray tested with the same
 // box test the sight code uses.

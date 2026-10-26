@@ -54,6 +54,22 @@ public class ShotGuideTests
         Assert.Null(ShotGuide.Words([Ray(true)]));
     }
 
+    [Fact]
+    public void ATargetSeenOnlyThroughANarrowGapSaysSo()
+    {
+        // U95: the nine rays all blocked, then the gap search's extra rays, one clear. The figure and the shot line are
+        // still the nine rays'; the words add the gap.
+        var rays = Enumerable.Range(0, 9).Select(_ => Ray(false)).Concat([Ray(false), Ray(true), Ray(false)]).ToList();
+        Assert.Equal("Guide: sight points seen, head 0 of 3, body 0 of 3, legs 0 of 3, and through a narrow gap", ShotGuide.Words(rays));
+        var figure = ShotGuide.Figure(rays);
+        Assert.Equal('X', figure[1][1]);
+        Assert.Equal('X', figure[11][11]);
+        var line = ShotGuide.Line(rays, Scene());
+        Assert.False(line[^1].Clear);
+        // Extra rays that are all blocked add nothing to the words.
+        Assert.DoesNotContain("gap", ShotGuide.Words([.. Enumerable.Range(0, 12).Select(_ => Ray(false))]), StringComparison.Ordinal);
+    }
+
     // Plan test 11: for every Shoot the previews accept, the server's declaration has exactly the preview's sight, cover,
     // long range and elevation, and the preview's rays are the rules' rays.
     [Fact]

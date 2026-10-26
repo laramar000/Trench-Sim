@@ -6,7 +6,7 @@ using Rules.Core.State;
 
 namespace Server.Tests;
 
-// Line-of-sight stage 2b-1 (2026-10-26): the gap search (HeightSight.WithGapSearch) is not used by the rules yet. Replay
+// Line-of-sight stage 2b-1 (2026-10-26): the gap search (HeightSight.WithGapSearch, the rules' sight since 2b-2, U95). Replay
 // re-checks sight only for attacks that were made (Reducer: Ranged Attack, Charge, Melee Attack and free attack), and
 // those were legal, so the nine rays saw the target and the gap search leaves their answer alone. This test plays whole
 // matches through the server, as the golden records are made, and checks that at every attack in the record.
@@ -43,10 +43,10 @@ public class GapSearchRecordTests
                 }
                 var attacker = BodyOf(attackerId);
                 var target = BodyOf(targetId);
-                var nine = HeightSight.Between(map.Battlefield, attacker, target);
                 var searched = HeightSight.WithGapSearch(map.Battlefield, attacker, target);
-                Assert.NotEqual(Visibility.None, nine.Visibility);
-                Assert.Equal(nine.Visibility, searched.Visibility);
+                Assert.NotEqual(Visibility.None, searched.Nine.Visibility);
+                Assert.Equal(searched.Nine.Visibility, searched.Visibility);
+                Assert.Equal(searched.Nine.Visibility, HeightSight.Between(map.Battlefield, attacker, target).Visibility);
                 Assert.Empty(searched.Extra);
                 attacks++;
             }

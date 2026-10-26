@@ -1,7 +1,7 @@
 namespace Client.Core;
 
 // Line-of-sight stage L5: the guide drawn when a Shoot target is pointed at or chosen. It is a picture of the rules'
-// own nine sight rays (Preview.Rays), labelled "Guide" so it is never mistaken for a rule: the server's sight, cover and
+// own nine sight rays (the first nine of Preview.Rays; U95's extra rays, when a narrow gap was searched, follow them), labelled "Guide" so it is never mistaken for a rule: the server's sight, cover and
 // modifiers are the "Rules" lines beside it.
 //  - The shot line is the middle body ray, from the shooter's eye to the target's body point: solid while it is clear,
 //    broken from where it enters the piece that blocks it.
@@ -16,12 +16,12 @@ public static class ShotGuide
     // The rows of the figure, top to bottom, and the ray index each starts at (rays run legs, body, head).
     private static readonly (string Name, int First)[] Rows = [("head", 6), ("body", 3), ("legs", 0)];
 
-    // The shot line in one or two pieces. Empty unless the preview has the nine rays.
+    // The shot line in one or two pieces. Empty unless the preview has the nine rays (and maybe the gap search's after them).
     public static IReadOnlyList<GuideSegment> Line(IReadOnlyList<PreviewRay> rays, BoardScene scene)
     {
         ArgumentNullException.ThrowIfNull(rays);
         ArgumentNullException.ThrowIfNull(scene);
-        if (rays.Count != 9)
+        if (rays.Count < 9)
         {
             return [];
         }
@@ -67,7 +67,7 @@ public static class ShotGuide
     {
         ArgumentNullException.ThrowIfNull(rays);
         var cells = Enumerable.Range(0, SightIcons.Size).Select(_ => Enumerable.Repeat('.', SightIcons.Size).ToArray()).ToArray();
-        if (rays.Count == 9)
+        if (rays.Count >= 9)
         {
             for (var row = 0; row < 3; row++)
             {
@@ -91,10 +91,12 @@ public static class ShotGuide
     public static string? Words(IReadOnlyList<PreviewRay> rays)
     {
         ArgumentNullException.ThrowIfNull(rays);
-        if (rays.Count != 9)
+        if (rays.Count < 9)
         {
             return null;
         }
-        return $"{Label}: sight points seen, " + string.Join(", ", Rows.Select(r => $"{r.Name} {Enumerable.Range(r.First, 3).Count(i => rays[i].Clear)} of 3"));
+        // U95: when none of the nine points is seen, a clear extra ray means the target shows through a narrow gap.
+        var gap = rays.Skip(9).Any(r => r.Clear) ? ", and through a narrow gap" : "";
+        return $"{Label}: sight points seen, " + string.Join(", ", Rows.Select(r => $"{r.Name} {Enumerable.Range(r.First, 3).Count(i => rays[i].Clear)} of 3")) + gap;
     }
 }

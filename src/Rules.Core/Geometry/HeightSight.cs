@@ -91,7 +91,23 @@ public static class HeightSight
     // space), so it never clashes with a piece.
     public const string GroundId = "the ground";
 
+    // The rules' sight (U77, U95). The nine rays first; when they see nothing, the gap search (WithGapSearch) looks
+    // between them, and a gap it finds makes the target partly seen: its result then holds the nine rays and the extra
+    // ones, and counts the clear extra rays as the visible ones. Full and Partial answers are always the nine rays'.
     public static SightResult Between(Battlefield battlefield, ModelBody attacker, ModelBody target)
+    {
+        var searched = WithGapSearch(battlefield, attacker, target);
+        if (searched.Visibility == searched.Nine.Visibility)
+        {
+            return searched.Nine;
+        }
+        var nine = searched.Nine;
+        var rays = nine.Rays.Concat(searched.Extra).ToList();
+        return new SightResult(Visibility.Partial, rays.Count(r => r.Obstructing.Count == 0), rays.Count, rays, nine.Attacker, nine.Target);
+    }
+
+    // The nine rays alone (stage L1 to 2b-1's sight).
+    internal static SightResult NineRays(Battlefield battlefield, ModelBody attacker, ModelBody target)
     {
         ArgumentNullException.ThrowIfNull(battlefield);
         ArgumentNullException.ThrowIfNull(attacker);
@@ -164,7 +180,7 @@ public static class HeightSight
 
     public static bool SeesPoint(Battlefield battlefield, ModelBody attacker, Point2 point) => ToPoint(battlefield, attacker, point).Obstructing.Count == 0;
 
-    // Line-of-sight stage 2b-1 (planned 2026-10-26, NOT used by the rules yet): when the nine rays of Between see nothing,
+    // Line-of-sight stage 2b-1 (2026-10-26; the rules' sight through Between since stage 2b-2, U95): when the nine rays see nothing,
     // look for a gap between them. Seen from above, from the attacker, the pieces in front of the target can only start
     // or stop hiding it where a line from the attacker passes a corner of a piece, or where an edge of a piece meets the
     // line between the target's two side points (the left and right columns, 0.8 of the base radius out). Those places
@@ -174,7 +190,7 @@ public static class HeightSight
     // are not looked for. If the nine rays see the target at all, nothing more is tried and the answer is theirs.
     public static GapSearchResult WithGapSearch(Battlefield battlefield, ModelBody attacker, ModelBody target)
     {
-        var nine = Between(battlefield, attacker, target);
+        var nine = NineRays(battlefield, attacker, target);
         if (nine.Visibility != Visibility.None)
         {
             return new GapSearchResult(nine, []);
@@ -400,8 +416,7 @@ public static class HeightSight
     }
 }
 
-// Line-of-sight stage 2b-1 (not used by the rules yet): the nine rays of HeightSight.Between, and the extra rays the gap
-// search tried when they saw nothing. Visibility is the nine rays' answer, except that None becomes Partial when an
+// Line-of-sight stage 2b-1 (U95): the nine rays, and the extra rays the gap search tried when they saw nothing. Visibility is the nine rays' answer, except that None becomes Partial when an
 // extra ray is unblocked.
 public sealed record GapSearchResult(SightResult Nine, IReadOnlyList<SightRay> Extra)
 {

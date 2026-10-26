@@ -12,7 +12,12 @@ Since stage L2 of the line-of-sight plan (2026-10-25) the rules see in three dim
   above its base), each left, middle and right across the line, at 0.8 of the base radius.
 - **Blocking.** A ray is blocked when it passes through the inside of a box. Grazing a face, edge or corner does not
   count. Other models never block. The platform a model stands on never blocks sight to or from it.
-- **Result.** Full (all nine seen), Partial (some) or None (none), with every ray, its heights and what blocked it.
+- **Gap search (U95, stage 2b-2).** When none of the nine points is seen, the line between the left and right points
+  is cut wherever a line from the eye passes a corner of a piece or a side of a piece crosses it, and one more point
+  in the middle of each strip is tried at the same three heights, with the same tests. A clear one makes the target
+  partly seen. It only ever turns None into Partial: Full and Partial answers are the nine rays'.
+- **Result.** Full (all nine seen), Partial (some, or none of the nine but a gap found) or None (none), with every
+  ray (the nine first, then any extra ones), its heights and what blocked it.
 - **Cover (p. 38).** The piece is at least 1/2" high, the target touches it, it is as wide as the base across the line,
   and it hides at least one point while the target is still partly seen.
 - **Who decides.** The server, through `Cover.Of`, for shots, forced shots, charges and Fight. The client's previews
@@ -48,7 +53,8 @@ Everything shown comes from the same rules function the server uses (`Cover.Of`)
 - **Shot guide (L5).** Pointing at or choosing a Shoot target draws a thin line from the shooter's eye to the target's
   body point, solid while clear and broken from where it is blocked; a 3 x 3 figure of the nine points (head, body,
   legs) above the target with GUIDE beside it; and the cover piece outlined in gold. The panel lists the rules' facts
-  under "Rules (the server decides):", the hit-roll modifiers with their pages, and the guide's points in words.
+  under "Rules (the server decides):", the hit-roll modifiers with their pages, and the guide's points in words
+  ("and through a narrow gap" when only the gap search sees the target).
 - **Movement visibility (L6).** While choosing where to move, the same icons show how the model would see each enemy
   from the end of the path, at the height of that point. Movement rules are unchanged. Measured at about 0.2 ms per
   destination with five models on the table (`DestinationSightsTests`), against an 80 ms pointer interval.
@@ -76,6 +82,8 @@ carry the results.
 
 ## Known limits
 
-- A slit narrower than the spacing of the points can hide a target the table would show a sliver of.
+- Since U95 a sideways slit between the points is found. Still missed: a gap in height (a top between two sampled
+  heights, or anything below 0.3" or between 1.1" and 1.2"), and a strip too thin to hold a point at a whole
+  thousandth of an inch inside it.
 - The side points at 0.8 of the radius see less round a corner than the old rim points did.
 - A Down model is the same height as a standing one.
