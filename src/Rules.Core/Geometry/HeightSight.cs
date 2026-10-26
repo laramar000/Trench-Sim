@@ -126,18 +126,7 @@ public static class HeightSight
         {
             foreach (var point in points)
             {
-                var top = foot + height;
-                var crossed = battlefield.Terrain.Where(t => t.Footprint.SegmentCrossesInside(attacker.Centre, point)).ToList();
-                var obstructing = crossed
-                    .Where(t => t.Id != from.PlatformId && t.Id != to.PlatformId)
-                    .Where(t => t.Footprint.SegmentCrossesBoxInside(attacker.Centre, eye, point, top, Length.Zero, SightHeights.TopOf(t)))
-                    .Select(t => t.Id)
-                    .ToArray();
-                if (battlefield.TrenchDepth is { } depth && GroundBlock(battlefield, depth, attacker.Centre, eye, point, top, attackerTrench, targetTrench) is { } ground)
-                {
-                    obstructing = [.. obstructing.Append(ground).Order(StringComparer.Ordinal)];
-                }
-                rays.Add(new SightRay(attacker.Centre, point, crossed.Select(t => t.Id).ToArray(), obstructing) { FromHeight = eye, ToHeight = top });
+                rays.Add(Ray(battlefield, attacker.Centre, eye, point, foot + height, from, to, attackerTrench, targetTrench));
             }
         }
         var visible = rays.Count(r => r.Obstructing.Count == 0);
@@ -186,8 +175,8 @@ public static class HeightSight
     // line between the target's two side points (the left and right columns, 0.8 of the base radius out). Those places
     // cut that line into strips; one extra point is tried in the middle of each strip, at the same three heights, with
     // the same tests as the nine rays (boxes, solid ground, grazing does not block, U13). A strip too thin for its middle
-    // to be put at a whole thousandth strictly inside it is skipped. Gaps in height (a top between the sampled heights)
-    // are not looked for. If the nine rays see the target at all, nothing more is tried and the answer is theirs.
+    // to be put at a whole thousandth strictly inside it is skipped. Gaps in height need no search: the heights seen at a
+    // spot always reach the top, so only a target showing nothing below 1.1" is missed (HeightBandTests). If the nine rays see the target at all, nothing more is tried and the answer is theirs.
     public static GapSearchResult WithGapSearch(Battlefield battlefield, ModelBody attacker, ModelBody target)
     {
         var nine = NineRays(battlefield, attacker, target);
@@ -273,18 +262,7 @@ public static class HeightSight
             }
             foreach (var height in SightHeights.Points)
             {
-                var top = foot + height;
-                var crossed = battlefield.Terrain.Where(t => t.Footprint.SegmentCrossesInside(attacker.Centre, point)).ToList();
-                var obstructing = crossed
-                    .Where(t => t.Id != from.PlatformId && t.Id != to.PlatformId)
-                    .Where(t => t.Footprint.SegmentCrossesBoxInside(attacker.Centre, eye, point, top, Length.Zero, SightHeights.TopOf(t)))
-                    .Select(t => t.Id)
-                    .ToArray();
-                if (battlefield.TrenchDepth is { } depth && GroundBlock(battlefield, depth, attacker.Centre, eye, point, top, attackerTrench, targetTrench) is { } ground)
-                {
-                    obstructing = [.. obstructing.Append(ground).Order(StringComparer.Ordinal)];
-                }
-                extra.Add(new SightRay(attacker.Centre, point, crossed.Select(t => t.Id).ToArray(), obstructing) { FromHeight = eye, ToHeight = top });
+                extra.Add(Ray(battlefield, attacker.Centre, eye, point, foot + height, from, to, attackerTrench, targetTrench));
             }
         }
         return new GapSearchResult(nine, extra);
@@ -305,6 +283,36 @@ public static class HeightSight
             var t = c > 0 ? new ExactMath.Ratio(n, c) : new ExactMath.Ratio(-n, -c);
             return t.CompareTo(lo) > 0 && t.CompareTo(hi) < 0;
         }
+    }
+
+    // One ray from the eye to a point on the target at the height top: blocked by the inside of any box it crosses
+    // (except the platforms the two models stand on) and by solid ground. Used by the nine rays and the gap search alike.
+    private static SightRay Ray(Battlefield battlefield, Point2 eyeAt, Length eye, Point2 point, Length top, ModelPosition from, ModelPosition to, string? attackerTrench, string? targetTrench)
+    {
+        var crossed = battlefield.Terrain.Where(t => t.Footprint.SegmentCrossesInside(eyeAt, point)).ToList();
+        var obstructing = crossed
+            .Where(t => t.Id != from.PlatformId && t.Id != to.PlatformId)
+            .Where(t => t.Footprint.SegmentCrossesBoxInside(eyeAt, eye, point, top, Length.Zero, SightHeights.TopOf(t)))
+            .Select(t => t.Id)
+            .ToArray();
+        if (battlefield.TrenchDepth is { } depth && GroundBlock(battlefield, depth, eyeAt, eye, point, top, attackerTrench, targetTrench) is { } ground)
+        {
+            obstructing = [.. obstructing.Append(ground).Order(StringComparer.Ordinal)];
+        }
+        return new SightRay(eyeAt, point, crossed.Select(t => t.Id).ToArray(), obstructing) { FromHeight = eye, ToHeight = top };
+    }
+
+    // For tests (height-gap plan, 2026-10-26): the ray from the attacker's eye to a point at any height above the
+    // target's base, blocked exactly as the nine rays are.
+    internal static SightRay RayAtHeight(Battlefield battlefield, ModelBody attacker, ModelBody target, Point2 point, Length height)
+    {
+        var from = Elevation.Of(battlefield, attacker);
+        var to = Elevation.Of(battlefield, target);
+        var eye = SightHeights.StandingHeight(battlefield, attacker, from) + SightHeights.Eye;
+        var foot = SightHeights.StandingHeight(battlefield, target, to);
+        var attackerTrench = eye - SightHeights.Eye < Length.Zero ? Trenches.Of(battlefield, attacker)?.Id : null;
+        var targetTrench = foot < Length.Zero ? Trenches.Of(battlefield, target)?.Id : null;
+        return Ray(battlefield, attacker.Centre, eye, point, foot + height, from, to, attackerTrench, targetTrench);
     }
 
     // Left, middle and right on the target, across the line from the attacker (left as the attacker looks at it).

@@ -82,8 +82,11 @@ carry the results.
 
 ## Known limits
 
-- Since U95 a sideways slit between the points is found. Still missed: a gap in height (a top between two sampled
-  heights, or anything below 0.3" or between 1.1" and 1.2"), and a strip too thin to hold a point at a whole
-  thousandth of an inch inside it.
+- Since U95 a sideways slit between the points is found. Still missed: a target that shows only between 1.1" and its
+  top at 1.2" (the top of the head), and a strip too thin to hold a point at a whole thousandth of an inch inside it.
+- Nothing else in height can be missed. Every piece is a box from the ground up and solid ground blocks from below,
+  and a ray to a higher point is higher all along its length. So at any one spot across the target the heights seen
+  form one band reaching the top: if any height is seen, 1.1" is seen too (`HeightBandTests`, checked with random
+  scenes of trenches, towers and pieces of every height; height-gap plan, 2026-10-26).
 - The side points at 0.8 of the radius see less round a corner than the old rim points did.
 - A Down model is the same height as a standing one.
