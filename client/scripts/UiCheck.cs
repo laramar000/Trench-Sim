@@ -88,6 +88,8 @@ public partial class UiCheck : Node
         catch (Exception e)
         {
             Check("script", false, $"{e.GetType().Name}: {e.Message}".Replace('\n', ' '));
+            // Where it was thrown, for the log only (the report keeps the one-line message).
+            Write($"TRACE script {e.ToString().Replace('\n', '|')}");
         }
         Mark("finished", $"failures={_failures}");
         GetTree().Quit(_failures == 0 ? 0 : 1);
@@ -3386,7 +3388,6 @@ public partial class UiCheck : Node
                 continue;
             }
             var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
-            var hint = Hint();
             if (board is not null && board.Interaction.Available.Contains(InteractionMode.Place) && board.Interaction.Pending is null
                 && Banner().StartsWith("Connection: Connected", StringComparison.Ordinal) && !Banner().Contains("paused", StringComparison.OrdinalIgnoreCase))
             {
@@ -3411,6 +3412,9 @@ public partial class UiCheck : Node
             {
                 continue;
             }
+            // The hint is read only now: the checks above wait for frames, and the screen may rebuild its buttons meanwhile,
+            // which frees the old ones (run 310: a hint read before them was freed, and reading its text threw).
+            var hint = Hint();
             // Once, at Seat One's first turn to activate with two units to choose from: choose, switch, act by mouse.
             if (_role == "pvp-a" && !_choiceChecked && hint is not null && hint.Text.StartsWith("Activate ", StringComparison.Ordinal) && board?.Scene is { } choosing
                 && board.Interaction.Pending is null && choosing.Models.Count(m => m.Yours && board.Interaction.CanChoose(m.Id)) >= 2)
