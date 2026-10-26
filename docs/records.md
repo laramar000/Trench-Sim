@@ -27,7 +27,7 @@ One JSON object, UTF-8, at most 16 MiB and 100,000 events:
 
 - **body**: `matchId`, `code`, `createdAt`, `closedAt`, `engine`, `scenario`, `contentFingerprint`, `events` and `result`,
   and since trench-maps stage S5 the optional `map` and `mapHash` (left out when null, as in every earlier record).
-  - `engine`: `rulesVersion` (`1.0.2`), `stateHashVersion` (4), `replayCompatibility` (1), `protocolVersion` (2) and `build` (the git commit the server was built from).
+  - `engine`: `rulesVersion` (`1.0.2`), `stateHashVersion` (5), `replayCompatibility` (2), `protocolVersion` (2) and `build` (the git commit the server was built from).
   - `events`: every event as `{seq, event, hash}`, in the protocol's wire form. The first is `MatchCreated`, which holds the whole setup.
   - `contentFingerprint`: `sha256:` and the SHA-256 of the setup. `--content` compares it with a content folder.
   - `map`: the id of the server's map file the match was played on, when the layout is one of them. `mapHash`:

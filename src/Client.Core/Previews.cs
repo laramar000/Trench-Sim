@@ -615,8 +615,11 @@ public static class Previews
         var standsUp = state.Setup?.Scenario is not null && found.Status == ModelStatus.Down;
         var activated = found with { ActivatedThisTurn = true, Status = standsUp ? ModelStatus.Standing : found.Status };
         var models = state.Models.Select(m => m.Id == model ? activated : m).ToImmutableArray();
+        // What the Glorious Deeds keep for an activation starts afresh, and notes a model that began it Down (U96).
+        var deeds = Rules.Core.Deeds.For(state.Setup).IsEmpty ? state.Deeds
+            : state.Deeds with { ActiveBeganDown = standsUp, RetreatingFrom = [], RetreatedFrom = [], ChargedInTrench = null };
         // ModelStoodUp (U30): a Down model stands up as its activation starts, with its Movement halved.
-        return state with { Models = models, ActiveModel = model, LastActivator = seat, Actions = ActionsTaken.None, MovementHalved = standsUp };
+        return state with { Models = models, ActiveModel = model, LastActivator = seat, Actions = ActionsTaken.None, MovementHalved = standsUp, Deeds = deeds };
     }
 
     // Towers proposal, stage T4: the path a click's points make for this model, with a ladder's foot and top put in

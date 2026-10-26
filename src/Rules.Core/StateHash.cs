@@ -12,7 +12,7 @@ namespace Rules.Core;
 // compare hashes after every event. Any change to the layout must bump Version.
 public static class StateHash
 {
-    public const int Version = 4;
+    public const int Version = 5;
 
     public static string Canonical(MatchState state)
     {
@@ -81,6 +81,27 @@ public static class StateHash
         {
             Line(sb, "mineStop", $"{stop.Model.Value}:{Path(stop.Path)}:{string.Join(";", stop.Stops.Select(p => $"{p.Marker}@{Point(p.At)}#{p.Next}"))}:{stop.Index}:{Bool(stop.Revealed)}:{Bool(stop.Live)}:{Bool(stop.EndsActivation)}");
         }
+
+        // Glorious Deeds (U96, hash version 5): written only once there is something to say.
+        var d = state.Deeds;
+        static string Deed(CompletedDeed c) => $"{c.Deed}:{c.Seat}:{c.Model?.Value ?? "-"}";
+        static string Ids(IEnumerable<ModelId> ids) => string.Join(";", ids.Select(i => i.Value));
+        void Optional(string key, bool present, object value)
+        {
+            if (present)
+            {
+                Line(sb, key, value);
+            }
+        }
+        Optional("deeds.completed", !d.Completed.IsEmpty, string.Join(",", d.Completed.Select(Deed)));
+        Optional("deeds.owed", !d.Owed.IsEmpty, string.Join(",", d.Owed.Select(Deed)));
+        Optional("deeds.longRange", d.ShotAtLongRange, true);
+        Optional("deeds.meleeTakedowns", !d.MeleeTakedowns.IsEmpty, Ids(d.MeleeTakedowns));
+        Optional("deeds.beganDown", d.ActiveBeganDown, true);
+        Optional("deeds.retreatingFrom", !d.RetreatingFrom.IsEmpty, Ids(d.RetreatingFrom));
+        Optional("deeds.retreatedFrom", !d.RetreatedFrom.IsEmpty, Ids(d.RetreatedFrom));
+        Optional("deeds.chargedInTrench", d.ChargedInTrench is not null, d.ChargedInTrench?.Value ?? "-");
+        Optional("deeds.mineSurvivals", !d.MineSurvivals.IsEmpty, Ids(d.MineSurvivals));
 
         foreach (var seat in new[] { state.One, state.Two })
         {

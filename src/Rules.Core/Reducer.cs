@@ -44,7 +44,7 @@ public static class Reducer
         Require(state.Phase != Phase.Ended, "The match has ended.");
         RequireFollowUp(state, e);
 
-        return e switch
+        var next = e switch
         {
             RollOffResolved x => OnRollOffResolved(state, x),
             DecisionRequested x => OnDecisionRequested(state, x),
@@ -92,8 +92,21 @@ public static class Reducer
             MineRevealed x => OnMineRevealed(state, x),
             MineExploded x => OnMineExploded(state, x),
             MoveResumed x => OnMoveResumed(state, x),
+            GloriousDeedCompleted x => OnDeedCompleted(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
+        // Glorious Deeds (U96): what the deeds need to know, and any deed this event completed.
+        return e is GloriousDeedCompleted ? next : Deeds.Track(state, e, next);
+    }
+
+    // A Glorious Deed is announced right after the event that completed it, in the order they were completed, and gives
+    // its seat 1 Victory Point (pp. 149-150; counted at once, U96).
+    private static MatchState OnDeedCompleted(MatchState state, GloriousDeedCompleted e)
+    {
+        Require(state.Deeds.Owed is [var owed, ..] && owed == new CompletedDeed(e.Deed, e.Seat, e.Model), "No such Glorious Deed was just completed.");
+        var seat = state.SeatFor(e.Seat);
+        var next = TurnRules.WithSeat(state, e.Seat, seat with { VictoryPoints = seat.VictoryPoints + Deeds.VictoryPoints });
+        return next with { Deeds = state.Deeds with { Owed = state.Deeds.Owed.RemoveAt(0), Completed = state.Deeds.Completed.Add(state.Deeds.Owed[0]) } };
     }
 
     // Some states leave exactly one event that can come next, because the rules give nobody a choice: the match is
@@ -103,6 +116,11 @@ public static class Reducer
     // SeatState.MustFlee) and the roll-off result.
     private static void RequireFollowUp(MatchState state, GameEvent e)
     {
+        if (!state.Deeds.Owed.IsEmpty)
+        {
+            Require(e is GloriousDeedCompleted, "A Glorious Deed was just completed; it is announced before anything else happens.");
+            return;
+        }
         if (TerminalReason(state) is { } reason)
         {
             Require(e is MatchEnded ended && ended.Reason == reason, $"The match is over ({reason}); only the end of the match can follow.");

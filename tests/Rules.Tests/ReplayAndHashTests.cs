@@ -234,7 +234,9 @@ public class ReplayAndHashTests
     // in progress, Victory Points and the scenario geometry), and again for Version 3 (Slice B adds the Melee Weapon
     // to the profile lines, the retreat in progress and the new roll details), and for Version 4 (reducer hardening
     // adds the unused roll-off result, the forced end of an activation and the forced flee). The Version 4 opening
-    // state, with those three additions taken out, still hashes to the Version 3 pin 3dbdc503...c69b.
+    // state, with those three additions taken out, still hashes to the Version 3 pin 3dbdc503...c69b. Version 5 (Glorious
+    // Deeds, U96) adds deed lines only once a deed has something to record, so these two states change only in their
+    // first line, trench-state=5.
     [Fact]
     [Trait("Rule", "Architecture: canonical state hash")]
     public void GoldenCanonicalTextForAFreshMatch()
@@ -256,7 +258,7 @@ public class ReplayAndHashTests
     }
 
     private const string GoldenFreshText = """
-trench-state=4
+trench-state=5
 rules=1.0.2
 scenario=scenario-1
 turnLimit=4
@@ -287,6 +289,6 @@ seat.Two=zone=-,shaken=0,fled=0,checked=0,outcome=-,vp=0,mustFlee=0
 model=A1,One,Standing,deployed=0,activated=0,at=-,markers=0
 model=B1,Two,Standing,deployed=0,activated=0,at=-,markers=0
 """ + "\n";
-    private const string GoldenFreshHash = "add5231d5766b5309bb80ceb2551ff927e15d37c7afa4dcaae5240109befdeb3";
-    private const string GoldenOpeningHash = "0142c0261a788e8c698eb5eb358140b21a03767a3cf167512c937bb9d2a721cc";
+    private const string GoldenFreshHash = "1475f99d3542a7ad14baa98093ebb5cd8854e1fb349935d0f81b085e14572cb8";
+    private const string GoldenOpeningHash = "73a91c713035320b0b74e0400ca534d2ae3f4f5a60b33f6f8c8f7c8b27f737c3";
 }

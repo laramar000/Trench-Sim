@@ -13,7 +13,7 @@ public class ScenarioCardTests
     [Fact]
     public void TheCardIsTheRulesOwnDescriptionAndRowsAndPreviewFollowTheRules()
     {
-        var previews = 0;
+        var (previews, completedLines) = (0, 0);
         foreach (var path in new[] { Content.DefaultPath(), Content.MeleePath() })
         {
             var warbands = Content.Load(path);
@@ -49,11 +49,22 @@ public class ScenarioCardTests
                     Assert.All(rules.Scoring.Concat(rules.MatchEnds).Concat(rules.Provisional), line => Assert.Contains("  " + line, view.Lines));
                     Assert.Equal(rules.ObjectiveIds.Order(StringComparer.Ordinal), view.Rows.Select(r => r.ObjectiveId));
                     Assert.All(view.Rows, r => Assert.Equal(Objectives.ControllerNow(state, r.ObjectiveId), r.Controller));
+                    // Glorious Deeds (U96): a line per deed of the scenario, naming who completed it, if anyone has.
+                    var deedLines = view.Lines.SkipWhile(l => l != ScenarioCard.DeedsHeading).Skip(1).TakeWhile(l => l.StartsWith("  ", StringComparison.Ordinal)).ToList();
+                    Assert.Equal(Deeds.For(state.Setup).Length, deedLines.Count);
+                    foreach (var (deed, line) in Deeds.For(state.Setup).Zip(deedLines))
+                    {
+                        var done = state.Deeds.Completed.FirstOrDefault(c => c.Deed == deed);
+                        Assert.StartsWith($"  {Deeds.Name(deed)}: ", line, StringComparison.Ordinal);
+                        Assert.EndsWith(done is null ? "not yet completed" : $"completed by {Words.Seat(done.Seat)}{(done.Seat == Seat.One ? " (you)" : "")}", line, StringComparison.Ordinal);
+                        completedLines += done is null ? 0 : 1;
+                    }
                 }
                 Assert.Null(ScenarioCard.Of(state, Seat.One).Projection);
             }
         }
         Assert.True(previews > 100, $"{previews} previews");
+        Assert.True(completedLines > 0, "no deed line showed a completed deed");
     }
 
     [Fact]

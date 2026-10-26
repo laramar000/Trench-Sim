@@ -40,6 +40,7 @@ public sealed record ScenarioRules(
             [
                 $"At the end of each Turn, each Objective a warband controls scores {points} Victory Points.",
                 "A warband controls an Objective when more of its models than enemy models are on, in or within 1\" of the piece; if only one side has models on the piece, that side controls it. Down models count; Out of Action models do not.",
+                DeedsLine(setup),
             ],
             [
                 $"After Turn {setup.TurnLimit}: the warband with more Victory Points wins; equal points are a draw.",
@@ -50,8 +51,16 @@ public sealed record ScenarioRules(
                 "The table, deployment zones and terrain are a fixed layout: the book does not print them (U32).",
                 "What counts as \"on\" an Objective is an interpretation (U36).",
                 "Equal Victory Points being a draw is an interpretation: the book is silent on a tie (U40).",
+                DeedsCounted,
+                "Not possible in this version, so never completed: Cast Them Down (Falling is not built, U69), Sniper (no model has the ELITE keyword) and Suicidal Bravery (a charge has one target).",
             ]);
     }
+
+    // Glorious Deeds (U96): the scenario's deeds, each worth 1 VP to the warband that completes it first.
+    private static string DeedsLine(MatchSetup setup) =>
+        $"Glorious Deeds: each scores {Deeds.VictoryPoints} VP for the warband that completes it first, once per game: {string.Join(", ", Deeds.For(setup).Select(Deeds.Name))}.";
+
+    private const string DeedsCounted = "A Glorious Deed's Victory Point is counted when the deed is completed, not at the end of the game; the final total is the same (U96).";
 
     // Trench-maps stage S6: Scenario IV.
     private static ScenarioRules TrenchWarfareRules(MatchSetup setup, Scenario scenario)
@@ -68,6 +77,7 @@ public sealed record ScenarioRules(
                 $"At the end of each Turn, each trench section at least {TrenchWarfare.ScoringLength} long ({string.Join(", ", sections.Select(t => t.Id))}) scores:",
                 $"the defender {TrenchWarfare.DefenderHeld} VP if a defending model is in it, {TrenchWarfare.DefenderAlone} VP if no attacking model is;",
                 $"the attacker {TrenchWarfare.AttackerHeld} VP if an attacking model is in it, {TrenchWarfare.AttackerAlone} VP if no defending model is.",
+                DeedsLine(setup),
                 "A model is in a trench when more than half its base is in the trench network (U81). Down models count; Out of Action models do not.",
             ],
             [
@@ -81,8 +91,10 @@ public sealed record ScenarioRules(
                 "A trench section's length is the longer side of the rectangle around it (U88).",
                 $"Before deployment the defender sets up {Mines.Count} Mine Markers (1\" discs) in the {Mines.PlacementDepth} strip of its zone facing the attacker, {Mines.Duds} of them secret duds known only to the defender and the server (p. 162, U93).",
                 $"A model whose base comes within {Mines.TriggerRange} of a marker halts there and the marker is revealed: a live mine makes an Injury Roll (no Blood Markers) and adds 1 SHRAPNEL marker; a dud does nothing. Then the move goes on unless the model is taken Down.",
-                "Not built yet: Glorious Deeds, the defender's halved ducats and Infiltrators.",
+                "Not built yet: the defender's halved ducats and Infiltrators.",
                 "Equal Victory Points being a draw is an interpretation: the book is silent on a tie (U40).",
+                DeedsCounted,
+                "Victory or Death is a campaign deed and is left out of this one-off game.",
             ]);
     }
 }

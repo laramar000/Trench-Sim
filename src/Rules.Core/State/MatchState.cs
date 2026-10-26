@@ -164,6 +164,9 @@ public sealed record MatchState
     public bool DudsKnown { get; init; }
     public MineStop? MineStop { get; init; }
 
+    // Glorious Deeds (U96): those completed, those just completed and still to be announced, and what they need to know.
+    public DeedState Deeds { get; init; } = new();
+
     // The Turn after which the game ends: the game-length roll's answer, else the setup's turn limit.
     public int FinalTurn => LastTurn ?? Setup?.TurnLimit ?? 0;
 

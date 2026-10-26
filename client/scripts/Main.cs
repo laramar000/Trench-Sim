@@ -1850,6 +1850,10 @@ public partial class Main : Control
             });
             text += $"\n[font_size={mid}][b]{string.Join(" ", parts)}[/b][/font_size]";
         }
+        if (view.Deeds is { } deeds)
+        {
+            text += $"\n[color=#{UiLook.Gold.ToHtml(false)}]{Esc(deeds)}[/color]";
+        }
         text += $"\n[color=#{plain.ToHtml(false)}]{Esc(view.Reason)}[/color][/center]";
         return text;
     }

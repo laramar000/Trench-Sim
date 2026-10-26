@@ -111,10 +111,11 @@ public class TrenchWarfareTests
                 Assert.Equal(end.Attacker, length.Seat);
                 Assert.Equal(length.LastTurn, end.Turn);
                 lengths.Add(length.LastTurn);
-                // The points add up to the Victory Points.
+                // The points add up to the Victory Points, with 1 for each Glorious Deed (U96).
                 var attacker = end.Attacker!.Value;
-                Assert.Equal(scored.Sum(s => s.Results.Sum(r => r.AttackerPoints)), end.SeatFor(attacker).VictoryPoints);
-                Assert.Equal(scored.Sum(s => s.Results.Sum(r => r.DefenderPoints)), end.SeatFor(attacker.Opponent()).VictoryPoints);
+                var deeds = events.OfType<GloriousDeedCompleted>().ToList();
+                Assert.Equal(scored.Sum(s => s.Results.Sum(r => r.AttackerPoints)) + deeds.Count(d => d.Seat == attacker), end.SeatFor(attacker).VictoryPoints);
+                Assert.Equal(scored.Sum(s => s.Results.Sum(r => r.DefenderPoints)) + deeds.Count(d => d.Seat != attacker), end.SeatFor(attacker.Opponent()).VictoryPoints);
             }
         }
         Assert.NotEmpty(lengths);

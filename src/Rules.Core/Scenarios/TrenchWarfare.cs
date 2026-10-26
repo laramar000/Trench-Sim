@@ -11,7 +11,7 @@ namespace Rules.Core.Scenarios;
 // first and the players alternate (p. 162); at the end of each Turn each trench section at least 8" long scores (p. 163);
 // at the end of Turn 4 the attacker rolls a D6 and on 1-2 the game ends, otherwise after Turn 5 (p. 162); the defender's
 // 12 Mine Markers with 4 secret duds (p. 162, U93; Geometry/Mines.cs).
-// Not built (listed on the scenario card): Glorious Deeds, the defender's halved ducats, Infiltrators.
+// Not built (listed on the scenario card): the defender's halved ducats, Infiltrators. Glorious Deeds are in Deeds (U96).
 public static class TrenchWarfare
 {
     public const string ScenarioId = "trench-warfare";

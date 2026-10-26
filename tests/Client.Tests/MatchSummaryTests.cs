@@ -34,8 +34,10 @@ public class MatchSummaryTests
             }
             var summary = tally.Summary(state);
             Assert.Equal((state.One.VictoryPoints, state.Two.VictoryPoints), summary.Vp);
-            Assert.Equal(summary.Vp.One, summary.VpByTurn.Sum(t => t.One));
-            Assert.Equal(summary.Vp.Two, summary.VpByTurn.Sum(t => t.Two));
+            // Each turn's scoring, and 1 VP for each Glorious Deed (U96).
+            Assert.Equal(state.Deeds.Completed, summary.Deeds);
+            Assert.Equal(summary.Vp.One, summary.VpByTurn.Sum(t => t.One) + state.Deeds.Completed.Count(d => d.Seat == Seat.One));
+            Assert.Equal(summary.Vp.Two, summary.VpByTurn.Sum(t => t.Two) + state.Deeds.Completed.Count(d => d.Seat == Seat.Two));
             Assert.Equal(state.Models.Count(m => m.Seat == Seat.One && m.Status == ModelStatus.Down), summary.Down.One);
             Assert.Equal(state.Models.Count(m => m.Seat == Seat.Two && m.Status == ModelStatus.OutOfAction), summary.OutOfAction.Two);
             Assert.Equal((passed.GetValueOrDefault(Seat.One), failed.GetValueOrDefault(Seat.One)), summary.RollsOne);

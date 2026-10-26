@@ -635,6 +635,14 @@ public static partial class TurnSequence
         {
             State = Reducer.Apply(State, e);
             Events.Add(e);
+            // A Glorious Deed the event completed is announced at once, before anything else (U96).
+            while (!State.Deeds.Owed.IsEmpty)
+            {
+                var deed = State.Deeds.Owed[0];
+                var announced = new GloriousDeedCompleted(deed.Seat, deed.Deed, deed.Model);
+                State = Reducer.Apply(State, announced);
+                Events.Add(announced);
+            }
         }
     }
 }

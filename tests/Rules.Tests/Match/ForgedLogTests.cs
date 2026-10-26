@@ -378,7 +378,8 @@ public class ForgedLogTests
     {
         var log = Log(RangedShakenSeed);
         var recovered = IndexOf(log, e => e is WarbandRecovered);
-        var check = Assert.IsType<MoraleCheckRolled>(log[recovered - 1]);
+        // The check comes just before, or before the Glorious Deed it completed (Hold Your Ground, U96).
+        var check = Assert.IsType<MoraleCheckRolled>(log[..recovered].Last(e => e is not GloriousDeedCompleted));
         Assert.True(check.WasShaken);
         Refused(Without(log, recovered), "a passed check by a Shaken warband with no recovery");
     }

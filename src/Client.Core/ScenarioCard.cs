@@ -43,6 +43,11 @@ public static class ScenarioCard
             lines.Add("TRENCHES");
             lines.AddRange(TrenchLines(field.Battlefield.Terrain.Count(t => t.IsTrench), depth).Select(s => "  " + s));
         }
+        if (DeedLines(state, you) is { Count: > 0 } deeds)
+        {
+            lines.Add(DeedsHeading);
+            lines.AddRange(deeds.Select(s => "  " + s));
+        }
         if (Rules.Core.Scenarios.TrenchWarfare.Is(state.Setup) && state.Setup!.Scenario is { } trenchField)
         {
             return TrenchCard(state, lines, trenchField, you);
@@ -70,6 +75,20 @@ public static class ScenarioCard
         return you is { } me
             ? $"{PreviewPrefix}you +{Of(me)}, opponent +{Of(Other(me))}"
             : $"{PreviewPrefix}{Words.Seat(Seat.One)} +{Of(Seat.One)}, {Words.Seat(Seat.Two)} +{Of(Seat.Two)}";
+    }
+
+    public const string DeedsHeading = "GLORIOUS DEEDS (+1 VP each, first to complete it)";
+
+    // Glorious Deeds (U96): each of the scenario's deeds, what completes it and who has.
+    public static IReadOnlyList<string> DeedLines(MatchState state, Seat? you)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return [.. Deeds.For(state.Setup).Select(deed =>
+        {
+            var done = state.Deeds.Completed.FirstOrDefault(c => c.Deed == deed);
+            var who = done is null ? "not yet completed" : $"completed by {Words.Seat(done.Seat)}{(done.Seat == you ? " (you)" : "")}";
+            return $"{Deeds.Name(deed)}: {Deeds.Condition(deed)}. {who}";
+        })];
     }
 
     private static Seat Other(Seat seat) => seat == Seat.One ? Seat.Two : Seat.One;

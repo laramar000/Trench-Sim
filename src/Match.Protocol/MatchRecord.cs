@@ -21,7 +21,7 @@ public static class RecordFormat
 
     // Bumped whenever a change to the engine changes what a stored log means (which events replay, or to which
     // state), even if the rules version and the hash version stay the same. The golden-record tests fail until it is.
-    public const int ReplayCompatibility = 1;
+    public const int ReplayCompatibility = 2;
 
     public const string Algorithm = "ES256";
     public const int MaxBytes = 16 * 1024 * 1024;

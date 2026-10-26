@@ -33,6 +33,7 @@ public static class EventModels
             RetreatResolved r => [r.Model],
             MeleeAttackDeclared m => [m.Attacker, m.Target],
             MeleeSuccessRolled m => [m.Attacker, m.Target],
+            GloriousDeedCompleted { Model: { } model } => [model],
             _ => [],
         };
         return [.. ids.Distinct()];

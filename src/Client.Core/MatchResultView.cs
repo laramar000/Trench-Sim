@@ -17,6 +17,9 @@ public enum ResultTone
 // are under Details.
 public sealed record MatchResultView(string Headline, ResultTone Tone, string? Score, string Reason)
 {
+    // Glorious Deeds (U96): the deeds completed, by seat letter, under the score; null when none was.
+    public string? Deeds { get; init; }
+
     public static MatchResultView? Of(MatchState state, Seat? you, bool hotSeat, MatchEnd? end = null)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -33,6 +36,8 @@ public sealed record MatchResultView(string Headline, ResultTone Tone, string? S
             : winner == you ? ("YOU WON", ResultTone.Won) : ("YOU LOST", ResultTone.Lost);
         var reason = Words.Reason(outcome.Reason);
         var score = state.Setup?.Scenario is null ? null : $"A {state.One.VictoryPoints} – B {state.Two.VictoryPoints}";
-        return new(headline, tone, score, char.ToUpperInvariant(reason[0]) + reason[1..]);
+        var deeds = state.Deeds.Completed.IsEmpty ? null
+            : $"Glorious Deeds: {string.Join(" · ", state.Deeds.Completed.Select(d => $"{Words.SeatLetter(d.Seat)} {Rules.Core.Deeds.Name(d.Deed)}"))}";
+        return new(headline, tone, score, char.ToUpperInvariant(reason[0]) + reason[1..]) { Deeds = deeds };
     }
 }

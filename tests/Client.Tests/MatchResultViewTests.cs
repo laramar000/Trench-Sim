@@ -11,7 +11,7 @@ public class MatchResultViewTests
     [Fact]
     public void WinnerScoresAndReasonAreTheServersForEveryEnding()
     {
-        var (endings, reasons) = (0, new HashSet<OutcomeReason>());
+        var (endings, reasons, withDeeds) = (0, new HashSet<OutcomeReason>(), 0);
         foreach (var (_, log) in ClientCoreTests.Matches.Value)
         {
             var state = MatchState.None;
@@ -30,11 +30,16 @@ public class MatchResultViewTests
                 Assert.Equal(ended.Winner is null ? ResultTone.Draw : hotSeat || you is null ? ResultTone.SeatWins : ended.Winner == you ? ResultTone.Won : ResultTone.Lost, view.Tone);
                 Assert.Equal($"A {state.One.VictoryPoints} – B {state.Two.VictoryPoints}", view.Score);
                 Assert.Equal(Words.Reason(ended.Reason), view.Reason, StringComparer.OrdinalIgnoreCase);
+                // Glorious Deeds (U96): the deeds the log announced, in order, by seat letter.
+                var deeds = log.OfType<GloriousDeedCompleted>().Select(d => $"{Words.SeatLetter(d.Seat)} {Rules.Core.Deeds.Name(d.Deed)}").ToList();
+                Assert.Equal(deeds.Count == 0 ? null : $"Glorious Deeds: {string.Join(" · ", deeds)}", view.Deeds);
+                withDeeds += deeds.Count > 0 ? 1 : 0;
             }
             reasons.Add(ended.Reason);
             endings++;
         }
         Assert.True(endings > 50 && reasons.Count >= 2, $"{endings} endings, reasons {string.Join(", ", reasons)}");
+        Assert.True(withDeeds > 0, "no match completed a Glorious Deed");
     }
 
     [Fact]
