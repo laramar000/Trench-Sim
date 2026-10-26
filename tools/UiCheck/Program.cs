@@ -110,7 +110,7 @@ public static class Program
         var processes = new List<Child> { server };
         try
         {
-            await server.WaitFor(l => l.Contains("Listening on"), 60, "server start");
+            await server.WaitFor(l => l.Contains("Listening on"), ServerStartSeconds, "server start");
             var godotA = Start("godot-gvt-a", godot, GodotArgs("gvt-a", gvt, url, null, "ranged-towers"), Path.Combine(_out, "home-gvt-a"));
             processes.Add(godotA);
             var code = await Mark(gvt, "gvt-a", "code", 120);
@@ -230,7 +230,7 @@ public static class Program
         var processes = new List<Child> { server };
         try
         {
-            await server.WaitFor(l => l.Contains("Listening on"), 60, "server start");
+            await server.WaitFor(l => l.Contains("Listening on"), ServerStartSeconds, "server start");
             var a = Start("godot-pvp-a", godot, GodotArgs("pvp-a", pvp, url, null, "melee"), Path.Combine(_out, "home-pvp-a"));
             processes.Add(a);
             var code = await Mark(pvp, "pvp-a", "code", 120);
@@ -523,6 +523,10 @@ public static class Program
         return found;
     }
 
+    // How long a test server may take to say it is listening. Run 304 (2026-10-26) timed out at 60 s with no output at
+    // all from the server, on a container started minutes before; the same server started by hand at once afterwards.
+    private const int ServerStartSeconds = 120;
+
     private static async Task EndToEnd(string godot)
     {
         var e2e = Path.Combine(_out, "e2e");
@@ -532,7 +536,9 @@ public static class Program
         var port = FreePort();
         var data = Path.Combine(_out, "server-data");
         var server = Start("server", "dotnet", [serverDll, "--port", port.ToString(), "--data", data], null);
-        await server.WaitFor(l => l.Contains("Listening on"), 60, "server start");
+        var serverStarting = DateTime.UtcNow;
+        await server.WaitFor(l => l.Contains("Listening on"), ServerStartSeconds, "server start");
+        Record("server-start-time", "INFO", $"{(DateTime.UtcNow - serverStarting).TotalSeconds:0.0} s from starting the server to \"Listening on\"");
         using var proxyA = new Proxy(port);
         using var proxyB = new Proxy(port);
         var urlA = $"ws://127.0.0.1:{proxyA.Port}/match";

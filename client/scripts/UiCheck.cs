@@ -1795,6 +1795,16 @@ public partial class UiCheck : Node
             return new Color(r / n, g / n, b / n);
         }
         static float Distance(Color a, Color b) => new Vector3(a.R - b.R, a.G - b.G, a.B - b.B).Length();
+        // A spot (board-local) the picture shows the battlefield at: not under the HUD strip or a box the screen keeps
+        // there (Clickable), nor under any other drawn 2D control (a card, a note, a button), so the colour sampled is the
+        // 3D scene's and not a panel's. Sampling under a dark panel made a body and its ground look the same. Only controls
+        // after the battlefield in tree order count: those are drawn over it (the backdrop before it is drawn behind).
+        var all = _main.FindChildren("*", "Control", true, false).OfType<Control>().ToList();
+        var drawn = all.Skip(all.IndexOf(board) + 1)
+            .Where(c => IsInstanceValid(c) && c.IsVisibleInTree()
+                && c is PanelContainer or Panel or BaseButton or Godot.Label or RichTextLabel or TextureRect or ColorRect)
+            .Select(c => c.GetGlobalRect()).ToList();
+        bool Shown(Vector2 local) => Clickable(board, local) && !drawn.Any(r => r.Grow(2).HasPoint(origin + local));
         static double Channel(float v) => v <= 0.03928 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4);
         static double Luminance(Color c) => 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
         var scene = board.Scene;
@@ -1825,7 +1835,7 @@ public partial class UiCheck : Node
                     groundAt = (gx, gy);
                 }
             }
-            if (ground is not { } g)
+            if (ground is not { } g || !Shown(g))
             {
                 continue;
             }
@@ -1834,10 +1844,17 @@ public partial class UiCheck : Node
             var gc = Sample(g);
             // The base counts too: the point of its top halfway to its edge, on the side of the ground sampled (in front).
             var toward = new Vector2((float)(groundAt!.Value.X - m.X), (float)(groundAt.Value.Y - m.Y)).Normalized() * (float)(m.Radius * 0.6);
-            var bc = new[] { 0.35, 0.5, 0.6, 0.7, 0.85 }
+            var spots = new[] { 0.35, 0.5, 0.6, 0.7, 0.85 }
                 .Select(h => board.ScreenOf(m.X, m.Y, m.Standing + h))
                 .Append(board.ScreenOf(m.X + toward.X, m.Y + toward.Y, m.Standing + 0.06))
                 .OfType<Vector2>()
+                .Append(body)
+                .ToList();
+            if (!spots.All(Shown))
+            {
+                continue;
+            }
+            var bc = spots.Take(spots.Count - 1)
                 .Select(Sample)
                 .DefaultIfEmpty(Sample(body))
                 .MaxBy(c => Distance(c, gc));
@@ -4818,7 +4835,19 @@ public partial class UiCheck : Node
         _chargeButtonChecked = true;
         // Stage U1: Charge first (no target yet, nothing sent), then a click on the enemy shows Confirm charge beside it.
         await ClickAt(chargeEntry);
-        var chosenFirst = await Until(() => interaction.Mode == InteractionMode.Charge && interaction.Target is null && board.ConfirmChargeAt is null ? "ok" : null, 3, "charge-chosen") is not null;
+        string? ChargeChosen() => interaction.Mode == InteractionMode.Charge && interaction.Target is null && board.ConfirmChargeAt is null ? "ok" : null;
+        var chosenFirst = await Until(ChargeChosen, 3, "charge-chosen") is not null;
+        // Run 305: the click reached the Charge entry (shown under the pointer) but was not taken, and the menu stayed
+        // open with nothing chosen and nothing sent. A person clicks again; so does the check, once, on the entry where
+        // it is now. The steps after it still have to pass as before.
+        var chargeClicks = 1;
+        if (!chosenFirst && interaction.Mode == InteractionMode.Combat && interaction.Target is null && interaction.SentCount == sent
+            && board.CombatButtonAt(InteractionMode.Charge) is { } chargeAgain)
+        {
+            chargeClicks = 2;
+            await ClickAt(chargeAgain);
+            chosenFirst = await Until(ChargeChosen, 3, "charge-chosen-again") is not null;
+        }
         if (Pickable(enemy.Id) is { } enemyAt)
         {
             await ClickAt(board.GetGlobalTransformWithCanvas() * enemyAt);
@@ -4840,7 +4869,7 @@ public partial class UiCheck : Node
         var charged = newLines.Any(l => l.Contains(" charges ", StringComparison.Ordinal) || l.Contains("CHARGE", StringComparison.Ordinal));
         Check("charge-confirm-button", ready && notYet && beside && answer.StartsWith("DONE:", StringComparison.Ordinal) && preview is { Kind: PreviewKind.Charge, Legal: true }
             && answer.Contains(Interaction.Describe(preview), StringComparison.Ordinal) && interaction.SentCount == sent + 1 && newLines.Count > 0,
-            $"Confirm charge shown beside {enemy.Name}: {ready} at {box} ({beside}); nothing sent before it: {notYet}; one click: {answer}; sent {sent} -> {interaction.SentCount}; events: {string.Join(" / ", newLines.Take(4))} (charge line: {charged})");
+            $"Charge chosen with {chargeClicks} click{(chargeClicks == 1 ? "" : "s")}; Confirm charge shown beside {enemy.Name}: {ready} at {box} ({beside}); nothing sent before it: {notYet}; one click: {answer}; sent {sent} -> {interaction.SentCount}; events: {string.Join(" / ", newLines.Take(4))} (charge line: {charged})");
         await Shot("pvp-a-charge-confirm");
         await MouseOff(board);
         if (answer.StartsWith("DONE:", StringComparison.Ordinal))
