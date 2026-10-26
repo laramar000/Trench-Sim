@@ -164,6 +164,133 @@ public static class HeightSight
 
     public static bool SeesPoint(Battlefield battlefield, ModelBody attacker, Point2 point) => ToPoint(battlefield, attacker, point).Obstructing.Count == 0;
 
+    // Line-of-sight stage 2b-1 (planned 2026-10-26, NOT used by the rules yet): when the nine rays of Between see nothing,
+    // look for a gap between them. Seen from above, from the attacker, the pieces in front of the target can only start
+    // or stop hiding it where a line from the attacker passes a corner of a piece, or where an edge of a piece meets the
+    // line between the target's two side points (the left and right columns, 0.8 of the base radius out). Those places
+    // cut that line into strips; one extra point is tried in the middle of each strip, at the same three heights, with
+    // the same tests as the nine rays (boxes, solid ground, grazing does not block, U13). A strip too thin for its middle
+    // to be put at a whole thousandth strictly inside it is skipped. Gaps in height (a top between the sampled heights)
+    // are not looked for. If the nine rays see the target at all, nothing more is tried and the answer is theirs.
+    public static GapSearchResult WithGapSearch(Battlefield battlefield, ModelBody attacker, ModelBody target)
+    {
+        var nine = Between(battlefield, attacker, target);
+        if (nine.Visibility != Visibility.None)
+        {
+            return new GapSearchResult(nine, []);
+        }
+        var columns = Sample(attacker, target);
+        if (columns.Count < 3)
+        {
+            return new GapSearchResult(nine, []);
+        }
+        Point2 left = columns[0], right = columns[2];
+        long ax = attacker.Centre.X.Thousandths, ay = attacker.Centre.Y.Thousandths;
+        long lx = left.X.Thousandths, ly = left.Y.Thousandths, rx = right.X.Thousandths, ry = right.Y.Thousandths;
+        Int128 dx = rx - lx, dy = ry - ly;
+        // Cross product of (p - attacker) and (q - attacker): its sign says which side of the line attacker->p q is on.
+        static Int128 Cross(Int128 ux, Int128 uy, Int128 vx, Int128 vy) => ux * vy - uy * vx;
+        var zero = ExactMath.Ratio.Of(0, 1);
+        var one = ExactMath.Ratio.Of(1, 1);
+        var cuts = new List<ExactMath.Ratio> { zero, one };
+        void Add(Int128 num, Int128 den)
+        {
+            if (den == 0)
+            {
+                return;
+            }
+            var r = den > 0 ? new ExactMath.Ratio(num, den) : new ExactMath.Ratio(-num, -den);
+            if (r.CompareTo(zero) > 0 && r.CompareTo(one) < 0)
+            {
+                cuts.Add(r);
+            }
+        }
+        foreach (var piece in battlefield.Terrain)
+        {
+            foreach (var part in piece.Footprint.Parts)
+            {
+                long x0 = part.Min.X.Thousandths, y0 = part.Min.Y.Thousandths, x1 = part.Max.X.Thousandths, y1 = part.Max.Y.Thousandths;
+                // The line from the attacker through each corner meets left + t (right - left) where
+                // cross(corner - attacker, left - attacker) + t cross(corner - attacker, right - left) = 0.
+                foreach (var (cx, cy) in new[] { (x0, y0), (x1, y0), (x0, y1), (x1, y1) })
+                {
+                    Int128 ux = cx - ax, uy = cy - ay;
+                    Add(-Cross(ux, uy, lx - ax, ly - ay), Cross(ux, uy, dx, dy));
+                }
+                // Where the part's sides cross the line between the side points.
+                foreach (var x in new[] { x0, x1 })
+                {
+                    Add(x - lx, dx);
+                }
+                foreach (var y in new[] { y0, y1 })
+                {
+                    Add(y - ly, dy);
+                }
+            }
+        }
+        cuts.Sort((a, b) => a.CompareTo(b));
+        var from = Elevation.Of(battlefield, attacker);
+        var to = Elevation.Of(battlefield, target);
+        var eye = SightHeights.StandingHeight(battlefield, attacker, from) + SightHeights.Eye;
+        var foot = SightHeights.StandingHeight(battlefield, target, to);
+        var attackerTrench = eye - SightHeights.Eye < Length.Zero ? Trenches.Of(battlefield, attacker)?.Id : null;
+        var targetTrench = foot < Length.Zero ? Trenches.Of(battlefield, target)?.Id : null;
+        var tried = new HashSet<Point2>(columns);
+        var extra = new List<SightRay>();
+        for (var i = 0; i + 1 < cuts.Count; i++)
+        {
+            var (lo, hi) = (cuts[i], cuts[i + 1]);
+            if (lo.CompareTo(hi) >= 0)
+            {
+                continue;
+            }
+            // The middle of the strip, rounded to a whole thousandth; it must still lie strictly between the strip's two
+            // ends (by the exact parameter of its projection), else the strip is too thin and is skipped.
+            var den = 2 * lo.Den * hi.Den;
+            var num = lo.Num * hi.Den + hi.Num * lo.Den;
+            var px = lx + (long)RoundedDiv(num * dx, den);
+            var py = ly + (long)RoundedDiv(num * dy, den);
+            var point = new Point2(Length.FromThousandths(px), Length.FromThousandths(py));
+            if (!tried.Add(point) || !StrictlyInside(px, py, lo, hi))
+            {
+                continue;
+            }
+            foreach (var height in SightHeights.Points)
+            {
+                var top = foot + height;
+                var crossed = battlefield.Terrain.Where(t => t.Footprint.SegmentCrossesInside(attacker.Centre, point)).ToList();
+                var obstructing = crossed
+                    .Where(t => t.Id != from.PlatformId && t.Id != to.PlatformId)
+                    .Where(t => t.Footprint.SegmentCrossesBoxInside(attacker.Centre, eye, point, top, Length.Zero, SightHeights.TopOf(t)))
+                    .Select(t => t.Id)
+                    .ToArray();
+                if (battlefield.TrenchDepth is { } depth && GroundBlock(battlefield, depth, attacker.Centre, eye, point, top, attackerTrench, targetTrench) is { } ground)
+                {
+                    obstructing = [.. obstructing.Append(ground).Order(StringComparer.Ordinal)];
+                }
+                extra.Add(new SightRay(attacker.Centre, point, crossed.Select(t => t.Id).ToArray(), obstructing) { FromHeight = eye, ToHeight = top });
+            }
+        }
+        return new GapSearchResult(nine, extra);
+
+        // Seen from the attacker, the rounded point must still fall strictly inside the strip: the line from the attacker
+        // through it meets left->right strictly between lo and hi. Rounding can move a point of a very thin strip onto or
+        // past an end (where a ray would only graze a corner); such a strip is skipped.
+        bool StrictlyInside(long px, long py, ExactMath.Ratio lo, ExactMath.Ratio hi)
+        {
+            // Where the line from the attacker through (px, py) meets left->right.
+            Int128 ux = px - ax, uy = py - ay;
+            var c = Cross(ux, uy, dx, dy);
+            if (c == 0)
+            {
+                return false;
+            }
+            var n = -Cross(ux, uy, lx - ax, ly - ay);
+            var t = c > 0 ? new ExactMath.Ratio(n, c) : new ExactMath.Ratio(-n, -c);
+            return t.CompareTo(lo) > 0 && t.CompareTo(hi) < 0;
+        }
+    }
+
     // Left, middle and right on the target, across the line from the attacker (left as the attacker looks at it).
     // Rounded half away from zero, so every machine uses the same points. Bases at the same spot give the middle only.
     internal static IReadOnlyList<Point2> Sample(ModelBody attacker, ModelBody target)
@@ -271,4 +398,15 @@ public static class HeightSight
         }
         return GroundId;
     }
+}
+
+// Line-of-sight stage 2b-1 (not used by the rules yet): the nine rays of HeightSight.Between, and the extra rays the gap
+// search tried when they saw nothing. Visibility is the nine rays' answer, except that None becomes Partial when an
+// extra ray is unblocked.
+public sealed record GapSearchResult(SightResult Nine, IReadOnlyList<SightRay> Extra)
+{
+    public Visibility Visibility =>
+        Nine.Visibility == Visibility.None && Extra.Any(r => r.Obstructing.Count == 0) ? Visibility.Partial : Nine.Visibility;
+
+    public SightRay? FirstSeen => Extra.FirstOrDefault(r => r.Obstructing.Count == 0);
 }
