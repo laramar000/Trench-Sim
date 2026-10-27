@@ -20,13 +20,20 @@ public sealed record MatchSummary(
         yield return VpByTurn.Count == 0
             ? $"VP: A {Vp.One}, B {Vp.Two} (no turn was scored)"
             : $"VP by turn: {string.Join(" · ", VpByTurn.Select(t => $"turn {t.Turn}: A +{t.One}, B +{t.Two}"))}; total A {Vp.One}, B {Vp.Two}";
-        if (Deeds is { Count: > 0 } deeds)
+        if (DeedsLine(Deeds) is { } deeds)
         {
-            yield return $"Glorious Deeds (+{Rules.Core.Deeds.VictoryPoints} VP each): {string.Join(" · ", deeds.Select(d => $"{(d.Seat == Seat.One ? "A" : "B")} {Rules.Core.Deeds.Name(d.Deed)}{(d.Model is { } m ? $" ({m.Value.ToUpperInvariant()})" : "")}"))}";
+            yield return deeds;
         }
         yield return $"Models at the end: Down A {Down.One}, B {Down.Two} · Out of Action A {OutOfAction.One}, B {OutOfAction.Two}";
         yield return $"Rolls passed / failed (the server's dice): A {RollsOne.Passed} / {RollsOne.Failed}, B {RollsTwo.Passed} / {RollsTwo.Failed}";
     }
+
+    // The Glorious Deeds line (U96), or null when none was completed. For the UI check too, which may not touch the
+    // state's immutable collections itself.
+    public static string? DeedsLine(IReadOnlyList<CompletedDeed>? deeds) => deeds is not { Count: > 0 } ? null
+        : $"Glorious Deeds (+{Rules.Core.Deeds.VictoryPoints} VP each): {string.Join(" · ", deeds.Select(d => $"{(d.Seat == Seat.One ? "A" : "B")} {Rules.Core.Deeds.Name(d.Deed)}{(d.Model is { } m ? $" ({m.Value.ToUpperInvariant()})" : "")}"))}";
+
+    public static string? DeedsLine(MatchState state) => DeedsLine(state.Deeds.Completed.ToList());
 }
 
 // Collects the summary's numbers event by event, keyed by event number, so events sent again (a rejoin, a resync)

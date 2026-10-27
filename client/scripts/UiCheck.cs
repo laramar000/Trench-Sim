@@ -2829,7 +2829,12 @@ public partial class UiCheck : Node
         {
             _bannerProblems.Add($"banner at {box} outside the battlefield under the HUD ({board.TopInset})");
         }
-        // How long each banner stayed whose time ran out (not replaced by the next one).
+        BannerTiming(board);
+    }
+
+    // How long each banner stayed whose time ran out (not replaced by the next one).
+    private void BannerTiming(BoardView board)
+    {
         var lasted = board.TurnBannerHistory.Where(h => h.Gone is not null).Select(h => (h.Gone!.Value - h.Shown) / 1000.0).ToList();
         if (lasted.Count > 0)
         {
@@ -2919,6 +2924,13 @@ public partial class UiCheck : Node
         var result = MatchOver() ? await Until(() => Section("RESULT OF THE MATCH") is { Length: > 0 } r ? r : null, 30, "hotseat-result") ?? "" : "";
         var hash = result.Split('\n').FirstOrDefault(l => l.StartsWith("Final state hash: ", StringComparison.Ordinal))?[18..] is { Length: 64 } h && h.All(char.IsAsciiHexDigitLower) ? h : null;
         Write($"DUMP hotseat-end final_hash={hash ?? ""}");
+        // Windows run 2026-10-27: on a fast computer every banner of the match was replaced by the next before its time
+        // ran out, so none was timed. The last one is never replaced: wait for it to run out and time it.
+        if (_bannerTiming is null && Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } bannerBoard && bannerBoard.TurnBannerHistory.Count > 0)
+        {
+            await Until(() => bannerBoard.TurnBannerHistory[^1].Gone is not null ? "gone" : null, (int)Math.Ceiling(Client.Core.HotSeat.BannerSeconds) + 3, "turn-banner-last");
+            BannerTiming(bannerBoard);
+        }
         Check("hotseat-turn-banner", _bannerChanges >= 2 && _bannerProblems.Count == 0 && _bannerTiming is not null,
             $"{_bannerChanges} seat changes, each with the server's words ({_bannersSeen.Count(b => b.Contains(" DECIDES: ", StringComparison.Ordinal))} decisions): {string.Join(" | ", _bannersSeen.Distinct().Take(6))}; banners whose time ran out stayed {_bannerTiming ?? "?"} s"
             + (_bannerProblems.Count == 0 ? "" : "; " + string.Join(" | ", _bannerProblems)));
@@ -5586,7 +5598,14 @@ public partial class UiCheck : Node
         // A test match (Test Center option 2) offers no rematch: its windows are run by the test center.
         var rematch = _role.StartsWith("tm-", StringComparison.Ordinal) ? !main.RematchShown && main.RematchNoteText.Length == 0
             : creator ? main.CanRematch && main.RematchShown : !main.CanRematch && main.RematchNoteText.Length > 0;
-        Check("match-summary", lines.Length == 3 && vp && lines[1] == models && lines[2].StartsWith("Rolls passed / failed (the server's dice): A ", StringComparison.Ordinal) && rematch,
+        // Glorious Deeds (U96): when any was completed, its line comes right after the VP line.
+        var deeds = MatchSummary.DeedsLine(state);
+        var deedsShown = deeds is null || (lines.Length > 1 && lines[1] == deeds);
+        if (deeds is not null && deedsShown)
+        {
+            lines = [lines[0], .. lines[2..]];
+        }
+        Check("match-summary", deedsShown && lines.Length == 3 && vp && lines[1] == models && lines[2].StartsWith("Rolls passed / failed (the server's dice): A ", StringComparison.Ordinal) && rematch,
             $"{main.SummaryText.Replace('\n', '|')}; final VP A {state.One.VictoryPoints}, B {state.Two.VictoryPoints}; {(creator ? "Rematch shown" : "joined: rematch note shown")}: {rematch}");
     }
 
