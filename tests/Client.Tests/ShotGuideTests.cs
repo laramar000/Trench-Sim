@@ -38,32 +38,22 @@ public class ShotGuideTests
     }
 
     [Fact]
-    public void TheFigureAndItsWordsShowWhichPointsAreSeen()
+    public void TheWordsShowWhichPointsAreSeen()
     {
         // Legs hidden, body: left seen only, head all seen.
         bool[] seen = [false, false, false, true, false, false, true, true, true];
         var rays = seen.Select(s => Ray(s)).ToList();
         Assert.Equal("Guide: sight points seen, head 3 of 3, body 1 of 3, legs 0 of 3", ShotGuide.Words(rays));
-        var figure = ShotGuide.Figure(rays);
-        Assert.Equal(SightIcons.Size, figure.Length);
-        Assert.Equal('#', figure[1][1]);   // head, left
-        Assert.Equal('#', figure[6][1]);   // body, left
-        Assert.Equal('X', figure[6][6]);   // body, middle
-        Assert.Equal('X', figure[11][11]); // legs, right
-        Assert.Equal('.', figure[0][0]);
         Assert.Null(ShotGuide.Words([Ray(true)]));
     }
 
     [Fact]
     public void ATargetSeenOnlyThroughANarrowGapSaysSo()
     {
-        // U95: the nine rays all blocked, then the gap search's extra rays, one clear. The figure and the shot line are
-        // still the nine rays'; the words add the gap.
+        // U95: the nine rays all blocked, then the gap search's extra rays, one clear. The shot line is still the nine
+        // rays'; the words add the gap.
         var rays = Enumerable.Range(0, 9).Select(_ => Ray(false)).Concat([Ray(false), Ray(true), Ray(false)]).ToList();
         Assert.Equal("Guide: sight points seen, head 0 of 3, body 0 of 3, legs 0 of 3, and through a narrow gap", ShotGuide.Words(rays));
-        var figure = ShotGuide.Figure(rays);
-        Assert.Equal('X', figure[1][1]);
-        Assert.Equal('X', figure[11][11]);
         var line = ShotGuide.Line(rays, Scene());
         Assert.False(line[^1].Clear);
         // Extra rays that are all blocked add nothing to the words.
@@ -112,5 +102,18 @@ public class ShotGuideTests
         var rules = lines.ToList().IndexOf(PreviewCard.RulesHeading);
         var guide = lines.ToList().FindIndex(l => l.StartsWith("Guide: ", StringComparison.Ordinal));
         Assert.True(rules > 0 && guide > rules, string.Join(" | ", lines));
+    }
+
+    [Fact]
+    public void TheCaptionKeepsVisibilityAndCoverApart()
+    {
+        // Visual pass Stage 2: the caption under the guided target's eye and shield.
+        var id = new Rules.Core.State.ModelId("b1");
+        Assert.Equal("Seen · No cover", TargetSights.Caption(new TargetSight(id, SightMark.Clear, false, 9, 9)));
+        Assert.Equal("Seen · In cover", TargetSights.Caption(new TargetSight(id, SightMark.Clear, true, 9, 9)));
+        Assert.Equal("Partly seen · No cover", TargetSights.Caption(new TargetSight(id, SightMark.Partial, false, 3, 9)));
+        Assert.Equal("Partly seen · In cover", TargetSights.Caption(new TargetSight(id, SightMark.Partial, true, 3, 9)));
+        Assert.Equal("Hidden", TargetSights.Caption(new TargetSight(id, SightMark.Blocked, false, 0, 9)));
+        Assert.Equal("Hidden", TargetSights.Caption(new TargetSight(id, SightMark.Blocked, true, 0, 9)));
     }
 }

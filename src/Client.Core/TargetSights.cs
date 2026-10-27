@@ -61,6 +61,20 @@ public static class TargetSights
         };
         return sight.Cover ? $"{seen}, in cover" : seen;
     }
+
+    // Visual pass Stage 2 (2026-10-27): the short caption under the eye and shield of the target whose shot guide is
+    // drawn: "Seen · No cover", "Partly seen · In cover", "Hidden". Visibility and cover stay two separate words, as the
+    // rules keep them; a hidden target cannot be shot, so its cover is not given.
+    public static string Caption(TargetSight sight)
+    {
+        ArgumentNullException.ThrowIfNull(sight);
+        return sight.Mark switch
+        {
+            SightMark.Clear => $"Seen · {(sight.Cover ? "In cover" : "No cover")}",
+            SightMark.Partial => $"Partly seen · {(sight.Cover ? "In cover" : "No cover")}",
+            _ => "Hidden",
+        };
+    }
 }
 
 // The icons, 16 by 16, as text so they are original and need no image files: '#' is the light paint (bone for the eye,

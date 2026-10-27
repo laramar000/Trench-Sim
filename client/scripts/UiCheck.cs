@@ -819,13 +819,19 @@ public partial class UiCheck : Node
         Check("board-shoot-preview", sightShown || (early && InPanel(board, shot!.Refusal!.Text)),
             $"{shot?.Headline}; {shot?.Rays.Count} rays, {shot?.Rays.Count(r => r.Clear)} clear; labels: {string.Join(" / ", board.OverlayTexts)}");
         TargetLineCheck(board, shot);
-        // Line-of-sight stage L5: the chosen target's shot guide is drawn (GUIDE beside the 3 x 3 points), the piece giving
-        // cover is the one outlined, and the panel says the rules and the guide apart.
+        // Line-of-sight stage L5: the chosen target's shot guide is drawn, the piece giving cover is the one outlined, and
+        // the panel says the rules and the guide apart. Visual pass Stage 2: no 3 x 3 picture or GUIDE tag on the
+        // battlefield; the target's eye and shield are drawn larger with the caption the rules' sight and cover give.
         var guideWords = shot is null ? null : ShotGuide.Words(shot.Rays);
+        var wantedCaption = shot?.Target is { } aimedAt && board.SightIconsDrawn.TryGetValue(aimedAt, out var aimedSight) ? TargetSights.Caption(aimedSight) : null;
         Check("board-shot-guide", early || (shot?.Target is { } guided && guideWords is not null && board.GuideDrawnFor == guided
-                && board.OverlayTexts.Contains(ShotGuide.Label.ToUpperInvariant()) && board.GuideOutline == shot.CoverId
+                && wantedCaption is not null && board.GuideCaption == wantedCaption && board.OverlayTexts.Contains(wantedCaption)
+                && !board.OverlayTexts.Contains(ShotGuide.Label.ToUpperInvariant()) && board.GuideOutline == shot.CoverId
+                // Run 321's picture: the larger eye was drawn over its caption. It must sit wholly above it.
+                && board.GuideEyeBox is { } eyeBox && board.GuideCaptionBox is { } captionBox && eyeBox.End.Y <= captionBox.Position.Y + 1
                 && InPanel(board, guideWords) && InPanel(board, PreviewCard.RulesHeading)),
-            $"guide for {board.GuideDrawnFor?.Value ?? "none"} (target {shot?.Target?.Value}), outline {board.GuideOutline ?? "none"} (cover {shot?.CoverId ?? "none"}); {guideWords}");
+            $"guide for {board.GuideDrawnFor?.Value ?? "none"} (target {shot?.Target?.Value}), caption {board.GuideCaption ?? "none"} (rules: {wantedCaption ?? "none"}) at {board.GuideCaptionBox}, eye at {board.GuideEyeBox}, outline {board.GuideOutline ?? "none"} (cover {shot?.CoverId ?? "none"}); {guideWords}");
+        await CloseShot(board, shot?.Target, "host-shot-guide");
         var aimed = interaction.Target is { } t && scene.Find(t) is { } targetShape ? targetShape : null;
         IReadOnlyList<string> targetCard = shot is null || aimed is null ? [] : PreviewCard.Lines(shot, aimed);
         Check("board-preview-card-target", early || (aimed is not null && InPanel(board, $"SHOOT → {UnitPanel.Heading(aimed)}") && InPanel(board, "Line of sight: ")
@@ -1634,9 +1640,14 @@ public partial class UiCheck : Node
             {
                 problems.Add($"{m.Id.Value} height {f.Box.Size.Y:0.00} from {f.Box.Position.Y:0.00} ({m.Status} at {m.Standing:0.00})");
             }
-            if (f.Accent is not { } accent || f.Base is not { } baseTop || board.BodyColourOf(m.Id) is not { } body || !accent.IsEqualApprox(body) || !baseTop.IsEqualApprox(body))
+            // Visual pass Stage 1: the base's top is the dark mud-stone, its thin rim the body colour muted
+            // (UnitPalette), and the figure is outlined and in the unit light.
+            var top = Client.Core.UnitPalette.BaseTop;
+            var muted = board.BodyColourOf(m.Id) is { } shade ? Client.Core.UnitPalette.Rim((shade.R, shade.G, shade.B)) : default;
+            if (f.Accent is not { } accent || f.Base is not { } baseTop || f.Edge is not { } edge || board.BodyColourOf(m.Id) is not { } body || !accent.IsEqualApprox(body)
+                || !baseTop.IsEqualApprox(new Color(top.R, top.G, top.B)) || !edge.IsEqualApprox(new Color(muted.R, muted.G, muted.B)) || !f.Outlined || !f.UnitLit)
             {
-                problems.Add($"{m.Id.Value} accent {f.Accent?.ToHtml(false)} and base {f.Base?.ToHtml(false)} for body {board.BodyColourOf(m.Id)?.ToHtml(false)}");
+                problems.Add($"{m.Id.Value} accent {f.Accent?.ToHtml(false)}, base {f.Base?.ToHtml(false)}, rim {f.Edge?.ToHtml(false)} for body {board.BodyColourOf(m.Id)?.ToHtml(false)}; outlined {f.Outlined}, unit light {f.UnitLit}");
             }
             if (f.Rim is not { } rim || Math.Abs(rim - m.Radius) > 0.001)
             {
@@ -1645,7 +1656,7 @@ public partial class UiCheck : Node
         }
         var drawn = board.ArtDrawn;
         Check("unit-figures", models.Count > 0 && problems.Count == 0 && drawn.FromArt == models.Count && drawn.Plain == 0,
-            $"{models.Count} models, {drawn.FromArt} figures, {drawn.Plain} plain; {(problems.Count == 0 ? "each inside its base, at its height, accent and base = body colour, base at the rules' radius" : string.Join("; ", problems))}; catalog {board.Visuals.Catalog.Entries.Count} entries; art problems: {string.Join(" / ", board.Visuals.Failures)}");
+            $"{models.Count} models, {drawn.FromArt} figures, {drawn.Plain} plain; {(problems.Count == 0 ? "each inside its base, at its height, accent = body colour, muted sandstone base top with a muted body-colour rim, outlined and in the unit light, base at the rules' radius" : string.Join("; ", problems))}; catalog {board.Visuals.Catalog.Entries.Count} entries; art problems: {string.Join(" / ", board.Visuals.Failures)}");
     }
 
     // Graphics stage G2 (ground-decor): every terrain piece has its texture, and the ground decals are the ones the layout
@@ -1844,18 +1855,28 @@ public partial class UiCheck : Node
             // Graphics stage G3: a figure is not one colour (a rifle or a shield may cover its sash from this camera), so the
             // body is sampled at several heights up its middle and the point that stands out most is the one compared.
             var gc = Sample(g);
-            // The base counts too: the point of its top halfway to its edge, on the side of the ground sampled (in front).
-            var toward = new Vector2((float)(groundAt!.Value.X - m.X), (float)(groundAt.Value.Y - m.Y)).Normalized() * (float)(m.Radius * 0.6);
+            // The base counts too: a point of its top, on the side of the ground sampled (in front). Visual pass Stage 1:
+            // the top now ends where the coloured rim starts (UnitPalette.RimWidth in from the edge), so the point is 0.7 of
+            // the way to there, clear of the figure's feet and of the rim (run 320 sampled the rim's border instead).
+            var toward = new Vector2((float)(groundAt!.Value.X - m.X), (float)(groundAt.Value.Y - m.Y)).Normalized()
+                * (float)((m.Radius - Client.Core.UnitPalette.RimWidth) * 0.7);
+            // Visual pass Stage 1: the seat's colour is on the base's rim, so the rim is sampled too (the middle of its band,
+            // on the same side), and the seats are told apart by it.
+            var rimOut = new Vector2((float)(groundAt.Value.X - m.X), (float)(groundAt.Value.Y - m.Y)).Normalized()
+                * (float)(m.Radius - 0.03 - (Client.Core.UnitPalette.RimWidth - 0.03) / 2);
+            var rimSpot = board.ScreenOf(m.X + rimOut.X, m.Y + rimOut.Y, m.Standing + 0.055);
             var spots = new[] { 0.35, 0.5, 0.6, 0.7, 0.85 }
                 .Select(h => board.ScreenOf(m.X, m.Y, m.Standing + h))
                 .Append(board.ScreenOf(m.X + toward.X, m.Y + toward.Y, m.Standing + 0.06))
+                .Append(rimSpot)
                 .OfType<Vector2>()
                 .Append(body)
                 .ToList();
-            if (!spots.All(Shown))
+            if (!spots.All(Shown) || rimSpot is not { } rim)
             {
                 continue;
             }
+            var rc = Sample(rim);
             var bc = spots.Take(spots.Count - 1)
                 .Select(Sample)
                 .DefaultIfEmpty(Sample(body))
@@ -1867,14 +1888,16 @@ public partial class UiCheck : Node
             {
                 problems.Add($"{m.Id.Value} hard to see: ratio {ratio:0.00}, colour distance {distance:0.00}");
             }
-            (bodies.TryGetValue(m.Seat, out var list) ? list : bodies[m.Seat] = []).Add(bc);
+            samples[^1] += $" rim {rc.ToHtml(false)}";
+            (bodies.TryGetValue(m.Seat, out var list) ? list : bodies[m.Seat] = []).Add(rc);
             if (!m.Activated)
             {
-                (fresh.TryGetValue(m.Seat, out var freshList) ? freshList : fresh[m.Seat] = []).Add(bc);
+                (fresh.TryGetValue(m.Seat, out var freshList) ? freshList : fresh[m.Seat] = []).Add(rc);
             }
         }
         Color Mean(List<Color> c) => new(c.Average(x => x.R), c.Average(x => x.G), c.Average(x => x.B));
-        // The seats are compared on models not yet activated (an activated one is greyed on purpose), when each seat has one.
+        // The seats are compared by their bases' rims, on models not yet activated (an activated one is greyed on purpose),
+        // when each seat has one.
         var compare = fresh.Count == 2 ? fresh : bodies;
         var seatsApart = compare.Count == 2 ? Distance(Mean(compare[Rules.Core.State.Seat.One]), Mean(compare[Rules.Core.State.Seat.Two])) : 0;
         if (bodies.Count == 2 && seatsApart < 0.3)
@@ -3846,10 +3869,11 @@ public partial class UiCheck : Node
             {
                 _bloodLabelsWithMarkers++;
             }
-            var shown = label.Contains(ModelShape.MarkerMark, StringComparison.Ordinal);
-            if (shown != shape.BloodMarkers > 0 || (shown && !label.Contains($" {ModelShape.MarkerMark}{shape.BloodMarkers}", StringComparison.Ordinal)))
+            // Visual pass Stage 3: the count is drawn as drops under the label (none at 0), no longer as text in it.
+            var drops = board.BloodDropsDrawn.TryGetValue(shape.Id, out var n) ? n : 0;
+            if (drops != Math.Min(shape.BloodMarkers, BloodDrops.Max) || label.Contains(ModelShape.MarkerMark, StringComparison.Ordinal))
             {
-                _bloodLabelProblems.Add($"{label} has {shape.BloodMarkers}");
+                _bloodLabelProblems.Add($"{label} has {shape.BloodMarkers}, {drops} drops drawn");
             }
         }
     }
@@ -4849,6 +4873,23 @@ public partial class UiCheck : Node
             return false;
         }
         _chargeButtonChecked = true;
+        // Run 317: the click meant for Charge chose Shoot (the entry above it), as if the menu had moved after its place
+        // was read. The place is read again until two reads a few frames apart agree, then clicked.
+        for (var reads = 0; reads < 10; reads++)
+        {
+            await Frames(3);
+            if (board.CombatButtonAt(InteractionMode.Charge) is not { } settled)
+            {
+                break;
+            }
+            var moved = settled.DistanceTo(chargeEntry) > 1;
+            chargeEntry = settled;
+            if (!moved)
+            {
+                break;
+            }
+            Write($"TRACE charge entry moved to {settled}");
+        }
         // Stage U1: Charge first (no target yet, nothing sent), then a click on the enemy shows Confirm charge beside it.
         await ClickAt(chargeEntry);
         string? ChargeChosen() => interaction.Mode == InteractionMode.Charge && interaction.Target is null && board.ConfirmChargeAt is null ? "ok" : null;

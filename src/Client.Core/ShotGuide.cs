@@ -5,15 +5,16 @@ namespace Client.Core;
 // modifiers are the "Rules" lines beside it.
 //  - The shot line is the middle body ray, from the shooter's eye to the target's body point: solid while it is clear,
 //    broken from where it enters the piece that blocks it.
-//  - The sight points are a 3 x 3 figure (head, body, legs; left to right as the shooter sees the target): light where
-//    a ray reaches the point, dark where it is blocked.
+//  - The sight points (head, body, legs; left to right as the shooter sees the target) are given in words in the unit
+//    panel. Visual pass Stage 2 (2026-10-27) took their 3 x 3 picture off the battlefield; the target's eye and shield
+//    with a short caption (TargetSights.Caption) show its sight and cover there instead.
 public sealed record GuideSegment(TablePoint From, double FromHeight, TablePoint To, double ToHeight, bool Clear);
 
 public static class ShotGuide
 {
     public const string Label = "Guide";
 
-    // The rows of the figure, top to bottom, and the ray index each starts at (rays run legs, body, head).
+    // The rows of sight points, top to bottom, and the ray index each starts at (rays run legs, body, head).
     private static readonly (string Name, int First)[] Rows = [("head", 6), ("body", 3), ("legs", 0)];
 
     // The shot line in one or two pieces. Empty unless the preview has the nine rays (and maybe the gap search's after them).
@@ -61,33 +62,7 @@ public static class ShotGuide
         return lo <= hi ? lo : 0;
     }
 
-    // The 3 x 3 figure as a 16 x 16 icon mask (SightIcons' format): '#' seen, 'X' hidden, '.' clear. Each point is a
-    // 4 x 4 cell with a 1-pixel gap; head on top.
-    public static string[] Figure(IReadOnlyList<PreviewRay> rays)
-    {
-        ArgumentNullException.ThrowIfNull(rays);
-        var cells = Enumerable.Range(0, SightIcons.Size).Select(_ => Enumerable.Repeat('.', SightIcons.Size).ToArray()).ToArray();
-        if (rays.Count >= 9)
-        {
-            for (var row = 0; row < 3; row++)
-            {
-                for (var col = 0; col < 3; col++)
-                {
-                    var paint = rays[Rows[row].First + col].Clear ? '#' : 'X';
-                    for (var y = 0; y < 4; y++)
-                    {
-                        for (var x = 0; x < 4; x++)
-                        {
-                            cells[1 + row * 5 + y][1 + col * 5 + x] = paint;
-                        }
-                    }
-                }
-            }
-        }
-        return [.. cells.Select(c => new string(c))];
-    }
-
-    // The figure in words, for the panel: "Guide: sight points seen, head 3 of 3, body 1 of 3, legs 0 of 3".
+    // The nine sight points in words, for the unit panel: "Guide: sight points seen, head 3 of 3, body 1 of 3, legs 0 of 3".
     public static string? Words(IReadOnlyList<PreviewRay> rays)
     {
         ArgumentNullException.ThrowIfNull(rays);

@@ -153,6 +153,8 @@ public partial class BoardView : SubViewportContainer
         AddChild(_viewport);
         _viewport.AddChild(_environment);
         _viewport.AddChild(_sun);
+        // Visual pass Stage 1: a light from the camera's side that falls on the units only (render layer 2).
+        _camera.AddChild(_unitLight);
         _viewport.AddChild(_content);
         _viewport.AddChild(_effects);
         _viewport.AddChild(_overlay);
@@ -1691,6 +1693,9 @@ public partial class BoardView : SubViewportContainer
         _sightIcons.Clear();
         GuideDrawnFor = null;
         GuideOutline = null;
+        GuideCaption = null;
+        _guideEye = null;
+        _guideCaption = null;
         AreaPoints = 0;
         GhostAt = null;
         _reasonAt = null;
@@ -1734,6 +1739,7 @@ public partial class BoardView : SubViewportContainer
         }
         if (preview is null)
         {
+            DrawSightIcons();
             return;
         }
         Hints(good);
@@ -1821,6 +1827,21 @@ public partial class BoardView : SubViewportContainer
                 }
                 break;
         }
+        // Drawn after the preview, so the chosen target's shot guide (GuideDrawnFor) is known when its eye is drawn.
+        DrawSightIcons();
+    }
+
+    // Line-of-sight stage L4: an eye above every enemy (open, half closed or struck through) and a shield when it would
+    // be in cover, from the rules' own sight and cover.
+    private void DrawSightIcons()
+    {
+        foreach (var sight in Interaction.TargetSights())
+        {
+            if (_scene?.Find(sight.Model) is { } model)
+            {
+                SightIcon(model, sight);
+            }
+        }
     }
 
     // What can be chosen, marked on the battlefield: in Shoot, Charge and Fight every enemy as a valid target (a ring and
@@ -1861,15 +1882,6 @@ public partial class BoardView : SubViewportContainer
         {
             DrawShotGuide(pointedShot, pointed);
         }
-        // Line-of-sight stage L4: an eye above every enemy (open, half closed or struck through) and a shield when it
-        // would be in cover, from the rules' own sight and cover.
-        foreach (var sight in Interaction.TargetSights())
-        {
-            if (_scene.Find(sight.Model) is { } model)
-            {
-                SightIcon(model, sight);
-            }
-        }
         if (Interaction.IsPath)
         {
             Area(Interaction.ReachArea(), _highContrast ? new Color(1, 1, 1, 0.35f) : new Color(0.45f, 0.75f, 1f, 0.28f));
@@ -1881,8 +1893,10 @@ public partial class BoardView : SubViewportContainer
 
     public string? GuideOutline { get; private set; }
 
-    // The shot guide: the middle body ray from the shooter's eye, solid while clear and broken from where it is blocked;
-    // the 3 x 3 sight points above the target with GUIDE beside them; and the piece that gives cover outlined in gold.
+    // The shot guide: the middle body ray from the shooter's eye, solid while clear and broken from where it is blocked,
+    // and the piece that gives cover outlined in gold. Visual pass Stage 2 (2026-10-27): the 3 x 3 sight points and the
+    // GUIDE tag above the target are gone; the target's own eye and shield are drawn larger with a short caption instead
+    // (SightIcon). The nine points stay in words in the unit panel.
     private void DrawShotGuide(Preview preview, ModelShape target)
     {
         GuideDrawnFor = target.Id;
@@ -1905,18 +1919,6 @@ public partial class BoardView : SubViewportContainer
                     ink, 0.07f, 0.04f);
             }
         }
-        if (preview.Rays.Count >= 9)
-        {
-            var figure = ShotGuide.Figure(preview.Rays);
-            var scale = 32 * _textScale / SightIcons.Size;
-            var pixel = (_topDown ? 0.0035f : 0.0012f) * scale * 1.5f;
-            var at = new Vector3((float)target.X, LabelHeight(target), (float)target.Y);
-            _overlay.AddChild(Icon(IconTexture(string.Concat(figure), figure, gold: false), at, pixel, new Vector2(0, (AboveLabel / scale + 18) / 1.5f), false));
-            var tag = MakeLabel(ShotGuide.Label.ToUpperInvariant(), at, 0.45f);
-            Raise(tag, AboveLabel + 18 * scale + 26 * _textScale);
-            _overlay.AddChild(tag);
-            _overlayTexts.Add(tag.Text);
-        }
         if (preview.CoverId is { } coverId && _scene!.Terrain.FirstOrDefault(t => t.Id == coverId) is { } cover)
         {
             GuideOutline = coverId;
@@ -1932,6 +1934,84 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
+    // Visual pass Stage 2 (for the UI check): the caption drawn under the guided target's eye and shield, or null.
+    public string? GuideCaption { get; private set; }
+
+    private Sprite3D? _guideEye;
+    private Label3D? _guideCaption;
+
+    // For the UI check: where the guided target's eye and its caption are drawn on screen (control coordinates).
+    public Rect2? GuideEyeBox => _guideEye is { } e && IsInstanceValid(e) && e.IsInsideTree() && e.Texture is { } t && !_camera.IsPositionBehind(e.GlobalPosition)
+        ? SpriteBox(e, t) : null;
+
+    public Rect2? GuideCaptionBox => _guideCaption is { } c && IsInstanceValid(c) && c.IsInsideTree() ? LabelBox(c) : null;
+
+    private Rect2 SpriteBox(Sprite3D sprite, Texture2D texture)
+    {
+        var ratio = Size.Y / Math.Max(1, _viewport.Size.Y);
+        var scale = SpriteScale(sprite);
+        var size = new Vector2(texture.GetWidth(), texture.GetHeight()) * scale;
+        var at = _camera.UnprojectPosition(sprite.GlobalPosition) * ratio + new Vector2(sprite.Offset.X, -sprite.Offset.Y) * scale;
+        return new Rect2(at - size / 2, size);
+    }
+
+    // Screen pixels (control coordinates) per pixel of a fixed-size sprite.
+    private float SpriteScale(Sprite3D sprite)
+    {
+        var projection = _camera.GetCameraProjection();
+        return sprite.PixelSize * _viewport.Size.Y / 2 * (_camera.Projection == Camera3D.ProjectionType.Orthogonal ? 1 : projection.Y.Y)
+            * (Size.Y / Math.Max(1, _viewport.Size.Y));
+    }
+
+    // How much larger the guided target's eye and shield are drawn than the others'.
+    public const float GuideIconScale = 1.5f;
+
+    // Visual pass Stage 3 (for the UI check): the filled drops drawn under each model's label now (models with none
+    // have no row).
+    public IReadOnlyDictionary<ModelId, int> BloodDropsDrawn => _bloodDrops;
+
+    private readonly Dictionary<ModelId, int> _bloodDrops = [];
+
+    // Each drawn row with its offset under the label and its scale, so SeparateLabels can move it with the label.
+    private readonly Dictionary<ModelId, (Sprite3D Sprite, Vector2 Offset, float Scale)> _bloodRows = [];
+
+    // The model's Blood Markers as a row of small dark-red drops just under its label, from the server's count
+    // (ModelShape.BloodMarkers is the state's ModelState.BloodMarkers); nothing at 0. Drawn through walls like the label,
+    // with the battlefield's models (rebuilt whenever the state changes), and moved with the label when labels are spread.
+    private void BloodRow(ModelShape model)
+    {
+        if (BloodDrops.Row(model.BloodMarkers) is not { } row)
+        {
+            return;
+        }
+        _bloodDrops[model.Id] = BloodDrops.Filled(row);
+        var scale = BloodScale * _textScale;
+        var pixel = (_topDown ? 0.0035f : 0.0012f) * scale;
+        var at = new Vector3((float)model.X, LabelHeight(model), (float)model.Y);
+        var blood = new Color(0.80f, 0.10f, 0.08f);
+        var offset = new Vector2(0, -(19 * _textScale + 6) / scale);
+        var sprite = Icon(IconTexture($"Blood{Math.Min(model.BloodMarkers, Rules.Core.State.BloodMarkers.Max)}", row, gold: false, blood), at, pixel,
+            offset, dim: model.Activated && !model.Active);
+        sprite.Name = $"Blood{model.Id.Value}";
+        _content.AddChild(sprite);
+        _bloodRows[model.Id] = (sprite, offset, scale);
+    }
+
+    // How far below its label's box a model's drop row reaches on screen, and how wide the row is (control coordinates);
+    // zero with no row.
+    private Vector2 BloodRowSize(ModelId model, Label3D label)
+    {
+        if (!_bloodRows.ContainsKey(model))
+        {
+            return Vector2.Zero;
+        }
+        var screen = LabelScale(label) * (Size.Y / Math.Max(1, _viewport.Size.Y));
+        return new Vector2(BloodDrops.Width * BloodScale * _textScale, BloodDrops.Height * BloodScale * _textScale + 6) * screen;
+    }
+
+    // How many screen pixels each pixel of the drop row is drawn (times the text scale).
+    private const float BloodScale = 2.5f;
+
     // Stage L4 (for the UI check): the sight icons drawn now, by model.
     public IReadOnlyDictionary<ModelId, TargetSight> SightIconsDrawn => _sightIcons;
 
@@ -1941,17 +2021,36 @@ public partial class BoardView : SubViewportContainer
     private void SightIcon(ModelShape model, TargetSight sight)
     {
         _sightIcons[model.Id] = sight;
-        // A fixed-size icon as tall as a line of label text, above the model's own label.
+        // A fixed-size icon as tall as a line of label text, above the model's own label; the guided target's (Stage 2)
+        // half as large again, with its caption between the icons and the label.
+        var guided = model.Id == GuideDrawnFor;
+        var size = guided ? GuideIconScale : 1f;
         var scale = 32 * _textScale / SightIcons.Size;
-        var pixel = (_topDown ? 0.0035f : 0.0012f) * scale;
+        var pixel = (_topDown ? 0.0035f : 0.0012f) * scale * size;
         var at = new Vector3((float)model.X, LabelHeight(model), (float)model.Y);
-        var lift = AboveLabel / scale;
+        // The guided eye sits clear above its caption (bottom at AboveLabel + 10, about 20 high at 0.45 size; the eye is
+        // 48 high at 1.5 times): its middle 57 above AboveLabel, all times the text scale.
+        var lift = (AboveLabel + (guided ? 57 * _textScale : 0)) / (scale * size);
         var dim = sight.Mark == SightMark.Blocked;
-        _overlay.AddChild(Icon(IconTexture(sight.Mark.ToString(), SightIcons.For(sight.Mark), gold: false), at, pixel,
-            new Vector2(sight.Cover ? -9 : 0, lift), dim));
+        var eye = Icon(IconTexture(sight.Mark.ToString(), SightIcons.For(sight.Mark), gold: false), at, pixel,
+            new Vector2(sight.Cover ? -9 : 0, lift), dim);
+        _overlay.AddChild(eye);
+        if (guided)
+        {
+            _guideEye = eye;
+        }
         if (sight.Cover)
         {
             _overlay.AddChild(Icon(IconTexture("Shield", SightIcons.Shield, gold: true), at, pixel, new Vector2(9, lift), dim));
+        }
+        if (guided)
+        {
+            GuideCaption = TargetSights.Caption(sight);
+            var caption = MakeLabel(GuideCaption, at, 0.45f);
+            Raise(caption, AboveLabel + 10 * _textScale);
+            _guideCaption = caption;
+            _overlay.AddChild(caption);
+            _overlayTexts.Add(caption.Text);
         }
     }
 
@@ -1972,23 +2071,25 @@ public partial class BoardView : SubViewportContainer
         };
 
     // Bone or gold paint on an iron outline; black and white in high contrast.
-    private ImageTexture IconTexture(string name, string[] rows, bool gold)
+    private ImageTexture IconTexture(string name, string[] rows, bool gold, Color? paint = null)
     {
         if (_iconTextures.TryGetValue((name, gold, _highContrast), out var cached))
         {
             return cached;
         }
-        var light = _highContrast ? Colors.White : gold ? new Color(0.79f, 0.64f, 0.15f) : new Color(0.85f, 0.80f, 0.69f);
+        var light = _highContrast ? Colors.White : paint ?? (gold ? new Color(0.79f, 0.64f, 0.15f) : new Color(0.85f, 0.80f, 0.69f));
         var dark = _highContrast ? Colors.Black : new Color(0.12f, 0.11f, 0.10f);
-        var image = Image.CreateEmpty(SightIcons.Size, SightIcons.Size, false, Image.Format.Rgba8);
-        for (var y = 0; y < SightIcons.Size; y++)
+        var image = Image.CreateEmpty(rows[0].Length, rows.Length, false, Image.Format.Rgba8);
+        for (var y = 0; y < rows.Length; y++)
         {
-            for (var x = 0; x < SightIcons.Size; x++)
+            for (var x = 0; x < rows[y].Length; x++)
             {
                 image.SetPixel(x, y, rows[y][x] switch
                 {
                     '#' => light,
                     'X' => dark,
+                    // A faint pale outline (an empty blood drop), seen on dark ground as on light.
+                    'o' => _highContrast ? new Color(1, 1, 1, 0.55f) : new Color(0.85f, 0.80f, 0.69f, 0.55f),
                     _ => new Color(0, 0, 0, 0),
                 });
             }
@@ -2521,8 +2622,12 @@ public partial class BoardView : SubViewportContainer
 
     // Every short label that must not cover another, with its box on screen: model ids, zone and objective labels, and
     // the notes over models (for the UI check).
+    // Visual pass Stage 3: each model's blood drop row counts as one of them.
     public IReadOnlyList<(string Text, Rect2 Box)> ScreenLabelBoxes() =>
         [.. _idLabels.Values.Concat(_fixedLabels).Concat(_shown.Select(n => n.Label)).Select(l => (l.Text, Box: LabelBox(l)))
+            .Concat(_bloodRows.Where(r => GodotObject.IsInstanceValid(r.Value.Sprite) && r.Value.Sprite.IsInsideTree() && r.Value.Sprite.Texture is not null
+                    && !_camera.IsPositionBehind(r.Value.Sprite.GlobalPosition))
+                .Select(r => (Text: $"blood {r.Key.Value}", Box: (Rect2?)SpriteBox(r.Value.Sprite, r.Value.Sprite.Texture))))
             .Where(b => b.Box is not null).Select(b => (b.Text, b.Box!.Value))];
 
     private void FadeNotes()
@@ -2658,6 +2763,35 @@ public partial class BoardView : SubViewportContainer
     // contrast keeps the old flat look on black.
     private readonly DirectionalLight3D _sun = new() { Name = "Sun", ShadowEnabled = false };
 
+    // Visual pass Stage 1 (2026-10-27): figures are drawn on render layers 1 and 2, everything else on layer 1 only, and
+    // this light reaches layer 2 alone, so the units are lit a little more than the mud they stand in. It points the
+    // way the camera looks (it is the camera's child), lighting the side the player sees. No shadows, no glow.
+    private const uint UnitLayer = 2;
+
+    private readonly DirectionalLight3D _unitLight = new()
+    {
+        Name = "UnitLight",
+        ShadowEnabled = false,
+        LightCullMask = UnitLayer,
+        LightEnergy = UnitPalette.UnitLightEnergy,
+        LightColor = new Color(UnitPalette.UnitLightColour.R, UnitPalette.UnitLightColour.G, UnitPalette.UnitLightColour.B),
+    };
+
+    // The thin dark outline drawn around every figure (the selected one's warmer): the figure's surfaces drawn again a
+    // little larger, back faces only, flat colour. Shared by all figures.
+    private static readonly StandardMaterial3D FigureOutline = OutlineMaterial(UnitPalette.Outline);
+
+    private static readonly StandardMaterial3D SelectedFigureOutline = OutlineMaterial(UnitPalette.SelectedOutline);
+
+    private static StandardMaterial3D OutlineMaterial((float R, float G, float B, float A) c) => new()
+    {
+        AlbedoColor = new Color(c.R, c.G, c.B, c.A),
+        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+        CullMode = BaseMaterial3D.CullModeEnum.Front,
+        Grow = true,
+        GrowAmount = UnitPalette.OutlineWidth,
+    };
+
     private void ApplyEnvironment()
     {
         if (_highContrast)
@@ -2710,6 +2844,8 @@ public partial class BoardView : SubViewportContainer
         _bodyColours.Clear();
         _eligibleRings.Clear();
         _idLabels.Clear();
+        _bloodDrops.Clear();
+        _bloodRows.Clear();
         _fixedLabels.Clear();
         _modelNodes.Clear();
         _meleeLinks.Clear();
@@ -3031,8 +3167,9 @@ public partial class BoardView : SubViewportContainer
 
     // Graphics stage G3, for the UI check: how a model's figure is drawn now, or null when it has the plain body. Box: the
     // figure's meshes in world space (Godot units: x, height, table y); Accent: the colour its accent parts are painted;
-    // Rim: the radius of the base drawn under it; Base: the colour of the base's top.
-    public (Aabb Box, Color? Accent, float? Rim, Color? Base)? FigureOf(ModelId id)
+    // Rim: the radius of the base drawn under it; Base: the colour of the base's top; Edge: the colour of its thin rim;
+    // Outlined: every mesh has the outline (the selected one's when selected); UnitLit: every mesh is in the unit light.
+    public (Aabb Box, Color? Accent, float? Rim, Color? Base, Color? Edge, bool Outlined, bool UnitLit)? FigureOf(ModelId id)
     {
         if (_content.GetNodeOrNull<Node3D>($"Figure{id.Value}") is not { } holder || !IsInstanceValid(holder))
         {
@@ -3040,8 +3177,11 @@ public partial class BoardView : SubViewportContainer
         }
         Aabb? box = null;
         Color? accent = null;
+        var (outlined, lit) = (true, true);
         foreach (var mesh in holder.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
         {
+            outlined &= mesh.MaterialOverlay == (id == _selected ? SelectedFigureOutline : FigureOutline);
+            lit &= (mesh.Layers & UnitLayer) != 0;
             var b = mesh.GlobalTransform * mesh.Mesh.GetAabb();
             box = box is { } a ? a.Merge(b) : b;
             if (mesh.Name.ToString().StartsWith("Accent", StringComparison.Ordinal) && mesh.MaterialOverride is StandardMaterial3D m)
@@ -3051,7 +3191,8 @@ public partial class BoardView : SubViewportContainer
         }
         var rim = _content.GetNodeOrNull<MeshInstance3D>($"BaseRim{id.Value}")?.Mesh is CylinderMesh c ? c.TopRadius : (float?)null;
         var top = _content.GetNodeOrNull<MeshInstance3D>($"BaseTop{id.Value}")?.MaterialOverride is StandardMaterial3D t ? t.AlbedoColor : (Color?)null;
-        return box is { } found ? (found, accent, rim, top) : null;
+        var edge = _content.GetNodeOrNull<MeshInstance3D>($"BaseEdge{id.Value}")?.MaterialOverride is StandardMaterial3D e ? e.AlbedoColor : (Color?)null;
+        return box is { } found ? (found, accent, rim, top, edge, outlined, lit) : null;
     }
 
     // Draws the battlefield again with another art catalog (the UI check tries a broken one, then puts the real one back).
@@ -3149,6 +3290,13 @@ public partial class BoardView : SubViewportContainer
                 Visuals.FitOnBase(shape, new Vector3(0, -tall / 2, 0), (float)model.Radius, tall);
                 // The seat colour is drawn flat (unshaded), so the side reads the same in light and shade.
                 Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
+                // Visual pass Stage 1: the unit light reaches the figure, and a thin outline keeps it apart from the
+                // ground and from the next model (warmer on the selected one).
+                foreach (var mesh in figure.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>().Append(figure as MeshInstance3D).OfType<MeshInstance3D>())
+                {
+                    mesh.Layers = 1 | UnitLayer;
+                    mesh.MaterialOverlay = model.Id == _selected ? SelectedFigureOutline : FigureOutline;
+                }
                 holder.AddChild(shape);
                 _content.AddChild(holder);
                 FigureBase(model, standing, colour);
@@ -3196,6 +3344,7 @@ public partial class BoardView : SubViewportContainer
                 id.Modulate = new Color(1, 1, 1, 0.6f);
             }
             _idLabels[model.Id] = id;
+            BloodRow(model);
         }
     }
 
@@ -3207,9 +3356,10 @@ public partial class BoardView : SubViewportContainer
     // state, ModelShape.Activated). Kept opaque and about 60% of the seat colour, so the seat still reads at a glance.
     public const float ActivatedWash = 0.4f;
 
-    // Graphics stage G3: under a figure, its base at the rules' exact radius, drawn flat in the body colour (the seat,
-    // washed grey once activated), so a model reads as a patch of its side's colour even when the whole battlefield is in
-    // view and the figure itself is only a few pixels; a dark edge keeps it apart from the ground and the rings.
+    // Under a figure, its base at the rules' exact radius. Visual pass Stage 1 (2026-10-27): the top is a pale, dull
+    // sandstone (UnitPalette.BaseTop), lit like the ground, and only the rim at the edge carries the body colour (the
+    // seat, washed grey once activated), muted; before, the whole top was the bright seat colour and outshone the figure. A dark
+    // edge outside the rim keeps the base apart from the ground and the rings.
     private void FigureBase(ModelShape model, float standing, Color colour)
     {
         var r = (float)model.Radius;
@@ -3220,12 +3370,21 @@ public partial class BoardView : SubViewportContainer
             Position = new Vector3((float)model.X, standing + 0.025f, (float)model.Y),
             MaterialOverride = Paint(new Color(0.10f, 0.10f, 0.11f)),
         });
+        var edge = UnitPalette.Rim((colour.R, colour.G, colour.B));
+        _content.AddChild(new MeshInstance3D
+        {
+            Name = $"BaseEdge{model.Id.Value}",
+            Mesh = new CylinderMesh { TopRadius = r - 0.03f, BottomRadius = r - 0.03f, Height = 0.055f, RadialSegments = 16 },
+            Position = new Vector3((float)model.X, standing + 0.0275f, (float)model.Y),
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(edge.R, edge.G, edge.B), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
+        });
+        var top = UnitPalette.BaseTop;
         _content.AddChild(new MeshInstance3D
         {
             Name = $"BaseTop{model.Id.Value}",
-            Mesh = new CylinderMesh { TopRadius = r - 0.04f, BottomRadius = r - 0.04f, Height = 0.06f, RadialSegments = 16 },
+            Mesh = new CylinderMesh { TopRadius = r - UnitPalette.RimWidth, BottomRadius = r - UnitPalette.RimWidth, Height = 0.06f, RadialSegments = 16 },
             Position = new Vector3((float)model.X, standing + 0.03f, (float)model.Y),
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(top.R, top.G, top.B), Roughness = 1f },
         });
     }
 
@@ -3459,11 +3618,18 @@ public partial class BoardView : SubViewportContainer
         }
         _labelsPlaced = key;
         var taken = _fixedLabels.Select(LabelBox).OfType<Rect2>().ToList();
-        foreach (var label in _idLabels.Values.OrderBy(l => _camera.UnprojectPosition(l.GlobalPosition).Y).ThenBy(l => _camera.UnprojectPosition(l.GlobalPosition).X))
+        foreach (var (model, label) in _idLabels.OrderBy(l => _camera.UnprojectPosition(l.Value.GlobalPosition).Y).ThenBy(l => _camera.UnprojectPosition(l.Value.GlobalPosition).X))
         {
             label.Offset = Vector2.Zero;
-            if (LabelBox(label) is not { } box)
+            // Visual pass Stage 3: a label's box takes in its drop row below it (as wide as the row where that is wider), so
+            // no other label or row covers the drops.
+            var row = BloodRowSize(model, label);
+            Rect2? Box() => LabelBox(label) is { } b
+                ? new Rect2(b.GetCenter().X - Math.Max(b.Size.X, row.X) / 2, b.Position.Y, Math.Max(b.Size.X, row.X), b.Size.Y + row.Y)
+                : null;
+            if (Box() is not { } box)
             {
+                MoveBloodRow(model, label);
                 continue;
             }
             var scale = LabelScale(label) * (Size.Y / Math.Max(1, _viewport.Size.Y));
@@ -3472,9 +3638,29 @@ public partial class BoardView : SubViewportContainer
                 // Down by the height of the box it hits, then try again.
                 var step = box.Size.Y + 2;
                 label.Offset -= new Vector2(0, step / Math.Max(0.001f, scale));
-                box = LabelBox(label) ?? box;
+                box = Box() ?? box;
             }
             taken.Add(box);
+            MoveBloodRow(model, label);
+        }
+    }
+
+    // Keeps a model's drop row just under its label after the label was moved (the label's offset is in its own pixels,
+    // the row's in its pixels, which are Scale times larger).
+    private void MoveBloodRow(ModelId model, Label3D label)
+    {
+        if (!_bloodRows.TryGetValue(model, out var row) || !GodotObject.IsInstanceValid(row.Sprite))
+        {
+            return;
+        }
+        row.Sprite.Offset = row.Offset + label.Offset / row.Scale;
+        // On screen, the row's top 2 pixels under the label's box, so the two never cover each other at any text size.
+        if (LabelBox(label) is { } box && row.Sprite.Texture is { } texture && !_camera.IsPositionBehind(row.Sprite.GlobalPosition))
+        {
+            var scale = SpriteScale(row.Sprite);
+            var anchor = _camera.UnprojectPosition(row.Sprite.GlobalPosition) * (Size.Y / Math.Max(1, _viewport.Size.Y));
+            var middle = box.End.Y + 2 + texture.GetHeight() * scale / 2;
+            row.Sprite.Offset = new Vector2(0, -(middle - anchor.Y) / Math.Max(0.0001f, scale));
         }
     }
 

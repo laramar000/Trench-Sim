@@ -111,11 +111,11 @@ public sealed record ModelShape(
     // (TurnSequence.LegalCommands, a test checks). Both are display only: they never decide anything.
     public string Label => $"[{SeatLetter}] {Name}{(Active ? ", ACTIVE" : Activated ? ", activated" : "")}{(Status == ModelStatus.Standing ? "" : $", {Words.Status(Status)}")}";
 
-    // Proposal G: the label drawn over the model on the battlefield: its short id ("A2"), its Blood Markers when it has
-    // any ("•2", the server's count; XCOM-style UX improvement 2), then a mark when it has activated this turn (✓) and
-    // when it is Down (↓). The full name and state are in the panel beside the battlefield.
+    // Proposal G: the label drawn over the model on the battlefield: its short id ("A2"), then a mark when it has
+    // activated this turn (✓) and when it is Down (↓). Its Blood Markers are the row of drops under it (visual pass
+    // Stage 3, BloodDrops; before, "•2" in the label). The full name and state are in the panel beside the battlefield.
     public string ShortLabel(string activatedMark = "✓", string downMark = "↓") =>
-        $"{Id.Value.ToUpperInvariant()}{(BloodMarkers > 0 ? $" {MarkerMark}{BloodMarkers}" : "")}{(Activated && !Active ? " " + activatedMark : "")}{(Status == ModelStatus.Down ? " " + downMark : "")}";
+        $"{Id.Value.ToUpperInvariant()}{(Activated && !Active ? " " + activatedMark : "")}{(Status == ModelStatus.Down ? " " + downMark : "")}";
 
     public const string MarkerMark = "•";
     public const string ActivatedMark = "✓";

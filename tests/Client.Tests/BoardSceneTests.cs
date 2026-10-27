@@ -66,8 +66,9 @@ public class BoardSceneTests
         Assert.True(checkedModels > 1000, $"only {checkedModels} model positions checked");
     }
 
-    // XCOM-style UX, improvement 2: every model's label carries its Blood Markers as the server's state holds them
-    // ("•2"), both seats see the same count, and the label stays short.
+    // XCOM-style UX, improvement 2, and visual pass Stage 3: every model's Blood Markers are the server's state's, both
+    // seats see the same count, the label stays short and no longer carries the count, and the drop row under it fills
+    // one drop per marker (none drawn at 0).
     [Fact]
     public void LabelsShowEachModelsBloodMarkers()
     {
@@ -84,7 +85,10 @@ public class BoardSceneTests
                 Assert.Equal(markers, two.Find(shape.Id)!.BloodMarkers);
                 var label = shape.ShortLabel();
                 Assert.True(label.Length <= 18, label);
-                Assert.Equal(markers > 0, label.Contains($" {ModelShape.MarkerMark}{markers}", StringComparison.Ordinal));
+                Assert.DoesNotContain(ModelShape.MarkerMark, label, StringComparison.Ordinal);
+                var row = BloodDrops.Row(shape.BloodMarkers);
+                Assert.Equal(markers > 0, row is not null);
+                Assert.Equal(markers, row is null ? 0 : BloodDrops.Filled(row));
                 Assert.StartsWith(shape.Id.Value.ToUpperInvariant(), label, StringComparison.Ordinal);
                 if (markers > 0)
                 {
