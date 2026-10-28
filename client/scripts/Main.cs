@@ -38,15 +38,18 @@ public partial class Main : Control
     private TestMatch? _test;
     private bool _testReported;
 
-    // Connect screen.
+    // Developer screen (the former connect screen, kept whole; Stage M1 opens it from the main menu's corner button).
     private VBoxContainer _connect = null!;
-    private LineEdit _server = null!;
-    private SpinBox _window = null!;
-    private OptionButton _scenario = null!;
-    private OptionButton _map = null!;
-    private LineEdit _code = null!;
-    private VBoxContainer _saved = null!;
-    private Label _connectMessage = null!;
+
+    // The connection fields of the screen last used to start a match (the Play screen's or the developer screen's).
+    private ConnectForm _form = null!;
+    private LineEdit _server => _form.Server;
+    private SpinBox _window => _form.Window;
+    private OptionButton _scenario => _form.Scenario;
+    private OptionButton _map => _form.Map;
+    private LineEdit _code => _form.Code;
+    private VBoxContainer _saved => _form.Saved;
+    private Label _connectMessage => _form.Message;
 
     // Match screen.
     private VBoxContainer _match = null!;
@@ -125,7 +128,10 @@ public partial class Main : Control
     public override async void _Ready()
     {
         Theme = _theme;
-        _baseTitle = GetWindow().Title;
+        // The game is called Trenches (Jason 2026-10-28). project.godot keeps its old name so the saved settings, seats
+        // and match records (user://, named after it) stay where they are.
+        GetWindow().Title = GameName;
+        _baseTitle = GameName;
         AddChild(_sounds);
         _background = new ColorRect { Color = UiLook.Background };
         _background.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -146,17 +152,17 @@ public partial class Main : Control
         // Version, settings and keys: shown on the connect screen; in a match they fold into the HUD's Menu (proposal G3).
         _menuBox = new VBoxContainer { Name = "MenuItems" };
         _menuBox.AddThemeConstantOverride("separation", 10);
-        _menuBox.AddChild(Text($"Trench Sim client (M7.4: battlefield, in progress). Godot {Engine.GetVersionInfo()["string"]}, " +
-            $"{System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}. Rules version {ClaimNoMansLand.RulesVersion}; protocol {ClientSession.SubProtocol}."));
+        _menuBox.AddChild(Text(VersionLine));
         _menuBox.AddChild(Settings());
         _menuBox.AddChild(Text(Hints));
         _root.AddChild(_menuBox);
         _status = Text("");
         _root.AddChild(_status);
         BuildConnect();
+        BuildMenuScreens();
         BuildMatch();
         ApplyTheme();
-        ShowConnect();
+        ShowHome();
 
         var args = OS.GetCmdlineUserArgs();
         _settingsPath = Arg(args, "--ui-check") is { } checking
@@ -166,6 +172,7 @@ public partial class Main : Control
         var (test, testProblem) = TestMatch.Parse(args);
         if (testProblem is not null)
         {
+            ShowConnect();
             _connectMessage.Text = $"Test match not started: {testProblem}";
         }
         if (test is not null)
@@ -277,6 +284,12 @@ public partial class Main : Control
             _board.CancelPreview();
             GetViewport().SetInputAsHandled();
         }
+        // Stage M1: Esc on a menu screen goes back to the main menu.
+        else if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape } && !_match.Visible && !_home.Visible)
+        {
+            ShowHome();
+            GetViewport().SetInputAsHandled();
+        }
         // Stage N3: Esc with nothing being chosen closes the log drawer, then the Menu, wherever the keyboard is.
         else if (@event is InputEventKey { Pressed: true, Keycode: Key.Escape } && _match.Visible && (_drawerOpen || _menuOpen || _keySheet.Visible || _scenarioCard.Visible))
         {
@@ -308,52 +321,44 @@ public partial class Main : Control
 
     private void BuildConnect()
     {
-        _connect = new VBoxContainer();
+        _connect = new VBoxContainer { Name = "DeveloperScreen" };
         _connect.AddThemeConstantOverride("separation", 8);
-        _server = new LineEdit { Text = "ws://127.0.0.1:5080/match", CustomMinimumSize = new Vector2(420, 0) };
+        _connect.AddChild(Row(Button(BackText, ShowHome), Text("Developer: every scenario and test roster, server settings and saved seats.")));
+        var form = NewForm(ContentNames.Choices);
+        _devForm = form;
+        _form = form;
         _connect.AddChild(Row(Text("Server address:"), _server));
-        _window = new SpinBox { MinValue = 10, MaxValue = 86_400, Step = 10, Value = ReconnectPolicy.DefaultGiveUpAfter.TotalSeconds };
         _connect.AddChild(Row(Text("Server rejoin window (seconds):"), _window));
         _connect.AddChild(Text("Set this to the server's --rejoin-window (300 by default). The client cannot find it out: it decides how long " +
             "reconnecting keeps trying on its own before offering Rejoin now."));
         // The normal rosters, then the small test sizes (each side's first 1 to 3 models) for trying mechanics quickly.
-        _scenario = new OptionButton();
-        foreach (var choice in ContentNames.Choices)
-        {
-            _scenario.AddItem(ScenarioLabel(choice));
-            _scenario.SetItemMetadata(_scenario.ItemCount - 1, choice);
-        }
-        _connect.AddChild(Row(Text("Scenario:"), _scenario, Button("Create match", () => Create(ChosenScenario()))));
+        _connect.AddChild(Row(Text("Scenario:"), _scenario, Button("Create match", Use(form, () => Create(ChosenScenario())))));
         // Trench-maps stage S7: a preset map that fits the scenario, or the scenario's own.
-        _map = new OptionButton { Name = "MapChoice" };
-        _scenario.ItemSelected += _ => RefreshMaps(null);
-        RefreshMaps(null);
         _connect.AddChild(Row(Text("Map:"), _map));
         _connect.AddChild(Text("The 1 v 1, 2 v 2 and 3 v 3 choices are small test rosters (each side's first models) for trying mechanics quickly; " +
             "the normal roster is the full warbands."));
-        _connect.AddChild(Row(Text("Single player:"), Button("Hot-seat: play both sides in this window", StartHotSeat)));
+        _connect.AddChild(Row(Text("Single player:"), Button("Hot-seat: play both sides in this window", Use(form, StartHotSeat))));
         _connect.AddChild(Text("Hot-seat starts a local server on this PC (no server address needed) and seats you as Seat One and Seat Two of a " +
             "match in the scenario above. F2 switches the side you control; by default the window follows the turn."));
-        _code = new LineEdit { PlaceholderText = "match code", CustomMinimumSize = new Vector2(160, 0) };
-        _connect.AddChild(Row(Text("Join with a code:"), _code, Button("Join match", () =>
-        {
-            _createdScenario = null;
-            Start(c => c.JoinAsync(_code.Text.Trim().ToUpperInvariant()));
-        })));
+        _connect.AddChild(Row(Text("Join with a code:"), _code, Button("Join match", Use(form, Join))));
         _connect.AddChild(Text("Saved seats on this server (Rejoin):"));
-        _saved = new VBoxContainer();
         _connect.AddChild(_saved);
-        _connect.AddChild(Button("Refresh saved seats", RefreshSaved));
-        _connectMessage = Text("");
+        _connect.AddChild(Button("Refresh saved seats", Use(form, RefreshSaved)));
         _connect.AddChild(_connectMessage);
         _root.AddChild(_connect);
     }
 
+    private void Join()
+    {
+        _createdScenario = null;
+        Start(c => c.JoinAsync(_code.Text.Trim().ToUpperInvariant()));
+    }
+
+    // The developer screen, as the connect screen was before Stage M1 (settings and version above it).
     private void ShowConnect()
     {
-        _connect.Visible = true;
-        _match.Visible = false;
-        _page.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        _form = _devForm;
+        ShowScreen(_connect);
         MoveMenu(_root, 0, true);
         _status.Text = "Connect to a server: create a match, join one with its code, or rejoin a saved seat.";
         RefreshSaved();
@@ -371,7 +376,8 @@ public partial class Main : Control
         foreach (var seat in seats)
         {
             var saved = seat;
-            _saved.AddChild(Button($"Rejoin match {saved.Code} as {Words.Seat(saved.Seat)}", () => Start(c => c.RejoinSavedAsync(saved))));
+            var form = _form;
+            _saved.AddChild(Button($"Rejoin match {saved.Code} as {Words.Seat(saved.Seat)}", Use(form, () => Start(c => c.RejoinSavedAsync(saved)))));
         }
         if (seats.Count == 0)
         {
@@ -423,7 +429,7 @@ public partial class Main : Control
     {
         _controller = controller;
         controller.Changed += () => System.Threading.Interlocked.Exchange(ref _changed, 1);
-        _connect.Visible = false;
+        HideScreens();
         _match.Visible = true;
         // Stage K2: in a match the page never scrolls; everything is laid out in the window (FitBattlefield).
         _page.VerticalScrollMode = ScrollContainer.ScrollMode.Disabled;
@@ -534,7 +540,8 @@ public partial class Main : Control
             _controller = null;
             await controller.DisposeAsync();
         }
-        ShowConnect();
+        // Stage M1: leaving a match (also after its end) goes back to the main menu.
+        ShowHome();
     }
 
     // Starts the local server, creates a match as Seat One and joins it as Seat Two, then shows Seat One.
@@ -589,6 +596,7 @@ public partial class Main : Control
     private void StartTestMatch(TestMatch test)
     {
         _test = test;
+        _form = _devForm;
         DisplayServer.WindowSetTitle(test.Title(null));
         if (test.Window is "A" or "B")
         {

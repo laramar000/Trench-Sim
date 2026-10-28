@@ -40,6 +40,12 @@ public partial class UiCheck : Node
         {
             await Frames(3);
             Mark("started", $"{DisplayServer.GetName()} {Engine.GetVersionInfo()["string"]}");
+            // Stage M1: the game opens on the main menu. The hot-seat role plays from it (Play); the roles that drive the
+            // connect screen open it first through the developer corner button, then do as before.
+            if (_role is not ("hotseat" or "tm-a" or "tm-b"))
+            {
+                await OpenDeveloperScreen();
+            }
             switch (_role)
             {
                 case "host":
@@ -2662,8 +2668,11 @@ public partial class UiCheck : Node
 
     private async Task HotSeatPlay()
     {
+        await MenuNavigationCheck();
+        // Stage M1: from the main menu, Play, then the Play screen's hot-seat.
+        await Press(ButtonNamed(Main.PlayText), Key.Enter, "hotseat-play-enter");
         await ChooseOption(Option("ranged"), _scenario, "hotseat-choose-scenario");
-        await Press(ButtonNamed(HotSeatButton), Key.Enter, "hotseat-start-enter");
+        await Press(ButtonNamed(Main.StartHotSeatText), Key.Enter, "hotseat-start-enter");
         // The first start builds the server, which can take a while.
         var line = await Until(() => Label("HOT-SEAT:")?.Text, 300, "hotseat");
         var problem = Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && l.Text.StartsWith("Could not start hot-seat", StringComparison.Ordinal))?.Text;
@@ -2774,7 +2783,11 @@ public partial class UiCheck : Node
                 await Frames(30);
             }
         }
-        Check("hotseat-server-stopped", stopped && ButtonNamed(HotSeatButton) is not null, $"local server {endpoint} {(stopped ? "no longer accepts connections" : "still accepts connections")}");
+        // Stage M1: Leave goes back to the main menu, with Play focused.
+        await Frames(3);
+        var main = (Main)_main;
+        Check("hotseat-server-stopped", stopped && main.ScreenShown == "menu" && ButtonNamed(Main.PlayText) is { } play && Focused() == play,
+            $"local server {endpoint} {(stopped ? "no longer accepts connections" : "still accepts connections")}; screen after Leave: {main.ScreenShown ?? "none"}, focus {Describe(Focused())}");
     }
 
     // Whether a server answers at the address (a WebSocket connection is accepted).
@@ -5799,6 +5812,110 @@ public partial class UiCheck : Node
         }
         var reversed = Enumerable.Reverse(forward).ToList();
         Check($"shift-tab-reverses-{screen}", backward.SequenceEqual(reversed), $"{string.Join(" < ", backward.Select(Describe))}");
+    }
+
+    // ---- Stage M1: main menu ----
+
+    // Opens the developer screen (the connect screen as it was) from the main menu's corner button.
+    private async Task OpenDeveloperScreen()
+    {
+        var main = (Main)_main;
+        await Until(() => main.ScreenShown == "menu" || main.ScreenShown is null ? "ok" : null, 10, "menu-shown");
+        if (main.ScreenShown == "menu")
+        {
+            await Press(main.DeveloperButton, Key.Enter, null);
+            await Until(() => main.ScreenShown == "developer" ? "ok" : null, 5, "developer-shown");
+        }
+    }
+
+    // Every menu screen opens from the main menu and comes back with Back or Esc; the roster item only says it is not
+    // available; nothing is connected or started on the way.
+    private async Task MenuNavigationCheck()
+    {
+        var main = (Main)_main;
+        await Frames(3);
+        var problems = new List<string>();
+        var steps = new List<string>();
+        var startedOn = main.ScreenShown;
+        var play = ButtonNamed(Main.PlayText);
+        if (startedOn != "menu" || play is null || Focused() != play)
+        {
+            problems.Add($"opened on {startedOn ?? "no screen"} with focus {Describe(Focused())}, not the main menu with Play focused");
+        }
+        var items = new[] { Main.PlayText, Main.RosterText, Main.SettingsText, Main.CreditsText, Main.ExitText };
+        var order = Controls<Button>().Where(b => b.IsVisibleInTree() && items.Contains(b.Text)).Select(b => b.Text).ToList();
+        if (!order.SequenceEqual(items))
+        {
+            problems.Add($"menu items {string.Join(" / ", order)}");
+        }
+        var corner = main.DeveloperButton;
+        var window = _main.GetViewportRect();
+        if (!corner.IsVisibleInTree() || corner.GetGlobalRect().End.X < window.Size.X - 40 || corner.GetGlobalRect().End.Y < window.Size.Y - 40
+            || corner.Size.X > 40 || corner.Size.Y > 48 || !window.Encloses(corner.GetGlobalRect()))
+        {
+            problems.Add($"developer button at {corner.GetGlobalRect()} (window {window.Size}), shown {corner.IsVisibleInTree()}");
+        }
+        await TabTraversal("menu");
+
+        // The roster item: greyed, and pressing it only shows the note.
+        await Press(ButtonNamed(Main.RosterText), Key.Enter, null);
+        await Frames(2);
+        steps.Add($"roster: note {main.RosterNoteShown}, screen {main.ScreenShown}");
+        if (!main.RosterNoteShown || main.ScreenShown != "menu" || ButtonNamed(Main.RosterText) is not { Modulate.A: < 0.9f })
+        {
+            problems.Add("the roster item did not just show its note");
+        }
+
+        async Task Visit(string item, string screen, bool esc, Func<string?>? extra = null)
+        {
+            await Press(ButtonNamed(item), Key.Enter, null);
+            var shown = await Until(() => main.ScreenShown == screen ? "ok" : null, 5, $"menu-{screen}") is not null;
+            var back = ButtonNamed(Main.BackText);
+            var focusOnBack = Focused() == back || (screen == "play" && Focused() is not null);
+            var problem = extra?.Invoke();
+            if (esc)
+            {
+                await KeyPress(Key.Escape);
+            }
+            else
+            {
+                await Press(back, Key.Enter, null);
+            }
+            var returned = await Until(() => main.ScreenShown == "menu" && Focused() == ButtonNamed(Main.PlayText) ? "ok" : null, 5, $"menu-back-from-{screen}") is not null;
+            steps.Add($"{item}: {screen} shown {shown}, Back there {back is not null}, {(esc ? "Esc" : "Back")} returned {returned}");
+            if (!shown || back is null || !focusOnBack || !returned || problem is not null)
+            {
+                problems.Add($"{item}: shown {shown}, Back {back is not null}, focus {Describe(Focused())}, returned {returned}{(problem is null ? "" : $", {problem}")}");
+            }
+        }
+        await Visit(Main.SettingsText, "settings", esc: true, () => main.SettingsShownOnSettingsScreen ? null : "the settings are not on the Settings screen");
+        await Visit(Main.CreditsText, "credits", esc: false, () =>
+            Client.Core.Credits.Entries.All(e => Controls<Godot.Label>().Any(l => l.IsVisibleInTree() && l.Text.StartsWith(e.Heading + ": ", StringComparison.Ordinal)))
+                ? null : "a credit is missing");
+        await Visit(Main.PlayText, "play", esc: true, () => ButtonNamed(Main.StartHotSeatText) is null || ButtonNamed(Main.HostText) is null || ButtonNamed("Join match") is null
+            ? "the Play screen lacks hot-seat, Host or Join" : null);
+        // The developer corner button opens the connect screen as it was; its Back returns.
+        await Press(main.DeveloperButton, Key.Enter, null);
+        var developer = await Until(() => main.ScreenShown == "developer" ? "ok" : null, 5, "menu-developer") is not null
+            && ButtonNamed("Hot-seat: play both sides in this window") is not null && ButtonNamed("Create match") is not null;
+        await Press(ButtonNamed(Main.BackText), Key.Enter, null);
+        var back = await Until(() => main.ScreenShown == "menu" ? "ok" : null, 5, "menu-back-from-developer") is not null;
+        steps.Add($"developer: shown {developer}, Back returned {back}");
+        if (!developer || !back)
+        {
+            problems.Add($"developer screen: shown {developer}, Back returned {back}");
+        }
+        if (main.MatchCode is not null)
+        {
+            problems.Add("a match was joined");
+        }
+        Check("menu-navigation", problems.Count == 0, problems.Count == 0 ? string.Join("; ", steps) : string.Join("; ", problems));
+        // The Play screen's own Tab order.
+        await Press(ButtonNamed(Main.PlayText), Key.Enter, null);
+        await Until(() => main.ScreenShown == "play" ? "ok" : null, 5, "menu-play-again");
+        await TabTraversal("play");
+        await KeyPress(Key.Escape);
+        await Until(() => main.ScreenShown == "menu" && Focused() == ButtonNamed(Main.PlayText) ? "ok" : null, 5, "menu-back-again");
     }
 
     // ---- reading the screen ----

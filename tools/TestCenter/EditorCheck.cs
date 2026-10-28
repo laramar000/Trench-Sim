@@ -93,16 +93,16 @@ public static class EditorCheck
         if (game is not null)
         {
             report.Pass("Play button (the editor started the game)", Setup.Short(game));
-            switch (setup.Ask("Did the game window show the Trench Sim connect screen (server address, Create match, Hot-seat)?"))
+            switch (setup.Ask("Did the game window show the Trenches main menu (Play, Settings, Credits, Exit)?"))
             {
                 case true:
-                    report.Pass("The game window showed the connect screen", "you answered yes");
+                    report.Pass("The game window showed the main menu", "you answered yes");
                     break;
                 case false:
-                    report.Fail("The game window showed the connect screen", "you answered no: please describe what it showed");
+                    report.Fail("The game window showed the main menu", "you answered no: please describe what it showed");
                     break;
                 default:
-                    report.NotRun("The game window showed the connect screen", "you skipped this question");
+                    report.NotRun("The game window showed the main menu", "you skipped this question");
                     break;
             }
         }
