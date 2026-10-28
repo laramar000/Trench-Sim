@@ -325,3 +325,5 @@ The game opens on the **Trenches** main menu: **Play**, **Build Your Own Roster*
 - **Developer screen**: the small dot button in the bottom-right corner of the main menu opens the old connect screen with every scenario and test roster, server settings and saved seats. **Back** returns to the main menu. The UI checks start there.
 
 Leaving a match, also after its end, returns to the main menu.
+
+**Connection feedback (stage M2).** On the Play and developer screens, Host, Join and Rejoin show "Connecting…" with **Cancel**. An attempt is given up after 30 seconds, and leaving the screen also cancels it. When it does not work, the screen says why in plain words: a bad address, nothing answering at that address, a name not found, something that is not a Trenches server, no match with that code, a full or finished match, or another version. **Retry** appears when trying again can help. What was typed stays.

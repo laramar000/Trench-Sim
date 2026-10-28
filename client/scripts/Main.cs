@@ -344,14 +344,14 @@ public partial class Main : Control
         _connect.AddChild(Text("Saved seats on this server (Rejoin):"));
         _connect.AddChild(_saved);
         _connect.AddChild(Button("Refresh saved seats", Use(form, RefreshSaved)));
-        _connect.AddChild(_connectMessage);
+        _connect.AddChild(form.MessageRow);
         _root.AddChild(_connect);
     }
 
     private void Join()
     {
         _createdScenario = null;
-        Start(c => c.JoinAsync(_code.Text.Trim().ToUpperInvariant()));
+        Start((c, ct) => c.JoinAsync(_code.Text.Trim().ToUpperInvariant(), ct));
     }
 
     // The developer screen, as the connect screen was before Stage M1 (settings and version above it).
@@ -377,7 +377,7 @@ public partial class Main : Control
         {
             var saved = seat;
             var form = _form;
-            _saved.AddChild(Button($"Rejoin match {saved.Code} as {Words.Seat(saved.Seat)}", Use(form, () => Start(c => c.RejoinSavedAsync(saved)))));
+            _saved.AddChild(Button($"Rejoin match {saved.Code} as {Words.Seat(saved.Seat)}", Use(form, () => Start((c, ct) => c.RejoinSavedAsync(saved, ct)))));
         }
         if (seats.Count == 0)
         {
@@ -389,32 +389,101 @@ public partial class Main : Control
         }
     }
 
-    private async void Start(Func<MatchController, Task<ServerMessage>> request)
+    // Stage M2: the attempt under way (one at a time), whether the player cancelled it, and how to try it again.
+    private CancellationTokenSource? _connecting;
+    private bool _cancelledByPlayer;
+
+    // How long connecting and the server's first answer may take. The UI check shortens it to test the timeout.
+    public TimeSpan ConnectTimeout { get; set; } = ConnectWords.Timeout;
+
+    public bool Connecting => _connecting is not null;
+
+    // Stage M2: Cancel (and leaving the screen) gives up the attempt; nothing is joined and what was typed stays.
+    private void CancelConnecting()
     {
-        if (!Uri.TryCreate(_server.Text.Trim(), UriKind.Absolute, out var endpoint))
+        if (_connecting is { } connecting)
         {
-            _connectMessage.Text = "That server address is not valid.";
+            _cancelledByPlayer = true;
+            connecting.Cancel();
+        }
+    }
+
+    private async void Start(Func<MatchController, CancellationToken, Task<ServerMessage>> request)
+    {
+        if (_connecting is not null)
+        {
             return;
         }
-        var controller = NewController(endpoint);
-        _connectMessage.Text = "Connecting…";
+        var form = _form;
+        // Focus never falls off a button that hides: Retry hands it to Cancel, and Cancel to Retry or the address.
+        var retryFocused = form.Retry.HasFocus();
+        form.Retry.Visible = false;
+        _retry[form] = Use(form, () => Start(request));
+        if (ConnectWords.AddressProblem(form.Server.Text, out var endpoint) is { } bad)
+        {
+            form.Message.Text = bad;
+            if (retryFocused)
+            {
+                form.Server.GrabFocus();
+            }
+            return;
+        }
+        var controller = NewController(endpoint!);
+        using var connecting = new CancellationTokenSource();
+        _connecting = connecting;
+        _cancelledByPlayer = false;
+        connecting.CancelAfter(ConnectTimeout);
+        form.Message.Text = ConnectWords.Connecting;
+        form.Cancel.Visible = true;
+        if (retryFocused)
+        {
+            form.Cancel.GrabFocus();
+        }
+        string? problem = null;
+        var retry = false;
         try
         {
-            var answer = await request(controller);
+            var answer = await request(controller, connecting.Token);
             if (answer is not Welcome)
             {
-                _connectMessage.Text = $"Refused: {(answer as Rejected)?.Text ?? answer.GetType().Name}";
-                await controller.DisposeAsync();
-                return;
+                problem = ConnectWords.Refusal(answer);
+                retry = answer is Rejected { Code: nameof(ProtocolError.ServerBusy) or nameof(ProtocolError.ShuttingDown) or nameof(ProtocolError.JoinTimeout) };
+                if (answer is Rejected { Code: nameof(ProtocolError.UnknownMatch) })
+                {
+                    // A rejoin of a match that is gone deletes its saved seat; show the list without it.
+                    var savedFocused = GetViewport().GuiGetFocusOwner() is { } owner && form.Saved.IsAncestorOf(owner);
+                    Callable.From(() =>
+                    {
+                        Use(form, RefreshSaved)();
+                        if (savedFocused)
+                        {
+                            form.Server.GrabFocus();
+                        }
+                    }).CallDeferred();
+                }
             }
         }
         catch (Exception e)
         {
-            _connectMessage.Text = $"Could not connect: {e.Message}";
+            var cancelled = connecting.IsCancellationRequested;
+            problem = cancelled && _cancelledByPlayer ? ConnectWords.Cancelled : ConnectWords.Failure(e, cancelled ? ConnectTimeout : (TimeSpan?)null);
+            retry = true;
+        }
+        var cancelFocused = form.Cancel.HasFocus();
+        _connecting = null;
+        form.Cancel.Visible = false;
+        if (problem is not null)
+        {
+            form.Message.Text = problem;
+            form.Retry.Visible = retry;
+            if (cancelFocused)
+            {
+                (retry ? (Control)form.Retry : form.Server).GrabFocus();
+            }
             await controller.DisposeAsync();
             return;
         }
-        _connectMessage.Text = "";
+        form.Message.Text = "";
         Attach(controller);
     }
 
@@ -459,7 +528,7 @@ public partial class Main : Control
         _createdScenario = scenario;
         var map = ChosenMap();
         _createdMap = map;
-        Start(c => c.CreateAsync(scenario, map));
+        Start((c, ct) => c.CreateAsync(scenario, map, ct));
     }
 
     // The map list for the chosen scenario: its own map first, then the presets that fit it; keeps `select` if listed.
@@ -613,16 +682,16 @@ public partial class Main : Control
         switch (test.Mode)
         {
             case "create":
-                Start(c => c.CreateAsync(test.Scenario));
+                Start((c, ct) => c.CreateAsync(test.Scenario, ct));
                 break;
             case "join":
-                Start(c => c.JoinAsync(test.Code!));
+                Start((c, ct) => c.JoinAsync(test.Code!, ct));
                 break;
             default:
                 var (seats, _) = SavedSeats.For(new SessionStore(SessionStore.DefaultDirectory()), test.Server);
                 if (seats.FirstOrDefault(s => s.Code == test.Code) is { } saved)
                 {
-                    Start(c => c.RejoinSavedAsync(saved));
+                    Start((c, ct) => c.RejoinSavedAsync(saved, ct));
                 }
                 else
                 {

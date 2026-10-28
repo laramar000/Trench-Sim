@@ -21,7 +21,15 @@ public partial class Main
     public const string HostText = "Host match";
     public const string DeveloperTip = "Developer screen: every scenario and test roster, server settings and saved seats.";
 
-    private sealed record ConnectForm(LineEdit Server, SpinBox Window, OptionButton Scenario, OptionButton Map, LineEdit Code, VBoxContainer Saved, Label Message);
+    // Stage M2: Message, with Cancel (while connecting) and Retry (after a failure that trying again can fix), is MessageRow.
+    private sealed record ConnectForm(LineEdit Server, SpinBox Window, OptionButton Scenario, OptionButton Map, LineEdit Code, VBoxContainer Saved, Label Message,
+        Button Cancel, Button Retry, HBoxContainer MessageRow);
+
+    public const string CancelText = "Cancel";
+    public const string RetryText = "Retry";
+
+    // The last attempt of each screen, for its Retry.
+    private readonly Dictionary<ConnectForm, Action> _retry = [];
 
     private ConnectForm _devForm = null!;
     private ConnectForm _playForm = null!;
@@ -55,7 +63,25 @@ public partial class Main
             new OptionButton { Name = "MapChoice" },
             new LineEdit { PlaceholderText = "match code", CustomMinimumSize = new Vector2(160, 0) },
             new VBoxContainer(),
-            Text(""));
+            Text(""),
+            new Button { Text = CancelText, Name = "CancelConnecting", Visible = false },
+            new Button { Text = RetryText, Name = "RetryConnecting", Visible = false },
+            new HBoxContainer());
+        form.Message.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        form.Message.CustomMinimumSize = new Vector2(420, 0);
+        form.Message.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        form.MessageRow.AddThemeConstantOverride("separation", 8);
+        form.MessageRow.AddChild(form.Message);
+        form.MessageRow.AddChild(form.Cancel);
+        form.MessageRow.AddChild(form.Retry);
+        form.Cancel.Pressed += CancelConnecting;
+        form.Retry.Pressed += () =>
+        {
+            if (_retry.TryGetValue(form, out var again))
+            {
+                again();
+            }
+        };
         scenario.ItemSelected += _ => Use(form, () => RefreshMaps(null))();
         var before = _form;
         _form = form;
@@ -151,7 +177,7 @@ public partial class Main
         advancedToggle.Toggled += on => _advanced.Visible = on;
         _play.AddChild(advancedToggle);
         _play.AddChild(_advanced);
-        _play.AddChild(form.Message);
+        _play.AddChild(form.MessageRow);
         _root.AddChild(_play);
 
         // ---- Settings (the same controls as the in-match Menu, moved here while shown) ----
@@ -198,6 +224,8 @@ public partial class Main
 
     private void ShowScreen(Control screen)
     {
+        // Stage M2: leaving a screen gives up its attempt to connect, so a match never opens behind another screen.
+        CancelConnecting();
         HideScreens();
         _match.Visible = false;
         screen.Visible = true;
@@ -241,6 +269,13 @@ public partial class Main
         _home.Visible ? "menu" : _play.Visible ? "play" : _settingsPage.Visible ? "settings" : _credits.Visible ? "credits" : _connect.Visible ? "developer" : null;
 
     public Button DeveloperButton => _developer;
+
+    // For the UI check (stage M2): the shown screen's connection message, and whether its Cancel and Retry are shown.
+    public string ConnectMessageText => _form.Message.Text;
+
+    public bool CancelShown => _form.Cancel.IsVisibleInTree();
+
+    public bool RetryShown => _form.Retry.IsVisibleInTree();
 
     public bool RosterNoteShown => _rosterNote.IsVisibleInTree();
 

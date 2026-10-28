@@ -2671,6 +2671,7 @@ public partial class UiCheck : Node
         await MenuNavigationCheck();
         // Stage M1: from the main menu, Play, then the Play screen's hot-seat.
         await Press(ButtonNamed(Main.PlayText), Key.Enter, "hotseat-play-enter");
+        await ConnectFeedbackCheck();
         await ChooseOption(Option("ranged"), _scenario, "hotseat-choose-scenario");
         await Press(ButtonNamed(Main.StartHotSeatText), Key.Enter, "hotseat-start-enter");
         // The first start builds the server, which can take a while.
@@ -5830,6 +5831,96 @@ public partial class UiCheck : Node
 
     // Every menu screen opens from the main menu and comes back with Back or Esc; the roster item only says it is not
     // available; nothing is connected or started on the way.
+    // Stage M2: on the Play screen, what the player sees when connecting does not work: a bad address, a closed port
+    // (with Retry), a server that never answers (Cancel, the timeout, and Back while connecting). Nothing is joined, and
+    // what was typed stays. Leaves the Play screen as it found it.
+    private async Task ConnectFeedbackCheck()
+    {
+        var main = (Main)_main;
+        await Until(() => main.ScreenShown == "play" ? "ok" : null, 5, "connect-play");
+        var server = Field("ws://");
+        var code = Field("", "match code");
+        if (server is null || code is null)
+        {
+            Check("connect-feedback-fields", false, $"server field {Describe(server)}, code field {Describe(code)}");
+            return;
+        }
+        var address = server.Text;
+        code.Text = "ABCDEFGH";
+        string Shown() => $"\"{main.ConnectMessageText}\", Cancel {main.CancelShown}, Retry {main.RetryShown}, screen {main.ScreenShown}, code \"{code.Text}\", focus {Describe(Focused())}";
+        bool Kept(string typed) => server.Text == typed && code.Text == "ABCDEFGH" && main.ScreenShown == "play" && main.MatchCode is null && !main.Connecting;
+
+        // A bad address is explained before anything is tried.
+        server.Text = "hello there";
+        await Press(ButtonNamed("Join match"), Key.Enter, null);
+        await Frames(2);
+        var expected = Client.Core.ConnectWords.AddressProblem("hello there", out _);
+        Check("connect-bad-address", main.ConnectMessageText == expected && !main.RetryShown && Kept("hello there"), Shown());
+
+        // A closed port: plain words and Retry; Retry tries again and says the same.
+        // Godot's own TCPServer: the client's scripts may not use .NET sockets (ClientAuthorityTest).
+        var closed = new TcpServer();
+        closed.Listen(0, "127.0.0.1");
+        var closedAddress = $"ws://127.0.0.1:{closed.GetLocalPort()}/match";
+        closed.Stop();
+        server.Text = closedAddress;
+        const string refused = "Nothing answered at that address. Is the server running, and is the port right?";
+        await Press(ButtonNamed("Join match"), Key.Enter, null);
+        var first = await Until(() => main.ConnectMessageText == refused && main.RetryShown ? "ok" : null, 20, "connect-refused") is not null;
+        var firstShown = Shown();
+        var retry = ButtonNamed(Main.RetryText);
+        await Press(retry, Key.Enter, null);
+        var again = await Until(() => !main.Connecting && main.ConnectMessageText == refused && main.RetryShown && Focused() is not null ? "ok" : null, 20, "connect-retry") is not null;
+        Check("connect-refused-retry", first && again && Kept(closedAddress), $"first: {firstShown}; after Retry: {Shown()}");
+
+        // A server that accepts the connection and never answers: Cancel gives up at once.
+        // It takes the connection (the system queues it) and never answers.
+        var silent = new TcpServer();
+        silent.Listen(0, "127.0.0.1");
+        try
+        {
+            var silentAddress = $"ws://127.0.0.1:{silent.GetLocalPort()}/match";
+            server.Text = silentAddress;
+            await Press(ButtonNamed("Join match"), Key.Enter, null);
+            var connecting = await Until(() => main.Connecting && main.CancelShown && main.ConnectMessageText == Client.Core.ConnectWords.Connecting ? "ok" : null, 5, "connect-connecting") is not null;
+            var connectingShown = Shown();
+            await Frames(10);
+            await Press(ButtonNamed(Main.CancelText), Key.Enter, null);
+            var cancelled = await Until(() => main.ConnectMessageText == Client.Core.ConnectWords.Cancelled ? "ok" : null, 5, "connect-cancelled") is not null;
+            await Frames(3);
+            Check("connect-cancel", connecting && cancelled && !main.CancelShown && main.RetryShown && Focused() == ButtonNamed(Main.RetryText) && Kept(silentAddress),
+                $"while connecting: {connectingShown}; after Cancel: {Shown()}");
+
+            // The timeout, made short for the check.
+            var timeout = main.ConnectTimeout;
+            main.ConnectTimeout = TimeSpan.FromSeconds(2);
+            var started = Time.GetTicksMsec();
+            await Press(ButtonNamed("Join match"), Key.Enter, null);
+            var timedOut = await Until(() => main.ConnectMessageText.StartsWith("The server did not answer within 2 seconds.", StringComparison.Ordinal) ? "ok" : null, 15, "connect-timeout") is not null;
+            var took = (Time.GetTicksMsec() - started) / 1000.0;
+            main.ConnectTimeout = timeout;
+            Check("connect-timeout", timedOut && main.RetryShown && took < 10 && Kept(silentAddress), $"after {took:0.0} s: {Shown()}");
+
+            // Back (Esc) while connecting gives up the attempt: no match opens later.
+            await Press(ButtonNamed("Join match"), Key.Enter, null);
+            var waiting = await Until(() => main.Connecting ? "ok" : null, 5, "connect-before-back") is not null;
+            await KeyPress(Key.Escape);
+            var home = await Until(() => main.ScreenShown == "menu" && !main.Connecting ? "ok" : null, 5, "connect-back") is not null;
+            await Frames(30);
+            var stayed = main.ScreenShown == "menu" && main.MatchCode is null;
+            await Press(ButtonNamed(Main.PlayText), Key.Enter, null);
+            await Until(() => main.ScreenShown == "play" ? "ok" : null, 5, "connect-play-again");
+            Check("connect-back-cancels", waiting && home && stayed && main.ConnectMessageText == Client.Core.ConnectWords.Cancelled && Kept(silentAddress),
+                $"connecting {waiting}, menu {home}, stayed {stayed}; back on Play: {Shown()}");
+        }
+        finally
+        {
+            silent.Stop();
+        }
+        server.Text = address;
+        code.Text = "";
+    }
+
     private async Task MenuNavigationCheck()
     {
         var main = (Main)_main;
