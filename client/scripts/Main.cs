@@ -2502,6 +2502,15 @@ public partial class Main : Control
         }
     }
 
+    // For the UI check (stage M3): high contrast as a player switches it in the settings.
+    public void ChooseHighContrast(bool on)
+    {
+        if (_contrastChoice is { } choice && choice.ButtonPressed != on)
+        {
+            choice.ButtonPressed = on;
+        }
+    }
+
     public void ChooseTextSize(int index)
     {
         if (_textChoice is { } choice)
@@ -2557,6 +2566,10 @@ public partial class Main : Control
             heading.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : UiLook.Gold);
         }
         _board?.SetLook(_scale, _highContrast);
+        if (_menuScreens.Count > 0)
+        {
+            ApplyMenuLook();
+        }
         if (_pTitle is not null)
         {
             ShowPanel();

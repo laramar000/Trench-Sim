@@ -2669,6 +2669,7 @@ public partial class UiCheck : Node
     private async Task HotSeatPlay()
     {
         await MenuNavigationCheck();
+        await MenuLookCheck();
         // Stage M1: from the main menu, Play, then the Play screen's hot-seat.
         await Press(ButtonNamed(Main.PlayText), Key.Enter, "hotseat-play-enter");
         await ConnectFeedbackCheck();
@@ -5921,6 +5922,142 @@ public partial class UiCheck : Node
         code.Text = "";
     }
 
+    // Stage M3: the menu's look. With the look on, the menu screens use MenuLook's theme (MenuPaletteTests holds its colours
+    // to readable contrast): Play and the Play screen's main actions rust, Exit in rust words, the roster item flat and dim,
+    // focus a frame with a thick left bar, the title in bone. In high contrast the plain look returns and the roster item
+    // fades. At each window size, text size, interface scale and contrast tried, on the main menu and the Play screen,
+    // nothing is past the window's right edge, no button's words are cut, and no two buttons or texts overlap.
+    private async Task MenuLookCheck()
+    {
+        var main = (Main)_main;
+        var window = _main.GetWindow();
+        var size = window.Size;
+        var problems = new List<string>();
+        var tried = 0;
+        static Color C((float R, float G, float B) c) => new(c.R, c.G, c.B);
+        static bool Near(Color a, Color b) => Math.Abs(a.R - b.R) < 0.01f && Math.Abs(a.G - b.G) < 0.01f && Math.Abs(a.B - b.B) < 0.01f;
+        string? Look()
+        {
+            var play = ButtonNamed(Main.PlayText);
+            var exit = ButtonNamed(Main.ExitText);
+            var roster = main.RosterButton;
+            if (main.MenuTheme is null || play is null || exit is null)
+            {
+                return "no menu theme";
+            }
+            var bad = new List<string>();
+            if (play.GetThemeStylebox("normal") is not StyleBoxFlat rust || !Near(rust.BgColor, C(Client.Core.MenuPalette.Rust)))
+            {
+                bad.Add("Play is not rust");
+            }
+            if (!Near(exit.GetThemeColor("font_color"), C(Client.Core.MenuPalette.DangerText)))
+            {
+                bad.Add("Exit's words are not rust");
+            }
+            if (roster.GetThemeStylebox("normal") is not StyleBoxFlat { BorderWidthTop: 0 } flat || !Near(flat.BgColor, C(Client.Core.MenuPalette.ButtonDisabled))
+                || !Near(roster.GetThemeColor("font_color"), C(Client.Core.MenuPalette.DisabledText)))
+            {
+                bad.Add("the roster item is not flat and dim");
+            }
+            if (play.GetThemeStylebox("focus") is not StyleBoxFlat { BorderWidthTop: >= 2, BorderWidthLeft: >= 4 })
+            {
+                bad.Add("focus is not a frame with a left bar");
+            }
+            var title = Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && l.Text == Main.GameName.ToUpperInvariant());
+            if (title is null || !Near(title.GetThemeColor("font_color"), C(Client.Core.MenuPalette.Bone)))
+            {
+                bad.Add("the title is not in bone");
+            }
+            return bad.Count == 0 ? null : string.Join(", ", bad);
+        }
+        void Layout(string where)
+        {
+            var width = _main.GetViewportRect().Size.X;
+            var shown = Controls<Control>().Where(c => c.IsVisibleInTree() && c is Button or Godot.Label or LineEdit or OptionButton && c != main.DeveloperButton).ToList();
+            foreach (var c in shown)
+            {
+                var r = c.GetGlobalRect();
+                if (r.End.X > width + 1 || r.Position.X < -1)
+                {
+                    problems.Add($"{where}: {Describe(c)} past the edge ({r.Position.X:0}-{r.End.X:0} of {width:0})");
+                }
+                if (c is Button b && b.Size.X + 1 < b.GetMinimumSize().X)
+                {
+                    problems.Add($"{where}: {Describe(c)} words cut");
+                }
+            }
+            for (var i = 0; i < shown.Count; i++)
+            {
+                for (var j = i + 1; j < shown.Count; j++)
+                {
+                    if (shown[i].IsAncestorOf(shown[j]) || shown[j].IsAncestorOf(shown[i]))
+                    {
+                        continue;
+                    }
+                    var overlap = shown[i].GetGlobalRect().Intersection(shown[j].GetGlobalRect());
+                    if (overlap.Size.X > 2 && overlap.Size.Y > 2)
+                    {
+                        problems.Add($"{where}: {Describe(shown[i])} overlaps {Describe(shown[j])}");
+                    }
+                }
+            }
+        }
+        if (Look() is { } look)
+        {
+            problems.Add(look);
+        }
+        await Shot("menu-look");
+        foreach (var contrast in new[] { false, true })
+        {
+            main.ChooseHighContrast(contrast);
+            await Frames(3);
+            if (contrast && (main.MenuTheme is not null || main.RosterButton.Modulate.A >= 0.9f))
+            {
+                problems.Add($"high contrast: menu theme {(main.MenuTheme is null ? "off" : "still on")}, roster alpha {main.RosterButton.Modulate.A}");
+            }
+            foreach (var (w, h, text, scale) in new[] { (1280, 800, 0, 0), (1000, 700, 0, 0), (1000, 700, 2, 0), (1280, 800, 0, 2), (1000, 700, 2, 2) })
+            {
+                window.Size = new Vector2I(w, h);
+                main.ChooseTextSize(text);
+                main.ChooseScale(scale);
+                for (var i = 0; i < 60 && window.Size != new Vector2I(w, h); i++)
+                {
+                    await Frames(1);
+                }
+                await Frames(6);
+                var where = $"{w}x{h} text {ClientSettings.TextScales[text] * 100:0}% scale {ClientSettings.InterfaceScales[scale] * 100:0}%{(contrast ? " high contrast" : "")}";
+                Layout($"menu {where}");
+                if (!contrast && Look() is { } stillLook)
+                {
+                    problems.Add($"{where}: {stillLook}");
+                }
+                main.ShowPlayForCheck();
+                await Frames(6);
+                Layout($"Play {where}");
+                if ((w, text, scale, contrast) == (1000, 2, 2, false))
+                {
+                    await Shot("menu-look-play-large");
+                }
+                main.ShowHome();
+                await Frames(3);
+                tried++;
+            }
+        }
+        main.ChooseHighContrast(false);
+        main.ChooseTextSize(0);
+        main.ChooseScale(0);
+        window.Size = size;
+        for (var i = 0; i < 60 && window.Size != size; i++)
+        {
+            await Frames(1);
+        }
+        main.ShowHome();
+        await Until(() => main.ScreenShown == "menu" && Focused() == ButtonNamed(Main.PlayText) ? "ok" : null, 5, "menu-look-back");
+        Check("menu-look", problems.Count == 0, problems.Count == 0
+            ? $"menu theme on: Play rust, Exit rust words, roster flat and dim, focus frame with a left bar, title in bone; high contrast plain with the roster faded; {tried} sizes on the menu and Play screens: nothing past the edge, no words cut, no overlaps"
+            : string.Join("; ", problems.Distinct().Take(12)));
+    }
+
     private async Task MenuNavigationCheck()
     {
         var main = (Main)_main;
@@ -5952,7 +6089,8 @@ public partial class UiCheck : Node
         await Press(ButtonNamed(Main.RosterText), Key.Enter, null);
         await Frames(2);
         steps.Add($"roster: note {main.RosterNoteShown}, screen {main.ScreenShown}");
-        if (!main.RosterNoteShown || main.ScreenShown != "menu" || ButtonNamed(Main.RosterText) is not { Modulate.A: < 0.9f })
+        if (!main.RosterNoteShown || main.ScreenShown != "menu" || ButtonNamed(Main.RosterText) is not { } rosterItem
+            || !(rosterItem.Modulate.A < 0.9f || (rosterItem.ThemeTypeVariation == "MenuMuted" && main.MenuTheme is not null)))
         {
             problems.Add("the roster item did not just show its note");
         }
