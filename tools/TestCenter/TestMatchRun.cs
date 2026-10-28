@@ -157,7 +157,7 @@ public static partial class TestMatchRun
         return report.Finish();
     }
 
-    private static async Task<bool> Build(Setup setup, Report report, string godot)
+    internal static async Task<bool> Build(Setup setup, Report report, string godot)
     {
         foreach (var project in new[] { "Match.Server", "Match.Cli" })
         {

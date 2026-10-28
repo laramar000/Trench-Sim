@@ -31,6 +31,7 @@ Double-click **Test Trench Sim**. A menu appears:
 | **4 Check a finished match** | Verifies the record of your latest test or hot-seat match. | Press Enter. |
 | **5 Clean up** | Stops anything a test left running. | Nothing. |
 | **6 Get the newest version** | Downloads it and opens its test center. | Nothing. |
+| **7 Play Trenches** | Builds the game and opens it on its main menu, as a player sees it (your own settings and saved seats). The test center waits until the game is closed. | Play: hot-seat, host or join from **Play**. Close the window or choose **Exit** when done. |
 
 At the end of each run you see a large **RESULT: PASS / FAIL / INCOMPLETE** with every FAIL and NOT RUN line, and the full
 report is saved as `test-results\<date>-<kind>\report.md` in the Trench Sim folder, with every program's output in its

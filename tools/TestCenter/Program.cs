@@ -8,6 +8,7 @@ using System.Diagnostics;
 //   dotnet run --project tools/TestCenter -- editor                the Godot editor's Build and Play buttons
 //   dotnet run --project tools/TestCenter -- check [<record>]      verify a finished match's signed record
 //   dotnet run --project tools/TestCenter -- cleanup               stop anything a test left running
+//   dotnet run --project tools/TestCenter -- play                  open the game on its main menu
 //
 // Options: --godot <path> (else found or asked once, then remembered), --no-questions (nobody at the keyboard),
 // --opengl (Godot's OpenGL renderer, for machines without Vulkan). Every run writes test-results/<time>-<kind>/report.md
@@ -45,6 +46,7 @@ public static class Program
                 "editor" => await EditorCheck.Run(setup),
                 "check" => await MatchCheck.CheckFinished(setup, words.ElementAtOrDefault(1)),
                 "cleanup" => Cleanup(setup),
+                "play" => await PlayGame.Run(setup, opengl),
                 _ => Usage(),
             };
         }
@@ -77,6 +79,7 @@ public static class Program
             Console.WriteLine("    4  Check a finished match       verifies the latest match's record");
             Console.WriteLine("    5  Clean up                     stops anything a test left running");
             Console.WriteLine("    6  Get the newest version       downloads it and opens its test center");
+            Console.WriteLine("    7  Play Trenches                opens the game on its main menu");
             Console.WriteLine("    Q  Quit");
             Console.Write("  Type a number and press Enter: ");
             var choice = (Console.ReadLine() ?? "Q").Trim().ToUpperInvariant();
@@ -114,10 +117,13 @@ public static class Program
                         return 0;
                     }
                     break;
+                case "7":
+                    last = await PlayGame.Run(setup, opengl);
+                    break;
                 case "Q" or "":
                     return last;
                 default:
-                    Console.WriteLine("  Please type 1, 2, 3, 4, 5, 6 or Q.");
+                    Console.WriteLine("  Please type 1, 2, 3, 4, 5, 6, 7 or Q.");
                     continue;
             }
             setup.Pause("Press Enter to go back to the menu.");
@@ -177,7 +183,7 @@ public static class Program
 
     private static int Usage()
     {
-        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests | match [ranged|melee|ranged-1v1 ... melee-3v3, ranged-towers, melee-towers, ranged-1v1-towers ... melee-3v3-towers, ranged-trench-warfare ... melee-3v3-trench-warfare] | editor | check [<record>] | cleanup]");
+        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests | match [ranged|melee|ranged-1v1 ... melee-3v3, ranged-towers, melee-towers, ranged-1v1-towers ... melee-3v3-towers, ranged-trench-warfare ... melee-3v3-trench-warfare] | editor | check [<record>] | cleanup | play]");
         Console.WriteLine("         [--godot <path>] [--no-questions] [--opengl]");
         return 3;
     }

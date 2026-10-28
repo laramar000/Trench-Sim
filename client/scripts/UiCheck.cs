@@ -1864,8 +1864,16 @@ public partial class UiCheck : Node
             // The base counts too: a point of its top, on the side of the ground sampled (in front). Visual pass Stage 1:
             // the top now ends where the coloured rim starts (UnitPalette.RimWidth in from the edge), so the point is 0.7 of
             // the way to there, clear of the figure's feet and of the rim (run 320 sampled the rim's border instead).
-            var toward = new Vector2((float)(groundAt!.Value.X - m.X), (float)(groundAt.Value.Y - m.Y)).Normalized()
-                * (float)((m.Radius - Client.Core.UnitPalette.RimWidth) * 0.7);
+            // Run 327: one point of the top could land under the figure's legs or rifle (b2 and b4 were then judged by their
+            // dark figure and red rim alone), so the top is sampled at several points on the front half of the base, and,
+            // like the body's heights, the one that stands out most counts.
+            var front = new Vector2((float)(groundAt!.Value.X - m.X), (float)(groundAt.Value.Y - m.Y)).Normalized();
+            var tops = new[] { -0.7f, 0f, 0.7f }
+                .SelectMany(turn => new[] { 0.55, 0.85 }.Select(f => front.Rotated(turn) * (float)((m.Radius - Client.Core.UnitPalette.RimWidth) * f)))
+                .Select(t => board.ScreenOf(m.X + t.X, m.Y + t.Y, m.Standing + 0.06))
+                .OfType<Vector2>()
+                .Where(Shown)
+                .ToList();
             // Visual pass Stage 1: the seat's colour is on the base's rim, so the rim is sampled too (the middle of its band,
             // on the same side), and the seats are told apart by it.
             var rimOut = new Vector2((float)(groundAt.Value.X - m.X), (float)(groundAt.Value.Y - m.Y)).Normalized()
@@ -1873,7 +1881,7 @@ public partial class UiCheck : Node
             var rimSpot = board.ScreenOf(m.X + rimOut.X, m.Y + rimOut.Y, m.Standing + 0.055);
             var spots = new[] { 0.35, 0.5, 0.6, 0.7, 0.85 }
                 .Select(h => board.ScreenOf(m.X, m.Y, m.Standing + h))
-                .Append(board.ScreenOf(m.X + toward.X, m.Y + toward.Y, m.Standing + 0.06))
+                .Concat(tops.Select(t => (Vector2?)t))
                 .Append(rimSpot)
                 .OfType<Vector2>()
                 .Append(body)
@@ -1892,7 +1900,9 @@ public partial class UiCheck : Node
             samples.Add($"{m.Id.Value} body {bc.ToHtml(false)} ground {gc.ToHtml(false)} ratio {ratio:0.00} distance {distance:0.00}");
             if (ratio < 1.6 && distance < 0.25)
             {
-                problems.Add($"{m.Id.Value} hard to see: ratio {ratio:0.00}, colour distance {distance:0.00}");
+                // Every point sampled, so a failure says what each part of the model looked like.
+                problems.Add($"{m.Id.Value} hard to see: ratio {ratio:0.00}, colour distance {distance:0.00} (points: "
+                    + string.Join(" ", spots.Take(spots.Count - 1).Select(p => Sample(p).ToHtml(false))) + $"; {tops.Count} top points)");
             }
             samples[^1] += $" rim {rc.ToHtml(false)}";
             (bodies.TryGetValue(m.Seat, out var list) ? list : bodies[m.Seat] = []).Add(rc);
