@@ -31,6 +31,17 @@ public class CreditsTests
         }
     }
 
+    // Jason 2026-10-29: the game says it is an unofficial, non-profit fan project with no tie to Trench Crusade.
+    [Fact]
+    public void TheFanProjectNoticeIsShown()
+    {
+        var notice = Assert.Single(Credits.Entries, e => e.Heading == Credits.NoticeHeading).Text;
+        foreach (var words in new[] { "unofficial", "non-profit fan project", "not affiliated with", "endorsed", "Trench Crusade", "not for sale" })
+        {
+            Assert.Contains(words, notice, StringComparison.Ordinal);
+        }
+    }
+
     [Fact]
     public void TheEngineAndRuntimeAreCredited()
     {

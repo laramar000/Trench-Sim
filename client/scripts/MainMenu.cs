@@ -132,10 +132,17 @@ public partial class Main
         return Row([name, field, .. after]);
     }
 
-    private (VBoxContainer Screen, VBoxContainer Body) MenuScreen(string name, int width, int top)
+    // centred (Jason 2026-10-29, "center the menu"): the panel sits in the middle of the window, up and down as well as
+    // across, with growing space above and below it (none when the window is too short, so it never scrolls further).
+    private (VBoxContainer Screen, VBoxContainer Body) MenuScreen(string name, int width, int top, bool centred = false)
     {
         var screen = new VBoxContainer { Name = name, SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-        if (top > 0)
+        if (centred)
+        {
+            screen.SizeFlagsVertical = SizeFlags.ExpandFill;
+            screen.AddChild(new Control { Name = "SpaceAbove", SizeFlagsVertical = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
+        }
+        else if (top > 0)
         {
             screen.AddChild(new Control { CustomMinimumSize = new Vector2(0, top), MouseFilter = MouseFilterEnum.Ignore });
         }
@@ -145,6 +152,10 @@ public partial class Main
         body.AddThemeConstantOverride("separation", 10);
         panel.AddChild(body);
         screen.AddChild(panel);
+        if (centred)
+        {
+            screen.AddChild(new Control { Name = "SpaceBelow", SizeFlagsVertical = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
+        }
         _menuScreens.Add(screen);
         _root.AddChild(screen);
         return (screen, body);
@@ -154,7 +165,7 @@ public partial class Main
     {
         GetViewport().SizeChanged += FitMenuPanels;
         // ---- main menu ----
-        var (home, menu) = MenuScreen("MainMenu", 380, 32);
+        var (home, menu) = MenuScreen("MainMenu", 380, 0, centred: true);
         _home = home;
         var title = Text(GameName.ToUpperInvariant());
         // Its own name, not "SectionTitle": it is the game's name in bone and larger, not a gold section title.

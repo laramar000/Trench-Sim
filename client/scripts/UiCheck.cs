@@ -1927,9 +1927,21 @@ public partial class UiCheck : Node
         // when each seat has one.
         var compare = fresh.Count == 2 ? fresh : bodies;
         var seatsApart = compare.Count == 2 ? Distance(Mean(compare[Rules.Core.State.Seat.One]), Mean(compare[Rules.Core.State.Seat.Two])) : 0;
-        if (bodies.Count == 2 && seatsApart < 0.3)
+        // The muted rims differ mostly in hue (blue against red), which straight RGB distance undersells: Windows at 17a9099
+        // measured 0.30 and Linux runs 0.26 to 0.87 for the same colours. So the seats also count as apart when their hues
+        // are at least 60 degrees apart and both rims still carry some colour (saturation 0.12 or more).
+        var (hueApart, leastSaturation) = (0.0, 0.0);
+        if (compare.Count == 2)
         {
-            problems.Add($"the seats' bodies are only {seatsApart:0.00} apart in colour");
+            var (one, two) = (Mean(compare[Rules.Core.State.Seat.One]), Mean(compare[Rules.Core.State.Seat.Two]));
+            var turn = Math.Abs(one.H - two.H);
+            hueApart = Math.Min(turn, 1 - turn) * 360;
+            leastSaturation = Math.Min(one.S, two.S);
+        }
+        var seatsTold = seatsApart >= 0.3 || (hueApart >= 60 && leastSaturation >= 0.12);
+        if (bodies.Count == 2 && !seatsTold)
+        {
+            problems.Add($"the seats' bodies are only {seatsApart:0.00} apart in colour and {hueApart:0} degrees apart in hue (least saturation {leastSaturation:0.00})");
         }
         var cheap = !board.FogOn && !board.ShadowsOn;
         if (problems.Count > 0)
@@ -1939,7 +1951,7 @@ public partial class UiCheck : Node
         }
         board.Select(selected);
         Check("battlefield-readable", samples.Count >= 2 && bodies.Count == 2 && cheap && problems.Count == 0,
-            $"{samples.Count} models sampled; seats {seatsApart:0.00} apart; fog: {board.FogOn}; shadows: {board.ShadowsOn}; {(problems.Count == 0 ? "" : "problems: " + string.Join("; ", problems) + "; ")}{string.Join(" | ", samples)}");
+            $"{samples.Count} models sampled; seats {seatsApart:0.00} apart, hue {hueApart:0} degrees, least saturation {leastSaturation:0.00}; fog: {board.FogOn}; shadows: {board.ShadowsOn}; {(problems.Count == 0 ? "" : "problems: " + string.Join("; ", problems) + "; ")}{string.Join(" | ", samples)}");
     }
 
     // What is wrong with the closed card now (empty when it is only its tab, one button high, inside the battlefield).
@@ -6113,6 +6125,21 @@ public partial class UiCheck : Node
             || corner.Size.X > 40 || corner.Size.Y > 48 || !window.Encloses(corner.GetGlobalRect()))
         {
             problems.Add($"developer button at {corner.GetGlobalRect()} (window {window.Size}), shown {corner.IsVisibleInTree()}");
+        }
+        // Jason 2026-10-29, "center the menu": the main menu's panel is in the middle of the window, across and up and down
+        // (within 30 px; the empty status line under the screens takes a little room).
+        if (play?.FindParent("MenuPanel") is Control homePanel)
+        {
+            var off = homePanel.GetGlobalRect().GetCenter() - window.GetCenter();
+            steps.Add($"menu panel centred: off by ({off.X:0}, {off.Y:0}) px");
+            if (Math.Abs(off.X) > 30 || (homePanel.Size.Y < window.Size.Y - 80 && Math.Abs(off.Y) > 30))
+            {
+                problems.Add($"the menu panel {homePanel.GetGlobalRect()} is not centred in the window {window.Size} (off by {off})");
+            }
+        }
+        else
+        {
+            problems.Add("the main menu's panel was not found");
         }
         await TabTraversal("menu");
 
