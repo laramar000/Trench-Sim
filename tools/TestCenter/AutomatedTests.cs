@@ -104,6 +104,10 @@ public static partial class AutomatedTests
         }
     }
 
+    // How long the UI checks may run before they are stopped. About 15 minutes on a usual machine; 75 leaves room for a
+    // slow one (runs 341 and 342 needed about 47).
+    private const int UiCheckMinutes = 75;
+
     // The existing Windows script, as it is: it runs the UI check runner, opens the project in the Godot editor, lists
     // the checks only a person can do, stops everything it started and writes its own verdict.
     private static async Task WindowsUiChecks(Setup setup, Report report, string godot, string name)
@@ -112,7 +116,7 @@ public static partial class AutomatedTests
         var script = Path.Combine(setup.Repository, "tools", "UiCheck", "Run-WindowsUiCheck.ps1");
         var (exit, lines) = await setup.Processes.Run("windows-ui-check", "powershell",
             ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-GodotPath", godot, "-ResultsRoot", Path.Combine(report.Folder, "ui-check")],
-            report.Logs, 45 * 60, echo: line => Console.WriteLine("      " + line));
+            report.Logs, UiCheckMinutes * 60, echo: line => Console.WriteLine("      " + line));
         var verdict = lines.LastOrDefault(l => l.Contains("Verdict: ", StringComparison.Ordinal)) ?? "";
         var summary = Regex.Match(verdict, @"Summary: (.+)$");
         var said = verdict.IndexOf("Verdict: ", StringComparison.Ordinal) is var at and >= 0 ? verdict[at..] : "no verdict line";
@@ -122,7 +126,7 @@ public static partial class AutomatedTests
         }
         else
         {
-            report.Check(name, exit == 0, exit is null ? "did not finish in 45 minutes" : $"exit {exit}: {said}");
+            report.Check(name, exit == 0, exit is null ? $"did not finish in {UiCheckMinutes} minutes" : $"exit {exit}: {said}");
         }
         if (summary.Success && File.Exists(summary.Groups[1].Value.Trim()))
         {
@@ -158,7 +162,7 @@ public static partial class AutomatedTests
         var (file, args) = xvfb
             ? ("/usr/bin/xvfb-run", (IEnumerable<string>)["-a", "-s", "-screen 0 1280x800x24", "dotnet", .. runner])
             : ("dotnet", runner);
-        var (exit, _) = await setup.Processes.Run("linux-ui-check", file, args, report.Logs, 45 * 60,
+        var (exit, _) = await setup.Processes.Run("linux-ui-check", file, args, report.Logs, UiCheckMinutes * 60,
             echo: line => { if (Regex.IsMatch(line, "^(PASS|FAIL) ")) { Console.WriteLine("      " + line); } });
         var rows = UiCheckRows(Path.Combine(output, "summary.md"));
         var missing = MissingChecks(Path.Combine(setup.Repository, "tools", "UiCheck", "expected-checks.txt"), rows.Select(r => r.Id).ToList(), out var noChance);
@@ -166,7 +170,7 @@ public static partial class AutomatedTests
         var passed = rows.Count(r => r.Result == "PASS");
         if (exit is null)
         {
-            report.Fail(name, $"did not finish in 45 minutes; {passed} passed, {failed.Count} failed before it was stopped");
+            report.Fail(name, $"did not finish in {UiCheckMinutes} minutes; {passed} passed, {failed.Count} failed before it was stopped");
         }
         else if (missing.Count > 0 && failed.Count == 0)
         {

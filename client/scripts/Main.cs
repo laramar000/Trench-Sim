@@ -1151,7 +1151,9 @@ public partial class Main : Control
         _bannerButtons.AddChild(Button("Leave", Leave));
 
         _code2.Text = s.Code is null ? "" : $"Match code {s.Code}. You are {(s.Seat is { } seat ? $"{Words.Seat(seat)} [{Words.SeatLetter(seat)}]" : "not seated")}." +
-            (_hotSeat is null && (view.Phase == Words.Phase(Rules.Core.State.Phase.PreGame) || view.Models.Count == 0) ? " Give the code to your opponent." : "");
+            // Only the seat that created the match has a code to give (the one who joined already used it).
+            (_hotSeat is null && s.Seat == Rules.Core.State.Seat.One && (view.Phase == Words.Phase(Rules.Core.State.Phase.PreGame) || view.Models.Count == 0)
+                ? " Give the code to your opponent." : "");
         _resultBox.Visible = s.End is not null;
         if (s.End is null)
         {

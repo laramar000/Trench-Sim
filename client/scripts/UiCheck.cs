@@ -42,9 +42,17 @@ public partial class UiCheck : Node
             Mark("started", $"{DisplayServer.GetName()} {Engine.GetVersionInfo()["string"]}");
             // Stage M1: the game opens on the main menu. The hot-seat role plays from it (Play); the roles that drive the
             // connect screen open it first through the developer corner button, then do as before.
-            if (_role is not ("hotseat" or "tm-a" or "tm-b"))
+            if (_role is not ("hotseat" or "tm-a" or "tm-b" or "pvp-a" or "pvp-b" or "pvp-b-rejoin"))
             {
                 await OpenDeveloperScreen();
+            }
+            else if (_role is "pvp-a" or "pvp-b" or "pvp-b-rejoin")
+            {
+                // Stage M1 retest (2026-10-28): the two-window match is hosted, joined and rejoined from the Play screen,
+                // as a player does it (the normal melee roster is on it).
+                await Frames(3);
+                await Press(ButtonNamed(Main.PlayText), Key.Enter, "pvp-play-enter");
+                await Until(() => ((Main)_main).ScreenShown == "play" ? "ok" : null, 5, "pvp-play");
             }
             switch (_role)
             {
@@ -1831,6 +1839,9 @@ public partial class UiCheck : Node
         var samples = new List<string>();
         var bodies = new Dictionary<Rules.Core.State.Seat, List<Color>>();
         var fresh = new Dictionary<Rules.Core.State.Seat, List<Color>>();
+        // The ground compared is plain mud: not a light duckboard or a crater decal (run 340 sampled a duckboard beside b1,
+        // a pale patch the base matched). Models beside decals are still sampled where plain mud is near.
+        var decals = scene is null ? [] : Client.Core.GroundDecor.For(scene);
         foreach (var m in scene?.Models.Where(m => m.Status == Rules.Core.State.ModelStatus.Standing) ?? [])
         {
             if (board.ScreenOf(m.X, m.Y, m.Standing + 0.6) is not { } body || body.X < 0 || body.Y < 0 || body.X > board.Size.X || body.Y > board.Size.Y)
@@ -1846,7 +1857,8 @@ public partial class UiCheck : Node
                 var free = gx > 0.5 && gy > 0.5 && gx < scene!.Width - 0.5 && gy < scene.Depth - 0.5 && m.Standing == 0
                     // No other body near enough to stand in front of the spot on screen.
                 && !scene.Models.Any(o => o.Id != m.Id && Math.Sqrt((o.X - gx) * (o.X - gx) + (o.Y - gy) * (o.Y - gy)) < o.Radius + 1.6)
-                    && !scene.Terrain.Any(t => gx > t.Area.X0 - 0.3 && gx < t.Area.X1 + 0.3 && gy > t.Area.Y0 - 0.3 && gy < t.Area.Y1 + 0.3);
+                    && !scene.Terrain.Any(t => gx > t.Area.X0 - 0.3 && gx < t.Area.X1 + 0.3 && gy > t.Area.Y0 - 0.3 && gy < t.Area.Y1 + 0.3)
+                    && !decals.Any(d => Math.Sqrt((d.X - gx) * (d.X - gx) + (d.Y - gy) * (d.Y - gy)) < d.Reach + 0.3);
                 // Only a spot below the model on screen (in front of it), so the body never hides the ground sampled.
                 if (free && board.ScreenOf(gx, gy) is { } spot && spot.Y > body.Y)
                 {
@@ -1921,6 +1933,11 @@ public partial class UiCheck : Node
             problems.Add($"the seats' bodies are only {seatsApart:0.00} apart in colour");
         }
         var cheap = !board.FogOn && !board.ShadowsOn;
+        if (problems.Count > 0)
+        {
+            // The picture judged, kept with the run's screenshots, so a failure can be looked at.
+            image.SavePng(System.IO.Path.Combine(_out, "readable-failed.png"));
+        }
         board.Select(selected);
         Check("battlefield-readable", samples.Count >= 2 && bodies.Count == 2 && cheap && problems.Count == 0,
             $"{samples.Count} models sampled; seats {seatsApart:0.00} apart; fog: {board.FogOn}; shadows: {board.ShadowsOn}; {(problems.Count == 0 ? "" : "problems: " + string.Join("; ", problems) + "; ")}{string.Join(" | ", samples)}");
@@ -3295,7 +3312,7 @@ public partial class UiCheck : Node
     {
         await TypeInto(Field("ws://"), _server, "pvp-type-server");
         await ChooseOption(Option("ranged"), _scenario, "pvp-choose-scenario");
-        await Press(ButtonNamed("Create match"), Key.Enter, "pvp-create-enter");
+        await Press(ButtonNamed(_role == "pvp-a" ? Main.HostText : "Create match"), Key.Enter, "pvp-create-enter");
         var code = await Until(() => Label("Match code ") is { } l && l.Text.Contains("Seat One [A]") ? l.Text : null, 20, "create");
         Check("pvp-create", code is not null, code ?? "match screen with the code did not appear");
         if (code is null)
@@ -3314,7 +3331,8 @@ public partial class UiCheck : Node
         await TypeInto(Field("", placeholder: "match code"), _code ?? "", "pvp-type-code");
         await Press(ButtonNamed("Join match"), Key.Enter, "pvp-join-enter");
         var joined = await Until(() => Label("Match code ") is { } l && l.Text.Contains("Seat Two [B]") ? l.Text : null, 20, "join");
-        Check("pvp-join", joined is not null && joined.Contains(_code ?? "?"), joined ?? "no match screen");
+        // The joining seat is not told to give the code away (it already used it).
+        Check("pvp-join", joined is not null && joined.Contains(_code ?? "?") && !joined.Contains("Give the code", StringComparison.Ordinal), joined ?? "no match screen");
         await CloseRulesDialog();
         // Killed by the runner during play: this role never ends on its own.
         await PvpPlay();
@@ -3415,7 +3433,9 @@ public partial class UiCheck : Node
 
     private async Task PvpPlay()
     {
-        var deadline = Time.GetTicksMsec() + 1_500_000;
+        // 40 minutes: a full match takes about 16 on a usual machine, and runs 341 and 342 (a slower machine, every step about
+        // 1.6 times as long) ran out of the old 25 minutes on turn 4.
+        var deadline = Time.GetTicksMsec() + 2_400_000;
         var tried = new HashSet<int>();
         var turnTwo = false;
         var pauseSeen = false;
@@ -5716,10 +5736,14 @@ public partial class UiCheck : Node
     // Moves the focus with Tab (forward) until it is on the control; fails the check when it never gets there.
     private async Task<bool> FocusByTab(Control? target, int limit)
     {
-        if (target is null)
+        if (target is null || !GodotObject.IsInstanceValid(target))
         {
             return false;
         }
+        // Read before anything awaits: the screen may free the button meanwhile (run 338: opening the Menu first let a
+        // redraw dispose the hint button, and reading its text then threw).
+        var text = target is Button b ? b.Text : null;
+        var parent = target.GetParent();
         // Stage N3: a choice in the closed Menu: the Menu is opened first with the keyboard (Tab to its button, Enter), which
         // puts the focus on the Menu's first choice.
         if (((Main)_main).InClosedMenu(target))
@@ -5730,8 +5754,6 @@ public partial class UiCheck : Node
         // A button the screen rebuilt while Tab was pressed (the HUD's Leave is made again at each redraw) counts when the
         // focus is on its replacement: the same text in the same place in the tree (Windows runs at 099dbc8 and 50ac324:
         // the reopened window's Leave was replaced mid-way, and 60 Tabs went past the new one).
-        var text = target is Button b ? b.Text : null;
-        var parent = target.GetParent();
         bool Reached() => Focused() == target
             || (text is not null && (!GodotObject.IsInstanceValid(target) || target.IsQueuedForDeletion() || !target.IsInsideTree())
                 && Focused() is Button now && now.Text == text && GodotObject.IsInstanceValid(parent) && now.GetParent() == parent);

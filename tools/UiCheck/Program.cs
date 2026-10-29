@@ -245,7 +245,8 @@ public static class Program
             await Mark(pvp, "pvp-a", "saw-pause", 60);
             var rejoin = Start("godot-pvp-b-rejoin", godot, GodotArgs("pvp-b-rejoin", pvp, url, code), homeB);
             processes.Add(rejoin);
-            Record("pvp-a-exit", await a.Exit(1600) == 0 ? "PASS" : "FAIL", $"first Godot client exit code {a.ExitCode} (0 = all its checks passed)");
+            // Room for the 40 minutes the first window may play (UiCheck.PvpPlay) after the rejoin starts.
+            Record("pvp-a-exit", await a.Exit(2700) == 0 ? "PASS" : "FAIL", $"first Godot client exit code {a.ExitCode} (0 = all its checks passed)");
             Record("pvp-b-rejoin-exit", await rejoin.Exit(120) == 0 ? "PASS" : "FAIL", $"rejoined Godot client exit code {rejoin.ExitCode}");
 
             // Both windows show the same end of the same match.
