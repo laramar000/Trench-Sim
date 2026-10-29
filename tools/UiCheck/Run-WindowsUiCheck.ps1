@@ -32,8 +32,9 @@
 param(
     # The Godot 4.7.2 .NET console executable. When left out: $env:GODOT, then a search (see Find-Godot).
     [string]$GodotPath,
-    # Time limit for the whole UI check runner (builds included).
-    [double]$TimeoutMinutes = 30,
+    # Time limit for the whole UI check runner (builds included). Room for the two-window match's 40 minutes on a slow PC,
+    # and still under the test center's 75-minute limit for this whole script (editor check included).
+    [double]$TimeoutMinutes = 65,
     # Time limit for opening the project in the Godot editor.
     [int]$EditorTimeoutSeconds = 300,
     # Where to put this run's folder. Default: <repository>\ui-check-results.

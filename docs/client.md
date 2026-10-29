@@ -287,7 +287,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\UiCheck\Run-WindowsUiC
 
 The script never prompts. It:
 - finds Godot from `-GodotPath`, then `$env:GODOT`, then the exact file name `Godot_v4.7.2-stable_mono_win64_console.exe` (up to 4 folders deep) in Downloads, Desktop, Documents, `%LOCALAPPDATA%`, Program Files, `C:\Godot` and `C:\Tools`. A candidate counts only if `--version` reports `4.7.2.stable.mono.`; if different builds are found it stops rather than choosing;
-- runs the UI check above (limit `-TimeoutMinutes`, default 30), then opens the project in the real Godot editor with `--editor --quit` (limit `-EditorTimeoutSeconds`, default 300) and fails on any engine error. The editor reformats `client/project.godot` when it opens it; the script restores the original file;
+- runs the UI check above (limit `-TimeoutMinutes`, default 65), then opens the project in the real Godot editor with `--editor --quit` (limit `-EditorTimeoutSeconds`, default 300) and fails on any engine error. The editor reformats `client/project.godot` when it opens it; the script restores the original file;
 - keeps the PC awake while it runs, and stops only the processes it started (found by parent process and start time, or by the run folder in their command line), on a time limit, an error, or at the end. Godot windows it did not start are left alone;
 - writes `ui-check-results\windows-<time>\`: `summary.md` (the verdict, PASS / FAIL / NOT TESTED, start and end time, commands and exit codes), `console.log` (the runner's complete output), `run.log`, the editor's output and `detail\` (the runner's own `summary.md`, client logs and screenshots, unchanged).
 

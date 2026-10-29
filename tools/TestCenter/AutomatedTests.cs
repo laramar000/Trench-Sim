@@ -104,8 +104,8 @@ public static partial class AutomatedTests
         }
     }
 
-    // How long the UI checks may run before they are stopped. About 15 minutes on a usual machine; 75 leaves room for a
-    // slow one (runs 341 and 342 needed about 47).
+    // How long the UI checks may run before they are stopped. About 30 minutes on a usual Linux machine; 75 leaves room
+    // for a slow one (runs 343 and 344 on a slow one took about 53). On Windows the script's own runner limit (65) applies first.
     private const int UiCheckMinutes = 75;
 
     // The existing Windows script, as it is: it runs the UI check runner, opens the project in the Godot editor, lists
@@ -152,7 +152,7 @@ public static partial class AutomatedTests
             report.Missed(name, "not run: no display (DISPLAY is not set) and xvfb-run is not installed");
             return;
         }
-        Step("Running the Linux UI checks: Godot windows play by themselves (about 15 minutes)");
+        Step("Running the Linux UI checks: Godot windows play by themselves (about 30 minutes)");
         var output = Path.Combine(report.Folder, "ui-check");
         var runner = new List<string> { "run", "--project", Path.Combine(setup.Repository, "tools", "UiCheck"), "--", "--godot", godot, "--out", output };
         if (xvfb)

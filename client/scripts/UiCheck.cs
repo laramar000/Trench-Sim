@@ -1786,13 +1786,16 @@ public partial class UiCheck : Node
         board.Select(null);
         board.Fit();
         // The id labels float over the bodies at this zoom; hidden while the picture is taken, so a body is sampled and
-        // not its label.
+        // not its label. The icons drawn over the scene like the labels (a model's Blood Marker row of drops under its
+        // label, target icons) are hidden too: run 340 sampled b1's pale empty drops as its ground.
         // (A redraw may make new labels meanwhile, so this repeats until a frame passes with none shown.)
         await Frames(8);
-        var labels = new List<Label3D>();
+        var labels = new List<Node3D>();
         for (var tries = 0; tries < 20; tries++)
         {
-            var shown = board.FindChildren("*", "Label3D", true, false).OfType<Label3D>().Where(l => IsInstanceValid(l) && l.Visible).ToList();
+            var shown = board.FindChildren("*", "Label3D", true, false).OfType<Node3D>()
+                .Concat(board.FindChildren("*", "Sprite3D", true, false).OfType<Sprite3D>().Where(i => i.NoDepthTest))
+                .Where(l => IsInstanceValid(l) && l.Visible).ToList();
             if (shown.Count == 0 && tries > 0)
             {
                 break;
@@ -1839,9 +1842,6 @@ public partial class UiCheck : Node
         var samples = new List<string>();
         var bodies = new Dictionary<Rules.Core.State.Seat, List<Color>>();
         var fresh = new Dictionary<Rules.Core.State.Seat, List<Color>>();
-        // The ground compared is plain mud: not a light duckboard or a crater decal (run 340 sampled a duckboard beside b1,
-        // a pale patch the base matched). Models beside decals are still sampled where plain mud is near.
-        var decals = scene is null ? [] : Client.Core.GroundDecor.For(scene);
         foreach (var m in scene?.Models.Where(m => m.Status == Rules.Core.State.ModelStatus.Standing) ?? [])
         {
             if (board.ScreenOf(m.X, m.Y, m.Standing + 0.6) is not { } body || body.X < 0 || body.Y < 0 || body.X > board.Size.X || body.Y > board.Size.Y)
@@ -1857,8 +1857,7 @@ public partial class UiCheck : Node
                 var free = gx > 0.5 && gy > 0.5 && gx < scene!.Width - 0.5 && gy < scene.Depth - 0.5 && m.Standing == 0
                     // No other body near enough to stand in front of the spot on screen.
                 && !scene.Models.Any(o => o.Id != m.Id && Math.Sqrt((o.X - gx) * (o.X - gx) + (o.Y - gy) * (o.Y - gy)) < o.Radius + 1.6)
-                    && !scene.Terrain.Any(t => gx > t.Area.X0 - 0.3 && gx < t.Area.X1 + 0.3 && gy > t.Area.Y0 - 0.3 && gy < t.Area.Y1 + 0.3)
-                    && !decals.Any(d => Math.Sqrt((d.X - gx) * (d.X - gx) + (d.Y - gy) * (d.Y - gy)) < d.Reach + 0.3);
+                    && !scene.Terrain.Any(t => gx > t.Area.X0 - 0.3 && gx < t.Area.X1 + 0.3 && gy > t.Area.Y0 - 0.3 && gy < t.Area.Y1 + 0.3);
                 // Only a spot below the model on screen (in front of it), so the body never hides the ground sampled.
                 if (free && board.ScreenOf(gx, gy) is { } spot && spot.Y > body.Y)
                 {
