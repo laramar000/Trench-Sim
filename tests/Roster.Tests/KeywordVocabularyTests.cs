@@ -18,6 +18,16 @@ public class KeywordVocabularyTests
     }
 
     [Fact]
+    public void FactionKeywordsUseOurFactionNames()
+    {
+        var vocabulary = KeywordVocabulary.Load(KeywordVocabulary.DefaultPath()).Value!;
+        foreach (var ours in new[] { "PRINCIPALITY", "PILGRIM", "SULTANATE", "HERETIC", "CULT", "COURT" })
+            Assert.Equal(KeywordKind.Tag, vocabulary.Find(ours)?.Kind);
+        foreach (var theirs in new[] { "NEW ANTIOCH", "BLACK GRAIL", "THE COURT" })
+            Assert.Null(vocabulary.Find(theirs));
+    }
+
+    [Fact]
     public void ADuplicateOrMalformedKeywordIsRefusedWithReasons()
     {
         var loaded = KeywordVocabulary.Parse("""

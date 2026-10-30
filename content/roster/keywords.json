@@ -9,7 +9,7 @@
     { "id": "ARTIFICIAL", "kind": "tag", "value": "none", "page": 52 },
     { "id": "ASSAULT", "kind": "effect", "value": "none", "page": 52 },
     { "id": "AUTOMATIC", "kind": "effect", "value": "number", "page": 53 },
-    { "id": "BLACK GRAIL", "kind": "tag", "value": "none", "page": 53 },
+    { "id": "CULT", "kind": "tag", "value": "none", "page": 53 },
     { "id": "BLAST", "kind": "effect", "value": "inches", "page": 53 },
     { "id": "BLESSED", "kind": "effect", "value": "number", "page": 53 },
     { "id": "BLESSING MARKER", "kind": "tag", "value": "none", "page": 53 },
@@ -44,7 +44,7 @@
     { "id": "INFILTRATOR", "kind": "effect", "value": "none", "page": 56 },
     { "id": "MINED", "kind": "effect", "value": "none", "page": 56 },
     { "id": "LEADER", "kind": "effect", "value": "none", "page": 56 },
-    { "id": "NEW ANTIOCH", "kind": "tag", "value": "none", "page": 56 },
+    { "id": "PRINCIPALITY", "kind": "tag", "value": "none", "page": 56 },
     { "id": "NEGATE", "kind": "effect", "value": "text", "page": 56 },
     { "id": "PILGRIM", "kind": "tag", "value": "none", "page": 56 },
     { "id": "PISTOL", "kind": "effect", "value": "none", "page": 56 },
@@ -57,7 +57,7 @@
     { "id": "SKIRMISHER", "kind": "effect", "value": "none", "page": 57 },
     { "id": "STRONG", "kind": "effect", "value": "none", "page": 57 },
     { "id": "SULTANATE", "kind": "tag", "value": "none", "page": 57 },
-    { "id": "THE COURT", "kind": "tag", "value": "none", "page": 57 },
+    { "id": "COURT", "kind": "tag", "value": "none", "page": 57 },
     { "id": "TOUGH", "kind": "effect", "value": "none", "page": 57 }
   ]
 }

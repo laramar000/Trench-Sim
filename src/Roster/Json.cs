@@ -119,4 +119,42 @@ internal static class Json
     }
 
     public static string CamelCase(string s) => s.Length == 0 ? s : char.ToLowerInvariant(s[0]) + s[1..];
+
+    public static List<string> Strings(JsonElement e, string name, string at, List<string> problems)
+    {
+        var list = new List<string>();
+        if (!e.TryGetProperty(name, out var v) || v.ValueKind == JsonValueKind.Null)
+            return list;
+        if (v.ValueKind != JsonValueKind.Array)
+        {
+            problems.Add($"{at}: \"{name}\" must be a list of text");
+            return list;
+        }
+        foreach (var item in v.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(item.GetString()))
+                problems.Add($"{at}: every item of \"{name}\" must be non-empty text");
+            else
+                list.Add(item.GetString()!);
+        }
+        return list;
+    }
+
+    public static IEnumerable<JsonElement> Objects(JsonElement e, string name, string at, List<string> problems)
+    {
+        if (!e.TryGetProperty(name, out var v) || v.ValueKind == JsonValueKind.Null)
+            yield break;
+        if (v.ValueKind != JsonValueKind.Array)
+        {
+            problems.Add($"{at}: \"{name}\" must be a list");
+            yield break;
+        }
+        foreach (var item in v.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+                problems.Add($"{at}: every item of \"{name}\" must be a JSON object");
+            else
+                yield return item;
+        }
+    }
 }

@@ -150,7 +150,7 @@ public sealed class Catalogue
             injuryModifier, rule, restrictions, source, status.Value, note, naming.Value, campaignOnly);
     }
 
-    private static Cost? ReadCost(JsonElement e, string at, List<string> problems)
+    internal static Cost? ReadCost(JsonElement e, string at, List<string> problems)
     {
         if (!e.TryGetProperty("cost", out var c) || c.ValueKind == JsonValueKind.Null)
             return null;
@@ -166,7 +166,7 @@ public sealed class Catalogue
         return amount is null || currency is null ? null : new Cost(amount.Value, currency.Value);
     }
 
-    private static List<KeywordUse> ReadKeywords(JsonElement e, string at, KeywordVocabulary vocabulary, List<string> problems)
+    internal static List<KeywordUse> ReadKeywords(JsonElement e, string at, KeywordVocabulary vocabulary, List<string> problems)
     {
         var uses = new List<KeywordUse>();
         if (!e.TryGetProperty("keywords", out var list) || list.ValueKind == JsonValueKind.Null)
@@ -248,7 +248,7 @@ public sealed class Catalogue
         return list;
     }
 
-    private static SourceRef? ReadSource(JsonElement e, string at, List<string> problems)
+    internal static SourceRef? ReadSource(JsonElement e, string at, List<string> problems)
     {
         if (!e.TryGetProperty("source", out var s) || s.ValueKind != JsonValueKind.Object)
         {
