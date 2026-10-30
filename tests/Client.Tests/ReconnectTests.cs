@@ -175,7 +175,9 @@ public sealed partial class TransportTests
     public async Task AHostThatNeverAnswersTheRejoinTimesOutEachAttempt()
     {
         var fake = await Fake(_ => FakeReply.Silent);
-        var policy = Quick with { GiveUpAfter = TimeSpan.FromSeconds(1), AttemptTimeout = TimeSpan.FromMilliseconds(200) };
+        // 3 s leaves room for a second 200 ms attempt even when connecting is slow (run 348, a busy machine: with 1 s the
+        // first attempt's connect took most of the run and there was only 1 attempt).
+        var policy = Quick with { GiveUpAfter = TimeSpan.FromSeconds(3), AttemptTimeout = TimeSpan.FromMilliseconds(200) };
         var clock = Stopwatch.StartNew();
         var result = await Reconnector.RunAsync("CODE1", AnyToken, new MatchMirror(), fake.Connect, policy: policy, cancellationToken: Token);
         clock.Stop();

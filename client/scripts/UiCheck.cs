@@ -3325,7 +3325,8 @@ public partial class UiCheck : Node
         await ChooseOption(Option("ranged"), _scenario, "pvp-choose-scenario");
         await Press(ButtonNamed(_role == "pvp-a" ? Main.HostText : "Create match"), Key.Enter, "pvp-create-enter");
         var code = await Until(() => Label("Match code ") is { } l && l.Text.Contains("Seat One [A]") ? l.Text : null, 20, "create");
-        Check("pvp-create", code is not null, code ?? "match screen with the code did not appear");
+        // The host (Seat One) is the one told to give the code away (the joiner is not: pvp-join).
+        Check("pvp-create", code is not null && code.Contains("Give the code to your opponent.", StringComparison.Ordinal), code ?? "match screen with the code did not appear");
         if (code is null)
         {
             return;
