@@ -155,6 +155,7 @@ public partial class BoardView : SubViewportContainer
         _viewport.AddChild(_sun);
         // Visual pass Stage 1: a light from the camera's side that falls on the units only (render layer 2).
         _camera.AddChild(_unitLight);
+        _viewport.AddChild(_terrain);
         _viewport.AddChild(_content);
         _viewport.AddChild(_effects);
         _viewport.AddChild(_overlay);
@@ -1681,6 +1682,7 @@ public partial class BoardView : SubViewportContainer
 
     // The preview, drawn on top of everything (never hidden by a wall), in words as well as lines: legal or refused is
     // written on it, not shown by colour alone.
+
     private void DrawPreview()
     {
         _drawnVersion = Interaction.Version;
@@ -2394,7 +2396,7 @@ public partial class BoardView : SubViewportContainer
             Visible = false,
             MaterialOverride = new StandardMaterial3D { AlbedoColor = _highContrast ? Colors.White : colour.Darkened(0.45f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
         };
-        _content.AddChild(outline);
+        Into.AddChild(outline);
         return outline;
     }
 
@@ -2860,162 +2862,176 @@ public partial class BoardView : SubViewportContainer
 
     private Color ZoneColour => _highContrast ? new Color(0.36f, 0.36f, 0.36f) : new Color(0.31f, 0.30f, 0.27f);
 
-    private void Rebuild()
+    // Performance: the terrain (ground, trench pits, decals, zone tints, terrain pieces, outlines, towers) is drawn once
+    // into its own layer and kept while nothing it is drawn from changes (TerrainKey); every update redraws only what
+    // the match state moves: models, links, mines, zone and objective labels.
+    private readonly Node3D _terrain = new() { Name = "Terrain" };
+    private bool _drawingTerrain;
+    private string? _terrainKey;
+    private readonly List<Label3D> _terrainLabels = [];
+
+    private Node3D Into => _drawingTerrain ? _terrain : _content;
+
+    // What a model is drawn from: its shape (position, state, blood markers), whether it is selected, hovered or can be
+    // chosen, and the look (text size, contrast, camera, art).
+    private readonly record struct ModelKey(ModelShape Shape, bool Selected, bool Hovered, bool Choosable, string Look);
+
+    private sealed record DrawnModel(ModelKey Key, List<Node> Nodes, bool FromArt);
+
+    private readonly Dictionary<ModelId, DrawnModel> _drawnModels = [];
+    private int _artVersion;
+
+    // How many models have been drawn (for the UI check: an update draws again only the models that changed).
+    public int ModelsDrawn { get; private set; }
+
+    // The id of the first node a model is drawn with now (for the UI check: the same id after an update means kept).
+    public ulong? ModelNodeId(ModelId id) => _drawnModels.TryGetValue(id, out var drawn) && drawn.Nodes.Count > 0 && IsInstanceValid(drawn.Nodes[0])
+        ? drawn.Nodes[0].GetInstanceId()
+        : null;
+
+    // How many times the terrain layer has been drawn (for the UI check: an ordinary update must not draw it again).
+    public int TerrainBuilds { get; private set; }
+
+    // Everything the terrain layer is drawn from: the table, the zones' areas, each piece's shape, and the look. The
+    // match state's other parts (models, objective controllers, zone owners, mines) are drawn on every update instead.
+    private string TerrainKey(BoardScene scene)
     {
-        // Taken out of the tree at once, so the new nodes get their names (Figurea1, BaseRima1) and not Godot's renamed ones.
-        foreach (var child in _content.GetChildren())
+        var key = new System.Text.StringBuilder();
+        key.Append(System.Globalization.CultureInfo.InvariantCulture, $"{scene.Width:R}x{scene.Depth:R}|{_highContrast}|{_textScale:R}|{_topDown}");
+        foreach (var zone in scene.Zones)
         {
-            _content.RemoveChild(child);
+            key.Append(System.Globalization.CultureInfo.InvariantCulture, $"|z{zone.Id}:{zone.Area}");
+        }
+        foreach (var piece in scene.Terrain)
+        {
+            key.Append(System.Globalization.CultureInfo.InvariantCulture, $"|t{piece.Id}:{piece.Area}:{piece.Profile}:{piece.Height:R}:{piece.Depth:R}:{piece.Platform}:{piece.Objective}");
+            foreach (var part in piece.Parts)
+            {
+                key.Append(System.Globalization.CultureInfo.InvariantCulture, $":{part}");
+            }
+            foreach (var ladder in piece.Ladders)
+            {
+                key.Append(System.Globalization.CultureInfo.InvariantCulture, $":L{ladder.Id}@{ladder.At}{ladder.Side}");
+            }
+        }
+        return key.ToString();
+    }
+
+    private void ClearTerrain()
+    {
+        foreach (var child in _terrain.GetChildren())
+        {
+            _terrain.RemoveChild(child);
             child.QueueFree();
         }
-        _bodyColours.Clear();
-        _eligibleRings.Clear();
-        _idLabels.Clear();
-        _bloodDrops.Clear();
-        _bloodRows.Clear();
-        _fixedLabels.Clear();
-        _modelNodes.Clear();
-        _meleeLinks.Clear();
-        _meleeLinkNames.Clear();
         _terrainPaint.Clear();
         _terrainOutlines.Clear();
         _towers.Clear();
         _pits.Clear();
         _groundCells.Clear();
+        _terrainLabels.Clear();
         _ladders = 0;
-        _seeThroughKey = null;
+        _decals = 0;
+        _terrainFromArt = 0;
+        _groundFromArt = false;
         _faded.Clear();
+        _terrainKey = null;
+    }
+
+    private void Rebuild()
+    {
+        // Performance: a model is drawn again only when what it is drawn from changed (ModelKey); the others keep their
+        // nodes. Everything else in _content (rings on objectives, zone labels, mines, links) is drawn again.
+        var keys = new Dictionary<ModelId, ModelKey>();
+        if (_scene is { } now)
+        {
+            var look = $"{_highContrast}|{_textScale}|{_topDown}|{now.Width}|{now.Depth}|{_artVersion}";
+            foreach (var model in now.Models)
+            {
+                var selected = model.Id == _selected;
+                keys[model.Id] = new ModelKey(model, selected, model.Id == _hovered, model.Yours && !selected && Interaction.CanChoose(model.Id), look);
+            }
+        }
+        var kept = new HashSet<Node>();
+        foreach (var (id, drawn) in _drawnModels.ToList())
+        {
+            if (keys.TryGetValue(id, out var wanted) && wanted == drawn.Key && drawn.Nodes.All(IsInstanceValid))
+            {
+                kept.UnionWith(drawn.Nodes);
+                continue;
+            }
+            _drawnModels.Remove(id);
+            _bodyColours.Remove(id);
+            _eligibleRings.Remove(id);
+            _idLabels.Remove(id);
+            _bloodDrops.Remove(id);
+            _bloodRows.Remove(id);
+            _modelNodes.Remove(id);
+        }
+        // Taken out of the tree at once, so the new nodes get their names (Figurea1, BaseRima1) and not Godot's renamed ones.
+        foreach (var child in _content.GetChildren())
+        {
+            if (!kept.Contains(child))
+            {
+                _content.RemoveChild(child);
+                child.QueueFree();
+            }
+        }
+        _fixedLabels.Clear();
+        _meleeLinks.Clear();
+        _meleeLinkNames.Clear();
+        _seeThroughKey = null;
         _labelsPlaced = "";
         if (_scene is not { } scene)
         {
+            ClearTerrain();
             return;
         }
-        _figuresFromArt = 0;
-        _figuresPlain = 0;
-        _terrainFromArt = 0;
-        // Trench-maps stage S3: with trenches the ground is boxes around their parts, reaching below the deepest floor, so
-        // their sides are the trench walls; each part gets a floor at its depth. Without trenches, the one flat box as before.
+        var key = TerrainKey(scene);
+        if (key != _terrainKey)
+        {
+            ClearTerrain();
+            _drawingTerrain = true;
+            try
+            {
+                DrawTerrain(scene);
+            }
+            finally
+            {
+                _drawingTerrain = false;
+            }
+            _terrainKey = key;
+            TerrainBuilds++;
+        }
+        _fixedLabels.AddRange(_terrainLabels);
         var holes = TrenchPits.Holes(scene);
-        var below = (float)TrenchPits.Deepest(scene) + 0.1f;
-        _groundFromArt = false;
-        var groundArt = _highContrast ? null : Visuals.Texture(VisualCatalog.GroundKey);
-        foreach (var cell in TrenchPits.Around(new TableRect(0, 0, scene.Width, scene.Depth), holes))
-        {
-            Box(new Vector3((float)cell.CentreX, -below / 2, (float)cell.CentreY), new Vector3((float)cell.Width, below, (float)cell.Depth), GroundColour);
-            _groundCells.Add(cell);
-            // Graphics stage G0: the ground's texture from the art catalog, if any, tiled once per 6" (not in high contrast).
-            if (groundArt is not null && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D groundPaint })
-            {
-                Textured(groundPaint, groundArt, 6f);
-                _groundFromArt = true;
-            }
-        }
-        foreach (var trench in scene.Terrain.Where(t => t.Trench))
-        {
-            foreach (var part in trench.Parts)
-            {
-                var floor = (float)trench.Depth;
-                Box(new Vector3((float)part.CentreX, -floor - (below - floor) / 2, (float)part.CentreY), new Vector3((float)part.Width, below - floor, (float)part.Depth), TrenchFloorColour);
-                DrawDuckboards(part, floor);
-            }
-            _pits[trench.Id] = -trench.Depth;
-        }
-        // Graphics stage G2: flat craters and duckboards on open ground, clear of every terrain piece and zone.
-        _decals = 0;
-        if (!_highContrast)
-        {
-            foreach (var spot in GroundDecor.For(scene))
-            {
-                if (Visuals.Texture(VisualCatalog.DecalKey(spot.Kind)) is not { } decal)
-                {
-                    continue;
-                }
-                _content.AddChild(new MeshInstance3D
-                {
-                    Name = $"Decal{_decals}",
-                    Mesh = new PlaneMesh { Size = new Vector2((float)spot.Width, (float)spot.Depth) },
-                    Position = new Vector3((float)spot.X, (float)GroundDecor.Lift, (float)spot.Y),
-                    RotationDegrees = new Vector3(0, (float)spot.TurnDegrees, 0),
-                    MaterialOverride = new StandardMaterial3D
-                    {
-                        AlbedoTexture = decal,
-                        Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
-                        AlphaScissorThreshold = 0.5f,
-                        TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
-                    },
-                });
-                _decals++;
-            }
-        }
         foreach (var zone in scene.Zones)
         {
-            var area = zone.Area;
-            // Not over a trench, so the pit stays open.
-            foreach (var cell in TrenchPits.Around(area, holes))
-            {
-                Box(new Vector3((float)cell.CentreX, 0.01f, (float)cell.CentreY), new Vector3((float)cell.Width, 0.02f, (float)cell.Depth), ZoneColour);
-            }
             // Proposal G: "ZONE A" at the zone's outer edge, away from the models deployed in it.
+            var area = zone.Area;
             var edges = new[] { (X: area.X0 + 1.2, Y: area.CentreY), (X: area.X1 - 1.2, Y: area.CentreY), (X: area.CentreX, Y: area.Y0 + 1.2), (X: area.CentreX, Y: area.Y1 - 1.2) };
             var edge = edges.OrderByDescending(e => Math.Pow(e.X - scene.Width / 2, 2) + Math.Pow(e.Y - scene.Depth / 2, 2)).First();
             _fixedLabels.Add(MakeText(zone.Short, new Vector3((float)edge.X, 0.3f, (float)edge.Y), 0.75f));
         }
-        foreach (var piece in scene.Terrain)
+        // Proposal G: only objectives carry text; the kind of terrain shows by its colour and height, and the panel's
+        // Details has the legend. QoL H4: a compact mark ("◆2", with "A" or "B" for the seat the rules say controls it
+        // now, in that seat's colour) and a flat ring on the piece; brighter and larger when the objective is selected.
+        foreach (var piece in scene.Terrain.Where(t => t.Objective && !t.Trench))
         {
-            // A trench is the pit drawn with the ground above.
-            if (piece.Trench)
-            {
-                continue;
-            }
             var area = piece.Area;
             var h = (float)piece.Height;
-            // Graphics stages G2 and G4: with its texture (rubble, sandbags, stone, timber), a piece is drawn as its models
-            // (TerrainDress: a sandbag ring, rough ground with wire, a ruined wall, a timber tower), every part inside the
-            // rules' footprint and under its height, in one mesh; without it, as the plain box.
-            if (!_highContrast && Visuals.Texture(TerrainDress.TextureKey(piece)) is { } surface)
+            var chosen = piece.Id == _selectedObjective;
+            var tint = piece.Controller is { } owner ? SeatColour(owner) : _highContrast ? Colors.White : new Color(0.95f, 0.85f, 0.45f);
+            var mark = MakeText(piece.MarkWithController, new Vector3((float)area.CentreX, h + 0.4f, (float)area.CentreY), chosen ? 0.85f : 0.65f);
+            mark.Modulate = tint;
+            _fixedLabels.Add(mark);
+            var radius = (float)Math.Min(1.0, Math.Min(area.Width, area.Depth) / 2 * 0.8);
+            _content.AddChild(new MeshInstance3D
             {
-                var dressed = Paint(Colors.White);
-                Textured(dressed, surface, 2f);
-                dressed.VertexColorUseAsAlbedo = true;
-                dressed.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
-                _content.AddChild(new MeshInstance3D { Name = $"Terrain{piece.Id}", Mesh = TerrainMesh.Build(TerrainDress.For(piece)), MaterialOverride = dressed });
-                _terrainFromArt++;
-            }
-            else
-            {
-                // One box per rectangle (stage S8: a ruined corner is two joined walls, not the box around them).
-                foreach (var part in piece.Parts)
-                {
-                    Box(new Vector3((float)part.CentreX, h / 2, (float)part.CentreY), new Vector3((float)part.Width, h, (float)part.Depth), TerrainColour(piece));
-                }
-            }
-            if (piece.Height >= SeeThrough.MinHeight && _content.GetChild(_content.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D paint })
-            {
-                _terrainPaint[piece.Id] = paint;
-                _terrainOutlines[piece.Id] = Outline(piece, TerrainColour(piece));
-            }
-            if (piece.Tower)
-            {
-                DrawTower(piece);
-            }
-            // Proposal G: only objectives carry text; the kind of terrain shows by its colour and height, and the panel's
-            // Details has the legend. QoL H4: a compact mark ("◆2", with "A" or "B" for the seat the rules say controls it
-            // now, in that seat's colour) and a flat ring on the piece; brighter and larger when the objective is selected.
-            if (piece.Objective)
-            {
-                var chosen = piece.Id == _selectedObjective;
-                var tint = piece.Controller is { } owner ? SeatColour(owner) : _highContrast ? Colors.White : new Color(0.95f, 0.85f, 0.45f);
-                var mark = MakeText(piece.MarkWithController, new Vector3((float)area.CentreX, h + 0.4f, (float)area.CentreY), chosen ? 0.85f : 0.65f);
-                mark.Modulate = tint;
-                _fixedLabels.Add(mark);
-                var radius = (float)Math.Min(1.0, Math.Min(area.Width, area.Depth) / 2 * 0.8);
-                _content.AddChild(new MeshInstance3D
-                {
-                    Mesh = new TorusMesh { InnerRadius = radius - (chosen ? 0.22f : 0.1f), OuterRadius = radius },
-                    Position = new Vector3((float)area.CentreX, h + 0.03f, (float)area.CentreY),
-                    MaterialOverride = Paint(chosen ? (_highContrast ? Colors.Yellow : new Color(1f, 0.85f, 0.2f)) : tint, noDepth: true),
-                });
-            }
+                Mesh = new TorusMesh { InnerRadius = radius - (chosen ? 0.22f : 0.1f), OuterRadius = radius },
+                Position = new Vector3((float)area.CentreX, h + 0.03f, (float)area.CentreY),
+                MaterialOverride = Paint(chosen ? (_highContrast ? Colors.Yellow : new Color(1f, 0.85f, 0.2f)) : tint, noDepth: true),
+            });
         }
         // Mines stage M3: the Mine Placement Area shaded while the defender lays the markers, and every Mine Marker on the
         // table as a flat disc with its mark ("M3", "M3 dud" for the defender): rust where it is unknown, grey a dud, red
@@ -3036,15 +3052,127 @@ public partial class BoardView : SubViewportContainer
         }
         foreach (var model in scene.Models)
         {
+            if (_drawnModels.ContainsKey(model.Id))
+            {
+                continue;
+            }
             var firstNode = _content.GetChildCount();
-            DrawModel(model);
+            var fromArt = _figuresFromArt;
+            DrawModel(model, keys[model.Id].Choosable);
+            var nodes = Enumerable.Range(firstNode, _content.GetChildCount() - firstNode).Select(i => _content.GetChild(i)).ToList();
             // Everything just drawn for this model (body, rings, id), so a glide can carry it along its path.
-            _modelNodes[model.Id] = [.. Enumerable.Range(firstNode, _content.GetChildCount() - firstNode)
-                .Select(i => _content.GetChild(i)).OfType<Node3D>().Select(n => (n, n.Position))];
+            _modelNodes[model.Id] = [.. nodes.OfType<Node3D>().Select(n => (n, n.Position))];
+            _drawnModels[model.Id] = new DrawnModel(keys[model.Id], nodes, _figuresFromArt > fromArt);
+            ModelsDrawn++;
         }
+        _figuresFromArt = _drawnModels.Values.Count(d => d.FromArt);
+        _figuresPlain = _drawnModels.Count - _figuresFromArt;
         foreach (var link in scene.Links)
         {
             DrawMeleeLink(scene.Find(link.One), scene.Find(link.Two));
+        }
+    }
+
+    // The terrain layer (see TerrainKey), drawn into _terrain.
+    private void DrawTerrain(BoardScene scene)
+    {
+        // Trench-maps stage S3: with trenches the ground is boxes around their parts, reaching below the deepest floor, so
+        // their sides are the trench walls; each part gets a floor at its depth. Without trenches, the one flat box as before.
+        var holes = TrenchPits.Holes(scene);
+        var below = (float)TrenchPits.Deepest(scene) + 0.1f;
+        var groundArt = _highContrast ? null : Visuals.Texture(VisualCatalog.GroundKey);
+        foreach (var cell in TrenchPits.Around(new TableRect(0, 0, scene.Width, scene.Depth), holes))
+        {
+            Box(new Vector3((float)cell.CentreX, -below / 2, (float)cell.CentreY), new Vector3((float)cell.Width, below, (float)cell.Depth), GroundColour);
+            _groundCells.Add(cell);
+            // Graphics stage G0: the ground's texture from the art catalog, if any, tiled once per 6" (not in high contrast).
+            if (groundArt is not null && _terrain.GetChild(_terrain.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D groundPaint })
+            {
+                Textured(groundPaint, groundArt, 6f);
+                _groundFromArt = true;
+            }
+        }
+        foreach (var trench in scene.Terrain.Where(t => t.Trench))
+        {
+            foreach (var part in trench.Parts)
+            {
+                var floor = (float)trench.Depth;
+                Box(new Vector3((float)part.CentreX, -floor - (below - floor) / 2, (float)part.CentreY), new Vector3((float)part.Width, below - floor, (float)part.Depth), TrenchFloorColour);
+                DrawDuckboards(part, floor);
+            }
+            _pits[trench.Id] = -trench.Depth;
+        }
+        // Graphics stage G2: flat craters and duckboards on open ground, clear of every terrain piece and zone.
+        if (!_highContrast)
+        {
+            foreach (var spot in GroundDecor.For(scene))
+            {
+                if (Visuals.Texture(VisualCatalog.DecalKey(spot.Kind)) is not { } decal)
+                {
+                    continue;
+                }
+                _terrain.AddChild(new MeshInstance3D
+                {
+                    Name = $"Decal{_decals}",
+                    Mesh = new PlaneMesh { Size = new Vector2((float)spot.Width, (float)spot.Depth) },
+                    Position = new Vector3((float)spot.X, (float)GroundDecor.Lift, (float)spot.Y),
+                    RotationDegrees = new Vector3(0, (float)spot.TurnDegrees, 0),
+                    MaterialOverride = new StandardMaterial3D
+                    {
+                        AlbedoTexture = decal,
+                        Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor,
+                        AlphaScissorThreshold = 0.5f,
+                        TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest,
+                    },
+                });
+                _decals++;
+            }
+        }
+        foreach (var zone in scene.Zones)
+        {
+            // Not over a trench, so the pit stays open.
+            foreach (var cell in TrenchPits.Around(zone.Area, holes))
+            {
+                Box(new Vector3((float)cell.CentreX, 0.01f, (float)cell.CentreY), new Vector3((float)cell.Width, 0.02f, (float)cell.Depth), ZoneColour);
+            }
+        }
+        foreach (var piece in scene.Terrain)
+        {
+            // A trench is the pit drawn with the ground above.
+            if (piece.Trench)
+            {
+                continue;
+            }
+            var h = (float)piece.Height;
+            // Graphics stages G2 and G4: with its texture (rubble, sandbags, stone, timber), a piece is drawn as its models
+            // (TerrainDress: a sandbag ring, rough ground with wire, a ruined wall, a timber tower), every part inside the
+            // rules' footprint and under its height, in one mesh; without it, as the plain box.
+            if (!_highContrast && Visuals.Texture(TerrainDress.TextureKey(piece)) is { } surface)
+            {
+                var dressed = Paint(Colors.White);
+                Textured(dressed, surface, 2f);
+                dressed.VertexColorUseAsAlbedo = true;
+                dressed.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+                _terrain.AddChild(new MeshInstance3D { Name = $"Terrain{piece.Id}", Mesh = TerrainMesh.Build(TerrainDress.For(piece)), MaterialOverride = dressed });
+                _terrainFromArt++;
+            }
+            else
+            {
+                // One box per rectangle (stage S8: a ruined corner is two joined walls, not the box around them).
+                foreach (var part in piece.Parts)
+                {
+                    Box(new Vector3((float)part.CentreX, h / 2, (float)part.CentreY), new Vector3((float)part.Width, h, (float)part.Depth), TerrainColour(piece));
+                }
+            }
+            if (piece.Height >= SeeThrough.MinHeight && _terrain.GetChild(_terrain.GetChildCount() - 1) is MeshInstance3D { MaterialOverride: StandardMaterial3D paint })
+            {
+                _terrainPaint[piece.Id] = paint;
+                _terrainOutlines[piece.Id] = Outline(piece, TerrainColour(piece));
+            }
+            if (piece.Tower)
+            {
+                DrawTower(piece);
+            }
         }
     }
 
@@ -3111,7 +3239,7 @@ public partial class BoardView : SubViewportContainer
             }
             _ladders++;
         }
-        _fixedLabels.Add(MakeText(piece.TowerMark, new Vector3((float)area.CentreX, h + 0.5f, (float)area.CentreY), 0.6f));
+        _terrainLabels.Add(MakeText(piece.TowerMark, new Vector3((float)area.CentreX, h + 0.5f, (float)area.CentreY), 0.6f));
         _towers.Add(piece.Id);
     }
 
@@ -3171,12 +3299,12 @@ public partial class BoardView : SubViewportContainer
     public int TerrainFromArt => _terrainFromArt;
 
     // The box around a piece's drawn models (Godot units), or null when it is the plain box.
-    public Aabb? TerrainDrawn(string id) => _content.GetNodeOrNull<MeshInstance3D>($"Terrain{id}") is { } mesh && IsInstanceValid(mesh)
+    public Aabb? TerrainDrawn(string id) => _terrain.GetNodeOrNull<MeshInstance3D>($"Terrain{id}") is { } mesh && IsInstanceValid(mesh)
         ? mesh.GlobalTransform * mesh.GetAabb()
         : null;
 
     public IReadOnlyList<(string Name, Aabb Box)> Decals => [.. Enumerable.Range(0, _decals)
-        .Select(i => _content.GetNodeOrNull<MeshInstance3D>($"Decal{i}")).OfType<MeshInstance3D>()
+        .Select(i => _terrain.GetNodeOrNull<MeshInstance3D>($"Decal{i}")).OfType<MeshInstance3D>()
         .Where(IsInstanceValid).Select(d => (d.Name.ToString(), d.GlobalTransform * d.GetAabb()))];
 
     // A PS1-style texture on a plain box: white so the texture shows its own colours, tiled in world inches (triplanar),
@@ -3226,6 +3354,8 @@ public partial class BoardView : SubViewportContainer
     public void UseArt(VisualCatalog catalog)
     {
         Visuals.Use(catalog);
+        _terrainKey = null;
+        _artVersion++;
         Rebuild();
     }
 
@@ -3286,7 +3416,7 @@ public partial class BoardView : SubViewportContainer
     // (Godot renames a node whose name is still taken by one being freed, so the pairs are kept beside the bars.)
     public IReadOnlyList<string> MeleeLinksDrawn => [.. _meleeLinkNames.Where((_, i) => IsInstanceValid(_meleeLinks[i]))];
 
-    private void DrawModel(ModelShape model)
+    private void DrawModel(ModelShape model, bool choosable)
     {
         {
             var standing = (float)model.Standing;
@@ -3342,7 +3472,7 @@ public partial class BoardView : SubViewportContainer
             }
             var selected = model.Id == _selected;
             // Your units the rules let you activate now: a thin, faint ring (the units you can click to choose).
-            if (model.Yours && !selected && Interaction.CanChoose(model.Id))
+            if (choosable)
             {
                 _eligibleRings.Add(model.Id);
                 BaseRing(model, standing, 0.05f, 0.18f, _highContrast ? new Color(1, 1, 1, 0.8f) : new Color(0.85f, 1f, 0.85f, 0.55f));
@@ -3574,16 +3704,16 @@ public partial class BoardView : SubViewportContainer
 
     private void Box(Vector3 centre, Vector3 size, Color colour)
     {
-        _content.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = size }, Position = centre, MaterialOverride = Paint(colour) });
+        Into.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = size }, Position = centre, MaterialOverride = Paint(colour) });
     }
 
     // Labels keep their size on screen at any distance, follow the text size setting and show through walls.
-    private void Text(string text, Vector3 at, float size) => _content.AddChild(MakeLabel(text, at, size));
+    private void Text(string text, Vector3 at, float size) => Into.AddChild(MakeLabel(text, at, size));
 
     private Label3D MakeText(string text, Vector3 at, float size)
     {
         var label = MakeLabel(text, at, size);
-        _content.AddChild(label);
+        Into.AddChild(label);
         return label;
     }
 

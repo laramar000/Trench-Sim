@@ -471,7 +471,10 @@ public static class Previews
             return new(ReasonCode.ChargeRouteBlocked, Charging.CrossLevelText, Charging.RefCrossLevel);
         }
         var others = Obstacles(state, charger).Where(o => o.Body.Elevation == from.Elevation).ToList();
-        var route = Charging.CheckRoute(field, from, to, others);
+        // Performance: one planner for the declaration's route check and every die result below, so the routes are
+        // searched once (each answer is the same as Charging.CheckRoute and Charging.Plan on their own).
+        var planner = Charging.For(field, from, to, others);
+        var route = planner.CheckRoute();
         if (!route.IsLegal)
         {
             return new(ReasonCode.ChargeRouteBlocked, route.Text, route.RuleRef);
@@ -481,7 +484,7 @@ public static class Previews
         ChargePlan? plan = null;
         for (var die = 1; die <= ChargeDieFaces; die++)
         {
-            plan = Charging.Plan(field, from, to, ChargeReach(state, charger, die), others);
+            plan = planner.Plan(ChargeReach(state, charger, die));
             if (plan.Reached)
             {
                 needed = die;

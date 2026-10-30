@@ -435,14 +435,14 @@ public sealed class Interaction
             {
                 return available;
             }
-            return [.. available.Where(mode => mode != InteractionMode.Combat && Previews.ActionOpen(_state, seat, actor, Kind(mode)) is null)];
+            return [.. available.Where(mode => mode != InteractionMode.Combat && ActionOpen(seat, actor, Kind(mode)) is null)];
         }
     }
 
     // Why an action is not offered now, in the rules' words; null when it is offered (or not an action of this moment).
     public string? WhyNot(InteractionMode mode) =>
         _seat is { } seat && _state.ActiveModel is { } actor && Available.Contains(mode) && mode != InteractionMode.Place && mode != InteractionMode.Combat
-            ? Previews.ActionOpen(_state, seat, actor, Kind(mode))?.Text
+            ? ActionOpen(seat, actor, Kind(mode))?.Text
             : null;
 
     // How far the action being chosen can still take the acting model, in inches (drawn as a ring); null when none.
@@ -495,7 +495,7 @@ public sealed class Interaction
         {
             return new(null, [new(BarKind.Start, "Place a model", Tip(InteractionMode.Place), Mode: InteractionMode.Place)]);
         }
-        var legal = _state.Pending is null ? TurnSequence.LegalCommands(_state).Where(c => CommandSeats.Of(c) == seat).ToList() : [];
+        var legal = _state.Pending is null ? LegalCommands().Where(c => CommandSeats.Of(c) == seat).ToList() : [];
         if (_state.Phase == Phase.Activation && _state.ActiveModel is { } active && _state.FindModel(active)?.Seat == seat)
         {
             var items = BarOffered.Select(m => new BarItem(BarKind.Start, Words(m), Tip(m), Mode: m)).ToList();
@@ -539,7 +539,7 @@ public sealed class Interaction
         {
             return null;
         }
-        var items = TurnSequence.LegalCommands(_state).Where(c => CommandSeats.Of(c) == seat).Select(c => c switch
+        var items = LegalCommands().Where(c => CommandSeats.Of(c) == seat).Select(c => c switch
         {
             SpendMarkers { Count: 0 } m => new BarItem(BarKind.Decide, "No Blood", "Spend no Blood Markers on this roll.", Command: m),
             SpendMarkers m => new BarItem(BarKind.Decide, $"Spend {m.Count} Blood", pending.Kind == DecisionKind.SpendMarkersOnSuccessRoll
@@ -562,7 +562,7 @@ public sealed class Interaction
         }
         if (_verdicts is null || _verdictsVersion != Version)
         {
-            _verdicts = [.. Targets().Select(t => (t, Previews.Target(_state, seat, Kind(Mode), actor, t).Refusal))];
+            _verdicts = [.. Targets().Select(t => (t, TargetPreview(seat, Kind(Mode), actor, t).Refusal))];
             _verdictsVersion = Version;
         }
         return _verdicts;
@@ -579,16 +579,83 @@ public sealed class Interaction
         {
             return [];
         }
-        if (_sights is null || _sightsVersion != Version)
+        // Performance: worked out once per state and acting model (the state is immutable; a new one is a new object).
+        if (_sights is null || !ReferenceEquals(_sightsState, _state) || _sightsActor != actor)
         {
             _sights = Client.Core.TargetSights.Of(_state, actor);
-            _sightsVersion = Version;
+            _sightsState = _state;
+            _sightsActor = actor;
         }
         return _sights;
     }
 
     private IReadOnlyList<TargetSight>? _sights;
-    private long _sightsVersion = -1;
+    private MatchState? _sightsState;
+    private ModelId? _sightsActor;
+
+    // Performance: Previews.Target for one target, worked out once per state. Opening Combat, choosing Shoot, Charge or
+    // Fight, pointing at an enemy and clicking it all ask for the same previews; before, each asked again (a Charge
+    // preview can take tens of milliseconds). The answer is a function of the state, the seat, the action, the acting
+    // model and the target only, and MatchState is immutable, so it is kept exactly as long as the state object is the
+    // same one (Update, choosing a unit or dropping it replace the state and so empty the memo). Nothing is decided from
+    // an older state, and the server still checks every command itself.
+    private Preview TargetPreview(Seat seat, PreviewKind kind, ModelId actor, ModelId target)
+    {
+        Remember(seat);
+        if (!_targetMemo.TryGetValue((kind, actor, target), out var preview))
+        {
+            preview = Previews.Target(_state, seat, kind, actor, target);
+            _targetMemo[(kind, actor, target)] = preview;
+            TargetPreviewsWorkedOut++;
+        }
+        return preview;
+    }
+
+    // The memos below belong to one state object and seat; a new one empties them.
+    private void Remember(Seat seat)
+    {
+        if (!ReferenceEquals(_memoState, _state) || _memoSeat != seat)
+        {
+            _targetMemo.Clear();
+            _openMemo.Clear();
+            _memoState = _state;
+            _memoSeat = seat;
+        }
+    }
+
+    // Performance: the action bar is worked out every frame, and asked Previews.ActionOpen for each action twice and the
+    // rules' legal commands once each time (tens of milliseconds a frame in some states). Both depend only on the state
+    // (and seat, model and action), so they are kept for the state object exactly like the target previews.
+    private Rejection? ActionOpen(Seat seat, ModelId actor, PreviewKind kind)
+    {
+        Remember(seat);
+        if (!_openMemo.TryGetValue((kind, actor), out var closed))
+        {
+            closed = Previews.ActionOpen(_state, seat, actor, kind);
+            _openMemo[(kind, actor)] = closed;
+        }
+        return closed;
+    }
+
+    private IReadOnlyList<Command> LegalCommands()
+    {
+        if (!ReferenceEquals(_legalState, _state))
+        {
+            _legal = [.. TurnSequence.LegalCommands(_state)];
+            _legalState = _state;
+        }
+        return _legal!;
+    }
+
+    private readonly Dictionary<(PreviewKind, ModelId), Rejection?> _openMemo = [];
+    private IReadOnlyList<Command>? _legal;
+    private MatchState? _legalState;
+    private readonly Dictionary<(PreviewKind, ModelId, ModelId), Preview> _targetMemo = [];
+    private MatchState? _memoState;
+    private Seat? _memoSeat;
+
+    // How many target previews have been worked out (not taken from the memo), for the tests.
+    public int TargetPreviewsWorkedOut { get; private set; }
 
     // Line-of-sight stage L6: while choosing where to move (Move, Dash, Retreat), how the model would see every enemy from
     // the end of a path the preview accepts, at the height the battlefield gives that point. The same rules function as
@@ -625,7 +692,7 @@ public sealed class Interaction
         }
         if (_pointedVersion != Version || _pointedAt != target)
         {
-            _pointed = Previews.Target(_state, seat, Kind(Mode), actor, target);
+            _pointed = TargetPreview(seat, Kind(Mode), actor, target);
             _pointedVersion = Version;
             _pointedAt = target;
         }
@@ -988,12 +1055,12 @@ public sealed class Interaction
                 continue;
             }
             var key = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (Previews.ActionOpen(_state, seat, actor, Kind(mode)) is { } closed)
+            if (ActionOpen(seat, actor, Kind(mode)) is { } closed)
             {
                 entries.Add(new CombatEntry(mode, Words(mode), key, false, $"{closed.Text} ({closed.RuleRef})", 0));
                 continue;
             }
-            var verdicts = enemies.Select(t => Previews.Target(_state, seat, Kind(mode), actor, t)).ToList();
+            var verdicts = enemies.Select(t => TargetPreview(seat, Kind(mode), actor, t)).ToList();
             var legal = verdicts.Count(v => v.Legal);
             var why = legal > 0 ? null
                 : verdicts.Select(v => v.Refusal).FirstOrDefault(r => r is not null) is { } first ? $"No enemy can be the target: {first.Text} ({first.RuleRef})"
@@ -1403,7 +1470,7 @@ public sealed class Interaction
                 // Towers proposal, stage T4: a point on another level is reached by a ladder (Previews.Route).
                 return points.Count == 0 ? null : Previews.Path(_state, seat, Kind(Mode), actor, Previews.Route(_state, actor, [.. points.Select(p => Previews.PointAt(p.X, p.Y))], Sides));
             case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight:
-                return Target is { } target ? Previews.Target(_state, seat, Kind(Mode), actor, target) : null;
+                return Target is { } target ? TargetPreview(seat, Kind(Mode), actor, target) : null;
             default:
                 return null;
         }

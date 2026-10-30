@@ -51,59 +51,91 @@ public static class Charging
     // a route far longer than 12" is a charge that falls short, not one that cannot be declared. A refusal here is a
     // refusal of the declaration: no die is rolled for it. Friendly models are passable here (they cannot end a move
     // on a base, but whether one blocks depends on how far the model gets, which the die decides).
-    public static MoveResult CheckRoute(Battlefield battlefield, ModelBody mover, ModelBody target, IReadOnlyList<Obstacle> others)
+    public static MoveResult CheckRoute(Battlefield battlefield, ModelBody mover, ModelBody target, IReadOnlyList<Obstacle> others) =>
+        For(battlefield, mover, target, others).CheckRoute();
+
+    public static ChargePlan Plan(Battlefield battlefield, ModelBody mover, ModelBody target, Length reach, IReadOnlyList<Obstacle> others) =>
+        For(battlefield, mover, target, others).Plan(reach);
+
+    // One charger, target and table, for asking CheckRoute and Plan several times (the client's preview asks for every
+    // Charge Bonus result): the obstacles are sorted and the routes searched once, and each answer is the one the static
+    // CheckRoute and Plan give, which are themselves this with a single question. Nothing here is kept between charges.
+    public static ChargePlanner For(Battlefield battlefield, ModelBody mover, ModelBody target, IReadOnlyList<Obstacle> others) =>
+        new(battlefield, mover, target, others);
+
+    public sealed class ChargePlanner
     {
-        var scene = new Scene(battlefield, mover, target, others);
-        var route = scene.FindRoute(friendsBlock: false);
-        if (route is null || scene.Farthest(route, MaxMovement).Length > MaxLegs)
-        {
-            return new MoveResult(false, MoveRefusal.NoRoute,
-                "No route reaches the target around the terrain in the way.", "1.0.2 pp. 35, 37", Length.Zero, null);
-        }
-        return scene.Interposition(route);
-    }
+        private readonly Scene _scene;
+        private (Route? Route, MoveResult? Check)? _a;
+        private (Route? Route, MoveResult? Check)? _b;
 
-    public static ChargePlan Plan(Battlefield battlefield, ModelBody mover, ModelBody target, Length reach, IReadOnlyList<Obstacle> others)
-    {
-        var scene = new Scene(battlefield, mover, target, others);
-        var none = new ChargePlan([], Length.Zero, false);
+        internal ChargePlanner(Battlefield battlefield, ModelBody mover, ModelBody target, IReadOnlyList<Obstacle> others) =>
+            _scene = new Scene(battlefield, mover, target, others);
 
-        var routeA = scene.FindRoute(friendsBlock: false);
-        if (routeA is null || !scene.Interposition(routeA).IsLegal)
+        // The shortest route with friends passable (route A), and its check as a charge (Interposition).
+        private (Route? Route, MoveResult? Check) RouteA() => _a ??= Search(friendsBlock: false);
+
+        // The shortest route round the friendly bases (route B), and its check as a charge.
+        private (Route? Route, MoveResult? Check) RouteB() => _b ??= Search(friendsBlock: true);
+
+        private (Route?, MoveResult?) Search(bool friendsBlock)
         {
-            return none;
-        }
-        var pathA = scene.Farthest(routeA, reach);
-        if (pathA.IsEmpty || pathA.Length > MaxLegs)
-        {
-            return none;
-        }
-        if (scene.Finish(pathA, reach) is { } whole)
-        {
-            return whole;
+            var route = _scene.FindRoute(friendsBlock);
+            return (route, route is null ? null : _scene.Interposition(route));
         }
 
-        // The route cannot be followed as far as the die allows without ending on a friendly base (or part-way
-        // across one): the model may only cross a friend if it can move past entirely (p. 35), so the shortest
-        // route that is available goes round the friendly bases.
-        if (scene.HasFriends)
+        public MoveResult CheckRoute()
         {
-            var routeB = scene.FindRoute(friendsBlock: true);
-            if (routeB is not null && scene.Interposition(routeB).IsLegal)
+            var (route, check) = RouteA();
+            if (route is null || _scene.Farthest(route, MaxMovement).Length > MaxLegs)
             {
-                // The same leg limit as route A, checked before any plan is returned: an over-long way round is treated as
-                // no way round, so ChargeMoved can always be built once the die has been rolled (U63).
-                var pathB = scene.Farthest(routeB, reach);
-                if (!pathB.IsEmpty && pathB.Length <= MaxLegs && scene.Finish(pathB, reach) is { } around)
+                return new MoveResult(false, MoveRefusal.NoRoute,
+                    "No route reaches the target around the terrain in the way.", "1.0.2 pp. 35, 37", Length.Zero, null);
+            }
+            return check!;
+        }
+
+        public ChargePlan Plan(Length reach)
+        {
+            var none = new ChargePlan([], Length.Zero, false);
+
+            var (routeA, checkA) = RouteA();
+            if (routeA is null || checkA?.IsLegal != true)
+            {
+                return none;
+            }
+            var pathA = _scene.Farthest(routeA, reach);
+            if (pathA.IsEmpty || pathA.Length > MaxLegs)
+            {
+                return none;
+            }
+            if (_scene.Finish(pathA, reach) is { } whole)
+            {
+                return whole;
+            }
+
+            // The route cannot be followed as far as the die allows without ending on a friendly base (or part-way
+            // across one): the model may only cross a friend if it can move past entirely (p. 35), so the shortest
+            // route that is available goes round the friendly bases.
+            if (_scene.HasFriends)
+            {
+                var (routeB, checkB) = RouteB();
+                if (routeB is not null && checkB?.IsLegal == true)
                 {
-                    return around;
+                    // The same leg limit as route A, checked before any plan is returned: an over-long way round is treated as
+                    // no way round, so ChargeMoved can always be built once the die has been rolled (U63).
+                    var pathB = _scene.Farthest(routeB, reach);
+                    if (!pathB.IsEmpty && pathB.Length <= MaxLegs && _scene.Finish(pathB, reach) is { } around)
+                    {
+                        return around;
+                    }
                 }
             }
-        }
 
-        // No way round: stop short of the friendly base. Backing off only shortens route A's path, but the limit is
-        // checked again so that no plan of more than MaxLegs legs can leave this method.
-        return scene.BackOff(routeA, reach) is { } shortOf && shortOf.Path.Length <= MaxLegs ? shortOf : none;
+            // No way round: stop short of the friendly base. Backing off only shortens route A's path, but the limit is
+            // checked again so that no plan of more than MaxLegs legs can leave this method.
+            return _scene.BackOff(routeA, reach) is { } shortOf && shortOf.Path.Length <= MaxLegs ? shortOf : none;
+        }
     }
 
     // ---- fixed-point trigonometry: cos(k * pi / 16) in billionths, k = 0..8 (sin is the same table reversed) ----

@@ -106,6 +106,7 @@ host: scenario-row-centres
 host: board-shoot-preview
 host: board-preview-card-target
 host: board-move-glides
+host: board-redraws-changed-parts
 host: board-see-through-walls
 host: board-see-through-outlines
 host: panel-confirm-cancel-fixed
@@ -279,10 +280,12 @@ pvp-a: pvp-server-refusal-note
 pvp-a: pvp-status-strip
 pvp-a: pvp-preview-dice
 pvp-a: board-move-glides
+pvp-a: board-redraws-changed-parts
 pvp-a: unit-card-closed-send
 pvp-a: pvp-move-followed
 optional pvp-b|pvp-b-rejoin: pvp-preview-dice
 pvp-b|pvp-b-rejoin: board-move-glides
+pvp-b|pvp-b-rejoin: board-redraws-changed-parts
 pvp-a: board-next-eligible
 pvp-a: pvp-choose-unit-sends-nothing
 pvp-a: pvp-switch-unit-sends-nothing
@@ -370,6 +373,7 @@ gvt-a: pvp-type-server
 gvt-a: pvp-choose-scenario
 optional gvt-a: pvp-preview-dice
 gvt-a: board-move-glides
+gvt-a: board-redraws-changed-parts
 gvt-a: pvp-create-enter
 gvt-a: pvp-create
 gvt-a: result-details

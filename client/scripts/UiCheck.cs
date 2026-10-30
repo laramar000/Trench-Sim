@@ -1143,6 +1143,12 @@ public partial class UiCheck : Node
             var before = Section("LAST COMMAND");
             var glides = board.GlidesStarted;
             var followed = board.FollowedMoves;
+            // Performance: what the battlefield draws again for the move (the terrain layer never; a model only when it
+            // changed), with the farthest enemy as the model that should keep its nodes.
+            var terrainBuilds = board.TerrainBuilds;
+            var farShape = board.Scene?.Models.Where(m => m.Seat != board.Scene.Find(preview.Model)?.Seat)
+                .OrderByDescending(m => Math.Pow(m.X - preview.Path[0].At.X, 2) + Math.Pow(m.Y - preview.Path[0].At.Y, 2)).FirstOrDefault();
+            var farNode = farShape is null ? null : board.ModelNodeId(farShape.Id);
             var end0 = preview.Path[^1].At;
             var standing0 = board.Scene?.Find(preview.Model)?.Standing ?? 0;
             var checkFollow = _role == "pvp-a" && !_followChecked;
@@ -1210,6 +1216,15 @@ public partial class UiCheck : Node
                     && Near(new TablePoint(g.To.X, g.To.Y), shape.X, shape.Y) && Near(new TablePoint(g.From.X, g.From.Y), preview.Path[0].At.X, preview.Path[0].At.Y)
                     && g.Seconds is >= BoardView.GlideMinSeconds and <= BoardView.GlideMaxSeconds && !board.Gliding && drawn is { } d && Near(new TablePoint(d.X, d.Y), shape.X, shape.Y),
                     $"glides {glides} -> {board.GlidesStarted}; last {last}; drawn at {drawn}; server ({shape.X}, {shape.Y})");
+                // Performance: the move redrew the models that changed, not the terrain; every model is drawn where the
+                // server has it, and an enemy that did not change kept the nodes it was drawn with.
+                var drawnScene = board.Scene!;
+                var misplaced = drawnScene.Models.Where(m => board.DrawnAt(m.Id) is not { } at || !Near(new TablePoint(at.X, at.Y), m.X, m.Y)).Select(m => m.Id.Value).ToList();
+                var farAfter = farShape is null ? null : drawnScene.Find(farShape.Id);
+                var farKept = farShape is null || farAfter != farShape || board.ModelNodeId(farShape.Id) == farNode;
+                Check("board-redraws-changed-parts", board.TerrainBuilds == terrainBuilds && terrainBuilds > 0 && misplaced.Count == 0 && farKept && farShape is not null,
+                    $"terrain drawn {terrainBuilds} -> {board.TerrainBuilds} times; models not at the server's position: [{string.Join(",", misplaced)}]; "
+                    + $"far enemy {farShape?.Id.Value} unchanged: {farAfter == farShape}, kept its nodes: {farKept}");
             }
             if (checkFollow)
             {
