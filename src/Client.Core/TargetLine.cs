@@ -17,8 +17,13 @@ public enum TargetTone
 // Battlefield UI, stage K5: the one bold line drawn for Shoot, Charge and Fight, from the attacker's base edge to the
 // target's base edge, toned by the preview (clear, in cover, refused). Built only from the preview and the positions in
 // the state it was made on; the sight rays stay in the preview's words ("4 of 5 sight rays clear"). Nothing new in the rules.
-public sealed record TargetLine(ModelId Attacker, ModelId Target, TablePoint From, TablePoint To, TargetTone Tone)
+// LongRange (2026-10-30): a shot the preview accepts at Long Range (beyond half the weapon's range, -1 DICE, p. 43), read
+// from the preview's own Preview.LongRange, so the line, the panel's words and the dice always agree. The board draws it
+// broken into dashes with a small LONG RANGE tag, so it does not rely on colour; a short-range or refused line is unchanged.
+public sealed record TargetLine(ModelId Attacker, ModelId Target, TablePoint From, TablePoint To, TargetTone Tone, bool LongRange = false)
 {
+    public const string LongRangeTag = "LONG RANGE";
+
     public static TargetLine? Of(MatchState state, Preview? preview)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -43,6 +48,6 @@ public sealed record TargetLine(ModelId Attacker, ModelId Target, TablePoint Fro
         var tone = !preview.Legal ? TargetTone.Refused
             : preview.Facts.Any(f => f.StartsWith(Previews.CoverFact, StringComparison.Ordinal)) ? TargetTone.Cover
             : TargetTone.Clear;
-        return new TargetLine(preview.Model, target, from, to, tone);
+        return new TargetLine(preview.Model, target, from, to, tone, preview.Legal && preview.LongRange == true);
     }
 }

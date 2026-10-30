@@ -59,8 +59,13 @@ public sealed record Preview(
     IReadOnlyList<PathMark> ChargePath,
     int? ChargeRollNeeded,
     double? Allowance = null,
-    DicePreview? Dice = null)
+    DicePreview? Dice = null,
+    bool? LongRange = null)
 {
+    // LongRange: for a Shoot the preview accepts, whether the target is beyond half the weapon's range (Long Range, -1 DICE,
+    // p. 43); null for any other preview or a refused shot. It is the same value the "Long range" or "Short range" fact
+    // and the dice were made from, so the battlefield's long-range line always agrees with the panel.
+
     // For a Move, Dash or Retreat: inches used by the path (the rules' path cost), and inches of the allowance left after it.
     public double? Used => Kind is PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat && Path.Count > 0 ? Path[^1].Inches : null;
 
@@ -325,9 +330,10 @@ public static class Previews
         var charge = new List<PathMark>();
         int? needed = null;
         DicePreview? dice = null;
+        bool? longRange = null;
         var refusal = Opening(state) ?? kind switch
         {
-            PreviewKind.Shoot => CheckShoot(state, seat, model, target, facts, rays, ref dice),
+            PreviewKind.Shoot => CheckShoot(state, seat, model, target, facts, rays, ref dice, ref longRange),
             PreviewKind.Charge => CheckCharge(state, seat, model, target, facts, rays, charge, ref needed),
             _ => CheckFight(state, seat, model, target, facts, rays, ref dice),
         };
@@ -348,10 +354,11 @@ public static class Previews
             }
         }
         var from = state.FindModel(model) is { } m && BodyOf(state, m) is { } b ? [new PathMark(TablePoint.Of(b.Centre), 0)] : Array.Empty<PathMark>();
-        return new Preview(kind, model, command, refusal, facts, from, RadiusOf(state, model), target, rays, charge, needed, Dice: refusal is null ? dice : null);
+        return new Preview(kind, model, command, refusal, facts, from, RadiusOf(state, model), target, rays, charge, needed, Dice: refusal is null ? dice : null,
+            LongRange: refusal is null ? longRange : null);
     }
 
-    private static Rejection? CheckShoot(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays, ref DicePreview? dice)
+    private static Rejection? CheckShoot(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays, ref DicePreview? dice, ref bool? isLong)
     {
         if (Acting(state, seat, id, out var attacker) is { } rejection)
         {
@@ -399,6 +406,7 @@ public static class Previews
             return new(ReasonCode.TargetOutOfRange, "The target is beyond the weapon's range.", RefAttack);
         }
         var longRange = !Measure.IsWithin(from, to, Length.FromThousandths(profile.RangedRange.Thousandths / 2));
+        isLong = longRange;
         facts.Add(longRange ? "Long range: beyond half the weapon's range (1 penalty die)." : "Short range: within half the weapon's range.");
         var intoMelee = OnTable(state).Any(o => o.Seat == attacker.Seat && o.Id != attacker.Id && Measure.IsWithin(to, BodyOf(state, o)!, Engagement));
         if (intoMelee)

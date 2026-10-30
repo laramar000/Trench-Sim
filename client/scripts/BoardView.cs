@@ -1701,6 +1701,7 @@ public partial class BoardView : SubViewportContainer
         _reasonAt = null;
         TargetLineDrawn = null;
         TargetLinesDrawn = 0;
+        LongRangeTagDrawn = false;
         Climbs = 0;
         LayingDrawn = 0;
         if (_scene is not null && Interaction.Mines is { } laying)
@@ -2119,10 +2120,36 @@ public partial class BoardView : SubViewportContainer
         var from = (_scene?.Find(line.Attacker) is { } a ? (float)a.Standing : 0f) + (float)TableRect.Inches(SightHeights.Eye);
         var to = (_scene?.Find(line.Target) is { } t ? (float)t.Standing : 0f) + (float)TableRect.Inches(SightHeights.Points[1]);
         Bar(line.From, from, line.To, to, new Color(0, 0, 0, 0.75f), 0.42f, 0.06f);
-        Bar(line.From, from + 0.03f, line.To, to + 0.03f, colour, 0.26f, 0.1f);
+        LongRangeTagDrawn = false;
+        if (!line.LongRange)
+        {
+            Bar(line.From, from + 0.03f, line.To, to + 0.03f, colour, 0.26f, 0.1f);
+        }
+        else
+        {
+            // Long Range (p. 43): the bright bar broken into dashes over the solid dark outline, and a small tag at the
+            // middle of the line, so long range is told by shape and words as well as colour.
+            var length = Math.Sqrt(Math.Pow(line.To.X - line.From.X, 2) + Math.Pow(line.To.Y - line.From.Y, 2));
+            var dashes = Math.Max(3, (int)Math.Round(length / LongRangeDash) | 1);
+            for (var i = 0; i < dashes; i += 2)
+            {
+                var (k0, k1) = ((float)i / dashes, (float)(i + 1) / dashes);
+                Bar(Along(line.From, line.To, k0), Mathf.Lerp(from, to, k0) + 0.03f, Along(line.From, line.To, k1), Mathf.Lerp(from, to, k1) + 0.03f, colour, 0.26f, 0.1f);
+            }
+            Overlay(TargetLine.LongRangeTag, Along(line.From, line.To, 0.5), Mathf.Lerp(from, to, 0.5f) + 0.35f, 0.45f);
+            LongRangeTagDrawn = true;
+        }
         TargetLineDrawn = (line, colour);
         TargetLinesDrawn++;
     }
+
+    // The length of one dash (and one gap) of a long-range line, in inches.
+    private const double LongRangeDash = 0.5;
+
+    private static TablePoint Along(TablePoint a, TablePoint b, double k) => new(a.X + (b.X - a.X) * k, a.Y + (b.Y - a.Y) * k);
+
+    // For the UI check: whether the LONG RANGE tag was drawn with the target line now.
+    public bool LongRangeTagDrawn { get; private set; }
 
     // A flat bar between two table points at their own heights, drawn through terrain but under the labels.
     private void Bar(TablePoint a, float ha, TablePoint b, float hb, Color colour, float width, float thickness)

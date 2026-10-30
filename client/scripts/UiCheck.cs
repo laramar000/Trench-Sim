@@ -3131,9 +3131,11 @@ public partial class UiCheck : Node
         var ends = drawn is { } d && (apart <= ra + rt + 1e-6
             ? Near(d.Line.From, ac.X, ac.Y, 0.01) && Near(d.Line.To, tc.X, tc.Y, 0.01)
             : Math.Abs(Dist(d.Line.From, ac) - ra) < 0.02 && Math.Abs(Dist(d.Line.To, tc) - rt) < 0.02 && Math.Abs(Dist(d.Line.From, tc) - (apart - ra)) < 0.02);
+        // Long-range indicator (2026-10-30): the line is long range, with its LONG RANGE tag, exactly when the panel says so.
+        var longRange = shot.Legal && shot.Facts.Any(f => f.StartsWith("Long range", StringComparison.Ordinal));
         Check("board-target-line", board.TargetLinesDrawn == 1 && drawn is { } line && line.Line.Attacker == shot.Model && line.Line.Target == target && ends
-            && line.Line.Tone == tone && line.Colour == board.ToneColour(tone),
-            $"{board.TargetLinesDrawn} line(s); {drawn?.Line} colour {drawn?.Colour}; wanted {shot.Model.Value} -> {target.Value} ({tone}), base edges {ra}\" and {rt}\" of {apart:0.00}\" apart");
+            && line.Line.Tone == tone && line.Colour == board.ToneColour(tone) && line.Line.LongRange == longRange && board.LongRangeTagDrawn == longRange,
+            $"{board.TargetLinesDrawn} line(s); {drawn?.Line} colour {drawn?.Colour}, tag {board.LongRangeTagDrawn}; wanted {shot.Model.Value} -> {target.Value} ({tone}, long range {longRange}), base edges {ra}\" and {rt}\" of {apart:0.00}\" apart");
     }
 
     private bool _deployChecked;
@@ -6564,6 +6566,14 @@ public partial class UiCheck : Node
         var target = board.CameraTarget;
         var zoom = board.Zoomed;
         await ClickAt(rect.GetCenter());
+        // Lag fix (2026-10-30): picking a row repaints only the rows whose marker changed (this one, and one picked before),
+        // not the whole log, and the picked row shows its marker.
+        // (The newest row keeps its ▶, so picking it changes no marker.)
+        var (painted, rows) = (main.LogRowsPainted, main.LogRowCount);
+        var newestPicked = main.LogRowModels[^1].Seq == row.Seq;
+        var dots = main.LogRows.Count(r => r.Marker == "•");
+        Check("log-repaints-changed-rows", rows > 10 && painted <= 2 && (newestPicked || painted >= 1) && dots == (newestPicked ? 0 : 1),
+            $"{painted} of {rows} rows painted again after picking row {row.Seq} (newest: {newestPicked}); rows marked •: {dots}");
         var wanted = string.Join(",", row.Models.Select(m => m.Value).Order(StringComparer.Ordinal));
         var ringed = string.Join(",", board.PointedOut.Select(m => m.Value).Order(StringComparer.Ordinal));
         var stayed = board.CameraTarget == target;

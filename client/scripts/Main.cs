@@ -2664,6 +2664,7 @@ public partial class Main : Control
                 row.QueueFree();
             }
             _logRows.Clear();
+            _logPainted.Clear();
             known = 0;
         }
         while (_logRows.Count > 0 && _logRows[0].Seq < first)
@@ -2672,6 +2673,7 @@ public partial class Main : Control
             _log.RemoveChild(gone);
             gone.QueueFree();
             _logRows.RemoveAt(0);
+            _logPainted.Remove(gone);
         }
         foreach (var line in log.Where(l => l.Seq > known))
         {
@@ -3029,19 +3031,14 @@ public partial class Main : Control
     private void PaintLog()
     {
         var lastTurn = _logRows.FindLastIndex(r => r.Source.Kind == EventKind.Turn && r.Source.Text.Contains("--- Turn ", StringComparison.Ordinal));
+        var painted = 0;
         for (var i = 0; i < _logRows.Count; i++)
         {
-            var (seq, _, marker, line, source, toggle, details) = _logRows[i];
-            if (toggle is not null && details is not null)
-            {
-                var open = _logOpen.Contains(seq);
-                toggle.Text = open ? "▾" : "▸";
-                details.Visible = open && LatestAction(seq) is not null;
-                details.Text = open && LatestAction(seq) is { } action ? ActionDetails(action) : "";
-                details.AddThemeColorOverride("font_color", _highContrast ? Colors.White : new Color(0.8f, 0.8f, 0.75f));
-            }
+            var (seq, box, marker, line, source, toggle, details) = _logRows[i];
+            var open = toggle is not null && details is not null && _logOpen.Contains(seq);
+            var steps = open && LatestAction(seq) is { } action ? ActionDetails(action) : null;
             var newest = i == _logRows.Count - 1;
-            marker.Text = newest ? "▶" : seq == _logPicked ? "•" : "";
+            var pointer = newest ? "▶" : seq == _logPicked ? "•" : "";
             var colour = (_highContrast ? Colors.Yellow : KindColour(source.Kind)).ToHtml(false);
             var row = source.Row ?? new CompactRow(null, null, source.Text.Trim());
             var verb = row.Verb is null ? "" : $"[b][color=#{colour}]{Escape(row.Verb)}[/color][/b]";
@@ -3058,11 +3055,39 @@ public partial class Main : Control
                 head += $"[b][color=#{tint}]{mark}[/color][/b] ";
             }
             var dice = source.Dice is null ? "" : $"\n[color=#{(_highContrast ? "ffffff" : "a6a6a6")}]      {Escape(source.Dice)}[/color]";
-            line.Text = head + body + dice;
+            // Lag fix (2026-10-30): a row is painted again only when what it shows changed. Setting a RichTextLabel's text
+            // parses and lays it out again, and doing that for every row on every update grew with the log (up to 200 rows).
+            // The key is everything painted below, so a row whose key is unchanged would be painted exactly as it is.
+            var text = head + body + dice;
+            var key = string.Join('\u0001', text, pointer, highlight, _highContrast, open, steps ?? "");
+            if (_logPainted.TryGetValue(box, out var last) && last == key)
+            {
+                continue;
+            }
+            _logPainted[box] = key;
+            painted++;
+            if (toggle is not null && details is not null)
+            {
+                toggle.Text = open ? "▾" : "▸";
+                details.Visible = steps is not null;
+                details.Text = steps ?? "";
+                details.AddThemeColorOverride("font_color", _highContrast ? Colors.White : new Color(0.8f, 0.8f, 0.75f));
+            }
+            marker.Text = pointer;
+            line.Text = text;
             line.AddThemeColorOverride("default_color", highlight ? (_highContrast ? Colors.Yellow : new Color(1f, 0.95f, 0.6f)) : (_highContrast ? Colors.White : new Color(0.92f, 0.92f, 0.9f)));
             marker.AddThemeColorOverride("font_color", _highContrast ? Colors.Yellow : new Color(1f, 0.95f, 0.6f));
         }
+        LogRowsPainted = painted;
     }
+
+    // For the UI check: how many rows the last PaintLog painted again (the others were unchanged), and how many there are.
+    public int LogRowsPainted { get; private set; }
+
+    public int LogRowCount => _logRows.Count;
+
+    // What each log row was last painted with (PaintLog), by the row's own box: rows of a new match are new boxes.
+    private readonly Dictionary<Control, string> _logPainted = [];
 
     private static Color KindColour(EventKind kind) => kind switch
     {

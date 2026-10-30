@@ -114,6 +114,7 @@ host: board-keys-on-buttons
 host: board-esc-cancels-everywhere
 host: board-no-double-send
 host: log-click-points-out
+host: log-repaints-changed-rows
 host: key-sheet
 host: key-sheet-keys
 host: board-target-line
