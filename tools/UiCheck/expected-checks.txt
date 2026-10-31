@@ -229,6 +229,7 @@ hotseat: connect-refused-retry
 hotseat: connect-cancel
 hotseat: connect-timeout
 hotseat: connect-back-cancels
+hotseat: play-roster-pickers
 hotseat: hotseat-choose-scenario
 hotseat: hotseat-start-enter
 hotseat: hotseat-started

@@ -55,6 +55,9 @@ public partial class Main
     // Roster stage 5b (hot-seat first): each seat plays the scenario's practice warband or one of the saved rosters.
     public const string PracticeWarbandText = "The scenario's practice warband";
     private OptionButton _rosterOne = null!;
+
+    // Roster stage 5c (rosters online): the warband this player brings to a match they host or join on the Online page.
+    private OptionButton _rosterOnline = null!;
     private OptionButton _rosterTwo = null!;
 
     private static string VersionLine =>
@@ -269,12 +272,17 @@ public partial class Main
                 Button("Refresh saved seats", Use(form, RefreshSaved)))),
             advancedToggle,
             _advanced);
+        _rosterOnline = new OptionButton { Name = "RosterOnline" };
         _playOnline = Column(
             Row(Button(BackText, ShowPlay)),
             Section("Online", Column(
                 Text("Needs a running Trenches server that both players can reach."),
-                Field("Server address:", form.Server))),
-            Section("Host", Column(Row(host), Text("Uses the scenario and map chosen on the Play page; give your opponent the match code shown next."))),
+                Field("Server address:", form.Server),
+                Field("You play:", _rosterOnline),
+                Text("The practice warbands, or one of your saved rosters. A match hosted with a roster is joined with a roster, " +
+                    "and one hosted with the practice warbands without."))),
+            Section("Host", Column(Row(host), Text("Uses the scenario and map chosen on the Play page (with a roster, the map only); " +
+                "give your opponent the match code shown next."))),
             Section("Connect", Column(Row(_connectButton), Text("Join with a match code, or rejoin a saved seat."))),
             _playConnect);
         play.AddChild(_playChoose);
@@ -394,7 +402,7 @@ public partial class Main
     private void RefreshRosterChoices()
     {
         var saved = RosterBuilder.Saved(RosterFolder);
-        foreach (var choice in new[] { _rosterOne, _rosterTwo })
+        foreach (var choice in new[] { _rosterOne, _rosterTwo, _rosterOnline })
         {
             var was = choice.Selected > 0 ? choice.GetItemText(choice.Selected) : null;
             choice.Clear();
@@ -426,11 +434,25 @@ public partial class Main
         return (one, two);
     }
 
+    // Roster stage 5c: the text of the saved roster chosen on the Online page, checked first; null for the practice
+    // warbands (and off the Play screen), or with the problem when it cannot be played.
+    private string? OnlineRoster(out string? problem)
+    {
+        problem = null;
+        if (_form != _playForm || _rosterOnline.Selected <= 0)
+        {
+            return null;
+        }
+        var prepared = RosterMatch.PrepareOne(RosterFolder, _rosterOnline.GetItemText(_rosterOnline.Selected));
+        problem = prepared.Problem;
+        return prepared.Json;
+    }
+
     // For the UI check: choose the saved rosters by file name (null for the practice warband).
-    public void ChooseRostersForCheck(string? one, string? two)
+    public void ChooseRostersForCheck(string? one, string? two, string? online = null)
     {
         RefreshRosterChoices();
-        foreach (var (choice, file) in new[] { (_rosterOne, one), (_rosterTwo, two) })
+        foreach (var (choice, file) in new[] { (_rosterOne, one), (_rosterTwo, two), (_rosterOnline, online) })
         {
             var index = 0;
             for (var i = 1; i < choice.ItemCount; i++)

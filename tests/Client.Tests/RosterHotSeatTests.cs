@@ -62,4 +62,41 @@ public sealed partial class TransportTests
         Assert.Contains("Seat One's roster Bombers has what the game cannot play yet", prepared.Problem, StringComparison.Ordinal);
         Assert.Contains("Frag Grenades", prepared.Problem, StringComparison.Ordinal);
     }
+
+    // Roster stage 5c (rosters online): each player hosts or joins with a saved roster; both windows see the real
+    // setup and both rosters' names, which the server sent (not this window's own content).
+    [Fact]
+    public async Task TwoPlayersHostAndJoinWithTheirOwnRosters()
+    {
+        var folder = Path.Combine(_dir.FullName, "rosters");
+        var hostFile = SaveRoster("Iron Line", ("lieutenant", ["pistol", "sword-axe"]), ("yeoman", ["bolt-action-rifle"]));
+        var joinFile = SaveRoster("Mud Saints", ("lieutenant", ["bolt-action-rifle", "standard-armour"]));
+        var hostRoster = RosterMatch.PrepareOne(folder, hostFile);
+        var joinRoster = RosterMatch.PrepareOne(folder, joinFile);
+        Assert.Null(hostRoster.Problem);
+        Assert.Null(joinRoster.Problem);
+        ContentNames.RosterContent = null;
+
+        await using var one = HotController(_server.Endpoint);
+        await using var two = HotController(_server.Endpoint);
+        var welcome = Assert.IsType<Match.Protocol.Welcome>(await one.CreateWithRosterAsync(hostRoster.Json!, null, Token));
+        Assert.IsType<Match.Protocol.Welcome>(await two.JoinAsync(welcome.Code, joinRoster.Json, Token));
+        foreach (var controller in new[] { one, two })
+        {
+            var screen = await Until(controller, s => s.View.Seats.Count == 2 && s.View.Seats.All(seat => seat.Warband is "Iron Line" or "Mud Saints")
+                && s.View.Models.Count == 3);
+            Assert.Equal(["Iron Line", "Mud Saints"], screen.View.Seats.Select(seat => seat.Warband));
+            Assert.Contains(screen.View.Models, m => m.Name == "Lieutenant (b1)");
+            Assert.Null(screen.View.NamesProblem);
+        }
+    }
+
+    [Fact]
+    public void ARosterTheGameCannotPlayIsNotSent()
+    {
+        var file = SaveRoster("Bombers", ("lieutenant", ["frag-grenades"]));
+        var prepared = RosterMatch.PrepareOne(Path.Combine(_dir.FullName, "rosters"), file);
+        Assert.Null(prepared.Json);
+        Assert.Contains("Your roster Bombers has what the game cannot play yet", prepared.Problem, StringComparison.Ordinal);
+    }
 }

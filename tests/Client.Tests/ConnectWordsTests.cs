@@ -52,6 +52,13 @@ public class ConnectWordsTests
     }
 
     [Fact]
+    public void ARefusedRosterSaysWhatTheServerFoundWrong()
+    {
+        Assert.Equal("Your roster was not accepted: This match is played with rosters: join with one of your saved rosters.",
+            ConnectWords.Refusal(Refusal(ProtocolError.RosterRefused, "This match is played with rosters: join with one of your saved rosters.")));
+    }
+
+    [Fact]
     public void AnUnexpectedRefusalKeepsTheServersWords()
     {
         Assert.Equal("The server refused (Malformed): bad json", ConnectWords.Refusal(Refusal(ProtocolError.Malformed, "bad json")));

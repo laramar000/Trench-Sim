@@ -41,8 +41,8 @@ Version 2 (M6) replaces version 1; the server speaks only version 2.
 
 | type | fields | meaning |
 |---|---|---|
-| `CreateMatch` | `scenario`, optional `map` | Creates a match of a named scenario (`ranged`, `melee`). The sender takes seat One. With `map` (trench-maps stage S5, left out when not given), the scenario's models play on that server map instead; a map the server lacks is refused `UnknownMap`, one not made for the scenario or not fitting it `MapDoesNotFit`. |
-| `JoinMatch` | `code` | Joins by match code. The sender takes seat Two. No message can choose a seat. |
+| `CreateMatch` | `scenario`, optional `map` | Creates a match of a named scenario (`ranged`, `melee`). The sender takes seat One. With `map` (trench-maps stage S5, left out when not given), the scenario's models play on that server map instead; a map the server lacks is refused `UnknownMap`, one not made for the scenario or not fitting it `MapDoesNotFit`. With `roster` (roster stage 5c, left out when not given, scenario `roster` only): the text of the sender's saved roster file. The server checks it itself with its own roster data (legal, and nothing the engine cannot play, else `RosterRefused` with the reason by name). Until a second player joins with a roster of their own, the match waits with a placeholder setup (Seat One's roster on both sides); when they join, the server replaces it with the real setup and sends Seat One a new `Welcome` with `replayFrom` 0, then seats Seat Two. Only the real match is recorded. |
+| `JoinMatch` | `code`, optional `roster` | Joins by match code. The sender takes seat Two. No message can choose a seat. With `roster` (roster stage 5c, left out when not given): the sender's saved roster, needed to join a match hosted with one and refused `RosterRefused` for a match hosted with the practice warbands. |
 | `SubmitCommand` | `commandId`, `seq`, `knownEvents`, `command` | A command for the sender's own seat. |
 | `Rejoin` | `code`, `seatToken`, `knownEvents`, `knownHash` | Takes a seat back after a lost connection. See Rejoining. |
 | `TokenSaved` | (none) | The client has saved the seat token from its last `Welcome`. See Seat tokens. |
@@ -176,3 +176,16 @@ Messages arriving during shutdown are refused with `ShuttingDown`.
 The server sends events in log order, one message each, to both players, through one ordered outbound queue per connection. Before sending, it applies each accepted event itself and checks the result against `Decide`'s state.
 
 `MatchMirror.Apply` requires each event to be the next one in order. It applies the event with `Reducer.Apply` and requires `StateHash.Compute` of the result to equal the server's `hash`. A gap or a mismatch throws, and the client must stop trusting its copy. `ClientSession` then drops the connection and reports the failure. A `MatchAborted` whose count or hash differs from the client's copy is treated the same way.
+
+## Rosters online (roster stage 5c)
+
+- Optional fields, each left out when not used, so every message without them is written exactly as before and the
+  protocol version stays 2: `CreateMatch.roster`, `JoinMatch.roster` and `Welcome.warbands`.
+- `Welcome.warbands`: in a match played with rosters sent online, the models' names in the warband content format
+  (both warbands, Seat One first). Names only; a client uses them only if every profile in them equals the setup's.
+- `RosterRefused` (new error code): a roster that cannot be read or played (the text says why, by name), a roster sent
+  with another scenario, a roster match joined without a roster, a practice match joined with one, or a server that has
+  no roster data. A refused join leaves the match waiting for another player.
+- Names a player gives (the roster's and its models') reach the opponent; the server refuses names over 60 characters
+  or with control characters.
+- Tests: `Server.Tests/RosterOnlineTests`, `Client.Tests/RosterHotSeatTests` (two controllers on the real server).

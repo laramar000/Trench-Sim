@@ -25,7 +25,7 @@ internal sealed class MatchHost
     private readonly TimeSpan _rejoinWindow;
     private readonly SeatSlot[] _slots = [new(), new()];
     private readonly List<EventPublished> _log = [];
-    private readonly MatchSetup _setup;
+    private MatchSetup _setup;
     private MatchState _state = MatchState.None;
     private bool _started;
     private DateTimeOffset? _endedAt;
@@ -61,6 +61,11 @@ internal sealed class MatchHost
 
     // Trench-maps stage S5: the id of the server's map file the match is played on, when the layout is one of them.
     public string? Map { get; init; }
+    // Roster stage 5c: Seat One's roster while the match waits for a second player with one (the setup until then is
+    // only a placeholder), and the models' names once both rosters are in, sent in every Welcome.
+    public WaitingRoster? WaitingRoster { get; private set; }
+    public string? Warbands { get; private set; }
+
     public MatchStatus Status { get; private set; } = MatchStatus.Waiting;
     public MatchState State => _state;
     public IReadOnlyList<EventPublished> Log => _log;
@@ -111,6 +116,37 @@ internal sealed class MatchHost
                 return;
             }
             Commit(result, now);
+        }
+    }
+
+    // Roster stage 5c: a match made with a roster waits with a placeholder setup (Seat One's roster on both sides).
+    public void WaitForRoster(WaitingRoster waiting, string placeholderNames)
+    {
+        WaitingRoster = waiting;
+        Warbands = placeholderNames;
+    }
+
+    // Roster stage 5c: both rosters are in. The placeholder history is replaced by the match's real setup before the
+    // second seat is taken, and Seat One, if connected, starts its copy again from it (a Welcome replaying from 0, as on
+    // a rejoin whose copy is not a prefix). Nothing was recorded for the placeholder: the record starts with the match.
+    public void SetUpRosterMatch(MatchSetup setup, string names, DateTimeOffset now)
+    {
+        if (WaitingRoster is null || Status != MatchStatus.Waiting || !IsFree(Rules.Core.State.Seat.Two))
+        {
+            throw new InvalidOperationException("Only a roster match waiting for its second player is set up again.");
+        }
+        _setup = setup;
+        _state = MatchState.None;
+        _log.Clear();
+        Append(new MatchCreated(setup));
+        WaitingRoster = null;
+        Warbands = names;
+        var slot = Slot(Rules.Core.State.Seat.One);
+        if (slot.Connection is { } first)
+        {
+            var token = slot.Issue(first);
+            _outbox.Send(first, WelcomeFor(Rules.Core.State.Seat.One, token, replayFrom: 0));
+            _outbox.SendBacklog(first, ViewOf(Rules.Core.State.Seat.One, _log));
         }
     }
 
@@ -352,7 +388,10 @@ internal sealed class MatchHost
     private Welcome WelcomeFor(Seat seat, string? token, int replayFrom)
     {
         var slot = Slot(seat);
-        return new Welcome(Code, MatchId, seat, Scenario, token, replayFrom, _log.Count, _log[^1].Hash, slot.NextSeq, slot.LastAnswer, Status);
+        return new Welcome(Code, MatchId, seat, Scenario, token, replayFrom, _log.Count, _log[^1].Hash, slot.NextSeq, slot.LastAnswer, Status)
+        {
+            Warbands = Warbands,
+        };
     }
 
     private SeatSlot Slot(Seat seat) => _slots[seat == Rules.Core.State.Seat.One ? 0 : 1];

@@ -23,6 +23,9 @@ public sealed class MatchServerOptions
     // Trench-maps stage S5: the maps a CreateMatch may name; null is the content maps next to the program.
     public IReadOnlyDictionary<string, MapDefinition>? Maps { get; init; }
 
+    // Roster stage 5c: the roster data and map for matches made with rosters; null loads the shipped data.
+    public RosterMatches? Rosters { get; init; }
+
     // The server's dice, one source per match. Tests inject seeded dice; the real server uses RandomDice.
     public Func<IDiceSource> NewDice { get; init; } = () => new RandomDice();
 
@@ -103,7 +106,8 @@ public sealed class MatchServer : IAsyncDisposable
             time: options.Time,
             rejoinWindow: options.RejoinWindow,
             recorder: (IMatchRecorder?)data?.Writer ?? NullRecorder.Instance,
-            maps: options.Maps ?? ScenarioCatalog.Maps);
+            maps: options.Maps ?? ScenarioCatalog.Maps,
+            rosters: options.Rosters ?? RosterMatches.FromContent(options.Maps ?? ScenarioCatalog.Maps, options.Log));
         _ticker = options.Time.CreateTimer(_ => Lobby.Tick(), null, options.TickInterval, options.TickInterval);
 
         // A client that does not answer a ping within twice the interval is dropped; a zero interval turns pings off.

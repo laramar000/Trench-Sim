@@ -335,6 +335,9 @@ public static class Wire
             (typeof(TerrainBlock), nameof(TerrainBlock.Climb)),
             (typeof(TerrainBlock), nameof(TerrainBlock.Depth)),
             (typeof(CreateMatch), nameof(CreateMatch.Map)),
+            (typeof(CreateMatch), nameof(CreateMatch.Roster)),
+            (typeof(JoinMatch), nameof(JoinMatch.Roster)),
+            (typeof(Welcome), nameof(Welcome.Warbands)),
             (typeof(MatchRecordBody), nameof(MatchRecordBody.Map)),
             (typeof(MatchRecordBody), nameof(MatchRecordBody.MapHash)),
         ];

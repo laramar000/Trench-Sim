@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Match.Protocol;
 using Rules.Core.Dice;
+using Roster;
 using Rules.Core.State;
 using Sim;
 
@@ -58,6 +59,7 @@ public sealed class Lobby
     private readonly TimeProvider _time;
     private readonly TimeSpan _rejoinWindow;
     private readonly IMatchRecorder _recorder;
+    private readonly RosterMatches? _rosters;
     private readonly Dictionary<string, MatchHost> _matches = new(StringComparer.Ordinal);
     private readonly Dictionary<ConnectionId, (MatchHost Host, Seat Seat)> _seated = [];
     private readonly Dictionary<ConnectionId, int> _tokenFailures = [];
@@ -73,7 +75,8 @@ public sealed class Lobby
         TimeSpan? rejoinWindow = null,
         IMatchRecorder? recorder = null,
         IReadOnlyDictionary<string, MapDefinition>? maps = null,
-        Func<int>? newMapSeed = null)
+        Func<int>? newMapSeed = null,
+        RosterMatches? rosters = null)
     {
         _scenarios = scenarios;
         _maps = maps ?? new Dictionary<string, MapDefinition>(StringComparer.Ordinal);
@@ -89,6 +92,7 @@ public sealed class Lobby
         _rejoinWindow = rejoinWindow ?? DefaultRejoinWindow;
         _recorder = recorder ?? NullRecorder.Instance;
         _newMapSeed = newMapSeed ?? (() => RandomNumberGenerator.GetInt32(int.MaxValue));
+        _rosters = rosters;
     }
 
     public static TimeSpan DefaultRejoinWindow { get; } = TimeSpan.FromMinutes(5);
@@ -251,7 +255,35 @@ public sealed class Lobby
             Refuse(from, ProtocolError.AlreadyJoined, "This connection already has a seat.");
             return;
         }
-        if (!_scenarios.TryGetValue(create.Scenario, out var setup))
+        // Roster stage 5c: a roster sent with the scenario "roster" is checked here; until the second roster arrives
+        // the match waits with Seat One's roster on both sides as a placeholder.
+        WaitingRoster? waiting = null;
+        string? placeholderNames = null;
+        MatchSetup setup;
+        if (create.Roster is { } rosterText)
+        {
+            if (create.Scenario != RosterText.Scenario)
+            {
+                Refuse(from, ProtocolError.RosterRefused, $"A roster is sent with the scenario \"{RosterText.Scenario}\".");
+                return;
+            }
+            if (CheckRoster(from, rosterText) is not { } first)
+            {
+                return;
+            }
+            placeholderNames = MatchReady.ContentJson([("roster-1", first.Name!, first.Ready!), ("roster-2", first.Name!, first.Ready!)]);
+            try
+            {
+                setup = ScenarioSetups.FromContentText(placeholderNames, _rosters!.PlainMap);
+            }
+            catch (Exception e) when (e is MapFormatException or ArgumentException or InvalidOperationException)
+            {
+                Refuse(from, ProtocolError.RosterRefused, $"The roster cannot be set up on the battlefield: {e.Message}");
+                return;
+            }
+            waiting = new WaitingRoster(first.Name!, first.Ready!, _rosters.PlainMap);
+        }
+        else if (!_scenarios.TryGetValue(create.Scenario, out setup!))
         {
             Refuse(from, ProtocolError.UnknownScenario, "No such scenario on this server.");
             return;
@@ -274,6 +306,7 @@ public sealed class Lobby
             try
             {
                 setup = ScenarioSetups.OnMap(setup, map);
+                waiting = waiting is null ? null : waiting with { Map = map };
             }
             catch (MapFormatException e)
             {
@@ -297,6 +330,10 @@ public sealed class Lobby
         {
             Map = mapId ?? (setup.Scenario is { } played ? _mapIdByHash.GetValueOrDefault(RecordFormat.MapHash(played)) : null),
         };
+        if (waiting is not null)
+        {
+            host.WaitForRoster(waiting, placeholderNames!);
+        }
         _matches.Add(code, host);
         _seated.Add(from, (host, Seat.One));
         host.Seat(Seat.One, from, now);
@@ -317,6 +354,35 @@ public sealed class Lobby
         if (host.Status != MatchStatus.Waiting || !host.IsFree(Seat.Two))
         {
             Refuse(from, ProtocolError.MatchFull, "This match already has two players.");
+            return;
+        }
+        if (host.WaitingRoster is { } first)
+        {
+            if (join.Roster is not { } rosterText)
+            {
+                Refuse(from, ProtocolError.RosterRefused, "This match is played with rosters: join with one of your saved rosters.");
+                return;
+            }
+            if (CheckRoster(from, rosterText) is not { } second)
+            {
+                return;
+            }
+            var names = MatchReady.ContentJson([("roster-1", first.Name, first.Ready), ("roster-2", second.Name!, second.Ready!)]);
+            MatchSetup setup;
+            try
+            {
+                setup = ScenarioSetups.FromContentText(names, first.Map);
+            }
+            catch (Exception e) when (e is MapFormatException or ArgumentException or InvalidOperationException)
+            {
+                Refuse(from, ProtocolError.RosterRefused, $"The two rosters cannot be set up on this map: {e.Message}");
+                return;
+            }
+            host.SetUpRosterMatch(setup, names, now);
+        }
+        else if (join.Roster is not null)
+        {
+            Refuse(from, ProtocolError.RosterRefused, "This match is played with the practice warbands: join without a roster.");
             return;
         }
         _seated.Add(from, (host, Seat.Two));
@@ -356,6 +422,32 @@ public sealed class Lobby
         }
         _seated.Add(from, (host, seat));
         host.Rejoin(seat, from, rejoin, now);
+    }
+
+    // The server's own check of a roster a player sent; refused by name when it cannot be played.
+    private RosterData.Entry? CheckRoster(ConnectionId from, string rosterText)
+    {
+        if (_rosters is null)
+        {
+            Refuse(from, ProtocolError.RosterRefused, "This server does not take rosters.");
+            return null;
+        }
+        RosterData.Entry entry;
+        try
+        {
+            entry = _rosters.Data.Check(rosterText);
+        }
+        catch (Exception e) when (e is not OutOfMemoryException)
+        {
+            // Never a server fault for what a client sent.
+            entry = new RosterData.Entry(null, null, "The roster cannot be read.");
+        }
+        if (entry.Problem is { } problem)
+        {
+            Refuse(from, ProtocolError.RosterRefused, problem);
+            return null;
+        }
+        return entry;
     }
 
     private void SaveToken(ConnectionId from)

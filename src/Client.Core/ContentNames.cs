@@ -88,7 +88,8 @@ public sealed class ContentNames
             ? scenario[..^4]
             : scenario;
 
-    public static ContentNames For(string scenario, MatchSetup? setup)
+    // sentNames: roster stage 5c, the names the server sent with the Welcome of a match played with rosters online.
+    public static ContentNames For(string scenario, MatchSetup? setup, string? sentNames = null)
     {
         if (setup is null)
         {
@@ -96,10 +97,10 @@ public sealed class ContentNames
         }
         if (scenario == RosterScenario)
         {
-            // Roster stage 5b: the warbands this window wrote for its own hot-seat match.
+            // Roster stage 5b: the warbands this window wrote for its own hot-seat match; 5c: the server's names.
             try
             {
-                return RosterContent is { } json ? Match(Parse(json), setup) : Ids("This window did not make the rosters of this match.");
+                return (sentNames ?? RosterContent) is { } json ? Match(Parse(json), setup) : Ids("This window did not make the rosters of this match.");
             }
             catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException or FormatException)
             {

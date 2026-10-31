@@ -83,7 +83,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - **Roster stage 5a done (2026-10-31):** `src/Roster/MatchReadiness.cs` turns a legal roster into the engine's warband
   content and names what it refuses and what it plays without; the builder shows it under "For a match".
   **Stage 5b (hot-seat) done:** Play page "Seat One plays / Seat Two plays" picks saved rosters; the local server runs
-  with `--warbands`. **Stage 5c next (needs the owner's go):** rosters online, a protocol change (docs/roster.md).
+  with `--warbands`. **Stage 5c (online) done:** Online page "You play"; CreateMatch/JoinMatch carry the roster text,
+  the server checks it (Roster/RosterData.cs) and sets the match up when both are in (docs/protocol.md). Next roster
+  work (needs the owner's go): playing what MatchReadiness leaves out (keywords, abilities, grenades, equipment).
 - The faction JSON files are the source of truth now. The earlier generator scripts held private source names and are
   not in the repo: edit `content/roster/*.json` directly, keep `docs/roster.md` and the tests (`tests/Roster.Tests`,
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).

@@ -33,4 +33,31 @@ public static class RosterMatch
         }
         return new(MatchReady.ContentJson(warbands), null, without);
     }
+
+    // Roster stage 5c (rosters online): one saved roster, checked here first so the player hears at once what is wrong;
+    // Json is the roster file's text to send (the server checks it again itself).
+    public static Prepared PrepareOne(string folder, string file)
+    {
+        var builder = RosterBuilder.Shipped();
+        if (builder.Load(folder, file) is { } problem)
+        {
+            return new(null, $"Your roster {file}: {problem}", []);
+        }
+        var ready = builder.MatchCheck();
+        if (ready.RosterProblems.Count > 0)
+        {
+            return new(null, $"Your roster {builder.Name} is not legal: {ready.RosterProblems[0]}", []);
+        }
+        if (ready.Refused.Count > 0)
+        {
+            return new(null, $"Your roster {builder.Name} has what the game cannot play yet: {string.Join("; ", ready.Refused)}", []);
+        }
+        var json = builder.Roster.ToJson();
+        return System.Text.Encoding.UTF8.GetByteCount(json) > MaxRosterBytes
+            ? new(null, $"Your roster {builder.Name} is too large to send.", [])
+            : new(json, null, ready.PlayedWithout);
+    }
+
+    // What fits in one client message (Match.Protocol.ProtocolLimits.MaxClientMessageBytes) with room to spare.
+    public const int MaxRosterBytes = 12 * 1024;
 }

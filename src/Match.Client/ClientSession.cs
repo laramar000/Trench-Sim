@@ -146,6 +146,15 @@ public sealed class ClientSession : IAsyncDisposable
     public async Task<ServerMessage> JoinAsync(string code, CancellationToken cancellationToken = default) =>
         await RequestAsync(new JoinMatch(code), cancellationToken);
 
+    // Roster stage 5c: create a match with the text of a saved roster file (the scenario "roster"), on the plain map or
+    // another map; the server checks the roster and sets the match up once the second player joins with theirs.
+    public async Task<ServerMessage> CreateWithRosterAsync(string roster, string? map, CancellationToken cancellationToken = default) =>
+        await RequestAsync(new CreateMatch(RosterText.Scenario) { Map = map, Roster = roster }, cancellationToken);
+
+    // Roster stage 5c: join a match made with a roster, sending this player's own.
+    public async Task<ServerMessage> JoinAsync(string code, string? roster, CancellationToken cancellationToken = default) =>
+        await RequestAsync(new JoinMatch(code) { Roster = roster }, cancellationToken);
+
     // Takes a seat back with its token, offering the copy this session holds. The server replays what is missing, or
     // everything if the copy is not a prefix of the match.
     public async Task<ServerMessage> RejoinAsync(string code, string seatToken, CancellationToken cancellationToken = default)

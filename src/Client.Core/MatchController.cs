@@ -159,6 +159,13 @@ public sealed class MatchController : IAsyncDisposable
     public Task<ServerMessage> JoinAsync(string code, CancellationToken cancellationToken = default) =>
         StartAsync((s, ct) => s.JoinAsync(code, ct), cancellationToken);
 
+    // Roster stage 5c: host or join with the text of a saved roster file.
+    public Task<ServerMessage> CreateWithRosterAsync(string roster, string? map, CancellationToken cancellationToken = default) =>
+        StartAsync((s, ct) => s.CreateWithRosterAsync(roster, map, ct), cancellationToken);
+
+    public Task<ServerMessage> JoinAsync(string code, string? roster, CancellationToken cancellationToken = default) =>
+        StartAsync((s, ct) => s.JoinAsync(code, roster, ct), cancellationToken);
+
     // Takes a saved seat back (after a crash or a restart of the client).
     public async Task<ServerMessage> RejoinSavedAsync(SavedSeat seat, CancellationToken cancellationToken = default)
     {
@@ -517,6 +524,11 @@ public sealed class MatchController : IAsyncDisposable
                 // The events up to Events are the match so far, sent again on joining or rejoining: not new to the player.
                 _replayUntil = welcome.Events;
             }
+            if (message is EventPublished { Event: Rules.Core.Events.MatchCreated } && ReferenceEquals(session, _session) && session.Welcome is { } w)
+            {
+                // Roster stage 5c: a roster match is set up again when the second player joins; its names come with it.
+                _names = ContentNames.For(w.Scenario, session.Mirror.State.Setup, w.Warbands);
+            }
             switch (message)
             {
                 case Welcome { ReplayFrom: 0 }:
@@ -564,7 +576,7 @@ public sealed class MatchController : IAsyncDisposable
         {
             _session = session;
             _welcome = session.Welcome;
-            _names = ContentNames.For(session.Welcome!.Scenario, session.Mirror.State.Setup);
+            _names = ContentNames.For(session.Welcome!.Scenario, session.Mirror.State.Setup, session.Welcome.Warbands);
             if (!ReferenceEquals(_awayFrom, session))
             {
                 _opponentAwayUntil = null;
@@ -606,7 +618,7 @@ public sealed class MatchController : IAsyncDisposable
             // Names need the setup, which arrives with the first event.
             if (ReferenceEquals(session, _session) && _names.WarbandOne is null && _names.Problem is null)
             {
-                _names = ContentNames.For(session.Welcome!.Scenario, session.Mirror.State.Setup);
+                _names = ContentNames.For(session.Welcome!.Scenario, session.Mirror.State.Setup, session.Welcome.Warbands);
             }
             _version++;
         }

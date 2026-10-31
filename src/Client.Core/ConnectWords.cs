@@ -55,6 +55,8 @@ public static class ConnectWords
         ProtocolError.UnknownScenario => "This server does not have that scenario. It may be running another version of Trenches.",
         ProtocolError.UnknownMap or ProtocolError.MapDoesNotFit => "This server does not have that map for this scenario. It may be running another version of Trenches.",
         ProtocolError.UnsupportedVersion => "This server runs another version of Trenches. Both players and the server need the same version.",
+        // Roster stage 5c: the server's own words say what is wrong with the roster or which kind of match this is.
+        ProtocolError.RosterRefused => $"Your roster was not accepted: {serverText}",
         ProtocolError.InvalidToken or ProtocolError.SeatMismatch or ProtocolError.SeatTakenOver =>
             "That saved seat is no longer valid on this server.",
         _ => $"The server refused ({code}): {serverText}",

@@ -52,9 +52,15 @@ public static class ScenarioSetups
     public static MatchSetup Setup(string contentPath, int? size = null, bool towers = false) =>
         Setup(contentPath, MapFiles.Load(Path.Combine(MapFiles.FolderNextTo(contentPath), (towers ? TowersMap : PlainMap) + ".json")), size);
 
-    public static MatchSetup Setup(string contentPath, MapDefinition map, int? size = null, ScenarioDefinition? definition = null)
+    public static MatchSetup Setup(string contentPath, MapDefinition map, int? size = null, ScenarioDefinition? definition = null) =>
+        Setup(Content.Load(contentPath), map, size, definition);
+
+    // Roster stage 5c: the two warbands of a content text (Roster.MatchReady.ContentJson) on a map, as a server builds
+    // a match from the rosters the players sent.
+    public static MatchSetup FromContentText(string json, MapDefinition map) => Setup(Content.Parse(json), map, null, null);
+
+    private static MatchSetup Setup(IReadOnlyList<Warband> warbands, MapDefinition map, int? size, ScenarioDefinition? definition)
     {
-        var warbands = Content.Load(contentPath);
         var take = size ?? int.MaxValue;
         var models = warbands[0].Models.Take(take).Select((m, i) => new SetupModel(new ModelId($"a{i + 1}"), Seat.One, m.Profile))
             .Concat(warbands[1].Models.Take(take).Select((m, i) => new SetupModel(new ModelId($"b{i + 1}"), Seat.Two, m.Profile)));

@@ -351,7 +351,19 @@ public partial class Main : Control
     private void Join()
     {
         _createdScenario = null;
-        Start((c, ct) => c.JoinAsync(_code.Text.Trim().ToUpperInvariant(), ct));
+        var code = _code.Text.Trim().ToUpperInvariant();
+        // Roster stage 5c: on the Play screen's Online page, join with the saved roster chosen there.
+        if (OnlineRoster(out var problem) is { } roster)
+        {
+            Start((c, ct) => c.JoinAsync(code, roster, ct));
+            return;
+        }
+        if (problem is not null)
+        {
+            _connectMessage.Text = problem;
+            return;
+        }
+        Start((c, ct) => c.JoinAsync(code, ct));
     }
 
     // The developer screen, as the connect screen was before Stage M1 (settings and version above it).
@@ -523,12 +535,34 @@ public partial class Main : Control
     private string? _createdScenario;
     private string? _createdMap;
 
+    private string? _createdRoster;
+
     private void Create(string scenario)
     {
-        _createdScenario = scenario;
         var map = ChosenMap();
+        // Roster stage 5c: on the Play screen's Online page, host with the saved roster chosen there.
+        if (OnlineRoster(out var problem) is { } roster)
+        {
+            CreateWithRoster(roster, map);
+            return;
+        }
+        if (problem is not null)
+        {
+            _connectMessage.Text = problem;
+            return;
+        }
+        _createdScenario = scenario;
+        _createdRoster = null;
         _createdMap = map;
         Start((c, ct) => c.CreateAsync(scenario, map, ct));
+    }
+
+    private void CreateWithRoster(string roster, string? map)
+    {
+        _createdScenario = ContentNames.RosterScenario;
+        _createdRoster = roster;
+        _createdMap = map;
+        Start((c, ct) => c.CreateWithRosterAsync(roster, map, ct));
     }
 
     // The map list for the chosen scenario: its own map first, then the presets that fit it; keeps `select` if listed.
@@ -588,6 +622,10 @@ public partial class Main : Control
         if (hot)
         {
             StartHotSeat();
+        }
+        else if (scenario == ContentNames.RosterScenario && _createdRoster is { } roster)
+        {
+            CreateWithRoster(roster, _createdMap);
         }
         else
         {

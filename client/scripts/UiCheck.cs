@@ -2724,9 +2724,11 @@ public partial class UiCheck : Node
         await MenuNavigationCheck();
         await MenuLookCheck();
         await RosterBuilderCheck();
+        var pickerRosters = SaveCheckRosters();
         // Stage M1: from the main menu, Play, then the Play screen's hot-seat.
         await Press(ButtonNamed(Main.PlayText), Key.Enter, "hotseat-play-enter");
         await ConnectFeedbackCheck();
+        await RosterPickersCheck(pickerRosters);
         await ChooseOption(Option("ranged"), _scenario, "hotseat-choose-scenario");
         await Press(ButtonNamed(Main.StartHotSeatText), Key.Enter, "hotseat-start-enter");
         // The first start builds the server, which can take a while.
@@ -6368,6 +6370,88 @@ public partial class UiCheck : Node
         await KeyPress(Key.Escape);
         await Until(() => main.ScreenShown == "menu" && Focused() == ButtonNamed(Main.PlayText) ? "ok" : null, 5, "menu-back-again");
     }
+
+    // Roster stage 5c: two saved rosters for the picker check, one playable and one the game cannot play yet (grenades).
+    private (string Playable, string Refused) SaveCheckRosters()
+    {
+        var folder = ((Main)_main).RosterFolder;
+        string Save(string name, string kit)
+        {
+            var builder = RosterBuilder.Shipped();
+            builder.Name = name;
+            builder.Select(builder.Add("lieutenant"));
+            builder.AddKit(kit);
+            return System.IO.Path.GetFileName(builder.Save(folder));
+        }
+        return (Save("Picker Line", "bolt-action-rifle"), Save("Picker Bombers", "frag-grenades"));
+    }
+
+    // Roster stages 5b and 5c (play-roster-pickers): by keyboard on the Play screen, a saved roster for Seat One only
+    // starts no hot-seat and says both seats need one; the Online page's "You play" lists the saved rosters, and hosting
+    // with one the game cannot play says why by name and connects to nothing. Every picker is put back to the practice
+    // warbands, so the hot-seat match after it is the normal one.
+    private async Task RosterPickersCheck((string Playable, string Refused) rosters)
+    {
+        var main = (Main)_main;
+        var problems = new List<string>();
+        var steps = new List<string>();
+        string? Message(string start) => Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && l.Text.StartsWith(start, StringComparison.Ordinal))?.Text;
+        OptionButton? Picker(string name) => Controls<OptionButton>().FirstOrDefault(o => o.Name == name && o.IsVisibleInTree());
+
+        if (main.PlayPageShown != "choose")
+        {
+            problems.Add($"the Play page was not shown ({main.PlayPageShown})");
+        }
+        await ChooseOption(Picker("RosterSeatOne"), rosters.Playable, null);
+        if (Picker("RosterSeatOne") is not { } one || ItemName(one, one.Selected) != rosters.Playable)
+        {
+            problems.Add("Seat One plays: the saved roster could not be chosen by keyboard");
+        }
+        await Press(ButtonNamed(Main.StartHotSeatText), Key.Enter, null);
+        var both = await Until(() => Message("Choose a saved roster for both seats"), 5, "roster-pickers-both");
+        if (both is null || main.MatchCode is not null)
+        {
+            problems.Add($"one roster: {both ?? "no message"}; match {main.MatchCode ?? "none"}");
+        }
+        else
+        {
+            steps.Add("one seat's roster: \"" + both + "\"");
+        }
+        await ChooseOption(Picker("RosterSeatOne"), MainMenuPractice, null);
+
+        await Press(ButtonNamed(Main.OnlineText), Key.Enter, null);
+        await Until(() => main.PlayPageShown == "online" ? "ok" : null, 5, "roster-pickers-online");
+        var online = Picker("RosterOnline");
+        var listed = online is null ? [] : Enumerable.Range(0, online.ItemCount).Select(i => online.GetItemText(i)).ToList();
+        if (online is null || !listed.Contains(rosters.Playable) || !listed.Contains(rosters.Refused) || listed.FirstOrDefault() != MainMenuPractice)
+        {
+            problems.Add($"You play lists [{string.Join(", ", listed)}]");
+        }
+        await ChooseOption(online, rosters.Refused, null);
+        await Press(ButtonNamed(Main.HostText), Key.Enter, null);
+        var refused = await Until(() => Message("Your roster Picker Bombers has what the game cannot play yet"), 5, "roster-pickers-refused");
+        if (refused is null || !refused.Contains("Frag Grenades", StringComparison.Ordinal) || main.MatchCode is not null)
+        {
+            problems.Add($"hosting with Picker Bombers: {refused ?? "no message"}; match {main.MatchCode ?? "none"}");
+        }
+        else
+        {
+            steps.Add("hosting with grenades: \"" + refused + "\"");
+        }
+        await ChooseOption(online, MainMenuPractice, null);
+        await Press(ButtonNamed(Main.BackText), Key.Enter, null);
+        await Until(() => main.PlayPageShown == "choose" && Focused() is not null ? "ok" : null, 5, "roster-pickers-back");
+        foreach (var name in new[] { "RosterSeatOne", "RosterSeatTwo", "RosterOnline" })
+        {
+            if (Controls<OptionButton>().FirstOrDefault(o => o.Name == name) is { } picker && picker.Selected != 0)
+            {
+                problems.Add($"{name} was not put back to the practice warbands");
+            }
+        }
+        Check("play-roster-pickers", problems.Count == 0, problems.Count == 0 ? string.Join("; ", steps) : string.Join("; ", problems));
+    }
+
+    private const string MainMenuPractice = Main.PracticeWarbandText;
 
     // The Play screen's pages: Online shows Host and Connect, Connect adds Join and Rejoin, and Back goes up a page.
     // Ends on the Play page.

@@ -180,6 +180,12 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   warbands; the local server starts with `--warbands <file>`, which adds the scenario `roster`
   (`Match.Server/ScenarioCatalog.WithRosterMatch`, plain map unless a map is chosen); the window knows the names from
   `ContentNames.RosterContent`. No protocol or rules change. Tests: `RosterHotSeatTests`.
-- Stage 5c (not started, needs the owner's go): rosters online. The server builds a match from content on its side
-  (`CreateMatch(scenario)`), so each player's warband would have to be sent on Host and Join (a protocol change), and the
-  match setup could only be fixed once both have arrived.
+- Stage 5c, rosters online (done 2026-10-31): the Online page's **You play** chooses the practice warbands or a saved
+  roster for **Host match** and **Join match**. `RosterMatch.PrepareOne` checks it in the window first; the roster
+  file's text goes in `CreateMatch.roster` / `JoinMatch.roster` (docs/protocol.md) and the server checks it again
+  with its own data (`Roster/RosterData.cs`, `Match.Server/RosterMatches.cs`). The host's match waits with a
+  placeholder; when the second roster arrives the server builds the setup from both (`ScenarioSetups.FromContentText`,
+  plain map unless one was chosen), restarts Seat One's copy and sends both rosters' names in `Welcome.warbands`.
+  No rules, hash or record format change; records verify as any other (scenario `roster`). Tests:
+  `RosterOnlineTests`, `RosterHotSeatTests`; UI check `play-roster-pickers` (hot-seat group). Not built:
+  `trench-cli` has no roster option; no UI check plays a whole roster match in two Godot windows.
