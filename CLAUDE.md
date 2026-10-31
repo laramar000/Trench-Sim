@@ -85,7 +85,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   **Stage 5b (hot-seat) done:** Play page "Seat One plays / Seat Two plays" picks saved rosters; the local server runs
   with `--warbands`. **Stage 5c (online) done:** Online page "You play"; CreateMatch/JoinMatch carry the roster text,
   the server checks it (Roster/RosterData.cs) and sets the match up when both are in (docs/protocol.md). Next roster
-  work (needs the owner's go): playing what MatchReadiness leaves out (keywords, abilities, grenades, equipment).
+  work: playing what MatchReadiness leaves out, plan R1-R6 (private: roster-builder/rules-from-rosters-plan.md).
+  **R1 dice done (2026-10-31, Jason chose "Dice first"):** model Ranged/Melee DICE and weapon DICE/INJURY DICE count
+  in attacks (U97); next R2 simple keywords, needs the owner's go.
 - The faction JSON files are the source of truth now. The earlier generator scripts held private source names and are
   not in the repo: edit `content/roster/*.json` directly, keep `docs/roster.md` and the tests (`tests/Roster.Tests`,
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).

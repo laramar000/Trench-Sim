@@ -8,7 +8,7 @@ What the simulated match does not do after Slice B. Each item is a decision to d
 - **Glorious Deeds** (p. 153, one VP each at the end of the game): none are scored; Victory Points come from Objectives only. This can change who wins a close game.
 - **Elevation attack bonus** (+1 DICE when 3" or more higher, p. 43): not applied (U35).
 - **Terrain effects beyond cost**: Dangerous terrain has no effect; climbing, jumping, falling and the Cast Them Down deed do not exist.
-- **Keywords, equipment, skills and warband entries**: models have only Movement, base size, one ranged weapon range and flat injury modifiers. The CRITICAL (+2 INJURY DICE) and DEADLY keywords are not implemented.
+- **Keywords, equipment, skills and warband entries**: models have only Movement, base size, one ranged weapon range and flat injury modifiers, plus (roster stage R1, U97) their Ranged and Melee dice and their weapons' DICE and INJURY DICE. The CRITICAL (+2 INJURY DICE) and DEADLY keywords are not implemented.
 - **Blessing Markers**, re-rolls (p. 31), campaign rules, the Infiltrators deployment exception: out of scope.
 - **Terrain set-up roll-off** and the real terrain pieces of the scenario: the battlefield is a fixed fixture (U32).
 

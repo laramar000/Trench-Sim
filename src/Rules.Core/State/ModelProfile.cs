@@ -83,6 +83,55 @@ public sealed record ModelProfile
 
     private readonly bool _rangedAlsoMelee;
 
+    // Roster stage R1: the dice a model's own profile adds to its attacks, as +DICE and -DICE (p. 15). RangedDice and
+    // MeleeDice are the model's Ranged and Melee Characteristics; the weapon fields are the DICE and INJURY DICE of
+    // its ranged weapon and its Melee Weapon. All are init properties, zero unless set, and left off the wire and out
+    // of the state hash when zero, so every setup without them (all existing records) is written exactly as before.
+    public const int MaxDice = 6;
+
+    public int RangedDice { get => _rangedDice; init => _rangedDice = Dice(value, nameof(RangedDice)); }
+
+    public int MeleeDice { get => _meleeDice; init => _meleeDice = Dice(value, nameof(MeleeDice)); }
+
+    public int RangedWeaponDice { get => _rangedWeaponDice; init => _rangedWeaponDice = Dice(RangedWeapon(value, nameof(RangedWeaponDice)), nameof(RangedWeaponDice)); }
+
+    public int RangedWeaponInjuryDice { get => _rangedWeaponInjuryDice; init => _rangedWeaponInjuryDice = Dice(RangedWeapon(value, nameof(RangedWeaponInjuryDice)), nameof(RangedWeaponInjuryDice)); }
+
+    public int MeleeWeaponDice { get => _meleeWeaponDice; init => _meleeWeaponDice = Dice(MeleeWeapon(value, nameof(MeleeWeaponDice)), nameof(MeleeWeaponDice)); }
+
+    public int MeleeWeaponInjuryDice { get => _meleeWeaponInjuryDice; init => _meleeWeaponInjuryDice = Dice(MeleeWeapon(value, nameof(MeleeWeaponInjuryDice)), nameof(MeleeWeaponInjuryDice)); }
+
+    private readonly int _rangedDice;
+    private readonly int _meleeDice;
+    private readonly int _rangedWeaponDice;
+    private readonly int _rangedWeaponInjuryDice;
+    private readonly int _meleeWeaponDice;
+    private readonly int _meleeWeaponInjuryDice;
+
+    // A Ranged Attack's Success Roll: the Ranged Characteristic and the ranged weapon's DICE.
+    public int RangedAttackDice => RangedDice + RangedWeaponDice;
+
+    public int RangedAttackInjuryDice => RangedWeaponInjuryDice;
+
+    // A Melee Attack's Success Roll: the Melee Characteristic and the DICE of the weapon it attacks with (its Melee
+    // Weapon, else its dual-purpose weapon, as MeleeAttackInjuryModifier). PISTOL's choice of the Ranged Characteristic
+    // in melee (p. 56) is a keyword, not played yet.
+    public int MeleeAttackDice => MeleeDice + (HasMeleeWeapon ? MeleeWeaponDice : RangedAlsoMelee ? RangedWeaponDice : 0);
+
+    public int MeleeAttackInjuryDice => HasMeleeWeapon ? MeleeWeaponInjuryDice : RangedAlsoMelee ? RangedWeaponInjuryDice : 0;
+
+    private static int Dice(int value, string name) => value is < -MaxDice or > MaxDice
+        ? throw new ArgumentOutOfRangeException(name, $"Dice are -{MaxDice} to +{MaxDice}.")
+        : value;
+
+    private int RangedWeapon(int value, string name) => value != 0 && !HasRangedWeapon
+        ? throw new ArgumentException("Only a model with a ranged weapon has ranged weapon dice.", name)
+        : value;
+
+    private int MeleeWeapon(int value, string name) => value != 0 && !HasMeleeWeapon
+        ? throw new ArgumentException("Only a model with a Melee Weapon has melee weapon dice.", name)
+        : value;
+
     public bool HasRangedWeapon => RangedRange > Length.Zero;
 
     // Whether the model has any weapon it can make a Melee Attack with (pp. 15, 45, 68): a Melee Weapon, or a ranged

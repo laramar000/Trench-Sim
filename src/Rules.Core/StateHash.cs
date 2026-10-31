@@ -34,7 +34,7 @@ public static class StateHash
                 foreach (var m in setup.Models)
                 {
                     var prof = m.Profile!;
-                    Line(sb, "profile", $"{m.Id.Value},move={prof.Movement.Thousandths},radius={prof.BaseRadius.Thousandths},range={prof.RangedRange.Thousandths},weapon={prof.RangedInjuryModifier},armour={prof.Armour},melee={Bool(prof.HasMeleeWeapon)},meleeMod={prof.MeleeInjuryModifier}{(prof.RangedAlsoMelee ? ",rangedAlsoMelee=yes" : "")}");
+                    Line(sb, "profile", $"{m.Id.Value},move={prof.Movement.Thousandths},radius={prof.BaseRadius.Thousandths},range={prof.RangedRange.Thousandths},weapon={prof.RangedInjuryModifier},armour={prof.Armour},melee={Bool(prof.HasMeleeWeapon)},meleeMod={prof.MeleeInjuryModifier}{(prof.RangedAlsoMelee ? ",rangedAlsoMelee=yes" : "")}{ProfileDice(prof)}");
                 }
             }
         }
@@ -168,6 +168,18 @@ public static class StateHash
     }
 
     private static string Bool(bool value) => value ? "1" : "0";
+
+    // Roster stage R1: a profile's dice, written only when not zero so every existing setup hashes as before.
+    private static string ProfileDice(ModelProfile p)
+    {
+        var parts = new[]
+        {
+            ("rangedDice", p.RangedDice), ("meleeDice", p.MeleeDice), ("rangedWeaponDice", p.RangedWeaponDice),
+            ("rangedWeaponInjuryDice", p.RangedWeaponInjuryDice), ("meleeWeaponDice", p.MeleeWeaponDice),
+            ("meleeWeaponInjuryDice", p.MeleeWeaponInjuryDice),
+        };
+        return string.Concat(parts.Where(x => x.Item2 != 0).Select(x => $",{x.Item1}={x.Item2}"));
+    }
 
     private static void Line(StringBuilder sb, string key, object? value)
     {

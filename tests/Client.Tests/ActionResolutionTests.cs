@@ -23,6 +23,16 @@ public class ActionResolutionTests
                 var log = Runner.Run(seed, warbands).Log;
                 all.Add((log, ((MatchCreated)log[0]).Setup));
             }
+            // Roster stage R1: the same warbands with the models' own dice (Ranged, Melee, weapon DICE and INJURY DICE).
+            for (var seed = 1; seed <= 10; seed++)
+            {
+                var diced = warbands.Select(w => w with
+                {
+                    Models = w.Models.Select(m => m with { Profile = PreviewAgreementTests.WithDice(m.Profile, seed % 3 - 1) }).ToList(),
+                }).ToList();
+                var log = Runner.Run(seed, diced).Log;
+                all.Add((log, ((MatchCreated)log[0]).Setup));
+            }
         }
         return all;
     });
@@ -78,7 +88,7 @@ public class ActionResolutionTests
             }
         }
         // The matches cover each kind of reason, so none of them is untested.
-        foreach (var kind in new[] { "RangedSuccessRolled", "MeleeSuccessRolled", "DashRolled", "InjuryRolled", "Long", "Cover", "critical", "modifier", "markers", "Defended", "Melee" })
+        foreach (var kind in new[] { "RangedSuccessRolled", "MeleeSuccessRolled", "DashRolled", "InjuryRolled", "Long", "Cover", "critical", "modifier", "markers", "Defended", "Melee", "Ranged", "ranged", "melee" })
         {
             Assert.True(seen.GetValueOrDefault(kind) > 0, $"no {kind} in the simulated matches: {string.Join(", ", seen.Select(kv => $"{kv.Key} {kv.Value}"))}");
         }

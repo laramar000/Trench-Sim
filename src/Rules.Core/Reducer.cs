@@ -787,10 +787,11 @@ public static class Reducer
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId
             && facts.AttackerLevel == e.AttackerLevel && facts.TargetLevel == e.TargetLevel && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
         Require(facts.IntoMelee == e.IntoMelee, "A target within 1\" of a friendly model needs the D6 that decides who is shot, and no other does.");
+        var (bonus, penalty) = AttackDice.With(e.BonusDice, e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!, AttackKind.Ranged));
         return state with
         {
             Actions = state.Actions | ActionsTaken.Shoot,
-            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, e.BonusDice, e.PenaltyDice),
+            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, bonus, penalty),
         };
     }
 
@@ -807,9 +808,11 @@ public static class Reducer
         }
         // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE").
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
+        var (bonus, penalty) = AttackDice.With(AttackDice.InjuryBonus(critical, meleeOnDownTarget: false), 0,
+            AttackDice.OwnInjuryDice(state.Setup!.ProfileOf(e.Attacker)!, AttackKind.Ranged));
         return state with
         {
-            InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = AttackDice.InjuryBonus(critical, meleeOnDownTarget: false), PenaltyDice = 0, Critical = critical, MarkersAsked = false },
+            InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = bonus, PenaltyDice = penalty, Critical = critical, MarkersAsked = false },
         };
     }
 
@@ -913,10 +916,11 @@ public static class Reducer
                 "A Fight ACTION is taken once per activation and not after a Shoot ACTION.");
             var facts = Board.AssessMelee(state, fighter, target!);
             Require(facts.Refusal is null && facts.CoverTerrainId == e.DefendedObstacleId, "The Melee Attack is not legal here, or its modifiers do not match the positions.");
+            var (bonus, penalty) = MeleeDice(state, e);
             return state with
             {
                 Actions = state.Actions | ActionsTaken.Fight,
-                InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, 0, e.PenaltyDice, Kind: AttackKind.Melee),
+                InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, bonus, penalty, Kind: AttackKind.Melee),
             };
         }
 
@@ -926,13 +930,18 @@ public static class Reducer
         Require(Board.FreeFighters(state, retreat!).Any(m => m.Id == e.Attacker), "That model cannot make a free attack.");
         var free = Board.AssessMelee(state, attacker!, target!);
         Require(free.Refusal is null && free.CoverTerrainId == e.DefendedObstacleId, "The free attack is not legal here, or its modifiers do not match the positions.");
+        var (freeBonus, freePenalty) = MeleeDice(state, e);
         return state with
         {
             Pending = null,
             Retreat = retreat! with { Fought = retreat!.Fought.Add(e.Attacker) },
-            InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, 0, e.PenaltyDice, Kind: AttackKind.Melee, FreeFight: true),
+            InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, freeBonus, freePenalty, Kind: AttackKind.Melee, FreeFight: true),
         };
     }
+
+    // A Melee Attack's Success Roll dice: the declared penalty and the attacker's own dice (roster stage R1).
+    private static (int Bonus, int Penalty) MeleeDice(MatchState state, MeleeAttackDeclared e) =>
+        AttackDice.With(0, e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!, AttackKind.Melee));
 
     private static MatchState OnMeleeSuccessRolled(MatchState state, MeleeSuccessRolled e)
     {
@@ -949,13 +958,15 @@ public static class Reducer
         // +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
         var onDownTarget = state.FindModel(e.Target)!.Status == ModelStatus.Down;
+        var (bonus, penalty) = AttackDice.With(AttackDice.InjuryBonus(critical, onDownTarget), 0,
+            AttackDice.OwnInjuryDice(state.Setup!.ProfileOf(e.Attacker)!, AttackKind.Melee));
         return state with
         {
             InProgress = progress with
             {
                 Stage = RollStage.InjuryRoll,
-                BonusDice = AttackDice.InjuryBonus(critical, onDownTarget),
-                PenaltyDice = 0,
+                BonusDice = bonus,
+                PenaltyDice = penalty,
                 Critical = critical,
                 MarkersAsked = false,
             },
@@ -979,6 +990,8 @@ public static class Reducer
         Require(victim is not null && Board.FriendsNear(state, shooter, intended).Any(m => m.Id == e.Victim), "The shot must be aimed at one of the shooter's own models within 1\" of the target.");
         var facts = Board.ForcedShotFacts(state, shooter, victim!);
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
+        var (bonus, penalty) = AttackDice.With(AttackDice.ShotBonus(e.Elevated), AttackDice.ShotPenalty(e.LongRange, e.InCover),
+            AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!, AttackKind.Ranged));
         return state with
         {
             Pending = null,
@@ -987,8 +1000,8 @@ public static class Reducer
                 Stage = RollStage.ShotRoll,
                 Target = e.Victim,
                 FriendlyFire = true,
-                BonusDice = AttackDice.ShotBonus(e.Elevated),
-                PenaltyDice = AttackDice.ShotPenalty(e.LongRange, e.InCover),
+                BonusDice = bonus,
+                PenaltyDice = penalty,
                 MarkersAsked = false,
             },
         };

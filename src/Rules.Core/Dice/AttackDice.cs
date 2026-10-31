@@ -19,6 +19,20 @@ public static class AttackDice
     // Injury Roll: +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
     public static int InjuryBonus(bool critical, bool meleeOnDownTarget) => (critical ? 1 : 0) + (meleeOnDownTarget ? 1 : 0);
 
+    // Roster stage R1: the attacker's own +DICE or -DICE (p. 15) on the attack's Success Roll: its Ranged or Melee
+    // Characteristic and its weapon's DICE (ModelProfile.RangedAttackDice, MeleeAttackDice).
+    public static int OwnDice(ModelProfile attacker, AttackKind kind) =>
+        kind == AttackKind.Melee ? attacker.MeleeAttackDice : attacker.RangedAttackDice;
+
+    // ... and on its Injury Roll: the weapon's INJURY DICE (p. 18).
+    public static int OwnInjuryDice(ModelProfile attacker, AttackKind kind) =>
+        kind == AttackKind.Melee ? attacker.MeleeAttackInjuryDice : attacker.RangedAttackInjuryDice;
+
+    // Signed dice added to a roll's bonus and penalty dice: +DICE are bonus dice, -DICE penalty dice; the pairs
+    // cancel when the roll is made (p. 15, RollRecord.NetDice).
+    public static (int Bonus, int Penalty) With(int bonus, int penalty, int dice) =>
+        dice >= 0 ? (bonus + dice, penalty) : (bonus, penalty - dice);
+
     // Injury Roll modifiers: the attacking weapon's modifier and the target's Armour (pp. 46, 48).
     public static int[] InjuryModifiers(ModelProfile attacker, ModelProfile target, AttackKind kind) =>
         [kind == AttackKind.Melee ? attacker.MeleeAttackInjuryModifier : attacker.RangedInjuryModifier, target.Armour];

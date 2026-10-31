@@ -35,12 +35,22 @@ public static class Content
                         melee.ValueKind == JsonValueKind.Number ? melee.GetInt32() : 0)
                     {
                         RangedAlsoMelee = m.TryGetProperty("rangedAlsoMelee", out var also) && also.GetBoolean(),
+                        RangedDice = Dice(m, "rangedDice"),
+                        MeleeDice = Dice(m, "meleeDice"),
+                        RangedWeaponDice = Dice(m, "rangedWeaponDice"),
+                        RangedWeaponInjuryDice = Dice(m, "rangedWeaponInjuryDice"),
+                        MeleeWeaponDice = Dice(m, "meleeWeaponDice"),
+                        MeleeWeaponInjuryDice = Dice(m, "meleeWeaponInjuryDice"),
                     }));
             }
             warbands.Add(new Warband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));
         }
         return warbands;
     }
+
+    // Roster stage R1: a model's dice (profile Ranged and Melee, weapon DICE and INJURY DICE), zero when not given.
+    private static int Dice(JsonElement model, string name) =>
+        model.TryGetProperty(name, out var value) ? value.GetInt32() : 0;
 
     public static IReadOnlyList<Warband> Load(string path) => Parse(File.ReadAllText(path));
 

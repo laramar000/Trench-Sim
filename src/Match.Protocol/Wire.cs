@@ -350,6 +350,17 @@ public static class Wire
             (typeof(FriendlyTargetChosen), nameof(FriendlyTargetChosen.Elevated)),
         ];
 
+        // Optional numbers left out when zero, for the same reason (every match before roster stage R1's profile dice).
+        private static readonly HashSet<(Type, string)> OmitWhenZero =
+        [
+            (typeof(ModelProfile), nameof(ModelProfile.RangedDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponInjuryDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponInjuryDice)),
+        ];
+
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();
 
         private readonly ConstructorInfo _constructor;
@@ -485,6 +496,10 @@ public static class Wire
                     continue;
                 }
                 if (memberValue is false && member.Parameter is null && OmitWhenFalse.Contains((Type, member.Property.Name)))
+                {
+                    continue;
+                }
+                if (memberValue is 0 && member.Parameter is null && OmitWhenZero.Contains((Type, member.Property.Name)))
                 {
                     continue;
                 }

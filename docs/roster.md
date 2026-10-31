@@ -172,8 +172,8 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   `content/test-warbands.json`: Movement, round base, one ranged weapon's range, injury modifier and "/Melee", Armour
   from the model plus armour and shield, one Melee Weapon's injury modifier). **Refused by name:** an oval base, a
   second ranged or melee weapon, grenades, equipment and other special battlekit. **Played without, by name:** weapon
-  keywords, DICE and INJURY DICE, the model's Ranged and Melee DICE, its keywords, abilities and upgrades; Armour past
-  -3 is played as -3. The builder's Check lists both under "For a match". Tests: `MatchReadinessTests`.
+  keywords, the model's keywords, abilities and upgrades; Armour past -3 is played as -3. The builder's Check lists
+  both under "For a match". Tests: `MatchReadinessTests`.
 - Stage 5b, hot-seat first (done 2026-10-31, Jason's choice): on the Play page, **Seat One plays** and **Seat Two
   plays** choose the practice warband or a saved roster. With two rosters, `Client.Core/RosterMatch.Prepare` checks
   both (legal and nothing refused, else the reason by name and nothing starts) and writes one content file with both
@@ -192,3 +192,10 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   end). UI check `online-roster-match` (hot-seat group): the window hosts from the Online page with a saved roster on
   a server of its own, a second player joins with another, and the window shows both rosters' names. Not built: no UI
   check plays a whole roster match to the end in two Godot windows.
+- Roster rules stage R1, dice (done 2026-10-31, Jason's choice "Dice first"; plan R1-R6 in the owner's project files):
+  the model's Ranged and Melee DICE and its played weapons' DICE and INJURY DICE count in its attacks (interpretation
+  U97). They travel in the content as `rangedDice`, `meleeDice`, `rangedWeaponDice`, `rangedWeaponInjuryDice`,
+  `meleeWeaponDice`, `meleeWeaponInjuryDice` (left out when zero) and are no longer listed as played without; armour
+  and shields still play only their injury modifier, so their dice would be named. A model whose Ranged or Melee is
+  "-" is refused for a match if it has that kind of weapon. Tests: `ProfileDiceTests`, `ProfileDiceWireTests`,
+  `MatchReadinessTests.TheModelsAndWeaponsDiceArePlayed`, `PreviewAgreementTests.AttackPreviewDiceIncludeTheModelsOwnDice`.

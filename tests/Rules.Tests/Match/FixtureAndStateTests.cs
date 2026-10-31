@@ -128,6 +128,13 @@ public class ProfileAndHashTests
             ["profile.melee"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), hasMeleeWeapon: true)) },
             ["profile.meleeMod"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), hasMeleeWeapon: true, meleeInjuryModifier: 1)) },
             ["profile.rangedAlsoMelee"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18")) { RangedAlsoMelee = true }) },
+            ["profile.rangedDice"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18")) { RangedDice = 1 }) },
+            ["profile.meleeDice"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18")) { MeleeDice = 1 }) },
+            ["profile.rangedWeaponDice"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18")) { RangedWeaponDice = 1 }) },
+            ["profile.rangedWeaponInjuryDice"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18")) { RangedWeaponInjuryDice = 1 }) },
+            ["profile.meleeWeaponDice"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), hasMeleeWeapon: true) { MeleeWeaponDice = 1 }) },
+            ["profile.meleeWeaponInjuryDice"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), hasMeleeWeapon: true) { MeleeWeaponInjuryDice = 1 }) },
+            ["profile.rangedDiceNegative"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18")) { RangedDice = -1 }) },
             ["terrain"] = s with { Setup = Rebuild(s.Setup!, Rifleman, ClaimNoMansLandWithoutRough()) },
         };
         var baseline = StateHash.Compute(s);

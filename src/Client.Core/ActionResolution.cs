@@ -122,11 +122,13 @@ public sealed class ResolutionLog
                 break;
             case RangedAttackDeclared r:
                 Start(seq, r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}", AttackKind.Ranged, r.Target);
+                OwnParts(setup, r.Attacker, AttackKind.Ranged);
                 ShotParts(r.LongRange, r.CoverTerrainId, r.Elevated);
                 break;
             case MeleeAttackDeclared m:
                 Start(seq, m.Attacker, $"{Id(m.Attacker)} {(m.FreeFight ? "MAKES A FREE ATTACK ON" : "FIGHTS")} {Id(m.Target)}", AttackKind.Melee, m.Target);
                 _current!.FreeFight = m.FreeFight;
+                OwnParts(setup, m.Attacker, AttackKind.Melee);
                 if (m.DefendedObstacleId is { } obstacle)
                 {
                     _current!.Dice.Add(new($"Defended obstacle ({obstacle})", -AttackDice.FightPenalty(true)));
@@ -156,6 +158,7 @@ public sealed class ResolutionLog
             case FriendlyTargetChosen f:
                 action.Target = f.Victim;
                 action.Dice.Clear();
+                OwnParts(setup, f.Attacker, AttackKind.Ranged);
                 ShotParts(f.LongRange, f.CoverTerrainId, f.Elevated);
                 action.Steps.Add($"Friendly target: {Id(f.Victim)}");
                 action.Outcome.Add($"shoots {Id(f.Victim)}");
@@ -215,6 +218,24 @@ public sealed class ResolutionLog
         _actions.Add(_current);
     }
 
+    // Roster stage R1: the attacker's own dice on the Success Roll, its characteristic and its weapon's DICE.
+    private void OwnParts(MatchSetup? setup, ModelId attacker, AttackKind kind)
+    {
+        if (setup?.ProfileOf(attacker) is not { } profile)
+        {
+            return;
+        }
+        var (characteristic, weapon) = DicePreview.OwnSplit(profile, kind);
+        if (characteristic != 0)
+        {
+            _current!.Dice.Add(new(kind == AttackKind.Melee ? "Melee" : "Ranged", characteristic));
+        }
+        if (weapon != 0)
+        {
+            _current!.Dice.Add(new(DicePreview.WeaponWord(profile, kind), weapon));
+        }
+    }
+
     private void ShotParts(bool longRange, string? coverId, bool elevated)
     {
         if (elevated)
@@ -264,6 +285,10 @@ public sealed class ResolutionLog
         if (action.Kind == AttackKind.Melee && injury.TargetAlreadyDown)
         {
             dice.Add(new("Melee Attack on a Down model", AttackDice.InjuryBonus(false, true)));
+        }
+        if (setup?.ProfileOf(i.Attacker) is { } own && action.Kind is { } attackKind && AttackDice.OwnInjuryDice(own, attackKind) is var weaponDice and not 0)
+        {
+            dice.Add(new(DicePreview.WeaponWord(own, attackKind), weaponDice));
         }
         dice.AddRange(action.Dice);
         var modifiers = new List<ResolutionPart>();

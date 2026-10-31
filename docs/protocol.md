@@ -177,6 +177,13 @@ The server sends events in log order, one message each, to both players, through
 
 `MatchMirror.Apply` requires each event to be the next one in order. It applies the event with `Reducer.Apply` and requires `StateHash.Compute` of the result to equal the server's `hash`. A gap or a mismatch throws, and the client must stop trusting its copy. `ClientSession` then drops the connection and reports the failure. A `MatchAborted` whose count or hash differs from the client's copy is treated the same way.
 
+## A model's own dice (roster stage R1)
+
+- `ModelProfile` has six optional numbers, each left out when zero, so every setup without them is written exactly as
+  before and the protocol version stays 2: `meleeDice`, `meleeWeaponDice`, `meleeWeaponInjuryDice`, `rangedDice`,
+  `rangedWeaponDice`, `rangedWeaponInjuryDice` (written after the constructor fields, in that order). Each is -6 to +6;
+  weapon fields need that weapon. A value out of range is an invalid value (interpretation U97).
+
 ## Rosters online (roster stage 5c)
 
 - Optional fields, each left out when not used, so every message without them is written exactly as before and the

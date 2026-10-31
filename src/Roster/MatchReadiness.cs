@@ -8,8 +8,9 @@ namespace Roster;
 // - Refused, by name: what the engine cannot hold at all (an oval base, a second ranged or melee weapon, grenades,
 //   equipment and other special battlekit). The match is not created while anything is refused (Jason 2026-10-30,
 //   decision 2: the builder allows it, match creation refuses it by name).
-// - Played without, by name: what the engine leaves out of a piece or model it does play (weapon keywords and DICE, the
-//   model's Ranged and Melee DICE, its keywords, abilities and upgrades). Shown to both players before the match.
+// - Played without, by name: what the engine leaves out of a piece or model it does play (weapon keywords, the model's
+//   keywords, abilities and upgrades). Shown to both players before the match.
+// Roster stage R1: the model's Ranged and Melee DICE and its weapons' DICE and INJURY DICE are played.
 // The result is written in the warband content format the server's scenarios load (content/test-warbands.json).
 public sealed record ReadyModel(
     string Name,
@@ -20,7 +21,16 @@ public sealed record ReadyModel(
     bool RangedAlsoMelee,
     int Armour,
     bool HasMeleeWeapon,
-    int MeleeInjuryModifier);
+    int MeleeInjuryModifier)
+{
+    // Roster stage R1: the model's Ranged and Melee Characteristics and its weapons' DICE and INJURY DICE.
+    public int RangedDice { get; init; }
+    public int MeleeDice { get; init; }
+    public int RangedWeaponDice { get; init; }
+    public int RangedWeaponInjuryDice { get; init; }
+    public int MeleeWeaponDice { get; init; }
+    public int MeleeWeaponInjuryDice { get; init; }
+}
 
 public sealed record MatchReady(
     IReadOnlyList<ReadyModel> Models,
@@ -66,6 +76,18 @@ public sealed record MatchReady(
                     {
                         w.WriteBoolean("rangedAlsoMelee", true);
                     }
+                    foreach (var (field, dice) in new[]
+                    {
+                        ("rangedDice", m.RangedDice), ("meleeDice", m.MeleeDice), ("rangedWeaponDice", m.RangedWeaponDice),
+                        ("rangedWeaponInjuryDice", m.RangedWeaponInjuryDice), ("meleeWeaponDice", m.MeleeWeaponDice),
+                        ("meleeWeaponInjuryDice", m.MeleeWeaponInjuryDice),
+                    })
+                    {
+                        if (dice != 0)
+                        {
+                            w.WriteNumber(field, dice);
+                        }
+                    }
                     w.WriteEndObject();
                 }
                 w.WriteEndArray();
@@ -86,6 +108,7 @@ public static class MatchReadiness
     public const int MaxBaseMm = 152;
     public const int MaxRangeInches = 60;
     public const int MaxModifier = 3;
+    public const int MaxDice = 6;
 
     public static MatchReady Check(WarbandRoster roster, Faction faction, Catalogue catalogue)
     {
@@ -113,14 +136,6 @@ public static class MatchReadiness
             if (entry.BaseWidthMm > MaxBaseMm || entry.MovementInches > MaxMovementInches)
             {
                 refused.Add($"{who}: its base or Movement is beyond what the engine allows");
-            }
-            if (entry.Ranged is { } r && r != 0)
-            {
-                without.Add($"{who}: its Ranged {r:+0;-0} DICE");
-            }
-            if (entry.Melee is { } me && me != 0)
-            {
-                without.Add($"{who}: its Melee {me:+0;-0} DICE");
             }
             if (entry.Keywords.Count > 0)
             {
@@ -160,12 +175,20 @@ public static class MatchReadiness
                         break;
                     case KitCategory.Armour or KitCategory.Shield:
                         armour += piece.InjuryModifier;
-                        Without(who, piece, without);
+                        Without(who, piece, without, diceToo: true);
                         break;
                     default:
                         refused.Add($"{who}: {piece.Name} (the engine has no {Words(piece.Category)} yet)");
                         break;
                 }
+            }
+            if (ranged is not null && entry.Ranged is null)
+            {
+                refused.Add($"{who}: {ranged.Name} (its Ranged is \"-\": it may not make Ranged Attacks)");
+            }
+            if (melee is not null && entry.Melee is null)
+            {
+                refused.Add($"{who}: {melee.Name} (its Melee is \"-\": it may not make Melee Attacks)");
             }
             if (armour < -MaxModifier)
             {
@@ -178,22 +201,43 @@ public static class MatchReadiness
             }
             models.Add(new ReadyModel(name, entry.MovementInches, entry.BaseWidthMm,
                 ranged?.RangeInches ?? 0, Clamp(ranged?.InjuryModifier ?? 0), ranged?.AlsoMelee == true,
-                armour, melee is not null, Clamp(melee?.InjuryModifier ?? 0)));
+                armour, melee is not null, Clamp(melee?.InjuryModifier ?? 0))
+            {
+                RangedDice = Dice(entry.Ranged ?? 0, who, "Ranged", without),
+                MeleeDice = Dice(entry.Melee ?? 0, who, "Melee", without),
+                RangedWeaponDice = Dice(ranged?.Dice ?? 0, who, $"{ranged?.Name}'s DICE", without),
+                RangedWeaponInjuryDice = Dice(ranged?.InjuryDice ?? 0, who, $"{ranged?.Name}'s INJURY DICE", without),
+                MeleeWeaponDice = Dice(melee?.Dice ?? 0, who, $"{melee?.Name}'s DICE", without),
+                MeleeWeaponInjuryDice = Dice(melee?.InjuryDice ?? 0, who, $"{melee?.Name}'s INJURY DICE", without),
+            });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
     }
 
     private static int Clamp(int modifier) => Math.Clamp(modifier, -MaxModifier, MaxModifier);
 
-    // What a played piece loses: its keywords, DICE and INJURY DICE (only range, injury modifier and "/Melee" are played).
-    private static void Without(string who, CatalogueEntry piece, List<string> without)
+    // Dice the engine holds (-6 to +6 each, Rules.Core ModelProfile.MaxDice); beyond that, played at the limit and named.
+    private static int Dice(int dice, string who, string what, List<string> without)
+    {
+        if (Math.Abs(dice) <= MaxDice)
+        {
+            return dice;
+        }
+        var played = Math.Clamp(dice, -MaxDice, MaxDice);
+        without.Add($"{who}: {what} beyond {MaxDice} (played as {played:+0;-0})");
+        return played;
+    }
+
+    // What a played piece loses: its keywords (a weapon's range, injury modifier, "/Melee", DICE and INJURY DICE are
+    // played; armour and shields play only their injury modifier, so their dice are named too).
+    private static void Without(string who, CatalogueEntry piece, List<string> without, bool diceToo = false)
     {
         var parts = piece.Keywords.Select(k => k.Id).ToList();
-        if (piece.Dice != 0)
+        if (diceToo && piece.Dice != 0)
         {
             parts.Add($"{piece.Dice:+0;-0} DICE");
         }
-        if (piece.InjuryDice != 0)
+        if (diceToo && piece.InjuryDice != 0)
         {
             parts.Add($"{piece.InjuryDice:+0;-0} INJURY DICE");
         }

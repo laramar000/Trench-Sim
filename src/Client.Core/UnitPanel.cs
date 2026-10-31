@@ -279,7 +279,23 @@ public static class UnitPanel
         var halved = unit.Active && state.ActiveModel == unit.Id && state.MovementHalved
             ? $" ({BoardScene.Inch(TableRect.Inches(p.Movement) / 2)} now, halved after standing up)" : "";
         var range = p.HasRangedWeapon ? $"Range {BoardScene.Inch(TableRect.Inches(p.RangedRange))}" : "No ranged weapon";
-        return $"Move {move}{halved} · {range} · Armour {p.Armour} · {MeleeWords(p)}";
+        return $"Move {move}{halved} · {range} · Armour {p.Armour} · {MeleeWords(p)}{DiceWords(p)}";
+    }
+
+    // Roster stage R1: the dice the model's own attacks start with, only when not zero (" · Shoot +1 DICE · Fight +2 DICE").
+    public static string DiceWords(ModelProfile p)
+    {
+        ArgumentNullException.ThrowIfNull(p);
+        var parts = new List<string>();
+        if (p.HasRangedWeapon && Rules.Core.Dice.AttackDice.OwnDice(p, AttackKind.Ranged) is var shoot and not 0)
+        {
+            parts.Add($"Shoot {shoot:+0;-0} DICE");
+        }
+        if (p.CanMakeMeleeAttack && Rules.Core.Dice.AttackDice.OwnDice(p, AttackKind.Melee) is var fight and not 0)
+        {
+            parts.Add($"Fight {fight:+0;-0} DICE");
+        }
+        return string.Concat(parts.Select(x => $" · {x}"));
     }
 
     // Proposal M1: what the model can fight with (1.0.2 pp. 45, 68): its Melee Weapon, its ranged weapon that also has

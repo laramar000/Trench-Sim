@@ -226,7 +226,8 @@ public class PreviewAgreementTests
             if (events.OfType<RangedSuccessRolled>().Select(r => r.Check).Concat(events.OfType<MeleeSuccessRolled>().Select(m => m.Check)).SingleOrDefault() is { } check
                 && !intoMelee)
             {
-                Assert.Equal(-dice.HitPenalty, check.NetDice);
+                Assert.Equal(dice.HitNetDice, check.NetDice);
+                Saw($"hit dice {dice.HitNetDice}");
                 Assert.Equal(dice.Risky, check.Risky);
                 Saw(dice.Risky ? "risky" : "not risky");
                 var askedForInjury = events.OfType<DecisionRequested>().Any(d => d.Kind == DecisionKind.SpendMarkersOnInjuryRoll);
@@ -240,7 +241,8 @@ public class PreviewAgreementTests
                 Assert.Equal(dice.InjuryModifier, injury.Injury.Modifier);
                 var critical = events.Any(e => e is RangedSuccessRolled { Check.Outcome: Rules.Core.Dice.SuccessOutcome.CriticalSuccess }
                     or MeleeSuccessRolled { Check.Outcome: Rules.Core.Dice.SuccessOutcome.CriticalSuccess });
-                Assert.Equal(dice.InjuryBonus + (critical ? 1 : 0), injury.Injury.NetDice);
+                Assert.Equal(dice.InjuryNetDice + (critical ? 1 : 0), injury.Injury.NetDice);
+                Saw($"injury dice {dice.InjuryNetDice}");
                 Saw($"injury bonus {dice.InjuryBonus}");
                 Saw($"injury modifier {dice.InjuryModifier}");
             }
@@ -272,6 +274,51 @@ public class PreviewAgreementTests
         Assert.True(seen.GetValueOrDefault("risky") > 50 && seen.GetValueOrDefault("injury bonus 1") > 10 && seen.GetValueOrDefault("Shoot penalty 0") + seen.GetValueOrDefault("Shoot penalty 1") > 0, summary);
         Console.WriteLine(summary);
     }
+
+    // Roster stage R1: the same with the attacker's own dice. Every model's profile gets Ranged and Melee dice and
+    // weapon DICE and INJURY DICE (some positive, some negative); the preview's dice are still the rules' own.
+    [Fact]
+    public void AttackPreviewDiceIncludeTheModelsOwnDice()
+    {
+        var seen = new Dictionary<string, int>();
+        void Saw(string what) => seen[what] = seen.GetValueOrDefault(what) + 1;
+        var index = 0;
+        foreach (var original in ActivationStates().Where((_, i) => i % 4 == 0))
+        {
+            var setup = original.Setup!;
+            var shift = index++ % 3 - 1; // -1, 0, +1 in turn
+            var models = setup.Models.Select(m => m with { Profile = WithDice(m.Profile!, shift) });
+            var state = original with
+            {
+                Setup = new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds, models, setup.Scenario),
+                Models = original.Models.Select(m => m with { BloodMarkers = 0 }).ToImmutableArray(),
+            };
+            var active = state.FindModel(state.ActiveModel!.Value)!;
+            foreach (var kind in new[] { PreviewKind.Shoot, PreviewKind.Fight })
+            {
+                foreach (var target in state.Models.Where(m => m.Seat != active.Seat))
+                {
+                    CheckDice(state, kind, active, target, Saw);
+                }
+            }
+        }
+        var summary = string.Join(", ", seen.OrderBy(p => p.Key).Select(p => $"{p.Key}: {p.Value}"));
+        Assert.True(seen.Keys.Count(k => k.StartsWith("hit dice ", StringComparison.Ordinal) && k != "hit dice 0") >= 2
+            && seen.Keys.Count(k => k.StartsWith("injury dice ", StringComparison.Ordinal) && k != "injury dice 0") >= 2, summary);
+        Console.WriteLine(summary);
+    }
+
+    internal static ModelProfile WithDice(ModelProfile p, int shift) =>
+        new(p.Movement, p.BaseRadius, p.RangedRange, p.RangedInjuryModifier, p.Armour, p.HasMeleeWeapon, p.MeleeInjuryModifier)
+        {
+            RangedAlsoMelee = p.RangedAlsoMelee,
+            RangedDice = 1 + shift,
+            MeleeDice = 2 * shift,
+            RangedWeaponDice = p.HasRangedWeapon ? shift : 0,
+            RangedWeaponInjuryDice = p.HasRangedWeapon ? 1 : 0,
+            MeleeWeaponDice = p.HasMeleeWeapon ? -shift : 0,
+            MeleeWeaponInjuryDice = p.HasMeleeWeapon ? shift + 1 : 0,
+        };
 
     [Fact]
     public void PreviewsOutsideTheirMomentAgreeWithTheServer()

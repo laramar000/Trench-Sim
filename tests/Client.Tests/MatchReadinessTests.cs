@@ -62,6 +62,42 @@ public class MatchReadinessTests
     }
 
     [Fact]
+    public void TheModelsAndWeaponsDiceArePlayed()
+    {
+        // Roster stage R1: the Lieutenant's Ranged +2 and Melee +2, the Sniper Rifle's +1 DICE, the Great Sword's +1
+        // INJURY DICE and the Trench Knife's -1 DICE travel in the content and are no longer listed as played without.
+        var builder = Principality(("lieutenant", ["sniper-rifle", "great-sword-axe"]), ("yeoman", ["shotgun", "trench-knife"]));
+        var ready = builder.MatchCheck();
+        Assert.True(ready.Ok, string.Join("; ", ready.Refused.Concat(ready.RosterProblems)));
+        var json = ready.ToContentJson("dice", "Dice");
+        var loaded = Sim.Content.Parse(json).Single();
+        var lieutenant = loaded.Models[0].Profile;
+        Assert.Equal((2, 2, 1, 0, 0, 1), (lieutenant.RangedDice, lieutenant.MeleeDice, lieutenant.RangedWeaponDice,
+            lieutenant.RangedWeaponInjuryDice, lieutenant.MeleeWeaponDice, lieutenant.MeleeWeaponInjuryDice));
+        Assert.Equal((3, 2), (lieutenant.RangedAttackDice, lieutenant.MeleeAttackDice));
+        var yeoman = loaded.Models[1].Profile;
+        Assert.Equal((0, 0, 1, -1), (yeoman.RangedDice, yeoman.MeleeDice, yeoman.RangedWeaponDice, yeoman.MeleeWeaponDice));
+        Assert.Equal(lieutenant, ContentNames.Parse(json).Single().Models[0].Profile);
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("DICE", StringComparison.Ordinal));
+        Assert.DoesNotContain("\"meleeDice\"", Principality(("yeoman", ["bolt-action-rifle"])).MatchCheck().ToContentJson("y", "Y"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AModelWithRangedDashTakesNoRangedWeaponIntoAMatch()
+    {
+        // A Plague Thrall's Ranged is "-" (it may not make Ranged Attacks): a ranged weapon written into its roster by
+        // hand is refused by name, not played.
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseFaction("cult");
+        var vocabulary = KeywordVocabulary.Parse(ContentNames.Read("roster/keywords.json")).Value!;
+        var catalogue = Catalogue.Parse(ContentNames.Read("roster/catalogue.json"), vocabulary).Value!;
+        var roster = builder.Roster with { Models = [new RosterModel("plague-thrall", null, ["bolt-action-rifle"], [])] };
+        var ready = MatchReadiness.Check(roster, builder.Faction, catalogue);
+        Assert.Contains(ready.Refused, r => r.Contains("Ranged is \"-\"", StringComparison.Ordinal));
+        Assert.Empty(ready.Models);
+    }
+
+    [Fact]
     public void AnOvalBaseIsRefused()
     {
         var builder = RosterBuilder.Shipped();
