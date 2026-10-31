@@ -2,15 +2,17 @@ using System.Text.RegularExpressions;
 
 namespace TestCenter;
 
-// "Run all automated tests": both builds with warnings as errors, the whole test suite in Debug and Release, the
-// authority checks, and the UI checks for this platform. On Windows the UI checks are the existing Windows script
+// "Run the essential tests" (the default, Jason 2026-10-31: test runs cut to the essentials): the Debug build with
+// warnings as errors, the whole test suite once and the authority checks, a few minutes. "Run the full tests" (--full)
+// adds the Release build and suite and the UI checks for this platform. On Windows the UI checks are the existing Windows script
 // (tools/UiCheck/Run-WindowsUiCheck.ps1), unchanged; on Linux the same runner it wraps. Nothing is skipped quietly: a
 // check that cannot run here is reported as NOT RUN with the reason.
 public static partial class AutomatedTests
 {
-    public static async Task<int> Run(Setup setup)
+    public static async Task<int> Run(Setup setup, bool full = false)
     {
-        var report = setup.NewReport("Trench Sim automated tests", "automated");
+        var report = setup.NewReport(full ? "Trench Sim automated tests (full)" : "Trench Sim essential tests", "automated");
+        var configurations = full ? new[] { "Debug", "Release" } : new[] { "Debug" };
         setup.StopLeftovers(report);
         Step("Checking the .NET SDK");
         if (await setup.DotNet(report) is null)
@@ -19,7 +21,7 @@ public static partial class AutomatedTests
         }
 
         var built = new Dictionary<string, bool>();
-        foreach (var configuration in new[] { "Debug", "Release" })
+        foreach (var configuration in configurations)
         {
             Step($"Building the game ({configuration})");
             var (exit, lines) = await setup.Processes.Run($"build-{configuration}", "dotnet",
@@ -33,7 +35,7 @@ public static partial class AutomatedTests
                 : $"exit {exit}, {warnings} warnings, {errors} errors{FirstErrors(lines)}");
         }
 
-        foreach (var configuration in new[] { "Debug", "Release" })
+        foreach (var configuration in configurations)
         {
             var name = $"Test suite ({configuration})";
             if (!built[configuration])
@@ -66,7 +68,14 @@ public static partial class AutomatedTests
             report.Missed("Authority checks (the client never resolves, rolls or applies anything itself)", "not run because the Debug build failed");
         }
 
-        await UiChecks(setup, report);
+        if (full)
+        {
+            await UiChecks(setup, report);
+        }
+        else
+        {
+            report.Info("Left out of the essential run", "the Release build and suite and the UI checks; menu option 8 (or `tests --full`) runs them");
+        }
         return report.Finish();
     }
 

@@ -3,7 +3,7 @@ using System.Diagnostics;
 // The Trench Sim test center: double-click "Test Trench Sim.cmd" in the Trench Sim folder (Windows), or run
 // ./test-trench-sim.sh (Linux). With no arguments it shows a menu; each choice can also be run directly:
 //
-//   dotnet run --project tools/TestCenter -- tests                 every automated check for this computer
+//   dotnet run --project tools/TestCenter -- tests [--full]        essential checks (--full: also Release and UI checks)
 //   dotnet run --project tools/TestCenter -- match [ranged|melee|ranged-2v2 ...]  a guided test match in two windows
 //   dotnet run --project tools/TestCenter -- editor                the Godot editor's Build and Play buttons
 //   dotnet run --project tools/TestCenter -- check [<record>]      verify a finished match's signed record
@@ -41,7 +41,7 @@ public static class Program
             }
             return words[0] switch
             {
-                "tests" => await AutomatedTests.Run(setup),
+                "tests" => await AutomatedTests.Run(setup, args.Contains("--full")),
                 "match" => await TestMatchRun.Run(setup, MatchOptions(args, words, opengl)),
                 "editor" => await EditorCheck.Run(setup),
                 "check" => await MatchCheck.CheckFinished(setup, words.ElementAtOrDefault(1)),
@@ -73,13 +73,14 @@ public static class Program
             Console.WriteLine("   TRENCH SIM TEST CENTER");
             Console.WriteLine($"   Version: {setup.Commit()}");
             Console.WriteLine("  ==================================================================");
-            Console.WriteLine("    1  Run all automated tests      no input needed; about 15-25 minutes");
+            Console.WriteLine("    1  Run the essential tests      no input needed; a few minutes");
             Console.WriteLine("    2  Play a test match            two windows, you play both sides");
             Console.WriteLine("    3  Check the Godot editor       you press Build and Play when asked");
             Console.WriteLine("    4  Check a finished match       verifies the latest match's record");
             Console.WriteLine("    5  Clean up                     stops anything a test left running");
             Console.WriteLine("    6  Get the newest version       downloads it and opens its test center");
             Console.WriteLine("    7  Play Trenches                opens the game on its main menu");
+            Console.WriteLine("    8  Run the full tests           adds Release and the UI checks; about 15-25 minutes");
             Console.WriteLine("    Q  Quit");
             Console.Write("  Type a number and press Enter: ");
             var choice = (Console.ReadLine() ?? "Q").Trim().ToUpperInvariant();
@@ -120,10 +121,13 @@ public static class Program
                 case "7":
                     last = await PlayGame.Run(setup, opengl);
                     break;
+                case "8":
+                    last = await AutomatedTests.Run(setup, full: true);
+                    break;
                 case "Q" or "":
                     return last;
                 default:
-                    Console.WriteLine("  Please type 1, 2, 3, 4, 5, 6, 7 or Q.");
+                    Console.WriteLine("  Please type a number from 1 to 8, or Q.");
                     continue;
             }
             setup.Pause("Press Enter to go back to the menu.");
@@ -183,7 +187,7 @@ public static class Program
 
     private static int Usage()
     {
-        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests | match [ranged|melee|ranged-1v1 ... melee-3v3, ranged-towers, melee-towers, ranged-1v1-towers ... melee-3v3-towers, ranged-trench-warfare ... melee-3v3-trench-warfare] | editor | check [<record>] | cleanup | play]");
+        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests [--full] | match [ranged|melee|ranged-1v1 ... melee-3v3, ranged-towers, melee-towers, ranged-1v1-towers ... melee-3v3-towers, ranged-trench-warfare ... melee-3v3-trench-warfare] | editor | check [<record>] | cleanup | play]");
         Console.WriteLine("         [--godot <path>] [--no-questions] [--opengl]");
         return 3;
     }
