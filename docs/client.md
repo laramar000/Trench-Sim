@@ -317,8 +317,9 @@ On Windows 11 (10.0.26200, x64) with Godot `4.7.2.stable.mono.official.ed1daf0bf
 
 ## Main menu (stage M1)
 
-The game opens on the **Trenches** main menu: **Play**, **Build Your Own Roster** (greyed, Work in progress: pressing it only shows a note), **Settings**, **Credits** and **Exit**. Tab, the arrows and Enter work everywhere; Esc goes back from every screen before a match.
+The game opens on the **Trenches** main menu: **Play**, **Build Your Own Roster**, **Settings**, **Credits** and **Exit**. Tab, the arrows and Enter work everywhere; Esc goes back from every screen before a match.
 
+- **Build Your Own Roster** (roster builder stage 3): choose the faction and list (standard or a variant; changing either empties the warband), name the warband, recruit models, choose one in Your warband to give it battlekit from what its list allows (each piece with its price for that model, its rules on the tooltip) and upgrades, and read the total and every problem in words under Check. **Save roster** writes `<name>.roster.json` to `user://rosters` (a UI check uses its own folder); the saved rosters are listed to load back. Until the real lists are entered (stage 4) the only faction is the invented Practice Company. Rosters are not used in matches yet (stage 5). The logic is `Client.Core/RosterBuilder.cs` on `src/Roster` (docs/roster.md).
 - **Play**: the scenario and map (normal rosters only), then **Start hot-seat** (disabled with the reason when the source folder is not found), **Host match** or **Join match** with a server address and code, and **Rejoin** for saved seats. **Advanced** shows the server rejoin window.
 - **Settings**: the same settings as the in-match Menu.
 - **Credits**: every asset author and licence from `client/assets/ASSETS.md`, Godot and .NET, and the version line.

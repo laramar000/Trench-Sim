@@ -12,8 +12,7 @@ public partial class Main
     public const string GameName = "Trenches";
     public const string BackText = "Back";
     public const string PlayText = "Play";
-    public const string RosterText = "Build Your Own Roster · Work in progress";
-    public const string RosterNoteText = "Building your own roster is planned. It is not available yet.";
+    public const string RosterText = "Build Your Own Roster";
     public const string SettingsText = "Settings";
     public const string CreditsText = "Credits";
     public const string ExitText = "Exit";
@@ -38,7 +37,6 @@ public partial class Main
     private VBoxContainer _settingsPage = null!;
     private VBoxContainer _credits = null!;
     private Button _playButton = null!;
-    private Label _rosterNote = null!;
     private Button _developer = null!;
     private Button _playHotSeat = null!;
     private Control _advanced = null!;
@@ -188,16 +186,10 @@ public partial class Main
         _playButton = MenuItem(PlayText, ShowPlay, "MenuPrimary");
         _playButton.Name = "PlayButton";
         menu.AddChild(_playButton);
-        // Jason's choice 1 (greyed item): it looks unavailable, and pressing it only says so.
-        _roster = MenuItem(RosterText, () => _rosterNote.Visible = true, "MenuMuted");
+        // Roster builder stage 3: the item opens the builder (it was a greyed placeholder before).
+        _roster = MenuItem(RosterText, ShowRoster);
         _roster.Name = "RosterButton";
-        _roster.TooltipText = RosterNoteText;
         menu.AddChild(_roster);
-        _rosterNote = Text(RosterNoteText);
-        _rosterNote.Name = "RosterNote";
-        _rosterNote.CustomMinimumSize = new Vector2(340, 0);
-        _rosterNote.Visible = false;
-        menu.AddChild(_rosterNote);
         menu.AddChild(MenuItem(SettingsText, ShowSettings));
         menu.AddChild(MenuItem(CreditsText, ShowCredits));
         menu.AddChild(new HSeparator());
@@ -275,11 +267,12 @@ public partial class Main
         }
         lines.AddChild(Text(VersionLine));
         credits.AddChild(Section("Credits", lines));
+
+        BuildRosterScreen();
     }
 
     // Stage M3: the menu screens' look, set again with the text size and high contrast. High contrast keeps the plain
-    // black-and-white look of the rest of the game (the screens take the main theme), and the roster item is greyed by
-    // fading it instead.
+    // black-and-white look of the rest of the game (the screens take the main theme).
     private Label _menuTitle = null!;
 
     private void ApplyMenuLook()
@@ -290,7 +283,6 @@ public partial class Main
         {
             screen.Theme = _menuTheme;
         }
-        _roster.Modulate = new Color(1, 1, 1, _highContrast ? 0.55f : 1f);
         if (!_highContrast)
         {
             _menuTitle.AddThemeColorOverride("font_color", MenuLook.Color(MenuPalette.Bone));
@@ -317,7 +309,7 @@ public partial class Main
     // Every screen hidden (a match, or before one is shown).
     private void HideScreens()
     {
-        foreach (var screen in new Control[] { _home, _play, _settingsPage, _credits, _connect })
+        foreach (var screen in new Control[] { _home, _play, _settingsPage, _credits, _rosterScreen, _connect })
         {
             screen.Visible = false;
         }
@@ -342,7 +334,6 @@ public partial class Main
     public void ShowHome()
     {
         ShowScreen(_home);
-        _rosterNote.Visible = false;
         _playButton.CallDeferred(Control.MethodName.GrabFocus);
     }
 
@@ -370,9 +361,10 @@ public partial class Main
         _creditsBack.CallDeferred(Control.MethodName.GrabFocus);
     }
 
-    // For the UI check: which pre-match screen is shown ("menu", "play", "settings", "credits", "developer"), or null.
+    // For the UI check: which pre-match screen is shown ("menu", "play", "settings", "credits", "roster", "developer"), or null.
     public string? ScreenShown =>
-        _home.Visible ? "menu" : _play.Visible ? "play" : _settingsPage.Visible ? "settings" : _credits.Visible ? "credits" : _connect.Visible ? "developer" : null;
+        _home.Visible ? "menu" : _play.Visible ? "play" : _settingsPage.Visible ? "settings" : _credits.Visible ? "credits"
+        : _rosterScreen.Visible ? "roster" : _connect.Visible ? "developer" : null;
 
     public Button DeveloperButton => _developer;
 
@@ -382,8 +374,6 @@ public partial class Main
     public bool CancelShown => _form.Cancel.IsVisibleInTree();
 
     public bool RetryShown => _form.Retry.IsVisibleInTree();
-
-    public bool RosterNoteShown => _rosterNote.IsVisibleInTree();
 
     public bool SettingsShownOnSettingsScreen => _settingsPage.IsAncestorOf(_menuBox) && _menuBox.IsVisibleInTree();
 }

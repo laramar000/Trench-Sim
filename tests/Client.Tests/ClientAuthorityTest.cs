@@ -58,6 +58,7 @@ public class ClientAuthorityTest
     [
         "GodotSharp",
         "Client.Core",
+        "Roster",
         "Match.Client",
         "Match.Protocol",
         "Rules.Core",
@@ -168,7 +169,7 @@ public class ClientAuthorityTest
         var references = project.Descendants()
             .Where(e => e.Name.LocalName is "PackageReference" or "Reference" or "FrameworkReference" or "ProjectReference" or "Import")
             .Select(e => $"{e.Name.LocalName} {(string?)e.Attribute("Include") ?? (string?)e.Attribute("Project")}");
-        Assert.Equal([@"ProjectReference ..\Match.Client\Match.Client.csproj"], references);
+        Assert.Equal([@"ProjectReference ..\Match.Client\Match.Client.csproj", @"ProjectReference ..\Roster\Roster.csproj"], references);
     }
 
     // Client.Core only, for hot-seat mode (LocalServer): starting the repository's server as a separate process
@@ -186,7 +187,7 @@ public class ClientAuthorityTest
     public void CompiledClientCoreUsesOnlyAllowedAssemblies()
     {
         var references = ReferencedAssemblies(Path.Combine(AppContext.BaseDirectory, "Client.Core.dll"));
-        Assert.DoesNotContain(references, n => !AllowedAssemblyReferences.Contains(n) && !AllowedClientCoreOnly.Contains(n) && n != "Match.Client");
+        Assert.DoesNotContain(references, n => !AllowedAssemblyReferences.Contains(n) && !AllowedClientCoreOnly.Contains(n) && n is not ("Match.Client" or "Roster"));
         Assert.DoesNotContain(references, n => n is "Match.Server" or "Sim" or "trench-cli");
     }
 

@@ -2723,6 +2723,7 @@ public partial class UiCheck : Node
     {
         await MenuNavigationCheck();
         await MenuLookCheck();
+        await RosterBuilderCheck();
         // Stage M1: from the main menu, Play, then the Play screen's hot-seat.
         await Press(ButtonNamed(Main.PlayText), Key.Enter, "hotseat-play-enter");
         await ConnectFeedbackCheck();
@@ -6001,7 +6002,6 @@ public partial class UiCheck : Node
         {
             var play = ButtonNamed(Main.PlayText);
             var exit = ButtonNamed(Main.ExitText);
-            var roster = main.RosterButton;
             if (main.MenuTheme is null || play is null || exit is null)
             {
                 return "no menu theme";
@@ -6014,11 +6014,6 @@ public partial class UiCheck : Node
             if (!Near(exit.GetThemeColor("font_color"), C(Client.Core.MenuPalette.DangerText)))
             {
                 bad.Add("Exit's words are not rust");
-            }
-            if (roster.GetThemeStylebox("normal") is not StyleBoxFlat { BorderWidthTop: 0 } flat || !Near(flat.BgColor, C(Client.Core.MenuPalette.ButtonDisabled))
-                || !Near(roster.GetThemeColor("font_color"), C(Client.Core.MenuPalette.DisabledText)))
-            {
-                bad.Add("the roster item is not flat and dim");
             }
             if (play.GetThemeStylebox("focus") is not StyleBoxFlat { BorderWidthTop: >= 2, BorderWidthLeft: >= 4 })
             {
@@ -6072,9 +6067,9 @@ public partial class UiCheck : Node
         {
             main.ChooseHighContrast(contrast);
             await Frames(3);
-            if (contrast && (main.MenuTheme is not null || main.RosterButton.Modulate.A >= 0.9f))
+            if (contrast && main.MenuTheme is not null)
             {
-                problems.Add($"high contrast: menu theme {(main.MenuTheme is null ? "off" : "still on")}, roster alpha {main.RosterButton.Modulate.A}");
+                problems.Add("high contrast: menu theme still on");
             }
             foreach (var (w, h, text, scale) in new[] { (1280, 800, 0, 0), (1000, 700, 0, 0), (1000, 700, 2, 0), (1280, 800, 0, 2), (1000, 700, 2, 2) })
             {
@@ -6115,8 +6110,134 @@ public partial class UiCheck : Node
         main.ShowHome();
         await Until(() => main.ScreenShown == "menu" && Focused() == ButtonNamed(Main.PlayText) ? "ok" : null, 5, "menu-look-back");
         Check("menu-look", problems.Count == 0, problems.Count == 0
-            ? $"menu theme on: Play rust, Exit rust words, roster flat and dim, focus frame with a left bar, title in bone; high contrast plain with the roster faded; {tried} sizes on the menu and Play screens: nothing past the edge, no words cut, no overlaps"
+            ? $"menu theme on: Play rust, Exit rust words, focus frame with a left bar, title in bone; high contrast plain; {tried} sizes on the menu and Play screens: nothing past the edge, no words cut, no overlaps"
             : string.Join("; ", problems.Distinct().Take(12)));
+    }
+
+    // Roster builder stage 3: the Build Your Own Roster screen, by keyboard. Recruiting, battlekit, a refusal in words,
+    // naming, saving, a list change that empties the warband, and loading it back; the screen's total and check lines
+    // are the builder's own every time, and nothing on it is past the window's right edge.
+    private async Task RosterBuilderCheck()
+    {
+        var main = (Main)_main;
+        var problems = new List<string>();
+        var steps = new List<string>();
+        foreach (var old in System.IO.Directory.Exists(main.RosterFolder) ? System.IO.Directory.GetFiles(main.RosterFolder) : [])
+        {
+            System.IO.File.Delete(old);
+        }
+        await Press(main.RosterButton, Key.Enter, null);
+        if (await Until(() => main.ScreenShown == "roster" ? "ok" : null, 5, "roster-shown") is null)
+        {
+            Check("roster-builder", false, $"the roster screen did not open ({main.ScreenShown})");
+            return;
+        }
+        var builder = main.RosterBuilderShown;
+        Control? Named(string name) => Controls<Control>().FirstOrDefault(c => c.Name == name && c.IsVisibleInTree() && !c.IsQueuedForDeletion());
+        string Total() => Controls<Godot.Label>().FirstOrDefault(l => l.Name == "RosterTotal")?.Text ?? "";
+        bool LineShown(string start) => Controls<Godot.Label>().Any(l => l.IsVisibleInTree() && !l.IsQueuedForDeletion() && l.Text.StartsWith(start, StringComparison.Ordinal));
+        void Agrees(string when)
+        {
+            var wanted = $"{builder.ListName}: {builder.TotalText}";
+            var missing = builder.CheckLines.Where(l => !LineShown(l)).ToList();
+            steps.Add($"{when}: {Total()}");
+            if (Total() != wanted || missing.Count > 0)
+            {
+                problems.Add($"{when}: total \"{Total()}\" (builder \"{wanted}\"){(missing.Count == 0 ? "" : ", check lines not shown: " + string.Join(" | ", missing))}");
+            }
+        }
+        async Task Push(string name)
+        {
+            await Frames(2);
+            if (Named(name) is not BaseButton button)
+            {
+                problems.Add($"no {name} button");
+                return;
+            }
+            button.GrabFocus();
+            await Frames(1);
+            await KeyPress(button is CheckButton ? Key.Space : Key.Enter);
+            await Frames(3);
+        }
+
+        Agrees("empty");
+        if (!LineShown("✕ Practice Company must include 1 Captain"))
+        {
+            problems.Add("an empty warband does not say it needs its Captain");
+        }
+        await Push("RecruitButton-practice-captain");
+        await Push("AddKit-practice-pistol");
+        await Push("AddKit-practice-club");
+        Agrees("captain with pistol and club");
+        if (builder.Check().Ducats != 69 || !builder.Check().Legal || Named("RemoveKit-1") is null)
+        {
+            problems.Add($"captain with pistol and club: {builder.Check().Ducats} ducats, legal {builder.Check().Legal}");
+        }
+        await Push("RecruitButton-practice-captain");
+        Agrees("a second captain");
+        if (!LineShown("✕ Practice Company can include at most 1 Captain (it has 2)"))
+        {
+            problems.Add("a second Captain is not refused in words");
+        }
+        await Push("RemoveModel-1");
+        await Push("RecruitButton-practice-soldier");
+        await Push("AddKit-practice-rifle");
+        await Push("Upgrade-practice-scout");
+        Agrees("soldier with rifle and Scout");
+        if (builder.Check().Ducats != 69 + 25 + 5 + 10)
+        {
+            problems.Add($"soldier with rifle and Scout: {builder.Check().Ducats} ducats");
+        }
+
+        if (Named("RosterName") is LineEdit name)
+        {
+            name.GrabFocus();
+            await KeyPress(Key.A, ctrl: true);
+            await TypeText("UI Check Band");
+            await Frames(2);
+        }
+        await Push("SaveRoster");
+        var saved = LineShown("Saved as UI Check Band.roster.json") && Named("LoadRoster-UI Check Band") is not null;
+        steps.Add($"saved {saved}");
+        if (!saved)
+        {
+            problems.Add("Save roster did not save and list UI Check Band");
+        }
+        var before = builder.Roster.ToJson();
+        var lists = Named("RosterVariant") as OptionButton;
+        await ChooseOption(lists, "practice-raiders", null);
+        await Frames(3);
+        Agrees("Practice Raiders");
+        if (builder.Variant != "practice-raiders" || builder.Models.Count != 0)
+        {
+            problems.Add($"choosing Practice Raiders: list {builder.Variant}, {builder.Models.Count} models");
+        }
+        await Push("LoadRoster-UI Check Band");
+        Agrees("loaded");
+        if (builder.Roster.ToJson() != before || lists?.Selected != 0 || !LineShown("Loaded UI Check Band"))
+        {
+            problems.Add($"loading did not bring back the saved warband (list shown {lists?.Selected})");
+        }
+
+        var width = _main.GetViewportRect().Size.X;
+        foreach (var c in Controls<Control>().Where(c => c.IsVisibleInTree() && c is Button or Godot.Label or LineEdit or OptionButton && c != main.DeveloperButton))
+        {
+            if (c.GetGlobalRect().End.X > width + 1)
+            {
+                problems.Add($"{Describe(c)} past the right edge");
+            }
+        }
+        await KeyPress(Key.Escape);
+        var back = await Until(() => main.ScreenShown == "menu" && Focused() == ButtonNamed(Main.PlayText) ? "ok" : null, 5, "roster-back") is not null;
+        if (!back)
+        {
+            problems.Add("Esc did not return to the main menu with Play focused");
+        }
+        if (main.MatchCode is not null)
+        {
+            problems.Add("a match was joined");
+        }
+        Check("roster-builder", problems.Count == 0, problems.Count == 0 ? string.Join("; ", steps) : string.Join("; ", problems));
     }
 
     private async Task MenuNavigationCheck()
@@ -6161,16 +6282,6 @@ public partial class UiCheck : Node
         }
         await TabTraversal("menu");
 
-        // The roster item: greyed, and pressing it only shows the note.
-        await Press(ButtonNamed(Main.RosterText), Key.Enter, null);
-        await Frames(2);
-        steps.Add($"roster: note {main.RosterNoteShown}, screen {main.ScreenShown}");
-        if (!main.RosterNoteShown || main.ScreenShown != "menu" || ButtonNamed(Main.RosterText) is not { } rosterItem
-            || !(rosterItem.Modulate.A < 0.9f || (rosterItem.ThemeTypeVariation == "MenuMuted" && main.MenuTheme is not null)))
-        {
-            problems.Add("the roster item did not just show its note");
-        }
-
         async Task Visit(string item, string screen, bool esc, Func<string?>? extra = null)
         {
             await Press(ButtonNamed(item), Key.Enter, null);
@@ -6194,6 +6305,7 @@ public partial class UiCheck : Node
             }
         }
         await Visit(Main.SettingsText, "settings", esc: true, () => main.SettingsShownOnSettingsScreen ? null : "the settings are not on the Settings screen");
+        await Visit(Main.RosterText, "roster", esc: true, () => ButtonNamed(Main.SaveRosterText) is null ? "the roster screen has no Save roster" : null);
         await Visit(Main.CreditsText, "credits", esc: false, () =>
             Client.Core.Credits.Entries.All(e => Controls<Godot.Label>().Any(l => l.IsVisibleInTree() && l.Text.StartsWith(e.Heading + ": ", StringComparison.Ordinal)))
                 ? null : "a credit is missing");

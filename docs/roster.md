@@ -1,4 +1,4 @@
-# Roster builder data (stages 1 and 2)
+# Roster builder data (stages 1 to 3)
 
 The roster builder reads plain JSON content files through `src/Roster`. Rules.Core never sees names, costs or
 keywords: a match still gets only the model profiles built from a roster (stage 5). Rules version: Digital Rulebook
@@ -15,6 +15,7 @@ stage 4, each value checked against its page.
 | `content/roster/keywords.json` | The fixed keyword vocabulary (1.0.2 pp. 52-57): id, kind (`effect` or `tag`), what value it takes, page |
 | `content/roster/catalogue.json` (stage 4) | Battlekit entries in the format below |
 | `content/roster/factions/*.json` (stage 4) | One faction list per file: models, armoury, variants |
+| `content/roster/practice-catalogue.json`, `practice-faction.json` | Invented practice data the builder screen shows until stage 4 |
 | a player's roster file | One warband: faction, variant, budget, models with their kit and upgrades |
 
 Faction keywords use our faction names (Jason, 2026-10-30): PRINCIPALITY, PILGRIM, SULTANATE, HERETIC, CULT, COURT.
@@ -131,5 +132,5 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
 
 ## Later stages
 
-- Stage 3: the builder screen. Stage 4: the official data. Stage 5: sending a roster to a match; kit the engine can't
+- Stage 3 (done): the builder screen, Build Your Own Roster on the main menu (docs/client.md). Stage 4: the official data. Stage 5: sending a roster to a match; kit the engine can't
   play yet is refused by name at match creation.
