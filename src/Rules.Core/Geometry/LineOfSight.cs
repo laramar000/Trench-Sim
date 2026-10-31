@@ -38,6 +38,12 @@ public static class SightRules
 public sealed record SightRay(Point2 From, Point2 To, IReadOnlyList<string> Crossed, IReadOnlyList<string> Obstructing)
 {
     public string? BlockedBy => Obstructing.Count == 0 ? null : Obstructing[0];
+
+    // Heights of the two ends above the table, for height-based sight (HeightSight, stage L1). Zero for today's
+    // top-down rays.
+    public Length FromHeight { get; init; }
+
+    public Length ToHeight { get; init; }
 }
 
 public sealed record SightResult(
@@ -88,6 +94,8 @@ public sealed class LatticeSampler : ISightSampler
     private static long RoundedDiv(long n, long d) => n >= 0 ? (n + d / 2) / d : -((-n + d / 2) / d);
 }
 
+// The first, top-down line of sight (M3). Since line-of-sight stage L2 no rule uses it: the rules use HeightSight (U77)
+// through Cover.Of. It is kept, with its tests, as the reference the height-based answers were compared with.
 // Line of sight from the attacker's base centre to the target. The rulebook: models see all around (360 degrees);
 // sight is checked from the attacker's side; the target is seen if any part of it can be seen; partial line of
 // sight means part but not all (p. 30). Provisional readings are in docs/interpretations.md: other models never

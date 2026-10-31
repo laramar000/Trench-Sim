@@ -32,7 +32,7 @@ public static class Board
                 for (var x = 0; x < width; x++)
                 {
                     var centre = new Point2(Length.FromThousandths((x * InchesPerCell + 1) * 1000), Length.FromThousandths((y * InchesPerCell + 1) * 1000));
-                    grid[y, x] = field.Terrain.Any(t => t.Footprint.Bounds.Contains(centre)) ? '#'
+                    grid[y, x] = field.Terrain.Any(t => t.Footprint.Parts.Any(p => p.Contains(centre))) ? '#'
                         : field.Zones.Any(z => z.Area.Bounds.Contains(centre)) ? '.' : ' ';
                 }
             }

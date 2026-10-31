@@ -106,6 +106,15 @@ public static partial class TurnSequence
             case DecisionKind.ChooseDeploymentZone:
                 commands.AddRange(state.Setup!.ZoneIds.Select(z => new ChooseDeploymentZone(pending.Seat, z)));
                 break;
+            case DecisionKind.ChooseAttacker:
+                commands.Add(new ChooseAttacker(pending.Seat, Seat.One));
+                commands.Add(new ChooseAttacker(pending.Seat, Seat.Two));
+                break;
+            case DecisionKind.LayMines:
+                // One legal layout; any other legal one may be sent instead.
+                var suggested = SuggestedMines(state);
+                commands.Add(new LayMines(pending.Seat, suggested, [.. Enumerable.Range(0, Mines.Duds).Select(Mines.IdOf)]));
+                break;
             case DecisionKind.ChooseFirstActivation:
                 commands.Add(new ChooseFirstActivation(pending.Seat, Seat.One));
                 commands.Add(new ChooseFirstActivation(pending.Seat, Seat.Two));
@@ -135,6 +144,16 @@ public static partial class TurnSequence
     }
 
     // ---- validation: reasons a player can read; nothing here rolls dice or changes anything ----
+
+    // Read-only, for the client (proposal J, stage J2a, decision D1 approved by Jason on 2026-10-20): the very check
+    // Decide makes before anything happens, so a preview can ask the rules themselves whether a command would be refused
+    // and why. It rolls nothing and changes nothing; Decide's answer is the one that counts.
+    public static Rejection? Check(MatchState state, Command command)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(command);
+        return Validate(state, command);
+    }
 
     private static Rejection? Validate(MatchState state, Command command)
     {
@@ -186,6 +205,10 @@ public static partial class TurnSequence
             if (HasUndefinedChoice(command))
             {
                 return new(ReasonCode.InvalidChoice, "That is not one of the choices on offer.", RefTurn);
+            }
+            if (command is LayMines mines)
+            {
+                return ValidateMines(state, mines);
             }
             return command is ChooseDeploymentZone z && !state.Setup!.ZoneIds.Contains(z.ZoneId)
                 ? new(ReasonCode.UnknownZone, "That is not one of the scenario's deployment zones.", RefDeployment)
@@ -287,12 +310,13 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget;
+        or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
     {
         ChooseFirstActivation c => !Enum.IsDefined(c.First),
+        ChooseAttacker c => !Enum.IsDefined(c.Attacker),
         ChooseMoraleOrder c => !Enum.IsDefined(c.First),
         ResolveFailedMorale c => !Enum.IsDefined(c.Choice),
         _ => false,
@@ -301,6 +325,8 @@ public static partial class TurnSequence
     private static DecisionKind? ExpectedDecision(Command command) => command switch
     {
         ChooseDeploymentZone => DecisionKind.ChooseDeploymentZone,
+        ChooseAttacker => DecisionKind.ChooseAttacker,
+        LayMines => DecisionKind.LayMines,
         ChooseFirstActivation => DecisionKind.ChooseFirstActivation,
         ChooseMoraleOrder => DecisionKind.ChooseMoraleOrder,
         ResolveFailedMorale => DecisionKind.FailedMorale,
@@ -310,6 +336,8 @@ public static partial class TurnSequence
     private static Seat SeatOf(Command command) => command switch
     {
         ChooseDeploymentZone c => c.Seat,
+        ChooseAttacker c => c.Seat,
+        LayMines c => c.Seat,
         ChooseFirstActivation c => c.Seat,
         ChooseMoraleOrder c => c.Seat,
         ResolveFailedMorale c => c.Seat,
@@ -322,6 +350,13 @@ public static partial class TurnSequence
     {
         switch (command)
         {
+            case StartMatch when Scenarios.TrenchWarfare.Is(run.State.Setup):
+                // Trench Warfare (p. 161, a one-off game): roll off, and the winner chooses who attacks.
+                var rolesRoll = RollOff(dice, RollOffPurpose.Roles);
+                run.Emit(rolesRoll);
+                run.Emit(new PhaseEntered(Phase.Deployment));
+                run.Emit(new DecisionRequested(DecisionKind.ChooseAttacker, rolesRoll.Winner));
+                break;
             case StartMatch:
                 var zoneRoll = RollOff(dice, RollOffPurpose.DeploymentZone);
                 run.Emit(zoneRoll);
@@ -330,6 +365,12 @@ public static partial class TurnSequence
                 break;
             case ChooseDeploymentZone c:
                 run.Emit(new DeploymentZoneChosen(c.Seat, c.ZoneId));
+                break;
+            case ChooseAttacker c:
+                run.Emit(new AttackerChosen(c.Seat, c.Attacker));
+                break;
+            case LayMines c:
+                run.Emit(new MinesLaid(c.Seat, [.. c.Markers.Select((at, i) => new MineMarker(Mines.IdOf(i), at))], c.Duds));
                 break;
             case DeployModel c:
                 run.Emit(new ModelDeployed(c.Seat, c.Model));
@@ -373,6 +414,11 @@ public static partial class TurnSequence
             return false;
         }
 
+        if (s.MineStop is { } stop)
+        {
+            return AdvanceMine(run, s, stop, dice);
+        }
+
         if (s.InProgress is not null)
         {
             return AdvanceRoll(run, s, dice);
@@ -405,6 +451,18 @@ public static partial class TurnSequence
 
     private static bool AdvanceDeployment(Run run, MatchState s, IDiceSource dice)
     {
+        if (s.DeploymentFirst is null && s.Attacker is { } defended && !s.MinesLaid)
+        {
+            // Trench Warfare: before any model is deployed the defender sets up the Mine Markers (p. 162).
+            run.Emit(new DecisionRequested(DecisionKind.LayMines, defended.Opponent()));
+            return true;
+        }
+        if (s.DeploymentFirst is null && s.Attacker is { } attacker)
+        {
+            // Trench Warfare: the attacker deploys first, then the players alternate (p. 162).
+            run.Emit(new DeploymentOrderSet(attacker));
+            return true;
+        }
         if (s.DeploymentFirst is null)
         {
             // More models deploys first; equal counts roll off (p. 152). Provisional rule R7: the roll-off winner starts.
@@ -463,11 +521,19 @@ public static partial class TurnSequence
     {
         if (s.TurnEnded)
         {
-            if (s.Turn >= s.Setup!.TurnLimit)
+            if (Reducer.LengthRollOwed(s))
+            {
+                // Trench Warfare (p. 162): the attacker's D6; on 1-2 the game ends now, on 3+ after Turn 5.
+                var die = Roll(dice);
+                run.Emit(new GameLengthRolled(s.Attacker!.Value, die,
+                    die <= Scenarios.TrenchWarfare.EndsOnOrBelow ? Scenarios.TrenchWarfare.LengthRollTurn : Scenarios.TrenchWarfare.TurnLimit));
+                return true;
+            }
+            if (s.Turn >= s.FinalTurn)
             {
                 // With a battlefield the Victory Points decide (p. 153); equal points are a draw (provisional, U40).
                 // Without one (the M2 setups) nothing scores and there is no winner.
-                run.Emit(s.Setup.Scenario is null
+                run.Emit(s.Setup!.Scenario is null
                     ? new MatchEnded(null, OutcomeReason.FinalTurnComplete)
                     : new MatchEnded(Reducer.WinnerByPoints(s), OutcomeReason.VictoryPoints));
             }
@@ -481,6 +547,12 @@ public static partial class TurnSequence
         var remaining = TurnRules.MoraleRemaining(s);
         if (remaining.Count == 0)
         {
+            // Trench Warfare (p. 163): score the trench sections.
+            if (Scenarios.TrenchWarfare.Is(s.Setup) && s.ScoredTurn < s.Turn)
+            {
+                run.Emit(new TrenchesScored(s.Turn, Board.TrenchResults(s)));
+                return true;
+            }
             // End-of-turn tasks (p. 50): in a scenario with Objectives, score them (p. 153).
             if (s.Setup!.Scenario is { ObjectiveIds.Length: > 0 } scenario && s.ScoredTurn < s.Turn)
             {
@@ -563,6 +635,14 @@ public static partial class TurnSequence
         {
             State = Reducer.Apply(State, e);
             Events.Add(e);
+            // A Glorious Deed the event completed is announced at once, before anything else (U96).
+            while (!State.Deeds.Owed.IsEmpty)
+            {
+                var deed = State.Deeds.Owed[0];
+                var announced = new GloriousDeedCompleted(deed.Seat, deed.Deed, deed.Model);
+                State = Reducer.Apply(State, announced);
+                Events.Add(announced);
+            }
         }
     }
 }

@@ -71,6 +71,44 @@ public sealed record DashRolled : GameEvent
     public SuccessRollResult Check { get; }
 }
 
+// A Move or Dash climbs a tower's side away from its ladders (towers proposal, stage T6; p. 39, U75): the Risky Success
+// Roll comes next. On a Success the model makes the whole move; on a Failure it moves only to where the climb starts
+// and its activation ends. Path is the whole move as declared.
+public sealed record SideClimbDeclared : GameEvent
+{
+    public SideClimbDeclared(ModelId model, MoveKind kind, ImmutableArray<Point2> path)
+    {
+        if (!Enum.IsDefined(kind))
+        {
+            throw new ArgumentException("Unknown move kind.", nameof(kind));
+        }
+        if (path.IsDefault || path.IsEmpty || path.Length > ModelMoved.MaxWaypoints)
+        {
+            throw new ArgumentException($"A move has 1 to {ModelMoved.MaxWaypoints} waypoints.", nameof(path));
+        }
+        Model = model;
+        Kind = kind;
+        Path = path;
+    }
+
+    public ModelId Model { get; }
+    public MoveKind Kind { get; }
+    public ImmutableArray<Point2> Path { get; }
+}
+
+public sealed record SideClimbRolled : GameEvent
+{
+    public SideClimbRolled(ModelId model, SuccessRollResult check)
+    {
+        ArgumentNullException.ThrowIfNull(check);
+        Model = model;
+        Check = check;
+    }
+
+    public ModelId Model { get; }
+    public SuccessRollResult Check { get; }
+}
+
 public enum MarkerSpendPurpose
 {
     ReduceSuccessRoll,  // -1 DICE per marker on a Success Roll for the model holding them
@@ -98,9 +136,9 @@ public sealed record MarkersSpent : GameEvent
     public MarkerSpendPurpose Purpose { get; }
 }
 
-// A Ranged Attack was declared with every fact the modifiers depend on (pp. 42-44). Level fields are logged for
-// the elevation bonus that Gate 1 does not apply (U35). Bonus and penalty are the dice for the Success Roll
-// before any Blood Markers are spent.
+// A Ranged Attack was declared with every fact the modifiers depend on (pp. 42-44). Elevated (stage L3, p. 43) is the
+// +1 DICE for standing 3" or more above the target. Bonus and penalty are the dice for the Success Roll before any
+// Blood Markers are spent.
 public sealed record RangedAttackDeclared : GameEvent
 {
     public RangedAttackDeclared(
@@ -117,7 +155,7 @@ public sealed record RangedAttackDeclared : GameEvent
         {
             throw new ArgumentException("Inconsistent attack declaration.");
         }
-        if (penaltyDice != (longRange ? 1 : 0) + (inCover ? 1 : 0))
+        if (penaltyDice != AttackDice.ShotPenalty(longRange, inCover))
         {
             throw new ArgumentException("Penalty dice must be the Long Range and Cover modifiers.", nameof(penaltyDice));
         }
@@ -142,6 +180,12 @@ public sealed record RangedAttackDeclared : GameEvent
 
     // The target is within 1" of one of the shooter's own models: a D6 decides who is shot (p. 42).
     public bool IntoMelee { get; init; }
+
+    // Elevated position (p. 43, line-of-sight stage L3): the attacker stands 3" or more above the target, +1 DICE. Left
+    // off the wire when false, so every earlier record reads and writes as before.
+    public bool Elevated { get; init; }
+
+    public int BonusDice => AttackDice.ShotBonus(Elevated);
 }
 
 public sealed record RangedSuccessRolled : GameEvent
@@ -296,7 +340,7 @@ public sealed record MeleeAttackDeclared : GameEvent
     public ModelId Target { get; }
     public bool FreeFight { get; }
     public string? DefendedObstacleId { get; }
-    public int PenaltyDice => DefendedObstacleId is null ? 0 : 1;
+    public int PenaltyDice => AttackDice.FightPenalty(DefendedObstacleId is not null);
 }
 
 public sealed record MeleeSuccessRolled : GameEvent
@@ -356,4 +400,32 @@ public sealed record FriendlyTargetChosen : GameEvent
     public bool LongRange { get; }
     public bool InCover { get; }
     public string? CoverTerrainId { get; }
+
+    // Elevated position above the model shot at (p. 43, stage L3); left off the wire when false.
+    public bool Elevated { get; init; }
 }
+
+// ---- Trench Warfare (trench-maps stage S6, Scenario IV, pp. 161-163) ----
+
+// The roles roll-off winner chose who attacks. The defender takes the zone holding the trench lines (U88).
+public sealed record AttackerChosen(Seat Seat, Seat Attacker) : GameEvent;
+
+// One trench section at the end of a Turn: the defending and attacking models in it, and what each side scores.
+public sealed record TrenchResult(string TrenchId, int Defenders, int Attackers, int DefenderPoints, int AttackerPoints);
+
+// Victory Points for the trench sections at the end of a Turn (p. 163).
+public sealed record TrenchesScored : GameEvent
+{
+    public TrenchesScored(int turn, IEnumerable<TrenchResult> results)
+    {
+        ArgumentNullException.ThrowIfNull(results);
+        Turn = turn;
+        Results = [.. results];
+    }
+
+    public int Turn { get; }
+    public ImmutableArray<TrenchResult> Results { get; }
+}
+
+// The attacker's game-length D6 at the end of Turn 4 (p. 162): 1-2, the game ends now (LastTurn 4); 3+, after Turn 5.
+public sealed record GameLengthRolled(Seat Seat, int Die, int LastTurn) : GameEvent;

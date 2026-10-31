@@ -12,25 +12,64 @@ namespace Match.Protocol;
 public abstract record ClientMessage;
 
 // Create a match of a named scenario. The sender takes Seat One and receives the match code to give the opponent.
+// Map (trench-maps stage S5, optional, left off when null): play the scenario's models on another of the server's
+// maps instead of the one the name comes with. The map must be made for the scenario and fit what it needs.
 public sealed record CreateMatch : ClientMessage
 {
+    private readonly string? _map;
+
     public CreateMatch(string scenario)
     {
         Scenario = Ids.Check(scenario, nameof(scenario));
     }
 
     public string Scenario { get; }
+
+    public string? Map
+    {
+        get => _map;
+        init => _map = value is null ? null : Ids.Check(value, nameof(Map));
+    }
+
+    // Roster stage 5c (optional, left off when null): the text of the sender's saved roster file, with the scenario
+    // "roster". The server checks it itself and plays it as Seat One; the match is set up once the second player joins
+    // with a roster of their own.
+    public string? Roster
+    {
+        get => _roster;
+        init => _roster = RosterText.Check(value, nameof(Roster));
+    }
+
+    private readonly string? _roster;
 }
 
 // Join a match by its code. The sender takes the seat still free; nobody chooses a seat.
+// Roster (stage 5c, optional, left off when null): the sender's saved roster, needed to join a match made with one.
 public sealed record JoinMatch : ClientMessage
 {
+    private readonly string? _roster;
+
     public JoinMatch(string code)
     {
         Code = Ids.Check(code, nameof(code));
     }
 
     public string Code { get; }
+
+    public string? Roster
+    {
+        get => _roster;
+        init => _roster = RosterText.Check(value, nameof(Roster));
+    }
+}
+
+// A roster sent in CreateMatch or JoinMatch is the text of a roster file; the message size limit bounds it.
+public static class RosterText
+{
+    public const string Scenario = "roster";
+
+    public static string? Check(string? roster, string name) =>
+        roster is null || roster.Length > 0 ? roster : throw new ArgumentException("A roster is the text of a roster file.", name);
 }
 
 // A command for the sender's own seat. Seq is the seat's command number, one more than the last one the server counted.
@@ -129,6 +168,11 @@ public sealed record Welcome : ServerMessage
     public long NextSeq { get; }
     public ServerMessage? LastAnswer { get; }
     public MatchStatus Status { get; }
+
+    // Roster stage 5c (optional, left off when null): the names of a match played with rosters sent online, in the
+    // warband content format (both warbands, Seat One first), so each player sees the models' names. Names only: the
+    // models' profiles are in the setup, and a client uses the names only if they match it.
+    public string? Warbands { get; init; }
 }
 
 // One event of the match, numbered from 1, with the state hash after applying it. Sent to both seats in log order.
@@ -212,6 +256,14 @@ public enum ProtocolError
     MatchPaused,
     MatchFinished,
     SeatTakenOver,
+
+    // Trench-maps stage S5: no map with that id on this server, or it does not fit the scenario.
+    UnknownMap,
+    MapDoesNotFit,
+
+    // Roster stage 5c: the roster sent cannot be played (the text says why), a match made with rosters was joined
+    // without one, or one made with the practice warbands was joined with one.
+    RosterRefused,
 }
 
 // Where a match is, as Welcome reports it.

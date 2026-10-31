@@ -52,8 +52,37 @@ public sealed class Bot(Random rng)
             DecisionKind.FreeFight => rng.Next(100) < 85
                 ? legal.OrderBy(c => c is FreeFight ? 0 : 1)
                 : legal.OrderBy(_ => rng.Next()),
+            // Trench Warfare: Mine Markers at random spots in the Mine Placement Area, 4 of them duds at random.
+            DecisionKind.LayMines => RandomMines(state, pending.Seat).Concat(legal),
             _ => legal.OrderBy(_ => rng.Next()),
         };
+    }
+
+    private IEnumerable<Command> RandomMines(MatchState state, Seat seat)
+    {
+        var field = state.Setup!.Scenario!.Battlefield;
+        if (Mines.PlacementArea(field, state.SeatFor(seat).ZoneId!, state.SeatFor(seat.Opponent()).ZoneId!) is not { } area)
+        {
+            yield break;
+        }
+        var r = Mines.MarkerRadius.Thousandths;
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var placed = new List<Point2>();
+            for (var i = 0; i < 2000 && placed.Count < Mines.Count; i++)
+            {
+                var at = At(rng.NextInt64(area.Min.X.Thousandths + r, area.Max.X.Thousandths - r + 1), rng.NextInt64(area.Min.Y.Thousandths + r, area.Max.Y.Thousandths - r + 1));
+                if (Mines.Problem(field, area, at, placed) is null)
+                {
+                    placed.Add(at);
+                }
+            }
+            if (placed.Count == Mines.Count)
+            {
+                var duds = Enumerable.Range(0, Mines.Count).OrderBy(_ => rng.Next()).Take(Mines.Duds).Order().Select(Mines.IdOf);
+                yield return new LayMines(seat, [.. placed], [.. duds]);
+            }
+        }
     }
 
     // ---- deployment ----
@@ -98,7 +127,7 @@ public sealed class Bot(Random rng)
     {
         var seat = model.Seat;
         var kinds = new List<string>();
-        var melee = state.Setup!.ProfileOf(model.Id)!.HasMeleeWeapon;
+        var melee = state.Setup!.ProfileOf(model.Id)!.CanMakeMeleeAttack;
         var engaged = melee && NearestEnemy(state, model) is { } nearest && Gap(state, model, nearest) <= Length.Inch;
         // Melee actions are only ever proposed for a model that has a Melee Weapon, so a ranged-only warband plays
         // exactly as it did before Slice B.
@@ -190,8 +219,8 @@ public sealed class Bot(Random rng)
 
     private static Length Gap(MatchState state, ModelState a, ModelState b) =>
         Measure.Gap(
-            new ModelBody(a.Id.Value, a.Position!.Value, state.Setup!.ProfileOf(a.Id)!.BaseRadius),
-            new ModelBody(b.Id.Value, b.Position!.Value, state.Setup.ProfileOf(b.Id)!.BaseRadius));
+            new ModelBody(a.Id.Value, a.Position!.Value, state.Setup!.ProfileOf(a.Id)!.BaseRadius, ElevationAt(state, a.Position!.Value)),
+            new ModelBody(b.Id.Value, b.Position!.Value, state.Setup.ProfileOf(b.Id)!.BaseRadius, ElevationAt(state, b.Position!.Value)));
 
     // Retreat paths: the legal candidates that end farthest from the nearest enemy, best first.
     private IEnumerable<ImmutableArray<Point2>> RetreatPaths(MatchState state, ModelState model)
@@ -199,11 +228,11 @@ public sealed class Bot(Random rng)
         var scenario = state.Setup!.Scenario!;
         var profile = state.Setup.ProfileOf(model.Id)!;
         var allowance = state.MovementHalved ? Length.FromThousandths(profile.Movement.Thousandths / 2) : profile.Movement;
-        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius);
+        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius, ElevationAt(state, model.Position!.Value));
         var others = state.Models
             .Where(m => m.Id != model.Id && m.Position is not null)
             .Select(m => new Obstacle(
-                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius),
+                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius, ElevationAt(state, m.Position!.Value)),
                 m.Seat == model.Seat ? Relation.Friendly : Relation.Enemy))
             .ToList();
         var from = model.Position!.Value;
@@ -236,11 +265,19 @@ public sealed class Bot(Random rng)
     {
         var scenario = state.Setup!.Scenario!;
         var enemies = Targets(state, model).ToList();
-        if (enemies.Count > 0 && ((state.Setup.ProfileOf(model.Id)!.HasRangedWeapon || state.Setup.ProfileOf(model.Id)!.HasMeleeWeapon) && rng.Next(100) < 40))
+        if (enemies.Count > 0 && ((state.Setup.ProfileOf(model.Id)!.HasRangedWeapon || state.Setup.ProfileOf(model.Id)!.CanMakeMeleeAttack) && rng.Next(100) < 40))
         {
             return enemies[0].Position!.Value;
         }
-        var id = scenario.ObjectiveIds[rng.Next(scenario.ObjectiveIds.Length)];
+        // Trench Warfare has no Objectives: its trench sections score (trench-maps stage S6). Without either, the enemy.
+        var goals = scenario.ObjectiveIds.IsEmpty
+            ? [.. Rules.Core.Scenarios.TrenchWarfare.ScoringSections(scenario.Battlefield).Select(t => t.Id)]
+            : scenario.ObjectiveIds;
+        if (goals.IsEmpty)
+        {
+            return enemies.Count > 0 ? enemies[0].Position!.Value : model.Position!.Value;
+        }
+        var id = goals[rng.Next(goals.Length)];
         var bounds = scenario.Battlefield.Terrain.First(t => t.Id == id).Footprint.Bounds;
         return At((bounds.Min.X.Thousandths + bounds.Max.X.Thousandths) / 2, (bounds.Min.Y.Thousandths + bounds.Max.Y.Thousandths) / 2);
     }
@@ -252,11 +289,11 @@ public sealed class Bot(Random rng)
         var scenario = state.Setup!.Scenario!;
         var profile = state.Setup.ProfileOf(model.Id)!;
         var allowance = state.MovementHalved ? Length.FromThousandths(profile.Movement.Thousandths / 2) : profile.Movement;
-        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius);
+        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius, ElevationAt(state, model.Position!.Value));
         var others = state.Models
             .Where(m => m.Id != model.Id && m.Position is not null)
             .Select(m => new Obstacle(
-                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius),
+                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius, ElevationAt(state, m.Position!.Value)),
                 m.Seat == model.Seat ? Relation.Friendly : Relation.Enemy))
             .ToList();
         var goal = Goal(state, model);
@@ -283,10 +320,48 @@ public sealed class Bot(Random rng)
             }
         }
 
+        bool Legal(ImmutableArray<Point2> path) => Movement.CheckPath(scenario.Battlefield, body, path, allowance, others).IsLegal;
+        // On a battlefield with towers (towers proposal, stage T3), half the time head for the nearest ladder and climb
+        // it (or come down), so simulated tower matches use the towers. Without towers no die is drawn here, so those
+        // matches play exactly as before.
+        if (scenario.Battlefield.Terrain.Any(t => t.IsTower) && rng.Next(100) < 50)
+        {
+            var climbs = ClimbPaths(scenario.Battlefield, from, profile.BaseRadius).ToList();
+            var ladder = climbs[0][0];
+            return climbs.Where(Legal).Take(3)
+                .Concat(candidates.OrderBy(path => Distance2(path[^1], ladder)).Where(Legal).Take(3))
+                .ToList();
+        }
         return candidates
             .OrderBy(path => Distance2(path[^1], goal))
-            .Where(path => Movement.CheckPath(scenario.Battlefield, body, path, allowance, others).IsLegal)
+            .Where(Legal)
             .Take(6)
             .ToList();
     }
+
+    // Paths up or down a ladder: from the ground to a ladder's foot, up to its top and one step on; or from a platform
+    // to a ladder's top, down to its foot and one step away.
+    private static IEnumerable<ImmutableArray<Point2>> ClimbPaths(Battlefield field, Point2 from, Length radius)
+    {
+        var on = Towers.TowerAt(field, from);
+        var paths = new List<ImmutableArray<Point2>>();
+        foreach (var tower in field.Terrain.Where(t => t.IsTower && (on is null || t == on)))
+        {
+            var rect = tower.Footprint.Bounds;
+            foreach (var ladder in tower.Climb!.Ladders)
+            {
+                var foot = Climb.Foot(rect, ladder, radius);
+                var top = Climb.Top(rect, ladder, radius);
+                var inward = new Point2(top.X + (top.X - foot.X), top.Y + (top.Y - foot.Y));
+                var outward = new Point2(foot.X + (foot.X - top.X), foot.Y + (foot.Y - top.Y));
+                paths.Add(on is null ? [foot, top, inward] : [top, foot, outward]);
+            }
+        }
+        // Nearest first (ties keep id order); a path that starts where the model stands drops that point.
+        return paths.OrderBy(path => Distance2(from, path[0])).Select(path => path[0] == from ? path[1..] : path);
+    }
+
+    // How high a base centred here stands (a tower's platform or the ground), as the rules measure it.
+    private static Length ElevationAt(MatchState state, Point2 at) =>
+        state.Setup?.Scenario is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero;
 }

@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "id": "trench-warfare",
+  "name": "Trench Warfare",
+  "notes": "Layout for Scenario IV (1.0.2 pp. 161-163), trench-maps stage S6. The book prints no table size or zone depth, so these follow Claim No Man's Land (U32): a 36\" x 36\" table and 6\" zones along the west and east edges. The defender's three trench sections, each 8\" long and 2.5\" wide, 1\" deep, stand in the east zone (U88); nothing else is in either zone (p. 161). No Man's Land terrain between them keeps 3\" apart (p. 65).",
+  "width": "36",
+  "height": "36",
+  "archetype": "no-mans-land",
+  "supports": ["trench-warfare"],
+  "zones": [
+    {
+      "id": "west",
+      "rect": ["0", "0", "6", "36"]
+    },
+    {
+      "id": "east",
+      "rect": ["30", "0", "36", "36"]
+    }
+  ],
+  "objectives": [],
+  "terrain": [
+    {
+      "id": "trench-s",
+      "rect": ["31.5", "2", "34", "10"],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-m",
+      "rect": ["31.5", "14", "34", "22"],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-n",
+      "rect": ["31.5", "26", "34", "34"],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "wall-1",
+      "rect": ["12", "8", "18", "9"],
+      "profile": "wall"
+    },
+    {
+      "id": "wall-2",
+      "rect": ["18", "27", "24", "28"],
+      "profile": "wall"
+    },
+    {
+      "id": "crater-1",
+      "rect": ["20", "14", "24", "18"],
+      "profile": "low",
+      "kind": ["difficult"]
+    },
+    {
+      "id": "crater-2",
+      "rect": ["10", "20", "14", "24"],
+      "profile": "low",
+      "kind": ["difficult"]
+    },
+    {
+      "id": "rubble-1",
+      "rect": ["27", "4", "28.5", "12"],
+      "profile": "low",
+      "kind": ["difficult"]
+    },
+    {
+      "id": "rubble-2",
+      "rect": ["27", "22", "28.5", "30"],
+      "profile": "low",
+      "kind": ["difficult"]
+    },
+    {
+      "id": "cover-1",
+      "rect": ["8", "2", "11", "5"],
+      "profile": "cover"
+    },
+    {
+      "id": "cover-2",
+      "rect": ["8", "31", "11", "34"],
+      "profile": "cover"
+    }
+  ]
+}

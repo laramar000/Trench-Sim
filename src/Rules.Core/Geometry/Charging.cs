@@ -41,64 +41,101 @@ public static class Charging
 
     private static readonly Length Unlimited = Length.FromInches(1000);
 
+    // Towers (stage T2): a charge up or down a ladder is not built in this version (U72), though the book would allow
+    // one. A charge is declared only against a model at the charger's own elevation, and plans around the models there.
+    public const string CrossLevelText = "A charge up or down a tower's ladder is not supported in this version: charge a model at your own height.";
+    public const string RefCrossLevel = "1.0.2 pp. 36, 39-40";
+
     // Is there a route to the target at all, however long? Declaring a charge needs only a target within 12" that is
     // visible (p. 36); how far the Charge Bonus carries the model along the shortest route is for the die to decide, and
     // a route far longer than 12" is a charge that falls short, not one that cannot be declared. A refusal here is a
     // refusal of the declaration: no die is rolled for it. Friendly models are passable here (they cannot end a move
     // on a base, but whether one blocks depends on how far the model gets, which the die decides).
-    public static MoveResult CheckRoute(Battlefield battlefield, ModelBody mover, ModelBody target, IReadOnlyList<Obstacle> others)
+    public static MoveResult CheckRoute(Battlefield battlefield, ModelBody mover, ModelBody target, IReadOnlyList<Obstacle> others) =>
+        For(battlefield, mover, target, others).CheckRoute();
+
+    public static ChargePlan Plan(Battlefield battlefield, ModelBody mover, ModelBody target, Length reach, IReadOnlyList<Obstacle> others) =>
+        For(battlefield, mover, target, others).Plan(reach);
+
+    // One charger, target and table, for asking CheckRoute and Plan several times (the client's preview asks for every
+    // Charge Bonus result): the obstacles are sorted and the routes searched once, and each answer is the one the static
+    // CheckRoute and Plan give, which are themselves this with a single question. Nothing here is kept between charges.
+    public static ChargePlanner For(Battlefield battlefield, ModelBody mover, ModelBody target, IReadOnlyList<Obstacle> others) =>
+        new(battlefield, mover, target, others);
+
+    public sealed class ChargePlanner
     {
-        var scene = new Scene(battlefield, mover, target, others);
-        var route = scene.FindRoute(friendsBlock: false);
-        if (route is null || scene.Farthest(route, MaxMovement).Length > MaxLegs)
-        {
-            return new MoveResult(false, MoveRefusal.NoRoute,
-                "No route reaches the target around the terrain in the way.", "1.0.2 pp. 35, 37", Length.Zero, null);
-        }
-        return scene.Interposition(route);
-    }
+        private readonly Scene _scene;
+        private (Route? Route, MoveResult? Check)? _a;
+        private (Route? Route, MoveResult? Check)? _b;
 
-    public static ChargePlan Plan(Battlefield battlefield, ModelBody mover, ModelBody target, Length reach, IReadOnlyList<Obstacle> others)
-    {
-        var scene = new Scene(battlefield, mover, target, others);
-        var none = new ChargePlan([], Length.Zero, false);
+        internal ChargePlanner(Battlefield battlefield, ModelBody mover, ModelBody target, IReadOnlyList<Obstacle> others) =>
+            _scene = new Scene(battlefield, mover, target, others);
 
-        var routeA = scene.FindRoute(friendsBlock: false);
-        if (routeA is null || !scene.Interposition(routeA).IsLegal)
+        // The shortest route with friends passable (route A), and its check as a charge (Interposition).
+        private (Route? Route, MoveResult? Check) RouteA() => _a ??= Search(friendsBlock: false);
+
+        // The shortest route round the friendly bases (route B), and its check as a charge.
+        private (Route? Route, MoveResult? Check) RouteB() => _b ??= Search(friendsBlock: true);
+
+        private (Route?, MoveResult?) Search(bool friendsBlock)
         {
-            return none;
-        }
-        var pathA = scene.Farthest(routeA, reach);
-        if (pathA.IsEmpty || pathA.Length > MaxLegs)
-        {
-            return none;
-        }
-        if (scene.Finish(pathA, reach) is { } whole)
-        {
-            return whole;
+            var route = _scene.FindRoute(friendsBlock);
+            return (route, route is null ? null : _scene.Interposition(route));
         }
 
-        // The route cannot be followed as far as the die allows without ending on a friendly base (or part-way
-        // across one): the model may only cross a friend if it can move past entirely (p. 35), so the shortest
-        // route that is available goes round the friendly bases.
-        if (scene.HasFriends)
+        public MoveResult CheckRoute()
         {
-            var routeB = scene.FindRoute(friendsBlock: true);
-            if (routeB is not null && scene.Interposition(routeB).IsLegal)
+            var (route, check) = RouteA();
+            if (route is null || _scene.Farthest(route, MaxMovement).Length > MaxLegs)
             {
-                // The same leg limit as route A, checked before any plan is returned: an over-long way round is treated as
-                // no way round, so ChargeMoved can always be built once the die has been rolled (U63).
-                var pathB = scene.Farthest(routeB, reach);
-                if (!pathB.IsEmpty && pathB.Length <= MaxLegs && scene.Finish(pathB, reach) is { } around)
+                return new MoveResult(false, MoveRefusal.NoRoute,
+                    "No route reaches the target around the terrain in the way.", "1.0.2 pp. 35, 37", Length.Zero, null);
+            }
+            return check!;
+        }
+
+        public ChargePlan Plan(Length reach)
+        {
+            var none = new ChargePlan([], Length.Zero, false);
+
+            var (routeA, checkA) = RouteA();
+            if (routeA is null || checkA?.IsLegal != true)
+            {
+                return none;
+            }
+            var pathA = _scene.Farthest(routeA, reach);
+            if (pathA.IsEmpty || pathA.Length > MaxLegs)
+            {
+                return none;
+            }
+            if (_scene.Finish(pathA, reach) is { } whole)
+            {
+                return whole;
+            }
+
+            // The route cannot be followed as far as the die allows without ending on a friendly base (or part-way
+            // across one): the model may only cross a friend if it can move past entirely (p. 35), so the shortest
+            // route that is available goes round the friendly bases.
+            if (_scene.HasFriends)
+            {
+                var (routeB, checkB) = RouteB();
+                if (routeB is not null && checkB?.IsLegal == true)
                 {
-                    return around;
+                    // The same leg limit as route A, checked before any plan is returned: an over-long way round is treated as
+                    // no way round, so ChargeMoved can always be built once the die has been rolled (U63).
+                    var pathB = _scene.Farthest(routeB, reach);
+                    if (!pathB.IsEmpty && pathB.Length <= MaxLegs && _scene.Finish(pathB, reach) is { } around)
+                    {
+                        return around;
+                    }
                 }
             }
-        }
 
-        // No way round: stop short of the friendly base. Backing off only shortens route A's path, but the limit is
-        // checked again so that no plan of more than MaxLegs legs can leave this method.
-        return scene.BackOff(routeA, reach) is { } shortOf && shortOf.Path.Length <= MaxLegs ? shortOf : none;
+            // No way round: stop short of the friendly base. Backing off only shortens route A's path, but the limit is
+            // checked again so that no plan of more than MaxLegs legs can leave this method.
+            return _scene.BackOff(routeA, reach) is { } shortOf && shortOf.Path.Length <= MaxLegs ? shortOf : none;
+        }
     }
 
     // ---- fixed-point trigonometry: cos(k * pi / 16) in billionths, k = 0..8 (sin is the same table reversed) ----
@@ -175,6 +212,7 @@ public static class Charging
         private readonly ModelBody _target;
         private readonly IReadOnlyList<Obstacle> _others;
         private readonly List<TerrainBlock> _blocking;
+        private readonly TerrainBlock? _platform;
         private readonly List<Footprint> _difficult;
         private readonly List<ModelBody> _otherEnemies;
         private readonly List<ModelBody> _friends;
@@ -191,7 +229,10 @@ public static class Charging
             _mover = mover;
             _target = target;
             _others = others;
-            _blocking = field.Terrain.Where(t => !t.IsWalkable).ToList();
+            // Towers (stage T2): from the ground a tower is solid; a charge on a tower's platform stays wholly on it.
+            // Charges between heights are refused before planning (Board.AssessCharge, U72). Without towers, unchanged.
+            _platform = Towers.TowerAt(field, mover.Centre);
+            _blocking = field.Terrain.Where(t => !t.IsWalkable || (_platform is null && t.IsTower)).ToList();
             _difficult = field.Terrain.Where(t => t.IsDifficult).Select(t => t.Footprint).ToList();
             var sorted = others.Where(o => o.Body.Id != mover.Id).OrderBy(o => o.Body.Id, StringComparer.Ordinal).ToList();
             _enemyObstacles = sorted.Where(o => o.Relation == Relation.Enemy).ToList();
@@ -252,6 +293,11 @@ public static class Charging
         // Terrain that cannot be crossed (and, when asked, the bases of friendly models) along one leg.
         private bool LegFree(Point2 a, Point2 b, bool friendsBlock)
         {
+            // On a platform both ends wholly on it keep the whole leg on it (a rectangle is convex).
+            if (_platform is not null && (!_platform.Footprint.CircleInside(a, _mover.Radius) || !_platform.Footprint.CircleInside(b, _mover.Radius)))
+            {
+                return false;
+            }
             foreach (var terrain in _blocking)
             {
                 if (terrain.Footprint.SweptCircleOverlaps(a, b, _mover.Radius))
@@ -484,9 +530,9 @@ public static class Charging
             }
 
             var cornerRadius = CornerRadius(radius);
-            foreach (var terrain in _blocking)
+            // Every part's corners: the outline's outer corners are among them (trench-maps stage S2).
+            foreach (var r in _blocking.SelectMany(t => t.Footprint.Parts))
             {
-                var r = terrain.Footprint.Bounds;
                 // Each corner of the rectangle swept by the base is a quarter circle, from the straight edge
                 // out to the next one.
                 for (var j = 0; j <= 8; j++)
@@ -531,7 +577,8 @@ public static class Charging
             {
                 return false;
             }
-            if (_blocking.Any(t => t.Footprint.CircleOverlaps(p, _mover.Radius)))
+            if (_blocking.Any(t => t.Footprint.CircleOverlaps(p, _mover.Radius))
+                || _platform is not null && !_platform.Footprint.CircleInside(p, _mover.Radius))
             {
                 return false;
             }

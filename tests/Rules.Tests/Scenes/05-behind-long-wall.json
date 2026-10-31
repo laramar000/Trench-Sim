@@ -32,11 +32,11 @@
     "targetLevel": "Ground",
     "visibility": "None",
     "visible": 0,
-    "total": 4,
+    "total": 9,
     "cover": false,
     "coverBy": null
   },
   "status": "provisional",
-  "basis": "p. 30 (confirmed: no visible part means no line of sight); Wall profile U14",
-  "ruling": "Every ray is stopped, so there is no line of sight, and without line of sight there is no cover."
+  "basis": "p. 30 (confirmed: no visible part means no line of sight); Wall height 3\" (U77)",
+  "ruling": "Every ray is stopped by the 3\" wall, so there is no line of sight, and without line of sight there is no cover."
 }

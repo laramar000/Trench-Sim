@@ -12,42 +12,41 @@ public class MeleeSimulationTests
 {
     private static readonly IReadOnlyList<Warband> Warbands = Content.Load(Content.MeleePath());
 
-    // Regression pins of this implementation's own behaviour under StateHash version 4, not an independent oracle.
-    // Re-pinned for version 4 (reducer hardening adds the roll-off result and the forced follow-ups to the canonical
-    // text): every match is event-for-event the same as under version 3, and its final state with the new lines
-    // removed hashes to the old version-3 pin.
+    // Regression pins of this implementation's own behaviour under StateHash version 5, not an independent oracle.
+    // Re-pinned for version 5 (Glorious Deeds, U96, 2026-10-26): every match is event-for-event the same as under
+    // version 4 apart from the GloriousDeedCompleted events added, and only the Victory Points those deeds give changed.
     private static readonly Dictionary<int, string> PinnedFinalHashes = new()
     {
-        [1] = "fc0730b4083a0f3838e2c6ca4f3000a173fed2e2454732593f93ae30b826b6e4",
-        [2] = "828b28cc4364da05073a10e96ec1ac7092b42cb5be9a0f72173dc091ef4877fa",
-        [3] = "4dc46db9e1d3fb4d9e89306eb4c5a0bfb1e671f6029f0884ddcd34cacf31b025",
-        [4] = "269aadf8b82756d1a033d08aa39bacdd4b2c65514d1684406f7f8bb56f4494ef",
-        [5] = "5fe9843bc28fc7b25ac9b7c6151f5e184661b3a122cd9048d24913d17db317a0",
-        [6] = "5315629f2c140e3b66c00f659d643fa42deba0dbe881c2e69f1fd9b0cb1b6703",
-        [7] = "666907a9206beaebc97d987a3f119079bd4a694208ec640f668c98bdb07b2b80",
-        [8] = "e3a9856ebe5a510c4769445e6fa540884b528fbd722b7fb8e7c0b621b72ab58f",
-        [9] = "d01c7fba51ce42834c66529289dd8c0ae83e14581f364c8632d8695a5d5d8dd7",
-        [10] = "c6a463af7de37465e57cf1339d61e064f98c4bdf17a3015fbf608057ba6d87cc",
-        [11] = "8852499b8c88adbb329117f2dced52b59fc6e34af99d863477b4170eb11dd65f",
-        [12] = "8ba9d29839ee10508ec62731cdd69465951b97c628e755163ced2c5ec9a1f91b",
-        [13] = "146c2cf9cec236ef7c3b2d94bf83409f9f1fca36a8e134b00198cea70c32f670",
-        [14] = "1c41ff0720571fd7526425b97481e4482978a713fcd4a19a50210be64fecbd50",
-        [15] = "526ff1b2a4702395c3fb8e0bae6d9e81068fb813d00912d34de55760e4090fe2",
-        [16] = "970a42071e15ba655c30f78d51907c7f69ffad85e4852209a51370fd2f0d35af",
-        [17] = "5c6b78f918f3dcf026e0defd8776ee26bea4d1f789393cc85f0c24b714b7a7f0",
-        [18] = "1b618273bf50b1b78668bc2ed47b9b3ce3fe59b4587419ca4b919adf963e6647",
-        [19] = "2ecbc70bc8f300b603c5d0717c6fe392987e6a54ccd003bca5d0c225ea9b6598",
-        [20] = "24f8b5c1dcb6a2f2b5343e616bff0f7fd74e642a0de2fd6305299f0aa393b548",
-        [21] = "5a2a430e45f75b6743f572b24890dd5fcd7ad7533794f91a7dd601faa5b1847a",
-        [22] = "ebd7136aac857baa19bd3196ec9810980e079ef719a28c9650e3b9470330860b",
-        [23] = "9ecf2feda677dd9090f1094a36f8d4b7eb6c79215029bcb9d32f5b38dd4c1a64",
-        [24] = "c6b44f9a553762183ea37441e03d10fadc728af5bd80f3756847422fe0d64db8",
-        [25] = "70e9be43f25001576596e8983e7b2ed7b54f3e0063aec232b435bfb8209854f8",
-        [26] = "ab2dc5abb4251f6bd1707bda8ef38584d9cf87cdcdaae7d55a6ee00fd3614c21",
-        [27] = "ba47f3069f56d045feed90db6cfab10cb41b02c2b99e215fc88795522a8c9859",
-        [28] = "484d7da95286392912a4add0bb22faa0dfc3b3242494dcdd73d3acf30560bcd8",
-        [29] = "fc8b5f8cc1581b43351dbb0b6d0d86d989951d310ea987c0408811f5888527a1",
-        [30] = "df991c8609cd4d7ee91cca9b9941c23b4c7e31bbc8cdd0c86b011f1f90c08215"
+        [1] = "4195beb878aa9df19ee1fccbd9dd537d60dbd0b6073671133ce92ecdb508d512",
+        [2] = "4fb44dbac25f7bc99c2e8bbb93fa49d8cac80f9f2c1238bcc1123d0e3b500686",
+        [3] = "dc3942169f148a387837165cca36105bff33cc32dd70e833122aa11665ca2e52",
+        [4] = "4a87ea067af29fbbbfd2b0f0e5b5cafe700f79b326a9890fbb0c17fc46a76b19",
+        [5] = "5c200ce6e8e062743b0ed52adb34066631f70e0d5b8ad922ea9477c687f10fd3",
+        [6] = "2cb9fc584c9177f189cc659638e0317b5cd4106356712324a90bd74c40a52ffb",
+        [7] = "6d0613c1a1637fe0497aa90f9e25e83eaf9476e17a0a1bf9d6a79c5bb32afbcf",
+        [8] = "cfae15737e261dbcc536f85a2a7be0079f84f8ffc987f730f9d225ffd549c67d",
+        [9] = "9066e1f571e6b2cd12309ac92ebf9659a5fe489f1bea793b129e6e85640c37d6",
+        [10] = "aa2ba70df66fb8370a66b49072d0dc4d78205f15e84ed88d3f8ae5abacfa91a2",
+        [11] = "1e0cdfdfc6ebd1c9df7010f36244387c8f06539705d5b10132fd8829f1f243cf",
+        [12] = "854ff0805dca2c5a8bab3ef9ab89c791eae62eaec1bf1d5626068599543f00c8",
+        [13] = "d3e10c0ed979399f8e43e6e36a2c6ee96d54cf59f0ea9dd80bb0d9e4a9742823",
+        [14] = "62fdba5a6cfafcb1e35c84bda240a7f0fe64b4e7e0b2200f2a1101bfada6b358",
+        [15] = "4554efec00818722d34073e7024767ccfb2a40564c960c96d623eaecc0f0c3df",
+        [16] = "543ccd124e707bf166278fd4fe6adb98248111642d2c088f26220f7c37376849",
+        [17] = "a1cb2b496c4bec782f7af52fc9357a07bdec67b8381f62d07d2098c64d6c0dd5",
+        [18] = "8952634584dc76f0123e630ccdf28d62031572eba6f30697a594b05f979c37d0",
+        [19] = "788da775ec0feb283023f19225c599b3810b7bdf97b26fd834e91b3fa96256ea",
+        [20] = "81f4357f809b35a7dc4c54a9b91d40f1dbd753656a854408ac5135e428ec550a",
+        [21] = "8eec11abab0ad5880933602ec28deefdf03b14ccc66ea26efda1b9f76ce9e9b1",
+        [22] = "c03a38834e513e5ffcb7c81e2ff7da8feab5c9c096631a426024f603030cc54c",
+        [23] = "b8d5c7398120d003958cdf1bda61e1223d81133de8dc52384b47d0dd999a1ffb",
+        [24] = "7c236546307be3ce6284e4d3dec30d2335817372bd63a7d0e44b27f573e21143",
+        [25] = "89c654643c5e3a209a5555e7d68367636ceb88ef44f6236c79339972434e4114",
+        [26] = "19be8087888a80352bccaf74a0810cf794d176e34e92b3db914109c99eab8c45",
+        [27] = "95443a6dcc9e72dc59559326c73865a9dfc82aa5253320d81c79502a2b9d0331",
+        [28] = "08897f41c11d65b2a8db8186f642088b1aacf47c344c46cbd9b9daa56485efe0",
+        [29] = "7632d4288e575b99fab5fc4790960bd31722c1572f0768e65c6f0f579f88932f",
+        [30] = "37b13701197fa6df2a5e26243bb06cec6e4a92d9609377cc784fd36b83248199"
     };
 
     public static TheoryData<int> Seeds() => [.. Enumerable.Range(1, 30)];

@@ -30,6 +30,13 @@ public sealed record ResolveFailedMorale(Seat Seat, MoraleFailureChoice Choice) 
 
 public sealed record ChooseMoraleOrder(Seat Seat, Seat First) : Command;
 
+// Trench Warfare (p. 161): the roles roll-off winner chooses which seat attacks; the other defends.
+public sealed record ChooseAttacker(Seat Seat, Seat Attacker) : Command;
+
+// Trench Warfare (p. 162): the defender sets up the Mine Markers (ids Mines.IdOf(0) onwards, in this order) and names
+// the duds among them. Only the defender's seat sees the duds.
+public sealed record LayMines(Seat Seat, ImmutableArray<Point2> Markers, ImmutableArray<string> Duds) : Command;
+
 // ---- M4: commands that need a battlefield (a MatchSetup with a Scenario) ----
 
 // Sets a model up at a point inside its deployment zone (Scenario I, p. 152). Replaces DeployModel when there is a battlefield.

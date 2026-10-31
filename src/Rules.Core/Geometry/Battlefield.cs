@@ -67,6 +67,11 @@ public sealed record TerrainBlock
         {
             throw new ArgumentException("Only a Wall can have a High surface.", nameof(surface));
         }
+        // Trench-maps stage S2: joined parts are for ground pieces; levels and towers keep one rectangle.
+        if (surface == SurfaceLevel.High && !footprint.IsSingle)
+        {
+            throw new ArgumentException("A High piece (platform, roof or tower) must be one rectangle.", nameof(footprint));
+        }
 
         var impassable = kind.HasFlag(TerrainKind.Impassable);
         var effective = walkable ?? (!impassable && (profile != TerrainProfile.Wall || surface == SurfaceLevel.High));
@@ -107,6 +112,66 @@ public sealed record TerrainBlock
 
     // A walkable High surface: a model on it has high ground.
     public bool IsPlatform => Surface == SurfaceLevel.High && IsWalkable;
+
+    // Towers proposal, stage T1: a platform with a height and ladders is a tower, reached by its ladders or its sides. Null for
+    // every other piece, which then behaves exactly as before (an untouched platform keeps U18). Set after
+    // construction; only an Open, walkable High platform can be a tower, and each ladder must stand on a side of the
+    // footprint, not at a corner.
+    public Climb? Climb
+    {
+        get => _climb;
+        init
+        {
+            if (value is not null)
+            {
+                if (!IsPlatform || Kind != TerrainKind.Open)
+                {
+                    throw new ArgumentException("Only an Open, walkable High platform can be a tower.", nameof(Climb));
+                }
+                if (value.Ladders.FirstOrDefault(l => Climb.SideOf(Footprint.Bounds, l.At) is null) is { } off)
+                {
+                    throw new ArgumentException($"Ladder '{off.Id}' must stand on a side of the tower, not at a corner or away from it.", nameof(Climb));
+                }
+            }
+            _climb = value;
+        }
+    }
+
+    private readonly Climb? _climb;
+
+    public bool IsTower => _climb is not null;
+
+    // Trench-maps stage S3: a trench section is a Low, walkable ground piece with a depth (U80). Its sides are under 3"
+    // and crossed as Open terrain (p. 62), so movement treats it as any walkable ground piece; its floor is below the
+    // ground, which only sight, cover and the Elevated position read (U81 to U83). Null for every other piece, which
+    // then behaves exactly as before. Depth is 1/2" (the least that gives cover, p. 38) up to under 3" (from 3" a side
+    // must be climbed or jumped, p. 62, which is not built).
+    public Length? Depth
+    {
+        get => _depth;
+        init
+        {
+            if (value is { } depth)
+            {
+                if (Profile != TerrainProfile.Low || Surface != SurfaceLevel.Ground || !IsWalkable)
+                {
+                    throw new ArgumentException("A trench must be a Low, walkable piece on the ground.", nameof(Depth));
+                }
+                if (depth < MinTrenchDepth || depth >= MaxTrenchDepthExclusive)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(Depth), "A trench must be at least 1/2\" deep (the least that gives cover, p. 38) and under 3\" (deeper sides must be climbed or jumped, p. 62, which is not built).");
+                }
+            }
+            _depth = value;
+        }
+    }
+
+    private readonly Length? _depth;
+
+    public bool IsTrench => _depth is not null;
+
+    public static readonly Length MinTrenchDepth = Length.Parse("0.5");
+    public static readonly Length MaxTrenchDepthExclusive = Length.FromInches(3);
 }
 
 public sealed record DeploymentZone
@@ -115,6 +180,10 @@ public sealed record DeploymentZone
     {
         ZoneId = IdRules.Check(zoneId, nameof(zoneId));
         ArgumentNullException.ThrowIfNull(area);
+        if (!area.IsSingle)
+        {
+            throw new ArgumentException("A deployment zone must be one rectangle.", nameof(area));
+        }
         Area = area;
     }
 
@@ -161,6 +230,36 @@ public sealed record Battlefield
                 }
             }
         }
+        // Towers (towers proposal, stage T2): one height for all, so two models at different elevations are always
+        // more than 1" apart (U69, U70); and no other terrain on a tower's footprint, so its platform and sides are plain.
+        var towers = Terrain.Where(t => t.IsTower).ToList();
+        if (towers.Select(t => t.Climb!.Height).Distinct().Count() > 1)
+        {
+            throw new ArgumentException("All towers on a battlefield must have the same height.");
+        }
+        foreach (var tower in towers)
+        {
+            if (Terrain.FirstOrDefault(t => t.Id != tower.Id && t.Footprint.OverlapsInside(tower.Footprint)) is { } other)
+            {
+                throw new ArgumentException($"Terrain '{other.Id}' overlaps tower '{tower.Id}'.");
+            }
+        }
+        // Trenches (trench-maps stage S3, U80): one depth for all, so a network of sections that touch has one floor; and
+        // nothing overlaps a trench (pieces may touch it), so the ground around it is plain.
+        var trenches = Terrain.Where(t => t.IsTrench).ToList();
+        if (trenches.Select(t => t.Depth!.Value).Distinct().Count() > 1)
+        {
+            throw new ArgumentException("All trenches on a battlefield must have the same depth.");
+        }
+        foreach (var trench in trenches)
+        {
+            if (Terrain.FirstOrDefault(t => t.Id != trench.Id && t.Footprint.OverlapsInside(trench.Footprint)) is { } other)
+            {
+                throw new ArgumentException($"Terrain '{other.Id}' overlaps trench '{trench.Id}'.");
+            }
+        }
+        TrenchDepth = trenches.Count > 0 ? trenches[0].Depth!.Value : null;
+        TrenchParts = [.. trenches.SelectMany(t => t.Footprint.Parts.Select(p => (t.Id, p)))];
     }
 
     public Length Width { get; }
@@ -168,6 +267,11 @@ public sealed record Battlefield
     public Footprint Area { get; }
     public ImmutableArray<TerrainBlock> Terrain { get; }
     public ImmutableArray<DeploymentZone> Zones { get; }
+
+    // The trenches' one depth (null with no trench), and every part of every trench with its piece's id, in id order.
+    public Length? TrenchDepth { get; }
+
+    internal ImmutableArray<(string Id, Rect Part)> TrenchParts { get; }
 
     public DeploymentZone? Zone(string zoneId) => Zones.FirstOrDefault(z => z.ZoneId == zoneId);
 }

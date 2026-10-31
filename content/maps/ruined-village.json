@@ -1,0 +1,136 @@
+{
+  "format": 1,
+  "id": "ruined-village",
+  "name": "Ruined Village",
+  "notes": "Preset for Claim No Man's Land (trench-maps stage S7): the five Objectives are ruined houses on the printed marker positions (U32), with broken walls between them.",
+  "width": "36",
+  "height": "36",
+  "archetype": "no-mans-land",
+  "supports": [
+    "claim-no-mans-land"
+  ],
+  "zones": [
+    {
+      "id": "west",
+      "rect": [
+        "0",
+        "0",
+        "6",
+        "36"
+      ]
+    },
+    {
+      "id": "east",
+      "rect": [
+        "30",
+        "0",
+        "36",
+        "36"
+      ]
+    }
+  ],
+  "objectives": [
+    "obj-1",
+    "obj-2",
+    "obj-3",
+    "obj-4",
+    "obj-5"
+  ],
+  "terrain": [
+    {
+      "id": "obj-1",
+      "rect": [
+        "10",
+        "4",
+        "14",
+        "8"
+      ],
+      "profile": "cover",
+      "ruin": true
+    },
+    {
+      "id": "obj-2",
+      "rect": [
+        "10",
+        "28",
+        "14",
+        "32"
+      ],
+      "profile": "cover",
+      "ruin": true
+    },
+    {
+      "id": "obj-3",
+      "rect": [
+        "22",
+        "4",
+        "26",
+        "8"
+      ],
+      "profile": "cover",
+      "ruin": true
+    },
+    {
+      "id": "obj-4",
+      "rect": [
+        "22",
+        "28",
+        "26",
+        "32"
+      ],
+      "profile": "cover",
+      "ruin": true
+    },
+    {
+      "id": "obj-5",
+      "rect": [
+        "15.5",
+        "15.5",
+        "20.5",
+        "20.5"
+      ],
+      "profile": "cover",
+      "ruin": true
+    },
+    {
+      "id": "wall-w",
+      "rect": [
+        "9",
+        "13",
+        "10",
+        "23"
+      ],
+      "profile": "wall"
+    },
+    {
+      "id": "wall-e",
+      "rect": [
+        "26",
+        "13",
+        "27",
+        "23"
+      ],
+      "profile": "wall"
+    },
+    {
+      "id": "wall-s",
+      "rect": [
+        "17",
+        "10",
+        "19",
+        "11"
+      ],
+      "profile": "wall"
+    },
+    {
+      "id": "wall-n",
+      "rect": [
+        "17",
+        "25",
+        "19",
+        "26"
+      ],
+      "profile": "wall"
+    }
+  ]
+}

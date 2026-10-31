@@ -1,0 +1,2042 @@
+{
+ "format": 1,
+ "rulesVersion": "1.0.2",
+ "id": "pilgrims",
+ "name": "Pilgrims",
+ "alignment": "faithful",
+ "budgetDucats": 700,
+ "specialRules": [],
+ "models": [
+  {
+   "id": "war-prophet",
+   "name": "War Prophet",
+   "min": 1,
+   "max": 1,
+   "cost": {
+    "amount": 80,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 2,
+   "melee": 2,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "PILGRIM"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "LEADER"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Loudspeakers ACTION",
+     "summary": "Risky roll at +2 DICE; on a Success friends within 8\" move up to 3\" towards the nearest visible enemy (a move into 1\" counts as charging).",
+     "page": 53
+    },
+    {
+     "name": "Laying on of Hands ACTION",
+     "summary": "Success Roll: remove 1 BLOOD MARKER (3 on a Critical) from a friend within 6\", itself included.",
+     "page": 53
+    },
+    {
+     "name": "Memento Mori",
+     "summary": "Its first Out of Action result counts as No Effect; it can never be TOUGH.",
+     "page": 53
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 53
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "sanctified-giant",
+   "name": "Sanctified Giant",
+   "max": 1,
+   "cost": {
+    "amount": 100,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": -3,
+   "melee": 2,
+   "armour": 0,
+   "baseMm": [
+    40
+   ],
+   "keywords": [
+    {
+     "id": "PILGRIM"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "REGENERATE",
+     "value": 1
+    },
+    {
+     "id": "STRONG"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "iron-capirote",
+    "gas-mask"
+   ],
+   "abilities": [
+    {
+     "name": "Bodyguard",
+     "summary": "May take a hit meant for a friendly PILGRIM model within 1\" (not against BLAST).",
+     "page": 54
+    },
+    {
+     "name": "Nailed Cross",
+     "summary": "Counts as having an Iron Capirote and a Gas Mask at no cost; they cannot be removed or lost.",
+     "page": 54
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 54
+   },
+   "status": "verified",
+   "note": "Its Iron Capirote and Gas Mask come from its cross and cost nothing.",
+   "naming": "rename"
+  },
+  {
+   "id": "castigator",
+   "name": "Castigator",
+   "max": 1,
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 1,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "PILGRIM"
+    },
+    {
+     "id": "ELITE"
+    }
+   ],
+   "kitAccess": "armoury",
+   "upgrades": [
+    {
+     "id": "zealot-strength",
+     "name": "Zealot Strength",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "keywords": [
+      {
+       "id": "STRONG"
+      }
+     ]
+    }
+   ],
+   "abilities": [
+    {
+     "name": "Enforced Orthodoxy ACTION",
+     "summary": "Risky roll at +1 DICE; on a Success every Down friend within 8\" stands up for free.",
+     "page": 55
+    },
+    {
+     "name": "Whip of God",
+     "summary": "May attack a friend within 1\"; each friend it takes Out of Action adds +1 DICE to the next Morale Check.",
+     "page": 55
+    },
+    {
+     "name": "Zealot Strength",
+     "summary": "STRONG for +5 ducats.",
+     "page": 55
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 55
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "trench-pilgrim",
+   "name": "Trench Pilgrim",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 0,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "PILGRIM"
+    }
+   ],
+   "kitAccess": "armoury",
+   "upgrades": [
+    {
+     "id": "zealot-strength",
+     "name": "Zealot Strength",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 1,
+     "keywords": [
+      {
+       "id": "STRONG"
+      }
+     ],
+     "note": "its base becomes 32mm"
+    }
+   ],
+   "abilities": [
+    {
+     "name": "Resurrection",
+     "summary": "In a campaign a killed Pilgrim can return as a Martyr Penitent for 45 ducats: Melee +1 DICE, -1 INJURY DICE against it, keeps its battlekit, loses Scars, Experience and Advancements.",
+     "page": 56
+    },
+    {
+     "name": "Zealot Strength",
+     "summary": "Up to 1 Trench Pilgrim can be STRONG for +5 ducats, on a 32mm base.",
+     "page": 56
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 56
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "stigmatic-nun",
+   "name": "Stigmatic Nun",
+   "max": 4,
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "movementInches": 8,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 1,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "PILGRIM"
+    },
+    {
+     "id": "REGENERATE",
+     "value": 1
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Agile",
+     "summary": "+1 DICE to Risky rolls to Climb, Jump, Diving Charge or Dash.",
+     "page": 57
+    },
+    {
+     "name": "Blessed Stigmata",
+     "summary": "Each BLOOD MARKER removed by REGENERATE 1 gives it 1 BLESSING MARKER.",
+     "page": 57
+    }
+   ],
+   "kitRules": {
+    "onlyKit": [
+     {
+      "category": "ranged",
+      "kit": [
+       "automatic-pistol",
+       "pistol"
+      ]
+     },
+     {
+      "category": "grenade",
+      "kit": [
+       "warcross"
+      ]
+     }
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 57
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "ecclesiastic-prisoner",
+   "name": "Ecclesiastic Prisoner",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": null,
+   "melee": -1,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "PILGRIM"
+    }
+   ],
+   "kitAccess": "none",
+   "startsWith": [
+    "iron-capirote"
+   ],
+   "upgrades": [
+    {
+     "id": "martyrdom-device",
+     "name": "Martyrdom Device",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 4,
+     "note": "detonates once (Trigger ACTION): Injury Roll for every model within 3\"; see the Martyrdom Device entry"
+    }
+   ],
+   "abilities": [
+    {
+     "name": "Awaited",
+     "summary": "Not counted for Morale Checks if taken Out of Action by its own Martyrdom Device.",
+     "page": 58
+    },
+    {
+     "name": "Feeble Flailing",
+     "summary": "May make a Melee Attack without a weapon at -1 DICE.",
+     "page": 58
+    },
+    {
+     "name": "Mad Dash",
+     "summary": "+1 DICE to the Risky roll for a Dash ACTION.",
+     "page": 58
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 58
+   },
+   "status": "verified",
+   "note": "Always has an Iron Capirote (no cost); it cannot have any other battlekit.",
+   "naming": "keep"
+  },
+  {
+   "id": "reliquary-walker",
+   "name": "Reliquary Walker",
+   "max": 1,
+   "cost": {
+    "amount": 140,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": null,
+   "melee": 2,
+   "armour": -3,
+   "baseMm": [
+    60
+   ],
+   "keywords": [
+    {
+     "id": "PILGRIM"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "NEGATE",
+     "value": "SHRAPNEL"
+    },
+    {
+     "id": "STRONG"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "none",
+   "startsWith": [
+    "bonebreaker-mace",
+    "catherine-wheel"
+   ],
+   "abilities": [
+    {
+     "name": "Broken on the Wheel",
+     "summary": "Before deployment one Trench Pilgrim or Ecclesiastic Prisoner may be removed for good; until the walker first goes Out of Action it has Armour 0, no NEGATE SHRAPNEL or TOUGH, Down counts as Minor Hit, and that first Out of Action counts as No Effect.",
+     "page": 59
+    },
+    {
+     "name": "Symphony of Slaughter",
+     "summary": "Attacks once with either weapon, or twice: Catherine Wheel then Bonebreaker Mace (off-hand).",
+     "page": 59
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 59
+   },
+   "status": "verified",
+   "note": "Its two weapons are built in and cost nothing; it cannot have any other battlekit.",
+   "naming": "rename"
+  }
+ ],
+ "armoury": [
+  {
+   "kit": "automatic-pistol",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "blunderbuss",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bolt-action-rifle",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "flamethrower",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "machine-gun",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "musket",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "pistol",
+   "cost": {
+    "amount": 6,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "punt-gun",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "semi-automatic-rifle",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "shotgun",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sniper-rifle",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "submachine-gun",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "anti-tank-hammer",
+   "cost": {
+    "amount": 35,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bayonet",
+   "cost": {
+    "amount": 2,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "needsBayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "flail-scourge",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "great-hammer-maul",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "great-sword-axe",
+   "cost": {
+    "amount": 12,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "misericordia",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "polearm",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sword-axe",
+   "cost": {
+    "amount": 4,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "trench-club",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "trench-knife",
+   "cost": {
+    "amount": 1,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "incendiary-grenades",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "molotov-cocktail",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "warcross",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "holy-icon-shield",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "trench-shield",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "reinforced-armour",
+   "cost": {
+    "amount": 40,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "standard-armour",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "blessed-icon",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "field-shrine",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "gas-mask",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "holy-relic",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "incendiary-ammunition",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "iron-capirote",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "headgear"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "zealots-draught",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "medi-kit",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "mountaineer-kit",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "musical-instrument",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "troop-flag",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "donkeys-jawbone",
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "holy-grenade",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "limit": 3,
+   "status": "verified"
+  },
+  {
+   "kit": "horn-of-joshua",
+   "cost": {
+    "amount": 9,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "rocket-propelled-grenade",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "trench-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified",
+   "note": "Loyal Hound and one Special Training are +1 Glory each, bought as their own items"
+  },
+  {
+   "kit": "loyal-hound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "needsKit": "trench-dog",
+   "limitPerModel": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "guard-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
+  },
+  {
+   "kit": "martyrdom-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
+  }
+ ],
+ "variants": [
+  {
+   "id": "procession-of-the-millstone",
+   "name": "Procession of the Millstone",
+   "removeModels": [
+    "ecclesiastic-prisoner",
+    "castigator",
+    "trench-pilgrim"
+   ],
+   "addModels": [
+    {
+     "id": "ecclesiastic-prisoner",
+     "name": "Ecclesiastic Prisoner",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": -1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PILGRIM"
+      }
+     ],
+     "kitAccess": "none",
+     "upgrades": [
+      {
+       "id": "martyrdom-device",
+       "name": "Martyrdom Device",
+       "cost": {
+        "amount": 35,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 4,
+       "note": "detonates once (Trigger ACTION): Injury Roll for every model within 3\"; see the Martyrdom Device entry"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Awaited",
+       "summary": "Not counted for Morale Checks if taken Out of Action by its own Martyrdom Device.",
+       "page": 58
+      },
+      {
+       "name": "Feeble Flailing",
+       "summary": "May make a Melee Attack without a weapon at -1 DICE.",
+       "page": 58
+      },
+      {
+       "name": "Mad Dash",
+       "summary": "+1 DICE to the Risky roll for a Dash ACTION.",
+       "page": 58
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 58
+     },
+     "status": "verified",
+     "note": "It cannot have any battlekit (no Iron Capirote in this warband).",
+     "naming": "keep"
+    },
+    {
+     "id": "castigator",
+     "name": "Castigator",
+     "max": 1,
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PILGRIM"
+      },
+      {
+       "id": "ELITE"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "zealot-strength",
+       "name": "Zealot Strength",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "keywords": [
+        {
+         "id": "STRONG"
+        }
+       ]
+      },
+      {
+       "id": "wrath-of-god",
+       "name": "Wrath of God",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "NEGATE",
+         "value": "FEAR"
+        }
+       ],
+       "note": "up to 1 Castigator or Trench Pilgrim in the warband; never gets BLOOD MARKERS; no Ranged Weapons or Armour (a Shield is allowed); base becomes 32mm"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Enforced Orthodoxy ACTION",
+       "summary": "Risky roll at +1 DICE; on a Success every Down friend within 8\" stands up for free.",
+       "page": 55
+      },
+      {
+       "name": "Whip of God",
+       "summary": "May attack a friend within 1\"; each friend it takes Out of Action adds +1 DICE to the next Morale Check.",
+       "page": 55
+      },
+      {
+       "name": "Zealot Strength",
+       "summary": "STRONG for +5 ducats.",
+       "page": 55
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 55
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "trench-pilgrim",
+     "name": "Trench Pilgrim",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 0,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PILGRIM"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "zealot-strength",
+       "name": "Zealot Strength",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "keywords": [
+        {
+         "id": "STRONG"
+        }
+       ],
+       "note": "its base becomes 32mm"
+      },
+      {
+       "id": "wrath-of-god",
+       "name": "Wrath of God",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "NEGATE",
+         "value": "FEAR"
+        }
+       ],
+       "note": "up to 1 Castigator or Trench Pilgrim in the warband; never gets BLOOD MARKERS; no Ranged Weapons or Armour (a Shield is allowed); base becomes 32mm"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Resurrection",
+       "summary": "In a campaign a killed Pilgrim can return as a Martyr Penitent for 45 ducats: Melee +1 DICE, -1 INJURY DICE against it, keeps its battlekit, loses Scars, Experience and Advancements.",
+       "page": 56
+      },
+      {
+       "name": "Zealot Strength",
+       "summary": "Up to 1 Trench Pilgrim can be STRONG for +5 ducats, on a 32mm base.",
+       "page": 56
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 56
+     },
+     "status": "verified",
+     "naming": "keep"
+    }
+   ],
+   "removeArmoury": [
+    "iron-capirote",
+    "machine-gun"
+   ],
+   "addArmoury": [
+    {
+     "kit": "anti-tank-hammer",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "punt-gun",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "holy-icon-shield",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "holy-icon-armour",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "status": "verified"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Face thy Fears",
+     "summary": "No Iron Capirotes; Ecclesiastic Prisoners have none but cost the same.",
+     "page": 61
+    },
+    {
+     "name": "Hammer and the Anvil",
+     "summary": "Anti-Tank Hammers are not ELITE only.",
+     "page": 61
+    },
+    {
+     "name": "Melee-focused",
+     "summary": "No Machine Guns; Punt Guns have Limit 1.",
+     "page": 61
+    },
+    {
+     "name": "Punishing Millstones",
+     "summary": "+1 INJURY DICE to Melee Attacks against a Down target (not for Ecclesiastic Prisoners).",
+     "page": 61
+    },
+    {
+     "name": "Reliquary Armoury",
+     "summary": "Holy Icon Shields cost 20 ducats and are not ELITE only.",
+     "page": 61
+    },
+    {
+     "name": "Wrath of God",
+     "summary": "Up to 1 Castigator or Trench Pilgrim (or Martyr Penitent) can have Wrath of God for 15 ducats: never gets BLOOD MARKERS, NEGATE FEAR, cannot be Broken on the Wheel, no Ranged Weapons or Armour (Shields allowed), base 32mm.",
+     "page": 61
+    },
+    {
+     "name": "Zealot Strength",
+     "summary": "Up to 3 Trench Pilgrims and/or Martyr Penitents can have Zealot Strength.",
+     "page": 61
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 61
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "mountain-monastery-pilgrimage",
+   "name": "Mountain Monastery Pilgrimage",
+   "removeModels": [
+    "sanctified-giant",
+    "reliquary-walker",
+    "stigmatic-nun",
+    "ecclesiastic-prisoner"
+   ],
+   "addModels": [
+    {
+     "id": "reliquary-walker",
+     "name": "Reliquary Walker",
+     "max": 2,
+     "cost": {
+      "amount": 140,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -3,
+     "baseMm": [
+      60
+     ],
+     "keywords": [
+      {
+       "id": "PILGRIM"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "NEGATE",
+       "value": "SHRAPNEL"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "listed",
+     "startsWith": [
+      "bonebreaker-mace",
+      "catherine-wheel"
+     ],
+     "abilities": [
+      {
+       "name": "Broken on the Wheel",
+       "summary": "Before deployment one Trench Pilgrim or Ecclesiastic Prisoner may be removed for good; until the walker first goes Out of Action it has Armour 0, no NEGATE SHRAPNEL or TOUGH, Down counts as Minor Hit, and that first Out of Action counts as No Effect.",
+       "page": 59
+      },
+      {
+       "name": "Symphony of Slaughter",
+       "summary": "Attacks once with either weapon, or twice: Catherine Wheel then Bonebreaker Mace (off-hand).",
+       "page": 59
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 59
+     },
+     "status": "verified",
+     "note": "Its two built-in weapons cost nothing; it can swap the Catherine Wheel for one walker weapon and take up to 2 pieces of walker battlekit.",
+     "naming": "rename",
+     "listed": [
+      "anti-materiel-rifle",
+      "autocannon",
+      "gas-censer",
+      "heavy-flamethrower",
+      "punt-gun",
+      "trench-mortar",
+      "gas-filters",
+      "grand-reliquary",
+      "hallowed-reliquary",
+      "holy-diesel-engine",
+      "piston-legs",
+      "sacred-geometry",
+      "wrathful-cherub-face"
+     ],
+     "prices": [
+      {
+       "kit": "punt-gun",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       }
+      }
+     ]
+    },
+    {
+     "id": "stigmatic-nun",
+     "name": "Stigmatic Nun",
+     "max": 3,
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PILGRIM"
+      },
+      {
+       "id": "REGENERATE",
+       "value": 1
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Agile",
+       "summary": "+1 DICE to Risky rolls to Climb, Jump, Diving Charge or Dash.",
+       "page": 57
+      },
+      {
+       "name": "Blessed Stigmata",
+       "summary": "Each BLOOD MARKER removed by REGENERATE 1 gives it 1 BLESSING MARKER.",
+       "page": 57
+      }
+     ],
+     "kitRules": {
+      "onlyKit": [
+       {
+        "category": "ranged",
+        "kit": [
+         "automatic-pistol",
+         "pistol"
+        ]
+       },
+       {
+        "category": "grenade",
+        "kit": [
+         "warcross"
+        ]
+       }
+      ],
+      "mustHave": [
+       "armour"
+      ],
+      "note": "Stigmatic Nuns must wear Standard Armour to fight."
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 57
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "ecclesiastic-prisoner",
+     "name": "Ecclesiastic Prisoner",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": -1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PILGRIM"
+      }
+     ],
+     "kitAccess": "none",
+     "startsWith": [
+      "iron-capirote"
+     ],
+     "abilities": [
+      {
+       "name": "Awaited",
+       "summary": "Not counted for Morale Checks if taken Out of Action by its own Martyrdom Device.",
+       "page": 58
+      },
+      {
+       "name": "Feeble Flailing",
+       "summary": "May make a Melee Attack without a weapon at -1 DICE.",
+       "page": 58
+      },
+      {
+       "name": "Mad Dash",
+       "summary": "+1 DICE to the Risky roll for a Dash ACTION.",
+       "page": 58
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 58
+     },
+     "status": "verified",
+     "note": "Always has an Iron Capirote (no cost); it cannot have any other battlekit.",
+     "naming": "keep"
+    }
+   ],
+   "addArmoury": [
+    {
+     "kit": "automatic-rifle",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "submachine-gun",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "anti-materiel-rifle",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified",
+     "note": "replaces its Catherine Wheel"
+    },
+    {
+     "kit": "autocannon",
+     "cost": {
+      "amount": 55,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified",
+     "note": "replaces its Catherine Wheel"
+    },
+    {
+     "kit": "gas-censer",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified",
+     "note": "replaces its Catherine Wheel"
+    },
+    {
+     "kit": "heavy-flamethrower",
+     "cost": {
+      "amount": 45,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified",
+     "note": "replaces its Catherine Wheel"
+    },
+    {
+     "kit": "trench-mortar",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified",
+     "note": "replaces its Catherine Wheel"
+    },
+    {
+     "kit": "gas-filters",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "grand-reliquary",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "hallowed-reliquary",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "holy-diesel-engine",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "piston-legs",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sacred-geometry",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "wrathful-cherub-face",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "reliquary-walker"
+      }
+     ],
+     "status": "verified"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Walker Armoury",
+     "summary": "Reliquary Walkers have Ranged +0 DICE and can take the walker weapons and walker battlekit below.",
+     "page": 63
+    },
+    {
+     "name": "Walker Cloister",
+     "summary": "Up to 2 Reliquary Walkers.",
+     "page": 63
+    },
+    {
+     "name": "Chaste Order",
+     "summary": "At most 3 Stigmatic Nuns, each must wear Standard Armour to fight.",
+     "page": 63
+    },
+    {
+     "name": "Giant Heresy",
+     "summary": "No Sanctified Giants.",
+     "page": 64
+    },
+    {
+     "name": "Followers of the Saint",
+     "summary": "The Patron is always a Learned Saint.",
+     "page": 64
+    },
+    {
+     "name": "Mortal Sin",
+     "summary": "No Martyrdom Devices; no model can be Broken on the Wheel.",
+     "page": 64
+    },
+    {
+     "name": "Treasure in Heaven",
+     "summary": "Trench Pilgrims cannot return as Martyr Penitents.",
+     "page": 64
+    },
+    {
+     "name": "Walker Weapons",
+     "summary": "A Reliquary Walker may swap its Catherine Wheel for one walker weapon (counted as 1-Handed for it) (not checked by the builder).",
+     "page": 64
+    },
+    {
+     "name": "Walker Battlekit",
+     "summary": "A Reliquary Walker can have up to 2 pieces of walker battlekit, never removed or lost (not checked by the builder).",
+     "page": 64
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 63
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "lambsblood-cavalcade",
+   "name": "Lambsblood Cavalcade",
+   "removeModels": [
+    "castigator",
+    "war-prophet",
+    "ecclesiastic-prisoner",
+    "reliquary-walker"
+   ],
+   "addModels": [
+    {
+     "id": "castigator",
+     "name": "Castigator",
+     "max": 1,
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PILGRIM"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "zealot-strength",
+       "name": "Zealot Strength",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "keywords": [
+        {
+         "id": "STRONG"
+        }
+       ]
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Enforced Orthodoxy ACTION",
+       "summary": "Risky roll at +1 DICE; on a Success every Down friend within 8\" stands up for free.",
+       "page": 55
+      },
+      {
+       "name": "Whip of God",
+       "summary": "May attack a friend within 1\"; each friend it takes Out of Action adds +1 DICE to the next Morale Check.",
+       "page": 55
+      },
+      {
+       "name": "Zealot Strength",
+       "summary": "STRONG for +5 ducats.",
+       "page": 55
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 55
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "war-prophet",
+     "name": "War Prophet",
+     "min": 1,
+     "max": 1,
+     "cost": {
+      "amount": 80,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 2,
+     "melee": 2,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PILGRIM"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "LEADER"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Loudspeakers ACTION",
+       "summary": "Risky roll at +2 DICE; on a Success friends within 8\" move up to 3\" towards the nearest visible enemy (a move into 1\" counts as charging).",
+       "page": 53
+      },
+      {
+       "name": "Day of His Wrath ACTION",
+       "summary": "Risky roll (a Failure ends its Activation); on a Success an Injury Roll with IGNORE ARMOUR on 1 enemy within 3\" (+1 INJURY DICE on a Critical).",
+       "page": 69
+      },
+      {
+       "name": "Memento Mori",
+       "summary": "Its first Out of Action result counts as No Effect; it can never be TOUGH.",
+       "page": 53
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 53
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "ecclesiastic-prisoner",
+     "name": "Ecclesiastic Prisoner",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": -1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PILGRIM"
+      }
+     ],
+     "kitAccess": "none",
+     "startsWith": [
+      "iron-capirote"
+     ],
+     "upgrades": [
+      {
+       "id": "martyrdom-device",
+       "name": "Martyrdom Device",
+       "cost": {
+        "amount": 35,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 4,
+       "note": "detonates once (Trigger ACTION): Injury Roll for every model within 3\"; see the Martyrdom Device entry"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Awaited",
+       "summary": "Not counted for Morale Checks if taken Out of Action by its own Martyrdom Device.",
+       "page": 58
+      },
+      {
+       "name": "Feeble Flailing",
+       "summary": "May make a Melee Attack without a weapon at -1 DICE.",
+       "page": 58
+      },
+      {
+       "name": "Mad Dash",
+       "summary": "+1 DICE to the Risky roll for a Dash ACTION.",
+       "page": 58
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 58
+     },
+     "status": "verified",
+     "note": "Always has an Iron Capirote (no cost); it cannot have any other battlekit.",
+     "naming": "keep",
+     "max": 2
+    },
+    {
+     "id": "reliquary-walker",
+     "name": "Reliquary Walker",
+     "max": 1,
+     "cost": {
+      "amount": 140,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": 2,
+     "armour": -3,
+     "baseMm": [
+      60
+     ],
+     "keywords": [
+      {
+       "id": "PILGRIM"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "NEGATE",
+       "value": "SHRAPNEL"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "listed",
+     "startsWith": [
+      "bonebreaker-mace",
+      "catherine-wheel"
+     ],
+     "abilities": [
+      {
+       "name": "Broken on the Wheel",
+       "summary": "Before deployment one Trench Pilgrim or Ecclesiastic Prisoner may be removed for good; until the walker first goes Out of Action it has Armour 0, no NEGATE SHRAPNEL or TOUGH, Down counts as Minor Hit, and that first Out of Action counts as No Effect.",
+       "page": 59
+      },
+      {
+       "name": "Symphony of Slaughter",
+       "summary": "Attacks once with either weapon, or twice: Catherine Wheel then Bonebreaker Mace (off-hand).",
+       "page": 59
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 59
+     },
+     "status": "verified",
+     "note": "Its two built-in weapons cost nothing; its only other battlekit can be a Sacrificial Lamb.",
+     "naming": "rename",
+     "listed": [
+      "sacrificial-lamb"
+     ]
+    }
+   ],
+   "modelCosts": [
+    {
+     "model": "sanctified-giant",
+     "cost": {
+      "amount": 3,
+      "currency": "glory"
+     }
+    }
+   ],
+   "addArmoury": [
+    {
+     "kit": "sacrificial-lamb",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "keyword": "PILGRIM"
+      }
+     ],
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified",
+     "note": "not for Ecclesiastic Prisoners"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Blood of the Lamb",
+     "summary": "Castigators have TOUGH for free.",
+     "page": 69
+    },
+    {
+     "name": "Day of His Wrath",
+     "summary": "The War Prophet replaces Laying on of Hands with Day of His Wrath ACTION: Risky roll (a Failure ends its Activation); a Success makes an Injury Roll with IGNORE ARMOUR on 1 enemy within 3\" (+1 INJURY DICE on a Critical).",
+     "page": 69
+    },
+    {
+     "name": "Favour of the Lord",
+     "summary": "At the start of each Turn, place 1 BLESSING MARKER next to one of its models.",
+     "page": 69
+    },
+    {
+     "name": "Heaven Awaits",
+     "summary": "Trench Pilgrims cannot return as Martyr Penitents.",
+     "page": 69
+    },
+    {
+     "name": "Only the Righteous",
+     "summary": "Any PILGRIM model except Ecclesiastic Prisoners (Reliquary Walkers included) can have a Sacrificial Lamb for 5 ducats.",
+     "page": 69
+    },
+    {
+     "name": "Stolen Giants",
+     "summary": "Sanctified Giants cost 3 Glory and no ducats.",
+     "page": 69
+    },
+    {
+     "name": "The Unclean",
+     "summary": "At most 2 Ecclesiastic Prisoners.",
+     "page": 69
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 69
+   },
+   "status": "verified",
+   "naming": "rename"
+  }
+ ],
+ "source": {
+  "book": "Warbands of Trench Crusade",
+  "version": "1.0.2",
+  "page": 49
+ },
+ "status": "verified",
+ "naming": "rename",
+ "kitGroups": [
+  {
+   "id": "dog-training",
+   "name": "Trench Dog training",
+   "limitPerModel": 1,
+   "note": "one Special Training per Trench Dog (core rulebook p. 142)"
+  }
+ ]
+}

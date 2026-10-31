@@ -274,7 +274,14 @@ public static partial class TurnSequence
                 break;
             case MoveModel c:
                 var move = Board.CheckMove(state, state.FindModel(c.Model)!, c.Path);
-                run.Emit(new ModelMoved(c.Model, MoveKind.Move, c.Path, move.Cost));
+                if (move.SideClimb is not null)
+                {
+                    DeclareClimb(run, c.Model, MoveKind.Move, c.Path);
+                }
+                else
+                {
+                    run.Emit(new ModelMoved(c.Model, MoveKind.Move, c.Path, move.Cost));
+                }
                 break;
             case DashModel c:
                 run.Emit(new DashDeclared(c.Model, c.Path));
@@ -294,8 +301,8 @@ public static partial class TurnSequence
                     facts.CoverTerrainId,
                     facts.AttackerLevel,
                     facts.TargetLevel,
-                    (facts.LongRange ? 1 : 0) + (facts.InCover ? 1 : 0))
-                { IntoMelee = facts.IntoMelee });
+                    AttackDice.ShotPenalty(facts.LongRange, facts.InCover))
+                { IntoMelee = facts.IntoMelee, Elevated = facts.Elevated });
                 // A shot into melee asks about markers only once the D6 has settled who is shot (p. 42).
                 if (attacker.BloodMarkers > 0 && !facts.IntoMelee)
                 {
@@ -331,7 +338,7 @@ public static partial class TurnSequence
             case ChooseFriendlyTarget c:
                 var shooter = state.FindModel(state.InProgress!.Actor)!;
                 var forced = Board.ForcedShotFacts(state, shooter, state.FindModel(c.Victim)!);
-                run.Emit(new FriendlyTargetChosen(shooter.Id, c.Victim, forced.LongRange, forced.InCover, forced.CoverTerrainId));
+                run.Emit(new FriendlyTargetChosen(shooter.Id, c.Victim, forced.LongRange, forced.InCover, forced.CoverTerrainId) { Elevated = forced.Elevated });
                 if (shooter.BloodMarkers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, shooter.Seat.Opponent()));
@@ -371,8 +378,44 @@ public static partial class TurnSequence
             }
             case RollStage.DashMove:
             {
-                var cost = Board.CheckMove(s, actor, progress.DashPath).Cost;
-                run.Emit(new ModelMoved(progress.Actor, MoveKind.Dash, progress.DashPath, cost));
+                var dash = Board.CheckMove(s, actor, progress.DashPath);
+                if (dash.SideClimb is not null)
+                {
+                    DeclareClimb(run, progress.Actor, MoveKind.Dash, progress.DashPath);
+                }
+                else
+                {
+                    run.Emit(new ModelMoved(progress.Actor, MoveKind.Dash, progress.DashPath, dash.Cost));
+                }
+                return true;
+            }
+            case RollStage.ClimbRoll:
+            {
+                // Climbing a sheer surface is always a Risky Success Roll (p. 39); spent markers are penalty dice.
+                var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true);
+                run.Emit(new SideClimbRolled(progress.Actor, check));
+                if (check.Outcome == SuccessOutcome.Failure && run.State.InProgress is null)
+                {
+                    run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                }
+                return true;
+            }
+            case RollStage.ClimbMove:
+            {
+                var kind = progress.ClimbAction == ActionsTaken.Move ? MoveKind.Move : MoveKind.Dash;
+                run.Emit(new ModelMoved(progress.Actor, kind, progress.DashPath, Board.CheckMove(s, actor, progress.DashPath).Cost));
+                return true;
+            }
+            case RollStage.ClimbStop:
+            {
+                var kind = progress.ClimbAction == ActionsTaken.Move ? MoveKind.Move : MoveKind.Dash;
+                var stop = Reducer.ClimbStopPath(s, progress);
+                run.Emit(new ModelMoved(progress.Actor, kind, stop, Board.CheckMove(s, actor, stop).Cost));
+                // A Mine Marker on the way halts the move first; the activation ends once the move is over.
+                if (run.State.MineStop is null)
+                {
+                    run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                }
                 return true;
             }
             case RollStage.ShotRoll:
@@ -437,7 +480,7 @@ public static partial class TurnSequence
             {
                 var target = s.FindModel(progress.Target!.Value)!;
                 var weapon = s.Setup!.ProfileOf(actor.Id)!;
-                var modifiers = new[] { progress.Kind == AttackKind.Melee ? weapon.MeleeInjuryModifier : weapon.RangedInjuryModifier, s.Setup.ProfileOf(target.Id)!.Armour };
+                var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup.ProfileOf(target.Id)!, progress.Kind);
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down);
                 run.Emit(new InjuryRolled(actor.Id, target.Id, injury));
                 if (injury.Outcome == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
@@ -448,6 +491,91 @@ public static partial class TurnSequence
             }
             default:
                 throw new InvalidOperationException("Unknown roll stage.");
+        }
+    }
+
+    // ---- Trench Warfare's Mine Markers (p. 162, U93) ----
+
+    private const string RefMines = "1.0.2 pp. 161-162";
+
+    private static Rejection? ValidateMines(MatchState state, LayMines c)
+    {
+        if (Board.MinePlacementArea(state) is not { } area)
+        {
+            return new(ReasonCode.MinesIllegal, "This battlefield has no Mine Placement Area.", RefMines);
+        }
+        if (c.Markers.IsDefault)
+        {
+            return new(ReasonCode.MinesIllegal, $"The defender sets up {Mines.Count} Mine Markers.", RefMines);
+        }
+        if (Mines.Problem(Board.ScenarioOf(state)!.Battlefield, area, c.Markers) is { } problem)
+        {
+            return new(ReasonCode.MinesIllegal, problem, RefMines);
+        }
+        var ids = Enumerable.Range(0, Mines.Count).Select(Mines.IdOf).ToHashSet(StringComparer.Ordinal);
+        if (c.Duds.IsDefault || c.Duds.Length != Mines.Duds || c.Duds.Distinct(StringComparer.Ordinal).Count() != Mines.Duds || c.Duds.Any(d => d is null || !ids.Contains(d)))
+        {
+            return new(ReasonCode.MinesIllegal, $"Name {Mines.Duds} different Mine Markers as the duds.", RefMines);
+        }
+        return null;
+    }
+
+    // A legal layout spread across the Mine Placement Area: every so many points of Mines.Grid.
+    private static ImmutableArray<Point2> SuggestedMines(MatchState state)
+    {
+        var grid = Mines.Grid(Board.ScenarioOf(state)!.Battlefield, Board.MinePlacementArea(state)!.Value);
+        return grid.Length < Mines.Count ? [] : [.. Enumerable.Range(0, Mines.Count).Select(i => grid[(int)((long)i * grid.Length / Mines.Count)])];
+    }
+
+    // A move halted at a Mine Marker: reveal it, detonate a live one, then carry on (p. 162). Only a view that knows the
+    // duds (the server's) can decide this.
+    private static bool AdvanceMine(Run run, MatchState s, MineStop stop, IDiceSource dice)
+    {
+        var model = s.FindModel(stop.Model)!;
+        if (!stop.Revealed)
+        {
+            if (!s.DudsKnown)
+            {
+                throw new InvalidOperationException("Only a view of the match that knows the duds can reveal a Mine Marker.");
+            }
+            run.Emit(new MineRevealed(stop.Current.Marker, stop.Model, live: !s.Duds.Contains(stop.Current.Marker)));
+            return true;
+        }
+        if (stop.Live)
+        {
+            var armour = s.Setup!.ProfileOf(model.Id)!.Armour;
+            var injury = InjuryRoll.Roll(dice, 0, 0, [armour], model.Status == ModelStatus.Down);
+            run.Emit(new MineExploded(model.Id, stop.Current.Marker, injury));
+            var hurt = run.State.FindModel(model.Id)!;
+            if (hurt.Status == ModelStatus.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, model.Seat))
+            {
+                run.Emit(new MatchEnded(model.Seat.Opponent(), OutcomeReason.AllEnemiesOutOfAction));
+            }
+            else if (hurt.Status != ModelStatus.Standing)
+            {
+                // Taken Down or Out of Action during its own activation: the activation ends (p. 49).
+                run.Emit(new ActivationEnded(model.Id, ActivationEndReason.TakenDown));
+            }
+            return true;
+        }
+        var next = stop.Index + 1 < stop.Stops.Length ? stop.Stops[stop.Index + 1] : null;
+        run.Emit(new MoveResumed(model.Id, Mines.Between(stop.Path, stop.Current, next)));
+        if (run.State.MustEndActivation)
+        {
+            // The move was a failed side climb's (U75): its activation ends now the move is over.
+            run.Emit(new ActivationEnded(model.Id, ActivationEndReason.RiskyFailure));
+        }
+        return true;
+    }
+
+    // A Move or Dash that climbs a tower's side: the roll waits for the opponent's Blood Marker decision, as a Dash does.
+    private static void DeclareClimb(Run run, ModelId model, MoveKind kind, ImmutableArray<Point2> path)
+    {
+        run.Emit(new SideClimbDeclared(model, kind, path));
+        var climber = run.State.FindModel(model)!;
+        if (climber.BloodMarkers > 0)
+        {
+            run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, climber.Seat.Opponent()));
         }
     }
 

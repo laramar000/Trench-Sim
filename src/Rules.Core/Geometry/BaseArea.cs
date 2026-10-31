@@ -62,7 +62,38 @@ internal static class BaseArea
     private static long ChordLength(long cy, long h, long minY, long maxY) =>
         Math.Max(0, Math.Min(cy + h, maxY) - Math.Max(cy - h, minY));
 
+    // Trench-maps stage S2: a footprint of joined rectangles that do not overlap. More than half is inside the whole
+    // shape if it is inside one part; otherwise the parts' guaranteed brackets are added up (the parts do not overlap,
+    // so the inside area is the sum) and compared with half the circle as for one rectangle.
+    public static AreaDecision MoreThanHalfInside(Point2 centre, Length radius, IReadOnlyList<Rect> parts)
+    {
+        if (parts.Count == 1)
+        {
+            return MoreThanHalfInside(centre, radius, parts[0]);
+        }
+        if (parts.Any(part => MoreThanHalfInside(centre, radius, part) == AreaDecision.MoreThanHalf))
+        {
+            return AreaDecision.MoreThanHalf;
+        }
+        long cx = centre.X.Thousandths, cy = centre.Y.Thousandths, r = radius.Thousandths;
+        Int128 lower = 0, upper = 0;
+        foreach (var part in parts.Where(part => Shapes.CircleOverlapsRect(centre, radius, part)))
+        {
+            var (low, high) = Bracket(cx, cy, r, part.Min.X.Thousandths, part.Max.X.Thousandths, part.Min.Y.Thousandths, part.Max.Y.Thousandths);
+            lower += low;
+            upper += high;
+        }
+        return Decide(lower, upper, r);
+    }
+
     private static AreaDecision Numeric(long cx, long cy, long r, long minX, long maxX, long minY, long maxY)
+    {
+        var (lower, upper) = Bracket(cx, cy, r, minX, maxX, minY, maxY);
+        return Decide(lower, upper, r);
+    }
+
+    // Lower and upper bounds on the area of the circle inside the rectangle, in square thousandths.
+    private static (Int128 Lower, Int128 Upper) Bracket(long cx, long cy, long r, long minX, long maxX, long minY, long maxY)
     {
         var xlo = Math.Max(cx - r, minX);
         var xhi = Math.Min(cx + r, maxX);
@@ -100,6 +131,11 @@ internal static class BaseArea
             previous = next;
         }
 
+        return (lower, upper);
+    }
+
+    private static AreaDecision Decide(Int128 lower, Int128 upper, long r)
+    {
         Int128 r2 = (Int128)r * r;
         // Half the circle is pi * r^2 / 2.
         if (lower * 2 * 1_000_000_000_000_000 > (Int128)PiHighE15 * r2)

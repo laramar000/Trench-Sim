@@ -18,6 +18,11 @@ public static class ClaimNoMansLand
     public const string West = "west";
     public const string East = "east";
 
+    // Trench-maps stage S5: the scenario apart from its map. Five Objective pieces (p. 152) and the No Man's Land
+    // archetype (p. 151), deploying west then east.
+    public static readonly ScenarioDefinition Definition =
+        new(ScenarioId, RulesVersion, TurnLimit, [West, East], new MapNeeds([West, East], 5, Archetype.NoMansLand));
+
     private static TerrainBlock Piece(string id, string x1, string y1, string x2, string y2, TerrainProfile profile, TerrainKind kind = TerrainKind.Open) =>
         new(id, Rect(x1, y1, x2, y2), profile, kind);
 
@@ -51,4 +56,56 @@ public static class ClaimNoMansLand
 
     public static MatchSetup CreateSetup(IEnumerable<SetupModel> models, RulesProfile? profile = null) =>
         new(RulesVersion, ScenarioId, TurnLimit, profile ?? RulesProfile.Default, [West, East], models, Create());
+
+    // Towers proposal: the same scenario and layout with two climbable towers added on the table's north-south centre
+    // line, between the Objectives, mirrored so neither side is favoured. Each is a 3" x 3" platform 2" high with a
+    // ladder on its west and east sides (U66 to U74). They stand well over 1" from every Objective, zone and other piece.
+    public const string TowerHeight = "2";
+
+    //
+    // Trench-maps stage S3 (Jason, 2026-10-21: towers and any vertical terrain in the default maps): the same layout
+    // also has 1" deep trenches in both deployment zones, mirrored west to east (No Man's Land keeps trenches in the
+    // deployment zones, p. 65). In each zone: to the south one section with a bend (an L of two parts), to the north
+    // two straight sections joined end to end. Every section is 2.5" wide and 4" to 12" long (p. 62); the middle of
+    // each zone, where the test matches deploy, is left open.
+    public const string TrenchDepth = "1";
+
+    public static Scenario CreateWithTowers()
+    {
+        var plain = Create();
+        var towers = new[]
+        {
+            Tower("tower-s", "16.5", "5", "19.5", "8"),
+            Tower("tower-n", "16.5", "28", "19.5", "31"),
+        };
+        var trenches = new[]
+        {
+            Trench("trench-sw", Part("1.5", "4", "4", "12"), Part("4", "9.5", "6", "12")),
+            Trench("trench-nw", Part("1.5", "24", "4", "30")),
+            Trench("trench-nw-2", Part("1.5", "30", "4", "34")),
+            Trench("trench-se", Part("32", "4", "34.5", "12"), Part("30", "9.5", "32", "12")),
+            Trench("trench-ne", Part("32", "24", "34.5", "30")),
+            Trench("trench-ne-2", Part("32", "30", "34.5", "34")),
+        };
+        var field = plain.Battlefield;
+        return new Scenario(new Battlefield(field.Width, field.Height, field.Terrain.Concat(towers).Concat(trenches), field.Zones), plain.ObjectiveIds);
+    }
+
+    private static Rect Part(string x1, string y1, string x2, string y2) => Rect(x1, y1, x2, y2).Bounds;
+
+    private static TerrainBlock Trench(string id, params Rect[] parts) =>
+        new(id, parts.Length == 1 ? Footprint.Of(parts[0]) : Footprint.Join(parts), TerrainProfile.Low) { Depth = Length.Parse(TrenchDepth) };
+
+    public static MatchSetup CreateTowersSetup(IEnumerable<SetupModel> models, RulesProfile? profile = null) =>
+        new(RulesVersion, ScenarioId, TurnLimit, profile ?? RulesProfile.Default, [West, East], models, CreateWithTowers());
+
+    private static TerrainBlock Tower(string id, string x1, string y1, string x2, string y2)
+    {
+        var rect = Rect(x1, y1, x2, y2).Bounds;
+        var midY = Length.FromThousandths((rect.Min.Y.Thousandths + rect.Max.Y.Thousandths) / 2);
+        return new TerrainBlock(id, Footprint.Of(rect), TerrainProfile.Wall, surface: SurfaceLevel.High, walkable: true)
+        {
+            Climb = new Climb(Length.Parse(TowerHeight), [new Ladder($"{id}-west", new Point2(rect.Min.X, midY)), new Ladder($"{id}-east", new Point2(rect.Max.X, midY))]),
+        };
+    }
 }

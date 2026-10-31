@@ -7,6 +7,10 @@ namespace Rules.Core.State;
 // RangedRange zero means no ranged weapon; HasMeleeWeapon says whether the model has one Melee Weapon (pp. 45-46;
 // a second Melee Weapon, Off-Hand attacks and CLEAVE are not modelled yet). Injury modifiers follow Injury Rolls (pp. 46, 48): the weapon's
 // modifier is added by the attacker, Armour (zero or negative) belongs to the target.
+// RangedAlsoMelee: the ranged weapon has "Melee" under its Range (a Dual-purpose weapon such as a Pistol, 12"/Melee;
+// pp. 56, 68, 70), so it can also make Melee Attacks (C19a). A model with a Melee Weapon attacks with that one in melee
+// (the choice between the two is not modelled, U54); without one, it attacks with the dual-purpose weapon and that
+// weapon's own injury modifier.
 public sealed record ModelProfile
 {
     public const int MaxModifier = 3;
@@ -62,5 +66,30 @@ public sealed record ModelProfile
     public bool HasMeleeWeapon { get; }
     public int MeleeInjuryModifier { get; }
 
+    // An init property rather than a constructor parameter, and left off the wire when false, so every setup without it
+    // (all existing records and their content fingerprints) is written exactly as before.
+    public bool RangedAlsoMelee
+    {
+        get => _rangedAlsoMelee;
+        init
+        {
+            if (value && RangedRange <= Length.Zero)
+            {
+                throw new ArgumentException("Only a ranged weapon can also be a Melee Weapon (\"12\"/Melee\").", nameof(RangedAlsoMelee));
+            }
+            _rangedAlsoMelee = value;
+        }
+    }
+
+    private readonly bool _rangedAlsoMelee;
+
     public bool HasRangedWeapon => RangedRange > Length.Zero;
+
+    // Whether the model has any weapon it can make a Melee Attack with (pp. 15, 45, 68): a Melee Weapon, or a ranged
+    // weapon with "Melee" under its Range.
+    public bool CanMakeMeleeAttack => HasMeleeWeapon || RangedAlsoMelee;
+
+    // The injury modifier of the weapon the model makes Melee Attacks with: its Melee Weapon's, else its dual-purpose
+    // weapon's own (C19a).
+    public int MeleeAttackInjuryModifier => HasMeleeWeapon ? MeleeInjuryModifier : RangedAlsoMelee ? RangedInjuryModifier : 0;
 }

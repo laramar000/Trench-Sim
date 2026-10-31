@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -97,17 +98,35 @@ public static class Wire
             writer.WriteStringValue(value.Value);
     }
 
-    // M3 footprints are rectangles, built only through Footprint.Of: one travels as its rectangle.
+    // A one-rectangle footprint travels as its rectangle, as since M3. Joined parts (trench-maps stage S2) travel as an
+    // array of rectangles, rebuilt and checked through Footprint.Join.
     private sealed class FootprintConverter : JsonConverter<Footprint>
     {
         public override Footprint Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
+            if (reader.TokenType == JsonTokenType.StartArray)
+            {
+                // An ImmutableArray, not Rect[]: an array of a Rules.Core type would be taken for a Rules.Core object.
+                var parts = JsonSerializer.Deserialize<ImmutableArray<Rect>>(ref reader, options);
+                if (parts.IsDefault || parts.Length < 2)
+                {
+                    throw new JsonException("A footprint of one rectangle travels as that rectangle.");
+                }
+                return Construct(() => Footprint.Join(parts));
+            }
             var rect = JsonSerializer.Deserialize<Rect>(ref reader, options);
             return Construct(() => Footprint.Of(rect));
         }
 
-        public override void Write(Utf8JsonWriter writer, Footprint value, JsonSerializerOptions options) =>
-            JsonSerializer.Serialize(writer, value.Bounds, options);
+        public override void Write(Utf8JsonWriter writer, Footprint value, JsonSerializerOptions options)
+        {
+            if (value.IsSingle)
+            {
+                JsonSerializer.Serialize(writer, value.Bounds, options);
+                return;
+            }
+            JsonSerializer.Serialize(writer, value.Parts, options);
+        }
     }
 
     // Enums travel by exact name only: no numbers and no case folding. A [Flags] enum is an array of the names of its set
@@ -309,6 +328,28 @@ public static class Wire
             [(typeof(TerrainBlock), "walkable")] = nameof(TerrainBlock.IsWalkable),
         };
 
+        // Optional fields that are left out when null, so data without them (every match before the towers) is written
+        // exactly as before. Reading already treats an init property as optional.
+        private static readonly HashSet<(Type, string)> OmitWhenNull =
+        [
+            (typeof(TerrainBlock), nameof(TerrainBlock.Climb)),
+            (typeof(TerrainBlock), nameof(TerrainBlock.Depth)),
+            (typeof(CreateMatch), nameof(CreateMatch.Map)),
+            (typeof(CreateMatch), nameof(CreateMatch.Roster)),
+            (typeof(JoinMatch), nameof(JoinMatch.Roster)),
+            (typeof(Welcome), nameof(Welcome.Warbands)),
+            (typeof(MatchRecordBody), nameof(MatchRecordBody.Map)),
+            (typeof(MatchRecordBody), nameof(MatchRecordBody.MapHash)),
+        ];
+
+        // Optional flags left out when false, for the same reason (every match before dual-purpose weapons).
+        private static readonly HashSet<(Type, string)> OmitWhenFalse =
+        [
+            (typeof(ModelProfile), nameof(ModelProfile.RangedAlsoMelee)),
+            (typeof(RangedAttackDeclared), nameof(RangedAttackDeclared.Elevated)),
+            (typeof(FriendlyTargetChosen), nameof(FriendlyTargetChosen.Elevated)),
+        ];
+
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();
 
         private readonly ConstructorInfo _constructor;
@@ -438,8 +479,17 @@ public static class Wire
         {
             foreach (var member in _members)
             {
+                var memberValue = member.Property.GetValue(value);
+                if (memberValue is null && member.Parameter is null && OmitWhenNull.Contains((Type, member.Property.Name)))
+                {
+                    continue;
+                }
+                if (memberValue is false && member.Parameter is null && OmitWhenFalse.Contains((Type, member.Property.Name)))
+                {
+                    continue;
+                }
                 writer.WritePropertyName(member.Utf8Name);
-                JsonSerializer.Serialize(writer, member.Property.GetValue(value), member.Property.PropertyType, options);
+                JsonSerializer.Serialize(writer, memberValue, member.Property.PropertyType, options);
             }
         }
     }

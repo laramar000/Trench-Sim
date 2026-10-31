@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Match.Protocol\Match.Protocol.csproj" />
     <ProjectReference Include="..\Sim\Sim.csproj" />
+    <ProjectReference Include="..\Roster\Roster.csproj" />
   </ItemGroup>
 
 </Project>

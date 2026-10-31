@@ -25,10 +25,14 @@ One JSON object, UTF-8, at most 16 MiB and 100,000 events:
 "signature":{"alg":"ES256","keyId":"sha256:<hex>","value":"<base64url>"}}
 ```
 
-- **body**: `matchId`, `code`, `createdAt`, `closedAt`, `engine`, `scenario`, `contentFingerprint`, `events` and `result`.
-  - `engine`: `rulesVersion` (`1.0.2`), `stateHashVersion` (4), `replayCompatibility` (1), `protocolVersion` (2) and `build` (the git commit the server was built from).
+- **body**: `matchId`, `code`, `createdAt`, `closedAt`, `engine`, `scenario`, `contentFingerprint`, `events` and `result`,
+  and since trench-maps stage S5 the optional `map` and `mapHash` (left out when null, as in every earlier record).
+  - `engine`: `rulesVersion` (`1.0.2`), `stateHashVersion` (5), `replayCompatibility` (2), `protocolVersion` (2) and `build` (the git commit the server was built from).
   - `events`: every event as `{seq, event, hash}`, in the protocol's wire form. The first is `MatchCreated`, which holds the whole setup.
   - `contentFingerprint`: `sha256:` and the SHA-256 of the setup. `--content` compares it with a content folder.
+  - `map`: the id of the server's map file the match was played on, when the layout is one of them. `mapHash`:
+    `sha256:` and the SHA-256 of the setup's battlefield and Objectives; the verifier refuses a record whose
+    `mapHash` does not match its setup (`BadSetup`).
   - `result`: `{kind, events, hash, winner, reason, seat}`. `kind` is `Completed`, `Aborted` or `Unrecorded`.
 - **signature**: ECDSA P-256 with SHA-256. The 64-byte signature is in IEEE P1363 form, encoded as base64url.
   - The signed bytes are `trench-sim.match-record\n1\n<keyId>\n` followed by the body exactly as it appears in the file, byte for byte.
