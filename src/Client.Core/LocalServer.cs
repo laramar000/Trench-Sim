@@ -59,7 +59,7 @@ public sealed class LocalServer : IAsyncDisposable
 
     // Builds the server (Debug; quick when already built) and starts it. Progress lines go to report.
     public static async Task<LocalServer> StartAsync(string repository, string dataDirectory, Action<string>? report = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, IReadOnlyList<string>? serverArgs = null)
     {
         report?.Invoke("Building the local server (the first time takes a little while)…");
         var project = Path.Combine(repository, Project);
@@ -71,12 +71,12 @@ public sealed class LocalServer : IAsyncDisposable
             throw new LocalServerException($"Could not build the server (dotnet build exit {build.ExitCode}): {Tail(build.Output)}");
         }
         var dll = Path.Combine(repository, "src", "Match.Server", "bin", "Debug", "net10.0", "Match.Server.dll");
-        return await StartBuiltAsync(dll, dataDirectory, report, cancellationToken);
+        return await StartBuiltAsync(dll, dataDirectory, report, cancellationToken, serverArgs);
     }
 
     // Starts an already built Match.Server.dll on a free port and waits until it listens.
     public static async Task<LocalServer> StartBuiltAsync(string serverDll, string dataDirectory, Action<string>? report = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, IReadOnlyList<string>? serverArgs = null)
     {
         if (!File.Exists(serverDll))
         {
@@ -90,7 +90,8 @@ public sealed class LocalServer : IAsyncDisposable
             UseShellExecute = false,
             CreateNoWindow = true,
         };
-        foreach (var arg in new[] { serverDll, "--port", "0", "--data", dataDirectory })
+        // Roster stage 5b: serverArgs adds e.g. --warbands <file> for a hot-seat match with the player's own rosters.
+        foreach (var arg in new[] { serverDll, "--port", "0", "--data", dataDirectory }.Concat(serverArgs ?? []))
         {
             info.ArgumentList.Add(arg);
         }

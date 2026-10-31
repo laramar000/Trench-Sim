@@ -52,6 +52,11 @@ public partial class Main
     private Button _connectButton = null!;
     private LineEdit _playCode = null!;
 
+    // Roster stage 5b (hot-seat first): each seat plays the scenario's practice warband or one of the saved rosters.
+    public const string PracticeWarbandText = "The scenario's practice warband";
+    private OptionButton _rosterOne = null!;
+    private OptionButton _rosterTwo = null!;
+
     private static string VersionLine =>
         $"{GameName} client. Godot {Engine.GetVersionInfo()["string"]}, {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}. " +
         $"Rules version {ClaimNoMansLand.RulesVersion}; protocol {ClientSession.SubProtocol}.";
@@ -232,12 +237,16 @@ public partial class Main
             _playHotSeat.Disabled = true;
             hotNote.Text = "Not available here: hot-seat starts the server from the Trenches source folder (TrenchSim.sln above client/), which was not found.";
         }
+        _rosterOne = new OptionButton { Name = "RosterSeatOne" };
+        _rosterTwo = new OptionButton { Name = "RosterSeatTwo" };
+        var rosterNote = Text("Your own rosters from Build Your Own Roster: both seats need one, each legal and playable (its Check says \"For a match: ready\").");
         _online = Button(OnlineText, ShowPlayOnline);
         _online.ThemeTypeVariation = "MenuPrimary";
         _playChoose = Column(
             Row(Button(BackText, ShowHome)),
             Section("Play", Column(Field("Scenario:", form.Scenario), Field("Map:", form.Map))),
-            Section("This PC (hot-seat)", Column(Row(_playHotSeat), hotNote)),
+            Section("This PC (hot-seat)", Column(Field("Seat One plays:", _rosterOne), Field("Seat Two plays:", _rosterTwo), rosterNote,
+                Row(_playHotSeat), hotNote)),
             Section("Online", Column(Row(_online), Text("Host a match, or connect to one with a code or a saved seat."))));
 
         var host = Button(HostText, Use(form, () => Create(ChosenScenario())));
@@ -377,8 +386,62 @@ public partial class Main
         _form = _playForm;
         ShowScreen(_play);
         PlayPage(online: false, connect: false);
+        RefreshRosterChoices();
         RefreshSaved();
         (_playHotSeat.Disabled ? _online : _playHotSeat).CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    private void RefreshRosterChoices()
+    {
+        var saved = RosterBuilder.Saved(RosterFolder);
+        foreach (var choice in new[] { _rosterOne, _rosterTwo })
+        {
+            var was = choice.Selected > 0 ? choice.GetItemText(choice.Selected) : null;
+            choice.Clear();
+            choice.AddItem(PracticeWarbandText);
+            foreach (var file in saved)
+            {
+                choice.AddItem(file);
+            }
+            var again = was is null ? -1 : saved.ToList().IndexOf(was);
+            choice.Select(again >= 0 ? again + 1 : 0);
+        }
+    }
+
+    // The two saved roster files chosen for hot-seat, or null for the practice warbands; a problem when only one is chosen.
+    private (string One, string Two)? ChosenRosters(out string? problem)
+    {
+        problem = null;
+        var one = _rosterOne.Selected > 0 ? _rosterOne.GetItemText(_rosterOne.Selected) : null;
+        var two = _rosterTwo.Selected > 0 ? _rosterTwo.GetItemText(_rosterTwo.Selected) : null;
+        if (one is null && two is null)
+        {
+            return null;
+        }
+        if (one is null || two is null)
+        {
+            problem = "Choose a saved roster for both seats, or the practice warbands for both.";
+            return null;
+        }
+        return (one, two);
+    }
+
+    // For the UI check: choose the saved rosters by file name (null for the practice warband).
+    public void ChooseRostersForCheck(string? one, string? two)
+    {
+        RefreshRosterChoices();
+        foreach (var (choice, file) in new[] { (_rosterOne, one), (_rosterTwo, two) })
+        {
+            var index = 0;
+            for (var i = 1; i < choice.ItemCount; i++)
+            {
+                if (choice.GetItemText(i) == file)
+                {
+                    index = i;
+                }
+            }
+            choice.Select(index);
+        }
     }
 
     private void ShowPlayOnline()

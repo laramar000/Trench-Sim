@@ -21,6 +21,12 @@ public sealed class ContentNames
         Problem = problem;
     }
 
+    // Roster stage 5b: the scenario a hot-seat match with the player's own rosters uses (Match.Server --warbands), and
+    // the content this window wrote for it.
+    public const string RosterScenario = "roster";
+
+    public static string? RosterContent { get; set; }
+
     public static ContentNames None { get; } = new(new Dictionary<string, string>(), null, null, null);
 
     public string? WarbandOne { get; }
@@ -87,6 +93,18 @@ public sealed class ContentNames
         if (setup is null)
         {
             return None;
+        }
+        if (scenario == RosterScenario)
+        {
+            // Roster stage 5b: the warbands this window wrote for its own hot-seat match.
+            try
+            {
+                return RosterContent is { } json ? Match(Parse(json), setup) : Ids("This window did not make the rosters of this match.");
+            }
+            catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException or FormatException)
+            {
+                return Ids("The rosters' content could not be read.");
+            }
         }
         if (FileFor(scenario) is not { } file)
         {

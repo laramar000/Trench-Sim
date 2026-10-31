@@ -32,7 +32,10 @@ public sealed record MatchReady(
     public bool Ok => RosterProblems.Count == 0 && Refused.Count == 0 && Models.Count > 0;
 
     // The warband in the content format of content/test-warbands.json (one warband).
-    public string ToContentJson(string id, string name)
+    public string ToContentJson(string id, string name) => ContentJson([(id, name, this)]);
+
+    // Several warbands in one content file, in order: the first takes Seat One, the second Seat Two (Sim.ScenarioSetups).
+    public static string ContentJson(IReadOnlyList<(string Id, string Name, MatchReady Ready)> warbands)
     {
         using var stream = new MemoryStream();
         using (var w = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
@@ -40,31 +43,34 @@ public sealed record MatchReady(
             w.WriteStartObject();
             w.WriteString("note", "Made from a roster by the roster builder (stage 5a).");
             w.WriteStartArray("warbands");
-            w.WriteStartObject();
-            w.WriteString("id", id);
-            w.WriteString("name", name);
-            w.WriteStartArray("models");
-            foreach (var m in Models)
+            foreach (var (id, name, ready) in warbands)
             {
                 w.WriteStartObject();
-                w.WriteString("name", m.Name);
-                w.WriteString("movementInches", m.MovementInches.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                w.WriteNumber("baseMm", m.BaseMm);
-                w.WriteString("rangeInches", m.RangeInches.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                w.WriteNumber("weaponInjuryModifier", m.RangedInjuryModifier);
-                w.WriteNumber("armour", m.Armour);
-                if (m.HasMeleeWeapon)
+                w.WriteString("id", id);
+                w.WriteString("name", name);
+                w.WriteStartArray("models");
+                foreach (var m in ready.Models)
                 {
-                    w.WriteNumber("meleeInjuryModifier", m.MeleeInjuryModifier);
+                    w.WriteStartObject();
+                    w.WriteString("name", m.Name);
+                    w.WriteString("movementInches", m.MovementInches.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    w.WriteNumber("baseMm", m.BaseMm);
+                    w.WriteString("rangeInches", m.RangeInches.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    w.WriteNumber("weaponInjuryModifier", m.RangedInjuryModifier);
+                    w.WriteNumber("armour", m.Armour);
+                    if (m.HasMeleeWeapon)
+                    {
+                        w.WriteNumber("meleeInjuryModifier", m.MeleeInjuryModifier);
+                    }
+                    if (m.RangedAlsoMelee)
+                    {
+                        w.WriteBoolean("rangedAlsoMelee", true);
+                    }
+                    w.WriteEndObject();
                 }
-                if (m.RangedAlsoMelee)
-                {
-                    w.WriteBoolean("rangedAlsoMelee", true);
-                }
+                w.WriteEndArray();
                 w.WriteEndObject();
             }
-            w.WriteEndArray();
-            w.WriteEndObject();
             w.WriteEndArray();
             w.WriteEndObject();
         }

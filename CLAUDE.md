@@ -82,8 +82,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   extras, October Rules Review 2026 changes (lists follow the 1.0.2 books).
 - **Roster stage 5a done (2026-10-31):** `src/Roster/MatchReadiness.cs` turns a legal roster into the engine's warband
   content and names what it refuses and what it plays without; the builder shows it under "For a match".
-  **Stage 5b next (needs the owner's go):** get that warband into a match. See docs/roster.md "Stage 5b" for the two
-  ways (hot-seat first, or a protocol change for Host and Join).
+  **Stage 5b (hot-seat) done:** Play page "Seat One plays / Seat Two plays" picks saved rosters; the local server runs
+  with `--warbands`. **Stage 5c next (needs the owner's go):** rosters online, a protocol change (docs/roster.md).
 - The faction JSON files are the source of truth now. The earlier generator scripts held private source names and are
   not in the repo: edit `content/roster/*.json` directly, keep `docs/roster.md` and the tests (`tests/Roster.Tests`,
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).

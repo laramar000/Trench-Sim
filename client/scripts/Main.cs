@@ -627,13 +627,39 @@ public partial class Main : Control
             return;
         }
         var scenario = ChosenScenario();
-        _createdScenario = scenario;
         var map = ChosenMap();
+        // Roster stage 5b: on the Play page, the player's own saved rosters instead of the practice warbands.
+        string[] serverArgs = [];
+        if (_form == _playForm)
+        {
+            var rosters = ChosenRosters(out var rosterProblem);
+            if (rosterProblem is not null)
+            {
+                _connectMessage.Text = rosterProblem;
+                return;
+            }
+            if (rosters is { } chosen)
+            {
+                var prepared = RosterMatch.Prepare(RosterFolder, chosen.One, chosen.Two);
+                if (prepared.Problem is not null)
+                {
+                    _connectMessage.Text = prepared.Problem;
+                    return;
+                }
+                var file = Path.Combine(LocalServer.DefaultDataDirectory(), "..", "hotseat-roster-warbands.json");
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(file))!);
+                File.WriteAllText(file, prepared.Json);
+                ContentNames.RosterContent = prepared.Json;
+                serverArgs = ["--warbands", Path.GetFullPath(file)];
+                scenario = ContentNames.RosterScenario;
+            }
+        }
+        _createdScenario = scenario;
         _createdMap = map;
         try
         {
             var server = await LocalServer.StartAsync(repository, LocalServer.DefaultDataDirectory(),
-                text => Callable.From(() => _connectMessage.Text = text).CallDeferred());
+                text => Callable.From(() => _connectMessage.Text = text).CallDeferred(), serverArgs: serverArgs);
             _connectMessage.Text = "Creating the match and seating both sides…";
             var hot = await HotSeat.StartAsync(() => new MatchController(new MatchControllerOptions
             {

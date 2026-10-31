@@ -174,7 +174,12 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   second ranged or melee weapon, grenades, equipment and other special battlekit. **Played without, by name:** weapon
   keywords, DICE and INJURY DICE, the model's Ranged and Melee DICE, its keywords, abilities and upgrades; Armour past
   -3 is played as -3. The builder's Check lists both under "For a match". Tests: `MatchReadinessTests`.
-- Stage 5b (not started, needs the owner's go): sending the warband to a match. The server builds a match from
-  content files on its side (`Sim/ScenarioSetups`, `Match.Server/Lobby.cs`, `CreateMatch(scenario)`), so a roster
-  needs either a protocol change (each player's warband sent on Host and Join) or, smallest first, hot-seat only (the
-  local server is started with both warband files). `MatchReady.ToContentJson` already writes what the server loads.
+- Stage 5b, hot-seat first (done 2026-10-31, Jason's choice): on the Play page, **Seat One plays** and **Seat Two
+  plays** choose the practice warband or a saved roster. With two rosters, `Client.Core/RosterMatch.Prepare` checks
+  both (legal and nothing refused, else the reason by name and nothing starts) and writes one content file with both
+  warbands; the local server starts with `--warbands <file>`, which adds the scenario `roster`
+  (`Match.Server/ScenarioCatalog.WithRosterMatch`, plain map unless a map is chosen); the window knows the names from
+  `ContentNames.RosterContent`. No protocol or rules change. Tests: `RosterHotSeatTests`.
+- Stage 5c (not started, needs the owner's go): rosters online. The server builds a match from content on its side
+  (`CreateMatch(scenario)`), so each player's warband would have to be sent on Host and Join (a protocol change), and the
+  match setup could only be fixed once both have arrived.
