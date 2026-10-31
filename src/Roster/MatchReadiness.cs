@@ -34,7 +34,7 @@ public sealed record ReadyModel(
 
     // Roster stage R2: the played keywords of the ranged and melee weapon, by the engine's names (Rules.Core
     // WeaponKeywords: Critical, IgnoreArmour, ArmourPiercing, Shotgun, Risky, Pistol, IgnoreCover, IgnoreLongRange,
-    // IgnoreElevatedPosition).
+    // IgnoreElevatedPosition, and stage R2b's Assault, Heavy, Reload).
     public IReadOnlyList<string> RangedWeaponKeywords { get; init; } = [];
     public IReadOnlyList<string> MeleeWeaponKeywords { get; init; } = [];
 }
@@ -262,6 +262,9 @@ public static class MatchReadiness
         ["IGNORE COVER"] = "IgnoreCover",
         ["IGNORE LONG RANGE"] = "IgnoreLongRange",
         ["IGNORE ELEVATED POSITION"] = "IgnoreElevatedPosition",
+        ["ASSAULT"] = "Assault",
+        ["HEAVY"] = "Heavy",
+        ["RELOAD"] = "Reload",
         ["CUMBERSOME"] = "",
     };
 

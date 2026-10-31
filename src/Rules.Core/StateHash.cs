@@ -62,6 +62,10 @@ public static class StateHash
         Line(sb, "outcome", state.Outcome is { } o ? $"{(o.Winner?.ToString() ?? "-")}:{o.Reason}" : null);
         Line(sb, "rollOff", state.RollOff is { } ro ? $"{ro.Purpose}:{ro.Winner}" : null);
         Line(sb, "mustEndActivation", state.MustEndActivation);
+        if (state.ReloadEnds)
+        {
+            Line(sb, "reloadEnds", true);
+        }
         // Trench Warfare only (trench-maps stage S6), so every other match hashes exactly as before.
         if (state.Attacker is { } attacker)
         {

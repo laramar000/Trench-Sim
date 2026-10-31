@@ -37,6 +37,10 @@ public class ProfileDiceClientTests
         Assert.Contains(lines, l => l.Contains("-1 DICE (SHOTGUN at Long Range)", StringComparison.Ordinal) && l.EndsWith("+2 DICE on a critical hit", StringComparison.Ordinal));
         Assert.Equal(-1, dice.InjuryNetDice);
         Assert.DoesNotContain(DicePreview.Notes(WeaponKeywords.Shotgun | WeaponKeywords.IgnoreCover, AttackKind.Melee), n => n.Length > 0);
+        // Roster stage R2b: ASSAULT and HEAVY are about the ranged weapon; RELOAD for either.
+        Assert.Equal(["RELOAD: the activation ends after this attack", "ASSAULT: may still Charge or Fight this activation", "HEAVY: no Move, Charge, Retreat or Dash this activation"],
+            DicePreview.Notes(WeaponKeywords.Assault | WeaponKeywords.Heavy | WeaponKeywords.Reload, AttackKind.Ranged));
+        Assert.Equal(["RELOAD: the activation ends after this attack"], DicePreview.Notes(WeaponKeywords.Assault | WeaponKeywords.Heavy | WeaponKeywords.Reload, AttackKind.Melee));
         var pistol = new ModelProfile(Length.FromInches(6), Length.Parse("0.5"), Length.FromInches(12))
         {
             RangedAlsoMelee = true, RangedWeaponKeywords = WeaponKeywords.Pistol, RangedDice = 2, MeleeDice = 1,

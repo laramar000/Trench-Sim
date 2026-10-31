@@ -102,12 +102,15 @@ public sealed record DicePreview(
         Add(WeaponKeywords.IgnoreArmour, "IGNORE ARMOUR: the target's Armour does not count");
         Add(WeaponKeywords.ArmourPiercing, "ARMOUR PIERCING: the target's Armour counts 1 less");
         Add(WeaponKeywords.Risky, "RISKY: a failed hit roll ends the activation");
+        Add(WeaponKeywords.Reload, "RELOAD: the activation ends after this attack");
         if (kind == AttackKind.Ranged)
         {
             Add(WeaponKeywords.Shotgun, "SHOTGUN: at Long Range -1 INJURY DICE instead of -1 DICE");
             Add(WeaponKeywords.IgnoreCover, "IGNORE COVER");
             Add(WeaponKeywords.IgnoreLongRange, "IGNORE LONG RANGE");
             Add(WeaponKeywords.IgnoreElevatedPosition, "IGNORE ELEVATED POSITION");
+            Add(WeaponKeywords.Assault, "ASSAULT: may still Charge or Fight this activation");
+            Add(WeaponKeywords.Heavy, "HEAVY: no Move, Charge, Retreat or Dash this activation");
         }
         return notes;
     }

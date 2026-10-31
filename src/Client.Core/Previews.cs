@@ -128,7 +128,9 @@ public static class Previews
     private const string RefMelee = "1.0.2 pp. 45-46, 49";
     private const string RefExcluded = "1.0.2 pp. 34, 42";
     private const string OneOfThree = "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.";
-    private const string ShootAndMelee = "A model cannot take a Shoot ACTION and a Charge or Fight ACTION in the same activation (no ASSAULT weapons yet).";
+    // Roster stage R2b: a HEAVY ranged weapon that has shot rules out a Move, Dash or Retreat (ActionLimits, p. 55).
+    private static Rejection? Heavy(MatchState state, ModelId id) =>
+        ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(id)) is { } text ? new(ReasonCode.ActionExcluded, text, ActionLimits.Ref) : null;
     private static readonly Length Engagement = Length.Inch;
     private static readonly Length ChargeRange = Length.FromInches(12);
     private const int ChargeDieFaces = 6;
@@ -250,6 +252,10 @@ public static class Previews
         {
             return new(ReasonCode.ActionAlreadyTaken, OneOfThree, RefActions);
         }
+        if (Heavy(state, id) is { } heavy)
+        {
+            return heavy;
+        }
         if (path.Length > Rules.Core.Events.ModelMoved.MaxWaypoints)
         {
             return new(ReasonCode.TooManyWaypoints, $"A move has at most {Rules.Core.Events.ModelMoved.MaxWaypoints} waypoints.", RefMove);
@@ -287,6 +293,10 @@ public static class Previews
         if ((state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) != 0)
         {
             return new(ReasonCode.ActionAlreadyTaken, OneOfThree, RefActions);
+        }
+        if (Heavy(state, id) is { } heavy)
+        {
+            return heavy;
         }
         if (path.IsEmpty)
         {
@@ -368,9 +378,9 @@ public static class Previews
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Shoot ACTION can be taken only once per activation.", RefActions);
         }
-        if ((state.Actions & (ActionsTaken.Charge | ActionsTaken.Fight)) != 0)
+        if (ActionLimits.ShootExcluded(state.Actions, state.Setup?.ProfileOf(id)) is { } excluded)
         {
-            return new(ReasonCode.ActionExcluded, ShootAndMelee, RefExcluded);
+            return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
         if (state.FindModel(targetId) is not { } target)
         {
@@ -436,9 +446,9 @@ public static class Previews
         {
             return new(ReasonCode.ActionAlreadyTaken, OneOfThree, RefActions);
         }
-        if (state.Actions.HasFlag(ActionsTaken.Shoot))
+        if (ActionLimits.MeleeExcluded(state.Actions, state.Setup?.ProfileOf(id), ActionsTaken.Charge) is { } excluded)
         {
-            return new(ReasonCode.ActionExcluded, ShootAndMelee, RefExcluded);
+            return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
         if (state.FindModel(targetId) is not { } target)
         {
@@ -485,7 +495,18 @@ public static class Previews
         // Charge reach: Movement plus the Charge Bonus die, at most 12", halved after standing up (pp. 36, 49). The die
         // is the server's to roll; the preview only says which results would reach.
         ChargePlan? plan = null;
-        for (var die = 1; die <= ChargeDieFaces; die++)
+        var movement = state.Setup.ProfileOf(charger.Id)!.Movement;
+        var halved = state.MovementHalved ? ", halved after standing up" : "";
+        var heavy = state.Setup.ProfileOf(charger.Id)!.NoChargeBonus;
+        if (heavy)
+        {
+            // HEAVY (p. 55, U99): no Charge Bonus die, the reach is the Movement alone.
+            plan = planner.Plan(ChargeReach(state, charger, 0));
+            facts.Add($"Charge reach: Movement {Inch(movement)}, no Charge Bonus (HEAVY, {ActionLimits.Ref}){halved}.");
+            facts.Add(plan.Reached ? "Reaches base contact." : "Would not reach base contact; the model would stop short.");
+            needed = plan.Reached ? 1 : null; // reaches whatever happens, like "any Charge roll"
+        }
+        for (var die = 1; !heavy && die <= ChargeDieFaces; die++)
         {
             plan = planner.Plan(ChargeReach(state, charger, die));
             if (plan.Reached)
@@ -494,11 +515,13 @@ public static class Previews
                 break;
             }
         }
-        var movement = state.Setup.ProfileOf(charger.Id)!.Movement;
-        facts.Add($"Charge reach: Movement {Inch(movement)} plus a D6, at most 12\"{(state.MovementHalved ? ", halved after standing up" : "")}.");
-        facts.Add(needed is { } n
-            ? n == 1 ? "Reaches base contact on any Charge roll." : $"Reaches base contact on a Charge roll of {n} or more; less stops short."
-            : "Would not reach base contact even on a 6; the model would stop short.");
+        if (!heavy)
+        {
+            facts.Add($"Charge reach: Movement {Inch(movement)} plus a D6, at most 12\"{halved}.");
+            facts.Add(needed is { } n
+                ? n == 1 ? "Reaches base contact on any Charge roll." : $"Reaches base contact on a Charge roll of {n} or more; less stops short."
+                : "Would not reach base contact even on a 6; the model would stop short.");
+        }
         if (plan is not null)
         {
             charge.AddRange(Marks(state, charger.Id, plan.Path));
@@ -520,9 +543,9 @@ public static class Previews
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Fight ACTION can be taken only once per activation.", RefActions);
         }
-        if (state.Actions.HasFlag(ActionsTaken.Shoot))
+        if (ActionLimits.MeleeExcluded(state.Actions, state.Setup?.ProfileOf(id), ActionsTaken.Fight) is { } excluded)
         {
-            return new(ReasonCode.ActionExcluded, ShootAndMelee, RefExcluded);
+            return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
         if (state.FindModel(targetId) is not { } target)
         {
@@ -581,13 +604,17 @@ public static class Previews
                 {
                     return new(ReasonCode.ActionAlreadyTaken, "A Move ACTION can be taken only once per activation.", RefActions);
                 }
-                return (state.Actions & (ActionsTaken.Charge | ActionsTaken.Retreat)) != 0 ? new(ReasonCode.ActionAlreadyTaken, OneOfThree, RefActions) : null;
+                return (state.Actions & (ActionsTaken.Charge | ActionsTaken.Retreat)) != 0 ? new(ReasonCode.ActionAlreadyTaken, OneOfThree, RefActions) : Heavy(state, model);
             case PreviewKind.Dash:
-                return state.Actions.HasFlag(ActionsTaken.Dash) ? new(ReasonCode.ActionAlreadyTaken, "A Dash ACTION can be taken only once per activation.", RefActions) : null;
+                return state.Actions.HasFlag(ActionsTaken.Dash) ? new(ReasonCode.ActionAlreadyTaken, "A Dash ACTION can be taken only once per activation.", RefActions) : Heavy(state, model);
             case PreviewKind.Retreat:
                 if ((state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) != 0)
                 {
                     return new(ReasonCode.ActionAlreadyTaken, OneOfThree, RefActions);
+                }
+                if (Heavy(state, model) is { } heavy)
+                {
+                    return heavy;
                 }
                 return IsEngaged(state, acting!) ? null : new(ReasonCode.NotEngaged, "Only a model within 1\" of an enemy can Retreat.", RefRetreat);
             case PreviewKind.Shoot or PreviewKind.Charge or PreviewKind.Fight:

@@ -178,6 +178,10 @@ public sealed record MatchState
     // A Risky roll of the active model failed (a Dash, or a Shaken warband's attack): its activation ends next.
     public bool MustEndActivation { get; init; }
 
+    // Roster stage R2b: the active model attacked with a RELOAD weapon and that ACTION is done, so its activation ends
+    // next (p. 56). Hashed only when set.
+    public bool ReloadEnds { get; init; }
+
     public SeatState SeatFor(Seat seat) => seat == Seat.One ? One : Two;
 
     public ModelState? FindModel(ModelId id)

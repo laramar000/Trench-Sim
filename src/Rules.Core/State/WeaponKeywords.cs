@@ -29,4 +29,15 @@ public enum WeaponKeywords
     IgnoreCover = 64,
     IgnoreLongRange = 128,
     IgnoreElevatedPosition = 256,
+
+    // Roster stage R2b, keywords that change what else the model may do (ActionLimits):
+    // ASSAULT: a Ranged Attack with it does not prevent a Charge or Fight ACTION in the same activation (pp. 34, 52).
+    Assault = 512,
+
+    // HEAVY: no Charge Bonus; a HEAVY ranged weapon cannot shoot in an activation with a Move, Charge, Retreat or Dash
+    // ACTION (p. 55).
+    Heavy = 1024,
+
+    // RELOAD: after an attack with it, the model's activation ends once that ACTION is done (p. 56).
+    Reload = 2048,
 }

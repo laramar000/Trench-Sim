@@ -34,6 +34,9 @@ public enum ActivationEndReason
     Voluntary,
     RiskyFailure,
     TakenDown,
+
+    // Roster stage R2b: after an attack with a RELOAD weapon (p. 56).
+    Reload,
 }
 
 public sealed record ActivationEnded(ModelId Model, ActivationEndReason Reason) : GameEvent;

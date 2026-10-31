@@ -58,7 +58,7 @@ public class MatchReadinessTests
     {
         var ready = Principality(("lieutenant", ["automatic-rifle"])).MatchCheck();
         Assert.True(ready.Ok);
-        Assert.Contains(ready.PlayedWithout, w => w.Contains("Automatic Rifle's ASSAULT, AUTOMATIC", StringComparison.Ordinal));
+        Assert.Contains(ready.PlayedWithout, w => w.EndsWith("Automatic Rifle's AUTOMATIC", StringComparison.Ordinal));
         Assert.Contains(ready.PlayedWithout, w => w.Contains("its keywords", StringComparison.Ordinal));
     }
 
@@ -87,16 +87,20 @@ public class MatchReadinessTests
     public void TheWeaponKeywordsTheEngineKnowsArePlayed()
     {
         // Roster stage R2: the Sniper Rifle's CRITICAL and RISKY, the Great Sword's CRITICAL and the Pistol's PISTOL travel
-        // in the content; HEAVY is not played yet and stays named.
+        // in the content, and since stage R2b the Great Sword's HEAVY too.
         var ready = Principality(("lieutenant", ["sniper-rifle", "great-sword-axe"]), ("lieutenant", ["pistol"])).MatchCheck();
         Assert.Empty(ready.Refused);
         var json = ready.ToContentJson("k", "K");
         var models = Sim.Content.Parse(json).Single().Models;
-        Assert.Equal((WeaponKeywords.Critical | WeaponKeywords.Risky, WeaponKeywords.Critical), (models[0].Profile.RangedWeaponKeywords, models[0].Profile.MeleeWeaponKeywords));
+        Assert.Equal((WeaponKeywords.Critical | WeaponKeywords.Risky, WeaponKeywords.Critical | WeaponKeywords.Heavy), (models[0].Profile.RangedWeaponKeywords, models[0].Profile.MeleeWeaponKeywords));
         Assert.Equal(WeaponKeywords.Pistol, models[1].Profile.RangedWeaponKeywords);
         Assert.Equal(models[0].Profile, ContentNames.Parse(json).Single().Models[0].Profile);
-        Assert.Contains(ready.PlayedWithout, w => w.EndsWith("Great Sword's HEAVY", StringComparison.Ordinal) || w.Contains("'s HEAVY", StringComparison.Ordinal));
-        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("CRITICAL", StringComparison.Ordinal) || w.Contains("RISKY", StringComparison.Ordinal) || w.Contains("PISTOL", StringComparison.Ordinal));
+        Assert.DoesNotContain(ready.PlayedWithout, w => new[] { "CRITICAL", "RISKY", "PISTOL", "HEAVY" }.Any(k => w.Contains(k, StringComparison.Ordinal)));
+        // Roster stage R2b: the Machine Gun's HEAVY and RELOAD and the Automatic Rifle's ASSAULT are played.
+        var guns = Principality(("lieutenant", ["machine-gun"]), ("lieutenant", ["automatic-rifle"])).MatchCheck();
+        var gunModels = Sim.Content.Parse(guns.ToContentJson("g", "G")).Single().Models;
+        Assert.Equal((WeaponKeywords.Heavy | WeaponKeywords.Reload, WeaponKeywords.Assault),
+            (gunModels[0].Profile.RangedWeaponKeywords, gunModels[1].Profile.RangedWeaponKeywords));
     }
 
     [Fact]

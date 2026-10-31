@@ -355,6 +355,51 @@ public class PreviewAgreementTests
         Console.WriteLine(summary);
     }
 
+    // Roster stage R2b: with ASSAULT, HEAVY and RELOAD weapons, the action previews still agree with the server,
+    // including which ACTIONs exclude each other (ActionLimits) and a HEAVY charge's reach without the Charge Bonus.
+    [Fact]
+    public void ActionPreviewsAgreeWithActionKeywords()
+    {
+        var tally = new Tally();
+        WeaponKeywords[] sets = [WeaponKeywords.Assault, WeaponKeywords.Heavy | WeaponKeywords.Reload, WeaponKeywords.Assault | WeaponKeywords.Heavy];
+        var index = 0;
+        var heavyCharges = 0;
+        foreach (var original in ActivationStates().Where((_, i) => i % 3 == 0))
+        {
+            var setup = original.Setup!;
+            var k = sets[index++ % 3];
+            var models = setup.Models.Select(m => m with { Profile = WithKeywords(m.Profile!, k) });
+            var state = original with { Setup = new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds, models, setup.Scenario) };
+            var active = state.FindModel(state.ActiveModel!.Value)!;
+            var at = TablePoint.Of(active.Position!.Value);
+            foreach (var kind in new[] { PreviewKind.Move, PreviewKind.Dash, PreviewKind.Retreat })
+            {
+                tally.Check(state, Previews.Path(state, active.Seat, kind, active.Id, [Previews.PointAt(Math.Clamp(at.X + 1, 0, 36), at.Y)]));
+            }
+            foreach (var kind in new[] { PreviewKind.Shoot, PreviewKind.Charge, PreviewKind.Fight })
+            {
+                foreach (var target in state.Models.Where(m => m.Seat != active.Seat))
+                {
+                    var preview = Previews.Target(state, active.Seat, kind, active.Id, target.Id);
+                    tally.Check(state, preview);
+                    if (kind == PreviewKind.Charge && preview.Legal && state.Setup.ProfileOf(active.Id)!.NoChargeBonus)
+                    {
+                        heavyCharges++;
+                        Assert.Contains(preview.Facts, f => f.Contains("no Charge Bonus (HEAVY", StringComparison.Ordinal));
+                        var decided = TurnSequence.Decide(state, preview.Command, new SeededDice(1));
+                        var moved = decided.Events.OfType<ChargeMoved>().Single();
+                        Assert.Empty(decided.Events.OfType<ChargeRolled>());
+                        Assert.Equal(moved.Reached, preview.ChargeRollNeeded is not null);
+                    }
+                }
+            }
+        }
+        Assert.True(heavyCharges > 0, "no legal HEAVY charge in the sample");
+        tally.ExpectAny(ReasonCode.ActionExcluded);
+        tally.Expect(PreviewKind.Shoot, ReasonCode.ActionExcluded);
+        tally.Expect(PreviewKind.Charge, ReasonCode.ActionExcluded);
+    }
+
     // Every model gets Armour -1 (or keeps its own) so the armour keywords show, and its weapons get these keywords.
     internal static ModelProfile WithKeywords(ModelProfile p, WeaponKeywords k) =>
         new(p.Movement, p.BaseRadius, p.RangedRange, p.RangedInjuryModifier, p.Armour == 0 ? -1 : p.Armour, p.HasMeleeWeapon, p.MeleeInjuryModifier)

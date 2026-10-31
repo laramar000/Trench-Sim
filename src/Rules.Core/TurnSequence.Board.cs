@@ -103,6 +103,10 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.", RefActions);
         }
+        if (ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(id)) is { } heavy)
+        {
+            return new(ReasonCode.ActionExcluded, heavy, ActionLimits.Ref);
+        }
         if (!path.IsDefault && path.Length > ModelMoved.MaxWaypoints)
         {
             return new(ReasonCode.TooManyWaypoints, $"A move has at most {ModelMoved.MaxWaypoints} waypoints.", Board.RefMove);
@@ -121,9 +125,9 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Shoot ACTION can be taken only once per activation.", RefActions);
         }
-        if ((state.Actions & (ActionsTaken.Charge | ActionsTaken.Fight)) != 0)
+        if (ActionLimits.ShootExcluded(state.Actions, state.Setup?.ProfileOf(c.Attacker)) is { } excluded)
         {
-            return new(ReasonCode.ActionExcluded, "A model cannot take a Shoot ACTION and a Charge or Fight ACTION in the same activation (no ASSAULT weapons yet).", "1.0.2 pp. 34, 42");
+            return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
         var target = state.FindModel(c.Target);
         if (target is null)
@@ -144,9 +148,9 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.", RefActions);
         }
-        if (state.Actions.HasFlag(ActionsTaken.Shoot))
+        if (ActionLimits.MeleeExcluded(state.Actions, state.Setup?.ProfileOf(c.Model), ActionsTaken.Charge) is { } excluded)
         {
-            return new(ReasonCode.ActionExcluded, "A model cannot take a Shoot ACTION and a Charge or Fight ACTION in the same activation (no ASSAULT weapons yet).", "1.0.2 pp. 34, 42");
+            return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
         var target = state.FindModel(c.Target);
         return target is null ? new(ReasonCode.UnknownModel, "There is no such target.", Board.RefCharge) : Board.AssessCharge(state, charger!, target);
@@ -161,6 +165,10 @@ public static partial class TurnSequence
         if ((state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) != 0)
         {
             return new(ReasonCode.ActionAlreadyTaken, "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.", RefActions);
+        }
+        if (ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(c.Model)) is { } heavy)
+        {
+            return new(ReasonCode.ActionExcluded, heavy, ActionLimits.Ref);
         }
         if (c.Path.IsDefaultOrEmpty)
         {
@@ -183,9 +191,9 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Fight ACTION can be taken only once per activation.", RefActions);
         }
-        if (state.Actions.HasFlag(ActionsTaken.Shoot))
+        if (ActionLimits.MeleeExcluded(state.Actions, state.Setup?.ProfileOf(c.Model), ActionsTaken.Fight) is { } excluded)
         {
-            return new(ReasonCode.ActionExcluded, "A model cannot take a Shoot ACTION and a Charge or Fight ACTION in the same activation (no ASSAULT weapons yet).", "1.0.2 pp. 34, 42");
+            return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
         var target = state.FindModel(c.Target);
         return target is null ? new(ReasonCode.UnknownModel, "There is no such target.", Board.RefMelee) : Board.AssessMelee(state, attacker!, target).Refusal;

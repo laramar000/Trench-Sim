@@ -163,6 +163,13 @@ public static class Reducer
             return;
         }
 
+        if (state.ReloadEnds)
+        {
+            Require(e is ActivationEnded { Reason: ActivationEndReason.Reload } reloaded && reloaded.Model == state.ActiveModel,
+                "An attack with a RELOAD weapon ends the activation once its ACTION is done.");
+            return;
+        }
+
         foreach (var seat in new[] { Seat.One, Seat.Two })
         {
             var s = state.SeatFor(seat);
@@ -503,7 +510,11 @@ public static class Reducer
         {
             Require(state.MustEndActivation, "An activation ends for a failed Risky roll only after one.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false };
+        if (e.Reason == ActivationEndReason.Reload)
+        {
+            Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
+        }
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -643,6 +654,7 @@ public static class Reducer
     {
         var model = Active(state, e.Model, "A Dash");
         Require(state.InProgress is null && !state.Actions.HasFlag(ActionsTaken.Dash), "A Dash can be taken once per activation.");
+        Require(ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(e.Model)) is null, ActionLimits.HeavyText);
         Require(Board.CheckMove(state, model, e.Path).IsLegal, "A Dash must follow a legal path.");
         return state with
         {
@@ -673,6 +685,7 @@ public static class Reducer
         {
             Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
                 "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.");
+            Require(ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(e.Model)) is null, ActionLimits.HeavyText);
         }
         else
         {
@@ -735,6 +748,7 @@ public static class Reducer
         {
             Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
                 "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.");
+            Require(ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(e.Model)) is null, ActionLimits.HeavyText);
         }
         else
         {
@@ -778,8 +792,9 @@ public static class Reducer
     private static MatchState OnRangedAttackDeclared(MatchState state, RangedAttackDeclared e)
     {
         var attacker = Active(state, e.Attacker, "A Ranged Attack");
-        Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Shoot | ActionsTaken.Charge | ActionsTaken.Fight)) == 0,
-            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION.");
+        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Shoot)
+            && ActionLimits.ShootExcluded(state.Actions, state.Setup?.ProfileOf(e.Attacker)) is null,
+            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION (unless ASSAULT) or, with a HEAVY weapon, a move.");
         var target = state.FindModel(e.Target);
         Require(target is not null, "Unknown target.");
         var facts = Board.Assess(state, attacker, target!);
@@ -806,7 +821,7 @@ public static class Reducer
             "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
         if (e.Check.Outcome == SuccessOutcome.Failure)
         {
-            return state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure };
+            return state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure, ReloadEnds = !e.Check.RiskyFailure && ActionLimits.Reloads(profile, AttackKind.Ranged) };
         }
         // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE"),
         // +2 with CRITICAL; the weapon's own INJURY DICE and SHOTGUN's -1 at Long Range (roster stages R1, R2).
@@ -838,7 +853,8 @@ public static class Reducer
             InjuryOutcome.Down => target with { Status = ModelStatus.Down, BloodMarkers = markers },
             _ => target with { BloodMarkers = markers },
         };
-        return TurnRules.WithModel(state, hurt) with { InProgress = null };
+        // RELOAD: the attacker's activation ends now its ACTION is done (not after a free attack, which is not its own).
+        return TurnRules.WithModel(state, hurt) with { InProgress = null, ReloadEnds = !progress.FreeFight && ActionLimits.Reloads(profile, progress.Kind) };
     }
 
     // ---- M4 Slice B: Charge, Retreat, Fight, shooting into melee ----
@@ -846,11 +862,15 @@ public static class Reducer
     private static MatchState OnChargeDeclared(MatchState state, ChargeDeclared e)
     {
         var charger = Active(state, e.Model, "A Charge");
-        Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat | ActionsTaken.Shoot)) == 0,
-            "A Charge is one of Move, Charge or Retreat, and cannot follow a Shoot ACTION.");
+        var profile = state.Setup!.ProfileOf(e.Model)!;
+        Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0
+            && ActionLimits.MeleeExcluded(state.Actions, profile, ActionsTaken.Charge) is null,
+            "A Charge is one of Move, Charge or Retreat, and cannot follow a Shoot ACTION (unless ASSAULT, and never with a HEAVY ranged weapon).");
         var target = state.FindModel(e.Target);
         Require(target is not null && Board.AssessCharge(state, charger, target) is null, "The charge is not legal here.");
-        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(RollStage.ChargeRoll, e.Model, e.Target) };
+        // HEAVY battlekit: no Charge Bonus, so the charge moves at once (roster stage R2b, p. 55).
+        var stage = profile.NoChargeBonus ? RollStage.ChargeMove : RollStage.ChargeRoll;
+        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(stage, e.Model, e.Target) };
     }
 
     private static MatchState OnChargeRolled(MatchState state, ChargeRolled e)
@@ -875,6 +895,7 @@ public static class Reducer
         var retreater = Active(state, e.Model, "A Retreat");
         Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
             "A Retreat is one of Move, Charge or Retreat.");
+        Require(ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(e.Model)) is null, ActionLimits.HeavyText);
         Require(Board.CheckRetreat(state, retreater, e.Path) is null, "A retreat must follow a legal path and end more than 1\" from every enemy.");
         return state with { Actions = state.Actions | ActionsTaken.Retreat, Retreat = new RetreatInProgress(e.Model, e.Path, []) };
     }
@@ -912,8 +933,9 @@ public static class Reducer
         if (!e.FreeFight)
         {
             var fighter = Active(state, e.Attacker, "A Fight");
-            Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Fight | ActionsTaken.Shoot)) == 0,
-                "A Fight ACTION is taken once per activation and not after a Shoot ACTION.");
+            Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Fight)
+                && ActionLimits.MeleeExcluded(state.Actions, state.Setup?.ProfileOf(e.Attacker), ActionsTaken.Fight) is null,
+                "A Fight ACTION is taken once per activation and not after a Shoot ACTION (unless ASSAULT).");
             var facts = Board.AssessMelee(state, fighter, target!);
             Require(facts.Refusal is null && facts.CoverTerrainId == e.DefendedObstacleId, "The Melee Attack is not legal here, or its modifiers do not match the positions.");
             var (bonus, penalty) = MeleeDice(state, e);
@@ -954,7 +976,12 @@ public static class Reducer
         if (e.Check.Outcome == SuccessOutcome.Failure)
         {
             // Only the active model has an activation to lose; a free attack that fails simply misses (U49).
-            return state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure && !progress.FreeFight };
+            return state with
+            {
+                InProgress = null,
+                MustEndActivation = e.Check.RiskyFailure && !progress.FreeFight,
+                ReloadEnds = !progress.FreeFight && !e.Check.RiskyFailure && ActionLimits.Reloads(fighter, AttackKind.Melee),
+            };
         }
         // +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;

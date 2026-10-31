@@ -149,7 +149,7 @@ public class WeaponKeywordTests
     {
         Assert.Throws<ArgumentException>(() => new ModelProfile(L("6"), L("0.5"), Length.Zero) { RangedWeaponKeywords = WeaponKeywords.Critical });
         Assert.Throws<ArgumentException>(() => new ModelProfile(L("6"), L("0.5"), L("18")) { MeleeWeaponKeywords = WeaponKeywords.Critical });
-        Assert.Throws<ArgumentOutOfRangeException>(() => new ModelProfile(L("6"), L("0.5"), L("18")) { RangedWeaponKeywords = (WeaponKeywords)1024 });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new ModelProfile(L("6"), L("0.5"), L("18")) { RangedWeaponKeywords = (WeaponKeywords)(1 << 20) });
         var pistol = new ModelProfile(L("6"), L("0.5"), L("12")) { RangedAlsoMelee = true, RangedWeaponKeywords = WeaponKeywords.Critical };
         Assert.Equal(WeaponKeywords.Critical, pistol.AttackKeywords(AttackKind.Melee));
         Assert.Equal(WeaponKeywords.None, Rifleman.AttackKeywords(AttackKind.Melee));

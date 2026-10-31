@@ -131,7 +131,11 @@ public sealed record ModelProfile
 
     private const WeaponKeywords AllKeywords = WeaponKeywords.Critical | WeaponKeywords.IgnoreArmour | WeaponKeywords.ArmourPiercing
         | WeaponKeywords.Shotgun | WeaponKeywords.Risky | WeaponKeywords.Pistol | WeaponKeywords.IgnoreCover
-        | WeaponKeywords.IgnoreLongRange | WeaponKeywords.IgnoreElevatedPosition;
+        | WeaponKeywords.IgnoreLongRange | WeaponKeywords.IgnoreElevatedPosition | WeaponKeywords.Assault | WeaponKeywords.Heavy
+        | WeaponKeywords.Reload;
+
+    // HEAVY battlekit (a HEAVY weapon here; other HEAVY pieces are equipment, not played): no Charge Bonus (p. 55).
+    public bool NoChargeBonus => ((RangedWeaponKeywords | MeleeWeaponKeywords) & WeaponKeywords.Heavy) != 0;
 
     private static WeaponKeywords Known(WeaponKeywords value, string name) => (value & ~AllKeywords) != 0
         ? throw new ArgumentOutOfRangeException(name, "Unknown weapon keywords.")

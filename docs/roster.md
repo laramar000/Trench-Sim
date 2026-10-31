@@ -205,3 +205,7 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   empty); CUMBERSOME needs nothing in a match. Other keywords stay named under "played without". Tests:
   `WeaponKeywordTests`, `MatchReadinessTests.TheWeaponKeywordsTheEngineKnowsArePlayed`,
   `PreviewAgreementTests.AttackPreviewDiceIncludeWeaponKeywords`.
+- Roster rules stage R2b, action keywords (done 2026-10-31): ASSAULT, HEAVY and RELOAD are played (U99) and travel the
+  same way (`Assault`, `Heavy`, `Reload`). Not checked yet: at most one HEAVY piece per model (p. 55). Tests:
+  `ActionKeywordTests`, `MatchReadinessTests.TheWeaponKeywordsTheEngineKnowsArePlayed`,
+  `PreviewAgreementTests.ActionPreviewsAgreeWithActionKeywords`.

@@ -429,6 +429,13 @@ public static partial class TurnSequence
             return AdvanceRetreat(run, s, retreat);
         }
 
+        // RELOAD (roster stage R2b, p. 56): the attack's ACTION is done, so the activation ends.
+        if (s.ReloadEnds && s.Phase == Phase.Activation && s.ActiveModel is { } reloading)
+        {
+            run.Emit(new ActivationEnded(reloading, ActivationEndReason.Reload));
+            return true;
+        }
+
         switch (s.Phase)
         {
             case Phase.Deployment:
