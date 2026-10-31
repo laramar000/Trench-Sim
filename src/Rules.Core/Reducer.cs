@@ -85,6 +85,9 @@ public static class Reducer
             MeleeAttackDeclared x => OnMeleeAttackDeclared(state, x),
             MeleeSuccessRolled x => OnMeleeSuccessRolled(state, x),
             ShootingTargetRolled x => OnShootingTargetRolled(state, x),
+            BlastHit x => OnBlastHit(state, x),
+            AttackScattered x => OnAttackScattered(state, x),
+            ScatterMissed x => OnScatterMissed(state, x),
             FriendlyTargetChosen x => OnFriendlyTargetChosen(state, x),
             AttackerChosen x => OnAttackerChosen(state, x),
             TrenchesScored x => OnTrenchesScored(state, x),
@@ -255,6 +258,13 @@ public static class Reducer
             return;
         }
 
+        if (state.InProgress is { Stage: RollStage.Scatter } && state.Pending is null)
+        {
+            // Roster stage R4c (U103): a missed SCATTER attack scatters at once, or misses when it has nowhere to land.
+            Require(e is DecisionRequested { Kind: DecisionKind.ChooseScatterPoint } or ScatterMissed, "A missed SCATTER attack scatters at once.");
+            return;
+        }
+
         if (MarkerOfferOwed(state) is { } owed)
         {
             Require(e is DecisionRequested offer && offer.Kind == owed.Kind && offer.Seat == owed.Seat,
@@ -385,6 +395,12 @@ public static class Reducer
                     && state.FindModel(injuring.Actor) is { } shooter && shooter.Seat == e.Seat
                     && state.FindModel(victim) is { BloodMarkers: > 0 }, "Only the attacker may spend the target's markers, once, before an Injury Roll.");
                 state = state with { InProgress = injuring! with { MarkersAsked = true } };
+                break;
+            case DecisionKind.ChooseScatterPoint:
+                // Roster stage R4c (U103): the attacker's opponent picks where a missed SCATTER attack lands, when it can land.
+                var scattering = state.InProgress;
+                Require(scattering is { Stage: RollStage.Scatter } && state.FindModel(scattering.Actor) is { } thrower && thrower.Seat.Opponent() == e.Seat
+                    && Board.ScatterPoints(state, scattering).Count > 0, "The attacker's opponent picks where a missed SCATTER attack lands, when it can land somewhere.");
                 break;
             case DecisionKind.LayMines:
                 Require(TrenchWarfare.Is(state.Setup) && state.Phase == Phase.Deployment && state.Attacker is { } attacking && attacking.Opponent() == e.Seat
@@ -867,6 +883,23 @@ public static class Reducer
         var profile = AttackProfile(state, progress);
         Require(e.Check.Risky == AttackDice.Risky(profile, AttackKind.Ranged, state.IsShaken(attacker.Seat)) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
             "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
+        if (e.Check.Outcome == SuccessOutcome.Failure && profile.RangedWeaponBlast > 0 && (profile.RangedWeaponKeywords & WeaponKeywords.Scatter) != 0)
+        {
+            // Roster stage R4c (U103): SCATTER: the attack scatters (7 - the roll)" instead of missing (p. 57); a failed
+            // Risky roll still ends the activation, once the attack is over.
+            return state with
+            {
+                InProgress = progress with
+                {
+                    Stage = RollStage.Scatter,
+                    ScatterInches = SuccessRoll.SuccessFrom - e.Check.Dice.Total,
+                    RiskyEnds = e.Check.RiskyFailure,
+                    BonusDice = 0,
+                    PenaltyDice = 0,
+                    MarkersAsked = false,
+                },
+            };
+        }
         if (e.Check.Outcome == SuccessOutcome.Failure)
         {
             return state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure, ReloadEnds = !e.Check.RiskyFailure && ActionLimits.Reloads(profile, AttackKind.Ranged) };
@@ -874,10 +907,82 @@ public static class Reducer
         // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE"),
         // +2 with CRITICAL; the weapon's own INJURY DICE and SHOTGUN's -1 at Long Range (roster stages R1, R2).
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
+        if (profile.RangedWeaponBlast > 0)
+        {
+            // Roster stage R4b (U102): a BLAST attack: who it hits comes next (BlastHit), then their Injury Rolls.
+            return state with { InProgress = progress with { Stage = RollStage.Blast, BonusDice = 0, PenaltyDice = 0, Critical = critical, MarkersAsked = false } };
+        }
         var (bonus, penalty) = AttackDice.InjuryDice(profile, AttackKind.Ranged, critical, meleeOnDownTarget: false, progress.InjuryDiceLater);
         return state with
         {
             InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = bonus, PenaltyDice = penalty, Critical = critical, MarkersAsked = false },
+        };
+    }
+
+    // Roster stage R4b (U102): the models a BLAST attack hits, worked out again from the positions; then the first
+    // one's Injury Roll.
+    private static MatchState OnBlastHit(MatchState state, BlastHit e)
+    {
+        Require(state.InProgress is { Stage: RollStage.Blast } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No blast is waiting.");
+        var progress = state.InProgress!;
+        var expected = Board.BlastHits(state, state.FindModel(e.Attacker)!, state.FindModel(e.Target)!, progress.Weapon);
+        Require(expected.SequenceEqual(e.Hit), "The blast must hit exactly the models within its radius that see its target, and the friends of those beside them.");
+        return state with { InProgress = NextBlastRoll(state, progress with { Aimed = e.Target }, e.Hit) };
+    }
+
+    // Roster stage R4c (U103): the opponent put the scattered attack at a point it may land at; the blast there hits
+    // exactly the models listed, worked out again from the positions; then the first one's Injury Roll.
+    private static MatchState OnAttackScattered(MatchState state, AttackScattered e)
+    {
+        Require(state.InProgress is { Stage: RollStage.Scatter } p && p.Actor == e.Attacker && p.Target == e.Target
+            && state.Pending is { Kind: DecisionKind.ChooseScatterPoint }, "No scattered attack is waiting for its point.");
+        var progress = state.InProgress!;
+        var attacker = state.FindModel(e.Attacker)!;
+        Require(state.Pending!.Seat == attacker.Seat.Opponent(), "The attacker's opponent picks where the attack scatters to.");
+        Require(e.Inches == progress.ScatterInches, "The attack scatters 7 minus its Success Roll in inches.");
+        Require(Board.CanScatterTo(state, progress, e.At), "The attack must scatter exactly that far, to a point on the battlefield in Line of Sight of its target.");
+        Require(Board.BlastHitsAt(state, attacker, e.At, progress.Weapon).SequenceEqual(e.Hit),
+            "The blast must hit exactly the models within its radius of the point that see it, and the friends of those beside them.");
+        var landed = state with { Pending = null };
+        return e.Hit.IsEmpty
+            ? AttackOver(landed, progress)
+            : landed with { InProgress = NextBlastRoll(landed, progress with { Aimed = e.Target, BlastAt = e.At, Critical = false }, e.Hit) };
+    }
+
+    // Roster stage R4c (U103): the scattered attack has nowhere to land, so it misses (p. 57).
+    private static MatchState OnScatterMissed(MatchState state, ScatterMissed e)
+    {
+        Require(state.InProgress is { Stage: RollStage.Scatter } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null,
+            "No scattered attack is waiting.");
+        var progress = state.InProgress!;
+        Require(e.Inches == progress.ScatterInches, "The attack scatters 7 minus its Success Roll in inches.");
+        Require(Board.ScatterPoints(state, progress).Count == 0, "A scattered attack misses only when it has nowhere to land.");
+        return AttackOver(state, progress);
+    }
+
+    // A Ranged Attack is over: a failed Risky roll ends the activation now (a scattered attack's, U103), else RELOAD does.
+    private static MatchState AttackOver(MatchState state, RollInProgress progress) => state with
+    {
+        InProgress = null,
+        MustEndActivation = state.MustEndActivation || progress.RiskyEnds,
+        ReloadEnds = !progress.RiskyEnds && !progress.FreeFight && ActionLimits.Reloads(AttackProfile(state, progress), progress.Kind),
+    };
+
+    // The next model a blast hit: its Injury Roll, with a Critical Success's extra dice only for the model the attack
+    // was aimed at (p. 53), friendly fire for the attacker's own models (no markers spent on them, U52).
+    private static RollInProgress NextBlastRoll(MatchState state, RollInProgress progress, ImmutableArray<ModelId> queue)
+    {
+        var victim = queue[0];
+        var (bonus, penalty) = AttackDice.InjuryDice(AttackProfile(state, progress), AttackKind.Ranged, progress.Critical && victim == progress.Aimed, meleeOnDownTarget: false, progress.InjuryDiceLater);
+        return progress with
+        {
+            Stage = RollStage.InjuryRoll,
+            Target = victim,
+            BlastQueue = queue.RemoveAt(0),
+            FriendlyFire = state.FindModel(victim)!.Seat == state.FindModel(progress.Actor)!.Seat,
+            BonusDice = bonus,
+            PenaltyDice = penalty,
+            MarkersAsked = false,
         };
     }
 
@@ -887,8 +992,8 @@ public static class Reducer
         var progress = state.InProgress!;
         var attacker = state.FindModel(e.Attacker)!;
         var target = state.FindModel(e.Target)!;
-        Require(target.Id != attacker.Id && (target.Seat == attacker.Seat) == progress.FriendlyFire,
-            "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one.");
+        Require((target.Id != attacker.Id || progress.Aimed is not null) && (target.Seat == attacker.Seat) == progress.FriendlyFire,
+            "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one or a blast hits it.");
         var profile = AttackProfile(state, progress);
         Require(e.Injury.NetDice == progress.BonusDice - progress.PenaltyDice
             && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(e.Target)!, progress.Kind))
@@ -903,8 +1008,15 @@ public static class Reducer
             InjuryOutcome.Down => target with { Status = ModelStatus.Down, BloodMarkers = markers },
             _ => target with { BloodMarkers = markers },
         };
-        // RELOAD: the attacker's activation ends now its ACTION is done (not after a free attack, which is not its own).
-        return TurnRules.WithModel(state, hurt) with { InProgress = null, ReloadEnds = !progress.FreeFight && ActionLimits.Reloads(profile, progress.Kind) };
+        // A blast's next model (U102), once this one is rolled for.
+        if (!progress.BlastQueue.IsDefaultOrEmpty)
+        {
+            var after = TurnRules.WithModel(state, hurt);
+            return after with { InProgress = NextBlastRoll(after, progress, progress.BlastQueue) };
+        }
+        // RELOAD: the attacker's activation ends now its ACTION is done (not after a free attack, which is not its own); a
+        // scattered attack's failed Risky roll ends it instead (U103).
+        return AttackOver(TurnRules.WithModel(state, hurt), progress);
     }
 
     // ---- M4 Slice B: Charge, Retreat, Fight, shooting into melee ----

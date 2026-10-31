@@ -88,3 +88,7 @@ public sealed record DeclineFreeFights(Seat Seat) : Command;
 
 // A shot into melee rolled 1-3: the shooter picks which of its own models within 1" of the target is shot (p. 42).
 public sealed record ChooseFriendlyTarget(Seat Seat, ModelId Victim) : Command;
+
+// Roster stage R4c (U103): a SCATTER attack missed; the attacker's opponent picks the point it lands at, exactly the
+// scatter distance from the target and in Line of Sight of it (p. 57). Answers the ChooseScatterPoint decision.
+public sealed record ScatterAttack(Seat Seat, Point2 At) : Command;

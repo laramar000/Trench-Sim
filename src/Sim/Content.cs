@@ -45,6 +45,7 @@ public static class Content
                         MeleeWeaponKeywords = Keywords(m, "meleeWeaponKeywords"),
                         // Roster stage R3: after the fields they depend on (a second weapon needs a first one).
                         MeleeWeaponCleave = Dice(m, "meleeWeaponCleave"),
+                        RangedWeaponBlast = Dice(m, "rangedWeaponBlast"),
                         Block = m.TryGetProperty("block", out var block) && block.GetBoolean(),
                         ImperviousArmour = Dice(m, "imperviousArmour"),
                         SecondRangedWeapon = SecondWeapon(m, "secondRangedWeapon"),
@@ -70,6 +71,7 @@ public static class Content
                 Keywords(w, "keywords"),
                 w.TryGetProperty("alsoMelee", out var also) && also.GetBoolean(),
                 Dice(w, "cleave"))
+            { Blast = Dice(w, "blast") }
             : null;
 
     // Roster stage R1: a model's dice (profile Ranged and Melee, weapon DICE and INJURY DICE), zero when not given.

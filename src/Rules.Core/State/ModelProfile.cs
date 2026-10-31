@@ -132,7 +132,8 @@ public sealed record ModelProfile
     private const WeaponKeywords AllKeywords = WeaponKeywords.Critical | WeaponKeywords.IgnoreArmour | WeaponKeywords.ArmourPiercing
         | WeaponKeywords.Shotgun | WeaponKeywords.Risky | WeaponKeywords.Pistol | WeaponKeywords.IgnoreCover
         | WeaponKeywords.IgnoreLongRange | WeaponKeywords.IgnoreElevatedPosition | WeaponKeywords.Assault | WeaponKeywords.Heavy
-        | WeaponKeywords.Reload | WeaponKeywords.Block | WeaponKeywords.Shrapnel | WeaponKeywords.Gas | WeaponKeywords.Fire;
+        | WeaponKeywords.Reload | WeaponKeywords.Block | WeaponKeywords.Shrapnel | WeaponKeywords.Gas | WeaponKeywords.Fire
+        | WeaponKeywords.Scatter;
 
     // Roster stage R4a: the keywords that put an extra BLOOD MARKER on the target, which NEGATE can turn away.
     public const WeaponKeywords MarkerKeywords = WeaponKeywords.Shrapnel | WeaponKeywords.Gas | WeaponKeywords.Fire;
@@ -215,6 +216,21 @@ public sealed record ModelProfile
         init => _negates = (value & ~MarkerKeywords) != 0 ? throw new ArgumentOutOfRangeException(nameof(Negates), "Only SHRAPNEL, GAS and FIRE can be negated.") : value;
     }
 
+    // ---- Roster stage R4b (U102): BLAST ----
+
+    public const int MaxBlast = 6;
+
+    // BLAST (X") of the ranged weapon (p. 53), in inches; 0 means no BLAST. A second ranged weapon and grenades carry
+    // their own (Weapon.Blast).
+    public int RangedWeaponBlast
+    {
+        get => _rangedBlast;
+        init => _rangedBlast = value is < 0 or > MaxBlast ? throw new ArgumentOutOfRangeException(nameof(RangedWeaponBlast), $"BLAST is 0 (none) to {MaxBlast} inches.")
+            : value != 0 && !HasRangedWeapon ? throw new ArgumentException("Only a ranged weapon has BLAST.", nameof(RangedWeaponBlast))
+            : value;
+    }
+
+    private readonly int _rangedBlast;
     private readonly Weapon? _grenade;
     private readonly WeaponKeywords _negates;
     private readonly Weapon? _secondRanged;
@@ -269,6 +285,7 @@ public sealed record ModelProfile
                 MeleeWeaponDice = MeleeWeaponDice,
                 MeleeWeaponInjuryDice = MeleeWeaponInjuryDice,
                 RangedWeaponKeywords = w.Keywords,
+                RangedWeaponBlast = w.Blast,
                 MeleeWeaponKeywords = MeleeWeaponKeywords,
                 MeleeWeaponCleave = MeleeWeaponCleave,
                 Block = Block,
@@ -287,6 +304,7 @@ public sealed record ModelProfile
             MeleeWeaponDice = m.Dice,
             MeleeWeaponInjuryDice = m.InjuryDice,
             RangedWeaponKeywords = RangedWeaponKeywords,
+            RangedWeaponBlast = RangedWeaponBlast,
             MeleeWeaponKeywords = m.Keywords,
             MeleeWeaponCleave = m.Cleave,
             Block = Block,

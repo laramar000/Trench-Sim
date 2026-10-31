@@ -1,3 +1,4 @@
+using Rules.Core;
 using Rules.Core.Dice;
 using Rules.Core.State;
 
@@ -46,6 +47,9 @@ public sealed record DicePreview(
     // Roster stage R4a: the extra BLOOD MARKERS the weapon's SHRAPNEL, GAS and FIRE put on this target.
     public int ExtraMarkers { get; init; }
 
+    // Roster stage R4b (U102): the models a BLAST attack hits if it hits, the target first (empty without BLAST).
+    public IReadOnlyList<ModelId> BlastHits { get; init; } = [];
+
     // Roster stage R3: weapon 1 is the model's second weapon of that kind (ModelProfile.Using).
     internal static DicePreview Of(MatchState state, ModelState attacker, ModelState target, AttackKind kind, int hitPenalty, IReadOnlyList<string> reasons, int hitBonus = 0, int shotgunInjury = 0, int weapon = 0)
     {
@@ -58,7 +62,8 @@ public sealed record DicePreview(
             ShakenRisky = state.IsShaken(attacker.Seat),
             ShotgunInjuryDice = shotgunInjury,
             // SHRAPNEL, GAS and FIRE are named only when the target does not NEGATE them (roster stage R4a).
-            KeywordNotes = [.. Notes(profile.AttackKeywords(kind) & ~setup.ProfileOf(target.Id)!.Negates, kind), .. CleaveNote(profile, kind)],
+            KeywordNotes = [.. Notes(profile.AttackKeywords(kind) & ~setup.ProfileOf(target.Id)!.Negates, kind), .. CleaveNote(profile, kind), .. BlastNote(state, attacker, target, profile, kind, weapon)],
+            BlastHits = kind == AttackKind.Ranged ? TurnSequence.BlastHits(state, attacker.Id, target.Id, weapon) : [],
             ExtraMarkers = AttackDice.ExtraMarkers(profile, kind, setup.ProfileOf(target.Id)!),
             CriticalDice = AttackDice.CriticalInjuryDice(profile.AttackKeywords(kind)),
             HitBonus = hitBonus,
@@ -120,6 +125,7 @@ public sealed record DicePreview(
             Add(WeaponKeywords.IgnoreElevatedPosition, "IGNORE ELEVATED POSITION");
             Add(WeaponKeywords.Assault, "ASSAULT: may still Charge or Fight this activation");
             Add(WeaponKeywords.Heavy, "HEAVY: no Move, Charge, Retreat or Dash this activation");
+            Add(WeaponKeywords.Scatter, "SCATTER: a miss scatters (7 - the roll)\"; the opponent picks where");
         }
         return notes;
     }
@@ -127,6 +133,18 @@ public sealed record DicePreview(
     // Roster stage R3: CLEAVE (X) makes a Fight X Melee Attacks with the weapon (p. 53).
     public static IReadOnlyList<string> CleaveNote(ModelProfile profile, AttackKind kind) =>
         kind == AttackKind.Melee && profile.MeleeAttacksWith(0) > 1 ? [$"CLEAVE {profile.MeleeAttacksWith(0)}: this weapon makes {profile.MeleeAttacksWith(0)} Melee Attacks in a Fight"] : [];
+
+    // Roster stage R4b: BLAST (X"): who else the blast hits if the attack hits (p. 53), the attacker's own models marked.
+    private static IReadOnlyList<string> BlastNote(MatchState state, ModelState attacker, ModelState target, ModelProfile profile, AttackKind kind, int weapon)
+    {
+        if (kind != AttackKind.Ranged || profile.RangedWeaponBlast == 0)
+        {
+            return [];
+        }
+        var others = TurnSequence.BlastHits(state, attacker.Id, target.Id, weapon).Skip(1)
+            .Select(id => id.Value.ToUpperInvariant() + (state.FindModel(id)?.Seat == attacker.Seat ? " (yours)" : "")).ToList();
+        return [$"BLAST {profile.RangedWeaponBlast}\": on a hit, also hits {(others.Count == 0 ? "nobody else" : string.Join(", ", others))}"];
+    }
 
     public static string WeaponWord(ModelProfile profile, AttackKind kind) =>
         kind == AttackKind.Melee && profile.HasMeleeWeapon ? "melee weapon" : "ranged weapon";

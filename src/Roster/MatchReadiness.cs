@@ -17,6 +17,7 @@ namespace Roster;
 // Roster stage R4a (U101): one type of grenade (p. 69) is played as the model's grenade; SHRAPNEL, GAS and FIRE are
 // played, and so is NEGATE SHRAPNEL, GAS or FIRE (and DEMONIC, which is NEGATE FIRE, p. 54) from the model's keywords and
 // its battlekit. Equipment is played when all it has is NEGATE keywords; a piece's own rule is named.
+// Roster stage R4b (U102): BLAST (X") travels as the weapon's blast radius; R4c: SCATTER is played.
 // The result is written in the warband content format the server's scenarios load (content/test-warbands.json).
 public sealed record ReadyModel(
     string Name,
@@ -52,10 +53,17 @@ public sealed record ReadyModel(
     // Roster stage R4a: the model's grenade, and the weapon effects it NEGATEs (the engine's names: Shrapnel, Gas, Fire).
     public ReadyWeapon? Grenade { get; init; }
     public IReadOnlyList<string> Negates { get; init; } = [];
+
+    // Roster stage R4b: BLAST (X") of the ranged weapon, in inches (0: none).
+    public int RangedWeaponBlast { get; init; }
 }
 
 // Roster stage R3: a second weapon, as Rules.Core Weapon holds it (RangeInches 0 for a Melee Weapon).
-public sealed record ReadyWeapon(string Name, int RangeInches, int InjuryModifier, int Dice, int InjuryDice, IReadOnlyList<string> Keywords, bool AlsoMelee, int Cleave);
+public sealed record ReadyWeapon(string Name, int RangeInches, int InjuryModifier, int Dice, int InjuryDice, IReadOnlyList<string> Keywords, bool AlsoMelee, int Cleave)
+{
+    // Roster stage R4b: BLAST (X") in inches (0: none).
+    public int Blast { get; init; }
+}
 
 public sealed record MatchReady(
     IReadOnlyList<ReadyModel> Models,
@@ -118,7 +126,7 @@ public sealed record MatchReady(
                         ("rangedDice", m.RangedDice), ("meleeDice", m.MeleeDice), ("rangedWeaponDice", m.RangedWeaponDice),
                         ("rangedWeaponInjuryDice", m.RangedWeaponInjuryDice), ("meleeWeaponDice", m.MeleeWeaponDice),
                         ("meleeWeaponInjuryDice", m.MeleeWeaponInjuryDice), ("meleeWeaponCleave", m.MeleeWeaponCleave),
-                        ("imperviousArmour", m.ImperviousArmour),
+                        ("imperviousArmour", m.ImperviousArmour), ("rangedWeaponBlast", m.RangedWeaponBlast),
                     })
                     {
                         if (dice != 0)
@@ -137,7 +145,7 @@ public sealed record MatchReady(
                         {
                             w.WriteString("rangeInches", weapon.RangeInches.ToString(System.Globalization.CultureInfo.InvariantCulture));
                         }
-                        foreach (var (part, value) in new[] { ("injuryModifier", weapon.InjuryModifier), ("dice", weapon.Dice), ("injuryDice", weapon.InjuryDice), ("cleave", weapon.Cleave) })
+                        foreach (var (part, value) in new[] { ("injuryModifier", weapon.InjuryModifier), ("dice", weapon.Dice), ("injuryDice", weapon.InjuryDice), ("cleave", weapon.Cleave), ("blast", weapon.Blast) })
                         {
                             if (value != 0)
                             {
@@ -181,6 +189,7 @@ public static class MatchReadiness
     public const int MaxModifier = 3;
     public const int MaxDice = 6;
     public const int MaxCleave = 6;
+    public const int MaxBlast = 6;
 
     public static MatchReady Check(WarbandRoster roster, Faction faction, Catalogue catalogue)
     {
@@ -324,6 +333,7 @@ public static class MatchReadiness
                 RangedWeaponKeywords = ranged is null ? [] : Played(ranged),
                 MeleeWeaponKeywords = melee is null ? [] : Played(melee),
                 MeleeWeaponCleave = melee is null ? 0 : Cleave(melee, who, without),
+                RangedWeaponBlast = ranged is null ? 0 : BlastOf(ranged, who, without),
                 ImperviousArmour = impervious,
                 SecondRangedWeapon = guns.Count > 1 ? Ready(guns[1], ranged: true, who, without) : null,
                 SecondMeleeWeapon = offHand is null || entry.Melee is null || (melee is null && ranged?.AlsoMelee != true) ? null : Ready(offHand, ranged: false, who, without),
@@ -347,9 +357,21 @@ public static class MatchReadiness
         return Math.Clamp(x, 0, MaxCleave);
     }
 
+    // Roster stage R4b: BLAST (X") of a ranged weapon or grenade, the X; beyond what the engine holds it is played at the
+    // limit.
+    private static int BlastOf(CatalogueEntry weapon, string who, List<string> without)
+    {
+        var x = weapon.Keywords.FirstOrDefault(k => k.Id == "BLAST")?.Number ?? 0;
+        if (x > MaxBlast)
+        {
+            without.Add($"{who}: {weapon.Name}'s BLAST beyond {MaxBlast}\" (played as {MaxBlast}\")");
+        }
+        return Math.Clamp(x, 0, MaxBlast);
+    }
+
     // A second weapon as the engine holds it. A dual-purpose Pistol used as a Melee Weapon keeps its PISTOL keyword
     // (the model may use its Ranged for it, p. 55) and its injury modifier and dice.
-    private static ReadyWeapon Ready(CatalogueEntry weapon, bool ranged, string who, List<string> without) => new(
+    private static ReadyWeapon Ready(CatalogueEntry weapon, bool ranged, string who, List<string> without) => new ReadyWeapon(
         weapon.Name,
         ranged ? weapon.RangeInches ?? 0 : 0,
         Clamp(weapon.InjuryModifier),
@@ -357,7 +379,10 @@ public static class MatchReadiness
         Dice(weapon.InjuryDice, who, $"{weapon.Name}'s INJURY DICE", without),
         Played(weapon),
         ranged && weapon.AlsoMelee,
-        ranged ? 0 : Cleave(weapon, who, without));
+        ranged ? 0 : Cleave(weapon, who, without))
+    {
+        Blast = ranged ? BlastOf(weapon, who, without) : 0,
+    };
 
     // Dice the engine holds (-6 to +6 each, Rules.Core ModelProfile.MaxDice); beyond that, played at the limit and named.
     private static int Dice(int dice, string who, string what, List<string> without)
@@ -395,6 +420,9 @@ public static class MatchReadiness
         ["SHRAPNEL"] = "Shrapnel",
         ["GAS"] = "Gas",
         ["FIRE"] = "Fire",
+        // Roster stage R4b (U102): BLAST travels as the weapon's blast radius; R4c: SCATTER is a flag.
+        ["BLAST"] = "",
+        ["SCATTER"] = "Scatter",
     };
 
     // Roster stage R4a: the NEGATE values the engine plays, by the book's word, with the engine's name, in its order.

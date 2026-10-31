@@ -76,6 +76,9 @@ public sealed class ResolutionLog
         public int ShotgunInjury { get; set; }
         public bool Failed { get; set; }
         public int Weapon { get; set; }
+
+        // Roster stage R4b: the model a BLAST attack was aimed at, once the blast has hit (only its roll is critical).
+        public ModelId? BlastAimed { get; set; }
         public List<string> Steps { get; } = [];
         public List<string> Outcome { get; } = [];
 
@@ -205,8 +208,28 @@ public sealed class ResolutionLog
             case MeleeSuccessRolled m:
                 Success(seq, action, m.Check, "Hit roll", "HIT", "MISSED");
                 break;
+            case BlastHit b:
+                action.BlastAimed = b.Target;
+                action.Steps.Add($"BLAST hits {string.Join(", ", b.Hit.Select(Id))}");
+                action.Outcome.Add($"BLAST hits {b.Hit.Length}");
+                break;
+            case AttackScattered s:
+                // Roster stage R4c: the attack missed and scatters; no Critical Success, so no model gets extra dice.
+                action.BlastAimed = s.Target;
+                action.Steps.Add($"Scatters {s.Inches}\" to {TablePoint.Of(s.At)}: {(s.Hit.IsEmpty ? "hits nobody" : "BLAST hits " + string.Join(", ", s.Hit.Select(Id)))}");
+                action.Outcome.Add(s.Hit.IsEmpty ? $"scatters {s.Inches}\", hits nobody" : $"scatters {s.Inches}\", BLAST hits {s.Hit.Length}");
+                break;
+            case ScatterMissed s:
+                action.Steps.Add($"Nowhere to scatter {s.Inches}\": misses");
+                action.Outcome.Add("nowhere to scatter");
+                break;
             case InjuryRolled i:
                 Injury(seq, action, i, setup);
+                if (action.BlastAimed is not null)
+                {
+                    // Each model the blast hit has its own Injury Roll, with its own spent markers.
+                    action.Dice.Clear();
+                }
                 break;
             case ChargeRolled c:
                 action.Steps.Add($"Charge roll {c.Die}: +{c.Die}\" to the charge move");
@@ -300,7 +323,7 @@ public sealed class ResolutionLog
         var injury = i.Injury;
         var dice = new List<ResolutionPart>();
         var own = action.Kind is { } armedKind ? Armed(setup, i.Attacker, armedKind, action.Weapon) : setup?.ProfileOf(i.Attacker);
-        if (action.Critical)
+        if (action.Critical && (action.BlastAimed is null || action.BlastAimed == i.Target))
         {
             var critical = own is not null && action.Kind is { } k ? AttackDice.CriticalInjuryDice(own.AttackKeywords(k)) : AttackDice.InjuryBonus(true, false);
             dice.Add(new(critical == 2 ? "critical hit (CRITICAL)" : "critical hit", critical));

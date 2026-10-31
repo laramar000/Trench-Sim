@@ -287,9 +287,15 @@ public static class UnitPanel
     {
         ArgumentNullException.ThrowIfNull(p);
         var parts = new List<string>();
+        // Roster stage R4b: BLAST (X") of each gun and the grenades.
+        static string Blast(int x) => x == 0 ? "" : $" BLAST {x}\"";
+        if (p.RangedWeaponBlast > 0)
+        {
+            parts.Add($"gun{Blast(p.RangedWeaponBlast)}");
+        }
         if (p.SecondRangedWeapon is { } gun)
         {
-            parts.Add($"2nd gun range {BoardScene.Inch(TableRect.Inches(gun.Range))}");
+            parts.Add($"2nd gun range {BoardScene.Inch(TableRect.Inches(gun.Range))}{Blast(gun.Blast)}");
         }
         if (p.SecondMeleeWeapon is not null)
         {
@@ -297,7 +303,7 @@ public static class UnitPanel
         }
         if (p.Grenade is { } grenade)
         {
-            parts.Add($"Grenades range {BoardScene.Inch(TableRect.Inches(grenade.Range))}");
+            parts.Add($"Grenades range {BoardScene.Inch(TableRect.Inches(grenade.Range))}{Blast(grenade.Blast)}");
         }
         if (p.HasMeleeWeapon && p.MeleeWeaponCleave > 1)
         {

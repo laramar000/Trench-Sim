@@ -452,3 +452,73 @@ public sealed record TrenchesScored : GameEvent
 
 // The attacker's game-length D6 at the end of Turn 4 (p. 162): 1-2, the game ends now (LastTurn 4); 3+, after Turn 5.
 public sealed record GameLengthRolled(Seat Seat, int Die, int LastTurn) : GameEvent;
+
+// Roster stage R4b (U102): a BLAST attack hit (p. 53). Target is the model it was aimed at; Hit is every model the blast
+// hits, in the order their Injury Rolls are made: the target first, then the others in the setup's order. Each then
+// has its own Injury Roll (and before it, the offer to spend its Blood Markers).
+public sealed record BlastHit : GameEvent
+{
+    public BlastHit(ModelId attacker, ModelId target, ImmutableArray<ModelId> hit)
+    {
+        if (hit.IsDefaultOrEmpty || hit[0] != target || hit.Distinct().Count() != hit.Length)
+        {
+            throw new ArgumentException("A blast hits its target first, and each model once.", nameof(hit));
+        }
+        Attacker = attacker;
+        Target = target;
+        Hit = hit;
+    }
+
+    public ModelId Attacker { get; }
+    public ModelId Target { get; }
+    public ImmutableArray<ModelId> Hit { get; }
+}
+
+// Roster stage R4c (U103): a missed SCATTER attack lands at At, Inches (7 - the Success Roll) from the target's base
+// centre, where the attacker's opponent put it (p. 57). Hit is every model the blast there hits, in the order their Injury
+// Rolls are made (the setup's); it may be empty.
+public sealed record AttackScattered : GameEvent
+{
+    public AttackScattered(ModelId attacker, ModelId target, Point2 at, int inches, ImmutableArray<ModelId> hit)
+    {
+        if (inches < 1 || inches > 5)
+        {
+            throw new ArgumentOutOfRangeException(nameof(inches), "A failed Success Roll of 2 to 6 scatters 1\" to 5\".");
+        }
+        if (hit.IsDefault || hit.Distinct().Count() != hit.Length)
+        {
+            throw new ArgumentException("A blast hits each model once.", nameof(hit));
+        }
+        Attacker = attacker;
+        Target = target;
+        At = at;
+        Inches = inches;
+        Hit = hit;
+    }
+
+    public ModelId Attacker { get; }
+    public ModelId Target { get; }
+    public Point2 At { get; }
+    public int Inches { get; }
+    public ImmutableArray<ModelId> Hit { get; }
+}
+
+// Roster stage R4c (U103): a missed SCATTER attack has nowhere it could land (no point Inches from the target, on the
+// battlefield, in Line of Sight of it), so it is a miss (p. 57).
+public sealed record ScatterMissed : GameEvent
+{
+    public ScatterMissed(ModelId attacker, ModelId target, int inches)
+    {
+        if (inches < 1 || inches > 5)
+        {
+            throw new ArgumentOutOfRangeException(nameof(inches), "A failed Success Roll of 2 to 6 scatters 1\" to 5\".");
+        }
+        Attacker = attacker;
+        Target = target;
+        Inches = inches;
+    }
+
+    public ModelId Attacker { get; }
+    public ModelId Target { get; }
+    public int Inches { get; }
+}

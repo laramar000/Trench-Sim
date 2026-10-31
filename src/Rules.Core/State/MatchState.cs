@@ -16,6 +16,7 @@ public enum DecisionKind
     ChooseFriendlyTarget,      // a shot into melee rolled 1-3: the shooter picks which of its own models is the target (p. 42)
     ChooseAttacker,            // Trench Warfare: the roles roll-off winner chooses who attacks (p. 161)
     LayMines,                  // Trench Warfare: the defender sets up the Mine Markers and secretly picks the duds (p. 162)
+    ChooseScatterPoint,        // a SCATTER attack missed: the attacker's opponent picks where it lands (p. 57, roster stage R4c)
 }
 
 // A choice only one player can make. While one is pending, nothing else may happen.
@@ -75,6 +76,8 @@ public enum RollStage
     ClimbRoll,   // the Risky Success Roll of a climb up or down a tower's side (towers stage T6)
     ClimbMove,   // that roll succeeded: the whole move follows
     ClimbStop,   // it failed: the model moves only to where the climb starts, then its activation ends
+    Blast,       // a BLAST attack hit: who the blast hits follows, then an Injury Roll for each (roster stage R4b)
+    Scatter,     // a SCATTER attack missed: the opponent picks where it lands, or it is a miss after all (roster stage R4c)
 }
 
 public enum AttackKind
@@ -88,6 +91,11 @@ public enum AttackKind
 // BonusDice and PenaltyDice are the dice for the next roll (Success or Injury), including spent markers.
 // A climb up a tower's side (Climb* stages) keeps its whole path in DashPath and its action (Move or Dash) in ClimbAction.
 // InjuryDiceLater: injury dice decided when the attack was declared, added at the Injury Roll (SHOTGUN at Long Range, R2).
+// Roster stage R4b (U102): a BLAST attack that hit keeps the model it was aimed at in Aimed (only its Injury Roll gets a
+// Critical Success's extra dice) and the models still to roll for in BlastQueue, in order; Target is the one now.
+// Roster stage R4c (U103): a SCATTER attack that missed keeps how far it scatters (ScatterInches, 7 - the roll), where it
+// landed once chosen (BlastAt), and whether its roll was a failed Risky one, so the activation ends once it is over
+// (RiskyEnds).
 public sealed record RollInProgress(
     RollStage Stage,
     ModelId Actor,
@@ -104,7 +112,12 @@ public sealed record RollInProgress(
     ActionsTaken ClimbAction = ActionsTaken.None,
     int InjuryDiceLater = 0,
     int Weapon = 0,
-    bool OffHand = false);
+    bool OffHand = false,
+    ModelId? Aimed = null,
+    ImmutableArray<ModelId> BlastQueue = default,
+    int ScatterInches = 0,
+    Point2? BlastAt = null,
+    bool RiskyEnds = false);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.

@@ -73,6 +73,10 @@ public class ClientCoreTests
         seen.TryAdd(typeof(MinesLaid), new MinesLaid(Seat.Two, [.. markers], []));
         seen.TryAdd(typeof(MineRevealed), new MineRevealed("mine-3", new ModelId("a1"), live: true));
         seen.TryAdd(typeof(MineExploded), new MineExploded(new ModelId("a1"), "mine-3", Rules.Core.Dice.InjuryRoll.Roll(new SeededDice(2))));
+        // No bot warband has a BLAST or SCATTER weapon (roster stages R4b, R4c).
+        seen.TryAdd(typeof(BlastHit), new BlastHit(new ModelId("a1"), new ModelId("b1"), [new ModelId("b1"), new ModelId("b2")]));
+        seen.TryAdd(typeof(AttackScattered), new AttackScattered(new ModelId("a1"), new ModelId("b1"), Previews.PointAt(20, 8), 3, [new ModelId("b2")]));
+        seen.TryAdd(typeof(ScatterMissed), new ScatterMissed(new ModelId("a1"), new ModelId("b1"), 5));
         seen.TryAdd(typeof(MoveResumed), new MoveResumed(new ModelId("a1"), [Previews.PointAt(20, 8)]));
         var all = typeof(GameEvent).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(GameEvent)) && !t.IsAbstract).ToList();
         Assert.True(all.Count >= 30, $"{all.Count} event types");

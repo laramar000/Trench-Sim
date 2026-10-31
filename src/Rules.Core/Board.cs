@@ -30,6 +30,7 @@ internal static class Board
     public const string RefRetreat = "1.0.2 pp. 35, 37";
     public const string RefMelee = "1.0.2 pp. 45-46, 49";
     public const string RefIntoMelee = "1.0.2 p. 42";
+    public const string RefScatter = "1.0.2 p. 57";
     public const string RefObjectives = "1.0.2 pp. 152-153";
     public static readonly Length EngagementRange = Length.Inch;
 
@@ -154,6 +155,104 @@ internal static class Board
             TargetLevel: cover.Sight.Target.Level,
             IntoMelee: intoMelee,
             Elevated: SightHeights.IsElevated(scenario.Battlefield, from, to));
+    }
+
+    // Roster stage R4b (U102): the models a BLAST attack at this target hits if it hits (p. 53): the target first, then,
+    // in the setup's order, every other model on the table (Down ones included, either side, the attacker too) within
+    // the blast radius of the target's base centre (Geometry.Blast, including vertically) that has Line of Sight to
+    // the target, then the attacker's own models within 1" of an enemy model the blast hit. Empty for a weapon
+    // without BLAST.
+    public static List<ModelId> BlastHits(MatchState state, ModelState attacker, ModelState target, int weapon)
+    {
+        var radius = BlastRadius(state, attacker, weapon);
+        if (radius == 0 || ScenarioOf(state) is not { } scenario || BodyOf(state, target) is not { } centre)
+        {
+            return [];
+        }
+        var battlefield = scenario.Battlefield;
+        var height = SightHeights.StandingHeight(battlefield, centre, Elevation.Of(battlefield, centre));
+        return Caught(state, attacker, centre.Centre, height, radius, target, body => Cover.Of(battlefield, body, centre).Sight.Visibility != Visibility.None).Prepend(target.Id).ToList();
+    }
+
+    // Roster stage R4c (U103): the models a scattered BLAST attack hits around the point it scattered to (p. 57): every
+    // model on the table within the radius of the point (from the ground, platform or trench floor under it) that has
+    // Line of Sight to the point, then the attacker's own models within 1" of an enemy model it hit; in the setup's
+    // order. It may hit nobody.
+    public static List<ModelId> BlastHitsAt(MatchState state, ModelState attacker, Point2 at, int weapon)
+    {
+        var radius = BlastRadius(state, attacker, weapon);
+        if (radius == 0 || ScenarioOf(state) is not { } scenario)
+        {
+            return [];
+        }
+        var battlefield = scenario.Battlefield;
+        var point = new ModelBody("point", at, HeightSight.PointRadius);
+        var height = SightHeights.StandingHeight(battlefield, point, Elevation.Of(battlefield, point));
+        return Caught(state, attacker, at, height, radius, null, body => HeightSight.SeesPoint(battlefield, body, at));
+    }
+
+    private static int BlastRadius(MatchState state, ModelState attacker, int weapon)
+    {
+        var owned = state.Setup!.ProfileOf(attacker.Id)!;
+        return owned.Has(AttackKind.Ranged, weapon) ? owned.Using(AttackKind.Ranged, weapon).RangedWeaponBlast : 0;
+    }
+
+    // The models a blast centred there catches, besides the target (already hit, and first), in the setup's order.
+    private static List<ModelId> Caught(MatchState state, ModelState attacker, Point2 centre, Length height, int radius, ModelState? target, Func<ModelBody, bool> sees)
+    {
+        var battlefield = ScenarioOf(state)!.Battlefield;
+        var reach = Length.FromInches(radius);
+        var others = OnTable(state).Where(m => m.Id != target?.Id).ToList();
+        var hit = target is null ? new List<ModelState>() : new List<ModelState> { target };
+        foreach (var other in others)
+        {
+            var body = BodyOf(state, other)!;
+            var standing = SightHeights.StandingHeight(battlefield, body, Elevation.Of(battlefield, body));
+            if (Geometry.Blast.Reaches(centre, height, body, standing, reach) && sees(body))
+            {
+                hit.Add(other);
+            }
+        }
+        var enemies = hit.Where(h => h.Seat != attacker.Seat).Select(h => BodyOf(state, h)!).ToList();
+        var near = others.Where(o => o.Seat == attacker.Seat && !hit.Contains(o)
+            && enemies.Any(e => Measure.IsWithin(e, BodyOf(state, o)!, EngagementRange))).ToList();
+        var order = state.Models.Select(m => m.Id).ToList();
+        return hit.Where(h => h.Id != target?.Id).Concat(near).OrderBy(m => order.IndexOf(m.Id)).Select(m => m.Id).ToList();
+    }
+
+    // Roster stage R4c (U103): whether a scattering attack may land at this point: exactly the scatter distance from the
+    // target's base centre (Geometry.Blast.IsScatterDistance), on the battlefield, and with Line of Sight between the
+    // point and the target (HeightSight.SeesPoint, from the target).
+    public static bool CanScatterTo(MatchState state, RollInProgress progress, Point2 at)
+    {
+        if (ScenarioOf(state) is not { } scenario || progress.Target is not { } aimed || BodyOf(state, state.FindModel(aimed)!) is not { } target)
+        {
+            return false;
+        }
+        var battlefield = scenario.Battlefield;
+        return at.X >= Length.Zero && at.Y >= Length.Zero && at.X <= battlefield.Width && at.Y <= battlefield.Height
+            && Geometry.Blast.IsScatterDistance(target.Centre, at, progress.ScatterInches)
+            && HeightSight.SeesPoint(battlefield, target, at);
+    }
+
+    // The points, of the 360 one-degree directions (Geometry.Blast.ScatterPoint), where a scattering attack may land, in
+    // direction order. None: the attack is a miss (p. 57).
+    public static List<(int Degree, Point2 At)> ScatterPoints(MatchState state, RollInProgress progress)
+    {
+        var found = new List<(int, Point2)>();
+        if (progress.Target is not { } aimed || BodyOf(state, state.FindModel(aimed)!) is not { } target)
+        {
+            return found;
+        }
+        for (var degree = 0; degree < Geometry.Blast.ScatterDirections; degree++)
+        {
+            var at = Geometry.Blast.ScatterPoint(target.Centre, progress.ScatterInches, degree);
+            if (CanScatterTo(state, progress, at))
+            {
+                found.Add((degree, at));
+            }
+        }
+        return found;
     }
 
     // The attacker's own models (on the table, Down ones included) within 1" of a target: the models a shot at that

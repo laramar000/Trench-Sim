@@ -219,11 +219,27 @@ public static partial class TurnSequence
     // Roster stage R4a: why a Shoot ACTION is refused for a weapon the model does not have (the server's words).
     public static string NoSuchGun(int weapon) => Board.NoSuchGun(weapon);
 
+    // Roster stage R4b: the models a BLAST attack by attacker at target with that weapon would hit, the target first
+    // (empty without BLAST), for the client's previews.
+    public static IReadOnlyList<ModelId> BlastHits(MatchState state, ModelId attacker, ModelId target, int weapon = 0) =>
+        state.FindModel(attacker) is { } a && state.FindModel(target) is { } t ? Board.BlastHits(state, a, t, weapon) : [];
+
+    // Roster stage R4c: where a missed SCATTER attack may land (the 360 one-degree directions that are possible), and the
+    // models a blast landing at a point would hit, for the client's decision bar and board.
+    public static IReadOnlyList<Point2> ScatterPoints(MatchState state) =>
+        state.InProgress is { Stage: RollStage.Scatter } progress ? Board.ScatterPoints(state, progress).Select(p => p.At).ToList() : [];
+
+    public static bool CanScatterTo(MatchState state, Point2 at) =>
+        state.InProgress is { Stage: RollStage.Scatter } progress && Board.CanScatterTo(state, progress, at);
+
+    public static IReadOnlyList<ModelId> BlastHitsAt(MatchState state, ModelId attacker, Point2 at, int weapon = 0) =>
+        state.FindModel(attacker) is { } a ? Board.BlastHitsAt(state, a, at, weapon) : [];
+
     // Roster stage R3: whether BLOCK gives this Melee Attack a penalty die (the target blocks a model that charged this turn).
     public static bool Blocks(MatchState state, ModelId attacker, ModelId target) => Board.Blocks(state, attacker, target);
 
-    // The three answers that are not Blood Marker spends: free attacks on a retreating model, and the friendly model a
-    // shot into melee was forced onto.
+    // The answers that are not Blood Marker spends: free attacks on a retreating model, the friendly model a shot into
+    // melee was forced onto, and where a missed SCATTER attack lands (roster stage R4c).
     private static Rejection? ValidateChoice(MatchState state, Command command)
     {
         var (kind, seat) = command switch
@@ -231,6 +247,7 @@ public static partial class TurnSequence
             FreeFight c => (DecisionKind.FreeFight, c.Seat),
             DeclineFreeFights c => (DecisionKind.FreeFight, c.Seat),
             ChooseFriendlyTarget c => (DecisionKind.ChooseFriendlyTarget, c.Seat),
+            ScatterAttack c => (DecisionKind.ChooseScatterPoint, c.Seat),
             _ => throw new ArgumentException("Not a choice."),
         };
         if (state.Pending is not { } pending)
@@ -262,6 +279,11 @@ public static partial class TurnSequence
                 return Board.FriendsNear(state, shooter, intended).Any(m => m.Id == c.Victim)
                     ? null
                     : new(ReasonCode.NotACandidate, "The shot must be aimed at one of your own models within 1\" of the target.", Board.RefIntoMelee);
+            case ScatterAttack c:
+                var scattering = state.InProgress!;
+                return Board.CanScatterTo(state, scattering, c.At)
+                    ? null
+                    : new(ReasonCode.NotACandidate, $"The attack must scatter exactly {scattering.ScatterInches}\" from its target, to a point on the battlefield in Line of Sight of the target.", Board.RefScatter);
             default:
                 return null;
         }
@@ -359,6 +381,13 @@ public static partial class TurnSequence
             case DeclineFreeFights c:
                 run.Emit(new FreeFightsDeclined(c.Seat));
                 break;
+            case ScatterAttack c:
+            {
+                var scattering = state.InProgress!;
+                var thrower = state.FindModel(scattering.Actor)!;
+                run.Emit(new AttackScattered(thrower.Id, scattering.Target!.Value, c.At, scattering.ScatterInches, Board.BlastHitsAt(state, thrower, c.At, scattering.Weapon).ToImmutableArray()));
+                break;
+            }
             case ChooseFriendlyTarget c:
                 var shooter = state.FindModel(state.InProgress!.Actor)!;
                 var forced = Board.ForcedShotFacts(state, shooter, state.FindModel(c.Victim)!, state.InProgress.Weapon);
@@ -473,13 +502,36 @@ public static partial class TurnSequence
                 var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice,
                     risky: AttackDice.Risky(s.Setup!.ProfileOf(actor.Id)!.Using(AttackKind.Ranged, progress.Weapon), AttackKind.Ranged, s.IsShaken(actor.Seat)));
                 run.Emit(new RangedSuccessRolled(progress.Actor, progress.Target!.Value, check));
-                if (check.RiskyFailure)
+                // A scattering attack (roster stage R4c) is resolved first; its activation ends once it is over.
+                if (check.RiskyFailure && run.State.InProgress is null)
                 {
                     run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
                 }
-                else if (check.Outcome != SuccessOutcome.Failure && !progress.FriendlyFire && run.State.FindModel(progress.Target.Value)!.BloodMarkers > 0)
+                else if (check.Outcome != SuccessOutcome.Failure && run.State.InProgress is { Stage: RollStage.InjuryRoll }
+                    && !progress.FriendlyFire && run.State.FindModel(progress.Target.Value)!.BloodMarkers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
+                }
+                return true;
+            }
+            case RollStage.Blast:
+            {
+                // Roster stage R4b (U102): who the blast hits; each then has its Injury Roll.
+                var aimedAt = s.FindModel(progress.Target!.Value)!;
+                run.Emit(new BlastHit(actor.Id, aimedAt.Id, Board.BlastHits(s, actor, aimedAt, progress.Weapon).ToImmutableArray()));
+                return true;
+            }
+            case RollStage.Scatter:
+            {
+                // Roster stage R4c (U103): the attacker's opponent picks where the missed attack lands, or it misses when
+                // it has nowhere to land.
+                if (Board.ScatterPoints(s, progress).Count == 0)
+                {
+                    run.Emit(new ScatterMissed(actor.Id, progress.Target!.Value, progress.ScatterInches));
+                }
+                else
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.ChooseScatterPoint, actor.Seat.Opponent()));
                 }
                 return true;
             }
@@ -530,6 +582,12 @@ public static partial class TurnSequence
             case RollStage.InjuryRoll:
             {
                 var target = s.FindModel(progress.Target!.Value)!;
+                // A blast's later models (U102): the offer to spend their Blood Markers comes before each roll.
+                if (!progress.MarkersAsked && !progress.FriendlyFire && target.BloodMarkers > 0)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
+                    return true;
+                }
                 var weapon = s.Setup!.ProfileOf(actor.Id)!.Using(progress.Kind, progress.Weapon);
                 var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup.ProfileOf(target.Id)!, progress.Kind);
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down);

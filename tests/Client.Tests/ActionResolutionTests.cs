@@ -49,6 +49,17 @@ public class ActionResolutionTests
                 var log = Runner.Run(seed, armed).Log;
                 all.Add((log, ((MatchCreated)log[0]).Setup));
             }
+            // Roster stage R4b: and with BLAST guns, some CRITICAL (only the aimed target's Injury Roll gets its dice); R4c:
+            // half of them SCATTER.
+            for (var seed = 1; seed <= 10; seed++)
+            {
+                var blasting = warbands.Select(w => w with
+                {
+                    Models = w.Models.Select((m, i) => m with { Profile = m.Profile.HasRangedWeapon ? m.Profile with { RangedWeaponBlast = 1 + (seed + i) % 3, RangedWeaponKeywords = (i % 2 == 0 ? WeaponKeywords.Critical : WeaponKeywords.None) | (seed % 2 == 0 ? WeaponKeywords.Scatter : WeaponKeywords.None) } : m.Profile }).ToList(),
+                }).ToList();
+                var log = Runner.Run(seed, blasting).Log;
+                all.Add((log, ((MatchCreated)log[0]).Setup));
+            }
         }
         return all;
     });
@@ -98,6 +109,14 @@ public class ActionResolutionTests
                             Saw("modifier");
                         }
                         break;
+                    case BlastHit b:
+                        Assert.Null(why);
+                        Saw(b.Hit.Length > 1 ? "blast hits others" : "BlastHit");
+                        break;
+                    case AttackScattered a:
+                        Assert.Null(why);
+                        Saw(a.Hit.IsEmpty ? "scatter hits nobody" : "AttackScattered");
+                        break;
                     default:
                         Assert.Null(why);
                         break;
@@ -105,7 +124,7 @@ public class ActionResolutionTests
             }
         }
         // The matches cover each kind of reason, so none of them is untested.
-        foreach (var kind in new[] { "RangedSuccessRolled", "MeleeSuccessRolled", "DashRolled", "InjuryRolled", "Long", "Cover", "critical", "modifier", "markers", "Defended", "Melee", "Ranged", "ranged", "melee", "SHOTGUN", "critical hit (CRITICAL)" })
+        foreach (var kind in new[] { "RangedSuccessRolled", "MeleeSuccessRolled", "DashRolled", "InjuryRolled", "Long", "Cover", "critical", "modifier", "markers", "Defended", "Melee", "Ranged", "ranged", "melee", "SHOTGUN", "critical hit (CRITICAL)", "BlastHit", "blast hits others", "AttackScattered", "scatter hits nobody" })
         {
             Assert.True(seen.GetValueOrDefault(kind) > 0, $"no {kind} in the simulated matches: {string.Join(", ", seen.Select(kv => $"{kv.Key} {kv.Value}"))}");
         }
@@ -145,7 +164,7 @@ public class ActionResolutionTests
                 }
                 // Nothing outside its own events: an action never runs past the end of an activation or turn.
                 Assert.DoesNotContain(events.Skip(1), e => e is ActivationEnded or TurnEnded or MatchEnded or RangedAttackDeclared or MeleeAttackDeclared or ChargeDeclared or DashDeclared);
-                Assert.Equal(events.Count, action.Steps.Count + events.Count(e => e is not (ShootingTargetRolled or FriendlyTargetChosen or MarkersSpent or DashRolled or RangedSuccessRolled or MeleeSuccessRolled or InjuryRolled or ChargeRolled or ChargeMoved or ModelMoved { Kind: MoveKind.Dash })));
+                Assert.Equal(events.Count, action.Steps.Count + events.Count(e => e is not (ShootingTargetRolled or FriendlyTargetChosen or MarkersSpent or DashRolled or RangedSuccessRolled or MeleeSuccessRolled or InjuryRolled or BlastHit or AttackScattered or ScatterMissed or ChargeRolled or ChargeMoved or ModelMoved { Kind: MoveKind.Dash })));
             }
         }
         Assert.True(actions > 500, $"{actions} actions");

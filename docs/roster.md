@@ -230,3 +230,8 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   `MineTests.NegateShrapnelStopsTheMinesExtraMarker`, `MatchReadinessTests.AGrenadeAndNegateArePlayed`,
   `.ASecondGrenadeAndGrenadesWithoutRangedAreRefused`, `.DemonicIsNegateFireAndAPiecesOwnRuleIsNamed`,
   `GrenadePreviewTests`.
+- Roster rules stages R4b and R4c, BLAST and SCATTER (done 2026-10-31, the rest of that ask): BLAST (X") travels as the
+  weapon's blast radius (`rangedWeaponBlast`, a second gun's or grenade's `blast`; above 6" it is played as 6" and named),
+  SCATTER as `Scatter` (U102, U103); neither is named under "played without" any more. Tests: `BlastTests`,
+  `ScatterTests`, `BlastWireTests`, `MatchReadinessTests.AGrenadeAndNegateArePlayed`, `.BlastAndScatterArePlayed`,
+  `BlastPreviewTests`.

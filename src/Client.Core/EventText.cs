@@ -35,6 +35,9 @@ public static class EventText
         MeleeSuccessRolled r => $"  Melee Success Roll {r.Check.Dice.Total} ({r.Check.NetDice:+0;-0;0} dice): {r.Check.Outcome}.",
         ShootingTargetRolled t => $"  Shot into melee: D6 {t.Die}, {(t.HitsFriend ? "a friendly model must be targeted" : "the enemy model may be targeted")}.",
         FriendlyTargetChosen f => $"  {f.Attacker} must shoot its own {f.Victim}.",
+        BlastHit b => $"  The blast hits {string.Join(", ", b.Hit)}.",
+        AttackScattered s => $"  The attack scatters {s.Inches}\" to {s.At}: {(s.Hit.IsEmpty ? "the blast hits nobody" : $"the blast hits {string.Join(", ", s.Hit)}")}.",
+        ScatterMissed s => $"  The attack would scatter {s.Inches}\" but has nowhere to land: it misses.",
         MarkersSpent m => m.Count == 0 ? $"  {m.Spender} spends no Blood Markers." : $"  {m.Spender} spends {m.Count} Blood Marker(s) from {m.Model}.",
         RangedSuccessRolled r => $"  Success Roll {r.Check.Dice.Total} ({r.Check.NetDice:+0;-0;0} dice): {r.Check.Outcome}.",
         InjuryRolled i => $"  Injury Roll on {i.Target}: {i.Injury.Total} ({i.Injury.NetDice:+0;-0;0} injury dice): {i.Injury.Outcome}.",
@@ -93,6 +96,9 @@ public static class EventText
         MeleeAttackDeclared m => new(Id(m.Attacker), m.FreeFight ? "ATTACKS" : "FIGHTS", Id(m.Target) + (m.FreeFight ? " (retreating)" : "") + (m.DefendedObstacleId is { } o ? $" (defended obstacle: {o})" : "")),
         MeleeSuccessRolled r => new(Id(r.Attacker), "ROLLS", $"{r.Check.Dice.Total} to hit {Id(r.Target)}: {r.Check.Outcome}"),
         FriendlyTargetChosen f => new(Id(f.Attacker), "MUST SHOOT", $"its own {Id(f.Victim)}"),
+        BlastHit b => new(Id(b.Attacker), "BLAST HITS", string.Join(", ", b.Hit.Select(Id))),
+        AttackScattered s => new(Id(s.Attacker), "SCATTERS", $"{s.Inches}\" to {At(s.At)}: {(s.Hit.IsEmpty ? "hits nobody" : "hits " + string.Join(", ", s.Hit.Select(Id)))}"),
+        ScatterMissed s => new(Id(s.Attacker), "MISSES", $"nowhere to scatter {s.Inches}\""),
         MineRevealed r => new(Id(r.Model), "HALTS", $"by {r.Marker}: {(r.Live ? "LIVE MINE" : "a dud")}"),
         MineExploded x => x.Injury.Outcome switch
         {
@@ -132,6 +138,7 @@ public static class EventText
         ChargeMoved c => c.Reached && !c.Path.IsEmpty ? RowOutcome.Success : RowOutcome.Failure,
         // From the moving model's side: a dud is a relief, a live mine is not.
         MineRevealed r => r.Live ? RowOutcome.Failure : RowOutcome.Success,
+        ScatterMissed => RowOutcome.Failure,
         _ => RowOutcome.None,
     };
 
@@ -159,7 +166,7 @@ public static class EventText
         TurnStarted or TurnEnded or PhaseEntered or InitiativeDetermined or FirstActivationChosen or MoraleOrderSet => EventKind.Turn,
         ActivationStarted or ActivationEnded => EventKind.Activation,
         ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved or MineRevealed or MoveResumed => EventKind.Movement,
-        RangedAttackDeclared or ShootingTargetRolled or FriendlyTargetChosen or RangedSuccessRolled => EventKind.Shooting,
+        RangedAttackDeclared or ShootingTargetRolled or FriendlyTargetChosen or RangedSuccessRolled or BlastHit or AttackScattered or ScatterMissed => EventKind.Shooting,
         ChargeDeclared or ChargeRolled or ChargeMoved => EventKind.Charge,
         MeleeAttackDeclared or MeleeSuccessRolled or FreeFightsDeclined => EventKind.Fight,
         InjuryRolled or MarkersSpent or MineExploded => EventKind.Injury,

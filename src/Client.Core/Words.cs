@@ -43,6 +43,7 @@ public static class Words
         DecisionKind.FreeFight => "attack the retreating model with each engaged model, or decline",
         DecisionKind.ChooseFriendlyTarget => "choose which of its own models the shot hits",
         DecisionKind.LayMines => "set up the 12 Mine Markers and secretly pick 4 duds",
+        DecisionKind.ChooseScatterPoint => "choose where the missed attack scatters to",
         _ => kind.ToString(),
     };
 

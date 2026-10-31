@@ -35,6 +35,8 @@ public static class UnitNotes
             ChargeMoved { Reached: false } c => [new(c.Model, "CHARGE FAILED", NoteTone.Failure)],
             ModelStoodUp s => [new(s.Model, "STANDS UP", NoteTone.Info)],
             ShootingTargetRolled { HitsFriend: true } t => [new(t.Attacker, "FRIENDLY FIRE", NoteTone.Failure)],
+            BlastHit b => [.. b.Hit.Select(h => new UnitNote(h, "IN THE BLAST", NoteTone.Failure))],
+            AttackScattered s => [.. s.Hit.Select(h => new UnitNote(h, "IN THE BLAST", NoteTone.Failure))],
             _ => [],
         };
     }

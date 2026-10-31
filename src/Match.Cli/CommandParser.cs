@@ -19,6 +19,7 @@ public static class CommandParser
         retreat <model> <x,y>...  retreat                      free <model>          take a free attack
         decline                   decline free attacks         friendly <model>      choose the friendly victim
         morale BecomeShaken|SoundRetreat                       answer a failed Morale Check
+        scatter <x,y>             where a missed SCATTER attack lands
         """;
 
     public static Command Parse(string line, Seat seat)
@@ -49,6 +50,7 @@ public static class CommandParser
             "free" => new FreeFight(seat, Model(One(args))),
             "decline" => new DeclineFreeFights(seat),
             "friendly" => new ChooseFriendlyTarget(seat, Model(One(args))),
+            "scatter" => new ScatterAttack(seat, Point(One(args))),
             "morale" => new ResolveFailedMorale(seat, Enum.Parse<MoraleFailureChoice>(One(args))),
             _ => throw new FormatException($"Unknown command '{words[0]}'. Type 'help'."),
         };

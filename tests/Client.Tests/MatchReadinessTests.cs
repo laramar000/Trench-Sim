@@ -180,8 +180,8 @@ public class MatchReadinessTests
     [Fact]
     public void AGrenadeAndNegateArePlayed()
     {
-        // Roster stage R4a (U101): Frag Grenades are the model's grenade, with SHRAPNEL, ASSAULT and the two IGNOREs; BLAST is
-        // named. A Gas Mask and a Combat Helmet are equipment that is only NEGATE: played.
+        // Roster stage R4a (U101): Frag Grenades are the model's grenade, with SHRAPNEL, ASSAULT and the two IGNOREs, and
+        // (R4b, U102) BLAST 2". A Gas Mask and a Combat Helmet are equipment that is only NEGATE: played.
         var ready = Principality(("lieutenant", ["bolt-action-rifle", "frag-grenades", "gas-mask", "combat-helmet"])).MatchCheck();
         Assert.True(ready.Ok, string.Join("; ", ready.Refused.Concat(ready.RosterProblems)));
         var json = ready.ToContentJson("g", "G");
@@ -191,10 +191,33 @@ public class MatchReadinessTests
         Assert.Equal((8_000, WeaponKeywords.Assault | WeaponKeywords.IgnoreCover | WeaponKeywords.IgnoreLongRange | WeaponKeywords.Shrapnel),
             (grenade.Range.Thousandths, grenade.Keywords));
         Assert.Equal(WeaponKeywords.Gas | WeaponKeywords.Shrapnel, profile.Negates);
-        Assert.Contains(ready.PlayedWithout, w => w.Contains("Frag Grenades's BLAST", StringComparison.Ordinal));
+        Assert.Equal(2, grenade.Blast);
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("BLAST", StringComparison.Ordinal));
+        Assert.Contains("\"blast\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"blast\"", Principality(("yeoman", ["bolt-action-rifle"])).MatchCheck().ToContentJson("y", "Y"), StringComparison.Ordinal);
         Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("Gas Mask", StringComparison.Ordinal) || w.Contains("Combat Helmet", StringComparison.Ordinal) || w.Contains("SHRAPNEL", StringComparison.Ordinal));
         Assert.DoesNotContain("\"grenade\"", Principality(("yeoman", ["bolt-action-rifle"])).MatchCheck().ToContentJson("y", "Y"), StringComparison.Ordinal);
         Assert.DoesNotContain("\"negates\"", Principality(("yeoman", ["bolt-action-rifle"])).MatchCheck().ToContentJson("y", "Y"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BlastAndScatterArePlayed()
+    {
+        // Roster stages R4b and R4c (U102, U103): a Grenade Launcher's BLAST 3" on the gun, a Satchel Charge's BLAST 3" and
+        // SCATTER on the grenade; neither is named under "plays without" (its CONSUMABLE still is).
+        var ready = Principality(("yeoman", ["grenade-launcher"]), ("lieutenant", ["bolt-action-rifle", "satchel-charge"])).MatchCheck();
+        Assert.True(ready.Ok, string.Join("; ", ready.Refused.Concat(ready.RosterProblems)));
+        var models = Sim.Content.Parse(ready.ToContentJson("b", "B")).Single().Models;
+        Assert.Equal(models.Select(m => m.Profile), ContentNames.Parse(ready.ToContentJson("b", "B")).Single().Models.Select(m => m.Profile));
+        Assert.Equal(3, models[0].Profile.RangedWeaponBlast);
+        Assert.Equal(WeaponKeywords.None, models[0].Profile.RangedWeaponKeywords & WeaponKeywords.Scatter);
+        var profile = models[1].Profile;
+        Assert.Equal(0, profile.RangedWeaponBlast);
+        Assert.Equal(3, profile.Grenade!.Blast);
+        Assert.Equal(WeaponKeywords.Scatter, profile.Grenade.Keywords & WeaponKeywords.Scatter);
+        Assert.Equal(WeaponKeywords.Scatter, profile.Using(AttackKind.Ranged, ModelProfile.GrenadeWeapon).RangedWeaponKeywords & WeaponKeywords.Scatter);
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("BLAST", StringComparison.Ordinal) || w.Contains("SCATTER", StringComparison.Ordinal));
+        Assert.Contains(ready.PlayedWithout, w => w.Contains("CONSUMABLE", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -50,4 +50,8 @@ public enum WeaponKeywords
     Shrapnel = 8192,
     Gas = 16384,
     Fire = 32768,
+
+    // Roster stage R4c: SCATTER: a BLAST attack whose Success Roll fails scatters 7 minus the roll instead of missing
+    // (p. 57).
+    Scatter = 65536,
 }

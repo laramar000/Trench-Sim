@@ -54,7 +54,7 @@ public static class StateHash
         Line(sb, "movementHalved", state.MovementHalved);
         Line(sb, "scoredTurn", state.ScoredTurn);
         Line(sb, "inProgress", state.InProgress is { } r
-            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}{(r.InjuryDiceLater == 0 ? "" : $":injuryLater={r.InjuryDiceLater}")}{(r.Weapon == 0 ? "" : $":weapon={r.Weapon}")}{(r.OffHand ? ":offHand" : "")}"
+            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}{(r.InjuryDiceLater == 0 ? "" : $":injuryLater={r.InjuryDiceLater}")}{(r.Weapon == 0 ? "" : $":weapon={r.Weapon}")}{(r.OffHand ? ":offHand" : "")}{(r.Aimed is { } aimed ? $":aimed={aimed.Value}" : "")}{(r.BlastQueue.IsDefaultOrEmpty ? "" : $":blast={string.Join(";", r.BlastQueue.Select(q => q.Value))}")}{(r.ScatterInches == 0 ? "" : $":scatter={r.ScatterInches}")}{(r.BlastAt is { } landed ? $":at={landed.X.Thousandths},{landed.Y.Thousandths}" : "")}{(r.RiskyEnds ? ":riskyEnds" : "")}"
             : null);
         Line(sb, "retreat", state.Retreat is { } t
             ? $"{t.Model.Value}:{Path(t.Path)}:{string.Join(";", t.Fought.Select(f => f.Value))}:{Bool(t.Closed)}"
@@ -206,11 +206,13 @@ public static class StateHash
             + (p.SecondMeleeWeapon is { } m ? $",secondMelee={WeaponText(m)}" : "")
             // Roster stage R4a: grenades and NEGATE, only when present.
             + (p.Grenade is { } g ? $",grenade={WeaponText(g)}" : "")
-            + (p.Negates == WeaponKeywords.None ? "" : $",negates={p.Negates}");
+            + (p.Negates == WeaponKeywords.None ? "" : $",negates={p.Negates}")
+            // Roster stage R4b: BLAST, only when present.
+            + (p.RangedWeaponBlast == 0 ? "" : $",blast={p.RangedWeaponBlast}");
     }
 
     private static string WeaponText(Weapon w) =>
-        $"{w.Range.Thousandths}/{w.InjuryModifier}/{w.Dice}/{w.InjuryDice}/{w.Keywords}/{Bool(w.AlsoMelee)}/{w.Cleave}";
+        $"{w.Range.Thousandths}/{w.InjuryModifier}/{w.Dice}/{w.InjuryDice}/{w.Keywords}/{Bool(w.AlsoMelee)}/{w.Cleave}{(w.Blast == 0 ? "" : $"/blast={w.Blast}")}";
 
     private static void Line(StringBuilder sb, string key, object? value)
     {

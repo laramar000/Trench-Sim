@@ -199,6 +199,11 @@ The server sends events in log order, one message each, to both players, through
   anything else is an invalid value), `Shoot.weapon` 2 (the grenade), `RangedAttackDeclared.weapon` 2,
   `InjuryRolled.extraMarkers` (0 to 3) and `MineExploded.negated` (true). The weapon keyword names gain `Shrapnel`, `Gas`
   and `Fire`.
+- Roster stages R4b and R4c (interpretations U102, U103): `ModelProfile.rangedWeaponBlast` and each weapon's `blast` (1 to
+  6, left out when 0); the weapon keyword names gain `Scatter`. New events `BlastHit` (`attacker`, `target`, `hit`: the
+  target first), `AttackScattered` (`attacker`, `target`, `at`, `inches` 1 to 5, `hit`, possibly empty) and
+  `ScatterMissed` (`attacker`, `target`, `inches`); a new decision kind `ChooseScatterPoint` (the attacker's opponent) and
+  its answer, the command `ScatterAttack` (`seat`, `at`). A point it may not land at is refused as `NotACandidate`.
 
 ## Rosters online (roster stage 5c)
 

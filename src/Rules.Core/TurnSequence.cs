@@ -139,6 +139,13 @@ public static partial class TurnSequence
                 var intended = Board.BodyOf(state, state.FindModel(state.InProgress.Target!.Value)!)!;
                 commands.AddRange(Board.FriendsNear(state, shooter, intended).Select(m => new ChooseFriendlyTarget(pending.Seat, m.Id)));
                 break;
+            case DecisionKind.ChooseScatterPoint:
+                // Roster stage R4c (U103): the eight compass points it may land at (every 45 degrees), else the first
+                // possible point; ScatterAttack accepts any other possible point too.
+                var points = Board.ScatterPoints(state, state.InProgress!);
+                var compass = points.Where(p => p.Degree % 45 == 0).ToList();
+                commands.AddRange((compass.Count > 0 ? compass : points.Take(1)).Select(p => new ScatterAttack(pending.Seat, p.At)));
+                break;
             case DecisionKind.SpendMarkersOnSuccessRoll or DecisionKind.SpendMarkersOnInjuryRoll:
                 var available = MarkersAvailable(state, pending.Kind);
                 commands.AddRange(Enumerable.Range(0, available + 1).Select(n => new SpendMarkers(pending.Seat, n)));
@@ -185,7 +192,7 @@ public static partial class TurnSequence
         {
             return ValidateSpend(state, spend);
         }
-        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget)
+        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack)
         {
             return ValidateChoice(state, command);
         }
@@ -313,7 +320,7 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines;
+        or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or ScatterAttack;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
@@ -388,7 +395,7 @@ public static partial class TurnSequence
                     run.Emit(new ModelStoodUp(c.Model));
                 }
                 break;
-            case PlaceModel or MoveModel or DashModel or Shoot or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget:
+            case PlaceModel or MoveModel or DashModel or Shoot or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack:
                 ExecuteBoard(run, command);
                 break;
             case EndActivation:
@@ -437,10 +444,26 @@ public static partial class TurnSequence
             return AdvanceRetreat(run, s, retreat);
         }
 
+        // Roster stage R4c (U103): a scattered attack's failed Risky roll ends the activation once the attack is over.
+        if (s.MustEndActivation && s.Phase == Phase.Activation && s.ActiveModel is { } risked)
+        {
+            run.Emit(new ActivationEnded(risked, ActivationEndReason.RiskyFailure));
+            return true;
+        }
+
         // RELOAD (roster stage R2b, p. 56): the attack's ACTION is done, so the activation ends.
         if (s.ReloadEnds && s.Phase == Phase.Activation && s.ActiveModel is { } reloading)
         {
             run.Emit(new ActivationEnded(reloading, ActivationEndReason.Reload));
+            return true;
+        }
+
+        // Roster stage R4b (U102): a model its own blast took Down or Out of Action ends its activation (p. 49), as the
+        // reducer requires once its attack is over.
+        if (s.Phase == Phase.Activation && s.ActiveModel is { } hurt && s.FindModel(hurt) is { Status: not ModelStatus.Standing }
+            && (s.Actions != ActionsTaken.None || s.MovementHalved) && Board.ScenarioOf(s) is not null)
+        {
+            run.Emit(new ActivationEnded(hurt, ActivationEndReason.TakenDown));
             return true;
         }
 
