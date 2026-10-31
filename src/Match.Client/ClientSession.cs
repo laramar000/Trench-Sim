@@ -422,6 +422,11 @@ public sealed class ClientSession : IAsyncDisposable
                 }
                 break;
             case Welcome welcome:
+                // Roster stage 5c: a second Welcome for the same match and seat on this connection answers no request (a
+                // seated connection's create, join or rejoin is refused): it is the server setting up a roster match
+                // when the second player joins. It restarts the copy but is not queued as an answer, so the next
+                // command's answer stays its own.
+                var unasked = Welcome is { } before && before.Code == welcome.Code && before.Seat == welcome.Seat;
                 if (!Accept(welcome))
                 {
                     return false;
@@ -437,7 +442,10 @@ public sealed class ClientSession : IAsyncDisposable
                         // Not confirmed: the server keeps the previous token valid too, so nothing is lost.
                     }
                 }
-                _answers.Writer.TryWrite(message);
+                if (!unasked)
+                {
+                    _answers.Writer.TryWrite(message);
+                }
                 break;
             case Rejected { Kind: RejectionKind.Protocol, Code: nameof(ProtocolError.SeatTakenOver) }:
                 TakenOver = true;

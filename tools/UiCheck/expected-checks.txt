@@ -247,6 +247,8 @@ hotseat: hotseat-turn-banner
 hotseat: hotseat-bar-seat-letter
 hotseat: hotseat-full-match
 hotseat: hotseat-server-stopped
+hotseat: online-roster-type-server
+hotseat: online-roster-match
 hotseat-record-verifies
 hotseat-mines-exit
 hotseat-mines: mines-choose-scenario

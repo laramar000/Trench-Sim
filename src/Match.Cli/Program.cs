@@ -8,8 +8,10 @@ using Sim;
 // trench-cli [--server ws://127.0.0.1:5080/match] create <scenario> [--bot <seed>]
 // trench-cli [--server ws://127.0.0.1:5080/match] join <code> [--bot <seed>]
 // trench-cli [--server ws://127.0.0.1:5080/match] rejoin <code> [--seat One|Two] [--bot <seed>]
+// Roster stage 5c: create roster --roster <file.roster.json> hosts with a saved roster; join <code> --roster <file> joins
+// a match hosted with one. The server checks the roster and says why when it cannot be played.
 // trench-cli verify <record.json> [--key <public.pem>]... [--content <folder>]
-const string Usage = "usage: trench-cli [--server ws://host:port/match] (create <ranged|melee> | join <code> | rejoin <code> [--seat One|Two]) [--bot <seed>]\n" +
+const string Usage = "usage: trench-cli [--server ws://host:port/match] (create <ranged|melee|roster> | join <code> | rejoin <code> [--seat One|Two]) [--roster <file.roster.json>] [--bot <seed>]\n" +
     "       trench-cli verify <record.json> [--key <public.pem>]... [--content <folder>]";
 if (args.Length > 0 && args[0] == "verify")
 {
@@ -19,6 +21,7 @@ if (args.Length > 0 && args[0] == "verify")
 var server = new Uri("ws://127.0.0.1:5080/match");
 string? action = null, argument = null;
 int? botSeed = null;
+string? rosterFile = null;
 Rules.Core.State.Seat? seatChoice = null;
 for (var i = 0; i < args.Length; i++)
 {
@@ -30,6 +33,9 @@ for (var i = 0; i < args.Length; i++)
         case "--seat" when i + 1 < args.Length && Enum.TryParse<Rules.Core.State.Seat>(args[i + 1], out var chosen) && Enum.IsDefined(chosen):
             seatChoice = chosen;
             i++;
+            break;
+        case "--roster" when i + 1 < args.Length:
+            rosterFile = args[++i];
             break;
         case "--bot" when i + 1 < args.Length:
             botSeed = int.Parse(args[++i], CultureInfo.InvariantCulture);
@@ -43,10 +49,23 @@ for (var i = 0; i < args.Length; i++)
             return 2;
     }
 }
-if (action is null)
+if (action is null || (rosterFile is not null) != (action == "create" && argument == RosterText.Scenario) && !(action == "join" && rosterFile is not null))
 {
     Console.Error.WriteLine(Usage);
     return 2;
+}
+string? roster = null;
+if (rosterFile is not null)
+{
+    try
+    {
+        roster = File.ReadAllText(rosterFile);
+    }
+    catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine($"Cannot read the roster {rosterFile}: {e.Message}");
+        return 2;
+    }
 }
 
 var store = new SessionStore(SessionStore.DefaultDirectory());
@@ -115,8 +134,9 @@ session.Received += message =>
 
 var answer = action switch
 {
+    "create" when roster is not null => await session.CreateWithRosterAsync(roster, null, stop.Token),
     "create" => await session.CreateAsync(argument!, stop.Token),
-    "join" => await session.JoinAsync(argument!, stop.Token),
+    "join" => await session.JoinAsync(argument!, roster, stop.Token),
     _ => await session.RejoinAsync(saved!.Code, saved.Token, stop.Token),
 };
 if (answer is not Welcome welcome)

@@ -2724,7 +2724,8 @@ public partial class UiCheck : Node
         await MenuNavigationCheck();
         await MenuLookCheck();
         await RosterBuilderCheck();
-        var pickerRosters = SaveCheckRosters();
+        _pickerRosters = SaveCheckRosters();
+        var pickerRosters = _pickerRosters;
         // Stage M1: from the main menu, Play, then the Play screen's hot-seat.
         await Press(ButtonNamed(Main.PlayText), Key.Enter, "hotseat-play-enter");
         await ConnectFeedbackCheck();
@@ -2846,6 +2847,87 @@ public partial class UiCheck : Node
         var main = (Main)_main;
         Check("hotseat-server-stopped", stopped && main.ScreenShown == "menu" && ButtonNamed(Main.PlayText) is { } play && Focused() == play,
             $"local server {endpoint} {(stopped ? "no longer accepts connections" : "still accepts connections")}; screen after Leave: {main.ScreenShown ?? "none"}, focus {Describe(Focused())}");
+        await OnlineRosterCheck();
+    }
+
+    // Roster stage 5c (online-roster-match): on a server of its own, this window hosts from the Online page with a saved
+    // roster chosen in "You play"; a second player (a client session in this check) joins with another roster. The
+    // window then shows the real match: both rosters' names on the seats and the opponent's model by its roster name.
+    // Then Leave, and the server is stopped.
+    private async Task OnlineRosterCheck()
+    {
+        var main = (Main)_main;
+        var repository = LocalServer.FindRepository(ProjectSettings.GlobalizePath("res://"));
+        if (repository is null)
+        {
+            Check("online-roster-match", false, "the source folder was not found");
+            return;
+        }
+        LocalServer? server = null;
+        Match.Client.ClientSession? opponent = null;
+        var problems = new List<string>();
+        var steps = new List<string>();
+        try
+        {
+            // The local server as hot-seat starts it (already built by the hot-seat match, so the build is quick).
+            server = await LocalServer.StartAsync(repository, System.IO.Path.Combine(_out, "online-roster-server"));
+            await Press(ButtonNamed(Main.PlayText), Key.Enter, null);
+            await Until(() => main.ScreenShown == "play" ? "ok" : null, 5, "online-roster-play");
+            await Press(ButtonNamed(Main.OnlineText), Key.Enter, null);
+            await Until(() => main.PlayPageShown == "online" ? "ok" : null, 5, "online-roster-online");
+            await TypeInto(Field("ws://"), server.Endpoint.ToString(), "online-roster-type-server");
+            var online = Controls<OptionButton>().FirstOrDefault(o => o.Name == "RosterOnline" && o.IsVisibleInTree());
+            await ChooseOption(online, _pickerRosters.Playable, null);
+            if (online is null || ItemName(online, online.Selected) != _pickerRosters.Playable)
+            {
+                problems.Add("You play: the saved roster could not be chosen");
+            }
+            await Press(ButtonNamed(Main.HostText), Key.Enter, null);
+            var hosted = await Until(() => Label("Match code ") is { } l && l.Text.Contains("Seat One [A]", StringComparison.Ordinal) ? l.Text : null, 30, "online-roster-hosted");
+            var code = main.MatchCode;
+            if (hosted is null || code is null)
+            {
+                problems.Add($"hosting with {_pickerRosters.Playable}: {Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && l.Text.Length > 0)?.Text ?? "no match screen"}");
+            }
+            else
+            {
+                steps.Add($"hosted {code} with {_pickerRosters.Playable}");
+                var joining = RosterMatch.PrepareOne(main.RosterFolder, _pickerRosters.Second);
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                opponent = await Match.Client.ClientSession.ConnectAsync(server.Endpoint, timeout.Token);
+                var answer = await opponent.JoinAsync(code, joining.Json, timeout.Token);
+                steps.Add($"second player joined with {_pickerRosters.Second}: {answer.GetType().Name}");
+                string Seats() => main.LastScreen?.View is { } v ? string.Join(" / ", v.Seats.Select(x => x.Warband)) + " · " + string.Join(", ", v.Models.Select(m => m.Name)) : "no match view";
+                var shown = await Until(() => main.LastScreen?.View is { } v && v.Seats.Count == 2 && v.Seats[0].Warband == "Picker Line" && v.Seats[1].Warband == "Picker Saints"
+                    && v.Models.Any(m => m.Name == "Lieutenant (b1)") && v.NamesProblem is null ? "ok" : null, 30, "online-roster-names");
+                if (shown is null)
+                {
+                    problems.Add($"the window shows {Seats()} (problem: {main.LastScreen?.View.NamesProblem ?? "none"})");
+                }
+                else
+                {
+                    steps.Add($"the window shows {Seats()}");
+                }
+                await Press(ButtonNamed("Leave"), Key.Enter, null);
+                await Until(() => main.ScreenShown == "menu" ? "ok" : null, 10, "online-roster-left");
+            }
+        }
+        catch (Exception e)
+        {
+            problems.Add($"{e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            if (opponent is not null)
+            {
+                await opponent.DisposeAsync();
+            }
+            if (server is not null)
+            {
+                await server.DisposeAsync();
+            }
+        }
+        Check("online-roster-match", problems.Count == 0, problems.Count == 0 ? string.Join("; ", steps) : string.Join("; ", problems));
     }
 
     // Whether a server answers at the address (a WebSocket connection is accepted).
@@ -6371,26 +6453,31 @@ public partial class UiCheck : Node
         await Until(() => main.ScreenShown == "menu" && Focused() == ButtonNamed(Main.PlayText) ? "ok" : null, 5, "menu-back-again");
     }
 
-    // Roster stage 5c: two saved rosters for the picker check, one playable and one the game cannot play yet (grenades).
-    private (string Playable, string Refused) SaveCheckRosters()
+    private (string Playable, string Refused, string Second) _pickerRosters;
+
+    // Roster stage 5c: saved rosters for the picker checks: two playable and one the game cannot play yet (grenades).
+    private (string Playable, string Refused, string Second) SaveCheckRosters()
     {
         var folder = ((Main)_main).RosterFolder;
-        string Save(string name, string kit)
+        string Save(string name, params string[] kit)
         {
             var builder = RosterBuilder.Shipped();
             builder.Name = name;
             builder.Select(builder.Add("lieutenant"));
-            builder.AddKit(kit);
+            foreach (var piece in kit)
+            {
+                builder.AddKit(piece);
+            }
             return System.IO.Path.GetFileName(builder.Save(folder));
         }
-        return (Save("Picker Line", "bolt-action-rifle"), Save("Picker Bombers", "frag-grenades"));
+        return (Save("Picker Line", "bolt-action-rifle"), Save("Picker Bombers", "frag-grenades"), Save("Picker Saints", "bolt-action-rifle", "standard-armour"));
     }
 
     // Roster stages 5b and 5c (play-roster-pickers): by keyboard on the Play screen, a saved roster for Seat One only
     // starts no hot-seat and says both seats need one; the Online page's "You play" lists the saved rosters, and hosting
     // with one the game cannot play says why by name and connects to nothing. Every picker is put back to the practice
     // warbands, so the hot-seat match after it is the normal one.
-    private async Task RosterPickersCheck((string Playable, string Refused) rosters)
+    private async Task RosterPickersCheck((string Playable, string Refused, string Second) rosters)
     {
         var main = (Main)_main;
         var problems = new List<string>();

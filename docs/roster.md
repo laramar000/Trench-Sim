@@ -187,5 +187,8 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   placeholder; when the second roster arrives the server builds the setup from both (`ScenarioSetups.FromContentText`,
   plain map unless one was chosen), restarts Seat One's copy and sends both rosters' names in `Welcome.warbands`.
   No rules, hash or record format change; records verify as any other (scenario `roster`). Tests:
-  `RosterOnlineTests`, `RosterHotSeatTests`; UI check `play-roster-pickers` (hot-seat group). Not built:
-  `trench-cli` has no roster option; no UI check plays a whole roster match in two Godot windows.
+  `RosterOnlineTests`, `RosterHotSeatTests`; UI check `play-roster-pickers` (hot-seat group). `trench-cli create roster --roster <file>` and
+  `join <code> --roster <file>` host and join with a roster file (test `RosterCliTests`: two `--bot` players to the
+  end). UI check `online-roster-match` (hot-seat group): the window hosts from the Online page with a saved roster on
+  a server of its own, a second player joins with another, and the window shows both rosters' names. Not built: no UI
+  check plays a whole roster match to the end in two Godot windows.

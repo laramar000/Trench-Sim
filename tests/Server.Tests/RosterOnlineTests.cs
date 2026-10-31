@@ -156,3 +156,154 @@ public class RosterOnlineTests
         Assert.Contains("does not take rosters", rejected.Text, StringComparison.Ordinal);
     }
 }
+
+// Roster stage 5c: trench-cli hosts and joins with saved roster files (--roster); two of its test-only bots play the
+// match to the end on the real server, and both see the same final hash.
+public sealed class RosterCliTests : IDisposable
+{
+    private readonly DirectoryInfo _dir = Directory.CreateTempSubdirectory("trench-roster-cli-");
+
+    public void Dispose() => _dir.Delete(recursive: true);
+
+    // A trench-cli process whose output lines are collected as they come.
+    private sealed class CliRun : IDisposable
+    {
+        private readonly List<string> _lines = [];
+
+        public CliRun(string home, params string[] args)
+        {
+            var info = new System.Diagnostics.ProcessStartInfo("dotnet") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+            info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "trench-cli.dll"));
+            foreach (var arg in args)
+            {
+                info.ArgumentList.Add(arg);
+            }
+            info.Environment["TRENCH_SIM_HOME"] = home;
+            Process = new System.Diagnostics.Process { StartInfo = info };
+            Process.OutputDataReceived += (_, e) => Add(e.Data);
+            Process.ErrorDataReceived += (_, e) => Add(e.Data is null ? null : "stderr: " + e.Data);
+            Process.Start();
+            Process.BeginOutputReadLine();
+            Process.BeginErrorReadLine();
+        }
+
+        public System.Diagnostics.Process Process { get; }
+
+        public string Output
+        {
+            get
+            {
+                lock (_lines)
+                {
+                    return string.Join('\n', _lines);
+                }
+            }
+        }
+
+        private void Add(string? line)
+        {
+            if (line is not null)
+            {
+                lock (_lines)
+                {
+                    _lines.Add(line);
+                }
+            }
+        }
+
+        public async Task<bool> ExitedWithin(TimeSpan limit)
+        {
+            using var timeout = new CancellationTokenSource(limit);
+            try
+            {
+                await Process.WaitForExitAsync(timeout.Token);
+                Process.WaitForExit();
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (!Process.HasExited)
+            {
+                Process.Kill(entireProcessTree: true);
+            }
+            Process.Dispose();
+        }
+    }
+
+    private string Save(string name, string json)
+    {
+        var path = Path.Combine(_dir.FullName, name);
+        File.WriteAllText(path, json);
+        return path;
+    }
+
+    [Fact]
+    public async Task TwoTrenchCliBotsPlayTheirRostersToTheEnd()
+    {
+        var one = Save("one.roster.json", new WarbandRoster("Iron Line", "principality", null, 700, 0,
+            [new RosterModel("lieutenant", null, ["pistol", "sword-axe"], []), new RosterModel("yeoman", null, ["bolt-action-rifle"], [])]).ToJson());
+        var two = Save("two.roster.json", new WarbandRoster("Mud Saints", "principality", null, 700, 0,
+            [new RosterModel("lieutenant", null, ["bolt-action-rifle", "standard-armour"], [])]).ToJson());
+        await using var server = await MatchServer.StartAsync(new MatchServerOptions { NewDice = () => new Sim.SeededDice(5) });
+        var url = server.Endpoint.ToString();
+        using var host = new CliRun(Path.Combine(_dir.FullName, "a"), "--server", url, "create", RosterText.Scenario, "--roster", one, "--bot", "1");
+        string? code = null;
+        for (var i = 0; i < 600 && code is null && !host.Process.HasExited; i++)
+        {
+            code = System.Text.RegularExpressions.Regex.Match(host.Output, @"Match ([A-Z0-9]+) \(roster\)\. You are Seat One\.") is { Success: true } m ? m.Groups[1].Value : null;
+            await Task.Delay(100);
+        }
+        Assert.True(code is not null, host.Output);
+
+        using var join = new CliRun(Path.Combine(_dir.FullName, "b"), "--server", url, "join", code, "--roster", two, "--bot", "2");
+        var joined = await join.ExitedWithin(TimeSpan.FromMinutes(3));
+        var hosted = await host.ExitedWithin(TimeSpan.FromSeconds(30));
+        var tail = $"join: ...{join.Output[^Math.Min(1500, join.Output.Length)..]} || host: ...{host.Output[^Math.Min(1500, host.Output.Length)..]}";
+        Assert.True(joined && hosted, tail);
+        Assert.True(join.Process.ExitCode == 0 && host.Process.ExitCode == 0, tail);
+        string Final(string output) => System.Text.RegularExpressions.Regex.Match(output, @"events, every one matched the server's hash\. Final hash ([0-9a-f]{64})").Groups[1].Value;
+        Assert.Matches("^[0-9a-f]{64}$", Final(join.Output));
+        Assert.Equal(Final(join.Output), Final(host.Output));
+        Assert.Contains("MATCH ENDED", join.Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task TrenchCliRefusesARosterWithTheWrongAction()
+    {
+        using var wrong = new CliRun(Path.Combine(_dir.FullName, "c"), "create", "ranged", "--roster", "x.roster.json");
+        Assert.True(await wrong.ExitedWithin(TimeSpan.FromMinutes(1)));
+        Assert.Equal(2, wrong.Process.ExitCode);
+        var error = wrong.Output;
+        Assert.Contains("--roster", error, StringComparison.Ordinal);
+    }
+}
+
+// Roster stage 5c: on the real server, Seat One's connection gets a second Welcome when the second roster arrives. It
+// answers no request, so it must not be taken as the answer to Seat One's next command; two bots on two connections
+// then play the match to the end, every command with its own answer.
+public class RosterSessionTests
+{
+    [Fact]
+    public async Task TheSetUpWelcomeIsNotTakenAsTheAnswerToACommand()
+    {
+        string F(string n, params (string E, string[] K)[] ms) => new WarbandRoster(n, "principality", null, 700, 0, [.. ms.Select(m => new RosterModel(m.E, null, m.K, []))]).ToJson();
+        await using var server = await MatchServer.StartAsync(new MatchServerOptions { NewDice = () => new SeededDice(5) });
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        await using var one = await Match.Client.ClientSession.ConnectAsync(server.Endpoint, timeout.Token);
+        await using var two = await Match.Client.ClientSession.ConnectAsync(server.Endpoint, timeout.Token);
+        var welcome = Assert.IsType<Welcome>(await one.CreateWithRosterAsync(F("Iron Line", ("lieutenant", ["pistol", "sword-axe"]), ("yeoman", ["bolt-action-rifle"])), null, timeout.Token));
+        Assert.IsType<Welcome>(await two.JoinAsync(welcome.Code, F("Mud Saints", ("lieutenant", ["bolt-action-rifle", "standard-armour"])), timeout.Token));
+        await one.WaitForAsync(s => s.Synchronized && s.Mirror.State.Setup?.Models.Length == 3, timeout.Token);
+        Assert.False(one.TryNextAnswer(out var queued), $"a Welcome nobody asked for was queued as an answer: {queued}");
+        var bots = new[] { Match.Cli.BotPlayer.PlayAsync(one, 1, timeout.Token), Match.Cli.BotPlayer.PlayAsync(two, 2, timeout.Token) };
+        await Task.WhenAll(bots);
+        Assert.Equal(Phase.Ended, one.Mirror.State.Phase);
+        Assert.Equal(one.Mirror.Hash, two.Mirror.Hash);
+    }
+}

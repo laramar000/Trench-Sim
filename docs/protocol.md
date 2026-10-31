@@ -186,6 +186,9 @@ The server sends events in log order, one message each, to both players, through
 - `RosterRefused` (new error code): a roster that cannot be read or played (the text says why, by name), a roster sent
   with another scenario, a roster match joined without a roster, a practice match joined with one, or a server that has
   no roster data. A refused join leaves the match waiting for another player.
+- The second `Welcome` Seat One gets when the match is set up answers no request. A client must not take it as the
+  answer to its next command: `Match.Client.ClientSession` keeps a second `Welcome` for the same code and seat out of
+  its answer queue (test `RosterSessionTests`; before this fix two `trench-cli --bot` players could stall).
 - Names a player gives (the roster's and its models') reach the opponent; the server refuses names over 60 characters
   or with control characters.
-- Tests: `Server.Tests/RosterOnlineTests`, `Client.Tests/RosterHotSeatTests` (two controllers on the real server).
+- Tests: `Server.Tests/RosterOnlineTests` (with `RosterSessionTests`, `RosterCliTests`), `Client.Tests/RosterHotSeatTests` (two controllers on the real server).
