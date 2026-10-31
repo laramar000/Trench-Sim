@@ -41,6 +41,8 @@ public static class Content
                         RangedWeaponInjuryDice = Dice(m, "rangedWeaponInjuryDice"),
                         MeleeWeaponDice = Dice(m, "meleeWeaponDice"),
                         MeleeWeaponInjuryDice = Dice(m, "meleeWeaponInjuryDice"),
+                        RangedWeaponKeywords = Keywords(m, "rangedWeaponKeywords"),
+                        MeleeWeaponKeywords = Keywords(m, "meleeWeaponKeywords"),
                     }));
             }
             warbands.Add(new Warband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));
@@ -51,6 +53,17 @@ public static class Content
     // Roster stage R1: a model's dice (profile Ranged and Melee, weapon DICE and INJURY DICE), zero when not given.
     private static int Dice(JsonElement model, string name) =>
         model.TryGetProperty(name, out var value) ? value.GetInt32() : 0;
+
+    // Roster stage R2: a weapon's played keywords, by the engine's names (Rules.Core WeaponKeywords); none when not given.
+    private static WeaponKeywords Keywords(JsonElement model, string name) =>
+        model.TryGetProperty(name, out var value)
+            ? value.EnumerateArray().Aggregate(WeaponKeywords.None, (all, k) => all | Keyword(k.GetString()!))
+            : WeaponKeywords.None;
+
+    private static WeaponKeywords Keyword(string name) =>
+        Enum.GetValues<WeaponKeywords>().FirstOrDefault(k => k != WeaponKeywords.None && k.ToString() == name) is var k && k != WeaponKeywords.None
+            ? k
+            : throw new FormatException($"Unknown weapon keyword {name}.");
 
     public static IReadOnlyList<Warband> Load(string path) => Parse(File.ReadAllText(path));
 

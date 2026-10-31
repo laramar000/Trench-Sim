@@ -359,6 +359,8 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponInjuryDice)),
             (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponDice)),
             (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponInjuryDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponKeywords)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponKeywords)),
         ];
 
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();
@@ -499,7 +501,8 @@ public static class Wire
                 {
                     continue;
                 }
-                if (memberValue is 0 && member.Parameter is null && OmitWhenZero.Contains((Type, member.Property.Name)))
+                if ((memberValue is 0 || memberValue is Enum flags && Convert.ToUInt64(flags, System.Globalization.CultureInfo.InvariantCulture) == 0)
+                    && member.Parameter is null && OmitWhenZero.Contains((Type, member.Property.Name)))
                 {
                     continue;
                 }

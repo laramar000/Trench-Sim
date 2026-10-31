@@ -108,15 +108,54 @@ public sealed record ModelProfile
     private readonly int _meleeWeaponDice;
     private readonly int _meleeWeaponInjuryDice;
 
+    // Roster stage R2: the keywords of the ranged weapon and of the Melee Weapon (WeaponKeywords). Init properties,
+    // None unless set, left off the wire and out of the state hash when None.
+    public WeaponKeywords RangedWeaponKeywords
+    {
+        get => _rangedWeaponKeywords;
+        init => _rangedWeaponKeywords = value != WeaponKeywords.None && !HasRangedWeapon
+            ? throw new ArgumentException("Only a model with a ranged weapon has ranged weapon keywords.", nameof(RangedWeaponKeywords))
+            : Known(value, nameof(RangedWeaponKeywords));
+    }
+
+    public WeaponKeywords MeleeWeaponKeywords
+    {
+        get => _meleeWeaponKeywords;
+        init => _meleeWeaponKeywords = value != WeaponKeywords.None && !HasMeleeWeapon
+            ? throw new ArgumentException("Only a model with a Melee Weapon has melee weapon keywords.", nameof(MeleeWeaponKeywords))
+            : Known(value, nameof(MeleeWeaponKeywords));
+    }
+
+    private readonly WeaponKeywords _rangedWeaponKeywords;
+    private readonly WeaponKeywords _meleeWeaponKeywords;
+
+    private const WeaponKeywords AllKeywords = WeaponKeywords.Critical | WeaponKeywords.IgnoreArmour | WeaponKeywords.ArmourPiercing
+        | WeaponKeywords.Shotgun | WeaponKeywords.Risky | WeaponKeywords.Pistol | WeaponKeywords.IgnoreCover
+        | WeaponKeywords.IgnoreLongRange | WeaponKeywords.IgnoreElevatedPosition;
+
+    private static WeaponKeywords Known(WeaponKeywords value, string name) => (value & ~AllKeywords) != 0
+        ? throw new ArgumentOutOfRangeException(name, "Unknown weapon keywords.")
+        : value;
+
+    // The keywords of the weapon an attack of this kind is made with (a Melee Attack: the Melee Weapon, else the
+    // dual-purpose weapon, U54).
+    public WeaponKeywords AttackKeywords(AttackKind kind) => kind == AttackKind.Melee
+        ? HasMeleeWeapon ? MeleeWeaponKeywords : RangedAlsoMelee ? RangedWeaponKeywords : WeaponKeywords.None
+        : RangedWeaponKeywords;
+
     // A Ranged Attack's Success Roll: the Ranged Characteristic and the ranged weapon's DICE.
     public int RangedAttackDice => RangedDice + RangedWeaponDice;
 
     public int RangedAttackInjuryDice => RangedWeaponInjuryDice;
 
     // A Melee Attack's Success Roll: the Melee Characteristic and the DICE of the weapon it attacks with (its Melee
-    // Weapon, else its dual-purpose weapon, as MeleeAttackInjuryModifier). PISTOL's choice of the Ranged Characteristic
-    // in melee (p. 56) is a keyword, not played yet.
-    public int MeleeAttackDice => MeleeDice + (HasMeleeWeapon ? MeleeWeaponDice : RangedAlsoMelee ? RangedWeaponDice : 0);
+    // Weapon, else its dual-purpose weapon, as MeleeAttackInjuryModifier). A PISTOL used in melee may use the Ranged
+    // Characteristic instead (p. 56): the better of the two is used (U98).
+    public int MeleeAttackDice => MeleeCharacteristicUsed + (HasMeleeWeapon ? MeleeWeaponDice : RangedAlsoMelee ? RangedWeaponDice : 0);
+
+    // The characteristic a Melee Attack uses: Melee, or the better of Ranged and Melee for a PISTOL used in melee.
+    public int MeleeCharacteristicUsed =>
+        !HasMeleeWeapon && RangedAlsoMelee && RangedWeaponKeywords.HasFlag(WeaponKeywords.Pistol) ? Math.Max(MeleeDice, RangedDice) : MeleeDice;
 
     public int MeleeAttackInjuryDice => HasMeleeWeapon ? MeleeWeaponInjuryDice : RangedAlsoMelee ? RangedWeaponInjuryDice : 0;
 

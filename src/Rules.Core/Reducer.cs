@@ -787,11 +787,12 @@ public static class Reducer
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId
             && facts.AttackerLevel == e.AttackerLevel && facts.TargetLevel == e.TargetLevel && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
         Require(facts.IntoMelee == e.IntoMelee, "A target within 1\" of a friendly model needs the D6 that decides who is shot, and no other does.");
-        var (bonus, penalty) = AttackDice.With(e.BonusDice, e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!, AttackKind.Ranged));
+        // The declared facts with the weapon's keywords and the attacker's own dice (roster stages R1, R2).
+        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!, e.LongRange, e.InCover, e.Elevated);
         return state with
         {
             Actions = state.Actions | ActionsTaken.Shoot,
-            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, bonus, penalty),
+            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, bonus, penalty, InjuryDiceLater: later),
         };
     }
 
@@ -800,16 +801,17 @@ public static class Reducer
         Require(state.InProgress is { Stage: RollStage.ShotRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No attack roll is waiting.");
         var progress = state.InProgress!;
         var attacker = state.FindModel(e.Attacker)!;
-        Require(e.Check.Risky == state.IsShaken(attacker.Seat) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
-            "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken.");
+        var profile = state.Setup!.ProfileOf(e.Attacker)!;
+        Require(e.Check.Risky == AttackDice.Risky(profile, AttackKind.Ranged, state.IsShaken(attacker.Seat)) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
+            "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
         if (e.Check.Outcome == SuccessOutcome.Failure)
         {
             return state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure };
         }
-        // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE").
+        // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE"),
+        // +2 with CRITICAL; the weapon's own INJURY DICE and SHOTGUN's -1 at Long Range (roster stages R1, R2).
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
-        var (bonus, penalty) = AttackDice.With(AttackDice.InjuryBonus(critical, meleeOnDownTarget: false), 0,
-            AttackDice.OwnInjuryDice(state.Setup!.ProfileOf(e.Attacker)!, AttackKind.Ranged));
+        var (bonus, penalty) = AttackDice.InjuryDice(profile, AttackKind.Ranged, critical, meleeOnDownTarget: false, progress.InjuryDiceLater);
         return state with
         {
             InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = bonus, PenaltyDice = penalty, Critical = critical, MarkersAsked = false },
@@ -825,10 +827,8 @@ public static class Reducer
         Require(target.Id != attacker.Id && (target.Seat == attacker.Seat) == progress.FriendlyFire,
             "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one.");
         var profile = state.Setup!.ProfileOf(e.Attacker)!;
-        var weapon = progress.Kind == AttackKind.Melee ? profile.MeleeAttackInjuryModifier : profile.RangedInjuryModifier;
-        var armour = state.Setup.ProfileOf(e.Target)!.Armour;
         Require(e.Injury.NetDice == progress.BonusDice - progress.PenaltyDice
-            && e.Injury.Modifier == InjuryRoll.CombineModifiers([weapon, armour])
+            && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup.ProfileOf(e.Target)!, progress.Kind))
             && e.Injury.TargetAlreadyDown == (target.Status == ModelStatus.Down), "The Injury Roll must match the dice, modifiers and state of the target.");
 
         var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.Injury.BloodMarkers);
@@ -948,8 +948,9 @@ public static class Reducer
         Require(state.InProgress is { Stage: RollStage.FightRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No Melee Attack roll is waiting.");
         var progress = state.InProgress!;
         var attacker = state.FindModel(e.Attacker)!;
-        Require(e.Check.Risky == state.IsShaken(attacker.Seat) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
-            "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken.");
+        var fighter = state.Setup!.ProfileOf(e.Attacker)!;
+        Require(e.Check.Risky == AttackDice.Risky(fighter, AttackKind.Melee, state.IsShaken(attacker.Seat)) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
+            "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
         if (e.Check.Outcome == SuccessOutcome.Failure)
         {
             // Only the active model has an activation to lose; a free attack that fails simply misses (U49).
@@ -958,8 +959,7 @@ public static class Reducer
         // +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
         var onDownTarget = state.FindModel(e.Target)!.Status == ModelStatus.Down;
-        var (bonus, penalty) = AttackDice.With(AttackDice.InjuryBonus(critical, onDownTarget), 0,
-            AttackDice.OwnInjuryDice(state.Setup!.ProfileOf(e.Attacker)!, AttackKind.Melee));
+        var (bonus, penalty) = AttackDice.InjuryDice(fighter, AttackKind.Melee, critical, onDownTarget, 0);
         return state with
         {
             InProgress = progress with
@@ -990,8 +990,7 @@ public static class Reducer
         Require(victim is not null && Board.FriendsNear(state, shooter, intended).Any(m => m.Id == e.Victim), "The shot must be aimed at one of the shooter's own models within 1\" of the target.");
         var facts = Board.ForcedShotFacts(state, shooter, victim!);
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
-        var (bonus, penalty) = AttackDice.With(AttackDice.ShotBonus(e.Elevated), AttackDice.ShotPenalty(e.LongRange, e.InCover),
-            AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!, AttackKind.Ranged));
+        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!, e.LongRange, e.InCover, e.Elevated);
         return state with
         {
             Pending = null,
@@ -1002,6 +1001,7 @@ public static class Reducer
                 FriendlyFire = true,
                 BonusDice = bonus,
                 PenaltyDice = penalty,
+                InjuryDiceLater = later,
                 MarkersAsked = false,
             },
         };

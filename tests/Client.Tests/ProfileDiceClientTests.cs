@@ -23,6 +23,28 @@ public class ProfileDiceClientTests
     }
 
     [Fact]
+    public void ThePreviewNamesTheWeaponsKeywords()
+    {
+        var dice = new DicePreview(0, [], true, 0, 0, 0, 0)
+        {
+            ShakenRisky = false, CriticalDice = 2, ShotgunInjuryDice = -1,
+            KeywordNotes = DicePreview.Notes(WeaponKeywords.Critical | WeaponKeywords.Risky | WeaponKeywords.Shotgun, AttackKind.Ranged),
+        };
+        var lines = dice.Lines(new ModelId("a1"), new ModelId("b1"));
+        Assert.Contains("RISKY: the weapon is RISKY", lines);
+        Assert.Contains("CRITICAL: +2 INJURY DICE on a critical hit", lines);
+        Assert.Contains(lines, l => l.StartsWith("SHOTGUN:", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains("-1 DICE (SHOTGUN at Long Range)", StringComparison.Ordinal) && l.EndsWith("+2 DICE on a critical hit", StringComparison.Ordinal));
+        Assert.Equal(-1, dice.InjuryNetDice);
+        Assert.DoesNotContain(DicePreview.Notes(WeaponKeywords.Shotgun | WeaponKeywords.IgnoreCover, AttackKind.Melee), n => n.Length > 0);
+        var pistol = new ModelProfile(Length.FromInches(6), Length.Parse("0.5"), Length.FromInches(12))
+        {
+            RangedAlsoMelee = true, RangedWeaponKeywords = WeaponKeywords.Pistol, RangedDice = 2, MeleeDice = 1,
+        };
+        Assert.Equal(["Ranged (PISTOL) +2"], DicePreview.OwnParts(pistol, AttackKind.Melee));
+    }
+
+    [Fact]
     public void TheOwnPartsNameTheCharacteristicAndTheWeapon()
     {
         var pistol = new ModelProfile(Length.FromInches(6), Length.Parse("0.5"), Length.FromInches(12)) { RangedAlsoMelee = true, MeleeDice = 1, RangedWeaponDice = -1 };

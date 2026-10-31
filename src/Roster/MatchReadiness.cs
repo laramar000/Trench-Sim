@@ -11,6 +11,7 @@ namespace Roster;
 // - Played without, by name: what the engine leaves out of a piece or model it does play (weapon keywords, the model's
 //   keywords, abilities and upgrades). Shown to both players before the match.
 // Roster stage R1: the model's Ranged and Melee DICE and its weapons' DICE and INJURY DICE are played.
+// Roster stage R2: the weapon keywords in PlayedKeywords are played; the others are named.
 // The result is written in the warband content format the server's scenarios load (content/test-warbands.json).
 public sealed record ReadyModel(
     string Name,
@@ -30,6 +31,12 @@ public sealed record ReadyModel(
     public int RangedWeaponInjuryDice { get; init; }
     public int MeleeWeaponDice { get; init; }
     public int MeleeWeaponInjuryDice { get; init; }
+
+    // Roster stage R2: the played keywords of the ranged and melee weapon, by the engine's names (Rules.Core
+    // WeaponKeywords: Critical, IgnoreArmour, ArmourPiercing, Shotgun, Risky, Pistol, IgnoreCover, IgnoreLongRange,
+    // IgnoreElevatedPosition).
+    public IReadOnlyList<string> RangedWeaponKeywords { get; init; } = [];
+    public IReadOnlyList<string> MeleeWeaponKeywords { get; init; } = [];
 }
 
 public sealed record MatchReady(
@@ -75,6 +82,18 @@ public sealed record MatchReady(
                     if (m.RangedAlsoMelee)
                     {
                         w.WriteBoolean("rangedAlsoMelee", true);
+                    }
+                    foreach (var (field, words) in new[] { ("rangedWeaponKeywords", m.RangedWeaponKeywords), ("meleeWeaponKeywords", m.MeleeWeaponKeywords) })
+                    {
+                        if (words.Count > 0)
+                        {
+                            w.WriteStartArray(field);
+                            foreach (var word in words)
+                            {
+                                w.WriteStringValue(word);
+                            }
+                            w.WriteEndArray();
+                        }
                     }
                     foreach (var (field, dice) in new[]
                     {
@@ -209,6 +228,8 @@ public static class MatchReadiness
                 RangedWeaponInjuryDice = Dice(ranged?.InjuryDice ?? 0, who, $"{ranged?.Name}'s INJURY DICE", without),
                 MeleeWeaponDice = Dice(melee?.Dice ?? 0, who, $"{melee?.Name}'s DICE", without),
                 MeleeWeaponInjuryDice = Dice(melee?.InjuryDice ?? 0, who, $"{melee?.Name}'s INJURY DICE", without),
+                RangedWeaponKeywords = ranged is null ? [] : Played(ranged),
+                MeleeWeaponKeywords = melee is null ? [] : Played(melee),
             });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
@@ -228,11 +249,34 @@ public static class MatchReadiness
         return played;
     }
 
+    // Roster stage R2: the weapon keywords the engine plays, by the book's id (and IGNORE's value), with the engine's
+    // name. CUMBERSOME (two hands) is checked by the builder and changes nothing else in a match.
+    private static readonly Dictionary<string, string> PlayedKeywords = new(StringComparer.Ordinal)
+    {
+        ["CRITICAL"] = "Critical",
+        ["IGNORE ARMOUR"] = "IgnoreArmour",
+        ["ARMOUR PIERCING"] = "ArmourPiercing",
+        ["SHOTGUN"] = "Shotgun",
+        ["RISKY"] = "Risky",
+        ["PISTOL"] = "Pistol",
+        ["IGNORE COVER"] = "IgnoreCover",
+        ["IGNORE LONG RANGE"] = "IgnoreLongRange",
+        ["IGNORE ELEVATED POSITION"] = "IgnoreElevatedPosition",
+        ["CUMBERSOME"] = "",
+    };
+
+    private static string KeywordName(KeywordUse k) => k.Id == "IGNORE" && k.Text is { } what ? $"IGNORE {what}" : k.Id;
+
+    public static bool IsPlayed(KeywordUse k) => PlayedKeywords.ContainsKey(KeywordName(k));
+
+    private static IReadOnlyList<string> Played(CatalogueEntry weapon) =>
+        weapon.Keywords.Select(k => PlayedKeywords.GetValueOrDefault(KeywordName(k))).Where(n => !string.IsNullOrEmpty(n)).Distinct().ToList()!;
+
     // What a played piece loses: its keywords (a weapon's range, injury modifier, "/Melee", DICE and INJURY DICE are
     // played; armour and shields play only their injury modifier, so their dice are named too).
     private static void Without(string who, CatalogueEntry piece, List<string> without, bool diceToo = false)
     {
-        var parts = piece.Keywords.Select(k => k.Id).ToList();
+        var parts = piece.Keywords.Where(k => diceToo || !IsPlayed(k)).Select(KeywordName).ToList();
         if (diceToo && piece.Dice != 0)
         {
             parts.Add($"{piece.Dice:+0;-0} DICE");

@@ -418,8 +418,11 @@ public static class Previews
         {
             facts.Add("Elevated position: 3\" or more above the target (+1 DICE, p. 43).");
         }
-        dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, AttackDice.ShotPenalty(longRange, cover.InCover),
-            [.. new[] { longRange ? "Long Range, p. 43" : null, cover.InCover ? "Cover, pp. 38, 43" : null }.OfType<string>()], AttackDice.ShotBonus(elevated));
+        // The weapon's keywords decide which of these apply (roster stage R2: IGNORE ..., SHOTGUN).
+        var applied = AttackDice.ShotModifiers(profile.RangedWeaponKeywords, longRange, cover.InCover, elevated);
+        dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, applied.LongRange + applied.Cover,
+            [.. new[] { applied.LongRange > 0 ? "Long Range, p. 43" : null, applied.Cover > 0 ? "Cover, pp. 38, 43" : null }.OfType<string>()], applied.Elevated,
+            applied.ShotgunInjury);
         return null;
     }
 

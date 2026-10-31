@@ -1,5 +1,6 @@
 using Client.Core;
 using Roster;
+using Rules.Core.State;
 
 namespace Client.Tests;
 
@@ -80,6 +81,22 @@ public class MatchReadinessTests
         Assert.Equal(lieutenant, ContentNames.Parse(json).Single().Models[0].Profile);
         Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("DICE", StringComparison.Ordinal));
         Assert.DoesNotContain("\"meleeDice\"", Principality(("yeoman", ["bolt-action-rifle"])).MatchCheck().ToContentJson("y", "Y"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheWeaponKeywordsTheEngineKnowsArePlayed()
+    {
+        // Roster stage R2: the Sniper Rifle's CRITICAL and RISKY, the Great Sword's CRITICAL and the Pistol's PISTOL travel
+        // in the content; HEAVY is not played yet and stays named.
+        var ready = Principality(("lieutenant", ["sniper-rifle", "great-sword-axe"]), ("lieutenant", ["pistol"])).MatchCheck();
+        Assert.Empty(ready.Refused);
+        var json = ready.ToContentJson("k", "K");
+        var models = Sim.Content.Parse(json).Single().Models;
+        Assert.Equal((WeaponKeywords.Critical | WeaponKeywords.Risky, WeaponKeywords.Critical), (models[0].Profile.RangedWeaponKeywords, models[0].Profile.MeleeWeaponKeywords));
+        Assert.Equal(WeaponKeywords.Pistol, models[1].Profile.RangedWeaponKeywords);
+        Assert.Equal(models[0].Profile, ContentNames.Parse(json).Single().Models[0].Profile);
+        Assert.Contains(ready.PlayedWithout, w => w.EndsWith("Great Sword's HEAVY", StringComparison.Ordinal) || w.Contains("'s HEAVY", StringComparison.Ordinal));
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("CRITICAL", StringComparison.Ordinal) || w.Contains("RISKY", StringComparison.Ordinal) || w.Contains("PISTOL", StringComparison.Ordinal));
     }
 
     [Fact]

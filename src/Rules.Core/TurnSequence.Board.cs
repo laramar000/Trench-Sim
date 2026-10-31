@@ -421,7 +421,9 @@ public static partial class TurnSequence
             case RollStage.ShotRoll:
             {
                 // A Shaken warband's Success Rolls are Risky (p. 50).
-                var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: s.IsShaken(actor.Seat));
+                // RISKY weapons too (roster stage R2, p. 55).
+                var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice,
+                    risky: AttackDice.Risky(s.Setup!.ProfileOf(actor.Id)!, AttackKind.Ranged, s.IsShaken(actor.Seat)));
                 run.Emit(new RangedSuccessRolled(progress.Actor, progress.Target!.Value, check));
                 if (check.RiskyFailure)
                 {
@@ -449,7 +451,8 @@ public static partial class TurnSequence
             }
             case RollStage.FightRoll:
             {
-                var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: s.IsShaken(actor.Seat));
+                var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice,
+                    risky: AttackDice.Risky(s.Setup!.ProfileOf(actor.Id)!, AttackKind.Melee, s.IsShaken(actor.Seat)));
                 run.Emit(new MeleeSuccessRolled(progress.Actor, progress.Target!.Value, check));
                 if (check.RiskyFailure)
                 {

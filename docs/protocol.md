@@ -183,6 +183,9 @@ The server sends events in log order, one message each, to both players, through
   before and the protocol version stays 2: `meleeDice`, `meleeWeaponDice`, `meleeWeaponInjuryDice`, `rangedDice`,
   `rangedWeaponDice`, `rangedWeaponInjuryDice` (written after the constructor fields, in that order). Each is -6 to +6;
   weapon fields need that weapon. A value out of range is an invalid value (interpretation U97).
+- Roster stage R2a: `meleeWeaponKeywords` and `rangedWeaponKeywords`, arrays of `WeaponKeywords` names (Critical,
+  IgnoreArmour, ArmourPiercing, Shotgun, Risky, Pistol, IgnoreCover, IgnoreLongRange, IgnoreElevatedPosition), left
+  out when empty; an unknown name is an invalid value (interpretation U98).
 
 ## Rosters online (roster stage 5c)
 

@@ -12,7 +12,8 @@ namespace Server.Tests;
 public class ProfileDiceWireTests
 {
     private static readonly string[] Fields =
-        ["rangedDice", "meleeDice", "rangedWeaponDice", "rangedWeaponInjuryDice", "meleeWeaponDice", "meleeWeaponInjuryDice"];
+        ["rangedDice", "meleeDice", "rangedWeaponDice", "rangedWeaponInjuryDice", "meleeWeaponDice", "meleeWeaponInjuryDice",
+         "rangedWeaponKeywords", "meleeWeaponKeywords"];
 
     private static MatchSetup Plain() => ((MatchCreated)Runner.Run(1, Content.Load(Content.DefaultPath())).Log[0]).Setup;
 
@@ -29,6 +30,7 @@ public class ProfileDiceWireTests
         var armed = new ModelProfile(p.Movement, p.BaseRadius, p.RangedRange, p.RangedInjuryModifier, p.Armour, hasMeleeWeapon: true)
         {
             RangedDice = 1, MeleeDice = melee, RangedWeaponDice = -1, RangedWeaponInjuryDice = 2, MeleeWeaponDice = 1, MeleeWeaponInjuryDice = -1,
+            RangedWeaponKeywords = WeaponKeywords.Shotgun | WeaponKeywords.Critical, MeleeWeaponKeywords = WeaponKeywords.IgnoreArmour,
         };
         return new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
             setup.Models.Select(m => m.Id == first.Id ? m with { Profile = armed } : m), setup.Scenario);
@@ -55,7 +57,18 @@ public class ProfileDiceWireTests
         Assert.Equal(text, Encoding.UTF8.GetString(Codec.Encode(read)));
         var profile = ((MatchCreated)read.Event).Setup.Models[0].Profile!;
         Assert.Equal((1, 2, -1, 2, 1, -1), (profile.RangedDice, profile.MeleeDice, profile.RangedWeaponDice, profile.RangedWeaponInjuryDice, profile.MeleeWeaponDice, profile.MeleeWeaponInjuryDice));
+        Assert.Equal((WeaponKeywords.Critical | WeaponKeywords.Shotgun, WeaponKeywords.IgnoreArmour), (profile.RangedWeaponKeywords, profile.MeleeWeaponKeywords));
+        Assert.Contains("\"rangedWeaponKeywords\":[\"Critical\",\"Shotgun\"]", text, StringComparison.Ordinal);
         Assert.Equal(StateHash.Compute(Reducer.Apply(MatchState.None, new MatchCreated(setup))), StateHash.Compute(Reducer.Apply(MatchState.None, read.Event)));
+    }
+
+    [Fact]
+    public void AnUnknownKeywordIsAnInvalidValue()
+    {
+        var text = Encoded(WithDice(Plain())).Replace("\"meleeWeaponKeywords\":[\"IgnoreArmour\"]", "\"meleeWeaponKeywords\":[\"Deadly\"]", StringComparison.Ordinal);
+        Assert.Contains("Deadly", text, StringComparison.Ordinal);
+        Assert.Null(Codec.ParseServer(Encoding.UTF8.GetBytes(text), out var failure));
+        Assert.NotNull(failure);
     }
 
     [Fact]

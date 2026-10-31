@@ -31,16 +31,30 @@ public sealed record DicePreview(
     public int HitNetDice => HitBonus - HitPenalty + OwnHitDice;
 
     // The Injury Roll's dice before markers and a Critical Success.
-    public int InjuryNetDice => InjuryBonus + OwnInjuryDice;
+    public int InjuryNetDice => InjuryBonus + OwnInjuryDice + ShotgunInjuryDice;
 
-    internal static DicePreview Of(MatchState state, ModelState attacker, ModelState target, AttackKind kind, int hitPenalty, IReadOnlyList<string> reasons, int hitBonus = 0)
+    // Whether Risky comes from a Shaken warband (else from a RISKY weapon), and a Critical Success's INJURY DICE.
+    public bool ShakenRisky { get; init; } = true;
+    public int CriticalDice { get; init; } = 1;
+
+    // Roster stage R2: SHOTGUN's -1 INJURY DICE at Long Range (in InjuryNetDice and the injury line).
+    public int ShotgunInjuryDice { get; init; }
+
+    // The weapon's keywords that change this attack's rolls, named for the preview ("CRITICAL", "IGNORE COVER").
+    public IReadOnlyList<string> KeywordNotes { get; init; } = [];
+
+    internal static DicePreview Of(MatchState state, ModelState attacker, ModelState target, AttackKind kind, int hitPenalty, IReadOnlyList<string> reasons, int hitBonus = 0, int shotgunInjury = 0)
     {
         var setup = state.Setup!;
         var modifier = InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(setup.ProfileOf(attacker.Id)!, setup.ProfileOf(target.Id)!, kind));
         var bonus = AttackDice.InjuryBonus(critical: false, meleeOnDownTarget: kind == AttackKind.Melee && target.Status == ModelStatus.Down);
         var profile = setup.ProfileOf(attacker.Id)!;
-        return new(hitPenalty, reasons, state.IsShaken(attacker.Seat), bonus, modifier, attacker.BloodMarkers, target.BloodMarkers)
+        return new(hitPenalty, reasons, AttackDice.Risky(profile, kind, state.IsShaken(attacker.Seat)), bonus, modifier, attacker.BloodMarkers, target.BloodMarkers)
         {
+            ShakenRisky = state.IsShaken(attacker.Seat),
+            ShotgunInjuryDice = shotgunInjury,
+            KeywordNotes = Notes(profile.AttackKeywords(kind), kind),
+            CriticalDice = AttackDice.CriticalInjuryDice(profile.AttackKeywords(kind)),
             HitBonus = hitBonus,
             OwnHitDice = AttackDice.OwnDice(profile, kind),
             OwnHitParts = OwnParts(profile, kind),
@@ -55,7 +69,7 @@ public sealed record DicePreview(
         var parts = new List<string>();
         if (characteristic != 0)
         {
-            parts.Add($"{(kind == AttackKind.Melee ? "Melee" : "Ranged")} {characteristic:+0;-0}");
+            parts.Add($"{CharacteristicWord(profile, kind)} {characteristic:+0;-0}");
         }
         if (weapon != 0)
         {
@@ -66,7 +80,37 @@ public sealed record DicePreview(
 
     // The model's characteristic and its weapon's DICE, the two parts of AttackDice.OwnDice.
     public static (int Characteristic, int Weapon) OwnSplit(ModelProfile profile, AttackKind kind) =>
-        kind == AttackKind.Melee ? (profile.MeleeDice, profile.MeleeAttackDice - profile.MeleeDice) : (profile.RangedDice, profile.RangedWeaponDice);
+        kind == AttackKind.Melee ? (profile.MeleeCharacteristicUsed, profile.MeleeAttackDice - profile.MeleeCharacteristicUsed) : (profile.RangedDice, profile.RangedWeaponDice);
+
+    // The name of the characteristic an attack uses: Ranged, Melee, or Ranged for a PISTOL in melee whose Ranged is better.
+    public static string CharacteristicWord(ModelProfile profile, AttackKind kind) =>
+        kind == AttackKind.Melee && profile.MeleeCharacteristicUsed != profile.MeleeDice ? "Ranged (PISTOL)"
+        : kind == AttackKind.Melee ? "Melee" : "Ranged";
+
+    // The keywords the engine plays that this attack's weapon has, in the book's words.
+    public static IReadOnlyList<string> Notes(WeaponKeywords k, AttackKind kind)
+    {
+        var notes = new List<string>();
+        void Add(WeaponKeywords flag, string text)
+        {
+            if (k.HasFlag(flag))
+            {
+                notes.Add(text);
+            }
+        }
+        Add(WeaponKeywords.Critical, "CRITICAL: +2 INJURY DICE on a critical hit");
+        Add(WeaponKeywords.IgnoreArmour, "IGNORE ARMOUR: the target's Armour does not count");
+        Add(WeaponKeywords.ArmourPiercing, "ARMOUR PIERCING: the target's Armour counts 1 less");
+        Add(WeaponKeywords.Risky, "RISKY: a failed hit roll ends the activation");
+        if (kind == AttackKind.Ranged)
+        {
+            Add(WeaponKeywords.Shotgun, "SHOTGUN: at Long Range -1 INJURY DICE instead of -1 DICE");
+            Add(WeaponKeywords.IgnoreCover, "IGNORE COVER");
+            Add(WeaponKeywords.IgnoreLongRange, "IGNORE LONG RANGE");
+            Add(WeaponKeywords.IgnoreElevatedPosition, "IGNORE ELEVATED POSITION");
+        }
+        return notes;
+    }
 
     public static string WeaponWord(ModelProfile profile, AttackKind kind) =>
         kind == AttackKind.Melee && profile.HasMeleeWeapon ? "melee weapon" : "ranged weapon";
@@ -90,8 +134,9 @@ public sealed record DicePreview(
         }
         if (Risky)
         {
-            lines.Add("RISKY: your warband is Shaken");
+            lines.Add(ShakenRisky ? "RISKY: your warband is Shaken" : "RISKY: the weapon is RISKY");
         }
+        lines.AddRange(KeywordNotes);
         var injury = new List<string>();
         if (InjuryBonus > 0)
         {
@@ -101,11 +146,15 @@ public sealed record DicePreview(
         {
             injury.Add($"{OwnInjuryDice:+0;-0} DICE (weapon)");
         }
+        if (ShotgunInjuryDice != 0)
+        {
+            injury.Add($"{ShotgunInjuryDice:+0;-0} DICE (SHOTGUN at Long Range)");
+        }
         if (InjuryModifier != 0)
         {
             injury.Add($"modifier {(InjuryModifier > 0 ? "+" : "")}{InjuryModifier}");
         }
-        lines.Add($"Injury roll: {(injury.Count == 0 ? "no extra dice" : string.Join(", ", injury))}; +1 DICE on a critical hit");
+        lines.Add($"Injury roll: {(injury.Count == 0 ? "no extra dice" : string.Join(", ", injury))}; +{CriticalDice} DICE on a critical hit");
         if (AttackerMarkers > 0)
         {
             lines.Add($"Opponent may spend {a}'s {Markers(AttackerMarkers)}: -1 DICE each");

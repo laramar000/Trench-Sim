@@ -213,9 +213,13 @@ public class PreviewAgreementTests
         {
             var events = TurnSequence.Decide(state, preview.Command, new SeededDice(seed)).Events;
             var intoMelee = events.OfType<RangedAttackDeclared>().SingleOrDefault()?.IntoMelee == true;
-            Assert.Equal(dice.HitPenalty, kind == PreviewKind.Shoot
-                ? events.OfType<RangedAttackDeclared>().Single().PenaltyDice
-                : events.OfType<MeleeAttackDeclared>().Single().PenaltyDice);
+            // The declared penalty dice are the positions' facts; weapon keywords (roster stage R2) may drop some of them.
+            if (state.Setup!.ProfileOf(active.Id)!.AttackKeywords(kind == PreviewKind.Shoot ? AttackKind.Ranged : AttackKind.Melee) == WeaponKeywords.None)
+            {
+                Assert.Equal(dice.HitPenalty, kind == PreviewKind.Shoot
+                    ? events.OfType<RangedAttackDeclared>().Single().PenaltyDice
+                    : events.OfType<MeleeAttackDeclared>().Single().PenaltyDice);
+            }
             Saw($"{kind} penalty {dice.HitPenalty}");
             var askedToSpend = events.OfType<DecisionRequested>().Any(d => d.Kind == DecisionKind.SpendMarkersOnSuccessRoll);
             if (!intoMelee)
@@ -241,7 +245,11 @@ public class PreviewAgreementTests
                 Assert.Equal(dice.InjuryModifier, injury.Injury.Modifier);
                 var critical = events.Any(e => e is RangedSuccessRolled { Check.Outcome: Rules.Core.Dice.SuccessOutcome.CriticalSuccess }
                     or MeleeSuccessRolled { Check.Outcome: Rules.Core.Dice.SuccessOutcome.CriticalSuccess });
-                Assert.Equal(dice.InjuryNetDice + (critical ? 1 : 0), injury.Injury.NetDice);
+                Assert.Equal(dice.InjuryNetDice + (critical ? dice.CriticalDice : 0), injury.Injury.NetDice);
+                if (critical)
+                {
+                    Saw($"critical dice {dice.CriticalDice}");
+                }
                 Saw($"injury dice {dice.InjuryNetDice}");
                 Saw($"injury bonus {dice.InjuryBonus}");
                 Saw($"injury modifier {dice.InjuryModifier}");
@@ -307,6 +315,56 @@ public class PreviewAgreementTests
             && seen.Keys.Count(k => k.StartsWith("injury dice ", StringComparison.Ordinal) && k != "injury dice 0") >= 2, summary);
         Console.WriteLine(summary);
     }
+
+    // Roster stage R2: the same with weapon keywords on every model's weapons (some sets per state).
+    [Fact]
+    public void AttackPreviewDiceIncludeWeaponKeywords()
+    {
+        var seen = new Dictionary<string, int>();
+        void Saw(string what) => seen[what] = seen.GetValueOrDefault(what) + 1;
+        WeaponKeywords[] sets =
+        [
+            WeaponKeywords.Critical | WeaponKeywords.Shotgun | WeaponKeywords.IgnoreArmour,
+            WeaponKeywords.Risky | WeaponKeywords.IgnoreCover | WeaponKeywords.ArmourPiercing,
+            WeaponKeywords.IgnoreLongRange | WeaponKeywords.IgnoreElevatedPosition | WeaponKeywords.Critical,
+        ];
+        var index = 0;
+        foreach (var original in ActivationStates().Where((_, i) => i % 4 == 1))
+        {
+            var setup = original.Setup!;
+            var k = sets[index++ % 3];
+            var models = setup.Models.Select(m => m with { Profile = WithKeywords(m.Profile!, k) });
+            var state = original with
+            {
+                Setup = new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds, models, setup.Scenario),
+                Models = original.Models.Select(m => m with { BloodMarkers = 0 }).ToImmutableArray(),
+            };
+            var active = state.FindModel(state.ActiveModel!.Value)!;
+            foreach (var kind in new[] { PreviewKind.Shoot, PreviewKind.Fight })
+            {
+                foreach (var target in state.Models.Where(m => m.Seat != active.Seat))
+                {
+                    CheckDice(state, kind, active, target, Saw);
+                }
+            }
+        }
+        var summary = string.Join(", ", seen.OrderBy(p => p.Key).Select(p => $"{p.Key}: {p.Value}"));
+        // Critical Successes are too rare in these few rolls; WeaponKeywordTests and ActionResolutionTests cover CRITICAL.
+        Assert.True(seen.GetValueOrDefault("risky") > 0 && seen.GetValueOrDefault("injury dice -1") > 0
+            && seen.Keys.Count(k => k.StartsWith("injury modifier ", StringComparison.Ordinal)) > 1, summary);
+        Console.WriteLine(summary);
+    }
+
+    // Every model gets Armour -1 (or keeps its own) so the armour keywords show, and its weapons get these keywords.
+    internal static ModelProfile WithKeywords(ModelProfile p, WeaponKeywords k) =>
+        new(p.Movement, p.BaseRadius, p.RangedRange, p.RangedInjuryModifier, p.Armour == 0 ? -1 : p.Armour, p.HasMeleeWeapon, p.MeleeInjuryModifier)
+        {
+            RangedAlsoMelee = p.RangedAlsoMelee,
+            RangedWeaponKeywords = p.HasRangedWeapon ? k : WeaponKeywords.None,
+            MeleeWeaponKeywords = p.HasMeleeWeapon
+                ? k & ~(WeaponKeywords.Shotgun | WeaponKeywords.IgnoreCover | WeaponKeywords.IgnoreLongRange | WeaponKeywords.IgnoreElevatedPosition)
+                : WeaponKeywords.None,
+        };
 
     internal static ModelProfile WithDice(ModelProfile p, int shift) =>
         new(p.Movement, p.BaseRadius, p.RangedRange, p.RangedInjuryModifier, p.Armour, p.HasMeleeWeapon, p.MeleeInjuryModifier)

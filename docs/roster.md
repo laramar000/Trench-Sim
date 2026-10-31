@@ -199,3 +199,9 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   and shields still play only their injury modifier, so their dice would be named. A model whose Ranged or Melee is
   "-" is refused for a match if it has that kind of weapon. Tests: `ProfileDiceTests`, `ProfileDiceWireTests`,
   `MatchReadinessTests.TheModelsAndWeaponsDiceArePlayed`, `PreviewAgreementTests.AttackPreviewDiceIncludeTheModelsOwnDice`.
+- Roster rules stage R2a, roll keywords (done 2026-10-31, Jason's choice "Keywords next"): a played weapon's CRITICAL,
+  IGNORE ARMOUR, ARMOUR PIERCING, SHOTGUN, RISKY, PISTOL, IGNORE COVER, IGNORE LONG RANGE and IGNORE ELEVATED
+  POSITION are played (U98) and travel as `rangedWeaponKeywords` / `meleeWeaponKeywords` (engine names, left out when
+  empty); CUMBERSOME needs nothing in a match. Other keywords stay named under "played without". Tests:
+  `WeaponKeywordTests`, `MatchReadinessTests.TheWeaponKeywordsTheEngineKnowsArePlayed`,
+  `PreviewAgreementTests.AttackPreviewDiceIncludeWeaponKeywords`.

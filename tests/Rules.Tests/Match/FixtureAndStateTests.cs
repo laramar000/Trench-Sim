@@ -134,6 +134,10 @@ public class ProfileAndHashTests
             ["profile.rangedWeaponInjuryDice"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18")) { RangedWeaponInjuryDice = 1 }) },
             ["profile.meleeWeaponDice"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), hasMeleeWeapon: true) { MeleeWeaponDice = 1 }) },
             ["profile.meleeWeaponInjuryDice"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), hasMeleeWeapon: true) { MeleeWeaponInjuryDice = 1 }) },
+            ["profile.rangedWeaponKeywords"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18")) { RangedWeaponKeywords = WeaponKeywords.Critical }) },
+            ["profile.rangedWeaponKeywords2"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18")) { RangedWeaponKeywords = WeaponKeywords.Critical | WeaponKeywords.Shotgun }) },
+            ["profile.meleeWeaponKeywords"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18"), hasMeleeWeapon: true) { MeleeWeaponKeywords = WeaponKeywords.Critical }) },
+            ["inProgress.injuryDiceLater"] = s with { InProgress = roll with { InjuryDiceLater = -1 } },
             ["profile.rangedDiceNegative"] = s with { Setup = Rebuild(s.Setup!, new ModelProfile(L("6"), L("0.5"), L("18")) { RangedDice = -1 }) },
             ["terrain"] = s with { Setup = Rebuild(s.Setup!, Rifleman, ClaimNoMansLandWithoutRough()) },
         };

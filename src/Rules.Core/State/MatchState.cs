@@ -87,6 +87,7 @@ public enum AttackKind
 // only while a Blood Marker decision is pending or inside one Decide call; no dice are rolled early.
 // BonusDice and PenaltyDice are the dice for the next roll (Success or Injury), including spent markers.
 // A climb up a tower's side (Climb* stages) keeps its whole path in DashPath and its action (Move or Dash) in ClimbAction.
+// InjuryDiceLater: injury dice decided when the attack was declared, added at the Injury Roll (SHOTGUN at Long Range, R2).
 public sealed record RollInProgress(
     RollStage Stage,
     ModelId Actor,
@@ -100,7 +101,8 @@ public sealed record RollInProgress(
     bool FreeFight = false,
     bool FriendlyFire = false,
     int ChargeDie = 0,
-    ActionsTaken ClimbAction = ActionsTaken.None);
+    ActionsTaken ClimbAction = ActionsTaken.None,
+    int InjuryDiceLater = 0);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.

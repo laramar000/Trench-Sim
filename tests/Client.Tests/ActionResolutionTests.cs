@@ -33,6 +33,22 @@ public class ActionResolutionTests
                 var log = Runner.Run(seed, diced).Log;
                 all.Add((log, ((MatchCreated)log[0]).Setup));
             }
+            // Roster stage R2: and with weapon keywords.
+            WeaponKeywords[] sets =
+            [
+                WeaponKeywords.Critical | WeaponKeywords.Shotgun | WeaponKeywords.IgnoreArmour,
+                WeaponKeywords.Risky | WeaponKeywords.IgnoreCover | WeaponKeywords.ArmourPiercing | WeaponKeywords.Critical,
+                WeaponKeywords.IgnoreLongRange | WeaponKeywords.Pistol,
+            ];
+            for (var seed = 1; seed <= 10; seed++)
+            {
+                var armed = warbands.Select(w => w with
+                {
+                    Models = w.Models.Select((m, i) => m with { Profile = PreviewAgreementTests.WithKeywords(m.Profile, sets[(seed + i) % 3]) }).ToList(),
+                }).ToList();
+                var log = Runner.Run(seed, armed).Log;
+                all.Add((log, ((MatchCreated)log[0]).Setup));
+            }
         }
         return all;
     });
@@ -75,6 +91,7 @@ public class ActionResolutionTests
                         foreach (var part in why.Dice)
                         {
                             Saw(part.Label.Contains("Blood Marker", StringComparison.Ordinal) ? "markers" : part.Label.Split(' ')[0]);
+                            Saw(part.Label);
                         }
                         if (why.Modifiers.Any(p => p.Value != 0))
                         {
@@ -88,7 +105,7 @@ public class ActionResolutionTests
             }
         }
         // The matches cover each kind of reason, so none of them is untested.
-        foreach (var kind in new[] { "RangedSuccessRolled", "MeleeSuccessRolled", "DashRolled", "InjuryRolled", "Long", "Cover", "critical", "modifier", "markers", "Defended", "Melee", "Ranged", "ranged", "melee" })
+        foreach (var kind in new[] { "RangedSuccessRolled", "MeleeSuccessRolled", "DashRolled", "InjuryRolled", "Long", "Cover", "critical", "modifier", "markers", "Defended", "Melee", "Ranged", "ranged", "melee", "SHOTGUN", "critical hit (CRITICAL)" })
         {
             Assert.True(seen.GetValueOrDefault(kind) > 0, $"no {kind} in the simulated matches: {string.Join(", ", seen.Select(kv => $"{kv.Key} {kv.Value}"))}");
         }
