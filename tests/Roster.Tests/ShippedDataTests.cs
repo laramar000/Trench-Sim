@@ -97,4 +97,56 @@ public class ShippedDataTests
         var check = RosterValidator.Check(roster, faction, catalogue);
         Assert.Contains(check.Problems, p => p.Contains("Bolt-Action Rifle"));
     }
+    [Fact]
+    public void TheSultanateKeepsItsBookValues()
+    {
+        var faction = LoadFaction("sultanate.json");
+        var bull = faction.Models.Single(m => m.Id == "brazen-bull");
+        Assert.Equal((new Cost(100, Currency.Ducats), 0, 2, 60, "HEAVY"), (bull.Cost, bull.Ranged, bull.Melee, bull.BaseWidthMm, bull.KitRules?.WeaponsNeedKeyword));
+        Assert.Equal((new Cost(35, Currency.Ducats), (int?)2), (faction.Armoury.Single(a => a.Kit == "sniper-rifle").Cost, faction.Armoury.Single(a => a.Kit == "sniper-rifle").Limit));
+        Assert.Equal(3, faction.Variants.Count);
+        var cabal = faction.As("cabal-of-the-mountain")!.Value;
+        Assert.Equal(new Cost(95, Currency.Ducats), cabal.Models.Single(m => m.Id == "master-assassin").Cost);
+        Assert.DoesNotContain(cabal.Models, m => m.Id == "yuzbasi");
+    }
+
+    [Fact]
+    public void TheHereticsKeepTheirBookValues()
+    {
+        var faction = LoadFaction("heretics.json");
+        var beast = faction.Models.Single(m => m.Id == "assault-beast");
+        Assert.Equal((new Cost(145, Currency.Ducats), 8, -3, 50), (beast.Cost, beast.MovementInches, beast.Armour, beast.BaseWidthMm));
+        var wretched = faction.Models.Single(m => m.Id == "wretched");
+        Assert.Equal(((int?)10, (bool?)true), (wretched.KitRules?.MaxCostDucats, wretched.KitRules?.MustHaveWeapon));
+        var greed = faction.As("gilded-knights")!.Value;
+        Assert.DoesNotContain(greed.Armoury, a => a.Kit is "flamethrower" or "frag-grenades" or "incendiary-ammunition");
+        Assert.Contains(greed.Armoury, a => a.Kit == "grenade-launcher");
+    }
+
+    [Fact]
+    public void TheCultAndTheCourtKeepTheirBookValues()
+    {
+        var cult = LoadFaction("cult.json");
+        var lord = cult.Models.Single(m => m.Id == "bloated-lord");
+        Assert.Equal((new Cost(130, Currency.Ducats), 1, 4, 50), (lord.Cost, lord.Ranged, lord.Melee, lord.BaseWidthMm));
+        var hound = cult.Models.Single(m => m.Id == "plague-hound");
+        Assert.Equal((30, (int?)60), (hound.BaseWidthMm, hound.BaseLengthMm));
+        var court = LoadFaction("court.json");
+        var praetor = court.Models.Single(m => m.Id == "praetor");
+        Assert.Equal((new Cost(115, Currency.Ducats), 8, 3, 3), (praetor.Cost, praetor.MovementInches, praetor.Ranged, praetor.Melee));
+        Assert.Equal(7, court.Variants.Count);
+        var wrath = court.As("dedicated-to-wrath")!.Value;
+        Assert.Contains(wrath.Models.Single(m => m.Id == "praetor").Upgrades, u => u.Id == "blind-rage");
+        Assert.DoesNotContain(praetor.Upgrades, u => u.Id == "blind-rage");
+        Assert.DoesNotContain(praetor.Upgrades, u => u.Id == "burning-inferno"); // Sorcerers only
+    }
+
+    [Fact]
+    public void ABloatedLordNeedsNoPlagueKnight()
+    {
+        var catalogue = LoadCatalogue();
+        var cult = LoadFaction("cult.json");
+        var check = RosterValidator.Check(new WarbandRoster("Test", cult.Id, null, 700, 0, [new RosterModel("bloated-lord", null, [], [])]), cult, catalogue);
+        Assert.True(check.Legal, string.Join("; ", check.Problems));
+    }
 }

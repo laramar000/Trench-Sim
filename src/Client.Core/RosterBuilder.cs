@@ -36,7 +36,7 @@ public sealed class RosterBuilder
     }
 
     // The faction files shipped in Client.Core (content/roster/factions), in the order the screen lists them.
-    public static readonly IReadOnlyList<string> ShippedFactions = ["principality", "pilgrims"];
+    public static readonly IReadOnlyList<string> ShippedFactions = ["principality", "pilgrims", "sultanate", "heretics", "cult", "court"];
 
     // The builder with the data shipped in Client.Core: the keyword list, the catalogue and the real faction lists.
     public static RosterBuilder Shipped()

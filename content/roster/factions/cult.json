@@ -1,0 +1,1596 @@
+{
+ "format": 1,
+ "rulesVersion": "1.0.2",
+ "id": "cult",
+ "name": "The Cult",
+ "alignment": "fallen",
+ "budgetDucats": 700,
+ "specialRules": [
+  {
+   "name": "Infection Markers",
+   "summary": "Weapons with INFECTION MARKERS place INFECTION MARKERS instead of BLOOD MARKERS. They work like BLOOD MARKERS (up to 6 of each), are not removed by rules that remove BLOOD MARKERS, and a model with any gains 1 more when it Activates.",
+   "page": 128
+  },
+  {
+   "name": "Morale",
+   "summary": "Opponents add -1 DICE to Morale Checks unless they are The Court or The Cult.",
+   "page": 127
+  }
+ ],
+ "models": [
+  {
+   "id": "bloated-lord",
+   "name": "Bloated Lord",
+   "max": 1,
+   "cost": {
+    "amount": 130,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 4,
+   "armour": 0,
+   "baseMm": [
+    50
+   ],
+   "keywords": [
+    {
+     "id": "CULT"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "LEADER"
+    },
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    },
+    {
+     "id": "STRONG"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Touch of the Fly Lord",
+     "summary": "A Melee Attack that places BLOOD or INFECTION MARKERS places 1 extra INFECTION MARKER.",
+     "page": 134
+    },
+    {
+     "name": "Crushing Blows",
+     "summary": "May make a Melee Attack without a weapon (or instead of one) with CLEAVE 2.",
+     "page": 134
+    },
+    {
+     "name": "Undead Fortitude",
+     "summary": "-1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.",
+     "page": 134
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 134
+   },
+   "status": "verified",
+   "note": "The warband must include a Bloated Lord with up to 2 Plague Knights, or 1-3 Plague Knights without one (not checked by the builder).",
+   "naming": "rename"
+  },
+  {
+   "id": "plague-knight",
+   "name": "Plague Knight",
+   "max": 3,
+   "cost": {
+    "amount": 60,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 2,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "CULT"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    },
+    {
+     "id": "STRONG"
+    }
+   ],
+   "kitAccess": "armoury",
+   "upgrades": [
+    {
+     "id": "plague-almoner",
+     "name": "Plague Almoner",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "note": "a Bloodbath Roll for its attacks costs 1 marker less; one rank per Plague Knight"
+    },
+    {
+     "id": "knight-companion",
+     "name": "Knight Companion of the Fly",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "note": "+1 DICE to its Ranged or its Melee Characteristic (your choice); one rank per Plague Knight"
+    },
+    {
+     "id": "knight-of-the-rotten-cross",
+     "name": "Knight of the Rotten Cross",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 1,
+     "note": "may buy 1 Ranged or Melee Weapon from The Principality or Heretics armoury (not priced by the builder); one rank per Plague Knight"
+    }
+   ],
+   "abilities": [
+    {
+     "name": "Undead Fortitude",
+     "summary": "-1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.",
+     "page": 134
+    },
+    {
+     "name": "Plague Knight Ranks",
+     "summary": "Each can take one rank: Plague Almoner (10), Knight Companion of the Fly (5) or Knight of the Rotten Cross (5, Limit 1).",
+     "page": 128
+    }
+   ],
+   "kitRules": {
+    "mustHave": [
+     "armour"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 135
+   },
+   "status": "verified",
+   "note": "At most 2 with a Bloated Lord, 1-3 without one (not checked by the builder).",
+   "naming": "keep"
+  },
+  {
+   "id": "corpse-guard",
+   "name": "Corpse Guard",
+   "max": 3,
+   "cost": {
+    "amount": 55,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 1,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "CULT"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Bodyguard",
+     "summary": "May take a hit meant for a friendly CULT model within 1\" (not against BLAST).",
+     "page": 136
+    },
+    {
+     "name": "Parasite Host",
+     "summary": "When its Melee Attack places markers, it may remove 1 BLOOD or INFECTION MARKER from itself.",
+     "page": 136
+    },
+    {
+     "name": "Undead Fortitude",
+     "summary": "-1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.",
+     "page": 134
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 136
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "plague-thrall",
+   "name": "Plague Thrall",
+   "cost": {
+    "amount": 25,
+    "currency": "ducats"
+   },
+   "movementInches": 5,
+   "movementType": "infantry",
+   "ranged": null,
+   "melee": -1,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "CULT"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    }
+   ],
+   "kitAccess": "none",
+   "abilities": [
+    {
+     "name": "Overwhelming Horde",
+     "summary": "May make Melee Attacks without a weapon, +1 DICE for each other friend within 3\".",
+     "page": 137
+    },
+    {
+     "name": "Undead Fortitude",
+     "summary": "-1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.",
+     "page": 134
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 137
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "fly-thrall",
+   "name": "Fly Thrall",
+   "cost": {
+    "amount": 25,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "flying",
+   "ranged": null,
+   "melee": -1,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "CULT"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "FLYING"
+    },
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    }
+   ],
+   "kitAccess": "none",
+   "abilities": [
+    {
+     "name": "Overwhelming Horde",
+     "summary": "May make Melee Attacks without a weapon, +1 DICE for each other friend within 3\".",
+     "page": 137
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 137
+   },
+   "status": "verified",
+   "note": "The book gives Plague Thralls and Fly Thralls one entry with two profiles.",
+   "naming": "keep"
+  },
+  {
+   "id": "plague-hound",
+   "name": "Plague Hound",
+   "max": 3,
+   "cost": {
+    "amount": 55,
+    "currency": "ducats"
+   },
+   "movementInches": 8,
+   "movementType": "infantry",
+   "ranged": null,
+   "melee": 1,
+   "armour": 0,
+   "baseMm": [
+    30,
+    60
+   ],
+   "keywords": [
+    {
+     "id": "CULT"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    }
+   ],
+   "kitAccess": "none",
+   "upgrades": [
+    {
+     "id": "infested-carcass",
+     "name": "Infested Carcass",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "note": "its Melee Attacks gain INFECTION MARKERS"
+    }
+   ],
+   "abilities": [
+    {
+     "name": "Disease Carrier",
+     "summary": "An enemy Activating within 1\" gets 1 INFECTION MARKER first.",
+     "page": 138
+    },
+    {
+     "name": "Frightening Speed",
+     "summary": "+1 DICE to the Risky roll for a Dash ACTION; Movement is not halved when it stands up.",
+     "page": 138
+    },
+    {
+     "name": "Teeth & Claws",
+     "summary": "May make Melee Attacks without a weapon.",
+     "page": 138
+    },
+    {
+     "name": "Undead Fortitude",
+     "summary": "-1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.",
+     "page": 134
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 138
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "fly-herald",
+   "name": "Fly Herald",
+   "max": 4,
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "movementInches": 10,
+   "movementType": "flying",
+   "ranged": 0,
+   "melee": 0,
+   "armour": 0,
+   "baseMm": [
+    40
+   ],
+   "keywords": [
+    {
+     "id": "CULT"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "FLYING"
+    },
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    },
+    {
+     "id": "SKIRMISHER"
+    }
+   ],
+   "kitAccess": "armoury",
+   "upgrades": [
+    {
+     "id": "maddening-buzzing",
+     "name": "Maddening Buzzing",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 1,
+     "note": "Success Rolls for enemies within 8\" become Risky"
+    }
+   ],
+   "abilities": [
+    {
+     "name": "Infected Proboscis",
+     "summary": "May make a Melee Attack with INFECTION MARKERS without a weapon; if it places any, remove 1 BLOOD MARKER from itself.",
+     "page": 139
+    }
+   ],
+   "kitRules": {
+    "noCategories": [
+     "melee",
+     "grenade",
+     "shield",
+     "armour"
+    ],
+    "onlyKit": [
+     {
+      "category": "equipment",
+      "kit": [
+       "compound-eyes-helmet"
+      ]
+     }
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 139
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "amalgam",
+   "name": "Amalgam",
+   "max": 1,
+   "cost": {
+    "amount": 140,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 0,
+   "armour": 0,
+   "baseMm": [
+    60
+   ],
+   "keywords": [
+    {
+     "id": "CULT"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    },
+    {
+     "id": "STRONG"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Six-armed Monstrosity",
+     "summary": "One Shoot ACTION per Ranged Weapon and one Fight ACTION per Melee Weapon each Activation; no Off-Hand modifier.",
+     "page": 140
+    },
+    {
+     "name": "Corpulent",
+     "summary": "-2 INJURY DICE to Injury Rolls against it.",
+     "page": 140
+    },
+    {
+     "name": "Trample ACTION",
+     "summary": "A Melee Attack without a weapon, with IGNORE ARMOUR, against a Down enemy.",
+     "page": 140
+    },
+    {
+     "name": "Unstoppable",
+     "summary": "Enemies on 32mm or smaller bases get no attack as it retreats; it may Move or Charge away from them.",
+     "page": 140
+    }
+   ],
+   "kitRules": {
+    "noCategories": [
+     "grenade",
+     "armour",
+     "equipment"
+    ],
+    "onlyKit": [
+     {
+      "category": "shield",
+      "kit": [
+       "trench-shield"
+      ]
+     }
+    ],
+    "note": "An Amalgam can carry up to six Ranged or Melee Weapons (two HEAVY 2-handed ones count as 1-handed, no weapon more than twice, a Trench Shield may replace a 1-handed weapon without Shield Combo). The builder still applies the normal hand limits, so a six-armed load-out shows as a problem."
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 140
+   },
+   "status": "verified",
+   "naming": "keep"
+  }
+ ],
+ "armoury": [
+  {
+   "kit": "blunderbuss",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bolt-action-rifle",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "corruption-belcher",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "infested-rifle",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "machine-gun",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "model": "amalgam"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "musket",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "pistol",
+   "cost": {
+    "amount": 6,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "putrid-shotgun",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "shotgun",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "viscera-cannon",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bayonet",
+   "cost": {
+    "amount": 2,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "needsBayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "plague-lords-axe",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "great-hammer-maul",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "great-sword-axe",
+   "cost": {
+    "amount": 12,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "plague-blade",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "polearm",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sword-axe",
+   "cost": {
+    "amount": 4,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "trench-club",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "trench-knife",
+   "cost": {
+    "amount": 1,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "gas-grenades",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "parasite-grenades",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "plague-shield",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "trench-shield",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "reinforced-armour",
+   "cost": {
+    "amount": 40,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "standard-armour",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "combat-helmet",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "headgear"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "compound-eyes-helmet",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "only": [
+    {
+     "keyword": "ELITE"
+    },
+    {
+     "model": "fly-herald"
+    }
+   ],
+   "stipulations": [
+    "headgear"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "grovelling-devotee",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 4,
+   "limitPerModel": 2,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified",
+   "note": "Limit 2 in the book counts models: up to 2 models with up to 2 each; the second for a model costs 2 Glory, which the builder prices as 15 ducats"
+  },
+  {
+   "kit": "field-shrine",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "musical-instrument",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "troop-flag",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "unholy-trinket",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "carrion-wing-harness",
+   "cost": {
+    "amount": 7,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "battlefield-title",
+   "cost": {
+    "amount": 5,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "swarm-mantle",
+   "cost": {
+    "amount": 12,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "chalice-of-rot",
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "knighthood",
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "swarm-caster",
+   "cost": {
+    "amount": 6,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "rocket-propelled-grenade",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "trench-dog",
+   "cost": null,
+   "limit": 1,
+   "status": "unverified",
+   "note": "costs 1 to 3 Glory (see the item); not priced here"
+  }
+ ],
+ "variants": [
+  {
+   "id": "mourning-procession",
+   "name": "Mourning Procession",
+   "removeModels": [
+    "bloated-lord",
+    "amalgam",
+    "plague-knight",
+    "plague-hound",
+    "fly-herald",
+    "plague-thrall",
+    "fly-thrall"
+   ],
+   "addModels": [
+    {
+     "id": "executor",
+     "name": "Executor",
+     "max": 1,
+     "cost": {
+      "amount": 80,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 2,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "CULT"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "NEGATE",
+       "value": "GAS"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "plague-almoner",
+       "name": "Plague Almoner",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "a Bloodbath Roll for its attacks costs 1 marker less; one rank per Plague Knight"
+      },
+      {
+       "id": "knight-companion",
+       "name": "Knight Companion of the Fly",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "+1 DICE to its Ranged or its Melee Characteristic (your choice); one rank per Plague Knight"
+      },
+      {
+       "id": "knight-of-the-rotten-cross",
+       "name": "Knight of the Rotten Cross",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "may buy 1 Ranged or Melee Weapon from The Principality or Heretics armoury (not priced by the builder); one rank per Plague Knight"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Undead Fortitude",
+       "summary": "-1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.",
+       "page": 134
+      },
+      {
+       "name": "Plague Knight Ranks",
+       "summary": "Each can take one rank: Plague Almoner (10), Knight Companion of the Fly (5) or Knight of the Rotten Cross (5, Limit 1).",
+       "page": 128
+      }
+     ],
+     "kitRules": {
+      "mustHave": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 135
+     },
+     "status": "verified",
+     "naming": "keep",
+     "min": 1
+    },
+    {
+     "id": "plague-knight",
+     "name": "Plague Knight",
+     "max": 2,
+     "cost": {
+      "amount": 60,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 2,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "CULT"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "NEGATE",
+       "value": "GAS"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "plague-almoner",
+       "name": "Plague Almoner",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "a Bloodbath Roll for its attacks costs 1 marker less; one rank per Plague Knight"
+      },
+      {
+       "id": "knight-companion",
+       "name": "Knight Companion of the Fly",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "+1 DICE to its Ranged or its Melee Characteristic (your choice); one rank per Plague Knight"
+      },
+      {
+       "id": "knight-of-the-rotten-cross",
+       "name": "Knight of the Rotten Cross",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "may buy 1 Ranged or Melee Weapon from The Principality or Heretics armoury (not priced by the builder); one rank per Plague Knight"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Undead Fortitude",
+       "summary": "-1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.",
+       "page": 134
+      },
+      {
+       "name": "Plague Knight Ranks",
+       "summary": "Each can take one rank: Plague Almoner (10), Knight Companion of the Fly (5) or Knight of the Rotten Cross (5, Limit 1).",
+       "page": 128
+      }
+     ],
+     "kitRules": {
+      "mustHave": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 135
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "plague-hound",
+     "name": "Plague Hound",
+     "max": 2,
+     "cost": {
+      "amount": 55,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      30,
+      60
+     ],
+     "keywords": [
+      {
+       "id": "CULT"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "NEGATE",
+       "value": "GAS"
+      }
+     ],
+     "kitAccess": "none",
+     "upgrades": [
+      {
+       "id": "infested-carcass",
+       "name": "Infested Carcass",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "its Melee Attacks gain INFECTION MARKERS"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Disease Carrier",
+       "summary": "An enemy Activating within 1\" gets 1 INFECTION MARKER first.",
+       "page": 138
+      },
+      {
+       "name": "Frightening Speed",
+       "summary": "+1 DICE to the Risky roll for a Dash ACTION; Movement is not halved when it stands up.",
+       "page": 138
+      },
+      {
+       "name": "Teeth & Claws",
+       "summary": "May make Melee Attacks without a weapon.",
+       "page": 138
+      },
+      {
+       "name": "Undead Fortitude",
+       "summary": "-1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.",
+       "page": 134
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 138
+     },
+     "status": "verified",
+     "naming": "rename"
+    },
+    {
+     "id": "fly-herald",
+     "name": "Fly Herald",
+     "max": 2,
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "movementInches": 10,
+     "movementType": "flying",
+     "ranged": 0,
+     "melee": 0,
+     "armour": 0,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "CULT"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "NEGATE",
+       "value": "GAS"
+      },
+      {
+       "id": "SKIRMISHER"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "maddening-buzzing",
+       "name": "Maddening Buzzing",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Success Rolls for enemies within 8\" become Risky"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Infected Proboscis",
+       "summary": "May make a Melee Attack with INFECTION MARKERS without a weapon; if it places any, remove 1 BLOOD MARKER from itself.",
+       "page": 139
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "melee",
+       "grenade",
+       "shield",
+       "armour"
+      ],
+      "onlyKit": [
+       {
+        "category": "equipment",
+        "kit": [
+         "compound-eyes-helmet"
+        ]
+       }
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 139
+     },
+     "status": "verified",
+     "naming": "rename"
+    },
+    {
+     "id": "plague-thrall",
+     "name": "Plague Thrall",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "movementInches": 5,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": -1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "CULT"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "NEGATE",
+       "value": "GAS"
+      }
+     ],
+     "kitAccess": "listed",
+     "abilities": [
+      {
+       "name": "Overwhelming Horde",
+       "summary": "May make Melee Attacks without a weapon, +1 DICE for each other friend within 3\".",
+       "page": 137
+      },
+      {
+       "name": "Undead Fortitude",
+       "summary": "-1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.",
+       "page": 134
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 137
+     },
+     "status": "verified",
+     "naming": "rename",
+     "listed": [
+      "blunderbuss",
+      "bolt-action-rifle",
+      "corruption-belcher",
+      "infested-rifle",
+      "musket",
+      "pistol",
+      "putrid-shotgun",
+      "shotgun",
+      "viscera-cannon",
+      "gas-grenades",
+      "parasite-grenades",
+      "musical-instrument",
+      "troop-flag"
+     ],
+     "note": "One of the Bereaved: Ranged +0 DICE, 30 ducats, Ranged Weapons, Grenades, a Musical Instrument or a Troop Flag."
+    },
+    {
+     "id": "fly-thrall",
+     "name": "Fly Thrall",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "flying",
+     "ranged": 0,
+     "melee": -1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "CULT"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "NEGATE",
+       "value": "GAS"
+      }
+     ],
+     "kitAccess": "listed",
+     "abilities": [
+      {
+       "name": "Overwhelming Horde",
+       "summary": "May make Melee Attacks without a weapon, +1 DICE for each other friend within 3\".",
+       "page": 137
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 137
+     },
+     "status": "verified",
+     "note": "One of the Bereaved: Ranged +0 DICE, 30 ducats, Ranged Weapons, Grenades, a Musical Instrument or a Troop Flag.",
+     "naming": "keep",
+     "listed": [
+      "blunderbuss",
+      "bolt-action-rifle",
+      "corruption-belcher",
+      "infested-rifle",
+      "musket",
+      "pistol",
+      "putrid-shotgun",
+      "shotgun",
+      "viscera-cannon",
+      "gas-grenades",
+      "parasite-grenades",
+      "musical-instrument",
+      "troop-flag"
+     ]
+    }
+   ],
+   "removeArmoury": [
+    "plague-lords-axe",
+    "plague-shield"
+   ],
+   "addArmoury": [
+    {
+     "kit": "putrid-shotgun",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "limit": 3,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "viscera-cannon",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "broken-crown",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "urn-of-the-bitter-ashes",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "The Executor",
+     "summary": "Must include 1 Executor: the Plague Knight entry with Ranged +1 DICE, LEADER and TOUGH, for 80 ducats; 0-2 Plague Knights as well.",
+     "page": 142
+    },
+    {
+     "name": "The Fallen",
+     "summary": "No Bloated Lord or Amalgam.",
+     "page": 142
+    },
+    {
+     "name": "The Lost",
+     "summary": "0-2 Plague Hounds and 0-2 Fly Heralds.",
+     "page": 142
+    },
+    {
+     "name": "The Bereaved",
+     "summary": "Its Thralls are the Bereaved: Ranged +0 DICE, 30 ducats, and may have Ranged Weapons, Grenades, a Musical Instrument or a Troop Flag.",
+     "page": 142
+    },
+    {
+     "name": "Dishonoured",
+     "summary": "No Plague Lord’s Axe or Plague Shield.",
+     "page": 142
+    },
+    {
+     "name": "Last Blessing",
+     "summary": "Putrid Shotguns Limit 3; Viscera Cannons Limit 3 and not ELITE only.",
+     "page": 142
+    },
+    {
+     "name": "Hegemon’s Will",
+     "summary": "An Executor or Plague Knight can take a Command Bereaved ACTION: remove INFECTION MARKERS from enemies; for each, one Bereaved within 18\" charges, fights, moves or shoots (one Command each per Turn).",
+     "page": 142
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 142
+   },
+   "status": "verified",
+   "naming": "rename"
+  }
+ ],
+ "source": {
+  "book": "Warbands of Trench Crusade",
+  "version": "1.0.2",
+  "page": 127
+ },
+ "status": "verified",
+ "naming": "rename"
+}

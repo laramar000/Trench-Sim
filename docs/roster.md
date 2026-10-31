@@ -8,7 +8,9 @@ Stage 1 shipped the catalogue format, the keyword vocabulary and the format chec
 rosters and the roster validator. Stage 3 adds the builder screen. Stage 4 enters the official data: the catalogue
 (core battlekit, Glory Items, each faction's own kit) and the faction lists, from the Digital Rulebook and *Warbands of
 Trench Crusade*, under our own names, each value checked against its page. Rule texts are our own short summaries.
-Factions shipped so far: The Principality and Pilgrims.
+Factions shipped: The Principality, Pilgrims, The Sultanate, Heretics, The Cult and The Court, each with its book
+variants. The Court's Seven Deadly Sins are seven lists ("Dedicated to Wrath" and so on): the standard list has only
+the Goetic Powers open to every Court warband.
 
 ## Files
 
@@ -146,7 +148,9 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
 
 - Stage 3 (done): the builder screen, Build Your Own Roster on the main menu (docs/client.md). It shows the shipped
   factions, the chosen list's special rules and its budget (a variant's own budget when it has one).
-- Stage 4 (in parts): the official data. Done: catalogue, The Principality, Pilgrims. Next: The Sultanate, Heretics,
-  The Cult, The Court. Mercenaries need hiring rules the format does not have yet.
+- Stage 4: the official data for the six factions. Not entered: Mercenaries (hired with Glory; the format has no
+  mercenary hiring yet). Known gaps, each said in the list itself: the Trench Dog's 1-3 Glory cost is not priced; the
+  Amalgam's six weapons and the Fallen Saint's three melee weapons still meet the normal hand limits; kit bought from
+  another faction's armoury is not priced; rules marked "not checked by the builder".
 - Stage 5: sending a roster to a match; kit the engine can't
   play yet is refused by name at match creation.
