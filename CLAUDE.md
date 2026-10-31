@@ -72,9 +72,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 
 - Game: M0-M7.4 accepted; M7.5 stages 5a-5c accepted, 5d (manual two-window match) and Gate G5 not yet accepted.
   Main menu (Play, Build Your Own Roster, Credits) done. Battlefield perf and long-range line done.
-- Next game step already decided by the owner: the main menu gets ONE Play button -> Play screen with Hot-seat and
-  Online; Online -> Host and Connect (Join and Rejoin saved seats under Connect). Lobby is private by code only.
-  Keep the current menu font. Built after the Windows check and G5 report.
+- Play screen pages done (2026-10-31): one Play button -> Play page (Start hot-seat, Online); Online -> Host and
+  Connect; Connect -> Join with a code and Rejoin saved seats. Lobby stays private by code only; keep the menu font.
+  Not yet checked on Windows.
 - Roster builder: stages 1-4 done. Stage 4 shipped the six factions with all variants (Court sins as seven
   "Dedicated to X" lists), then the gap fix: Trench Dog (1 Glory, Loyal Hound and one Special Training +1 each),
   many-armed models (`kitRules.arms`: Amalgam 6, Fallen Saint 3), kit bought from another faction (armoury `from`,

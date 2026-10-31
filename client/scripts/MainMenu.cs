@@ -18,6 +18,8 @@ public partial class Main
     public const string ExitText = "Exit";
     public const string StartHotSeatText = "Start hot-seat";
     public const string HostText = "Host match";
+    public const string OnlineText = "Online";
+    public const string ConnectText = "Connect";
     public const string DeveloperTip = "Developer screen: every scenario and test roster, server settings and saved seats.";
 
     // Stage M2: Message, with Cancel (while connecting) and Retry (after a failure that trying again can fix), is MessageRow.
@@ -40,6 +42,15 @@ public partial class Main
     private Button _developer = null!;
     private Button _playHotSeat = null!;
     private Control _advanced = null!;
+
+    // The Play screen's pages (Jason 2026-10-29, decision 2): first Hot-seat or Online; Online shows Host and Connect,
+    // and Connect opens Join and Rejoin. Esc leaves the Play screen from any page; each page's Back goes up one.
+    private Control _playChoose = null!;
+    private Control _playOnline = null!;
+    private Control _playConnect = null!;
+    private Button _online = null!;
+    private Button _connectButton = null!;
+    private LineEdit _playCode = null!;
 
     private static string VersionLine =>
         $"{GameName} client. Godot {Engine.GetVersionInfo()["string"]}, {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}. " +
@@ -212,8 +223,6 @@ public partial class Main
         _playForm = form;
         var (playScreen, play) = MenuScreen("PlayScreen", 760, 8);
         _play = playScreen;
-        play.AddChild(Row(Button(BackText, ShowHome)));
-        play.AddChild(Section("Play", Column(Field("Scenario:", form.Scenario), Field("Map:", form.Map))));
         _playHotSeat = Button(StartHotSeatText, Use(form, StartHotSeat));
         _playHotSeat.ThemeTypeVariation = "MenuPrimary";
         var hotNote = Text("Play both sides in this window. A local server starts on this PC; F2 switches the side you control.");
@@ -223,28 +232,44 @@ public partial class Main
             _playHotSeat.Disabled = true;
             hotNote.Text = "Not available here: hot-seat starts the server from the Trenches source folder (TrenchSim.sln above client/), which was not found.";
         }
-        play.AddChild(Section("This PC (hot-seat)", Column(Row(_playHotSeat), hotNote)));
+        _online = Button(OnlineText, ShowPlayOnline);
+        _online.ThemeTypeVariation = "MenuPrimary";
+        _playChoose = Column(
+            Row(Button(BackText, ShowHome)),
+            Section("Play", Column(Field("Scenario:", form.Scenario), Field("Map:", form.Map))),
+            Section("This PC (hot-seat)", Column(Row(_playHotSeat), hotNote)),
+            Section("Online", Column(Row(_online), Text("Host a match, or connect to one with a code or a saved seat."))));
+
         var host = Button(HostText, Use(form, () => Create(ChosenScenario())));
         host.ThemeTypeVariation = "MenuPrimary";
+        _connectButton = Button(ConnectText, ShowPlayConnect);
+        _connectButton.ThemeTypeVariation = "MenuPrimary";
         var join = Button("Join match", Use(form, Join));
         join.ThemeTypeVariation = "MenuPrimary";
-        play.AddChild(Section("Host or join a match", Column(
-            Text("Needs a running Trenches server that both players can reach."),
-            Field("Server address:", form.Server),
-            Row(host),
-            Text("Host uses the scenario and map above; give your opponent the match code shown next."),
-            Field("Match code:", form.Code, join))));
-        play.AddChild(Section("Rejoin", Column(
-            Text("Your saved seats on this server:"),
-            form.Saved,
-            Button("Refresh saved seats", Use(form, RefreshSaved)))));
+        _playCode = form.Code;
         var advancedToggle = new CheckButton { Text = "Advanced", Name = "AdvancedToggle" };
         _advanced = Column(Field("Server rejoin window (seconds):", form.Window),
             Text("Set this to the server's --rejoin-window (300 by default). It decides how long reconnecting keeps trying before offering Rejoin now."));
         _advanced.Visible = false;
         advancedToggle.Toggled += on => _advanced.Visible = on;
-        play.AddChild(advancedToggle);
-        play.AddChild(_advanced);
+        _playConnect = Column(
+            Section("Join", Column(Field("Match code:", form.Code, join))),
+            Section("Rejoin", Column(
+                Text("Your saved seats on this server:"),
+                form.Saved,
+                Button("Refresh saved seats", Use(form, RefreshSaved)))),
+            advancedToggle,
+            _advanced);
+        _playOnline = Column(
+            Row(Button(BackText, ShowPlay)),
+            Section("Online", Column(
+                Text("Needs a running Trenches server that both players can reach."),
+                Field("Server address:", form.Server))),
+            Section("Host", Column(Row(host), Text("Uses the scenario and map chosen on the Play page; give your opponent the match code shown next."))),
+            Section("Connect", Column(Row(_connectButton), Text("Join with a match code, or rejoin a saved seat."))),
+            _playConnect);
+        play.AddChild(_playChoose);
+        play.AddChild(_playOnline);
         play.AddChild(form.MessageRow);
 
         // ---- Settings (the same controls as the in-match Menu, moved here while shown) ----
@@ -340,13 +365,44 @@ public partial class Main
     // For the UI check (stage M3): the Play screen, as Play shows it.
     public void ShowPlayForCheck() => ShowPlay();
 
+    // For the UI check: the Play screen's Connect page (Online, then Connect).
+    public void ShowPlayConnectForCheck()
+    {
+        ShowPlay();
+        ShowPlayConnect();
+    }
+
     private void ShowPlay()
     {
         _form = _playForm;
         ShowScreen(_play);
+        PlayPage(online: false, connect: false);
         RefreshSaved();
-        (_playHotSeat.Disabled ? (Control)_playForm.Server : _playHotSeat).CallDeferred(Control.MethodName.GrabFocus);
+        (_playHotSeat.Disabled ? _online : _playHotSeat).CallDeferred(Control.MethodName.GrabFocus);
     }
+
+    private void ShowPlayOnline()
+    {
+        PlayPage(online: true, connect: false);
+        _connectButton.CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    private void ShowPlayConnect()
+    {
+        PlayPage(online: true, connect: true);
+        _playCode.CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    private void PlayPage(bool online, bool connect)
+    {
+        _playChoose.Visible = !online;
+        _playOnline.Visible = online;
+        _playConnect.Visible = connect;
+        _page.ScrollVertical = 0;
+    }
+
+    // For the UI check: which Play page is shown ("choose", "online", "connect"), or null off the Play screen.
+    public string? PlayPageShown => !_play.Visible ? null : !_playOnline.Visible ? "choose" : _playConnect.Visible ? "connect" : "online";
 
     private void ShowSettings()
     {

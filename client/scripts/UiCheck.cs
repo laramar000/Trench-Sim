@@ -3337,10 +3337,29 @@ public partial class UiCheck : Node
     private int _pvpDone;
     private bool _pvpRefusalChecked;
 
+    // On the Play screen, Online (and Connect) before the address and code fields show. Elsewhere (the developer
+    // screen) nothing to do.
+    private async Task PlayOnline(bool connect, string step)
+    {
+        if (((Main)_main).ScreenShown != "play")
+        {
+            return;
+        }
+        await Press(ButtonNamed(Main.OnlineText), Key.Enter, $"{step}-online-enter");
+        await Until(() => ((Main)_main).PlayPageShown == "online" ? "ok" : null, 5, $"{step}-online");
+        if (connect)
+        {
+            await Press(ButtonNamed(Main.ConnectText), Key.Enter, $"{step}-connect-enter");
+            await Until(() => ((Main)_main).PlayPageShown == "connect" ? "ok" : null, 5, $"{step}-connect");
+        }
+    }
+
     private async Task PvpCreate()
     {
-        await TypeInto(Field("ws://"), _server, "pvp-type-server");
+        // The scenario is chosen on the Play page, before Online.
         await ChooseOption(Option("ranged"), _scenario, "pvp-choose-scenario");
+        await PlayOnline(connect: false, "pvp-create");
+        await TypeInto(Field("ws://"), _server, "pvp-type-server");
         await Press(ButtonNamed(_role == "pvp-a" ? Main.HostText : "Create match"), Key.Enter, "pvp-create-enter");
         var code = await Until(() => Label("Match code ") is { } l && l.Text.Contains("Seat One [A]") ? l.Text : null, 20, "create");
         // The host (Seat One) is the one told to give the code away (the joiner is not: pvp-join).
@@ -3357,6 +3376,7 @@ public partial class UiCheck : Node
 
     private async Task PvpJoin()
     {
+        await PlayOnline(connect: true, "pvp-join");
         await TypeInto(Field("ws://"), _server, "pvp-type-server");
         await TypeInto(Field("", placeholder: "match code"), _code ?? "", "pvp-type-code");
         await Press(ButtonNamed("Join match"), Key.Enter, "pvp-join-enter");
@@ -3389,6 +3409,7 @@ public partial class UiCheck : Node
 
     private async Task PvpRejoin()
     {
+        await PlayOnline(connect: true, "pvp-rejoin");
         await TypeInto(Field("ws://"), _server, "pvp-type-server");
         await Press(ButtonNamed("Refresh saved seats"), Key.Enter, "pvp-refresh-enter");
         var saved = await Until(() => ButtonStarting("Rejoin match "), 10, "saved");
@@ -5901,6 +5922,7 @@ public partial class UiCheck : Node
     {
         var main = (Main)_main;
         await Until(() => main.ScreenShown == "play" ? "ok" : null, 5, "connect-play");
+        await PlayOnline(connect: true, "connect");
         var server = Field("ws://");
         var code = Field("", "match code");
         if (server is null || code is null)
@@ -6090,6 +6112,11 @@ public partial class UiCheck : Node
                 main.ShowPlayForCheck();
                 await Frames(6);
                 Layout($"Play {where}");
+                main.ShowPlayConnectForCheck();
+                await Frames(6);
+                Layout($"Play connect {where}");
+                main.ShowPlayForCheck();
+                await Frames(2);
                 if ((w, text, scale, contrast) == (1000, 2, 2, false))
                 {
                     await Shot("menu-look-play-large");
@@ -6314,8 +6341,9 @@ public partial class UiCheck : Node
         await Visit(Main.CreditsText, "credits", esc: false, () =>
             Client.Core.Credits.Entries.All(e => Controls<Godot.Label>().Any(l => l.IsVisibleInTree() && l.Text.StartsWith(e.Heading + ": ", StringComparison.Ordinal)))
                 ? null : "a credit is missing");
-        await Visit(Main.PlayText, "play", esc: true, () => ButtonNamed(Main.StartHotSeatText) is null || ButtonNamed(Main.HostText) is null || ButtonNamed("Join match") is null
-            ? "the Play screen lacks hot-seat, Host or Join" : null);
+        await Visit(Main.PlayText, "play", esc: true, () => ButtonNamed(Main.StartHotSeatText) is null || ButtonNamed(Main.OnlineText) is null
+            || ButtonNamed(Main.HostText) is not null || ButtonNamed("Join match") is not null
+            ? "the Play page should show Start hot-seat and Online only" : null);
         // The developer corner button opens the connect screen as it was; its Back returns.
         await Press(main.DeveloperButton, Key.Enter, null);
         var developer = await Until(() => main.ScreenShown == "developer" ? "ok" : null, 5, "menu-developer") is not null
@@ -6336,8 +6364,45 @@ public partial class UiCheck : Node
         await Press(ButtonNamed(Main.PlayText), Key.Enter, null);
         await Until(() => main.ScreenShown == "play" ? "ok" : null, 5, "menu-play-again");
         await TabTraversal("play");
+        await PlayPagesCheck();
         await KeyPress(Key.Escape);
         await Until(() => main.ScreenShown == "menu" && Focused() == ButtonNamed(Main.PlayText) ? "ok" : null, 5, "menu-back-again");
+    }
+
+    // The Play screen's pages: Online shows Host and Connect, Connect adds Join and Rejoin, and Back goes up a page.
+    // Ends on the Play page.
+    private async Task PlayPagesCheck()
+    {
+        var main = (Main)_main;
+        var problems = new List<string>();
+        await Press(ButtonNamed(Main.OnlineText), Key.Enter, null);
+        var online = await Until(() => main.PlayPageShown == "online" ? "ok" : null, 5, "play-pages-online") is not null;
+        if (!online || ButtonNamed(Main.HostText) is null || ButtonNamed(Main.ConnectText) is null || Field("ws://") is null || ButtonNamed("Join match") is not null)
+        {
+            problems.Add($"Online page: shown {online}, Host {ButtonNamed(Main.HostText) is not null}, Connect {ButtonNamed(Main.ConnectText) is not null}, address {Field("ws://") is not null}, Join {ButtonNamed("Join match") is not null}");
+        }
+        await Press(ButtonNamed(Main.BackText), Key.Enter, null);
+        var back = await Until(() => main.PlayPageShown == "choose" && Focused() is not null ? "ok" : null, 5, "play-pages-back") is not null;
+        if (!back)
+        {
+            problems.Add($"Back from Online: page {main.PlayPageShown}, focus {Describe(Focused())}");
+        }
+        await Press(ButtonNamed(Main.OnlineText), Key.Enter, null);
+        await Until(() => main.PlayPageShown == "online" ? "ok" : null, 5, "play-pages-online-again");
+        await Press(ButtonNamed(Main.ConnectText), Key.Enter, null);
+        var connect = await Until(() => main.PlayPageShown == "connect" ? "ok" : null, 5, "play-pages-connect") is not null;
+        if (!connect || ButtonNamed("Join match") is null || ButtonNamed("Refresh saved seats") is null || Field("", "match code") is null
+            || Focused() != Field("", "match code"))
+        {
+            problems.Add($"Connect page: shown {connect}, Join {ButtonNamed("Join match") is not null}, Refresh {ButtonNamed("Refresh saved seats") is not null}, focus {Describe(Focused())}");
+        }
+        Check("play-pages", problems.Count == 0, problems.Count == 0
+            ? "Play: Start hot-seat and Online; Online: address, Host and Connect; Back returns to Play; Connect: match code (focused), Join and Rejoin"
+            : string.Join("; ", problems));
+        await TabTraversal("play-connect");
+        // Back to the Play page (Esc in the code field first ends typing there, as in any text field).
+        await Press(ButtonNamed(Main.BackText), Key.Enter, null);
+        await Until(() => main.PlayPageShown == "choose" && Focused() is not null ? "ok" : null, 5, "play-pages-back-again");
     }
 
     // ---- reading the screen ----
