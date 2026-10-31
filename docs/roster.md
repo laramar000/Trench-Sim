@@ -1,21 +1,23 @@
-# Roster builder data (stages 1 to 3)
+# Roster builder data (stages 1 to 4)
 
 The roster builder reads plain JSON content files through `src/Roster`. Rules.Core never sees names, costs or
 keywords: a match still gets only the model profiles built from a roster (stage 5). Rules version: Digital Rulebook
 1.0.2 only. A file for any other version is refused.
 
 Stage 1 shipped the catalogue format, the keyword vocabulary and the format checks. Stage 2 adds faction lists,
-rosters and the roster validator. No battlekit or faction data is in the repository yet: the tests use invented data. Costs, faction lists and armoury limits come from *Warbands of Trench Crusade* in
-stage 4, each value checked against its page.
+rosters and the roster validator. Stage 3 adds the builder screen. Stage 4 enters the official data: the catalogue
+(core battlekit, Glory Items, each faction's own kit) and the faction lists, from the Digital Rulebook and *Warbands of
+Trench Crusade*, under our own names, each value checked against its page. Rule texts are our own short summaries.
+Factions shipped so far: The Principality and Pilgrims.
 
 ## Files
 
 | File | What it holds |
 |---|---|
 | `content/roster/keywords.json` | The fixed keyword vocabulary (1.0.2 pp. 52-57): id, kind (`effect` or `tag`), what value it takes, page |
-| `content/roster/catalogue.json` (stage 4) | Battlekit entries in the format below |
-| `content/roster/factions/*.json` (stage 4) | One faction list per file: models, armoury, variants |
-| `content/roster/practice-catalogue.json`, `practice-faction.json` | Invented practice data the builder screen shows until stage 4 |
+| `content/roster/catalogue.json` | Battlekit entries in the format below |
+| `content/roster/factions/*.json` | One faction list per file: models, armoury, variants |
+| `content/roster/practice-catalogue.json`, `practice-faction.json` | Invented practice data for the builder's own tests (`RosterBuilder.Practice()`) |
 | a player's roster file | One warband: faction, variant, budget, models with their kit and upgrades |
 
 Faction keywords use our faction names (Jason, 2026-10-30): PRINCIPALITY, PILGRIM, SULTANATE, HERETIC, CULT, COURT.
@@ -44,13 +46,13 @@ Every file starts with `"format": 1` and `"rulesVersion": "1.0.2"`.
 | `hands` | ranged and melee | 1 or 2. Never on grenade, armour or equipment |
 | `rangeInches` | ranged and grenade | 1 or more. Only ranged, grenade and special entries have one |
 | `alsoMelee` | no | Ranged weapons only: "x"/Melee" in the book |
-| `cost` | no | `{ "amount": n, "currency": "ducats" or "glory" }`, or `null` while unresolved. Never guessed |
+| `cost` | no | `{ "amount": n, "currency": "ducats" or "glory" }`, or `null`. The shipped catalogue leaves it `null`: each faction's armoury prices kit |
 | `keywords` | no | `[{ "id", "value"? }]`, ids from the vocabulary. A keyword with no value or a number may appear once |
 | `dice`, `injuryDice`, `injuryModifier` | no | Default 0 |
 | `rule` | no | `{ "summary", "page" }`: our own short summary and the page, never the book's text |
 | `restrictions` | no | `[{ "kind": "eliteOnly" / "limit" (with `value`) / "shieldCombo" / "other" (with `text`) }]` |
 | `source` | yes | `{ "book", "version", "page" }` |
-| `status` | yes | `verified` (every value checked against its page; needs a cost), `unverified`, or `discrepancy` (needs a `note`) |
+| `status` | yes | `verified` (every value checked against its page), `unverified`, or `discrepancy` (needs a `note`) |
 | `note` | for discrepancy | What the sources disagree on, for Jason's ruling |
 | `naming` | yes | `keep`, `rename` or `review` (naming policy) |
 | `campaignOnly` | no | True for Glory Items and other campaign-only kit |
@@ -60,8 +62,8 @@ Every file starts with `"format": 1` and `"rulesVersion": "1.0.2"`.
 Loading never half-accepts a file: any problem refuses the whole file, and every problem is listed in words, for
 example `entry "practice-sidearm": "hands" must be 1 or 2`. The checks cover: invalid JSON, wrong format or rules
 version, missing or mistyped fields, duplicate ids and names, unknown keywords and wrong keyword values, impossible
-numbers (negative costs, zero ranges, modifiers outside -3 to +3), weapon fields on non-weapons, a verified entry with
-no cost, and a discrepancy with no note.
+numbers (negative costs, zero ranges, modifiers outside -3 to +3), weapon fields on non-weapons, and a discrepancy
+with no note.
 
 The checks catch format errors, not wrong numbers. Accuracy is checked against the source pages and Trench Companion
 (cross-check only) in stage 4. The mapping from source names to display names is kept outside the repository.
@@ -80,21 +82,31 @@ The checks catch format errors, not wrong numbers. Accuracy is checked against t
 | `source`, `status`, `note`, `naming` | As for catalogue entries |
 
 **Warband entry (model).** `id`, `name`; `min` (default 0) and `max` (absent = no limit); `cost` (null while
-unresolved); `movementInches` and `movementType` (e.g. `infantry`); `ranged` and `melee` as +/- DICE from -3 to +3,
+unresolved); `movementInches` and `movementType` (e.g. `infantry`); `ranged` and `melee` as +/- DICE from -4 to +4,
 or `null` for "-" (the field must be present); `armour` (0 to -3); `baseMm` as `[diameter]` or `[width, length]`;
 `keywords`; `kitAccess`: `armoury` (anything in the armoury), `listed` (only the ids in `listed`) or `none`;
 `startsWith` (battlekit included in the model's cost); `prices` (`[{ "kit", "cost" }]`: the model's own price for a
 piece, e.g. a reduced-cost rifle); `upgrades` (`[{ "id", "name", "cost", "maxPerWarband"?, "keywords"?, "note"? }]`,
 each bought at most once per model; `keywords` are added to the model); `abilities` (`[{ "name", "summary", "page" }]`);
-`source`, `status`, `note`, `naming`.
+`kitRules` (below); `source`, `status`, `note`, `naming`.
+
+**Kit rules (`kitRules`, optional on a model).** Limits the book puts on one entry's battlekit:
+`noCategories` (categories it cannot buy, e.g. `armour` for a model whose armour is built in), `onlyKit`
+(`[{ "category", "kit": [ids] }]`: in that category only these pieces, e.g. a model limited to pistols),
+`maxCostDucats` (no bought piece costs more), `mustHave` (categories it must carry), `mustHaveWeapon`,
+`weaponsNeedKeyword` (e.g. `HEAVY`: its weapons must have it), `note` (shown as a roster note). Bought kit is checked
+against all of them; `mustHave` and `mustHaveWeapon` count everything the model carries, `startsWith` included.
 
 **Armoury item.** `kit` (a catalogue id), `cost`, `limit` (whole warband), `limitPerModel`, `only` (`[{ "keyword" }
 or { "model" }]`: any one of them qualifies), `stipulations` (`bayonetLug`, `needsBayonetLug`, `shieldCombo`,
 `headgear`, `consumable`), `status`, `note`.
 
 **Variant.** `id`, `name`, `removeModels`, `addModels`, `modelCosts` (`[{ "model", "cost" }]`), `removeArmoury`,
-`addArmoury` (an added item replaces the faction's item for the same kit), `specialRules`, `source`, `status`,
-`note`, `naming`. Everything else is the faction's.
+`addArmoury` (an added item replaces the faction's item for the same kit), `budgetDucats` and `budgetGlory` (a
+variant's own starting budget, when the book gives one), `specialRules`, `source`, `status`, `note`, `naming`.
+Everything else is the faction's. A variant changes a model by removing it and adding a changed copy with the same id.
+Book rules the format cannot express are kept as summaries in `specialRules` or a `note`, marked "not checked by the
+builder" where a player must follow them.
 
 Loading checks every id the file refers to (catalogue kit, models in variants, keywords), duplicate ids and names,
 `min` against `max`, base sizes, dice and armour ranges, and that every listed piece has a price in the armoury (or
@@ -132,5 +144,9 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
 
 ## Later stages
 
-- Stage 3 (done): the builder screen, Build Your Own Roster on the main menu (docs/client.md). Stage 4: the official data. Stage 5: sending a roster to a match; kit the engine can't
+- Stage 3 (done): the builder screen, Build Your Own Roster on the main menu (docs/client.md). It shows the shipped
+  factions, the chosen list's special rules and its budget (a variant's own budget when it has one).
+- Stage 4 (in parts): the official data. Done: catalogue, The Principality, Pilgrims. Next: The Sultanate, Heretics,
+  The Cult, The Court. Mercenaries need hiring rules the format does not have yet.
+- Stage 5: sending a roster to a match; kit the engine can't
   play yet is refused by name at match creation.

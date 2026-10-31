@@ -4,7 +4,7 @@ namespace Client.Core;
 
 // Roster builder stage 3: what the Build Your Own Roster screen shows and does, as plain C# tested without Godot.
 // It holds one warband being built, works out its legality with Roster.RosterValidator, and saves and loads roster
-// files in a folder. Until the real lists are entered (stage 4) the only faction is the invented practice one.
+// files in a folder. Stage 4: the shipped factions are the real lists; the invented practice data stays for tests.
 public sealed class RosterBuilder
 {
     public sealed record FactionChoice(string Id, string Name);
@@ -35,8 +35,22 @@ public sealed class RosterBuilder
         Name = "New warband";
     }
 
-    // The builder with the data shipped in Client.Core: the keyword list, the practice catalogue and faction.
+    // The faction files shipped in Client.Core (content/roster/factions), in the order the screen lists them.
+    public static readonly IReadOnlyList<string> ShippedFactions = ["principality", "pilgrims"];
+
+    // The builder with the data shipped in Client.Core: the keyword list, the catalogue and the real faction lists.
     public static RosterBuilder Shipped()
+    {
+        var vocabulary = Must(KeywordVocabulary.Parse(ContentNames.Read("roster/keywords.json")));
+        var catalogue = Must(Catalogue.Parse(ContentNames.Read("roster/catalogue.json"), vocabulary));
+        var factions = ShippedFactions
+            .Select(f => Must(Faction.Parse(ContentNames.Read($"roster/factions/{f}.json"), catalogue, vocabulary)))
+            .ToList();
+        return new RosterBuilder(catalogue, factions);
+    }
+
+    // The invented practice catalogue and faction, kept so the builder's own tests do not depend on book values.
+    public static RosterBuilder Practice()
     {
         var vocabulary = Must(KeywordVocabulary.Parse(ContentNames.Read("roster/keywords.json")));
         var catalogue = Must(Catalogue.Parse(ContentNames.Read("roster/practice-catalogue.json"), vocabulary));
@@ -47,7 +61,7 @@ public sealed class RosterBuilder
     private static T Must<T>(Checked<T> loaded) where T : class =>
         loaded.Value ?? throw new InvalidOperationException("Shipped roster data is invalid: " + string.Join("; ", loaded.Problems));
 
-    public const string PracticeNote = "Practice data: invented factions and battlekit, until the real lists are entered.";
+    public const string SourceNote = "Lists from the official books (rules 1.0.2), under our own names. List rules marked \"not checked by the builder\" are yours to follow.";
 
     public Faction Faction { get; private set; }
 
@@ -244,7 +258,18 @@ public sealed class RosterBuilder
         };
     }
 
-    public WarbandRoster Roster => new(Name, Faction.Id, Variant, Faction.BudgetDucats, 0, _models.ToList());
+    private global::Roster.Variant? ChosenVariant => Variant is null ? null : Faction.Variants.First(v => v.Id == Variant);
+
+    // A variant may set its own starting budget (e.g. 500 ducats and 11 Glory); otherwise the faction's.
+    public int BudgetDucats => ChosenVariant?.BudgetDucats ?? Faction.BudgetDucats;
+
+    public int BudgetGlory => ChosenVariant?.BudgetGlory ?? 0;
+
+    // The list's own special rules: the faction's, then the chosen variant's, as "Name: summary (p. N)".
+    public IReadOnlyList<string> RuleLines =>
+        Faction.SpecialRules.Concat(ChosenVariant?.SpecialRules ?? []).Select(r => $"{r.Name}: {r.Summary} (p. {r.Page})").ToList();
+
+    public WarbandRoster Roster => new(Name, Faction.Id, Variant, BudgetDucats, BudgetGlory, _models.ToList());
 
     public RosterCheck Check() => RosterValidator.Check(Roster, Faction, _catalogue);
 
@@ -253,7 +278,7 @@ public sealed class RosterBuilder
         get
         {
             var check = Check();
-            return $"{check.Ducats} of {Faction.BudgetDucats} ducats" + (check.Glory > 0 ? $", {check.Glory} Glory" : "") +
+            return $"{check.Ducats} of {BudgetDucats} ducats" + (check.Glory > 0 || BudgetGlory > 0 ? $", {check.Glory} of {BudgetGlory} Glory" : "") +
                    (check.Legal ? " · legal" : $" · {check.Problems.Count} problem{(check.Problems.Count == 1 ? "" : "s")}");
         }
     }

@@ -2,13 +2,13 @@ using Client.Core;
 
 namespace Client.Tests;
 
-// Roster builder stage 3: the screen's logic, on the shipped (invented) practice data.
+// Roster builder: the screen's logic on the invented practice data (stage 3), then on the shipped real lists (stage 4).
 public class RosterBuilderTests
 {
     [Fact]
-    public void TheShippedPracticeDataLoads()
+    public void ThePracticeDataLoads()
     {
-        var builder = RosterBuilder.Shipped();
+        var builder = RosterBuilder.Practice();
         Assert.Equal([new RosterBuilder.FactionChoice("practice", "Practice Company")], builder.Factions);
         Assert.Equal(["Captain", "Marksman", "Soldier", "Bruiser"], builder.Entries.Select(e => e.Name));
         Assert.Equal("required, 1", builder.Entries[0].LimitText);
@@ -19,7 +19,7 @@ public class RosterBuilderTests
     [Fact]
     public void AnEmptyWarbandSaysItNeedsItsCaptain()
     {
-        var builder = RosterBuilder.Shipped();
+        var builder = RosterBuilder.Practice();
         Assert.Equal("0 of 700 ducats · 1 problem", builder.TotalText);
         Assert.Contains("✕ Practice Company must include 1 Captain.", builder.CheckLines);
     }
@@ -27,7 +27,7 @@ public class RosterBuilderTests
     [Fact]
     public void AddingModelsKitAndUpgradesUpdatesTheTotal()
     {
-        var builder = RosterBuilder.Shipped();
+        var builder = RosterBuilder.Practice();
         builder.Add("practice-captain");
         builder.AddKit("practice-pistol");
         builder.AddKit("practice-club");
@@ -49,7 +49,7 @@ public class RosterBuilderTests
     [Fact]
     public void RefusalsAreShownInWords()
     {
-        var builder = RosterBuilder.Shipped();
+        var builder = RosterBuilder.Practice();
         builder.Add("practice-captain");
         builder.AddKit("practice-rifle");
         builder.AddKit("practice-pistol");
@@ -62,7 +62,7 @@ public class RosterBuilderTests
     [Fact]
     public void ListedKitAndTheSelectionFollowTheModel()
     {
-        var builder = RosterBuilder.Shipped();
+        var builder = RosterBuilder.Practice();
         builder.Add("practice-captain");
         builder.Add("practice-bruiser");
         Assert.Equal(["practice-maul", "practice-club", "practice-coat", "practice-helmet"], builder.KitChoices.Select(k => k.Id));
@@ -85,7 +85,7 @@ public class RosterBuilderTests
     [Fact]
     public void AVariantStartsAnEmptyWarbandWithItsOwnList()
     {
-        var builder = RosterBuilder.Shipped();
+        var builder = RosterBuilder.Practice();
         builder.Add("practice-captain");
         builder.ChooseVariant("practice-raiders");
         Assert.Empty(builder.Models);
@@ -102,7 +102,7 @@ public class RosterBuilderTests
         var folder = Path.Combine(Path.GetTempPath(), "roster-builder-" + Guid.NewGuid().ToString("N"));
         try
         {
-            var builder = RosterBuilder.Shipped();
+            var builder = RosterBuilder.Practice();
             builder.Name = "Mud / Rats";
             builder.ChooseVariant("practice-raiders");
             builder.Add("practice-captain");
@@ -112,7 +112,7 @@ public class RosterBuilderTests
             Assert.Equal("Mud _ Rats.roster.json", Path.GetFileName(path));
             Assert.Equal(["Mud _ Rats.roster.json"], RosterBuilder.Saved(folder));
 
-            var again = RosterBuilder.Shipped();
+            var again = RosterBuilder.Practice();
             Assert.Null(again.Load(folder, "Mud _ Rats.roster.json"));
             Assert.Equal(("Mud / Rats", "practice-raiders"), (again.Name, again.Variant));
             Assert.Equal(builder.Models, again.Models);
@@ -132,5 +132,50 @@ public class RosterBuilderTests
                 Directory.Delete(folder, true);
             }
         }
+    }
+    [Fact]
+    public void TheShippedListsAreTheRealFactions()
+    {
+        var builder = RosterBuilder.Shipped();
+        Assert.Equal(RosterBuilder.ShippedFactions, builder.Factions.Select(f => f.Id));
+        Assert.Equal("The Principality", builder.Faction.Name);
+        Assert.Contains("✕ The Principality must include 1 Lieutenant.", builder.CheckLines);
+        Assert.Equal("0 of 700 ducats · 1 problem", builder.TotalText);
+        Assert.Contains(builder.RuleLines, l => l.StartsWith("Fireteams:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AVariantsOwnBudgetIsUsed()
+    {
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseVariant("pontifical-task-force");
+        Assert.Equal((500, 11), (builder.BudgetDucats, builder.BudgetGlory));
+        Assert.Equal((500, 11), (builder.Roster.BudgetDucats, builder.Roster.BudgetGlory));
+        Assert.StartsWith("0 of 500 ducats, 0 of 11 Glory", builder.TotalText, StringComparison.Ordinal);
+        Assert.Contains(builder.RuleLines, l => l.StartsWith("Specialist Force:", StringComparison.Ordinal));
+        builder.ChooseVariant(null);
+        Assert.Equal((700, 0), (builder.BudgetDucats, builder.BudgetGlory));
+    }
+
+    [Fact]
+    public void ARealWarbandIsPricedFromItsList()
+    {
+        var builder = RosterBuilder.Shipped();
+        builder.Add("lieutenant");
+        builder.AddKit("pistol");
+        builder.AddKit("sword-axe");
+        builder.Add("yeoman");
+        Assert.Contains(builder.KitChoices, k => k.Id == "bolt-action-rifle" && k.CostText == "5 ducats"); // the Yeoman's own price
+        builder.AddKit("bolt-action-rifle");
+        builder.ToggleUpgrade("trench-mole");
+        var check = builder.Check();
+        Assert.True(check.Legal, string.Join("; ", check.Problems));
+        Assert.Equal(70 + 6 + 4 + 30 + 5 + 10, check.Ducats);
+
+        builder.ChooseFaction("pilgrims");
+        builder.Add("war-prophet");
+        builder.Add("stigmatic-nun");
+        builder.AddKit("bolt-action-rifle");
+        Assert.Contains(builder.CheckLines, l => l.Contains("Bolt-Action Rifle", StringComparison.Ordinal) && l.StartsWith("✕", StringComparison.Ordinal));
     }
 }

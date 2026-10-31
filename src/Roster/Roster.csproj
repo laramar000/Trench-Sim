@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <Content Include="..\..\content\roster\*.json" Link="content\roster\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\content\roster\factions\*.json" Link="content\roster\factions\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -29,6 +29,20 @@ public sealed record KitPrice(string Kit, Cost? Cost);
 
 public sealed record Ability(string Name, string Summary, int Page);
 
+// Limits on the battlekit a model may be given beyond the armoury's own stipulations (Warbands of Trench Crusade
+// warband entries): "apart from Armour", "the only Ranged Weapons they can have are...", "that costs up to 10 ducats",
+// "must have a suit of Armour", "may only have Weapons with the HEAVY Keyword". Anything else goes in Note.
+public sealed record KitOnly(KitCategory Category, IReadOnlyList<string> Kit);
+
+public sealed record KitRules(
+    IReadOnlyList<KitCategory> NoCategories,
+    IReadOnlyList<KitOnly> OnlyKit,
+    int? MaxCostDucats,
+    IReadOnlyList<KitCategory> MustHave,
+    bool MustHaveWeapon,
+    string? WeaponsNeedKeyword,
+    string? Note);
+
 // A purchasable upgrade for one model (an ability, keyword or other upgrade). Bought at most once per model.
 public sealed record Upgrade(string Id, string Name, Cost? Cost, int? MaxPerWarband, IReadOnlyList<KeywordUse> AddsKeywords, string? Note);
 
@@ -56,7 +70,8 @@ public sealed record ModelEntry(
     SourceRef Source,
     DataStatus Status,
     string? Note,
-    Naming Naming)
+    Naming Naming,
+    KitRules? KitRules = null)
 {
     public bool HasKeyword(string id) => Keywords.Any(k => k.Id == id);
 }
@@ -74,7 +89,9 @@ public sealed record Variant(
     SourceRef Source,
     DataStatus Status,
     string? Note,
-    Naming Naming);
+    Naming Naming,
+    int? BudgetDucats = null,
+    int? BudgetGlory = null);
 
 public sealed record Faction(
     string Id,
@@ -194,6 +211,10 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
         var status = Json.Choice<DataStatus>(v, "status", at, problems);
         var note = Json.Text(v, "note", at, problems, required: false);
         var naming = Json.Choice<Naming>(v, "naming", at, problems);
+        var budgetDucats = Json.Whole(v, "budgetDucats", at, problems, required: false);
+        var budgetGlory = Json.Whole(v, "budgetGlory", at, problems, required: false);
+        if (budgetDucats is < 0 || budgetGlory is < 0)
+            problems.Add($"{at}: a budget cannot be negative");
 
         var models = baseModels.Where(m => !remove.Contains(m.Id)).Concat(add).ToList();
         var armoury = baseArmoury.Where(a => !removeArmoury.Contains(a.Kit) && addArmoury.All(n => n.Kit != a.Kit)).Concat(addArmoury).ToList();
@@ -204,7 +225,8 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
             return null;
         if (status == DataStatus.Discrepancy && note is null)
             problems.Add($"{at}: a discrepancy needs a \"note\" saying what the sources disagree on");
-        return new Variant(id, name, remove, add, costs, removeArmoury, addArmoury, special, source, status.Value, note, naming.Value);
+        return new Variant(id, name, remove, add, costs, removeArmoury, addArmoury, special, source, status.Value, note, naming.Value,
+            budgetDucats, budgetGlory);
     }
 
     private List<ModelEntry> Models(JsonElement e, string field, string at)
@@ -266,6 +288,7 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
         var status = Json.Choice<DataStatus>(m, "status", at, problems);
         var note = Json.Text(m, "note", at, problems, required: false);
         var naming = Json.Choice<Naming>(m, "naming", at, problems);
+        var kitRules = ReadKitRules(m, at);
         if (status == DataStatus.Verified && cost is null)
             problems.Add($"{at}: a verified model needs its cost; mark it unverified while the cost is unresolved");
         if (status == DataStatus.Discrepancy && note is null)
@@ -279,7 +302,51 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
             return null;
         return new ModelEntry(id, name, min, max, cost, movement.Value, movementType, ranged.Value, melee.Value, armour.Value,
             baseMm.Value.Width, baseMm.Value.Length, keywords, access.Value, listed, startsWith, prices, upgrades, abilities,
-            source, status.Value, note, naming.Value);
+            source, status.Value, note, naming.Value, kitRules);
+    }
+
+    private KitRules? ReadKitRules(JsonElement m, string at)
+    {
+        if (!m.TryGetProperty("kitRules", out var r))
+            return null;
+        var rat = $"{at} kitRules";
+        if (r.ValueKind != JsonValueKind.Object)
+        {
+            problems.Add($"{rat}: must be an object");
+            return null;
+        }
+        List<KitCategory> Categories(string field)
+        {
+            var list = new List<KitCategory>();
+            foreach (var text in Json.Strings(r, field, rat, problems))
+                if (Enum.TryParse<KitCategory>(text, true, out var c) && char.IsLower(text[0]))
+                    list.Add(c);
+                else
+                    problems.Add($"{rat}: \"{text}\" in \"{field}\" is not a battlekit category");
+            return list;
+        }
+        var no = Categories("noCategories");
+        var must = Categories("mustHave");
+        var only = new List<KitOnly>();
+        foreach (var o in Json.Objects(r, "onlyKit", rat, problems))
+        {
+            var category = Json.Choice<KitCategory>(o, "category", $"{rat} onlyKit", problems);
+            var kit = Json.Strings(o, "kit", $"{rat} onlyKit", problems);
+            foreach (var k in kit)
+                if (catalogue.Find(k) is null)
+                    problems.Add($"{rat}: battlekit \"{k}\" is not in the catalogue");
+            if (category is not null)
+                only.Add(new KitOnly(category.Value, kit));
+        }
+        var maxCost = Json.Whole(r, "maxCostDucats", rat, problems, required: false);
+        if (maxCost is < 0)
+            problems.Add($"{rat}: \"maxCostDucats\" cannot be negative");
+        var weapon = r.TryGetProperty("mustHaveWeapon", out var w) && w.ValueKind == JsonValueKind.True;
+        var needs = Json.Text(r, "weaponsNeedKeyword", rat, problems, required: false);
+        if (needs is not null && vocabulary.Find(needs) is null)
+            problems.Add($"{rat}: keyword \"{needs}\" is not in the vocabulary");
+        var note = Json.Text(r, "note", rat, problems, required: false);
+        return new KitRules(no, only, maxCost, must, weapon, needs, note);
     }
 
     // "+2 DICE" is written 2, "-" (no such attack) is written null. The field itself must be present.
@@ -292,9 +359,9 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
         }
         if (v.ValueKind == JsonValueKind.Null)
             return (null, false);
-        if (v.ValueKind != JsonValueKind.Number || !v.TryGetInt32(out var n) || n is < -3 or > 3)
+        if (v.ValueKind != JsonValueKind.Number || !v.TryGetInt32(out var n) || n is < -4 or > 4)
         {
-            problems.Add($"{at}: \"{field}\" must be a whole number from -3 to +3, or null for \"-\"");
+            problems.Add($"{at}: \"{field}\" must be a whole number from -4 to +4, or null for \"-\"");
             return (null, true);
         }
         return (n, false);

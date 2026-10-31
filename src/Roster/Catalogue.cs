@@ -139,8 +139,6 @@ public sealed class Catalogue
             problems.Add($"{at}: \"rangeInches\" must be 1 or more");
         if (injuryModifier is < -3 or > 3 || dice is < -3 or > 3 || injuryDice is < -3 or > 3)
             problems.Add($"{at}: dice and modifiers must be between -3 and +3");
-        if (status == DataStatus.Verified && cost is null)
-            problems.Add($"{at}: a verified entry needs its cost; mark it unverified while the cost is unresolved");
         if (status == DataStatus.Discrepancy && note is null)
             problems.Add($"{at}: a discrepancy needs a \"note\" saying what the sources disagree on");
 

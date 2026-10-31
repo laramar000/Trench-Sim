@@ -6161,32 +6161,36 @@ public partial class UiCheck : Node
         }
 
         Agrees("empty");
-        if (!LineShown("✕ Practice Company must include 1 Captain"))
+        if (!LineShown("✕ The Principality must include 1 Lieutenant"))
         {
-            problems.Add("an empty warband does not say it needs its Captain");
+            problems.Add("an empty warband does not say it needs its Lieutenant");
         }
-        await Push("RecruitButton-practice-captain");
-        await Push("AddKit-practice-pistol");
-        await Push("AddKit-practice-club");
-        Agrees("captain with pistol and club");
-        if (builder.Check().Ducats != 69 || !builder.Check().Legal || Named("RemoveKit-1") is null)
+        if (!LineShown("Fireteams: "))
         {
-            problems.Add($"captain with pistol and club: {builder.Check().Ducats} ducats, legal {builder.Check().Legal}");
+            problems.Add("the list rules do not show Fireteams");
         }
-        await Push("RecruitButton-practice-captain");
-        Agrees("a second captain");
-        if (!LineShown("✕ Practice Company can include at most 1 Captain (it has 2)"))
+        await Push("RecruitButton-lieutenant");
+        await Push("AddKit-pistol");
+        await Push("AddKit-sword-axe");
+        Agrees("lieutenant with pistol and sword");
+        if (builder.Check().Ducats != 80 || !builder.Check().Legal || Named("RemoveKit-1") is null)
         {
-            problems.Add("a second Captain is not refused in words");
+            problems.Add($"lieutenant with pistol and sword: {builder.Check().Ducats} ducats, legal {builder.Check().Legal}");
+        }
+        await Push("RecruitButton-lieutenant");
+        Agrees("a second lieutenant");
+        if (!LineShown("✕ The Principality can include at most 1 Lieutenant (it has 2)"))
+        {
+            problems.Add("a second Lieutenant is not refused in words");
         }
         await Push("RemoveModel-1");
-        await Push("RecruitButton-practice-soldier");
-        await Push("AddKit-practice-rifle");
-        await Push("Upgrade-practice-scout");
-        Agrees("soldier with rifle and Scout");
-        if (builder.Check().Ducats != 69 + 25 + 5 + 10)
+        await Push("RecruitButton-yeoman");
+        await Push("AddKit-bolt-action-rifle");
+        await Push("Upgrade-trench-mole");
+        Agrees("yeoman with rifle and Trench Mole");
+        if (builder.Check().Ducats != 80 + 30 + 5 + 10)
         {
-            problems.Add($"soldier with rifle and Scout: {builder.Check().Ducats} ducats");
+            problems.Add($"yeoman with rifle and Trench Mole: {builder.Check().Ducats} ducats");
         }
 
         if (Named("RosterName") is LineEdit name)
@@ -6205,12 +6209,13 @@ public partial class UiCheck : Node
         }
         var before = builder.Roster.ToJson();
         var lists = Named("RosterVariant") as OptionButton;
-        await ChooseOption(lists, "practice-raiders", null);
+        await ChooseOption(lists, "pontifical-task-force", null);
         await Frames(3);
-        Agrees("Practice Raiders");
-        if (builder.Variant != "practice-raiders" || builder.Models.Count != 0)
+        Agrees("Pontifical Task Force");
+        if (builder.Variant != "pontifical-task-force" || builder.Models.Count != 0 || !Total().Contains("of 500 ducats, 0 of 11 Glory", StringComparison.Ordinal)
+            || !LineShown("Specialist Force: "))
         {
-            problems.Add($"choosing Practice Raiders: list {builder.Variant}, {builder.Models.Count} models");
+            problems.Add($"choosing Pontifical Task Force: list {builder.Variant}, {builder.Models.Count} models, total \"{Total()}\"");
         }
         await Push("LoadRoster-UI Check Band");
         Agrees("loaded");

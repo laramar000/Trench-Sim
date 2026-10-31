@@ -17,6 +17,7 @@ public partial class Main
     private OptionButton _rosterVariant = null!;
     private Label _rosterTotal = null!;
     private VBoxContainer _rosterRecruit = null!;
+    private VBoxContainer _rosterRules = null!;
     private VBoxContainer _rosterModels = null!;
     private VBoxContainer _rosterKit = null!;
     private VBoxContainer _rosterCheck = null!;
@@ -57,12 +58,15 @@ public partial class Main
         _rosterTotal = Text("");
         _rosterTotal.Name = "RosterTotal";
         body.AddChild(Section(RosterTitle, Column(
-            Text(RosterBuilder.PracticeNote),
+            Text(RosterBuilder.SourceNote),
             Field("Warband name:", _rosterName),
             Field("Faction:", _rosterFaction),
             Field("List:", _rosterVariant),
             _rosterTotal)));
 
+        _rosterRules = Column();
+        _rosterRules.Name = "RosterRules";
+        body.AddChild(Section("List rules", _rosterRules));
         _rosterRecruit = Column();
         _rosterRecruit.Name = "RosterRecruit";
         body.AddChild(Section("Recruit", _rosterRecruit));
@@ -123,6 +127,12 @@ public partial class Main
     private void RefreshRoster(string? focus = null)
     {
         _rosterTotal.Text = $"{_builder.ListName}: {_builder.TotalText}";
+
+        Empty(_rosterRules);
+        foreach (var line in _builder.RuleLines.DefaultIfEmpty("No special rules for this list."))
+        {
+            _rosterRules.AddChild(Text(line));
+        }
 
         Empty(_rosterRecruit);
         foreach (var e in _builder.Entries)

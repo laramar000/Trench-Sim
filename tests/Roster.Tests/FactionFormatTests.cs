@@ -57,7 +57,7 @@ public class FactionFormatTests
     [InlineData("\"min\": 1, \"max\": 1", "\"min\": 0, \"max\": 0", "\"max\" of 0")]
     [InlineData("\"baseMm\": [25], \"kitAccess\": \"armoury\", \"min\": 1", "\"baseMm\": [50, 25], \"kitAccess\": \"armoury\", \"min\": 1", "the smaller number first")]
     [InlineData("\"baseMm\": [25], \"kitAccess\": \"armoury\", \"min\": 1", "\"baseMm\": [], \"kitAccess\": \"armoury\", \"min\": 1", "\"baseMm\" must be")]
-    [InlineData("\"ranged\": 0, \"melee\": 0, \"armour\": 0, \"baseMm\": [25], \"kitAccess\": \"armoury\", \"min\": 1", "\"ranged\": 4, \"melee\": 0, \"armour\": 0, \"baseMm\": [25], \"kitAccess\": \"armoury\", \"min\": 1", "from -3 to +3, or null")]
+    [InlineData("\"ranged\": 0, \"melee\": 0, \"armour\": 0, \"baseMm\": [25], \"kitAccess\": \"armoury\", \"min\": 1", "\"ranged\": 5, \"melee\": 0, \"armour\": 0, \"baseMm\": [25], \"kitAccess\": \"armoury\", \"min\": 1", "from -4 to +4, or null")]
     [InlineData("\"ranged\": 0, \"melee\": 0, \"armour\": 0, \"baseMm\": [25], \"kitAccess\": \"armoury\", \"min\": 1", "\"melee\": 0, \"armour\": 0, \"baseMm\": [25], \"kitAccess\": \"armoury\", \"min\": 1", "\"ranged\" is missing (write null for \"-\")")]
     [InlineData("\"ranged\": 0, \"melee\": 0, \"armour\": 0, \"baseMm\": [25], \"kitAccess\": \"armoury\", \"min\": 1", "\"ranged\": 0, \"melee\": 0, \"armour\": 1, \"baseMm\": [25], \"kitAccess\": \"armoury\", \"min\": 1", "\"armour\" must be between -3 and 0")]
     [InlineData("\"kitAccess\": \"listed\"", "\"kitAccess\": \"armoury\"", "\"listed\" is only used when")]

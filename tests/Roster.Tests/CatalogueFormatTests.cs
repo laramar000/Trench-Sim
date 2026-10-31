@@ -96,9 +96,10 @@ public class CatalogueFormatTests
     public void BadCostsAreRefused(string cost, string expected) =>
         Refused(expected, Sidearm.Replace("\"cost\": null", cost));
 
+    // Stage 4: a piece's price is set by each faction's armoury, so a verified catalogue profile needs no cost of its own.
     [Fact]
-    public void AVerifiedEntryMustHaveItsCost() =>
-        Refused("a verified entry needs its cost", Sidearm.Replace("\"unverified\"", "\"verified\""));
+    public void AVerifiedEntryNeedsNoCostOfItsOwn() =>
+        Assert.Empty(Parse(Sidearm.Replace("\"unverified\"", "\"verified\"")).Problems);
 
     [Fact]
     public void ADiscrepancyMustSayWhatDisagrees() =>

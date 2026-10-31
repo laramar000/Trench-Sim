@@ -1,0 +1,2724 @@
+{
+ "format": 1,
+ "rulesVersion": "1.0.2",
+ "note": "Battlekit profiles from the Trench Crusade Digital Rulebook 1.0.2 and Warbands of Trench Crusade, under our display names. Prices are in each faction list.",
+ "entries": [
+  {
+   "id": "anfarro",
+   "name": "Anfarro",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "FEAR"
+    }
+   ],
+   "rule": {
+    "summary": "+1 DICE to the model’s Melee Characteristic.",
+    "page": 44
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 44
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "anti-materiel-rifle",
+   "name": "Anti-Materiel Rifle",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 36,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    },
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "IGNORE ARMOUR"
+    }
+   ],
+   "injuryDice": 1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 70
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "anti-tank-hammer",
+   "name": "Anti-Tank Hammer",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    },
+    {
+     "id": "IGNORE ARMOUR"
+    },
+    {
+     "id": "RISKY"
+    }
+   ],
+   "injuryDice": 1,
+   "rule": {
+    "summary": "The wielder gains 1 BLOOD MARKER when its Melee Attack is a Success or Critical Success.",
+    "page": 75
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 75
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "armour-piercing-bullets",
+   "name": "Armour-Piercing Bullets",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "AMMUNITION",
+     "value": "ARMOUR PIERCING"
+    },
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 81
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "autocannon",
+   "name": "Autocannon",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 48,
+   "keywords": [
+    {
+     "id": "AUTOMATIC",
+     "value": 3
+    },
+    {
+     "id": "HEAVY"
+    }
+   ],
+   "injuryDice": 1,
+   "rule": {
+    "summary": "Each Shoot ACTION picks Bursts (this profile) or Full Auto: AUTOMATIC 5, HEAVY, RELOAD, RISKY, +1 INJURY DICE.",
+    "page": 65
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 65
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "automatic-pistol",
+   "name": "Automatic Pistol",
+   "category": "ranged",
+   "hands": 1,
+   "rangeInches": 12,
+   "alsoMelee": true,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "AUTOMATIC",
+     "value": 2
+    },
+    {
+     "id": "PISTOL"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 70
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "automatic-rifle",
+   "name": "Automatic Rifle",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 24,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "AUTOMATIC",
+     "value": 2
+    }
+   ],
+   "rule": {
+    "summary": "When it makes 2 Ranged Attacks, both must target the same enemy model.",
+    "page": 70
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 70
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "automatic-shotgun",
+   "name": "Automatic Shotgun",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 12,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "SHOTGUN"
+    }
+   ],
+   "dice": 1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 70
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "battlefield-title",
+   "name": "Battlefield Title",
+   "category": "special",
+   "rule": {
+    "summary": "Special rules: Privileged Access.",
+    "page": 129
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 129
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "bayonet",
+   "name": "Bayonet",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "CUMBERSOME"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 75
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "bestial-skin-cloak",
+   "name": "Bestial Skin Cloak",
+   "category": "equipment",
+   "rule": {
+    "summary": "Special rules: Spirit of the Beast.",
+    "page": 130
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 130
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "binoculars",
+   "name": "Binoculars",
+   "category": "equipment",
+   "rule": {
+    "summary": "Enemy INFILTRATORS cannot deploy within 16 inches of this model outside their own deployment zone.",
+    "page": 81
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 81
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "blessed-icon",
+   "name": "Blessed Icon",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "rule": {
+    "summary": "Once per game, a failed Risky Success Roll does not end the Activation.",
+    "page": 81
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 81
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "blunderbuss",
+   "name": "Blunderbuss",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 10,
+   "keywords": [
+    {
+     "id": "SHRAPNEL"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 71
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "bolt-action-rifle",
+   "name": "Bolt-Action Rifle",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 24,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 71
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "bonebreaker-mace",
+   "name": "Bonebreaker Mace",
+   "category": "melee",
+   "hands": 1,
+   "keywords": [
+    {
+     "id": "RISKY"
+    }
+   ],
+   "injuryDice": 1,
+   "rule": {
+    "summary": "Built into the walker; cannot be removed or lost.",
+    "page": 60
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 60
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "book-of-battle-prayers",
+   "name": "Book of Battle Prayers",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "HELD"
+    }
+   ],
+   "rule": {
+    "summary": "Special rules: Continuous Litany of Prayers, Speak a Blessing ACTION.",
+    "page": 130
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 130
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "carrion-wing-harness",
+   "name": "Carrion-Wing Harness",
+   "category": "armour",
+   "keywords": [
+    {
+     "id": "FLYING"
+    },
+    {
+     "id": "NEGATE",
+     "value": "SHRAPNEL"
+    }
+   ],
+   "injuryModifier": -2,
+   "rule": {
+    "summary": "Special rules: Insect Wings, Sucked Dry.",
+    "page": 128
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 128
+   },
+   "status": "verified",
+   "naming": "rename",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "catherine-wheel",
+   "name": "Catherine Wheel",
+   "category": "melee",
+   "hands": 1,
+   "keywords": [
+    {
+     "id": "DEADLY"
+    },
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "RISKY"
+    }
+   ],
+   "dice": 1,
+   "rule": {
+    "summary": "Built into the walker; cannot be removed or lost.",
+    "page": 60
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 60
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "chalice-of-rot",
+   "name": "Chalice of Rot",
+   "category": "equipment",
+   "rule": {
+    "summary": "Special rules: Drink from the Cup.",
+    "page": 131
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 131
+   },
+   "status": "verified",
+   "naming": "rename",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "combat-helmet",
+   "name": "Combat Helmet",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "SHRAPNEL"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 82
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "cruel-helmet",
+   "name": "Cruel Helmet",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "NEGATE",
+     "value": "SHRAPNEL"
+    }
+   ],
+   "rule": {
+    "summary": "Special rules: Gruesome Weight.",
+    "page": 131
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 131
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "damascus-armour",
+   "name": "Damascus Armour",
+   "category": "armour",
+   "keywords": [
+    {
+     "id": "IMPERVIOUS"
+    }
+   ],
+   "injuryModifier": -2,
+   "rule": {
+    "summary": "Special rules: Inspiring Gift.",
+    "page": 131
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 131
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "damned-pact",
+   "name": "Damned Pact",
+   "category": "equipment",
+   "rule": {
+    "summary": "When the model goes Out of Action, every enemy within 1 inch gains 1 BLOOD MARKER (not NEGATE FIRE models).",
+    "page": 83
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 83
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "demonic-aura-grenade",
+   "name": "Demonic Aura Grenade",
+   "category": "grenade",
+   "rangeInches": 8,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "BLAST",
+     "value": 3
+    },
+    {
+     "id": "IGNORE ARMOUR"
+    },
+    {
+     "id": "IGNORE",
+     "value": "COVER"
+    },
+    {
+     "id": "SCATTER"
+    }
+   ],
+   "rule": {
+    "summary": "Special rules: Deadly Light.",
+    "page": 132
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 132
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "donkeys-jawbone",
+   "name": "Donkey’s Jawbone",
+   "category": "melee",
+   "hands": 1,
+   "injuryDice": 2,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 132
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "dum-dum-bullets",
+   "name": "Dum-Dum Bullets",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "AMMUNITION",
+     "value": "CRITICAL"
+    },
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 82
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "engineer-body-armour",
+   "name": "Engineer Body Armour",
+   "category": "armour",
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "SHRAPNEL"
+    }
+   ],
+   "injuryModifier": -2,
+   "rule": {
+    "summary": "-1 INJURY DICE against SHRAPNEL hits, even with IGNORE ARMOUR.",
+    "page": 26
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 26
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "executioners-axe",
+   "name": "Executioner’s Axe",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "CLEAVE",
+     "value": 2
+    },
+    {
+     "id": "CRITICAL"
+    }
+   ],
+   "injuryDice": 2,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 133
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "field-hospital",
+   "name": "Field Hospital",
+   "category": "special",
+   "rule": {
+    "summary": "Special rules: Battlefield Surgery.",
+    "page": 133
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 133
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "field-shrine",
+   "name": "Field Shrine",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "DEPLOYABLE"
+    }
+   ],
+   "rule": {
+    "summary": "Deployed in its zone; each Field Shrine counts as 3 extra standing models for Morale (up to 9). Removed if hit by an attack or a blast.",
+    "page": 82
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 82
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "flail-scourge",
+   "name": "Flail/Scourge",
+   "category": "melee",
+   "hands": 1,
+   "dice": 1,
+   "rule": {
+    "summary": "Its +1 DICE does not apply when used as an off-hand weapon.",
+    "page": 76
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 76
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "flamethrower",
+   "name": "Flamethrower",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 8,
+   "keywords": [
+    {
+     "id": "FIRE"
+    },
+    {
+     "id": "FLAMETHROWER"
+    },
+    {
+     "id": "IGNORE ARMOUR"
+    }
+   ],
+   "injuryDice": -1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 71
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "frag-grenades",
+   "name": "Frag Grenades",
+   "category": "grenade",
+   "rangeInches": 8,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "BLAST",
+     "value": 2
+    },
+    {
+     "id": "IGNORE",
+     "value": "COVER"
+    },
+    {
+     "id": "IGNORE",
+     "value": "LONG RANGE"
+    },
+    {
+     "id": "SHRAPNEL"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 78
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "gas-censer",
+   "name": "Gas Censer",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 6,
+   "keywords": [
+    {
+     "id": "GAS"
+    },
+    {
+     "id": "IGNORE ARMOUR"
+    },
+    {
+     "id": "RELOAD"
+    }
+   ],
+   "rule": {
+    "summary": "Cloud of Gas: instead of a Ranged Attack, every other model within 6\" is hit (friend or foe, no Line of Sight needed) and takes an Injury Roll; no Success Roll.",
+    "page": 65
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 65
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "gas-filters",
+   "name": "Gas Filters",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    }
+   ],
+   "rule": {
+    "summary": "Walker battlekit; cannot be removed or lost.",
+    "page": 65
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 65
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "gas-grenades",
+   "name": "Gas Grenades",
+   "category": "grenade",
+   "rangeInches": 8,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "BLAST",
+     "value": 3
+    },
+    {
+     "id": "GAS"
+    },
+    {
+     "id": "IGNORE ARMOUR"
+    },
+    {
+     "id": "IGNORE",
+     "value": "COVER"
+    },
+    {
+     "id": "IGNORE",
+     "value": "LONG RANGE"
+    }
+   ],
+   "injuryDice": -1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 78
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "gas-mask",
+   "name": "Gas Mask",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 82
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "grand-reliquary",
+   "name": "Grand Reliquary",
+   "category": "equipment",
+   "rule": {
+    "summary": "Enemies within 1\" cannot make Melee Attacks when it retreats; it can Move or Charge while within 1\" of enemies.",
+    "page": 66
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 66
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "great-banner-of-the-principality",
+   "name": "Great Banner of the Principality",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "HELD"
+    }
+   ],
+   "rule": {
+    "summary": "Special rules: Rally to the Flag.",
+    "page": 133
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 133
+   },
+   "status": "verified",
+   "naming": "rename",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "great-hammer-maul",
+   "name": "Great Hammer/Maul",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "HEAVY"
+    }
+   ],
+   "injuryModifier": 1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 76
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "great-sword-axe",
+   "name": "Great Sword/Axe",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    },
+    {
+     "id": "HEAVY"
+    }
+   ],
+   "injuryDice": 1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 76
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "grenade-launcher",
+   "name": "Grenade Launcher",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 36,
+   "keywords": [
+    {
+     "id": "BLAST",
+     "value": 3
+    },
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "IGNORE",
+     "value": "COVER"
+    },
+    {
+     "id": "SHRAPNEL"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 71
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "hallowed-reliquary",
+   "name": "Hallowed Reliquary",
+   "category": "equipment",
+   "rule": {
+    "summary": "In a campaign it can be promoted to ELITE in the Promotions & Experience Step.",
+    "page": 66
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 66
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "heavy-ballistic-shield",
+   "name": "Heavy Ballistic Shield",
+   "category": "shield",
+   "keywords": [
+    {
+     "id": "COVER"
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 26
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "heavy-flamethrower",
+   "name": "Heavy Flamethrower",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 10,
+   "keywords": [
+    {
+     "id": "AUTOMATIC",
+     "value": 2
+    },
+    {
+     "id": "FIRE"
+    },
+    {
+     "id": "FLAMETHROWER"
+    },
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "IGNORE ARMOUR"
+    }
+   ],
+   "injuryDice": -1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 71
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "heavy-shotgun",
+   "name": "Heavy Shotgun",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 12,
+   "keywords": [
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "SHOTGUN"
+    }
+   ],
+   "dice": 1,
+   "injuryDice": 1,
+   "rule": {
+    "summary": "+1 INJURY DICE for its Ranged Attacks at Short Range.",
+    "page": 72
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 72
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "holy-diesel-engine",
+   "name": "Holy Diesel Engine",
+   "category": "equipment",
+   "rule": {
+    "summary": "On a Dash ACTION it may add +2 DICE to the Risky roll; if so it gets 1 BLOOD MARKER.",
+    "page": 66
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 66
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "holy-grenade",
+   "name": "Holy Grenade",
+   "category": "grenade",
+   "rangeInches": 8,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "BLAST",
+     "value": 2
+    },
+    {
+     "id": "IGNORE",
+     "value": "COVER"
+    },
+    {
+     "id": "IGNORE",
+     "value": "LONG RANGE"
+    },
+    {
+     "id": "SHRAPNEL"
+    }
+   ],
+   "rule": {
+    "summary": "Special rules: Spirit of Vengeance.",
+    "page": 134
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 134
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "holy-icon-armour",
+   "name": "Holy Icon Armour",
+   "category": "armour",
+   "keywords": [
+    {
+     "id": "IMPERVIOUS"
+    }
+   ],
+   "injuryModifier": -1,
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 62
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "holy-icon-shield",
+   "name": "Holy Icon Shield",
+   "category": "shield",
+   "keywords": [
+    {
+     "id": "IMPERVIOUS"
+    }
+   ],
+   "injuryModifier": -1,
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 51
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "holy-relic",
+   "name": "Holy Relic",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "BLESSED",
+     "value": 1
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 83
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "holy-smoke",
+   "name": "Holy Smoke",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "rule": {
+    "summary": "Taken at deployment: NEGATE FEAR for the game and -1 INJURY DICE to attacks that hit the model.",
+    "page": 42
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 42
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "holy-water-of-lalibela",
+   "name": "Holy Water of Lalibela",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "rule": {
+    "summary": "+1 DICE to Success Rolls for ACTIONS that remove BLOOD or INFECTION MARKERS.",
+    "page": 44
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 44
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "horn-of-joshua",
+   "name": "Horn of Joshua",
+   "category": "equipment",
+   "rule": {
+    "summary": "Special rules: Blow Thy Horn ACTION.",
+    "page": 134
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 134
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "incendiary-ammunition",
+   "name": "Incendiary Ammunition",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "AMMUNITION",
+     "value": "FIRE"
+    },
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 83
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "incendiary-grenades",
+   "name": "Incendiary Grenades",
+   "category": "grenade",
+   "rangeInches": 8,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "FIRE"
+    },
+    {
+     "id": "IGNORE",
+     "value": "COVER"
+    },
+    {
+     "id": "IGNORE",
+     "value": "LONG RANGE"
+    }
+   ],
+   "rule": {
+    "summary": "A Critical Success gives the Injury Roll IGNORE ARMOUR.",
+    "page": 78
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 78
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "iron-capirote",
+   "name": "Iron Capirote",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "FEAR"
+    },
+    {
+     "id": "NEGATE",
+     "value": "SHRAPNEL"
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 51
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "iron-penitent-plate",
+   "name": "Iron Penitent Plate",
+   "category": "armour",
+   "injuryModifier": -3,
+   "rule": {
+    "summary": "Special rules: Lead to Death, Weight of Sins.",
+    "page": 128
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 128
+   },
+   "status": "verified",
+   "naming": "rename",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "kilij",
+   "name": "Kilij",
+   "category": "melee",
+   "hands": 1,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    }
+   ],
+   "injuryModifier": 1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 134
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "knighthood",
+   "name": "Knighthood",
+   "category": "special",
+   "rule": {
+    "summary": "Special rules: Famous Deeds.",
+    "page": 135
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 135
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "lochaber-axe",
+   "name": "Lochaber Axe",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "BLOCK"
+    },
+    {
+     "id": "CRITICAL"
+    },
+    {
+     "id": "CUMBERSOME"
+    },
+    {
+     "id": "HEAVY"
+    }
+   ],
+   "injuryDice": 2,
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 40
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "machine-armour",
+   "name": "Machine Armour",
+   "category": "armour",
+   "injuryModifier": -3,
+   "rule": {
+    "summary": "Base becomes 40mm (unless larger); no Trench Shield; Charge Bonus D3\"; a Down result counts as a Minor Hit.",
+    "page": 26
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 26
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "machine-gun",
+   "name": "Machine Gun",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 36,
+   "keywords": [
+    {
+     "id": "AUTOMATIC",
+     "value": 3
+    },
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "RELOAD"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 72
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "martyrdom-device",
+   "name": "Martyrdom Device",
+   "category": "equipment",
+   "rule": {
+    "summary": "Trigger ACTION, once: Injury Roll for every model within 3\" (friend or foe, itself included); its own roll is 4D6 added together; +1 INJURY DICE for others within 1\". A survivor needs a new one (35 ducats) or fights without.",
+    "page": 58
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 58
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "masterwork-jezzail",
+   "name": "Masterwork Jezzail",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 36,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    }
+   ],
+   "dice": 1,
+   "rule": {
+    "summary": "Special rules: Enhanced Bullets.",
+    "page": 137
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 137
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "medi-kit",
+   "name": "Medi-kit",
+   "category": "equipment",
+   "rule": {
+    "summary": "Treat ACTION (Risky): remove 1 BLOOD MARKER from itself or a friend within 1 inch, or stand up a friend within 1 inch.",
+    "page": 84
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 84
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "misericordia",
+   "name": "Misericordia",
+   "category": "melee",
+   "hands": 1,
+   "rule": {
+    "summary": "Has IGNORE ARMOUR against a target that is Down.",
+    "page": 76
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 76
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "mobile-grand-cannon",
+   "name": "Mobile Grand Cannon",
+   "category": "ranged",
+   "hands": 1,
+   "rangeInches": 48,
+   "keywords": [
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "IGNORE ARMOUR"
+    }
+   ],
+   "injuryDice": 2,
+   "rule": {
+    "summary": "Special rules: Brazen Bull Grand Cannon, Unstoppable Object.",
+    "page": 140
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 140
+   },
+   "status": "verified",
+   "naming": "rename",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "molotov-cocktail",
+   "name": "Molotov Cocktail",
+   "category": "grenade",
+   "rangeInches": 6,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "FIRE"
+    },
+    {
+     "id": "IGNORE",
+     "value": "COVER"
+    },
+    {
+     "id": "IGNORE",
+     "value": "LONG RANGE"
+    }
+   ],
+   "injuryDice": -1,
+   "rule": {
+    "summary": "A Critical Success gives the Injury Roll IGNORE ARMOUR.",
+    "page": 79
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 79
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "mountaineer-kit",
+   "name": "Mountaineer Kit",
+   "category": "equipment",
+   "rule": {
+    "summary": "+1 DICE to Risky Success Rolls to climb a sheer surface.",
+    "page": 84
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 84
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "musical-instrument",
+   "name": "Musical Instrument",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "HELD"
+    }
+   ],
+   "rule": {
+    "summary": "+1 DICE to Dash Risky Success Rolls for friends within 4 inches.",
+    "page": 85
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 85
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "musket",
+   "name": "Musket",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 18,
+   "injuryDice": -1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 72
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "piece-of-silver",
+   "name": "Piece of Silver",
+   "category": "special",
+   "rule": {
+    "summary": "Special rules: Luck of the Devil.",
+    "page": 138
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 138
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "pistol",
+   "name": "Pistol",
+   "category": "ranged",
+   "hands": 1,
+   "rangeInches": 12,
+   "alsoMelee": true,
+   "keywords": [
+    {
+     "id": "PISTOL"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 72
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "piston-legs",
+   "name": "Piston Legs",
+   "category": "equipment",
+   "rule": {
+    "summary": "Grind to Dust ACTION: a Melee Attack without a weapon against a Down enemy within 1\" on a base of 32mm or smaller.",
+    "page": 66
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 66
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "pit-brand",
+   "name": "Pit Brand",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "FIRE"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 83
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "polearm",
+   "name": "Polearm",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "BLOCK"
+    },
+    {
+     "id": "CUMBERSOME"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 77
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "pontiffs-crucifix",
+   "name": "Pontiff’s Crucifix",
+   "category": "equipment",
+   "rule": {
+    "summary": "A failed Risky Success Roll does not end the bearer’s Activation.",
+    "page": 36
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 36
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "punt-gun",
+   "name": "Punt Gun",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 18,
+   "keywords": [
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "SHOTGUN"
+    },
+    {
+     "id": "SHRAPNEL"
+    }
+   ],
+   "dice": 1,
+   "injuryDice": 1,
+   "rule": {
+    "summary": "Overcharge: a STRONG model, or one touching a friend, may give the attack BLAST 3\" and RELOAD; afterwards it gets 1 BLOOD MARKER and its Activation ends.",
+    "page": 51
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 51
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "reinforced-armour",
+   "name": "Reinforced Armour",
+   "category": "armour",
+   "injuryModifier": -2,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 80
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "restraining-muzzle",
+   "name": "Restraining Muzzle",
+   "category": "equipment",
+   "rule": {
+    "summary": "Special rules: Brought to Heel.",
+    "page": 138
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 138
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "resurrection-engine",
+   "name": "Resurrection Engine",
+   "category": "special",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "rule": {
+    "summary": "Special rules: Holy Machine.",
+    "page": 138
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 138
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "rocket-propelled-grenade",
+   "name": "Rocket-Propelled Grenade",
+   "category": "special",
+   "rangeInches": 36,
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    },
+    {
+     "id": "IGNORE ARMOUR"
+    },
+    {
+     "id": "RELOAD"
+    }
+   ],
+   "injuryDice": 1,
+   "rule": {
+    "summary": "Special rules: Disposable Rocket.",
+    "page": 139
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 139
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "sacred-geometry",
+   "name": "Sacred Geometry",
+   "category": "equipment",
+   "rule": {
+    "summary": "+1 DICE to its Ranged Characteristic.",
+    "page": 67
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 67
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "sacrificial-lamb",
+   "name": "Sacrificial Lamb",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "rule": {
+    "summary": "When deployed it may be sacrificed: the first BLOOD MARKER placed on the model is ignored.",
+    "page": 70
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 70
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "salvage-golem",
+   "name": "Salvage Golem",
+   "category": "special",
+   "rule": {
+    "summary": "Special rules: Helpful Servitor.",
+    "page": 139
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 139
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "satchel-charge",
+   "name": "Satchel Charge",
+   "category": "grenade",
+   "rangeInches": 6,
+   "keywords": [
+    {
+     "id": "BLAST",
+     "value": 3
+    },
+    {
+     "id": "CONSUMABLE"
+    },
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "IGNORE ARMOUR"
+    },
+    {
+     "id": "IGNORE",
+     "value": "COVER"
+    },
+    {
+     "id": "SCATTER"
+    }
+   ],
+   "injuryDice": 1,
+   "rule": {
+    "summary": "Can be used for a Ranged Attack once per game.",
+    "page": 79
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 79
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "semi-automatic-rifle",
+   "name": "Semi-Automatic Rifle",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 24,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 73
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "shotel",
+   "name": "Shotel",
+   "category": "melee",
+   "hands": 1,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    }
+   ],
+   "rule": {
+    "summary": "Ignores the shield’s -INJURY DICE or -INJURY MODIFIERS.",
+    "page": 44
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 44
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "shotgun",
+   "name": "Shotgun",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 12,
+   "keywords": [
+    {
+     "id": "SHOTGUN"
+    }
+   ],
+   "dice": 1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 73
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "shovel",
+   "name": "Shovel",
+   "category": "equipment",
+   "rule": {
+    "summary": "Starting on Open ground it has COVER until it moves; can be used as a 2-handed melee weapon.",
+    "page": 85
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 85
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "silenced-pistol",
+   "name": "Silenced Pistol",
+   "category": "ranged",
+   "hands": 1,
+   "rangeInches": 12,
+   "alsoMelee": true,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "PISTOL"
+    }
+   ],
+   "rule": {
+    "summary": "+1 DICE if the attacker touches a terrain piece at least half an inch tall that lies between it and the target.",
+    "page": 74
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 74
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "smokescreen",
+   "name": "Smokescreen",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "rule": {
+    "summary": "Special rules: Swathed in Smoke.",
+    "page": 139
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 139
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "sniper-rifle",
+   "name": "Sniper Rifle",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 48,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    },
+    {
+     "id": "RISKY"
+    }
+   ],
+   "dice": 1,
+   "rule": {
+    "summary": "A Critical Success gives the Injury Roll IGNORE ARMOUR.",
+    "page": 74
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 74
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "sniper-scope",
+   "name": "Sniper Scope",
+   "category": "equipment",
+   "rule": {
+    "summary": "Special rules: Enhanced Accuracy.",
+    "page": 140
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 140
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "standard-armour",
+   "name": "Standard Armour",
+   "category": "armour",
+   "injuryModifier": -1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 80
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "submachine-gun",
+   "name": "Submachine Gun",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 16,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    }
+   ],
+   "rule": {
+    "summary": "The model may take two Shoot ACTIONS in one Activation if both use this weapon.",
+    "page": 74
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 74
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "swarm-caster",
+   "name": "Swarm Caster",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 18,
+   "keywords": [
+    {
+     "id": "IGNORE ARMOUR"
+    }
+   ],
+   "injuryDice": -1,
+   "rule": {
+    "summary": "Special rules: Devouring Swarm.",
+    "page": 136
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 136
+   },
+   "status": "verified",
+   "naming": "rename",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "swarm-mantle",
+   "name": "Swarm Mantle",
+   "category": "special",
+   "rule": {
+    "summary": "Special rules: Many-Legged Form.",
+    "page": 129
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 129
+   },
+   "status": "verified",
+   "naming": "rename",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "sword-axe",
+   "name": "Sword/Axe",
+   "category": "melee",
+   "hands": 1,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 77
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "tabot",
+   "name": "Tabot",
+   "category": "equipment",
+   "rule": {
+    "summary": "Gains 1 BLESSING MARKER each time a friendly ACTION removes BLOOD or INFECTION MARKERS from friendly models.",
+    "page": 44
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 44
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "tank-splitter-sword",
+   "name": "Tank-Splitter Sword",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    },
+    {
+     "id": "CUMBERSOME"
+    }
+   ],
+   "injuryDice": 1,
+   "rule": {
+    "summary": "Against an armoured or shielded target (or Armour -1 or better), one die of the roll counts as a 6. Not affected by the Dragonslayer Patron skill.",
+    "page": 42
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 42
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "the-black-codex",
+   "name": "The Black Codex",
+   "category": "special",
+   "rule": {
+    "summary": "Special rules: Goetic Secrets.",
+    "page": 135
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 135
+   },
+   "status": "verified",
+   "naming": "rename",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "the-mark-of-cain",
+   "name": "The Mark of Cain",
+   "category": "equipment",
+   "rule": {
+    "summary": "Special rules: Retribution.",
+    "page": 141
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 141
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "tormentor-chain",
+   "name": "Tormentor Chain",
+   "category": "ranged",
+   "hands": 1,
+   "rangeInches": 10,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "IGNORE",
+     "value": "COVER"
+    },
+    {
+     "id": "IGNORE",
+     "value": "LONG RANGE"
+    },
+    {
+     "id": "SHRAPNEL"
+    }
+   ],
+   "rule": {
+    "summary": "Special rules: Dragged Forwards, Deadly Embrace.",
+    "page": 141
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 141
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "tracer-bullets",
+   "name": "Tracer Bullets",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "AMMUNITION",
+     "value": "+1 DICE"
+    },
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 85
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "trench-club",
+   "name": "Trench Club",
+   "category": "melee",
+   "hands": 1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 77
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "trench-dog",
+   "name": "Trench Dog",
+   "category": "special",
+   "keywords": [
+    {
+     "id": "DEPLOYABLE"
+    }
+   ],
+   "rule": {
+    "summary": "Special rules: Loyal Hound, The Dogs of War, Special Training, Guard Dog, Hellhound, Martyrdom Dog, Mercy Dog, Pack Loyalty, Teeth and Claws.",
+    "page": 142
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 142
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "trench-knife",
+   "name": "Trench Knife",
+   "category": "melee",
+   "hands": 1,
+   "dice": -1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 77
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "trench-mortar",
+   "name": "Trench Mortar",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 36,
+   "keywords": [
+    {
+     "id": "BLAST",
+     "value": 3
+    },
+    {
+     "id": "FIRE"
+    },
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "IGNORE",
+     "value": "COVER"
+    },
+    {
+     "id": "SCATTER"
+    }
+   ],
+   "injuryDice": 1,
+   "rule": {
+    "summary": "Range 6\"-36\" (the book prints IGNORES COVER, read as IGNORE COVER): the target (model or point) cannot be within 6\" of the firer, though a Scatter may land closer.",
+    "page": 67
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 67
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "trench-shield",
+   "name": "Trench Shield",
+   "category": "shield",
+   "injuryModifier": -1,
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 80
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "troop-flag",
+   "name": "Troop Flag",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "LEADER"
+    },
+    {
+     "id": "HELD"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 85
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "unholy-relic",
+   "name": "Unholy Relic",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "FEAR"
+    }
+   ],
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 86
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "unholy-trinket",
+   "name": "Unholy Trinket",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "rule": {
+    "summary": "Once per game, a failed Risky Success Roll does not end the Activation.",
+    "page": 86
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 86
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "warcross",
+   "name": "Warcross",
+   "category": "grenade",
+   "rangeInches": 8,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "IGNORE",
+     "value": "LONG RANGE"
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 52
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "winged-plate",
+   "name": "Winged Plate",
+   "category": "armour",
+   "keywords": [
+    {
+     "id": "FLYING"
+    }
+   ],
+   "injuryModifier": -3,
+   "rule": {
+    "summary": "Special rules: Myrmidon Wings, Steadfast.",
+    "page": 132
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 132
+   },
+   "status": "verified",
+   "naming": "rename",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "worldly-dominion",
+   "name": "Worldly Dominion",
+   "category": "special",
+   "rule": {
+    "summary": "Special rules: Mark of the Pit.",
+    "page": 137
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 137
+   },
+   "status": "verified",
+   "naming": "rename",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
+   "id": "wrathful-cherub-face",
+   "name": "Wrathful Cherub Face",
+   "category": "equipment",
+   "rule": {
+    "summary": "An enemy without FEAR that starts its Activation within 1\" must Retreat, and cannot take ACTIONS needing a Risky roll while within 1\".",
+    "page": 67
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 67
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "zealots-draught",
+   "name": "Zealot's Draught",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "rule": {
+    "summary": "Taken at deployment: NEGATE FEAR for the game and -1 INJURY DICE to attacks that hit the model.",
+    "page": 84
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 84
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  }
+ ]
+}

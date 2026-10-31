@@ -24,6 +24,8 @@
     <EmbeddedResource Include="..\..\content\roster\keywords.json" LogicalName="content/roster/keywords.json" />
     <EmbeddedResource Include="..\..\content\roster\practice-catalogue.json" LogicalName="content/roster/practice-catalogue.json" />
     <EmbeddedResource Include="..\..\content\roster\practice-faction.json" LogicalName="content/roster/practice-faction.json" />
+    <EmbeddedResource Include="..\..\content\roster\catalogue.json" LogicalName="content/roster/catalogue.json" />
+    <EmbeddedResource Include="..\..\content\roster\factions\*.json" LogicalName="content/roster/factions/%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

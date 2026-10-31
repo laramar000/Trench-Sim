@@ -115,6 +115,11 @@ public static class RosterValidator
                         : $"{who}: {kit.Name} is not available to {entry.Name} in {listName}");
                     continue;
                 }
+                if (entry.KitRules is { } rules && KitRuleProblem(rules, kit, price?.Cost ?? from?.Cost) is { } refused)
+                {
+                    problems.Add($"{who}: {refused}");
+                    continue;
+                }
                 if (from is not null && from.Only.Count > 0 &&
                     !from.Only.Any(o => o.Model == entry.Id || (o.Keyword is not null && keywords.Contains(o.Keyword))))
                 {
@@ -130,6 +135,16 @@ public static class RosterValidator
                 carried.Add((kit, from, true));
             }
             CheckCarried(who, carried, keywords, problems);
+            if (entry.KitRules is { } must)
+            {
+                foreach (var category in must.MustHave)
+                    if (!carried.Any(c => c.Kit.Category == category))
+                        problems.Add($"{who}: must have {Words(category)}");
+                if (must.MustHaveWeapon && !carried.Any(c => c.Kit.Category is KitCategory.Ranged or KitCategory.Melee or KitCategory.Grenade))
+                    problems.Add($"{who}: must have at least 1 weapon");
+                if (must.Note is not null)
+                    notes.Add($"{entry.Name}: {must.Note}");
+            }
         }
 
         foreach (var entry in entries)
@@ -157,6 +172,32 @@ public static class RosterValidator
             problems.Add($"the warband costs {glory} Glory Points, {glory - roster.BudgetGlory} more than its {roster.BudgetGlory}");
         return new(problems, notes.Distinct().ToList(), ducats, glory);
     }
+
+    // A model's own battlekit limits (KitRules), for one piece it is being given. Null when the piece is allowed.
+    private static string? KitRuleProblem(KitRules rules, CatalogueEntry kit, Cost? cost)
+    {
+        if (rules.NoCategories.Contains(kit.Category))
+            return $"cannot be given {Words(kit.Category)} from the armoury";
+        if (rules.OnlyKit.FirstOrDefault(o => o.Category == kit.Category) is { } only && !only.Kit.Contains(kit.Id))
+            return $"cannot have {kit.Name}: its only {Words(kit.Category)} choices are listed in its entry";
+        if (rules.MaxCostDucats is { } most && cost is { } c && (c.Currency != Currency.Ducats || c.Amount > most))
+            return $"can only have battlekit that costs up to {most} ducats, and {kit.Name} costs {c.Amount} {(c.Currency == Currency.Ducats ? "ducats" : "Glory")}";
+        if (rules.WeaponsNeedKeyword is { } needed && kit.Category is KitCategory.Ranged or KitCategory.Melee
+            && kit.Keywords.All(k => k.Id != needed))
+            return $"can only have weapons with the {needed} keyword";
+        return null;
+    }
+
+    private static string Words(KitCategory category) => category switch
+    {
+        KitCategory.Ranged => "ranged weapons",
+        KitCategory.Melee => "melee weapons",
+        KitCategory.Grenade => "grenades",
+        KitCategory.Shield => "a shield",
+        KitCategory.Armour => "armour",
+        KitCategory.Equipment => "equipment",
+        _ => "special battlekit",
+    };
 
     private static string Display(IReadOnlyList<ModelEntry> entries, string id) =>
         entries.FirstOrDefault(e => e.Id == id)?.Name ?? id;
