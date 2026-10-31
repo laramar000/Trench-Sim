@@ -342,6 +342,7 @@ public static class Wire
             (typeof(MatchRecordBody), nameof(MatchRecordBody.MapHash)),
             (typeof(ModelProfile), nameof(ModelProfile.SecondRangedWeapon)),
             (typeof(ModelProfile), nameof(ModelProfile.SecondMeleeWeapon)),
+            (typeof(ModelProfile), nameof(ModelProfile.Grenade)),
         ];
 
         // Optional flags left out when false, for the same reason (every match before dual-purpose weapons).
@@ -353,6 +354,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.Block)),
             (typeof(MeleeAttackDeclared), nameof(MeleeAttackDeclared.OffHand)),
             (typeof(MeleeAttackDeclared), nameof(MeleeAttackDeclared.Block)),
+            (typeof(MineExploded), nameof(MineExploded.Negated)),
         ];
 
         // Optional numbers left out when zero, for the same reason (every match before roster stage R1's profile dice).
@@ -373,6 +375,8 @@ public static class Wire
             (typeof(FreeFight), nameof(FreeFight.Weapon)),
             (typeof(RangedAttackDeclared), nameof(RangedAttackDeclared.Weapon)),
             (typeof(MeleeAttackDeclared), nameof(MeleeAttackDeclared.Weapon)),
+            (typeof(ModelProfile), nameof(ModelProfile.Negates)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.ExtraMarkers)),
         ];
 
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();

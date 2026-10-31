@@ -894,7 +894,9 @@ public static class Reducer
             && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(e.Target)!, progress.Kind))
             && e.Injury.TargetAlreadyDown == (target.Status == ModelStatus.Down), "The Injury Roll must match the dice, modifiers and state of the target.");
 
-        var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.Injury.BloodMarkers);
+        // Roster stage R4a: SHRAPNEL, GAS and FIRE put extra BLOOD MARKERS on the target (U101).
+        Require(e.ExtraMarkers == AttackDice.ExtraMarkers(profile, progress.Kind, state.Setup!.ProfileOf(e.Target)!), "The extra BLOOD MARKERS must be the weapon's SHRAPNEL, GAS and FIRE.");
+        var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.Injury.BloodMarkers + e.ExtraMarkers);
         var hurt = e.Injury.Outcome switch
         {
             InjuryOutcome.OutOfAction => target with { Status = ModelStatus.OutOfAction, Position = null, BloodMarkers = markers },
@@ -1233,7 +1235,8 @@ public static class Reducer
         var armour = state.Setup!.ProfileOf(e.Model)!.Armour;
         Require(e.Injury.NetDice == 0 && e.Injury.Modifier == InjuryRoll.CombineModifiers([armour]) && e.Injury.TargetAlreadyDown == (model.Status == ModelStatus.Down),
             "A mine's Injury Roll has no extra dice and no weapon modifier, only the model's armour.");
-        var markers = Math.Min(BloodMarkers.Max, model.BloodMarkers + e.Injury.BloodMarkers + MineExploded.ShrapnelMarkers);
+        Require(e.Negated == state.Setup!.ProfileOf(e.Model)!.Negates.HasFlag(WeaponKeywords.Shrapnel), "A mine adds its SHRAPNEL Blood Marker unless the model has NEGATE SHRAPNEL.");
+        var markers = Math.Min(BloodMarkers.Max, model.BloodMarkers + e.Injury.BloodMarkers + e.ExtraMarkers());
         var hurt = e.Injury.Outcome switch
         {
             InjuryOutcome.OutOfAction => model with { Status = ModelStatus.OutOfAction, Position = null, BloodMarkers = markers },

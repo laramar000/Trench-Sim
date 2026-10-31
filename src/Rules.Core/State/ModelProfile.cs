@@ -132,14 +132,18 @@ public sealed record ModelProfile
     private const WeaponKeywords AllKeywords = WeaponKeywords.Critical | WeaponKeywords.IgnoreArmour | WeaponKeywords.ArmourPiercing
         | WeaponKeywords.Shotgun | WeaponKeywords.Risky | WeaponKeywords.Pistol | WeaponKeywords.IgnoreCover
         | WeaponKeywords.IgnoreLongRange | WeaponKeywords.IgnoreElevatedPosition | WeaponKeywords.Assault | WeaponKeywords.Heavy
-        | WeaponKeywords.Reload | WeaponKeywords.Block;
+        | WeaponKeywords.Reload | WeaponKeywords.Block | WeaponKeywords.Shrapnel | WeaponKeywords.Gas | WeaponKeywords.Fire;
+
+    // Roster stage R4a: the keywords that put an extra BLOOD MARKER on the target, which NEGATE can turn away.
+    public const WeaponKeywords MarkerKeywords = WeaponKeywords.Shrapnel | WeaponKeywords.Gas | WeaponKeywords.Fire;
 
     // HEAVY battlekit (a HEAVY weapon here; other HEAVY pieces are equipment, not played): no Charge Bonus (p. 55).
     public bool NoChargeBonus => (AllWeaponKeywords & WeaponKeywords.Heavy) != 0;
 
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
-        | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None);
+        | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
+        | (Grenade?.Keywords ?? WeaponKeywords.None);
 
     internal static WeaponKeywords Known(WeaponKeywords value, string name) => (value & ~AllKeywords) != 0
         ? throw new ArgumentOutOfRangeException(name, "Unknown weapon keywords.")
@@ -191,6 +195,28 @@ public sealed record ModelProfile
         init => _impervious = value > 0 || value < Armour ? throw new ArgumentOutOfRangeException(nameof(ImperviousArmour), "The IMPERVIOUS part of Armour is between the Armour and 0.") : value;
     }
 
+    // ---- Roster stage R4a (U101): grenades and NEGATE ----
+
+    // The model's grenades (one type, p. 69), thrown with a Shoot ACTION as weapon 2 (p. 68). A model without a
+    // ranged weapon may still have them.
+    public Weapon? Grenade
+    {
+        get => _grenade;
+        init => _grenade = value is null ? null
+            : !value.IsRanged || value.AlsoMelee ? throw new ArgumentException("Grenades are thrown: they have a range and are not Melee.", nameof(Grenade))
+            : value;
+    }
+
+    // NEGATE SHRAPNEL, NEGATE GAS, NEGATE FIRE (p. 56; DEMONIC has NEGATE FIRE, p. 54): those keywords put no extra
+    // BLOOD MARKER on the model.
+    public WeaponKeywords Negates
+    {
+        get => _negates;
+        init => _negates = (value & ~MarkerKeywords) != 0 ? throw new ArgumentOutOfRangeException(nameof(Negates), "Only SHRAPNEL, GAS and FIRE can be negated.") : value;
+    }
+
+    private readonly Weapon? _grenade;
+    private readonly WeaponKeywords _negates;
     private readonly Weapon? _secondRanged;
     private readonly Weapon? _secondMelee;
     private readonly int _meleeCleave;
@@ -204,6 +230,17 @@ public sealed record ModelProfile
         ? CanMakeMeleeAttack ? SecondMeleeWeapon is null ? 1 : 2 : 0
         : HasRangedWeapon ? SecondRangedWeapon is null ? 1 : 2 : 0;
 
+    // Whether the model has that weapon: 0 its first ranged or Melee Weapon (or dual-purpose one), 1 its second, and for
+    // ranged attacks 2 its grenades.
+    public bool Has(AttackKind kind, int weapon) => weapon switch
+    {
+        0 or 1 => Weapons(kind) > weapon,
+        2 => kind == AttackKind.Ranged && Grenade is not null,
+        _ => false,
+    };
+
+    public const int GrenadeWeapon = 2;
+
     // The Melee Attacks a Fight makes with a weapon: CLEAVE (X), else one.
     public int MeleeAttacksWith(int weapon) => Math.Max(1, weapon == 0 ? (HasMeleeWeapon ? MeleeWeaponCleave : 0) : SecondMeleeWeapon?.Cleave ?? 0);
 
@@ -215,13 +252,13 @@ public sealed record ModelProfile
         {
             return this;
         }
-        if (weapon != 1 || Weapons(kind) < 2)
+        if (!Has(kind, weapon))
         {
             throw new ArgumentOutOfRangeException(nameof(weapon), "The model has no such weapon.");
         }
         if (kind == AttackKind.Ranged)
         {
-            var w = SecondRangedWeapon!;
+            var w = weapon == GrenadeWeapon ? Grenade! : SecondRangedWeapon!;
             return new ModelProfile(Movement, BaseRadius, w.Range, w.InjuryModifier, Armour, HasMeleeWeapon, MeleeInjuryModifier)
             {
                 RangedAlsoMelee = w.AlsoMelee,
@@ -236,6 +273,7 @@ public sealed record ModelProfile
                 MeleeWeaponCleave = MeleeWeaponCleave,
                 Block = Block,
                 ImperviousArmour = ImperviousArmour,
+                Negates = Negates,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -253,6 +291,7 @@ public sealed record ModelProfile
             MeleeWeaponCleave = m.Cleave,
             Block = Block,
             ImperviousArmour = ImperviousArmour,
+            Negates = Negates,
         };
     }
 

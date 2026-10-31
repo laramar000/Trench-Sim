@@ -149,6 +149,38 @@ public class MineTests
     }
 
     [Fact]
+    [Trait("Rule", "NEGATE p. 56: a model with NEGATE SHRAPNEL gets no extra Blood Marker from a mine (U101)")]
+    public void NegateShrapnelStopsTheMinesExtraMarker()
+    {
+        var helmeted = new ModelProfile(L("6"), L("0.5"), L("18"), armour: -1) { Negates = WeaponKeywords.Shrapnel };
+        var play = Active(Play(Mine1IsLive, 1, _ => helmeted), A(1), "14", "25");
+        var result = play.Do(new MoveModel(Seat.One, A(1), Path(("20", "25"))), 1, 1);
+        var exploded = result.Events.OfType<MineExploded>().Single();
+        Assert.True(exploded.Negated);
+        Assert.Equal(InjuryOutcome.NoEffect, exploded.Injury.Outcome);
+        Assert.Equal(0, play.M(A(1)).BloodMarkers);
+
+        // The event must say so: a forged one either way is refused.
+        var before = Active(Play(Mine1IsLive, 1, _ => helmeted), A(1), "14", "25");
+        var events = TurnSequence.Decide(before.State, new MoveModel(Seat.One, A(1), Path(("20", "25"))), new FixedDice([1, 1])).Events;
+        var state = before.State;
+        foreach (var e in events.TakeWhile(e => e is not MineExploded))
+        {
+            state = Reducer.Apply(state, e);
+        }
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(state, exploded with { Negated = false }));
+        var plain = Active(Play(Mine1IsLive, 1, _ => new ModelProfile(L("6"), L("0.5"), L("18"), armour: -1)), A(1), "14", "25");
+        var plainEvents = TurnSequence.Decide(plain.State, new MoveModel(Seat.One, A(1), Path(("20", "25"))), new FixedDice([1, 1])).Events;
+        var plainState = plain.State;
+        foreach (var e in plainEvents.TakeWhile(e => e is not MineExploded))
+        {
+            plainState = Reducer.Apply(plainState, e);
+        }
+        Assert.False(plainEvents.OfType<MineExploded>().Single().Negated);
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(plainState, plainEvents.OfType<MineExploded>().Single() with { Negated = true }));
+    }
+
+    [Fact]
     [Trait("Rule", "Slaughter Mines p. 162: a model taken Down stops where it halted, and its activation ends (p. 49)")]
     public void AModelTakenDownStopsWhereItHalted()
     {

@@ -1233,7 +1233,7 @@ public partial class BoardView : SubViewportContainer
     {
         var step = (float)(key.ShiftPressed ? Interaction.BigStep : Interaction.Step);
         // In Combat, 1, 2 and 3 choose Shoot, Charge and Fight (stage U1: before any target); 4 and 5 Shoot and Fight
-        // with a second weapon (roster stage R3).
+        // with a second weapon (roster stage R3); 6 throws grenades (R4a).
         if (Interaction.Mode == InteractionMode.Combat && key.Keycode switch
             {
                 Key.Key1 or Key.Kp1 => (InteractionMode.Shoot, 0),
@@ -1241,6 +1241,7 @@ public partial class BoardView : SubViewportContainer
                 Key.Key3 or Key.Kp3 => (InteractionMode.Fight, 0),
                 Key.Key4 or Key.Kp4 => (InteractionMode.Shoot, 1),
                 Key.Key5 or Key.Kp5 => (InteractionMode.Fight, 1),
+                Key.Key6 or Key.Kp6 => (InteractionMode.Shoot, Rules.Core.State.ModelProfile.GrenadeWeapon),
                 _ => (InteractionMode.None, 0),
             } is var (attack, weapon) && attack != InteractionMode.None)
         {

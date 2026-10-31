@@ -203,7 +203,10 @@ public static class StateHash
             + (p.Block ? ",block=yes" : "")
             + (p.ImperviousArmour == 0 ? "" : $",imperviousArmour={p.ImperviousArmour}")
             + (p.SecondRangedWeapon is { } r ? $",secondRanged={WeaponText(r)}" : "")
-            + (p.SecondMeleeWeapon is { } m ? $",secondMelee={WeaponText(m)}" : "");
+            + (p.SecondMeleeWeapon is { } m ? $",secondMelee={WeaponText(m)}" : "")
+            // Roster stage R4a: grenades and NEGATE, only when present.
+            + (p.Grenade is { } g ? $",grenade={WeaponText(g)}" : "")
+            + (p.Negates == WeaponKeywords.None ? "" : $",negates={p.Negates}");
     }
 
     private static string WeaponText(Weapon w) =>

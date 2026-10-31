@@ -43,6 +43,9 @@ public sealed record DicePreview(
     // The weapon's keywords that change this attack's rolls, named for the preview ("CRITICAL", "IGNORE COVER").
     public IReadOnlyList<string> KeywordNotes { get; init; } = [];
 
+    // Roster stage R4a: the extra BLOOD MARKERS the weapon's SHRAPNEL, GAS and FIRE put on this target.
+    public int ExtraMarkers { get; init; }
+
     // Roster stage R3: weapon 1 is the model's second weapon of that kind (ModelProfile.Using).
     internal static DicePreview Of(MatchState state, ModelState attacker, ModelState target, AttackKind kind, int hitPenalty, IReadOnlyList<string> reasons, int hitBonus = 0, int shotgunInjury = 0, int weapon = 0)
     {
@@ -54,7 +57,9 @@ public sealed record DicePreview(
         {
             ShakenRisky = state.IsShaken(attacker.Seat),
             ShotgunInjuryDice = shotgunInjury,
-            KeywordNotes = [.. Notes(profile.AttackKeywords(kind), kind), .. CleaveNote(profile, kind)],
+            // SHRAPNEL, GAS and FIRE are named only when the target does not NEGATE them (roster stage R4a).
+            KeywordNotes = [.. Notes(profile.AttackKeywords(kind) & ~setup.ProfileOf(target.Id)!.Negates, kind), .. CleaveNote(profile, kind)],
+            ExtraMarkers = AttackDice.ExtraMarkers(profile, kind, setup.ProfileOf(target.Id)!),
             CriticalDice = AttackDice.CriticalInjuryDice(profile.AttackKeywords(kind)),
             HitBonus = hitBonus,
             OwnHitDice = AttackDice.OwnDice(profile, kind),
@@ -104,6 +109,9 @@ public sealed record DicePreview(
         Add(WeaponKeywords.ArmourPiercing, "ARMOUR PIERCING: the target's Armour counts 1 less");
         Add(WeaponKeywords.Risky, "RISKY: a failed hit roll ends the activation");
         Add(WeaponKeywords.Reload, "RELOAD: the activation ends after this attack");
+        Add(WeaponKeywords.Shrapnel, "SHRAPNEL: +1 BLOOD MARKER on the target after the Injury Roll");
+        Add(WeaponKeywords.Gas, "GAS: +1 BLOOD MARKER on the target after the Injury Roll");
+        Add(WeaponKeywords.Fire, "FIRE: +1 BLOOD MARKER on the target after the Injury Roll");
         if (kind == AttackKind.Ranged)
         {
             Add(WeaponKeywords.Shotgun, "SHOTGUN: at Long Range -1 INJURY DICE instead of -1 DICE");

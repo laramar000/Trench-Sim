@@ -44,4 +44,10 @@ public enum WeaponKeywords
     // Roster stage R3 (U100): BLOCK: -1 DICE to a Melee Attack against the model that has this weapon, when the
     // attacker made a Charge ACTION before the attack this turn (p. 53).
     Block = 4096,
+
+    // Roster stage R4a (U101): SHRAPNEL, GAS and FIRE each put 1 extra BLOOD MARKER on the target after the Injury
+    // Roll, even on No Effect (pp. 54, 55, 57), unless the target has NEGATE for that keyword (p. 56).
+    Shrapnel = 8192,
+    Gas = 16384,
+    Fire = 32768,
 }

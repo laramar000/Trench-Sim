@@ -217,6 +217,10 @@ public sealed class Bot(Random rng)
                         {
                             yield return new Shoot(seat, model.Id, target.Id) { Weapon = 1 };
                         }
+                        if (profile.Has(AttackKind.Ranged, ModelProfile.GrenadeWeapon))
+                        {
+                            yield return new Shoot(seat, model.Id, target.Id) { Weapon = ModelProfile.GrenadeWeapon };
+                        }
                     }
                     break;
             }

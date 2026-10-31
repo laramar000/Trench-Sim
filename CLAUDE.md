@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U100), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U101), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -92,7 +92,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (U99, `Rules.Core/ActionLimits.cs`, `ActivationEnded(Reload)`). **HEAVY builder limit and R3 done** (Jason: "do 1 2
   and 3 all together"): second ranged/melee weapons (`ModelProfile.SecondRangedWeapon/SecondMeleeWeapon`, `Using`),
   Off-Hand, CLEAVE (`MatchState.AttacksLeft`), BLOCK (`ChargedThisTurn`), IMPERVIOUS (`ImperviousArmour`), U100;
-  Combat menu keys 4/5. R4 grenades/area attacks is the third part of that ask.
+  Combat menu keys 4/5. R4 grenades/area attacks is the third part of that ask. **R4a done:** one grenade per model
+  (`ModelProfile.Grenade`, Shoot weapon 2, Combat menu key 6), SHRAPNEL/GAS/FIRE extra markers
+  (`InjuryRolled.ExtraMarkers`), NEGATE (`ModelProfile.Negates`, DEMONIC = NEGATE FIRE, mines too), U101. Next R4b BLAST,
+  R4c SCATTER.
 - The faction JSON files are the source of truth now. The earlier generator scripts held private source names and are
   not in the repo: edit `content/roster/*.json` directly, keep `docs/roster.md` and the tests (`tests/Roster.Tests`,
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).

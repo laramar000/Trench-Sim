@@ -98,11 +98,12 @@ internal static class Board
         return body is not null && OnTable(state).Any(o => o.Seat != model.Seat && Measure.IsWithin(body, BodyOf(state, o)!, EngagementRange));
     }
 
-    // Roster stage R3: weapon 1 is the model's second ranged weapon; one it does not have is refused as no weapon.
+    // Roster stage R3: weapon 1 is the model's second ranged weapon (R4a: 2 its grenades); one it does not have is
+    // refused as no weapon.
     public static AttackAssessment Assess(MatchState state, ModelState attacker, ModelState target, int weapon = 0)
     {
         var owned = state.Setup!.ProfileOf(attacker.Id)!;
-        var profile = weapon is 0 or 1 && owned.Weapons(AttackKind.Ranged) > weapon ? owned.Using(AttackKind.Ranged, weapon) : owned;
+        var profile = owned.Has(AttackKind.Ranged, weapon) ? owned.Using(AttackKind.Ranged, weapon) : owned;
         var scenario = ScenarioOf(state)!;
         var from = BodyOf(state, attacker);
         if (from is null || attacker.Status == ModelStatus.OutOfAction)
@@ -113,13 +114,9 @@ internal static class Board
         {
             return Refuse(ReasonCode.ModelNotStanding, "A Down model cannot shoot.");
         }
-        if (!profile.HasRangedWeapon)
+        if (!owned.Has(AttackKind.Ranged, weapon))
         {
-            return Refuse(ReasonCode.NoRangedWeapon, "That model has no Ranged Weapon.");
-        }
-        if (weapon != 0 && (weapon < 0 || owned.Weapons(AttackKind.Ranged) <= weapon))
-        {
-            return Refuse(ReasonCode.NoRangedWeapon, "That model has no second ranged weapon.");
+            return Refuse(ReasonCode.NoRangedWeapon, NoSuchGun(weapon));
         }
         if (target.Seat == attacker.Seat)
         {
@@ -291,6 +288,14 @@ internal static class Board
     // ACTION before the attack this turn (p. 53). Charges are only tracked in matches with a BLOCK model.
     public static bool Blocks(MatchState state, ModelId attacker, ModelId target) =>
         state.Setup?.ProfileOf(target) is { HasBlock: true } && !state.ChargedThisTurn.IsDefaultOrEmpty && state.ChargedThisTurn.Contains(attacker);
+
+    // Why a Shoot ACTION with that weapon is refused when the model does not have it.
+    public static string NoSuchGun(int weapon) => weapon switch
+    {
+        1 => "That model has no second ranged weapon.",
+        ModelProfile.GrenadeWeapon => "That model has no grenades.",
+        _ => "That model has no Ranged Weapon.",
+    };
 
     public static bool TracksCharges(MatchSetup setup) => setup.Models.Any(m => m.Profile?.HasBlock == true);
 

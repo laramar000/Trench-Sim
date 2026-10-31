@@ -48,7 +48,7 @@ public static class Narrator
         GameLengthRolled g => $"{g.Seat} rolls {g.Die} for the game's length: {(g.LastTurn == Rules.Core.Scenarios.TrenchWarfare.LengthRollTurn ? "the game ends now" : $"the game ends after Turn {g.LastTurn}")}.",
         MinesLaid l => $"{l.Seat} sets up {l.Markers.Length} Mine Markers; {Rules.Core.Geometry.Mines.Duds} of them are secret duds.",
         MineRevealed r => $"  {r.Model} halts by {r.Marker}: {(r.Live ? "a live mine" : "a dud")}.",
-        MineExploded x => $"  {x.Marker} explodes under {x.Model}: Injury Roll {x.Injury.Total}: {x.Injury.Outcome}, and SHRAPNEL adds a Blood Marker.",
+        MineExploded x => $"  {x.Marker} explodes under {x.Model}: Injury Roll {x.Injury.Total}: {x.Injury.Outcome}{(x.Negated ? ", and its NEGATE SHRAPNEL stops the extra Blood Marker." : ", and SHRAPNEL adds a Blood Marker.")}",
         MoveResumed m => m.Path.IsEmpty ? $"  {m.Model} carries on." : $"  {m.Model} carries on to {m.Path[^1]}.",
         MatchEnded m => $"MATCH ENDED: {(m.Winner is { } w ? $"{w} wins" : "draw")} ({m.Reason}).",
         _ => null,

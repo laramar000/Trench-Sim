@@ -97,10 +97,10 @@ public class RosterOnlineTests
     {
         var harness = NewHarness();
         var one = harness.Connect();
-        one.Send(new CreateMatch(RosterText.Scenario) { Roster = RosterFile("Bombers", ("lieutenant", ["frag-grenades"])) });
+        one.Send(new CreateMatch(RosterText.Scenario) { Roster = RosterFile("Medics", ("lieutenant", ["medi-kit"])) });
         var rejected = Assert.IsType<Rejected>(one.LastAnswer);
         Assert.Equal(nameof(ProtocolError.RosterRefused), rejected.Code);
-        Assert.Contains("Frag Grenades", rejected.Text, StringComparison.Ordinal);
+        Assert.Contains("Medi-kit", rejected.Text, StringComparison.Ordinal);
         Assert.Null(one.Welcome);
 
         // Text that is not a roster, an illegal roster, a faction the server does not have, a roster with another scenario.
@@ -131,7 +131,7 @@ public class RosterOnlineTests
         without.Send(new JoinMatch(host.Welcome!.Code));
         Assert.Contains("join with one of your saved rosters", Assert.IsType<Rejected>(without.LastAnswer).Text, StringComparison.Ordinal);
         var bad = harness.Connect();
-        bad.Send(new JoinMatch(host.Welcome.Code) { Roster = RosterFile("Bombers", ("lieutenant", ["frag-grenades"])) });
+        bad.Send(new JoinMatch(host.Welcome.Code) { Roster = RosterFile("Medics", ("lieutenant", ["medi-kit"])) });
         Assert.Equal(nameof(ProtocolError.RosterRefused), Assert.IsType<Rejected>(bad.LastAnswer).Code);
         // Still waiting, and still joinable with a playable roster.
         Assert.Equal(MatchStatus.Waiting, harness.Lobby.StatusOf(host.Welcome.Code));

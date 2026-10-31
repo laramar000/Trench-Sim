@@ -66,7 +66,7 @@ public sealed record MineRevealed : GameEvent
 
 // A live mine detonated: an Injury Roll with SHRAPNEL for the model (MINED, p. 56; SHRAPNEL, p. 57): no weapon
 // modifier, its armour as usual, no Blood Markers spent (there is no attacker), and 1 extra Blood Marker afterwards
-// whatever the result.
+// whatever the result. Roster stage R4a (U101): a model with NEGATE SHRAPNEL gets no extra Blood Marker (Negated).
 public sealed record MineExploded : GameEvent
 {
     public const int ShrapnelMarkers = 1;
@@ -83,6 +83,11 @@ public sealed record MineExploded : GameEvent
     public ModelId Model { get; }
     public string Marker { get; }
     public InjuryRollResult Injury { get; }
+
+    // Roster stage R4a: the model has NEGATE SHRAPNEL, so SHRAPNEL adds no Blood Marker. Omitted on the wire when false.
+    public bool Negated { get; init; }
+
+    public int ExtraMarkers() => Negated ? 0 : ShrapnelMarkers;
 }
 
 // The model carries on along its move after a halt, to the next halt or the end: Path is what it walks (may be empty).

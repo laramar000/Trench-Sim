@@ -204,6 +204,8 @@ public sealed class ContentNames
                         ImperviousArmour = Dice(m, "imperviousArmour"),
                         SecondRangedWeapon = SecondWeapon(m, "secondRangedWeapon"),
                         SecondMeleeWeapon = SecondWeapon(m, "secondMeleeWeapon"),
+                        Grenade = SecondWeapon(m, "grenade"),
+                        Negates = Keywords(m, "negates"),
                     }));
             }
             warbands.Add(new ContentWarband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));

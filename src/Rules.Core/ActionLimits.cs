@@ -22,7 +22,7 @@ public static class ActionLimits
     // and HEAVY are that weapon's (pp. 52, 55).
     // A weapon the model does not have reads as its first one; the attack's own checks refuse it.
     public static ModelProfile? Gun(MatchState state, ModelId id, int? weapon = null) =>
-        state.Setup?.ProfileOf(id) is { } p && (weapon ?? state.ShotWeapon) is var w && w > 0 && p.Weapons(AttackKind.Ranged) > w ? p.Using(AttackKind.Ranged, w) : state.Setup?.ProfileOf(id);
+        state.Setup?.ProfileOf(id) is { } p && (weapon ?? state.ShotWeapon) is var w && w > 0 && p.Has(AttackKind.Ranged, w) ? p.Using(AttackKind.Ranged, w) : state.Setup?.ProfileOf(id);
 
     // Why a Shoot ACTION with that weapon is excluded by what the model has done, or null.
     public static string? ShootExcluded(MatchState state, ModelId id, int weapon = 0) => ShootExcluded(state.Actions, Gun(state, id, weapon));

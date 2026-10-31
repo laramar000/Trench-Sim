@@ -56,6 +56,7 @@ public class WeaponChoicePreviewTests
     {
         var seen = new Dictionary<string, int>();
         void Saw(string what) => seen[what] = seen.GetValueOrDefault(what) + 1;
+        var seed = 0; // fresh dice for each attack, so some hit and make their Injury Roll
         foreach (var state in ActivationStates())
         {
             var active = state.FindModel(state.ActiveModel!.Value)!;
@@ -64,7 +65,7 @@ public class WeaponChoicePreviewTests
                 foreach (var target in state.Models.Where(m => m.Seat != active.Seat))
                 {
                     var preview = Previews.Target(state, active.Seat, kind, active.Id, target.Id, weapon);
-                    var decided = TurnSequence.Decide(state, preview.Command, new SeededDice(3));
+                    var decided = TurnSequence.Decide(state, preview.Command, new SeededDice(++seed));
                     Assert.True(decided.IsAccepted == preview.Legal, $"{preview.Command}: preview {(preview.Legal ? "legal" : preview.Refusal!.Text)}, server {(decided.IsAccepted ? "accepted" : decided.Rejection!.Text)}");
                     Assert.Equal(decided.Rejection, preview.Refusal);
                     if (!preview.Legal)
@@ -101,7 +102,8 @@ public class WeaponChoicePreviewTests
         }
         var summary = string.Join(", ", seen.OrderBy(p => p.Key).Select(p => $"{p.Key}: {p.Value}"));
         Assert.True(seen.GetValueOrDefault("Shoot 1 legal") > 0 && seen.GetValueOrDefault("Fight 1 legal") > 0 && seen.GetValueOrDefault("off-hand") > 0
-            && seen.GetValueOrDefault("cleave") > 0 && seen.GetValueOrDefault("Shoot 1 refused NoRangedWeapon") > 0, summary);
+            && seen.GetValueOrDefault("cleave") > 0 && seen.GetValueOrDefault("Shoot 1 refused NoRangedWeapon") > 0
+            && seen.Keys.Any(k => k.StartsWith("injury modifier", StringComparison.Ordinal)), summary);
     }
 
     [Fact]

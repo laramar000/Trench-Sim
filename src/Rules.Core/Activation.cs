@@ -59,6 +59,10 @@ public static class Activation
             {
                 attacks.Add(new Shoot(seat, active, other.Id) { Weapon = 1 });
             }
+            if (profile.Has(AttackKind.Ranged, ModelProfile.GrenadeWeapon))
+            {
+                attacks.Add(new Shoot(seat, active, other.Id) { Weapon = ModelProfile.GrenadeWeapon });
+            }
             if (profile.Weapons(AttackKind.Melee) == 2)
             {
                 attacks.Add(new FightModel(seat, active, other.Id) { Weapon = 1 });

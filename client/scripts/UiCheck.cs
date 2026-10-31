@@ -6455,7 +6455,7 @@ public partial class UiCheck : Node
 
     private (string Playable, string Refused, string Second) _pickerRosters;
 
-    // Roster stage 5c: saved rosters for the picker checks: two playable and one the game cannot play yet (grenades).
+    // Roster stage 5c: saved rosters for the picker checks: two playable and one the game cannot play yet (a Medi-kit).
     private (string Playable, string Refused, string Second) SaveCheckRosters()
     {
         var folder = ((Main)_main).RosterFolder;
@@ -6470,7 +6470,7 @@ public partial class UiCheck : Node
             }
             return System.IO.Path.GetFileName(builder.Save(folder));
         }
-        return (Save("Picker Line", "bolt-action-rifle"), Save("Picker Bombers", "frag-grenades"), Save("Picker Saints", "bolt-action-rifle", "standard-armour"));
+        return (Save("Picker Line", "bolt-action-rifle"), Save("Picker Medics", "medi-kit"), Save("Picker Saints", "bolt-action-rifle", "standard-armour"));
     }
 
     // Roster stages 5b and 5c (play-roster-pickers): by keyboard on the Play screen, a saved roster for Seat One only
@@ -6516,14 +6516,14 @@ public partial class UiCheck : Node
         }
         await ChooseOption(online, rosters.Refused, null);
         await Press(ButtonNamed(Main.HostText), Key.Enter, null);
-        var refused = await Until(() => Message("Your roster Picker Bombers has what the game cannot play yet"), 5, "roster-pickers-refused");
-        if (refused is null || !refused.Contains("Frag Grenades", StringComparison.Ordinal) || main.MatchCode is not null)
+        var refused = await Until(() => Message("Your roster Picker Medics has what the game cannot play yet"), 5, "roster-pickers-refused");
+        if (refused is null || !refused.Contains("Medi-kit", StringComparison.Ordinal) || main.MatchCode is not null)
         {
-            problems.Add($"hosting with Picker Bombers: {refused ?? "no message"}; match {main.MatchCode ?? "none"}");
+            problems.Add($"hosting with Picker Medics: {refused ?? "no message"}; match {main.MatchCode ?? "none"}");
         }
         else
         {
-            steps.Add("hosting with grenades: \"" + refused + "\"");
+            steps.Add("hosting with a Medi-kit: \"" + refused + "\"");
         }
         await ChooseOption(online, MainMenuPractice, null);
         await Press(ButtonNamed(Main.BackText), Key.Enter, null);

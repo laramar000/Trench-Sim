@@ -194,6 +194,11 @@ The server sends events in log order, one message each, to both players, through
   `Shoot.weapon`, `FightModel.weapon`, `FreeFight.weapon` (1 for the second weapon); `RangedAttackDeclared.weapon`,
   `MeleeAttackDeclared.weapon`, `offHand`, `block`. A new refusal reason, `WrongWeapon`: a Fight with attacks still to
   come must go on with the weapon the rules name.
+- Roster stage R4a (interpretation U101), each left out when not used: `ModelProfile.grenade` (an object like the second
+  weapons, with a range and never `alsoMelee`), `ModelProfile.negates` (`WeaponKeywords` of Shrapnel, Gas and Fire only;
+  anything else is an invalid value), `Shoot.weapon` 2 (the grenade), `RangedAttackDeclared.weapon` 2,
+  `InjuryRolled.extraMarkers` (0 to 3) and `MineExploded.negated` (true). The weapon keyword names gain `Shrapnel`, `Gas`
+  and `Fire`.
 
 ## Rosters online (roster stage 5c)
 

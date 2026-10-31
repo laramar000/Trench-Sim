@@ -1060,13 +1060,14 @@ public sealed class Interaction
         }
         var entries = new List<CombatEntry>();
         var enemies = Targets();
-        // Keys 1-3 are Shoot, Charge and Fight with the first weapon; 4 and 5 Shoot and Fight with a second one (R3).
+        // Keys 1-3 are Shoot, Charge and Fight with the first weapon; 4 and 5 Shoot and Fight with a second one (R3); 6
+        // throws grenades (R4a).
         var choices = new List<(InteractionMode Mode, int Weapon, string Key)> { (InteractionMode.Shoot, 0, "1"), (InteractionMode.Charge, 0, "2"), (InteractionMode.Fight, 0, "3") };
-        foreach (var (mode, key) in new[] { (InteractionMode.Shoot, "4"), (InteractionMode.Fight, "5") })
+        foreach (var (mode, weapon, key) in new[] { (InteractionMode.Shoot, 1, "4"), (InteractionMode.Fight, 1, "5"), (InteractionMode.Shoot, ModelProfile.GrenadeWeapon, "6") })
         {
-            if (Previews.WeaponsOf(_state, actor, Kind(mode)).Length > 1)
+            if (Previews.WeaponsOf(_state, actor, Kind(mode)).Contains(weapon))
             {
-                choices.Add((mode, 1, key));
+                choices.Add((mode, weapon, key));
             }
         }
         foreach (var (mode, weapon, key) in choices)
@@ -1075,7 +1076,7 @@ public sealed class Interaction
             {
                 continue;
             }
-            var label = weapon == 0 ? Words(mode) : $"{Words(mode)}, 2nd weapon";
+            var label = weapon == 0 ? Words(mode) : weapon == ModelProfile.GrenadeWeapon ? "Throw grenade" : $"{Words(mode)}, 2nd weapon";
             if (ActionOpen(seat, actor, Kind(mode), weapon) is { } closed)
             {
                 entries.Add(new CombatEntry(mode, label, key, false, $"{closed.Text} ({closed.RuleRef})", 0, weapon));

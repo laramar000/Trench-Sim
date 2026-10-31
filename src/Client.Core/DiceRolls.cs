@@ -145,7 +145,9 @@ public static class DiceRolls
         var injury = i.Injury;
         var word = InjuryWord(injury.Outcome).ToUpperInvariant();
         var sum = injury.Modifier == 0 ? "" : $" ({injury.Dice.Total}{injury.Modifier:+0;-0})";
-        var blood = injury.BloodMarkers > 0 ? $", +{injury.BloodMarkers} Blood Marker{(injury.BloodMarkers == 1 ? "" : "s")}" : "";
+        // Roster stage R4a: with the extra markers of SHRAPNEL, GAS and FIRE (U101).
+        var count = injury.BloodMarkers + i.ExtraMarkers;
+        var blood = count > 0 ? $", +{count} Blood Marker{(count == 1 ? "" : "s")}{(i.ExtraMarkers > 0 ? $" ({i.ExtraMarkers} from SHRAPNEL, GAS or FIRE)" : "")}" : "";
         var verdict = injury.Outcome is InjuryOutcome.Down or InjuryOutcome.OutOfAction ? RollVerdict.Pass : RollVerdict.Neutral;
         var mark = verdict == RollVerdict.Pass ? "✓" : "•";
         var modifier = injury.Modifier == 0 ? "" : $", modifier {injury.Modifier:+0;-0}";

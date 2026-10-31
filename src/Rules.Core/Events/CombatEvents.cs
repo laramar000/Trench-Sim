@@ -186,7 +186,7 @@ public sealed record RangedAttackDeclared : GameEvent
     public bool Elevated { get; init; }
 
     // Roster stage R3 (U100): the weapon that shoots, 0 or 1 (the model's second ranged weapon). Left off the wire when 0.
-    public int Weapon { get => _weapon; init => _weapon = value is 0 or 1 ? value : throw new ArgumentOutOfRangeException(nameof(Weapon), "A model has weapon 0 or 1."); }
+    public int Weapon { get => _weapon; init => _weapon = value is 0 or 1 or ModelProfile.GrenadeWeapon ? value : throw new ArgumentOutOfRangeException(nameof(Weapon), "A Ranged Attack is made with weapon 0, 1 or 2 (grenades)."); }
 
     private readonly int _weapon;
 
@@ -223,6 +223,12 @@ public sealed record InjuryRolled : GameEvent
     public ModelId Attacker { get; }
     public ModelId Target { get; }
     public InjuryRollResult Injury { get; }
+
+    // Roster stage R4a (U101): the extra BLOOD MARKERS the weapon's SHRAPNEL, GAS and FIRE put on the target (0 to 3),
+    // added to the result's own; left out when 0.
+    public int ExtraMarkers { get => _extra; init => _extra = value is >= 0 and <= 3 ? value : throw new ArgumentOutOfRangeException(nameof(ExtraMarkers), "SHRAPNEL, GAS and FIRE put 0 to 3 extra markers."); }
+
+    private readonly int _extra;
 }
 
 public sealed record ObjectiveResult(string ObjectiveId, Seat? Controller, int Points);

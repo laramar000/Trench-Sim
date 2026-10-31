@@ -220,3 +220,13 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   "played without" any more. Shield COVER and the shields' own rules still are. Tests: `WeaponChoiceTests`,
   `WeaponWireTests`, `MatchReadinessTests.ASecondRangedWeaponIsPlayed`, `.APistolIsTheOffHandWeaponBesideASword`,
   `.CleaveBlockAndImperviousArePlayed`, `WeaponChoicePreviewTests`.
+- Roster rules stage R4a, grenades and markers (done 2026-10-31, the third part of that ask): a model's one type of
+  grenade (p. 69) is played as its grenade (`grenade` in the content, thrown with key 6); SHRAPNEL, GAS and FIRE travel
+  as `Shrapnel`, `Gas`, `Fire`; NEGATE SHRAPNEL, GAS or FIRE from the model's keywords (DEMONIC is NEGATE FIRE), its
+  armour and shields, and equipment that is only NEGATE with no own rule (Gas Mask, Combat Helmet) travels as `negates`
+  (U101). A second type of grenade, and grenades on a model whose Ranged is "-", are refused by name; other equipment
+  still is. Every played piece's own rule is now named under "played without" ("Incendiary Grenades's own rule
+  (p. 78)"), and so are BLAST and SCATTER until they are played. Tests: `GrenadeTests`, `GrenadeWireTests`,
+  `MineTests.NegateShrapnelStopsTheMinesExtraMarker`, `MatchReadinessTests.AGrenadeAndNegateArePlayed`,
+  `.ASecondGrenadeAndGrenadesWithoutRangedAreRefused`, `.DemonicIsNegateFireAndAPiecesOwnRuleIsNamed`,
+  `GrenadePreviewTests`.

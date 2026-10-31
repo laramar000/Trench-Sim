@@ -29,7 +29,7 @@ public static class UnitNotes
             SideClimbRolled c => [c.Check.Outcome == SuccessOutcome.Failure ? new(c.Model, "CLIMB FAILED", NoteTone.Failure) : new(c.Model, "CLIMB", NoteTone.Success)],
             RangedSuccessRolled r => [Hit(r.Attacker, r.Check)],
             MeleeSuccessRolled m => [Hit(m.Attacker, m.Check)],
-            InjuryRolled i => [Injury(i.Target, i.Injury)],
+            InjuryRolled i => [Injury(i.Target, i.Injury, i.ExtraMarkers)],
             MarkersSpent { Count: > 0 } m => [new(m.Model, $"{m.Count} BLOOD SPENT", NoteTone.Info)],
             ChargeRolled c => [new(c.Model, $"CHARGE +{c.Die}\"", NoteTone.Info)],
             ChargeMoved { Reached: false } c => [new(c.Model, "CHARGE FAILED", NoteTone.Failure)],
@@ -46,12 +46,14 @@ public static class UnitNotes
         _ => new(attacker, "HIT", NoteTone.Success),
     };
 
-    private static UnitNote Injury(ModelId target, InjuryRollResult injury)
+    // Roster stage R4a: extra are the BLOOD MARKERS SHRAPNEL, GAS and FIRE add, even on No Effect.
+    private static UnitNote Injury(ModelId target, InjuryRollResult injury, int extra = 0)
     {
-        var blood = injury.BloodMarkers > 0 ? $" +{injury.BloodMarkers} BLOOD" : "";
+        var count = injury.BloodMarkers + extra;
+        var blood = count > 0 ? $" +{count} BLOOD" : "";
         return injury.Outcome switch
         {
-            InjuryOutcome.NoEffect => new(target, "NO EFFECT", NoteTone.Info),
+            InjuryOutcome.NoEffect => new(target, "NO EFFECT" + blood, extra > 0 ? NoteTone.Damage : NoteTone.Info),
             InjuryOutcome.MinorHit => new(target, "MINOR HIT" + blood, NoteTone.Damage),
             InjuryOutcome.Down => new(target, "DOWN" + blood, NoteTone.Damage),
             _ => new(target, "OUT OF ACTION", NoteTone.Damage),

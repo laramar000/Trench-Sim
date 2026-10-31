@@ -216,6 +216,9 @@ public static partial class TurnSequence
     public static MeleeAttackSlot? NextFightAttack(MatchState state, ModelId model) =>
         state.AttacksLeft is { Free: false, Next.Length: > 0 } left && left.Attacker == model && state.ActiveModel == model ? left.Next[0] : null;
 
+    // Roster stage R4a: why a Shoot ACTION is refused for a weapon the model does not have (the server's words).
+    public static string NoSuchGun(int weapon) => Board.NoSuchGun(weapon);
+
     // Roster stage R3: whether BLOCK gives this Melee Attack a penalty die (the target blocks a model that charged this turn).
     public static bool Blocks(MatchState state, ModelId attacker, ModelId target) => Board.Blocks(state, attacker, target);
 
@@ -530,7 +533,7 @@ public static partial class TurnSequence
                 var weapon = s.Setup!.ProfileOf(actor.Id)!.Using(progress.Kind, progress.Weapon);
                 var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup.ProfileOf(target.Id)!, progress.Kind);
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down);
-                run.Emit(new InjuryRolled(actor.Id, target.Id, injury));
+                run.Emit(new InjuryRolled(actor.Id, target.Id, injury) { ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup.ProfileOf(target.Id)!) });
                 if (injury.Outcome == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
                 {
                     run.Emit(new MatchEnded(target.Seat.Opponent(), OutcomeReason.AllEnemiesOutOfAction));
@@ -593,7 +596,7 @@ public static partial class TurnSequence
         {
             var armour = s.Setup!.ProfileOf(model.Id)!.Armour;
             var injury = InjuryRoll.Roll(dice, 0, 0, [armour], model.Status == ModelStatus.Down);
-            run.Emit(new MineExploded(model.Id, stop.Current.Marker, injury));
+            run.Emit(new MineExploded(model.Id, stop.Current.Marker, injury) { Negated = s.Setup.ProfileOf(model.Id)!.Negates.HasFlag(WeaponKeywords.Shrapnel) });
             var hurt = run.State.FindModel(model.Id)!;
             if (hurt.Status == ModelStatus.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, model.Seat))
             {

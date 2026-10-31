@@ -84,6 +84,11 @@ public static class AttackDice
             shotgun ? -1 : 0);
     }
 
+    // Roster stage R4a (U101): the extra BLOOD MARKERS an Injury Roll's weapon puts on the target: 1 for each of
+    // SHRAPNEL, GAS and FIRE that the target does not NEGATE (pp. 54-57).
+    public static int ExtraMarkers(ModelProfile attacker, AttackKind kind, ModelProfile target) =>
+        System.Numerics.BitOperations.PopCount((uint)(attacker.AttackKeywords(kind) & ModelProfile.MarkerKeywords & ~target.Negates));
+
     // Roster stage R2: RISKY makes the attack's Success Roll Risky (p. 55), as a Shaken warband does (p. 50).
     public static bool Risky(ModelProfile attacker, AttackKind kind, bool shaken) =>
         shaken || attacker.AttackKeywords(kind).HasFlag(WeaponKeywords.Risky);

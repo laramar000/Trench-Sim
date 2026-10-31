@@ -123,7 +123,7 @@ public sealed class ResolutionLog
                 _current!.Climb = true;
                 break;
             case RangedAttackDeclared r:
-                Start(seq, r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}{(r.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Ranged, r.Target);
+                Start(seq, r.Attacker, $"{Id(r.Attacker)} {(r.Weapon == ModelProfile.GrenadeWeapon ? "THROWS A GRENADE AT" : "SHOOTS")} {Id(r.Target)}{(r.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Ranged, r.Target);
                 _current!.Weapon = r.Weapon;
                 OwnParts(setup, r.Attacker, AttackKind.Ranged);
                 ShotParts(setup, r.Attacker, r.LongRange, r.CoverTerrainId, r.Elevated);
@@ -233,7 +233,7 @@ public sealed class ResolutionLog
 
     // Roster stage R3: the attacker's profile as the action's weapon sees it (ModelProfile.Using).
     private static ModelProfile? Armed(MatchSetup? setup, ModelId attacker, AttackKind kind, int weapon) =>
-        setup?.ProfileOf(attacker) is { } p ? weapon > 0 && p.Weapons(kind) > weapon ? p.Using(kind, weapon) : p : null;
+        setup?.ProfileOf(attacker) is { } p ? weapon > 0 && p.Has(kind, weapon) ? p.Using(kind, weapon) : p : null;
 
     // Roster stage R1: the attacker's own dice on the Success Roll, its characteristic and its weapon's DICE.
     private void OwnParts(MatchSetup? setup, ModelId attacker, AttackKind kind)
@@ -333,6 +333,12 @@ public sealed class ResolutionLog
         _why[seq] = why;
         var result = DiceRolls.Of(i)!.Result.TrimStart('✓', '•', ' ');
         action.Steps.Add($"Injury roll on {Id(i.Target)}: {result}{(why.Text.Length > 0 ? $" ({why.Text})" : "")}");
+        if (i.ExtraMarkers > 0 && own is not null && action.Kind is { } markerKind)
+        {
+            var words = string.Join(", ", new[] { WeaponKeywords.Shrapnel, WeaponKeywords.Gas, WeaponKeywords.Fire }
+                .Where(k => own.AttackKeywords(markerKind).HasFlag(k)).Select(k => k.ToString().ToUpperInvariant()));
+            action.Steps.Add($"+{i.ExtraMarkers} Blood Marker{(i.ExtraMarkers == 1 ? "" : "s")} on {Id(i.Target)} ({words})");
+        }
         action.Outcome.Add($"injury {result}");
     }
 

@@ -39,11 +39,11 @@ public class MatchReadinessTests
     [Fact]
     public void KitTheEngineCannotPlayIsRefusedByName()
     {
-        var builder = Principality(("lieutenant", ["pistol", "frag-grenades"]));
+        var builder = Principality(("lieutenant", ["pistol", "medi-kit"]));
         var ready = builder.MatchCheck();
         Assert.False(ready.Ok);
-        Assert.Contains(ready.Refused, r => r.Contains("Frag Grenades", StringComparison.Ordinal) && r.Contains("no grenades", StringComparison.Ordinal));
-        Assert.Contains(builder.MatchLines, l => l.StartsWith("✕ Not playable yet:", StringComparison.Ordinal) && l.Contains("Frag Grenades", StringComparison.Ordinal));
+        Assert.Contains(ready.Refused, r => r.Contains("Medi-kit", StringComparison.Ordinal) && r.Contains("no equipment", StringComparison.Ordinal));
+        Assert.Contains(builder.MatchLines, l => l.StartsWith("✕ Not playable yet:", StringComparison.Ordinal) && l.Contains("Medi-kit", StringComparison.Ordinal));
     }
 
     private static RosterBuilder Of(string faction, string entry, params string[] kit)
@@ -175,6 +175,64 @@ public class MatchReadinessTests
         var ready = MatchReadiness.Check(roster, builder.Faction, catalogue);
         Assert.Contains(ready.Refused, r => r.Contains("Ranged is \"-\"", StringComparison.Ordinal));
         Assert.Empty(ready.Models);
+    }
+
+    [Fact]
+    public void AGrenadeAndNegateArePlayed()
+    {
+        // Roster stage R4a (U101): Frag Grenades are the model's grenade, with SHRAPNEL, ASSAULT and the two IGNOREs; BLAST is
+        // named. A Gas Mask and a Combat Helmet are equipment that is only NEGATE: played.
+        var ready = Principality(("lieutenant", ["bolt-action-rifle", "frag-grenades", "gas-mask", "combat-helmet"])).MatchCheck();
+        Assert.True(ready.Ok, string.Join("; ", ready.Refused.Concat(ready.RosterProblems)));
+        var json = ready.ToContentJson("g", "G");
+        var profile = Sim.Content.Parse(json).Single().Models[0].Profile;
+        Assert.Equal(profile, ContentNames.Parse(json).Single().Models[0].Profile);
+        var grenade = profile.Grenade!;
+        Assert.Equal((8_000, WeaponKeywords.Assault | WeaponKeywords.IgnoreCover | WeaponKeywords.IgnoreLongRange | WeaponKeywords.Shrapnel),
+            (grenade.Range.Thousandths, grenade.Keywords));
+        Assert.Equal(WeaponKeywords.Gas | WeaponKeywords.Shrapnel, profile.Negates);
+        Assert.Contains(ready.PlayedWithout, w => w.Contains("Frag Grenades's BLAST", StringComparison.Ordinal));
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("Gas Mask", StringComparison.Ordinal) || w.Contains("Combat Helmet", StringComparison.Ordinal) || w.Contains("SHRAPNEL", StringComparison.Ordinal));
+        Assert.DoesNotContain("\"grenade\"", Principality(("yeoman", ["bolt-action-rifle"])).MatchCheck().ToContentJson("y", "Y"), StringComparison.Ordinal);
+        Assert.DoesNotContain("\"negates\"", Principality(("yeoman", ["bolt-action-rifle"])).MatchCheck().ToContentJson("y", "Y"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ASecondGrenadeAndGrenadesWithoutRangedAreRefused()
+    {
+        var two = Principality(("lieutenant", ["frag-grenades", "incendiary-grenades"])).MatchCheck();
+        Assert.Contains(two.Refused, r => r.Contains("Incendiary Grenades (a model carries one type of grenade, p. 69)", StringComparison.Ordinal));
+
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseFaction("cult");
+        var vocabulary = KeywordVocabulary.Parse(ContentNames.Read("roster/keywords.json")).Value!;
+        var catalogue = Catalogue.Parse(ContentNames.Read("roster/catalogue.json"), vocabulary).Value!;
+        var thrower = builder.Roster with { Models = [new RosterModel("plague-thrall", null, ["frag-grenades"], [])] };
+        Assert.Contains(MatchReadiness.Check(thrower, builder.Faction, catalogue).Refused, r => r.Contains("it may not throw grenades", StringComparison.Ordinal));
+
+        // A Plague Thrall's NEGATE GAS is played; its FEAR is named.
+        var thrall = MatchReadiness.Check(builder.Roster with { Models = [new RosterModel("plague-thrall", null, [], [])] }, builder.Faction, catalogue);
+        Assert.Equal(WeaponKeywords.Gas, Sim.Content.Parse(thrall.ToContentJson("t", "T")).Single().Models[0].Profile.Negates);
+        Assert.Contains(thrall.PlayedWithout, w => w.Contains("its keywords (CULT, FEAR)", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DemonicIsNegateFireAndAPiecesOwnRuleIsNamed()
+    {
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseFaction("court");
+        builder.Add("praetor");
+        var ready = builder.MatchCheck();
+        Assert.Equal(WeaponKeywords.Fire, Sim.Content.Parse(ready.ToContentJson("c", "C")).Single().Models[0].Profile.Negates);
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("DEMONIC", StringComparison.Ordinal));
+
+        // Incendiary Grenades: FIRE is played, its own rule (a Critical gives IGNORE ARMOUR, p. 78) is named.
+        var fire = Principality(("lieutenant", ["incendiary-grenades"])).MatchCheck();
+        Assert.True(fire.Ok, string.Join("; ", fire.Refused.Concat(fire.RosterProblems)));
+        Assert.Equal(WeaponKeywords.Fire, Sim.Content.Parse(fire.ToContentJson("f", "F")).Single().Models[0].Profile.Grenade!.Keywords & WeaponKeywords.Fire);
+        Assert.Contains(fire.PlayedWithout, w => w.Contains("Incendiary Grenades's own rule (p. 78)", StringComparison.Ordinal));
+        var medic = Principality(("lieutenant", ["bolt-action-rifle", "medi-kit"])).MatchCheck();
+        Assert.Contains(medic.Refused, r => r.Contains("Medi-kit (the engine has no equipment yet)", StringComparison.Ordinal));
     }
 
     [Fact]

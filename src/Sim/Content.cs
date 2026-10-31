@@ -49,6 +49,8 @@ public static class Content
                         ImperviousArmour = Dice(m, "imperviousArmour"),
                         SecondRangedWeapon = SecondWeapon(m, "secondRangedWeapon"),
                         SecondMeleeWeapon = SecondWeapon(m, "secondMeleeWeapon"),
+                        Grenade = SecondWeapon(m, "grenade"),
+                        Negates = Keywords(m, "negates"),
                     }));
             }
             warbands.Add(new Warband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));

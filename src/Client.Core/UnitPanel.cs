@@ -295,6 +295,10 @@ public static class UnitPanel
         {
             parts.Add("2nd Melee Weapon (Off-Hand -1 DICE)");
         }
+        if (p.Grenade is { } grenade)
+        {
+            parts.Add($"Grenades range {BoardScene.Inch(TableRect.Inches(grenade.Range))}");
+        }
         if (p.HasMeleeWeapon && p.MeleeWeaponCleave > 1)
         {
             parts.Add($"CLEAVE {p.MeleeWeaponCleave}");

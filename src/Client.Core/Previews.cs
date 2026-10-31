@@ -395,13 +395,9 @@ public static class Previews
         }
         var owned = state.Setup!.ProfileOf(attacker!.Id)!;
         var from = BodyOf(state, attacker)!;
-        if (!owned.HasRangedWeapon)
+        if (!owned.Has(AttackKind.Ranged, weapon))
         {
-            return new(ReasonCode.NoRangedWeapon, "That model has no Ranged Weapon.", RefAttack);
-        }
-        if (weapon != 0 && (weapon < 0 || owned.Weapons(AttackKind.Ranged) <= weapon))
-        {
-            return new(ReasonCode.NoRangedWeapon, "That model has no second ranged weapon.", RefAttack);
+            return new(ReasonCode.NoRangedWeapon, TurnSequence.NoSuchGun(weapon), RefAttack);
         }
         var profile = owned.Using(AttackKind.Ranged, weapon);
         if (target.Seat == attacker.Seat)
@@ -669,7 +665,7 @@ public static class Previews
         var profile = state.Setup?.ProfileOf(model);
         return kind switch
         {
-            PreviewKind.Shoot when profile?.Weapons(AttackKind.Ranged) == 2 => [0, 1],
+            PreviewKind.Shoot when profile is not null => [.. new[] { 0, 1, ModelProfile.GrenadeWeapon }.Where(w => w == 0 || profile.Has(AttackKind.Ranged, w))],
             PreviewKind.Fight when profile?.Weapons(AttackKind.Melee) == 2 && TurnSequence.NextFightAttack(state, model) is null => [0, 1],
             _ => [0],
         };
