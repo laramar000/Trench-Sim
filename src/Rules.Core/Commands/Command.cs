@@ -49,7 +49,12 @@ public sealed record MoveModel(Seat Seat, ModelId Model, ImmutableArray<Point2> 
 public sealed record DashModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command;
 
 // A Shoot ACTION: a Ranged Attack by the active model against one enemy model (pp. 42-44).
-public sealed record Shoot(Seat Seat, ModelId Attacker, ModelId Target) : Command;
+public sealed record Shoot(Seat Seat, ModelId Attacker, ModelId Target) : Command
+{
+    // Roster stage R3 (U100): which of the model's weapons of that kind attacks: 0, or 1 for its second weapon.
+    // Left off the wire when 0.
+    public int Weapon { get; init; }
+}
 
 // Answers a pending Blood Marker decision (p. 28): spend this many markers, or none (Count 0).
 public sealed record SpendMarkers(Seat Seat, int Count) : Command;
@@ -63,10 +68,20 @@ public sealed record ChargeModel(Seat Seat, ModelId Model, ModelId Target) : Com
 public sealed record RetreatModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command;
 
 // A Fight ACTION (pp. 34, 45-46): one Melee Attack with the model's Melee Weapon against one enemy within 1".
-public sealed record FightModel(Seat Seat, ModelId Model, ModelId Target) : Command;
+public sealed record FightModel(Seat Seat, ModelId Model, ModelId Target) : Command
+{
+    // Roster stage R3 (U100): which of the model's weapons of that kind attacks: 0, or 1 for its second weapon.
+    // Left off the wire when 0.
+    public int Weapon { get; init; }
+}
 
 // The opponent of a retreating model attacks it with one engaged model (p. 37). Answers the FreeFight decision.
-public sealed record FreeFight(Seat Seat, ModelId Attacker) : Command;
+public sealed record FreeFight(Seat Seat, ModelId Attacker) : Command
+{
+    // Roster stage R3 (U100): which of the model's weapons of that kind attacks: 0, or 1 for its second weapon.
+    // Left off the wire when 0.
+    public int Weapon { get; init; }
+}
 
 // The opponent declines the remaining free attacks (p. 37). Answers the FreeFight decision.
 public sealed record DeclineFreeFights(Seat Seat) : Command;

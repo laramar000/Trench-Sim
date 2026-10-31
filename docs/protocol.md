@@ -188,6 +188,12 @@ The server sends events in log order, one message each, to both players, through
   stage R2b Assault, Heavy, Reload), left out when empty; an unknown name is an invalid value (interpretation U98).
 - Roster stage R2b: `ActivationEnded` has a new reason, `Reload` (interpretation U99). Records without RELOAD weapons
   never carry it, so they verify unchanged.
+- Roster stage R3 (interpretation U100), each left out when not used, so records without them keep their bytes:
+  `ModelProfile.meleeWeaponCleave` (up to 6), `block` (true), `imperviousArmour` (Armour to 0), `secondRangedWeapon` and
+  `secondMeleeWeapon` (objects: `range`, `injuryModifier`, `dice`, `injuryDice`, `keywords`, `alsoMelee`, `cleave`);
+  `Shoot.weapon`, `FightModel.weapon`, `FreeFight.weapon` (1 for the second weapon); `RangedAttackDeclared.weapon`,
+  `MeleeAttackDeclared.weapon`, `offHand`, `block`. A new refusal reason, `WrongWeapon`: a Fight with attacks still to
+  come must go on with the weapon the rules name.
 
 ## Rosters online (roster stage 5c)
 

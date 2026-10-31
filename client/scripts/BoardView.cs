@@ -1232,16 +1232,19 @@ public partial class BoardView : SubViewportContainer
     private bool HandlePreviewKey(InputEventKey key)
     {
         var step = (float)(key.ShiftPressed ? Interaction.BigStep : Interaction.Step);
-        // In Combat, 1, 2 and 3 choose Shoot, Charge and Fight (stage U1: before any target).
+        // In Combat, 1, 2 and 3 choose Shoot, Charge and Fight (stage U1: before any target); 4 and 5 Shoot and Fight
+        // with a second weapon (roster stage R3).
         if (Interaction.Mode == InteractionMode.Combat && key.Keycode switch
             {
-                Key.Key1 or Key.Kp1 => InteractionMode.Shoot,
-                Key.Key2 or Key.Kp2 => InteractionMode.Charge,
-                Key.Key3 or Key.Kp3 => InteractionMode.Fight,
-                _ => InteractionMode.None,
-            } is var attack && attack != InteractionMode.None)
+                Key.Key1 or Key.Kp1 => (InteractionMode.Shoot, 0),
+                Key.Key2 or Key.Kp2 => (InteractionMode.Charge, 0),
+                Key.Key3 or Key.Kp3 => (InteractionMode.Fight, 0),
+                Key.Key4 or Key.Kp4 => (InteractionMode.Shoot, 1),
+                Key.Key5 or Key.Kp5 => (InteractionMode.Fight, 1),
+                _ => (InteractionMode.None, 0),
+            } is var (attack, weapon) && attack != InteractionMode.None)
         {
-            PickCombat(attack, byKey: true);
+            PickCombat(attack, byKey: true, weapon);
             return true;
         }
         switch (key.Keycode)
@@ -1296,9 +1299,9 @@ public partial class BoardView : SubViewportContainer
 
     // An entry of the Combat menu (a click on it, or 1, 2 and 3). Stage U1: it chooses the attack, never a target and never
     // a send; the player then clicks an enemy the rules accept and Confirm beside it.
-    public void PickCombat(InteractionMode mode, bool byKey = false)
+    public void PickCombat(InteractionMode mode, bool byKey = false, int weapon = 0)
     {
-        Interaction.ChooseCombat(mode, byKey);
+        Interaction.ChooseCombat(mode, byKey, weapon);
         Sync();
         UpdateCombat();
     }
@@ -1314,8 +1317,9 @@ public partial class BoardView : SubViewportContainer
     // For the UI check: the menu's entries as shown (label, enabled, the reason under a greyed one), and where to click.
     public IReadOnlyList<(string Label, bool Enabled, string? Why)> CombatMenuShown { get; private set; } = [];
 
-    public Vector2? CombatButtonAt(InteractionMode mode) =>
-        _combatMenu.Visible && _combatRows.GetChildren().OfType<Button>().FirstOrDefault(b => !b.IsQueuedForDeletion() && b.HasMeta("mode") && (int)b.GetMeta("mode") == (int)mode) is { } button
+    public Vector2? CombatButtonAt(InteractionMode mode, int weapon = 0) =>
+        _combatMenu.Visible && _combatRows.GetChildren().OfType<Button>().FirstOrDefault(b => !b.IsQueuedForDeletion() && b.HasMeta("mode") && (int)b.GetMeta("mode") == (int)mode
+            && (int)b.GetMeta("weapon", 0) == weapon) is { } button
             ? button.GetGlobalRect().GetCenter()
             : null;
 
@@ -1337,7 +1341,7 @@ public partial class BoardView : SubViewportContainer
         var entries = Interaction.CombatEntries();
         var actor = Interaction.Actor is { } a ? _scene?.Find(a) : null;
         var target = Interaction.Target is { } t ? _scene?.Find(t) : null;
-        var key = $"{actor?.Id.Value}|{_textScale}|{string.Join("|", entries.Select(e => $"{e.Mode}:{e.Enabled}:{e.Why}:{e.Targets}"))}";
+        var key = $"{actor?.Id.Value}|{_textScale}|{string.Join("|", entries.Select(e => $"{e.Mode}:{e.Weapon}:{e.Enabled}:{e.Why}:{e.Targets}"))}";
         if (key != _combatShown)
         {
             _combatShown = key;
@@ -1368,8 +1372,10 @@ public partial class BoardView : SubViewportContainer
                 };
                 button.AddThemeFontSizeOverride("font_size", (int)(16 * _textScale));
                 button.SetMeta("mode", (int)entry.Mode);
+                button.SetMeta("weapon", entry.Weapon);
                 var mode = entry.Mode;
-                button.Pressed += () => PickCombat(mode);
+                var weapon = entry.Weapon;
+                button.Pressed += () => PickCombat(mode, weapon: weapon);
                 _combatRows.AddChild(button);
                 if (!entry.Enabled && entry.Why is { } why)
                 {

@@ -130,7 +130,7 @@ public static class Previews
     private const string OneOfThree = "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.";
     // Roster stage R2b: a HEAVY ranged weapon that has shot rules out a Move, Dash or Retreat (ActionLimits, p. 55).
     private static Rejection? Heavy(MatchState state, ModelId id) =>
-        ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(id)) is { } text ? new(ReasonCode.ActionExcluded, text, ActionLimits.Ref) : null;
+        ActionLimits.MoveExcluded(state, id) is { } text ? new(ReasonCode.ActionExcluded, text, ActionLimits.Ref) : null;
     private static readonly Length Engagement = Length.Inch;
     private static readonly Length ChargeRange = Length.FromInches(12);
     private const int ChargeDieFaces = 6;
@@ -325,14 +325,21 @@ public static class Previews
 
     // ---- Shoot, Charge and Fight: a target ----
 
-    public static Preview Target(MatchState state, Seat seat, PreviewKind kind, ModelId model, ModelId target)
+    // Roster stage R3: weapon 1 is the model's second Ranged or Melee Weapon. A Fight with attacks still to come (an
+    // Off-Hand weapon, CLEAVE) goes on with the weapon the rules name, whatever is asked (TurnSequence.NextFightAttack).
+    public static Preview Target(MatchState state, Seat seat, PreviewKind kind, ModelId model, ModelId target, int weapon = 0)
     {
         ArgumentNullException.ThrowIfNull(state);
+        var next = kind == PreviewKind.Fight ? TurnSequence.NextFightAttack(state, model) : null;
+        if (next is not null)
+        {
+            weapon = next.Weapon;
+        }
         Command command = kind switch
         {
-            PreviewKind.Shoot => new Shoot(seat, model, target),
+            PreviewKind.Shoot => new Shoot(seat, model, target) { Weapon = weapon },
             PreviewKind.Charge => new ChargeModel(seat, model, target),
-            PreviewKind.Fight => new FightModel(seat, model, target),
+            PreviewKind.Fight => new FightModel(seat, model, target) { Weapon = weapon },
             _ => throw new ArgumentOutOfRangeException(nameof(kind), "Shoot, Charge or Fight."),
         };
         var facts = new List<string>();
@@ -343,9 +350,9 @@ public static class Previews
         bool? longRange = null;
         var refusal = Opening(state) ?? kind switch
         {
-            PreviewKind.Shoot => CheckShoot(state, seat, model, target, facts, rays, ref dice, ref longRange),
+            PreviewKind.Shoot => CheckShoot(state, seat, model, target, facts, rays, ref dice, ref longRange, weapon),
             PreviewKind.Charge => CheckCharge(state, seat, model, target, facts, rays, charge, ref needed),
-            _ => CheckFight(state, seat, model, target, facts, rays, ref dice),
+            _ => CheckFight(state, seat, model, target, facts, rays, ref dice, weapon, next),
         };
         // Battlefield UI, stage K7: a charger without a Melee Weapon may still charge (1.0.2 p. 37: a charge does not of
         // itself allow a Fight), but it cannot Fight after it (p. 45); the preview says so before the charge is sent.
@@ -368,7 +375,7 @@ public static class Previews
             LongRange: refusal is null ? longRange : null);
     }
 
-    private static Rejection? CheckShoot(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays, ref DicePreview? dice, ref bool? isLong)
+    private static Rejection? CheckShoot(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays, ref DicePreview? dice, ref bool? isLong, int weapon = 0)
     {
         if (Acting(state, seat, id, out var attacker) is { } rejection)
         {
@@ -378,7 +385,7 @@ public static class Previews
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Shoot ACTION can be taken only once per activation.", RefActions);
         }
-        if (ActionLimits.ShootExcluded(state.Actions, state.Setup?.ProfileOf(id)) is { } excluded)
+        if (ActionLimits.ShootExcluded(state, id, weapon) is { } excluded)
         {
             return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
@@ -386,12 +393,17 @@ public static class Previews
         {
             return new(ReasonCode.UnknownModel, "There is no such target.", RefAttack);
         }
-        var profile = state.Setup!.ProfileOf(attacker!.Id)!;
+        var owned = state.Setup!.ProfileOf(attacker!.Id)!;
         var from = BodyOf(state, attacker)!;
-        if (!profile.HasRangedWeapon)
+        if (!owned.HasRangedWeapon)
         {
             return new(ReasonCode.NoRangedWeapon, "That model has no Ranged Weapon.", RefAttack);
         }
+        if (weapon != 0 && (weapon < 0 || owned.Weapons(AttackKind.Ranged) <= weapon))
+        {
+            return new(ReasonCode.NoRangedWeapon, "That model has no second ranged weapon.", RefAttack);
+        }
+        var profile = owned.Using(AttackKind.Ranged, weapon);
         if (target.Seat == attacker.Seat)
         {
             return new(ReasonCode.TargetNotEnemy, "The target must be an enemy model.", RefAttack);
@@ -432,7 +444,7 @@ public static class Previews
         var applied = AttackDice.ShotModifiers(profile.RangedWeaponKeywords, longRange, cover.InCover, elevated);
         dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, applied.LongRange + applied.Cover,
             [.. new[] { applied.LongRange > 0 ? "Long Range, p. 43" : null, applied.Cover > 0 ? "Cover, pp. 38, 43" : null }.OfType<string>()], applied.Elevated,
-            applied.ShotgunInjury);
+            applied.ShotgunInjury, weapon);
         return null;
     }
 
@@ -446,7 +458,7 @@ public static class Previews
         {
             return new(ReasonCode.ActionAlreadyTaken, OneOfThree, RefActions);
         }
-        if (ActionLimits.MeleeExcluded(state.Actions, state.Setup?.ProfileOf(id), ActionsTaken.Charge) is { } excluded)
+        if (ActionLimits.MeleeExcluded(state, id, ActionsTaken.Charge) is { } excluded)
         {
             return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
@@ -533,17 +545,17 @@ public static class Previews
         return null;
     }
 
-    private static Rejection? CheckFight(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays, ref DicePreview? dice)
+    private static Rejection? CheckFight(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays, ref DicePreview? dice, int weapon = 0, MeleeAttackSlot? next = null)
     {
         if (Acting(state, seat, id, out var attacker) is { } rejection)
         {
             return rejection;
         }
-        if (state.Actions.HasFlag(ActionsTaken.Fight))
+        if (next is null && state.Actions.HasFlag(ActionsTaken.Fight))
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Fight ACTION can be taken only once per activation.", RefActions);
         }
-        if (ActionLimits.MeleeExcluded(state.Actions, state.Setup?.ProfileOf(id), ActionsTaken.Fight) is { } excluded)
+        if (next is null && ActionLimits.MeleeExcluded(state, id, ActionsTaken.Fight) is { } excluded)
         {
             return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
@@ -555,6 +567,10 @@ public static class Previews
         if (!state.Setup!.ProfileOf(attacker!.Id)!.CanMakeMeleeAttack)
         {
             return new(ReasonCode.NoMeleeWeapon, "That model has no Melee Weapon.", RefMelee);
+        }
+        if (weapon != 0 && (weapon < 0 || state.Setup.ProfileOf(attacker.Id)!.Weapons(AttackKind.Melee) <= weapon))
+        {
+            return new(ReasonCode.NoMeleeWeapon, "That model has no second Melee Weapon.", RefMelee);
         }
         if (target.Seat == attacker.Seat)
         {
@@ -575,8 +591,16 @@ public static class Previews
         {
             return new(ReasonCode.NoLineOfSight, "The target must be in the attacker's Line of Sight.", RefMelee);
         }
-        dice = DicePreview.Of(state, attacker, target, AttackKind.Melee, AttackDice.FightPenalty(cover.InCover),
-            cover.InCover ? ["Defended Obstacle, p. 45"] : []);
+        // Roster stage R3 (U100): an Off-Hand weapon's attacks and BLOCK after a charge are a penalty die each.
+        var offHand = next?.OffHand ?? false;
+        var block = TurnSequence.Blocks(state, attacker.Id, target.Id);
+        var reasons = new[] { cover.InCover ? "Defended Obstacle, p. 45" : null, offHand ? "Off-Hand weapon, p. 45" : null, block ? "BLOCK after a charge, p. 53" : null }.OfType<string>().ToList();
+        dice = DicePreview.Of(state, attacker, target, AttackKind.Melee,
+            AttackDice.FightPenalty(cover.InCover) + AttackDice.FightPenalty(offHand) + AttackDice.FightPenalty(block), reasons, weapon: weapon);
+        if (next is not null)
+        {
+            facts.Add(offHand ? "The Fight goes on with the Off-Hand weapon (p. 45)." : "The Fight goes on with the weapon's next CLEAVE attack (p. 53).");
+        }
         return null;
     }
 
@@ -586,7 +610,8 @@ public static class Previews
     // checks the previews make (and so the server), in the same words. For Shoot, Charge and Fight that means at least
     // one enemy on the table the preview would accept; the refusal is then the nearest enemy's. Advisory only: it
     // decides which buttons the action bar shows, never what the server accepts.
-    public static Rejection? ActionOpen(MatchState state, Seat seat, ModelId model, PreviewKind kind)
+    // Roster stage R3: with no weapon named, Shoot and Fight are open when any of the model's weapons of that kind is.
+    public static Rejection? ActionOpen(MatchState state, Seat seat, ModelId model, PreviewKind kind, int? weapon = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         if (Opening(state) is { } closed)
@@ -619,18 +644,35 @@ public static class Previews
                 return IsEngaged(state, acting!) ? null : new(ReasonCode.NotEngaged, "Only a model within 1\" of an enemy can Retreat.", RefRetreat);
             case PreviewKind.Shoot or PreviewKind.Charge or PreviewKind.Fight:
                 Rejection? nearest = null;
+                var weapons = weapon is { } w ? [w] : WeaponsOf(state, model, kind);
                 foreach (var enemy in EnemiesByDistance(state, acting!))
                 {
-                    if (Target(state, seat, kind, model, enemy.Id).Refusal is not { } refusal)
+                    foreach (var each in weapons)
                     {
-                        return null;
+                        if (Target(state, seat, kind, model, enemy.Id, each).Refusal is not { } refusal)
+                        {
+                            return null;
+                        }
+                        nearest ??= refusal;
                     }
-                    nearest ??= refusal;
                 }
                 return nearest ?? new(ReasonCode.TargetNotOnTable, "No enemy model is on the battlefield.", RefAttack);
             default:
                 throw new ArgumentOutOfRangeException(nameof(kind), "Move, Dash, Retreat, Shoot, Charge or Fight.");
         }
+    }
+
+    // The weapons an attack of this kind could use: 0, and 1 when the model has a second one (a Fight going on with its
+    // next attack uses the weapon the rules name, so 0 alone is asked).
+    public static int[] WeaponsOf(MatchState state, ModelId model, PreviewKind kind)
+    {
+        var profile = state.Setup?.ProfileOf(model);
+        return kind switch
+        {
+            PreviewKind.Shoot when profile?.Weapons(AttackKind.Ranged) == 2 => [0, 1],
+            PreviewKind.Fight when profile?.Weapons(AttackKind.Melee) == 2 && TurnSequence.NextFightAttack(state, model) is null => [0, 1],
+            _ => [0],
+        };
     }
 
     // How far the acting model may move in a Move, Dash or Retreat (inches), to draw its reach; null when it cannot act.

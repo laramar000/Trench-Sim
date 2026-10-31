@@ -126,6 +126,16 @@ public sealed class Bot(Random rng)
     private IEnumerable<Command> Act(MatchState state, ModelState model)
     {
         var seat = model.Seat;
+        // Roster stage R3: a Fight with attacks still to come (an Off-Hand weapon, CLEAVE) goes on with them first. Only
+        // a model with a second Melee Weapon or CLEAVE has any, so older setups draw the same random numbers as before.
+        if (TurnSequence.NextFightAttack(state, model.Id) is { } next)
+        {
+            foreach (var target in Targets(state, model).Take(3))
+            {
+                yield return new FightModel(seat, model.Id, target.Id) { Weapon = next.Weapon };
+            }
+        }
+        var profile = state.Setup!.ProfileOf(model.Id)!;
         var kinds = new List<string>();
         var melee = state.Setup!.ProfileOf(model.Id)!.CanMakeMeleeAttack;
         var engaged = melee && NearestEnemy(state, model) is { } nearest && Gap(state, model, nearest) <= Length.Inch;
@@ -181,6 +191,10 @@ public sealed class Bot(Random rng)
                     foreach (var target in Targets(state, model).Take(3))
                     {
                         yield return new FightModel(seat, model.Id, target.Id);
+                        if (profile.Weapons(AttackKind.Melee) == 2)
+                        {
+                            yield return new FightModel(seat, model.Id, target.Id) { Weapon = 1 };
+                        }
                     }
                     break;
                 case "charge":
@@ -199,6 +213,10 @@ public sealed class Bot(Random rng)
                     foreach (var target in Targets(state, model))
                     {
                         yield return new Shoot(seat, model.Id, target.Id);
+                        if (profile.Weapons(AttackKind.Ranged) == 2)
+                        {
+                            yield return new Shoot(seat, model.Id, target.Id) { Weapon = 1 };
+                        }
                     }
                     break;
             }

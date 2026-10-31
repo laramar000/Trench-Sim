@@ -43,17 +43,18 @@ public sealed record DicePreview(
     // The weapon's keywords that change this attack's rolls, named for the preview ("CRITICAL", "IGNORE COVER").
     public IReadOnlyList<string> KeywordNotes { get; init; } = [];
 
-    internal static DicePreview Of(MatchState state, ModelState attacker, ModelState target, AttackKind kind, int hitPenalty, IReadOnlyList<string> reasons, int hitBonus = 0, int shotgunInjury = 0)
+    // Roster stage R3: weapon 1 is the model's second weapon of that kind (ModelProfile.Using).
+    internal static DicePreview Of(MatchState state, ModelState attacker, ModelState target, AttackKind kind, int hitPenalty, IReadOnlyList<string> reasons, int hitBonus = 0, int shotgunInjury = 0, int weapon = 0)
     {
         var setup = state.Setup!;
-        var modifier = InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(setup.ProfileOf(attacker.Id)!, setup.ProfileOf(target.Id)!, kind));
+        var profile = setup.ProfileOf(attacker.Id)!.Using(kind, weapon);
+        var modifier = InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, setup.ProfileOf(target.Id)!, kind));
         var bonus = AttackDice.InjuryBonus(critical: false, meleeOnDownTarget: kind == AttackKind.Melee && target.Status == ModelStatus.Down);
-        var profile = setup.ProfileOf(attacker.Id)!;
         return new(hitPenalty, reasons, AttackDice.Risky(profile, kind, state.IsShaken(attacker.Seat)), bonus, modifier, attacker.BloodMarkers, target.BloodMarkers)
         {
             ShakenRisky = state.IsShaken(attacker.Seat),
             ShotgunInjuryDice = shotgunInjury,
-            KeywordNotes = Notes(profile.AttackKeywords(kind), kind),
+            KeywordNotes = [.. Notes(profile.AttackKeywords(kind), kind), .. CleaveNote(profile, kind)],
             CriticalDice = AttackDice.CriticalInjuryDice(profile.AttackKeywords(kind)),
             HitBonus = hitBonus,
             OwnHitDice = AttackDice.OwnDice(profile, kind),
@@ -114,6 +115,10 @@ public sealed record DicePreview(
         }
         return notes;
     }
+
+    // Roster stage R3: CLEAVE (X) makes a Fight X Melee Attacks with the weapon (p. 53).
+    public static IReadOnlyList<string> CleaveNote(ModelProfile profile, AttackKind kind) =>
+        kind == AttackKind.Melee && profile.MeleeAttacksWith(0) > 1 ? [$"CLEAVE {profile.MeleeAttacksWith(0)}: this weapon makes {profile.MeleeAttacksWith(0)} Melee Attacks in a Fight"] : [];
 
     public static string WeaponWord(ModelProfile profile, AttackKind kind) =>
         kind == AttackKind.Melee && profile.HasMeleeWeapon ? "melee weapon" : "ranged weapon";

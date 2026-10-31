@@ -46,11 +46,70 @@ public class MatchReadinessTests
         Assert.Contains(builder.MatchLines, l => l.StartsWith("✕ Not playable yet:", StringComparison.Ordinal) && l.Contains("Frag Grenades", StringComparison.Ordinal));
     }
 
+    private static RosterBuilder Of(string faction, string entry, params string[] kit)
+    {
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseFaction(faction);
+        builder.Select(builder.Add(entry));
+        foreach (var k in kit)
+        {
+            builder.AddKit(k);
+        }
+        return builder;
+    }
+
+    private static ModelProfile Loaded(MatchReady ready) => Sim.Content.Parse(ready.ToContentJson("r3", "R3")).Single().Models[0].Profile;
+
+    // Roster stage R3 (U100): two pistols are two ranged weapons, and (no Melee Weapon) both may fight.
     [Fact]
-    public void ASecondRangedWeaponIsRefused()
+    public void ASecondRangedWeaponIsPlayed()
     {
         var ready = Principality(("lieutenant", ["pistol", "pistol"])).MatchCheck();
-        Assert.Contains(ready.Refused, r => r.Contains("one ranged and one melee weapon", StringComparison.Ordinal));
+        Assert.True(ready.Ok, string.Join("; ", ready.Refused.Concat(ready.RosterProblems)));
+        var profile = Loaded(ready);
+        Assert.Equal((2, 2, 12_000), (profile.Weapons(AttackKind.Ranged), profile.Weapons(AttackKind.Melee), profile.SecondRangedWeapon!.Range.Thousandths));
+        Assert.True(profile.SecondRangedWeapon.AlsoMelee);
+        Assert.True(profile.SecondMeleeWeapon!.Keywords.HasFlag(WeaponKeywords.Pistol));
+    }
+
+    [Fact]
+    public void APistolIsTheOffHandWeaponBesideASword()
+    {
+        var ready = Principality(("lieutenant", ["pistol", "sword-axe"])).MatchCheck();
+        Assert.True(ready.Ok, string.Join("; ", ready.Refused.Concat(ready.RosterProblems)));
+        var profile = Loaded(ready);
+        Assert.Equal((1, 2), (profile.Weapons(AttackKind.Ranged), profile.Weapons(AttackKind.Melee)));
+        Assert.True(profile.MeleeWeaponKeywords.HasFlag(WeaponKeywords.Critical));
+        Assert.Equal(WeaponKeywords.Pistol, profile.SecondMeleeWeapon!.Keywords);
+        Assert.Equal(0, profile.SecondMeleeWeapon.Range.Thousandths);
+        // A Yeoman with a rifle and a knife has one weapon of each kind.
+        var plain = Loaded(Principality(("yeoman", ["bolt-action-rifle", "trench-knife"])).MatchCheck());
+        Assert.Equal((1, 1), (plain.Weapons(AttackKind.Ranged), plain.Weapons(AttackKind.Melee)));
+    }
+
+    [Fact]
+    public void CleaveBlockAndImperviousArePlayed()
+    {
+        var axe = Of("heretics", "heretic-priest", "executioners-axe").MatchCheck();
+        Assert.Empty(axe.Refused);
+        Assert.Equal(2, Loaded(axe).MeleeWeaponCleave);
+        Assert.DoesNotContain(axe.PlayedWithout, w => w.Contains("CLEAVE", StringComparison.Ordinal));
+
+        var polearm = Principality(("lieutenant", ["polearm"])).MatchCheck();
+        Assert.True(polearm.Ok, string.Join("; ", polearm.Refused.Concat(polearm.RosterProblems)));
+        Assert.True(Loaded(polearm).HasBlock);
+        Assert.DoesNotContain(polearm.PlayedWithout, w => w.Contains("BLOCK", StringComparison.Ordinal));
+
+        var armour = Of("sultanate", "yuzbasi", "damascus-armour").MatchCheck();
+        Assert.Empty(armour.Refused);
+        Assert.Equal((-2, -2), (Loaded(armour).Armour, Loaded(armour).ImperviousArmour));
+        Assert.DoesNotContain(armour.PlayedWithout, w => w.Contains("IMPERVIOUS", StringComparison.Ordinal));
+
+        // Plain armour is not IMPERVIOUS, and no new field is written for a model without these.
+        var standard = Principality(("lieutenant", ["pistol", "standard-armour"])).MatchCheck();
+        Assert.Equal(0, Loaded(standard).ImperviousArmour);
+        var json = standard.ToContentJson("plain", "Plain");
+        Assert.All(new[] { "secondRangedWeapon", "secondMeleeWeapon", "meleeWeaponCleave", "imperviousArmour" }, f => Assert.DoesNotContain(f, json, StringComparison.Ordinal));
     }
 
     [Fact]

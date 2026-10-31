@@ -102,10 +102,20 @@ public sealed record RollInProgress(
     bool FriendlyFire = false,
     int ChargeDie = 0,
     ActionsTaken ClimbAction = ActionsTaken.None,
-    int InjuryDiceLater = 0);
+    int InjuryDiceLater = 0,
+    int Weapon = 0,
+    bool OffHand = false);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.
+// Roster stage R3 (U100): the Melee Attacks still to come of one Fight ACTION (Free false: the active model's) or one
+// free attack (Free true), in order: each with its weapon (0, or 1 for the second Melee Weapon) and whether it is the
+// Off-Hand weapon (-1 DICE, p. 45). The active model's are optional: anything else it does ends them. A free attack's
+// CLEAVE attacks follow one after another against the retreating model.
+public sealed record MeleeAttacksLeft(ModelId Attacker, bool Free, ImmutableArray<MeleeAttackSlot> Next);
+
+public sealed record MeleeAttackSlot(int Weapon, bool OffHand);
+
 public sealed record RetreatInProgress(ModelId Model, ImmutableArray<Point2> Path, ImmutableArray<ModelId> Fought, bool Closed = false);
 
 // A move halted by a Mine Marker (Trench Warfare, p. 162; U93), between the move event and the rest of the move. Path is
@@ -181,6 +191,16 @@ public sealed record MatchState
     // Roster stage R2b: the active model attacked with a RELOAD weapon and that ACTION is done, so its activation ends
     // next (p. 56). Hashed only when set.
     public bool ReloadEnds { get; init; }
+
+    // Roster stage R3 (U100), each hashed only when set: the weapon the active model's Shoot ACTION used (ASSAULT and
+    // HEAVY are the shooting weapon's, pp. 52, 55); the Melee Attacks still to come of a Fight (a second weapon, CLEAVE)
+    // or of a free attack (CLEAVE); and, only in matches with a BLOCK model, the models that made a Charge ACTION this
+    // turn (p. 53).
+    public int ShotWeapon { get; init; }
+
+    public MeleeAttacksLeft? AttacksLeft { get; init; }
+
+    public ImmutableArray<ModelId> ChargedThisTurn { get; init; } = [];
 
     public SeatState SeatFor(Seat seat) => seat == Seat.One ? One : Two;
 

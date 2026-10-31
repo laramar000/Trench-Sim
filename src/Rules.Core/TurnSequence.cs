@@ -129,6 +129,9 @@ public static partial class TurnSequence
                 break;
             case DecisionKind.FreeFight:
                 commands.AddRange(Board.FreeFighters(state, state.Retreat!).Select(m => new FreeFight(pending.Seat, m.Id)));
+                // Roster stage R3: a free attack with the second Melee Weapon, for a model that has one.
+                commands.AddRange(Board.FreeFighters(state, state.Retreat!).Where(m => state.Setup!.ProfileOf(m.Id)!.Weapons(AttackKind.Melee) == 2)
+                    .Select(m => new FreeFight(pending.Seat, m.Id) { Weapon = 1 }));
                 commands.Add(new DeclineFreeFights(pending.Seat));
                 break;
             case DecisionKind.ChooseFriendlyTarget:
@@ -422,6 +425,11 @@ public static partial class TurnSequence
         if (s.InProgress is not null)
         {
             return AdvanceRoll(run, s, dice);
+        }
+
+        if (Reducer.FreeAttackDue(s) is { } due)
+        {
+            return AdvanceFreeAttack(run, s, due);
         }
 
         if (s.Retreat is { } retreat)

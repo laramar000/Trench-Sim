@@ -340,6 +340,8 @@ public static class Wire
             (typeof(Welcome), nameof(Welcome.Warbands)),
             (typeof(MatchRecordBody), nameof(MatchRecordBody.Map)),
             (typeof(MatchRecordBody), nameof(MatchRecordBody.MapHash)),
+            (typeof(ModelProfile), nameof(ModelProfile.SecondRangedWeapon)),
+            (typeof(ModelProfile), nameof(ModelProfile.SecondMeleeWeapon)),
         ];
 
         // Optional flags left out when false, for the same reason (every match before dual-purpose weapons).
@@ -348,6 +350,9 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.RangedAlsoMelee)),
             (typeof(RangedAttackDeclared), nameof(RangedAttackDeclared.Elevated)),
             (typeof(FriendlyTargetChosen), nameof(FriendlyTargetChosen.Elevated)),
+            (typeof(ModelProfile), nameof(ModelProfile.Block)),
+            (typeof(MeleeAttackDeclared), nameof(MeleeAttackDeclared.OffHand)),
+            (typeof(MeleeAttackDeclared), nameof(MeleeAttackDeclared.Block)),
         ];
 
         // Optional numbers left out when zero, for the same reason (every match before roster stage R1's profile dice).
@@ -361,6 +366,13 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponInjuryDice)),
             (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponKeywords)),
             (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponKeywords)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponCleave)),
+            (typeof(ModelProfile), nameof(ModelProfile.ImperviousArmour)),
+            (typeof(Shoot), nameof(Shoot.Weapon)),
+            (typeof(FightModel), nameof(FightModel.Weapon)),
+            (typeof(FreeFight), nameof(FreeFight.Weapon)),
+            (typeof(RangedAttackDeclared), nameof(RangedAttackDeclared.Weapon)),
+            (typeof(MeleeAttackDeclared), nameof(MeleeAttackDeclared.Weapon)),
         ];
 
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();

@@ -43,12 +43,32 @@ public static class Content
                         MeleeWeaponInjuryDice = Dice(m, "meleeWeaponInjuryDice"),
                         RangedWeaponKeywords = Keywords(m, "rangedWeaponKeywords"),
                         MeleeWeaponKeywords = Keywords(m, "meleeWeaponKeywords"),
+                        // Roster stage R3: after the fields they depend on (a second weapon needs a first one).
+                        MeleeWeaponCleave = Dice(m, "meleeWeaponCleave"),
+                        Block = m.TryGetProperty("block", out var block) && block.GetBoolean(),
+                        ImperviousArmour = Dice(m, "imperviousArmour"),
+                        SecondRangedWeapon = SecondWeapon(m, "secondRangedWeapon"),
+                        SecondMeleeWeapon = SecondWeapon(m, "secondMeleeWeapon"),
                     }));
             }
             warbands.Add(new Warband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));
         }
         return warbands;
     }
+
+    // Roster stage R3: a second ranged or Melee Weapon, null when not given: { "rangeInches": "12", "injuryModifier": 0,
+    // "dice": 0, "injuryDice": 0, "keywords": [...], "alsoMelee": false, "cleave": 0 }, each field optional (range 0).
+    private static Weapon? SecondWeapon(JsonElement model, string name) =>
+        model.TryGetProperty(name, out var w)
+            ? new Weapon(
+                w.TryGetProperty("rangeInches", out var range) ? Length.Parse(range.GetString()!) : Length.Zero,
+                Dice(w, "injuryModifier"),
+                Dice(w, "dice"),
+                Dice(w, "injuryDice"),
+                Keywords(w, "keywords"),
+                w.TryGetProperty("alsoMelee", out var also) && also.GetBoolean(),
+                Dice(w, "cleave"))
+            : null;
 
     // Roster stage R1: a model's dice (profile Ranged and Melee, weapon DICE and INJURY DICE), zero when not given.
     private static int Dice(JsonElement model, string name) =>

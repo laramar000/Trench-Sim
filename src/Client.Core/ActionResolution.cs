@@ -75,6 +75,7 @@ public sealed class ResolutionLog
         public bool Climb { get; set; }
         public int ShotgunInjury { get; set; }
         public bool Failed { get; set; }
+        public int Weapon { get; set; }
         public List<string> Steps { get; } = [];
         public List<string> Outcome { get; } = [];
 
@@ -122,17 +123,28 @@ public sealed class ResolutionLog
                 _current!.Climb = true;
                 break;
             case RangedAttackDeclared r:
-                Start(seq, r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}", AttackKind.Ranged, r.Target);
+                Start(seq, r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}{(r.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Ranged, r.Target);
+                _current!.Weapon = r.Weapon;
                 OwnParts(setup, r.Attacker, AttackKind.Ranged);
                 ShotParts(setup, r.Attacker, r.LongRange, r.CoverTerrainId, r.Elevated);
                 break;
             case MeleeAttackDeclared m:
-                Start(seq, m.Attacker, $"{Id(m.Attacker)} {(m.FreeFight ? "MAKES A FREE ATTACK ON" : "FIGHTS")} {Id(m.Target)}", AttackKind.Melee, m.Target);
+                Start(seq, m.Attacker, $"{Id(m.Attacker)} {(m.FreeFight ? "MAKES A FREE ATTACK ON" : "FIGHTS")} {Id(m.Target)}{(m.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Melee, m.Target);
                 _current!.FreeFight = m.FreeFight;
+                _current!.Weapon = m.Weapon;
                 OwnParts(setup, m.Attacker, AttackKind.Melee);
                 if (m.DefendedObstacleId is { } obstacle)
                 {
                     _current!.Dice.Add(new($"Defended obstacle ({obstacle})", -AttackDice.FightPenalty(true)));
+                }
+                // Roster stage R3 (U100): Off-Hand weapon and BLOCK after a charge.
+                if (m.OffHand)
+                {
+                    _current!.Dice.Add(new("Off-Hand weapon", -AttackDice.FightPenalty(true)));
+                }
+                if (m.Block)
+                {
+                    _current!.Dice.Add(new("BLOCK after a charge", -AttackDice.FightPenalty(true)));
                 }
                 break;
             case ChargeDeclared c:
@@ -219,10 +231,14 @@ public sealed class ResolutionLog
         _actions.Add(_current);
     }
 
+    // Roster stage R3: the attacker's profile as the action's weapon sees it (ModelProfile.Using).
+    private static ModelProfile? Armed(MatchSetup? setup, ModelId attacker, AttackKind kind, int weapon) =>
+        setup?.ProfileOf(attacker) is { } p ? weapon > 0 && p.Weapons(kind) > weapon ? p.Using(kind, weapon) : p : null;
+
     // Roster stage R1: the attacker's own dice on the Success Roll, its characteristic and its weapon's DICE.
     private void OwnParts(MatchSetup? setup, ModelId attacker, AttackKind kind)
     {
-        if (setup?.ProfileOf(attacker) is not { } profile)
+        if (Armed(setup, attacker, kind, _current!.Weapon) is not { } profile)
         {
             return;
         }
@@ -240,7 +256,7 @@ public sealed class ResolutionLog
     // The shot's modifiers as they apply with the weapon's keywords (roster stage R2: IGNORE ..., SHOTGUN).
     private void ShotParts(MatchSetup? setup, ModelId attacker, bool longRange, string? coverId, bool elevated)
     {
-        var keywords = setup?.ProfileOf(attacker)?.RangedWeaponKeywords ?? WeaponKeywords.None;
+        var keywords = Armed(setup, attacker, AttackKind.Ranged, _current!.Weapon)?.RangedWeaponKeywords ?? WeaponKeywords.None;
         var applied = AttackDice.ShotModifiers(keywords, longRange, coverId is not null, elevated);
         if (applied.Elevated != 0)
         {
@@ -283,7 +299,7 @@ public sealed class ResolutionLog
     {
         var injury = i.Injury;
         var dice = new List<ResolutionPart>();
-        var own = setup?.ProfileOf(i.Attacker);
+        var own = action.Kind is { } armedKind ? Armed(setup, i.Attacker, armedKind, action.Weapon) : setup?.ProfileOf(i.Attacker);
         if (action.Critical)
         {
             var critical = own is not null && action.Kind is { } k ? AttackDice.CriticalInjuryDice(own.AttackKeywords(k)) : AttackDice.InjuryBonus(true, false);
@@ -304,12 +320,12 @@ public sealed class ResolutionLog
         dice.AddRange(action.Dice);
         var modifiers = new List<ResolutionPart>();
         int? combined = null;
-        if (setup?.ProfileOf(i.Attacker) is { } attacker && setup.ProfileOf(i.Target) is { } target && action.Kind is { } kind)
+        if (own is { } attacker && setup?.ProfileOf(i.Target) is { } target && action.Kind is { } kind)
         {
             var values = AttackDice.InjuryModifiers(attacker, target, kind);
             modifiers.Add(new(kind == AttackKind.Melee ? "melee weapon" : "ranged weapon", values[0]));
             var k2 = attacker.AttackKeywords(kind);
-            modifiers.Add(new(k2.HasFlag(WeaponKeywords.IgnoreArmour) ? "Armour (IGNORE ARMOUR)" : k2.HasFlag(WeaponKeywords.ArmourPiercing) && values[1] != target.Armour ? "Armour (ARMOUR PIERCING)" : "Armour", values[1]));
+            modifiers.Add(new(k2.HasFlag(WeaponKeywords.IgnoreArmour) && values[1] != 0 ? "Armour (IGNORE ARMOUR; IMPERVIOUS counts)" : k2.HasFlag(WeaponKeywords.IgnoreArmour) ? "Armour (IGNORE ARMOUR)" : k2.HasFlag(WeaponKeywords.ArmourPiercing) && values[1] != target.Armour ? "Armour (ARMOUR PIERCING)" : "Armour", values[1]));
             combined = InjuryRoll.CombineModifiers(values);
         }
         var explained = dice.Sum(p => p.Value) == injury.NetDice && combined == injury.Modifier;

@@ -103,7 +103,7 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.", RefActions);
         }
-        if (ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(id)) is { } heavy)
+        if (ActionLimits.MoveExcluded(state, id) is { } heavy)
         {
             return new(ReasonCode.ActionExcluded, heavy, ActionLimits.Ref);
         }
@@ -125,7 +125,7 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Shoot ACTION can be taken only once per activation.", RefActions);
         }
-        if (ActionLimits.ShootExcluded(state.Actions, state.Setup?.ProfileOf(c.Attacker)) is { } excluded)
+        if (ActionLimits.ShootExcluded(state, c.Attacker, c.Weapon) is { } excluded)
         {
             return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
@@ -134,7 +134,7 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.UnknownModel, "There is no such target.", Board.RefAttack);
         }
-        var assessment = Board.Assess(state, attacker!, target);
+        var assessment = Board.Assess(state, attacker!, target, c.Weapon);
         return assessment.IsLegal ? null : new(assessment.Refusal!.Value, assessment.Text, assessment.RuleRef);
     }
 
@@ -148,7 +148,7 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.", RefActions);
         }
-        if (ActionLimits.MeleeExcluded(state.Actions, state.Setup?.ProfileOf(c.Model), ActionsTaken.Charge) is { } excluded)
+        if (ActionLimits.MeleeExcluded(state, c.Model, ActionsTaken.Charge) is { } excluded)
         {
             return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
@@ -166,7 +166,7 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.", RefActions);
         }
-        if (ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(c.Model)) is { } heavy)
+        if (ActionLimits.MoveExcluded(state, c.Model) is { } heavy)
         {
             return new(ReasonCode.ActionExcluded, heavy, ActionLimits.Ref);
         }
@@ -187,17 +187,37 @@ public static partial class TurnSequence
         {
             return rejection;
         }
-        if (state.Actions.HasFlag(ActionsTaken.Fight))
+        // Roster stage R3 (U100): a Fight with attacks still to come (a second weapon, CLEAVE) goes on with the next one.
+        if (NextFightAttack(state, c.Model) is { } next)
         {
-            return new(ReasonCode.ActionAlreadyTaken, "A Fight ACTION can be taken only once per activation.", RefActions);
+            if (c.Weapon != next.Weapon)
+            {
+                return new(ReasonCode.WrongWeapon, next.OffHand
+                    ? "The Fight goes on with the Off-Hand weapon's attack."
+                    : "The Fight goes on with the same weapon's next CLEAVE attack.", Board.RefMelee);
+            }
         }
-        if (ActionLimits.MeleeExcluded(state.Actions, state.Setup?.ProfileOf(c.Model), ActionsTaken.Fight) is { } excluded)
+        else
         {
-            return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
+            if (state.Actions.HasFlag(ActionsTaken.Fight))
+            {
+                return new(ReasonCode.ActionAlreadyTaken, "A Fight ACTION can be taken only once per activation.", RefActions);
+            }
+            if (ActionLimits.MeleeExcluded(state, c.Model, ActionsTaken.Fight) is { } excluded)
+            {
+                return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
+            }
         }
         var target = state.FindModel(c.Target);
-        return target is null ? new(ReasonCode.UnknownModel, "There is no such target.", Board.RefMelee) : Board.AssessMelee(state, attacker!, target).Refusal;
+        return target is null ? new(ReasonCode.UnknownModel, "There is no such target.", Board.RefMelee) : Board.AssessMelee(state, attacker!, target, c.Weapon).Refusal;
     }
+
+    // Roster stage R3: the next attack of the active model's Fight ACTION, when it has attacks still to come.
+    public static MeleeAttackSlot? NextFightAttack(MatchState state, ModelId model) =>
+        state.AttacksLeft is { Free: false, Next.Length: > 0 } left && left.Attacker == model && state.ActiveModel == model ? left.Next[0] : null;
+
+    // Roster stage R3: whether BLOCK gives this Melee Attack a penalty die (the target blocks a model that charged this turn).
+    public static bool Blocks(MatchState state, ModelId attacker, ModelId target) => Board.Blocks(state, attacker, target);
 
     // The three answers that are not Blood Marker spends: free attacks on a retreating model, and the friendly model a
     // shot into melee was forced onto.
@@ -225,9 +245,13 @@ public static partial class TurnSequence
         switch (command)
         {
             case FreeFight c:
-                return Board.FreeFighters(state, state.Retreat!).Any(m => m.Id == c.Attacker)
-                    ? null
-                    : new(ReasonCode.NotAFreeFighter, "That model cannot attack the retreating model: it must be a standing enemy with a Melee Weapon within 1\" that has not attacked yet.", "1.0.2 p. 37");
+                if (!Board.FreeFighters(state, state.Retreat!).Any(m => m.Id == c.Attacker))
+                {
+                    return new(ReasonCode.NotAFreeFighter, "That model cannot attack the retreating model: it must be a standing enemy with a Melee Weapon within 1\" that has not attacked yet.", "1.0.2 p. 37");
+                }
+                return c.Weapon != 0 && (c.Weapon < 0 || state.Setup!.ProfileOf(c.Attacker)!.Weapons(AttackKind.Melee) <= c.Weapon)
+                    ? new(ReasonCode.NoMeleeWeapon, "That model has no second Melee Weapon.", Board.RefMelee)
+                    : null;
             case ChooseFriendlyTarget c:
                 var progress = state.InProgress!;
                 var shooter = state.FindModel(progress.Actor)!;
@@ -300,7 +324,7 @@ public static partial class TurnSequence
                 break;
             case Shoot c:
                 var attacker = state.FindModel(c.Attacker)!;
-                var facts = Board.Assess(state, attacker, state.FindModel(c.Target)!);
+                var facts = Board.Assess(state, attacker, state.FindModel(c.Target)!, c.Weapon);
                 run.Emit(new RangedAttackDeclared(
                     c.Attacker,
                     c.Target,
@@ -310,7 +334,7 @@ public static partial class TurnSequence
                     facts.AttackerLevel,
                     facts.TargetLevel,
                     AttackDice.ShotPenalty(facts.LongRange, facts.InCover))
-                { IntoMelee = facts.IntoMelee, Elevated = facts.Elevated });
+                { IntoMelee = facts.IntoMelee, Elevated = facts.Elevated, Weapon = c.Weapon });
                 // A shot into melee asks about markers only once the D6 has settled who is shot (p. 42).
                 if (attacker.BloodMarkers > 0 && !facts.IntoMelee)
                 {
@@ -324,28 +348,17 @@ public static partial class TurnSequence
                 run.Emit(new RetreatDeclared(c.Model, c.Path));
                 break;
             case FightModel c:
-                var fighter = state.FindModel(c.Model)!;
-                run.Emit(new MeleeAttackDeclared(c.Model, c.Target, false, Board.AssessMelee(state, fighter, state.FindModel(c.Target)!).CoverTerrainId));
-                if (fighter.BloodMarkers > 0)
-                {
-                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
-                }
+                DeclareMelee(run, state.FindModel(c.Model)!, state.FindModel(c.Target)!, free: false, c.Weapon, NextFightAttack(state, c.Model)?.OffHand ?? false);
                 break;
             case FreeFight c:
-                var free = state.FindModel(c.Attacker)!;
-                var victim = state.FindModel(state.Retreat!.Model)!;
-                run.Emit(new MeleeAttackDeclared(c.Attacker, victim.Id, true, Board.AssessMelee(state, free, victim).CoverTerrainId));
-                if (free.BloodMarkers > 0)
-                {
-                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, free.Seat.Opponent()));
-                }
+                DeclareMelee(run, state.FindModel(c.Attacker)!, state.FindModel(state.Retreat!.Model)!, free: true, c.Weapon, offHand: false);
                 break;
             case DeclineFreeFights c:
                 run.Emit(new FreeFightsDeclined(c.Seat));
                 break;
             case ChooseFriendlyTarget c:
                 var shooter = state.FindModel(state.InProgress!.Actor)!;
-                var forced = Board.ForcedShotFacts(state, shooter, state.FindModel(c.Victim)!);
+                var forced = Board.ForcedShotFacts(state, shooter, state.FindModel(c.Victim)!, state.InProgress.Weapon);
                 run.Emit(new FriendlyTargetChosen(shooter.Id, c.Victim, forced.LongRange, forced.InCover, forced.CoverTerrainId) { Elevated = forced.Elevated });
                 if (shooter.BloodMarkers > 0)
                 {
@@ -363,6 +376,30 @@ public static partial class TurnSequence
                     success ? MarkerSpendPurpose.ReduceSuccessRoll : MarkerSpendPurpose.RaiseInjuryRoll));
                 break;
         }
+    }
+
+    // A Melee Attack with its facts (roster stage R3: the weapon, Off-Hand and BLOCK), then the offer to spend the
+    // attacker's Blood Markers.
+    private static void DeclareMelee(Run run, ModelState attacker, ModelState target, bool free, int weapon, bool offHand)
+    {
+        var state = run.State;
+        run.Emit(new MeleeAttackDeclared(attacker.Id, target.Id, free, Board.AssessMelee(state, attacker, target, weapon).CoverTerrainId)
+        {
+            Weapon = weapon,
+            OffHand = offHand,
+            Block = Board.Blocks(state, attacker.Id, target.Id),
+        });
+        if (attacker.BloodMarkers > 0)
+        {
+            run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, attacker.Seat.Opponent()));
+        }
+    }
+
+    // A free attack's next CLEAVE attack, at once against the retreating model (p. 37 with p. 53).
+    private static bool AdvanceFreeAttack(Run run, MatchState s, MeleeAttacksLeft due)
+    {
+        DeclareMelee(run, s.FindModel(due.Attacker)!, s.FindModel(s.Retreat!.Model)!, free: true, due.Next[0].Weapon, offHand: false);
+        return true;
     }
 
     // ---- the staged rolls: each die is rolled only when its stage is reached with no decision pending ----
@@ -431,7 +468,7 @@ public static partial class TurnSequence
                 // A Shaken warband's Success Rolls are Risky (p. 50).
                 // RISKY weapons too (roster stage R2, p. 55).
                 var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice,
-                    risky: AttackDice.Risky(s.Setup!.ProfileOf(actor.Id)!, AttackKind.Ranged, s.IsShaken(actor.Seat)));
+                    risky: AttackDice.Risky(s.Setup!.ProfileOf(actor.Id)!.Using(AttackKind.Ranged, progress.Weapon), AttackKind.Ranged, s.IsShaken(actor.Seat)));
                 run.Emit(new RangedSuccessRolled(progress.Actor, progress.Target!.Value, check));
                 if (check.RiskyFailure)
                 {
@@ -460,7 +497,7 @@ public static partial class TurnSequence
             case RollStage.FightRoll:
             {
                 var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice,
-                    risky: AttackDice.Risky(s.Setup!.ProfileOf(actor.Id)!, AttackKind.Melee, s.IsShaken(actor.Seat)));
+                    risky: AttackDice.Risky(s.Setup!.ProfileOf(actor.Id)!.Using(AttackKind.Melee, progress.Weapon), AttackKind.Melee, s.IsShaken(actor.Seat)));
                 run.Emit(new MeleeSuccessRolled(progress.Actor, progress.Target!.Value, check));
                 if (check.RiskyFailure)
                 {
@@ -490,7 +527,7 @@ public static partial class TurnSequence
             case RollStage.InjuryRoll:
             {
                 var target = s.FindModel(progress.Target!.Value)!;
-                var weapon = s.Setup!.ProfileOf(actor.Id)!;
+                var weapon = s.Setup!.ProfileOf(actor.Id)!.Using(progress.Kind, progress.Weapon);
                 var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup.ProfileOf(target.Id)!, progress.Kind);
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down);
                 run.Emit(new InjuryRolled(actor.Id, target.Id, injury));

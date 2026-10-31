@@ -259,6 +259,12 @@ public static class RosterValidator
         foreach (var dup in carried.Where(c => c.Kit.Category is KitCategory.Equipment or KitCategory.Special)
                      .GroupBy(c => c.Kit.Id).Where(g => g.Count() > 1))
             problems.Add($"{who}: cannot have two pieces of {dup.First().Kit.Name}");
+        // HEAVY p. 55: at most one piece of HEAVY battlekit. A many-armed model whose entry lets it carry N HEAVY
+        // weapons as 1-handed (the Amalgam, two) may have that many (U100).
+        var heavyAllowed = Math.Max(1, arms?.HeavyAsOneHanded ?? 0);
+        var heavy = carried.Where(c => Has(c.Kit, "HEAVY")).ToList();
+        if (heavy.Count > heavyAllowed)
+            problems.Add($"{who}: can have only {(heavyAllowed == 1 ? "one piece" : $"{heavyAllowed} pieces")} of HEAVY battlekit (it has {heavy.Count}: {string.Join(", ", heavy.Select(c => c.Kit.Name))})");
         if (carried.Count(c => c.From?.Stipulations.Contains(Stipulation.Headgear) == true) > 1)
             problems.Add($"{who}: can wear only one piece of Headgear");
 

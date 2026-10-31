@@ -98,9 +98,11 @@ internal static class Board
         return body is not null && OnTable(state).Any(o => o.Seat != model.Seat && Measure.IsWithin(body, BodyOf(state, o)!, EngagementRange));
     }
 
-    public static AttackAssessment Assess(MatchState state, ModelState attacker, ModelState target)
+    // Roster stage R3: weapon 1 is the model's second ranged weapon; one it does not have is refused as no weapon.
+    public static AttackAssessment Assess(MatchState state, ModelState attacker, ModelState target, int weapon = 0)
     {
-        var profile = state.Setup!.ProfileOf(attacker.Id)!;
+        var owned = state.Setup!.ProfileOf(attacker.Id)!;
+        var profile = weapon is 0 or 1 && owned.Weapons(AttackKind.Ranged) > weapon ? owned.Using(AttackKind.Ranged, weapon) : owned;
         var scenario = ScenarioOf(state)!;
         var from = BodyOf(state, attacker);
         if (from is null || attacker.Status == ModelStatus.OutOfAction)
@@ -114,6 +116,10 @@ internal static class Board
         if (!profile.HasRangedWeapon)
         {
             return Refuse(ReasonCode.NoRangedWeapon, "That model has no Ranged Weapon.");
+        }
+        if (weapon != 0 && (weapon < 0 || owned.Weapons(AttackKind.Ranged) <= weapon))
+        {
+            return Refuse(ReasonCode.NoRangedWeapon, "That model has no second ranged weapon.");
         }
         if (target.Seat == attacker.Seat)
         {
@@ -163,11 +169,11 @@ internal static class Board
 
     // Long Range and Cover for a shot at a model the shooter was forced to target (p. 42): the modifiers follow the
     // positions as for any shot, but Line of Sight and range no longer decide whether the shot may be made (U51).
-    public static (bool LongRange, bool InCover, string? CoverTerrainId, bool Elevated) ForcedShotFacts(MatchState state, ModelState attacker, ModelState victim)
+    public static (bool LongRange, bool InCover, string? CoverTerrainId, bool Elevated) ForcedShotFacts(MatchState state, ModelState attacker, ModelState victim, int weapon = 0)
     {
         var from = BodyOf(state, attacker)!;
         var to = BodyOf(state, victim)!;
-        var profile = state.Setup!.ProfileOf(attacker.Id)!;
+        var profile = state.Setup!.ProfileOf(attacker.Id)!.Using(AttackKind.Ranged, weapon);
         var cover = Cover.Of(ScenarioOf(state)!.Battlefield, from, to);
         var half = Length.FromThousandths(profile.RangedRange.Thousandths / 2);
         var inCover = cover.InCover && cover.Sight.Visibility != Visibility.None;
@@ -281,9 +287,16 @@ internal static class Board
 
     // ---- Melee Attacks (pp. 45-46) ----
 
+    // Roster stage R3 (U100): BLOCK gives -1 DICE to a Melee Attack against its model when the attacker made a Charge
+    // ACTION before the attack this turn (p. 53). Charges are only tracked in matches with a BLOCK model.
+    public static bool Blocks(MatchState state, ModelId attacker, ModelId target) =>
+        state.Setup?.ProfileOf(target) is { HasBlock: true } && !state.ChargedThisTurn.IsDefaultOrEmpty && state.ChargedThisTurn.Contains(attacker);
+
+    public static bool TracksCharges(MatchSetup setup) => setup.Models.Any(m => m.Profile?.HasBlock == true);
+
     public sealed record MeleeAssessment(Rejection? Refusal, bool InCover = false, string? CoverTerrainId = null);
 
-    public static MeleeAssessment AssessMelee(MatchState state, ModelState attacker, ModelState target)
+    public static MeleeAssessment AssessMelee(MatchState state, ModelState attacker, ModelState target, int weapon = 0)
     {
         MeleeAssessment Refuse(ReasonCode code, string text) => new(new Rejection(code, text, RefMelee));
         var from = BodyOf(state, attacker);
@@ -298,6 +311,10 @@ internal static class Board
         if (!state.Setup!.ProfileOf(attacker.Id)!.CanMakeMeleeAttack)
         {
             return Refuse(ReasonCode.NoMeleeWeapon, "That model has no Melee Weapon.");
+        }
+        if (weapon != 0 && (weapon < 0 || state.Setup!.ProfileOf(attacker.Id)!.Weapons(AttackKind.Melee) <= weapon))
+        {
+            return Refuse(ReasonCode.NoMeleeWeapon, "That model has no second Melee Weapon.");
         }
         if (target.Seat == attacker.Seat)
         {

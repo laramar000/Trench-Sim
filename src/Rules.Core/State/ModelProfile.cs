@@ -5,7 +5,7 @@ namespace Rules.Core.State;
 // What a model can do, as the rules need it: how far it moves, how big its base is, and its one ranged weapon.
 // Names, art and warband entries live in content outside Rules.Core; nothing here says who the model is.
 // RangedRange zero means no ranged weapon; HasMeleeWeapon says whether the model has one Melee Weapon (pp. 45-46;
-// a second Melee Weapon, Off-Hand attacks and CLEAVE are not modelled yet). Injury modifiers follow Injury Rolls (pp. 46, 48): the weapon's
+// a second ranged or Melee Weapon, Off-Hand attacks and CLEAVE since roster stage R3, U100). Injury modifiers follow Injury Rolls (pp. 46, 48): the weapon's
 // modifier is added by the attacker, Armour (zero or negative) belongs to the target.
 // RangedAlsoMelee: the ranged weapon has "Melee" under its Range (a Dual-purpose weapon such as a Pistol, 12"/Melee;
 // pp. 56, 68, 70), so it can also make Melee Attacks (C19a). A model with a Melee Weapon attacks with that one in melee
@@ -132,14 +132,129 @@ public sealed record ModelProfile
     private const WeaponKeywords AllKeywords = WeaponKeywords.Critical | WeaponKeywords.IgnoreArmour | WeaponKeywords.ArmourPiercing
         | WeaponKeywords.Shotgun | WeaponKeywords.Risky | WeaponKeywords.Pistol | WeaponKeywords.IgnoreCover
         | WeaponKeywords.IgnoreLongRange | WeaponKeywords.IgnoreElevatedPosition | WeaponKeywords.Assault | WeaponKeywords.Heavy
-        | WeaponKeywords.Reload;
+        | WeaponKeywords.Reload | WeaponKeywords.Block;
 
     // HEAVY battlekit (a HEAVY weapon here; other HEAVY pieces are equipment, not played): no Charge Bonus (p. 55).
-    public bool NoChargeBonus => ((RangedWeaponKeywords | MeleeWeaponKeywords) & WeaponKeywords.Heavy) != 0;
+    public bool NoChargeBonus => (AllWeaponKeywords & WeaponKeywords.Heavy) != 0;
 
-    private static WeaponKeywords Known(WeaponKeywords value, string name) => (value & ~AllKeywords) != 0
+    // The keywords of every weapon the model has.
+    public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
+        | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None);
+
+    internal static WeaponKeywords Known(WeaponKeywords value, string name) => (value & ~AllKeywords) != 0
         ? throw new ArgumentOutOfRangeException(name, "Unknown weapon keywords.")
         : value;
+
+    // ---- Roster stage R3 (U100): second weapons, CLEAVE, BLOCK and IMPERVIOUS ----
+    // All init properties, left off the wire and out of the state hash when absent, zero or false.
+
+    public const int MaxCleave = 6;
+
+    // A second ranged weapon (two 1-handed ranged weapons, p. 69): a Shoot ACTION picks one of the two (weapon 1).
+    public Weapon? SecondRangedWeapon
+    {
+        get => _secondRanged;
+        init => _secondRanged = value is null ? null
+            : !HasRangedWeapon ? throw new ArgumentException("A second ranged weapon needs a first one.", nameof(SecondRangedWeapon))
+            : !value.IsRanged ? throw new ArgumentException("A second ranged weapon has a range.", nameof(SecondRangedWeapon))
+            : value;
+    }
+
+    // A second Melee Weapon (Multiple Melee Weapons, p. 45): a Fight ACTION makes an attack with each, the second with
+    // -1 DICE (Off-Hand). A dual-purpose weapon used in melee as a second weapon is given here as a Melee Weapon.
+    public Weapon? SecondMeleeWeapon
+    {
+        get => _secondMelee;
+        init => _secondMelee = value is null ? null
+            : !CanMakeMeleeAttack ? throw new ArgumentException("A second Melee Weapon needs a first one.", nameof(SecondMeleeWeapon))
+            : value.IsRanged ? throw new ArgumentException("A second Melee Weapon has no range.", nameof(SecondMeleeWeapon))
+            : value;
+    }
+
+    // CLEAVE (X) of the Melee Weapon (p. 53): a Fight with it makes X Melee Attacks; 0 means no CLEAVE.
+    public int MeleeWeaponCleave
+    {
+        get => _meleeCleave;
+        init => _meleeCleave = value is < 0 or > MaxCleave ? throw new ArgumentOutOfRangeException(nameof(MeleeWeaponCleave), $"CLEAVE is 0 (none) to {MaxCleave}.")
+            : value != 0 && !HasMeleeWeapon ? throw new ArgumentException("Only a Melee Weapon has CLEAVE.", nameof(MeleeWeaponCleave))
+            : value;
+    }
+
+    // The model itself has BLOCK (p. 53), as well as any weapon with it.
+    public bool Block { get; init; }
+
+    // The part of Armour that comes from IMPERVIOUS battlekit (p. 55), which IGNORE ARMOUR and ARMOUR PIERCING leave
+    // alone: from Armour up to 0.
+    public int ImperviousArmour
+    {
+        get => _impervious;
+        init => _impervious = value > 0 || value < Armour ? throw new ArgumentOutOfRangeException(nameof(ImperviousArmour), "The IMPERVIOUS part of Armour is between the Armour and 0.") : value;
+    }
+
+    private readonly Weapon? _secondRanged;
+    private readonly Weapon? _secondMelee;
+    private readonly int _meleeCleave;
+    private readonly int _impervious;
+
+    // BLOCK on the model or on any of its weapons (p. 53).
+    public bool HasBlock => Block || AllWeaponKeywords.HasFlag(WeaponKeywords.Block);
+
+    // How many weapons of a kind the model can attack with: 0, 1 or 2.
+    public int Weapons(AttackKind kind) => kind == AttackKind.Melee
+        ? CanMakeMeleeAttack ? SecondMeleeWeapon is null ? 1 : 2 : 0
+        : HasRangedWeapon ? SecondRangedWeapon is null ? 1 : 2 : 0;
+
+    // The Melee Attacks a Fight makes with a weapon: CLEAVE (X), else one.
+    public int MeleeAttacksWith(int weapon) => Math.Max(1, weapon == 0 ? (HasMeleeWeapon ? MeleeWeaponCleave : 0) : SecondMeleeWeapon?.Cleave ?? 0);
+
+    // The profile as an attack with one of the model's weapons sees it: weapon 0 is the profile itself; weapon 1 puts
+    // the second weapon of that kind in the first one's place, so every rule about "the weapon" reads that weapon.
+    public ModelProfile Using(AttackKind kind, int weapon)
+    {
+        if (weapon == 0)
+        {
+            return this;
+        }
+        if (weapon != 1 || Weapons(kind) < 2)
+        {
+            throw new ArgumentOutOfRangeException(nameof(weapon), "The model has no such weapon.");
+        }
+        if (kind == AttackKind.Ranged)
+        {
+            var w = SecondRangedWeapon!;
+            return new ModelProfile(Movement, BaseRadius, w.Range, w.InjuryModifier, Armour, HasMeleeWeapon, MeleeInjuryModifier)
+            {
+                RangedAlsoMelee = w.AlsoMelee,
+                RangedDice = RangedDice,
+                MeleeDice = MeleeDice,
+                RangedWeaponDice = w.Dice,
+                RangedWeaponInjuryDice = w.InjuryDice,
+                MeleeWeaponDice = MeleeWeaponDice,
+                MeleeWeaponInjuryDice = MeleeWeaponInjuryDice,
+                RangedWeaponKeywords = w.Keywords,
+                MeleeWeaponKeywords = MeleeWeaponKeywords,
+                MeleeWeaponCleave = MeleeWeaponCleave,
+                Block = Block,
+                ImperviousArmour = ImperviousArmour,
+            };
+        }
+        var m = SecondMeleeWeapon!;
+        return new ModelProfile(Movement, BaseRadius, RangedRange, RangedInjuryModifier, Armour, hasMeleeWeapon: true, m.InjuryModifier)
+        {
+            RangedAlsoMelee = RangedAlsoMelee,
+            RangedDice = RangedDice,
+            MeleeDice = MeleeDice,
+            RangedWeaponDice = RangedWeaponDice,
+            RangedWeaponInjuryDice = RangedWeaponInjuryDice,
+            MeleeWeaponDice = m.Dice,
+            MeleeWeaponInjuryDice = m.InjuryDice,
+            RangedWeaponKeywords = RangedWeaponKeywords,
+            MeleeWeaponKeywords = m.Keywords,
+            MeleeWeaponCleave = m.Cleave,
+            Block = Block,
+            ImperviousArmour = ImperviousArmour,
+        };
+    }
 
     // The keywords of the weapon an attack of this kind is made with (a Melee Attack: the Melee Weapon, else the
     // dual-purpose weapon, U54).
@@ -159,7 +274,7 @@ public sealed record ModelProfile
 
     // The characteristic a Melee Attack uses: Melee, or the better of Ranged and Melee for a PISTOL used in melee.
     public int MeleeCharacteristicUsed =>
-        !HasMeleeWeapon && RangedAlsoMelee && RangedWeaponKeywords.HasFlag(WeaponKeywords.Pistol) ? Math.Max(MeleeDice, RangedDice) : MeleeDice;
+        AttackKeywords(AttackKind.Melee).HasFlag(WeaponKeywords.Pistol) ? Math.Max(MeleeDice, RangedDice) : MeleeDice;
 
     public int MeleeAttackInjuryDice => HasMeleeWeapon ? MeleeWeaponInjuryDice : RangedAlsoMelee ? RangedWeaponInjuryDice : 0;
 

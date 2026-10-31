@@ -185,6 +185,11 @@ public sealed record RangedAttackDeclared : GameEvent
     // off the wire when false, so every earlier record reads and writes as before.
     public bool Elevated { get; init; }
 
+    // Roster stage R3 (U100): the weapon that shoots, 0 or 1 (the model's second ranged weapon). Left off the wire when 0.
+    public int Weapon { get => _weapon; init => _weapon = value is 0 or 1 ? value : throw new ArgumentOutOfRangeException(nameof(Weapon), "A model has weapon 0 or 1."); }
+
+    private readonly int _weapon;
+
     public int BonusDice => AttackDice.ShotBonus(Elevated);
 }
 
@@ -340,7 +345,19 @@ public sealed record MeleeAttackDeclared : GameEvent
     public ModelId Target { get; }
     public bool FreeFight { get; }
     public string? DefendedObstacleId { get; }
-    public int PenaltyDice => AttackDice.FightPenalty(DefendedObstacleId is not null);
+
+    // Roster stage R3 (U100), each left off the wire when 0 or false: the weapon that attacks (0, or 1 for the second
+    // Melee Weapon); OffHand, the second weapon of a Fight, -1 DICE (p. 45); Block, the target has BLOCK and the
+    // attacker made a Charge ACTION before the attack this turn, -1 DICE (p. 53).
+    public int Weapon { get => _weapon; init => _weapon = value is 0 or 1 ? value : throw new ArgumentOutOfRangeException(nameof(Weapon), "A model has weapon 0 or 1."); }
+
+    public bool OffHand { get; init; }
+
+    public bool Block { get; init; }
+
+    private readonly int _weapon;
+
+    public int PenaltyDice => AttackDice.FightPenalty(DefendedObstacleId is not null) + AttackDice.FightPenalty(OffHand) + AttackDice.FightPenalty(Block);
 }
 
 public sealed record MeleeSuccessRolled : GameEvent

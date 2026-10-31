@@ -177,6 +177,7 @@ A saved match (M6) is replayed by `Reducer.Apply` alone, so the reducer refuses 
 - **Compulsory follow-ups.** Where the rules leave no choice, only the event they require may come next:
   - a failed Risky roll by the active model (a failed Dash, or a Shaken warband's failed shot or Melee Attack) is followed by `ActivationEnded(RiskyFailure)`, and that reason is refused without such a roll (`MatchState.MustEndActivation`; a failed free attack ends nothing, U49);
   - an attack with a RELOAD weapon by the active model in its own activation, once its ACTION is done, is followed by `ActivationEnded(Reload)`, and that reason is refused otherwise (`MatchState.ReloadEnds`, U99);
+  - a free attack's CLEAVE attacks follow it at once; a Fight's later attacks (CLEAVE, the Off-Hand weapon) must use the weapon next in turn, with the Off-Hand and BLOCK facts the rules give, and anything else ends them (`MatchState.AttacksLeft`, U100);
   - a Down model whose activation has just started stands up (`ModelStoodUp`, U30);
   - a model taken Down or Out of Action during its own Retreat ends its activation (`ActivationEnded(TakenDown)`);
   - a Shaken warband that passes its Morale Check recovers (`WarbandRecovered`); one that fails flees (`WarbandFled`, `SeatState.MustFlee`); an unshaken warband that fails is offered the choice (`DecisionRequested(FailedMorale)`);

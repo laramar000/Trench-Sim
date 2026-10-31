@@ -52,7 +52,18 @@ public static class Activation
         }
         foreach (var other in state.Models)
         {
-            foreach (var attack in new Command[] { new Shoot(seat, active, other.Id), new ChargeModel(seat, active, other.Id), new FightModel(seat, active, other.Id) })
+            // Roster stage R3: with each of the model's weapons (a Fight with attacks to come goes on with its next weapon).
+            var profile = state.Setup!.ProfileOf(active)!;
+            var attacks = new List<Command> { new Shoot(seat, active, other.Id), new ChargeModel(seat, active, other.Id), new FightModel(seat, active, other.Id) };
+            if (profile.Weapons(AttackKind.Ranged) == 2)
+            {
+                attacks.Add(new Shoot(seat, active, other.Id) { Weapon = 1 });
+            }
+            if (profile.Weapons(AttackKind.Melee) == 2)
+            {
+                attacks.Add(new FightModel(seat, active, other.Id) { Weapon = 1 });
+            }
+            foreach (var attack in attacks)
             {
                 if (TurnSequence.Check(state, attack) is null)
                 {

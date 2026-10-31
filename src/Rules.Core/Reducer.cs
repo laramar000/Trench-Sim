@@ -43,6 +43,7 @@ public static class Reducer
         Require(state.Phase != Phase.None, "No match has been created.");
         Require(state.Phase != Phase.Ended, "The match has ended.");
         RequireFollowUp(state, e);
+        state = ForgoAttacks(state, e);
 
         var next = e switch
         {
@@ -98,6 +99,45 @@ public static class Reducer
         // Glorious Deeds (U96): what the deeds need to know, and any deed this event completed.
         return e is GloriousDeedCompleted ? next : Deeds.Track(state, e, next);
     }
+
+    // Roster stage R3 (U100): the Melee Attacks still to come of a Fight or free attack are made one after another;
+    // anything else that happens ends them (the active model chose to do something else, or the action is over).
+    private static MatchState ForgoAttacks(MatchState state, GameEvent e) =>
+        state.AttacksLeft is not null && e is not (MeleeAttackDeclared or MeleeSuccessRolled or InjuryRolled or MarkersSpent or DecisionRequested or GloriousDeedCompleted or MatchEnded)
+            ? state with { AttacksLeft = null }
+            : state;
+
+    // The CLEAVE free attack that must come next: the free attacker has attacks left, nothing is waiting, and the
+    // retreating model is still on the battlefield (p. 37 with p. 53).
+    internal static MeleeAttacksLeft? FreeAttackDue(MatchState state) =>
+        state.AttacksLeft is { Free: true, Next.Length: > 0 } left && state.InProgress is null && state.Pending is null
+        && state.Retreat is { } retreat && state.FindModel(retreat.Model) is { Position: not null, Status: not ModelStatus.OutOfAction }
+            ? left
+            : null;
+
+    // The Melee Attacks a Fight or free attack has after its first: the rest of the first weapon's CLEAVE attacks, then
+    // (a Fight with two Melee Weapons) the other weapon's, with the Off-Hand -1 DICE (p. 45).
+    internal static ImmutableArray<MeleeAttackSlot> AttacksAfterFirst(ModelProfile profile, int weapon, bool free)
+    {
+        var next = ImmutableArray.CreateBuilder<MeleeAttackSlot>();
+        for (var i = 1; i < profile.MeleeAttacksWith(weapon); i++)
+        {
+            next.Add(new MeleeAttackSlot(weapon, false));
+        }
+        if (!free && profile.Weapons(AttackKind.Melee) == 2)
+        {
+            var other = 1 - weapon;
+            for (var i = 0; i < profile.MeleeAttacksWith(other); i++)
+            {
+                next.Add(new MeleeAttackSlot(other, true));
+            }
+        }
+        return next.ToImmutable();
+    }
+
+    // The weapon an attack in progress is made with (roster stage R3).
+    private static ModelProfile AttackProfile(MatchState state, RollInProgress progress) =>
+        state.Setup!.ProfileOf(progress.Actor)!.Using(progress.Kind, progress.Weapon);
 
     // A Glorious Deed is announced right after the event that completed it, in the order they were completed, and gives
     // its seat 1 Victory Point (pp. 149-150; counted at once, U96).
@@ -167,6 +207,13 @@ public static class Reducer
         {
             Require(e is ActivationEnded { Reason: ActivationEndReason.Reload } reloaded && reloaded.Model == state.ActiveModel,
                 "An attack with a RELOAD weapon ends the activation once its ACTION is done.");
+            return;
+        }
+
+        if (FreeAttackDue(state) is { } due)
+        {
+            Require(e is MeleeAttackDeclared { FreeFight: true } next && next.Attacker == due.Attacker,
+                "A free attack's CLEAVE attacks are made one after another.");
             return;
         }
 
@@ -514,7 +561,7 @@ public static class Reducer
         {
             Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false };
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0 };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -592,7 +639,7 @@ public static class Reducer
             "The turn cannot end yet.");
         Require(Board.ScenarioOf(state) is not { ObjectiveIds.Length: > 0 } || state.ScoredTurn == state.Turn, "The turn's Objectives have not been scored.");
         Require(!TrenchWarfare.Is(state.Setup) || state.ScoredTurn == state.Turn, "The turn's trench sections have not been scored.");
-        return state with { TurnEnded = true };
+        return state with { TurnEnded = true, ChargedThisTurn = [] };
     }
 
     private static MatchState OnMatchEnded(MatchState state, MatchEnded e)
@@ -654,7 +701,7 @@ public static class Reducer
     {
         var model = Active(state, e.Model, "A Dash");
         Require(state.InProgress is null && !state.Actions.HasFlag(ActionsTaken.Dash), "A Dash can be taken once per activation.");
-        Require(ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(e.Model)) is null, ActionLimits.HeavyText);
+        Require(ActionLimits.MoveExcluded(state, e.Model) is null, ActionLimits.HeavyText);
         Require(Board.CheckMove(state, model, e.Path).IsLegal, "A Dash must follow a legal path.");
         return state with
         {
@@ -685,7 +732,7 @@ public static class Reducer
         {
             Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
                 "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.");
-            Require(ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(e.Model)) is null, ActionLimits.HeavyText);
+            Require(ActionLimits.MoveExcluded(state, e.Model) is null, ActionLimits.HeavyText);
         }
         else
         {
@@ -748,7 +795,7 @@ public static class Reducer
         {
             Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
                 "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.");
-            Require(ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(e.Model)) is null, ActionLimits.HeavyText);
+            Require(ActionLimits.MoveExcluded(state, e.Model) is null, ActionLimits.HeavyText);
         }
         else
         {
@@ -793,21 +840,22 @@ public static class Reducer
     {
         var attacker = Active(state, e.Attacker, "A Ranged Attack");
         Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Shoot)
-            && ActionLimits.ShootExcluded(state.Actions, state.Setup?.ProfileOf(e.Attacker)) is null,
+            && ActionLimits.ShootExcluded(state, e.Attacker, e.Weapon) is null,
             "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION (unless ASSAULT) or, with a HEAVY weapon, a move.");
         var target = state.FindModel(e.Target);
         Require(target is not null, "Unknown target.");
-        var facts = Board.Assess(state, attacker, target!);
+        var facts = Board.Assess(state, attacker, target!, e.Weapon);
         Require(facts.IsLegal, "The attack is not legal here.");
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId
             && facts.AttackerLevel == e.AttackerLevel && facts.TargetLevel == e.TargetLevel && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
         Require(facts.IntoMelee == e.IntoMelee, "A target within 1\" of a friendly model needs the D6 that decides who is shot, and no other does.");
         // The declared facts with the weapon's keywords and the attacker's own dice (roster stages R1, R2).
-        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!, e.LongRange, e.InCover, e.Elevated);
+        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, e.InCover, e.Elevated);
         return state with
         {
             Actions = state.Actions | ActionsTaken.Shoot,
-            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, bonus, penalty, InjuryDiceLater: later),
+            ShotWeapon = e.Weapon,
+            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, bonus, penalty, InjuryDiceLater: later, Weapon: e.Weapon),
         };
     }
 
@@ -816,7 +864,7 @@ public static class Reducer
         Require(state.InProgress is { Stage: RollStage.ShotRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No attack roll is waiting.");
         var progress = state.InProgress!;
         var attacker = state.FindModel(e.Attacker)!;
-        var profile = state.Setup!.ProfileOf(e.Attacker)!;
+        var profile = AttackProfile(state, progress);
         Require(e.Check.Risky == AttackDice.Risky(profile, AttackKind.Ranged, state.IsShaken(attacker.Seat)) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
             "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
         if (e.Check.Outcome == SuccessOutcome.Failure)
@@ -841,9 +889,9 @@ public static class Reducer
         var target = state.FindModel(e.Target)!;
         Require(target.Id != attacker.Id && (target.Seat == attacker.Seat) == progress.FriendlyFire,
             "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one.");
-        var profile = state.Setup!.ProfileOf(e.Attacker)!;
+        var profile = AttackProfile(state, progress);
         Require(e.Injury.NetDice == progress.BonusDice - progress.PenaltyDice
-            && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup.ProfileOf(e.Target)!, progress.Kind))
+            && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(e.Target)!, progress.Kind))
             && e.Injury.TargetAlreadyDown == (target.Status == ModelStatus.Down), "The Injury Roll must match the dice, modifiers and state of the target.");
 
         var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.Injury.BloodMarkers);
@@ -864,13 +912,15 @@ public static class Reducer
         var charger = Active(state, e.Model, "A Charge");
         var profile = state.Setup!.ProfileOf(e.Model)!;
         Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0
-            && ActionLimits.MeleeExcluded(state.Actions, profile, ActionsTaken.Charge) is null,
+            && ActionLimits.MeleeExcluded(state, e.Model, ActionsTaken.Charge) is null,
             "A Charge is one of Move, Charge or Retreat, and cannot follow a Shoot ACTION (unless ASSAULT, and never with a HEAVY ranged weapon).");
         var target = state.FindModel(e.Target);
         Require(target is not null && Board.AssessCharge(state, charger, target) is null, "The charge is not legal here.");
         // HEAVY battlekit: no Charge Bonus, so the charge moves at once (roster stage R2b, p. 55).
         var stage = profile.NoChargeBonus ? RollStage.ChargeMove : RollStage.ChargeRoll;
-        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(stage, e.Model, e.Target) };
+        // Roster stage R3: BLOCK needs to know who charged this turn (p. 53); only matches with BLOCK keep the list.
+        var charged = Board.TracksCharges(state.Setup) && !state.ChargedThisTurn.Contains(e.Model) ? state.ChargedThisTurn.Add(e.Model) : state.ChargedThisTurn;
+        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(stage, e.Model, e.Target), ChargedThisTurn = charged };
     }
 
     private static MatchState OnChargeRolled(MatchState state, ChargeRolled e)
@@ -895,7 +945,7 @@ public static class Reducer
         var retreater = Active(state, e.Model, "A Retreat");
         Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
             "A Retreat is one of Move, Charge or Retreat.");
-        Require(ActionLimits.MoveExcluded(state.Actions, state.Setup?.ProfileOf(e.Model)) is null, ActionLimits.HeavyText);
+        Require(ActionLimits.MoveExcluded(state, e.Model) is null, ActionLimits.HeavyText);
         Require(Board.CheckRetreat(state, retreater, e.Path) is null, "A retreat must follow a legal path and end more than 1\" from every enemy.");
         return state with { Actions = state.Actions | ActionsTaken.Retreat, Retreat = new RetreatInProgress(e.Model, e.Path, []) };
     }
@@ -930,47 +980,76 @@ public static class Reducer
         var attacker = state.FindModel(e.Attacker);
         var target = state.FindModel(e.Target);
         Require(attacker is not null && target is not null, "Unknown model.");
+        var owned = state.Setup!.ProfileOf(e.Attacker)!;
+        Require(e.Weapon < owned.Weapons(AttackKind.Melee), "The model has no such Melee Weapon.");
+        Require(e.Block == Board.Blocks(state, e.Attacker, e.Target), "BLOCK applies exactly when the target has it and the attacker charged this turn.");
+        var left = state.AttacksLeft is { Next.Length: > 0 } l && l.Attacker == e.Attacker && l.Free == e.FreeFight ? l : null;
+        ImmutableArray<MeleeAttackSlot> rest;
         if (!e.FreeFight)
         {
             var fighter = Active(state, e.Attacker, "A Fight");
-            Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Fight)
-                && ActionLimits.MeleeExcluded(state.Actions, state.Setup?.ProfileOf(e.Attacker), ActionsTaken.Fight) is null,
-                "A Fight ACTION is taken once per activation and not after a Shoot ACTION (unless ASSAULT).");
-            var facts = Board.AssessMelee(state, fighter, target!);
+            Require(state.InProgress is null && state.Retreat is null, "A Melee Attack waits for the last action to finish.");
+            if (left is null)
+            {
+                Require(!state.Actions.HasFlag(ActionsTaken.Fight) && ActionLimits.MeleeExcluded(state, e.Attacker, ActionsTaken.Fight) is null,
+                    "A Fight ACTION is taken once per activation and not after a Shoot ACTION (unless ASSAULT).");
+                Require(!e.OffHand, "A Fight's first attack is not made with the Off-Hand weapon.");
+                rest = AttacksAfterFirst(owned, e.Weapon, free: false);
+            }
+            else
+            {
+                Require(left.Next[0] == new MeleeAttackSlot(e.Weapon, e.OffHand), "The Fight's next Melee Attack is made with the next weapon in turn.");
+                rest = left.Next.RemoveAt(0);
+            }
+            var facts = Board.AssessMelee(state, fighter, target!, e.Weapon);
             Require(facts.Refusal is null && facts.CoverTerrainId == e.DefendedObstacleId, "The Melee Attack is not legal here, or its modifiers do not match the positions.");
             var (bonus, penalty) = MeleeDice(state, e);
             return state with
             {
                 Actions = state.Actions | ActionsTaken.Fight,
-                InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, bonus, penalty, Kind: AttackKind.Melee),
+                AttacksLeft = rest.IsEmpty ? null : new MeleeAttacksLeft(e.Attacker, false, rest),
+                InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, bonus, penalty, Kind: AttackKind.Melee, Weapon: e.Weapon, OffHand: e.OffHand),
             };
         }
 
         var retreat = state.Retreat;
-        Require(state.Phase == Phase.Activation && retreat is { Closed: false } && state.InProgress is null && retreat.Model == e.Target
-            && state.Pending == new PendingDecision(DecisionKind.FreeFight, target!.Seat.Opponent()), "A free attack answers the offer made to the opponent of a retreating model.");
-        Require(Board.FreeFighters(state, retreat!).Any(m => m.Id == e.Attacker), "That model cannot make a free attack.");
-        var free = Board.AssessMelee(state, attacker!, target!);
+        Require(!e.OffHand, "A free attack is made with one weapon.");
+        if (left is null)
+        {
+            Require(state.Phase == Phase.Activation && retreat is { Closed: false } && state.InProgress is null && retreat.Model == e.Target
+                && state.Pending == new PendingDecision(DecisionKind.FreeFight, target!.Seat.Opponent()), "A free attack answers the offer made to the opponent of a retreating model.");
+            Require(Board.FreeFighters(state, retreat!).Any(m => m.Id == e.Attacker), "That model cannot make a free attack.");
+            rest = AttacksAfterFirst(owned, e.Weapon, free: true);
+        }
+        else
+        {
+            Require(FreeAttackDue(state) == left && retreat!.Model == e.Target && left.Next[0] == new MeleeAttackSlot(e.Weapon, false),
+                "A free attack's next CLEAVE attack follows at once, with the same weapon, against the retreating model.");
+            rest = left.Next.RemoveAt(0);
+        }
+        var free = Board.AssessMelee(state, attacker!, target!, e.Weapon);
         Require(free.Refusal is null && free.CoverTerrainId == e.DefendedObstacleId, "The free attack is not legal here, or its modifiers do not match the positions.");
         var (freeBonus, freePenalty) = MeleeDice(state, e);
         return state with
         {
             Pending = null,
-            Retreat = retreat! with { Fought = retreat!.Fought.Add(e.Attacker) },
-            InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, freeBonus, freePenalty, Kind: AttackKind.Melee, FreeFight: true),
+            Retreat = left is null ? retreat! with { Fought = retreat!.Fought.Add(e.Attacker) } : retreat,
+            AttacksLeft = rest.IsEmpty ? null : new MeleeAttacksLeft(e.Attacker, true, rest),
+            InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, freeBonus, freePenalty, Kind: AttackKind.Melee, FreeFight: true, Weapon: e.Weapon),
         };
     }
 
-    // A Melee Attack's Success Roll dice: the declared penalty and the attacker's own dice (roster stage R1).
+    // A Melee Attack's Success Roll dice: the declared penalty and the attacker's own dice with that weapon (roster
+    // stages R1, R3).
     private static (int Bonus, int Penalty) MeleeDice(MatchState state, MeleeAttackDeclared e) =>
-        AttackDice.With(0, e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!, AttackKind.Melee));
+        AttackDice.With(0, e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Melee, e.Weapon), AttackKind.Melee));
 
     private static MatchState OnMeleeSuccessRolled(MatchState state, MeleeSuccessRolled e)
     {
         Require(state.InProgress is { Stage: RollStage.FightRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No Melee Attack roll is waiting.");
         var progress = state.InProgress!;
         var attacker = state.FindModel(e.Attacker)!;
-        var fighter = state.Setup!.ProfileOf(e.Attacker)!;
+        var fighter = AttackProfile(state, progress);
         Require(e.Check.Risky == AttackDice.Risky(fighter, AttackKind.Melee, state.IsShaken(attacker.Seat)) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
             "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
         if (e.Check.Outcome == SuccessOutcome.Failure)
@@ -1015,9 +1094,9 @@ public static class Reducer
         var victim = state.FindModel(e.Victim);
         var intended = Board.BodyOf(state, state.FindModel(progress.Target!.Value)!)!;
         Require(victim is not null && Board.FriendsNear(state, shooter, intended).Any(m => m.Id == e.Victim), "The shot must be aimed at one of the shooter's own models within 1\" of the target.");
-        var facts = Board.ForcedShotFacts(state, shooter, victim!);
+        var facts = Board.ForcedShotFacts(state, shooter, victim!, progress.Weapon);
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
-        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!, e.LongRange, e.InCover, e.Elevated);
+        var (bonus, penalty, later) = AttackDice.Shot(AttackProfile(state, progress), e.LongRange, e.InCover, e.Elevated);
         return state with
         {
             Pending = null,

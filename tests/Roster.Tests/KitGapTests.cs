@@ -99,6 +99,21 @@ public class KitGapTests
             "need 7");
 
     [Fact]
+    public void AnAmalgamMayHaveTwoHeavyPiecesButNotThree() =>
+        Refused(Check("cult", null, 0, M("amalgam", ["machine-gun", "great-hammer-maul", "great-sword-axe", "pistol"])),
+            "can have only 2 pieces of HEAVY battlekit (it has 3");
+
+    // ---- HEAVY p. 55: one piece of HEAVY battlekit per model (U100) ----
+
+    [Fact]
+    public void AModelCanHaveOnlyOneHeavyPiece()
+    {
+        Refused(Check("principality", null, 0, M("lieutenant", ["sniper-rifle", "great-sword-axe"]), M("yeoman", ["machine-gun", "great-sword-axe"])),
+            "Yeoman: can have only one piece of HEAVY battlekit (it has 2: Machine Gun, Great Sword/Axe)");
+        Legal(Check("principality", null, 0, M("lieutenant", ["sniper-rifle", "great-sword-axe"]), M("yeoman", ["machine-gun", "trench-knife"])));
+    }
+
+    [Fact]
     public void AnAmalgamCannotCarryTheSameWeaponThreeTimes() =>
         Refused(Check("cult", null, 0, M("amalgam", ["pistol", "pistol", "pistol"])), "more than twice");
 

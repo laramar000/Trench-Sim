@@ -30,7 +30,8 @@ public enum InteractionMode
 // Battlefield UI 3, stage U1 (approved by Jason on 2026-10-22): one entry of the Combat menu, which lists the attacks of
 // the acting model before any target is chosen: the action, whether it is open (the rules open the action and accept at
 // least one enemy as its target), how many enemies they accept, and if it is not open, the rules' reason (greyed out).
-public sealed record CombatEntry(InteractionMode Mode, string Label, string Key, bool Enabled, string? Why, int Targets);
+// Roster stage R3: Weapon 1 is the model's second weapon for that attack ("Shoot, 2nd weapon", "Fight, 2nd weapon").
+public sealed record CombatEntry(InteractionMode Mode, string Label, string Key, bool Enabled, string? Why, int Targets, int Weapon = 0);
 
 // Stage K6: what picking an entry of the Combat menu does next.
 public enum CombatPick
@@ -134,7 +135,20 @@ public sealed class Interaction
     private Preview? _preview;
     private bool _stale = true;
 
-    public InteractionMode Mode { get; private set; }
+    public InteractionMode Mode
+    {
+        get => _mode;
+        private set
+        {
+            _mode = value;
+            Weapon = 0;
+        }
+    }
+
+    private InteractionMode _mode;
+
+    // Roster stage R3: the weapon the Shoot or Fight being chosen uses: 0 the first, 1 the second (Combat menu keys 4, 5).
+    public int Weapon { get; private set; }
 
     // A unit of yours chosen to activate but not activated on the server yet: nothing has been sent for it, so another
     // eligible unit can be chosen instead. Its first action (or "Take no action") sends ActivateModel first.
@@ -447,7 +461,7 @@ public sealed class Interaction
 
     // How far the action being chosen can still take the acting model, in inches (drawn as a ring); null when none.
     // Stage U4: the compact numbers for the action being chosen (ActionStats), or null.
-    public string? Stats => _seat is { } s && Actor is { } a ? ActionStats.For(_state, s, a, Mode) : null;
+    public string? Stats => _seat is { } s && Actor is { } a ? ActionStats.For(_state, s, a, Mode, Weapon) : null;
 
     public double? Reach() => _seat is { } s && Actor is { } a ? Previews.Reach(_state, s, a) : null;
 
@@ -562,7 +576,7 @@ public sealed class Interaction
         }
         if (_verdicts is null || _verdictsVersion != Version)
         {
-            _verdicts = [.. Targets().Select(t => (t, TargetPreview(seat, Kind(Mode), actor, t).Refusal))];
+            _verdicts = [.. Targets().Select(t => (t, TargetPreview(seat, Kind(Mode), actor, t, Weapon).Refusal))];
             _verdictsVersion = Version;
         }
         return _verdicts;
@@ -599,13 +613,13 @@ public sealed class Interaction
     // model and the target only, and MatchState is immutable, so it is kept exactly as long as the state object is the
     // same one (Update, choosing a unit or dropping it replace the state and so empty the memo). Nothing is decided from
     // an older state, and the server still checks every command itself.
-    private Preview TargetPreview(Seat seat, PreviewKind kind, ModelId actor, ModelId target)
+    private Preview TargetPreview(Seat seat, PreviewKind kind, ModelId actor, ModelId target, int weapon = 0)
     {
         Remember(seat);
-        if (!_targetMemo.TryGetValue((kind, actor, target), out var preview))
+        if (!_targetMemo.TryGetValue((kind, actor, target, weapon), out var preview))
         {
-            preview = Previews.Target(_state, seat, kind, actor, target);
-            _targetMemo[(kind, actor, target)] = preview;
+            preview = Previews.Target(_state, seat, kind, actor, target, weapon);
+            _targetMemo[(kind, actor, target, weapon)] = preview;
             TargetPreviewsWorkedOut++;
         }
         return preview;
@@ -626,13 +640,13 @@ public sealed class Interaction
     // Performance: the action bar is worked out every frame, and asked Previews.ActionOpen for each action twice and the
     // rules' legal commands once each time (tens of milliseconds a frame in some states). Both depend only on the state
     // (and seat, model and action), so they are kept for the state object exactly like the target previews.
-    private Rejection? ActionOpen(Seat seat, ModelId actor, PreviewKind kind)
+    private Rejection? ActionOpen(Seat seat, ModelId actor, PreviewKind kind, int? weapon = null)
     {
         Remember(seat);
-        if (!_openMemo.TryGetValue((kind, actor), out var closed))
+        if (!_openMemo.TryGetValue((kind, actor, weapon), out var closed))
         {
-            closed = Previews.ActionOpen(_state, seat, actor, kind);
-            _openMemo[(kind, actor)] = closed;
+            closed = Previews.ActionOpen(_state, seat, actor, kind, weapon);
+            _openMemo[(kind, actor, weapon)] = closed;
         }
         return closed;
     }
@@ -647,10 +661,10 @@ public sealed class Interaction
         return _legal!;
     }
 
-    private readonly Dictionary<(PreviewKind, ModelId), Rejection?> _openMemo = [];
+    private readonly Dictionary<(PreviewKind, ModelId, int?), Rejection?> _openMemo = [];
     private IReadOnlyList<Command>? _legal;
     private MatchState? _legalState;
-    private readonly Dictionary<(PreviewKind, ModelId, ModelId), Preview> _targetMemo = [];
+    private readonly Dictionary<(PreviewKind, ModelId, ModelId, int), Preview> _targetMemo = [];
     private MatchState? _memoState;
     private Seat? _memoSeat;
 
@@ -692,7 +706,7 @@ public sealed class Interaction
         }
         if (_pointedVersion != Version || _pointedAt != target)
         {
-            _pointed = TargetPreview(seat, Kind(Mode), actor, target);
+            _pointed = TargetPreview(seat, Kind(Mode), actor, target, Weapon);
             _pointedVersion = Version;
             _pointedAt = target;
         }
@@ -1045,27 +1059,34 @@ public sealed class Interaction
             return _combatEntries;
         }
         var entries = new List<CombatEntry>();
-        var number = 0;
         var enemies = Targets();
-        foreach (var mode in new[] { InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight })
+        // Keys 1-3 are Shoot, Charge and Fight with the first weapon; 4 and 5 Shoot and Fight with a second one (R3).
+        var choices = new List<(InteractionMode Mode, int Weapon, string Key)> { (InteractionMode.Shoot, 0, "1"), (InteractionMode.Charge, 0, "2"), (InteractionMode.Fight, 0, "3") };
+        foreach (var (mode, key) in new[] { (InteractionMode.Shoot, "4"), (InteractionMode.Fight, "5") })
         {
-            number++;
+            if (Previews.WeaponsOf(_state, actor, Kind(mode)).Length > 1)
+            {
+                choices.Add((mode, 1, key));
+            }
+        }
+        foreach (var (mode, weapon, key) in choices)
+        {
             if (!Available.Contains(mode))
             {
                 continue;
             }
-            var key = number.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (ActionOpen(seat, actor, Kind(mode)) is { } closed)
+            var label = weapon == 0 ? Words(mode) : $"{Words(mode)}, 2nd weapon";
+            if (ActionOpen(seat, actor, Kind(mode), weapon) is { } closed)
             {
-                entries.Add(new CombatEntry(mode, Words(mode), key, false, $"{closed.Text} ({closed.RuleRef})", 0));
+                entries.Add(new CombatEntry(mode, label, key, false, $"{closed.Text} ({closed.RuleRef})", 0, weapon));
                 continue;
             }
-            var verdicts = enemies.Select(t => TargetPreview(seat, Kind(mode), actor, t)).ToList();
+            var verdicts = enemies.Select(t => TargetPreview(seat, Kind(mode), actor, t, weapon)).ToList();
             var legal = verdicts.Count(v => v.Legal);
             var why = legal > 0 ? null
                 : verdicts.Select(v => v.Refusal).FirstOrDefault(r => r is not null) is { } first ? $"No enemy can be the target: {first.Text} ({first.RuleRef})"
                 : "No enemy can be the target.";
-            entries.Add(new CombatEntry(mode, Words(mode), key, legal > 0, why, legal));
+            entries.Add(new CombatEntry(mode, label, key, legal > 0, why, legal, weapon));
         }
         _combatEntries = entries;
         _combatVersion = Version;
@@ -1079,9 +1100,9 @@ public sealed class Interaction
     // with no target yet: the player clicks an enemy the rules accept (ringed), then Confirm beside it. A greyed-out entry
     // picked by a click does nothing; by a key it is chosen anyway (so the keyboard keeps "confirm twice to send anyway").
     // Nothing is ever sent from here.
-    public CombatPick ChooseCombat(InteractionMode mode, bool byKey = false)
+    public CombatPick ChooseCombat(InteractionMode mode, bool byKey = false, int weapon = 0)
     {
-        if (Pending is not null || Mode != InteractionMode.Combat || !IsAttack(mode) || CombatEntries().FirstOrDefault(e => e.Mode == mode) is not { } entry)
+        if (Pending is not null || Mode != InteractionMode.Combat || !IsAttack(mode) || CombatEntries().FirstOrDefault(e => e.Mode == mode && e.Weapon == weapon) is not { } entry)
         {
             return CombatPick.None;
         }
@@ -1090,6 +1111,7 @@ public sealed class Interaction
             return CombatPick.None;
         }
         Mode = mode;
+        Weapon = weapon;
         FromCombat = true;
         Target = null;
         _armed = false;
@@ -1470,7 +1492,7 @@ public sealed class Interaction
                 // Towers proposal, stage T4: a point on another level is reached by a ladder (Previews.Route).
                 return points.Count == 0 ? null : Previews.Path(_state, seat, Kind(Mode), actor, Previews.Route(_state, actor, [.. points.Select(p => Previews.PointAt(p.X, p.Y))], Sides));
             case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight:
-                return Target is { } target ? TargetPreview(seat, Kind(Mode), actor, target) : null;
+                return Target is { } target ? TargetPreview(seat, Kind(Mode), actor, target, Weapon) : null;
             default:
                 return null;
         }

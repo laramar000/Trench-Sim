@@ -206,6 +206,17 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   `WeaponKeywordTests`, `MatchReadinessTests.TheWeaponKeywordsTheEngineKnowsArePlayed`,
   `PreviewAgreementTests.AttackPreviewDiceIncludeWeaponKeywords`.
 - Roster rules stage R2b, action keywords (done 2026-10-31): ASSAULT, HEAVY and RELOAD are played (U99) and travel the
-  same way (`Assault`, `Heavy`, `Reload`). Not checked yet: at most one HEAVY piece per model (p. 55). Tests:
+  same way (`Assault`, `Heavy`, `Reload`). Tests:
   `ActionKeywordTests`, `MatchReadinessTests.TheWeaponKeywordsTheEngineKnowsArePlayed`,
   `PreviewAgreementTests.ActionPreviewsAgreeWithActionKeywords`.
+- HEAVY limit (2026-10-31): the validator refuses more than one piece of HEAVY battlekit on a model (p. 55), or more
+  than `kitRules.arms.heavyAsOneHanded` for a many-armed model (the Amalgam: two). Tests:
+  `KitGapTests.AModelCanHaveOnlyOneHeavyPiece`, `KitGapTests.AnAmalgamMayHaveTwoHeavyPiecesButNotThree`.
+- Roster rules stage R3, second weapons (done 2026-10-31, Jason: "do 1 2 and 3 all together"): a model brings up to
+  two ranged and two melee weapons into a match (U100); a dual-purpose Pistol is also its second Melee Weapon when it
+  has fewer than two (and, with no Melee Weapon, the Pistol it fights with comes first). A third weapon of a kind is
+  refused by name. CLEAVE (X) travels as `meleeWeaponCleave` / a second weapon's `cleave`, BLOCK as the `Block` keyword,
+  and IMPERVIOUS armour and shields as `imperviousArmour` (their part of the Armour); none of these is listed under
+  "played without" any more. Shield COVER and the shields' own rules still are. Tests: `WeaponChoiceTests`,
+  `WeaponWireTests`, `MatchReadinessTests.ASecondRangedWeaponIsPlayed`, `.APistolIsTheOffHandWeaponBesideASword`,
+  `.CleaveBlockAndImperviousArePlayed`, `WeaponChoicePreviewTests`.

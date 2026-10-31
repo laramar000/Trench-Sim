@@ -18,22 +18,34 @@ public static class ActionLimits
 
     private static bool HeavyGun(ModelProfile? p) => p is not null && p.RangedWeaponKeywords.HasFlag(WeaponKeywords.Heavy);
 
-    // Why a Shoot ACTION is excluded by what the model has done, or null.
-    public static string? ShootExcluded(ActionsTaken done, ModelProfile? p) =>
-        !Assault(p) && (done & (ActionsTaken.Charge | ActionsTaken.Fight)) != 0 ? ShootAndMeleeText
-        : HeavyGun(p) && (done & HeavyMoves) != 0 ? HeavyText
+    // Roster stage R3: the ranged weapon a Shoot ACTION would use, or used this activation (state.ShotWeapon). ASSAULT
+    // and HEAVY are that weapon's (pp. 52, 55).
+    // A weapon the model does not have reads as its first one; the attack's own checks refuse it.
+    public static ModelProfile? Gun(MatchState state, ModelId id, int? weapon = null) =>
+        state.Setup?.ProfileOf(id) is { } p && (weapon ?? state.ShotWeapon) is var w && w > 0 && p.Weapons(AttackKind.Ranged) > w ? p.Using(AttackKind.Ranged, w) : state.Setup?.ProfileOf(id);
+
+    // Why a Shoot ACTION with that weapon is excluded by what the model has done, or null.
+    public static string? ShootExcluded(MatchState state, ModelId id, int weapon = 0) => ShootExcluded(state.Actions, Gun(state, id, weapon));
+
+    public static string? ShootExcluded(ActionsTaken done, ModelProfile? gun) =>
+        !Assault(gun) && (done & (ActionsTaken.Charge | ActionsTaken.Fight)) != 0 ? ShootAndMeleeText
+        : HeavyGun(gun) && (done & HeavyMoves) != 0 ? HeavyText
         : null;
 
     // Why a Charge or Fight ACTION is excluded by a Shoot ACTION already taken, or null.
-    public static string? MeleeExcluded(ActionsTaken done, ModelProfile? p, ActionsTaken action) =>
+    public static string? MeleeExcluded(MatchState state, ModelId id, ActionsTaken action) => MeleeExcluded(state.Actions, Gun(state, id), action);
+
+    public static string? MeleeExcluded(ActionsTaken done, ModelProfile? gun, ActionsTaken action) =>
         !done.HasFlag(ActionsTaken.Shoot) ? null
-        : !Assault(p) ? ShootAndMeleeText
-        : action == ActionsTaken.Charge && HeavyGun(p) ? HeavyText
+        : !Assault(gun) ? ShootAndMeleeText
+        : action == ActionsTaken.Charge && HeavyGun(gun) ? HeavyText
         : null;
 
     // Why a Move, Dash or Retreat is excluded by a Shoot ACTION with a HEAVY ranged weapon, or null.
-    public static string? MoveExcluded(ActionsTaken done, ModelProfile? p) =>
-        done.HasFlag(ActionsTaken.Shoot) && HeavyGun(p) ? HeavyText : null;
+    public static string? MoveExcluded(MatchState state, ModelId id) => MoveExcluded(state.Actions, Gun(state, id));
+
+    public static string? MoveExcluded(ActionsTaken done, ModelProfile? gun) =>
+        done.HasFlag(ActionsTaken.Shoot) && HeavyGun(gun) ? HeavyText : null;
 
     // RELOAD on the weapon of an attack the active model makes in its own activation (p. 56).
     public static bool Reloads(ModelProfile p, AttackKind kind) => p.AttackKeywords(kind).HasFlag(WeaponKeywords.Reload);

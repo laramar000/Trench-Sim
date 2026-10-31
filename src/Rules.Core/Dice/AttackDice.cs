@@ -13,7 +13,8 @@ public static class AttackDice
     // Ranged Attack Success Roll: 1 bonus die for an Elevated position, 3" or more above the target (p. 43).
     public static int ShotBonus(bool elevated) => elevated ? 1 : 0;
 
-    // Melee Attack Success Roll: 1 penalty die when the target defends an obstacle (pp. 45-46).
+    // Melee Attack Success Roll: 1 penalty die when the target defends an obstacle (pp. 45-46), and (roster stage R3)
+    // for an Off-Hand weapon (p. 45) and for BLOCK after a charge (p. 53).
     public static int FightPenalty(bool defendedObstacle) => defendedObstacle ? 1 : 0;
 
     // Injury Roll: +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
@@ -35,13 +36,18 @@ public static class AttackDice
 
     // Injury Roll modifiers: the attacking weapon's modifier and the target's Armour (pp. 46, 48). Roster stage R2:
     // IGNORE ARMOUR drops the Armour; ARMOUR PIERCING lowers it by 1, to at most 0 (p. 52).
+    // Roster stage R3: the part of the Armour from IMPERVIOUS battlekit is left alone by both (p. 55).
     public static int[] InjuryModifiers(ModelProfile attacker, ModelProfile target, AttackKind kind) =>
-        [kind == AttackKind.Melee ? attacker.MeleeAttackInjuryModifier : attacker.RangedInjuryModifier, ArmourAgainst(attacker.AttackKeywords(kind), target.Armour)];
+        [kind == AttackKind.Melee ? attacker.MeleeAttackInjuryModifier : attacker.RangedInjuryModifier, ArmourAgainst(attacker.AttackKeywords(kind), target.Armour, target.ImperviousArmour)];
 
-    public static int ArmourAgainst(WeaponKeywords keywords, int armour) =>
-        keywords.HasFlag(WeaponKeywords.IgnoreArmour) ? 0
-        : keywords.HasFlag(WeaponKeywords.ArmourPiercing) ? Math.Min(0, armour + 1)
-        : armour;
+    public static int ArmourAgainst(WeaponKeywords keywords, int armour, int impervious = 0)
+    {
+        var plain = armour - impervious;
+        var left = keywords.HasFlag(WeaponKeywords.IgnoreArmour) ? 0
+            : keywords.HasFlag(WeaponKeywords.ArmourPiercing) ? Math.Min(0, plain + 1)
+            : plain;
+        return left + impervious;
+    }
 
     // Roster stage R2: the INJURY DICE a Critical Success adds, +2 with CRITICAL instead of +1 (p. 53).
     public static int CriticalInjuryDice(WeaponKeywords keywords) => keywords.HasFlag(WeaponKeywords.Critical) ? 2 : 1;

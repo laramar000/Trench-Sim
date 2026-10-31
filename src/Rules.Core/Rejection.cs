@@ -49,6 +49,8 @@ public enum ReasonCode
     UnknownCommand,
     // Trench Warfare's Mine Markers (p. 162)
     MinesIllegal,
+    // Roster stage R3: a Fight's next attack is with another weapon
+    WrongWeapon,
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.

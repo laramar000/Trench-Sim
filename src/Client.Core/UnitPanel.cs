@@ -279,7 +279,35 @@ public static class UnitPanel
         var halved = unit.Active && state.ActiveModel == unit.Id && state.MovementHalved
             ? $" ({BoardScene.Inch(TableRect.Inches(p.Movement) / 2)} now, halved after standing up)" : "";
         var range = p.HasRangedWeapon ? $"Range {BoardScene.Inch(TableRect.Inches(p.RangedRange))}" : "No ranged weapon";
-        return $"Move {move}{halved} · {range} · Armour {p.Armour} · {MeleeWords(p)}{DiceWords(p)}";
+        return $"Move {move}{halved} · {range} · Armour {p.Armour} · {MeleeWords(p)}{DiceWords(p)}{WeaponWords(p)}";
+    }
+
+    // Roster stage R3: second weapons, CLEAVE, BLOCK and IMPERVIOUS Armour, only when the model has them.
+    public static string WeaponWords(ModelProfile p)
+    {
+        ArgumentNullException.ThrowIfNull(p);
+        var parts = new List<string>();
+        if (p.SecondRangedWeapon is { } gun)
+        {
+            parts.Add($"2nd gun range {BoardScene.Inch(TableRect.Inches(gun.Range))}");
+        }
+        if (p.SecondMeleeWeapon is not null)
+        {
+            parts.Add("2nd Melee Weapon (Off-Hand -1 DICE)");
+        }
+        if (p.HasMeleeWeapon && p.MeleeWeaponCleave > 1)
+        {
+            parts.Add($"CLEAVE {p.MeleeWeaponCleave}");
+        }
+        if (p.HasBlock)
+        {
+            parts.Add("BLOCK");
+        }
+        if (p.ImperviousArmour != 0)
+        {
+            parts.Add($"IMPERVIOUS Armour {p.ImperviousArmour}");
+        }
+        return string.Concat(parts.Select(x => $" · {x}"));
     }
 
     // Roster stage R1: the dice the model's own attacks start with, only when not zero (" · Shoot +1 DICE · Fight +2 DICE").

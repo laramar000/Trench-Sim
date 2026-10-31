@@ -12,6 +12,8 @@ namespace Roster;
 //   keywords, abilities and upgrades). Shown to both players before the match.
 // Roster stage R1: the model's Ranged and Melee DICE and its weapons' DICE and INJURY DICE are played.
 // Roster stage R2: the weapon keywords in PlayedKeywords are played; the others are named.
+// Roster stage R3 (U100): two ranged and two melee weapons (a dual-purpose Pistol may be the second Melee Weapon), CLEAVE,
+// BLOCK and IMPERVIOUS armour and shields are played; a third weapon of a kind is refused by name.
 // The result is written in the warband content format the server's scenarios load (content/test-warbands.json).
 public sealed record ReadyModel(
     string Name,
@@ -37,7 +39,16 @@ public sealed record ReadyModel(
     // IgnoreElevatedPosition, and stage R2b's Assault, Heavy, Reload).
     public IReadOnlyList<string> RangedWeaponKeywords { get; init; } = [];
     public IReadOnlyList<string> MeleeWeaponKeywords { get; init; } = [];
+
+    // Roster stage R3: the melee weapon's CLEAVE (X), the Armour from IMPERVIOUS battlekit, and the second weapons.
+    public int MeleeWeaponCleave { get; init; }
+    public int ImperviousArmour { get; init; }
+    public ReadyWeapon? SecondRangedWeapon { get; init; }
+    public ReadyWeapon? SecondMeleeWeapon { get; init; }
 }
+
+// Roster stage R3: a second weapon, as Rules.Core Weapon holds it (RangeInches 0 for a Melee Weapon).
+public sealed record ReadyWeapon(string Name, int RangeInches, int InjuryModifier, int Dice, int InjuryDice, IReadOnlyList<string> Keywords, bool AlsoMelee, int Cleave);
 
 public sealed record MatchReady(
     IReadOnlyList<ReadyModel> Models,
@@ -99,13 +110,47 @@ public sealed record MatchReady(
                     {
                         ("rangedDice", m.RangedDice), ("meleeDice", m.MeleeDice), ("rangedWeaponDice", m.RangedWeaponDice),
                         ("rangedWeaponInjuryDice", m.RangedWeaponInjuryDice), ("meleeWeaponDice", m.MeleeWeaponDice),
-                        ("meleeWeaponInjuryDice", m.MeleeWeaponInjuryDice),
+                        ("meleeWeaponInjuryDice", m.MeleeWeaponInjuryDice), ("meleeWeaponCleave", m.MeleeWeaponCleave),
+                        ("imperviousArmour", m.ImperviousArmour),
                     })
                     {
                         if (dice != 0)
                         {
                             w.WriteNumber(field, dice);
                         }
+                    }
+                    foreach (var (field, weapon) in new[] { ("secondRangedWeapon", m.SecondRangedWeapon), ("secondMeleeWeapon", m.SecondMeleeWeapon) })
+                    {
+                        if (weapon is null)
+                        {
+                            continue;
+                        }
+                        w.WriteStartObject(field);
+                        if (weapon.RangeInches != 0)
+                        {
+                            w.WriteString("rangeInches", weapon.RangeInches.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        }
+                        foreach (var (part, value) in new[] { ("injuryModifier", weapon.InjuryModifier), ("dice", weapon.Dice), ("injuryDice", weapon.InjuryDice), ("cleave", weapon.Cleave) })
+                        {
+                            if (value != 0)
+                            {
+                                w.WriteNumber(part, value);
+                            }
+                        }
+                        if (weapon.Keywords.Count > 0)
+                        {
+                            w.WriteStartArray("keywords");
+                            foreach (var word in weapon.Keywords)
+                            {
+                                w.WriteStringValue(word);
+                            }
+                            w.WriteEndArray();
+                        }
+                        if (weapon.AlsoMelee)
+                        {
+                            w.WriteBoolean("alsoMelee", true);
+                        }
+                        w.WriteEndObject();
                     }
                     w.WriteEndObject();
                 }
@@ -128,6 +173,7 @@ public static class MatchReadiness
     public const int MaxRangeInches = 60;
     public const int MaxModifier = 3;
     public const int MaxDice = 6;
+    public const int MaxCleave = 6;
 
     public static MatchReady Check(WarbandRoster roster, Faction faction, Catalogue catalogue)
     {
@@ -174,26 +220,34 @@ public static class MatchReadiness
 
             var kit = entry.StartsWith.Concat(model.Kit)
                 .Select(k => catalogue.Find(KitRef.Split(k).Kit)).OfType<CatalogueEntry>().ToList();
-            CatalogueEntry? ranged = null;
-            CatalogueEntry? melee = null;
+            var guns = new List<CatalogueEntry>();
+            var blades = new List<CatalogueEntry>();
             var armour = entry.Armour;
+            var impervious = 0;
             foreach (var piece in kit)
             {
                 switch (piece.Category)
                 {
-                    case KitCategory.Ranged when ranged is null && piece.RangeInches is { } range && range <= MaxRangeInches:
-                        ranged = piece;
+                    case KitCategory.Ranged when guns.Count < 2 && piece.RangeInches is { } range && range <= MaxRangeInches:
+                        guns.Add(piece);
                         Without(who, piece, without);
                         break;
-                    case KitCategory.Melee when melee is null:
-                        melee = piece;
+                    case KitCategory.Melee when blades.Count < 2:
+                        blades.Add(piece);
                         Without(who, piece, without);
+                        break;
+                    case KitCategory.Ranged when piece.RangeInches is > MaxRangeInches:
+                        refused.Add($"{who}: {piece.Name} (its range is beyond what the engine allows)");
                         break;
                     case KitCategory.Ranged or KitCategory.Melee:
-                        refused.Add($"{who}: {piece.Name} (the engine plays one ranged and one melee weapon per model)");
+                        refused.Add($"{who}: {piece.Name} (the engine plays two ranged and two melee weapons per model)");
                         break;
                     case KitCategory.Armour or KitCategory.Shield:
                         armour += piece.InjuryModifier;
+                        if (piece.Keywords.Any(k => k.Id == "IMPERVIOUS"))
+                        {
+                            impervious += piece.InjuryModifier;
+                        }
                         Without(who, piece, without, diceToo: true);
                         break;
                     default:
@@ -201,6 +255,16 @@ public static class MatchReadiness
                         break;
                 }
             }
+            // A model with no Melee Weapon fights with its dual-purpose Pistol: that one is its first ranged weapon. With
+            // fewer than two Melee Weapons, another dual-purpose Pistol is its second Melee Weapon (p. 69, U100).
+            if (blades.Count == 0 && guns.Count == 2 && !guns[0].AlsoMelee && guns[1].AlsoMelee)
+            {
+                guns.Reverse();
+            }
+            var ranged = guns.Count > 0 ? guns[0] : null;
+            var melee = blades.Count > 0 ? blades[0] : null;
+            var offHand = blades.Count > 1 ? blades[1]
+                : guns.Skip(blades.Count == 0 ? 1 : 0).FirstOrDefault(g => g.AlsoMelee);
             if (ranged is not null && entry.Ranged is null)
             {
                 refused.Add($"{who}: {ranged.Name} (its Ranged is \"-\": it may not make Ranged Attacks)");
@@ -214,6 +278,8 @@ public static class MatchReadiness
                 without.Add($"{who}: Armour beyond -{MaxModifier} (played as -{MaxModifier})");
                 armour = -MaxModifier;
             }
+            // IMPERVIOUS (p. 55): the part of the Armour from that battlekit, at most the whole Armour.
+            impervious = Math.Clamp(impervious, armour, 0);
             if (refused.Count > problems)
             {
                 continue;
@@ -230,12 +296,39 @@ public static class MatchReadiness
                 MeleeWeaponInjuryDice = Dice(melee?.InjuryDice ?? 0, who, $"{melee?.Name}'s INJURY DICE", without),
                 RangedWeaponKeywords = ranged is null ? [] : Played(ranged),
                 MeleeWeaponKeywords = melee is null ? [] : Played(melee),
+                MeleeWeaponCleave = melee is null ? 0 : Cleave(melee, who, without),
+                ImperviousArmour = impervious,
+                SecondRangedWeapon = guns.Count > 1 ? Ready(guns[1], ranged: true, who, without) : null,
+                SecondMeleeWeapon = offHand is null || entry.Melee is null || (melee is null && ranged?.AlsoMelee != true) ? null : Ready(offHand, ranged: false, who, without),
             });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
     }
 
     private static int Clamp(int modifier) => Math.Clamp(modifier, -MaxModifier, MaxModifier);
+
+    // Roster stage R3: CLEAVE (X) of a Melee Weapon, the X; beyond what the engine holds it is played at the limit.
+    private static int Cleave(CatalogueEntry weapon, string who, List<string> without)
+    {
+        var x = weapon.Keywords.FirstOrDefault(k => k.Id == "CLEAVE")?.Number ?? 0;
+        if (x > MaxCleave)
+        {
+            without.Add($"{who}: {weapon.Name}'s CLEAVE beyond {MaxCleave} (played as {MaxCleave})");
+        }
+        return Math.Clamp(x, 0, MaxCleave);
+    }
+
+    // A second weapon as the engine holds it. A dual-purpose Pistol used as a Melee Weapon keeps its PISTOL keyword
+    // (the model may use its Ranged for it, p. 55) and its injury modifier and dice.
+    private static ReadyWeapon Ready(CatalogueEntry weapon, bool ranged, string who, List<string> without) => new(
+        weapon.Name,
+        ranged ? weapon.RangeInches ?? 0 : 0,
+        Clamp(weapon.InjuryModifier),
+        Dice(weapon.Dice, who, $"{weapon.Name}'s DICE", without),
+        Dice(weapon.InjuryDice, who, $"{weapon.Name}'s INJURY DICE", without),
+        Played(weapon),
+        ranged && weapon.AlsoMelee,
+        ranged ? 0 : Cleave(weapon, who, without));
 
     // Dice the engine holds (-6 to +6 each, Rules.Core ModelProfile.MaxDice); beyond that, played at the limit and named.
     private static int Dice(int dice, string who, string what, List<string> without)
@@ -266,7 +359,13 @@ public static class MatchReadiness
         ["HEAVY"] = "Heavy",
         ["RELOAD"] = "Reload",
         ["CUMBERSOME"] = "",
+        // Roster stage R3 (U100): BLOCK is a flag; CLEAVE travels as the weapon's number of attacks.
+        ["BLOCK"] = "Block",
+        ["CLEAVE"] = "",
     };
+
+    // Roster stage R3: the keywords of armour and shields the engine plays.
+    private static readonly HashSet<string> PlayedArmourKeywords = new(StringComparer.Ordinal) { "IMPERVIOUS" };
 
     private static string KeywordName(KeywordUse k) => k.Id == "IGNORE" && k.Text is { } what ? $"IGNORE {what}" : k.Id;
 
@@ -279,7 +378,7 @@ public static class MatchReadiness
     // played; armour and shields play only their injury modifier, so their dice are named too).
     private static void Without(string who, CatalogueEntry piece, List<string> without, bool diceToo = false)
     {
-        var parts = piece.Keywords.Where(k => diceToo || !IsPlayed(k)).Select(KeywordName).ToList();
+        var parts = piece.Keywords.Where(k => diceToo ? !PlayedArmourKeywords.Contains(k.Id) : !IsPlayed(k)).Select(KeywordName).ToList();
         if (diceToo && piece.Dice != 0)
         {
             parts.Add($"{piece.Dice:+0;-0} DICE");

@@ -40,4 +40,8 @@ public enum WeaponKeywords
 
     // RELOAD: after an attack with it, the model's activation ends once that ACTION is done (p. 56).
     Reload = 2048,
+
+    // Roster stage R3 (U100): BLOCK: -1 DICE to a Melee Attack against the model that has this weapon, when the
+    // attacker made a Charge ACTION before the attack this turn (p. 53).
+    Block = 4096,
 }
