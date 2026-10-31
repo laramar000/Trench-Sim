@@ -213,9 +213,9 @@ public partial class Main
                 var give = Button($"Add {k.Name} · {k.CostText}", () =>
                 {
                     _builder.AddKit(k.Id);
-                    RefreshRoster("AddKit-" + k.Id);
+                    RefreshRoster(AddKitName(k.Id));
                 });
-                give.Name = "AddKit-" + k.Id;
+                give.Name = AddKitName(k.Id);
                 give.TooltipText = k.Rules;
                 _rosterKit.AddChild(give);
             }
@@ -273,4 +273,7 @@ public partial class Main
 
     // For the UI check: the builder behind the screen.
     public RosterBuilder RosterBuilderShown => _builder;
+
+    // Godot node names cannot hold '@', which marks a piece bought from another faction's armoury.
+    public static string AddKitName(string kitRef) => "AddKit-" + kitRef.Replace("@", "-from-");
 }

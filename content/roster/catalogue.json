@@ -1737,6 +1737,24 @@
    "cost": null
   },
   {
+   "id": "guard-dog",
+   "name": "Guard Dog",
+   "category": "special",
+   "rule": {
+    "summary": "Special Training: enemies cannot use INFILTRATOR to deploy within 12\" of it. Not for The Cult or The Court.",
+    "page": 142
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 142
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
    "id": "halberd-gun",
    "name": "Halberd-Gun",
    "category": "ranged",
@@ -1897,6 +1915,24 @@
    },
    "status": "verified",
    "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "hellhound",
+   "name": "Hellhound",
+   "category": "special",
+   "rule": {
+    "summary": "Special Training: NEGATE FIRE; its attacks have +1 DICE and FIRE (GAS in The Cult or Gilded Knights). Fallen warbands only.",
+    "page": 142
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 142
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
    "cost": null
   },
   {
@@ -2358,6 +2394,24 @@
    "cost": null
   },
   {
+   "id": "loyal-hound",
+   "name": "Loyal Hound",
+   "category": "special",
+   "rule": {
+    "summary": "The model and its Trench Dog both gain FIRETEAM.",
+    "page": 142
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 142
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
    "id": "machine-armour",
    "name": "Machine Armour",
    "category": "armour",
@@ -2420,6 +2474,24 @@
    "cost": null
   },
   {
+   "id": "martyrdom-dog",
+   "name": "Martyrdom Dog",
+   "category": "special",
+   "rule": {
+    "summary": "Special Training: carries a Martyrdom Device it can trigger. Pilgrims only.",
+    "page": 142
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 142
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
    "id": "masterwork-jezzail",
    "name": "Masterwork Jezzail",
    "category": "ranged",
@@ -2460,6 +2532,24 @@
    },
    "status": "verified",
    "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "mercy-dog",
+   "name": "Mercy Dog",
+   "category": "special",
+   "rule": {
+    "summary": "Special Training: has and can use a Medi-kit, and can drag a Down friend with it at half Movement. The Principality only.",
+    "page": 142
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 142
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
    "cost": null
   },
   {

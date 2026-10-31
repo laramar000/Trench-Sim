@@ -997,10 +997,43 @@
   },
   {
    "kit": "trench-dog",
-   "cost": null,
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
    "limit": 1,
-   "status": "unverified",
-   "note": "costs 1 to 3 Glory (see the item); not priced here"
+   "status": "verified",
+   "note": "Loyal Hound and one Special Training are +1 Glory each, bought as their own items"
+  },
+  {
+   "kit": "loyal-hound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "needsKit": "trench-dog",
+   "limitPerModel": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "guard-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
+  },
+  {
+   "kit": "mercy-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
   }
  ],
  "variants": [
@@ -2928,5 +2961,13 @@
   "page": 23
  },
  "status": "verified",
- "naming": "rename"
+ "naming": "rename",
+ "kitGroups": [
+  {
+   "id": "dog-training",
+   "name": "Trench Dog training",
+   "limitPerModel": 1,
+   "note": "one Special Training per Trench Dog (core rulebook p. 142)"
+  }
+ ]
 }

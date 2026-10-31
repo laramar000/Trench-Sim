@@ -23,7 +23,32 @@ public sealed record ArmouryItem(
     IReadOnlyList<OnlyFor> Only,
     IReadOnlySet<Stipulation> Stipulations,
     DataStatus Status,
-    string? Note);
+    string? Note,
+    string? From = null,
+    string? Group = null,
+    string? NeedsKit = null)
+{
+    // How a roster names this item: the kit id, or "kit@faction" for a piece bought from another faction's armoury.
+    public string Ref => KitRef.Of(Kit, From);
+}
+
+// A roster's name for a piece of battlekit: a catalogue id, or "id@faction" when the piece comes from another
+// faction's armoury (Weapon Collections and the like).
+public static class KitRef
+{
+    public static string Of(string kit, string? from) => from is null ? kit : $"{kit}@{from}";
+
+    public static (string Kit, string? From) Split(string reference)
+    {
+        var at = reference.IndexOf('@');
+        return at < 0 ? (reference, null) : (reference[..at], reference[(at + 1)..]);
+    }
+}
+
+// Armoury items that share one limit: "1 piece of Battlekit from the New Antioch Armoury", "one of the following
+// special abilities". Limit counts pieces in the whole warband, LimitPerModel pieces on one model; NeedsUpgrade is an
+// upgrade the model must have bought to take any of them.
+public sealed record KitGroup(string Id, string Name, int? Limit, int? LimitPerModel, string? NeedsUpgrade, string? Note);
 
 public sealed record KitPrice(string Kit, Cost? Cost);
 
@@ -41,7 +66,14 @@ public sealed record KitRules(
     IReadOnlyList<KitCategory> MustHave,
     bool MustHaveWeapon,
     string? WeaponsNeedKeyword,
-    string? Note);
+    string? Note,
+    Arms? Arms = null);
+
+// A model with more arms than a person (an Amalgam, a Fallen Saint): it carries up to Count weapons, in place of the
+// rulebook p. 69 hand limits. A 2-handed weapon uses TwoHandedArms of them, except up to HeavyAsOneHanded 2-handed
+// HEAVY weapons that use one. A shield uses one and never has Shield Combo. MaxTwoHanded and MaxSameWeapon are the
+// entry's own caps.
+public sealed record Arms(int Count, int TwoHandedArms, int HeavyAsOneHanded, int? MaxTwoHanded, int? MaxSameWeapon);
 
 // A purchasable upgrade for one model (an ability, keyword or other upgrade). Bought at most once per model.
 public sealed record Upgrade(string Id, string Name, Cost? Cost, int? MaxPerWarband, IReadOnlyList<KeywordUse> AddsKeywords, string? Note);
@@ -91,7 +123,8 @@ public sealed record Variant(
     string? Note,
     Naming Naming,
     int? BudgetDucats = null,
-    int? BudgetGlory = null);
+    int? BudgetGlory = null,
+    IReadOnlyList<KitGroup>? KitGroups = null);
 
 public sealed record Faction(
     string Id,
@@ -105,8 +138,13 @@ public sealed record Faction(
     SourceRef Source,
     DataStatus Status,
     string? Note,
-    Naming Naming)
+    Naming Naming,
+    IReadOnlyList<KitGroup>? KitGroups = null)
 {
+    // The kit groups a list uses: the faction's and its variant's.
+    public IReadOnlyList<KitGroup> GroupsFor(string? variantId) =>
+        (KitGroups ?? []).Concat(Variants.FirstOrDefault(v => v.Id == variantId)?.KitGroups ?? []).ToList();
+
     // The faction as a given variant (or the standard list for null) presents it: models and armoury after its changes.
     public (IReadOnlyList<ModelEntry> Models, IReadOnlyList<ArmouryItem> Armoury)? As(string? variantId)
     {
@@ -118,7 +156,7 @@ public sealed record Faction(
         var models = Models.Where(m => !variant.RemoveModels.Contains(m.Id))
             .Select(m => variant.ModelCosts.FirstOrDefault(c => c.Kit == m.Id) is { } price ? m with { Cost = price.Cost } : m)
             .Concat(variant.AddModels).ToList();
-        var armoury = Armoury.Where(a => !variant.RemoveArmoury.Contains(a.Kit) && variant.AddArmoury.All(n => n.Kit != a.Kit))
+        var armoury = Armoury.Where(a => !variant.RemoveArmoury.Contains(a.Ref) && variant.AddArmoury.All(n => n.Ref != a.Ref))
             .Concat(variant.AddArmoury).ToList();
         return (models, armoury);
     }
@@ -165,14 +203,16 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
         var models = Models(root, "models", "faction list");
         if (models.Count == 0)
             problems.Add("faction list: it has no models");
+        var groups = Groups(root, "faction list", []);
         var armoury = Armoury(root, "armoury", "faction list");
         CheckModelKit(models, armoury, "faction list");
+        CheckArmouryLinks(models, armoury, groups, "faction list");
 
         var variants = new List<Variant>();
         var variantIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var v in Json.Objects(root, "variants", "faction list", problems))
         {
-            var variant = ReadVariant(v, models, armoury);
+            var variant = ReadVariant(v, models, armoury, groups);
             if (variant is null)
                 continue;
             if (!variantIds.Add(variant.Id))
@@ -184,10 +224,11 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
             return null;
         if (status == DataStatus.Discrepancy && note is null)
             problems.Add("faction list: a discrepancy needs a \"note\" saying what the sources disagree on");
-        return new Faction(id, name, alignment.Value, budget.Value, models, armoury, variants, special, source, status.Value, note, naming.Value);
+        return new Faction(id, name, alignment.Value, budget.Value, models, armoury, variants, special, source, status.Value, note, naming.Value,
+            groups);
     }
 
-    private Variant? ReadVariant(JsonElement v, List<ModelEntry> baseModels, List<ArmouryItem> baseArmoury)
+    private Variant? ReadVariant(JsonElement v, List<ModelEntry> baseModels, List<ArmouryItem> baseArmoury, List<KitGroup> baseGroups)
     {
         var id = Json.Text(v, "id", "variant", problems);
         var at = $"variant \"{id}\"";
@@ -203,8 +244,9 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
         foreach (var c in costs.Where(c => baseModels.All(b => b.Id != c.Kit) || remove.Contains(c.Kit)))
             problems.Add($"{at}: changes the cost of \"{c.Kit}\", which is not one of the faction's models in this variant");
         var removeArmoury = Json.Strings(v, "removeArmoury", at, problems);
-        foreach (var k in removeArmoury.Where(k => baseArmoury.All(a => a.Kit != k)))
+        foreach (var k in removeArmoury.Where(k => baseArmoury.All(a => a.Ref != k)))
             problems.Add($"{at}: removes \"{k}\" from the armoury, but the faction's armoury does not have it");
+        var groups = Groups(v, at, baseGroups);
         var addArmoury = Armoury(v, "addArmoury", at);
         var special = Abilities(v, "specialRules", at);
         var source = Catalogue.ReadSource(v, at, problems);
@@ -217,16 +259,17 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
             problems.Add($"{at}: a budget cannot be negative");
 
         var models = baseModels.Where(m => !remove.Contains(m.Id)).Concat(add).ToList();
-        var armoury = baseArmoury.Where(a => !removeArmoury.Contains(a.Kit) && addArmoury.All(n => n.Kit != a.Kit)).Concat(addArmoury).ToList();
+        var armoury = baseArmoury.Where(a => !removeArmoury.Contains(a.Ref) && addArmoury.All(n => n.Ref != a.Ref)).Concat(addArmoury).ToList();
         CheckModelKit(add, armoury, at);
         CheckModelKit(models.Except(add).ToList(), armoury, at);
+        CheckArmouryLinks(models, armoury, baseGroups.Concat(groups).ToList(), at);
 
         if (id is null || name is null || source is null || status is null || naming is null)
             return null;
         if (status == DataStatus.Discrepancy && note is null)
             problems.Add($"{at}: a discrepancy needs a \"note\" saying what the sources disagree on");
         return new Variant(id, name, remove, add, costs, removeArmoury, addArmoury, special, source, status.Value, note, naming.Value,
-            budgetDucats, budgetGlory);
+            budgetDucats, budgetGlory, groups);
     }
 
     private List<ModelEntry> Models(JsonElement e, string field, string at)
@@ -346,7 +389,33 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
         if (needs is not null && vocabulary.Find(needs) is null)
             problems.Add($"{rat}: keyword \"{needs}\" is not in the vocabulary");
         var note = Json.Text(r, "note", rat, problems, required: false);
-        return new KitRules(no, only, maxCost, must, weapon, needs, note);
+        return new KitRules(no, only, maxCost, must, weapon, needs, note, ReadArms(r, rat));
+    }
+
+    private Arms? ReadArms(JsonElement r, string rat)
+    {
+        if (!r.TryGetProperty("arms", out var a))
+            return null;
+        var aat = $"{rat} arms";
+        if (a.ValueKind != JsonValueKind.Object)
+        {
+            problems.Add($"{aat}: must be an object");
+            return null;
+        }
+        var count = Json.Whole(a, "count", aat, problems);
+        var two = Json.Whole(a, "twoHandedArms", aat, problems);
+        var heavy = Json.Whole(a, "heavyAsOneHanded", aat, problems, required: false) ?? 0;
+        var maxTwo = Json.Whole(a, "maxTwoHanded", aat, problems, required: false);
+        var maxSame = Json.Whole(a, "maxSameWeapon", aat, problems, required: false);
+        if (count is < 3)
+            problems.Add($"{aat}: \"count\" is for models with 3 or more arms; leave \"arms\" out for the normal hand limits");
+        if (two is not (null or 1 or 2))
+            problems.Add($"{aat}: \"twoHandedArms\" must be 1 or 2");
+        if (heavy < 0 || maxTwo is < 0 || maxSame is <= 0)
+            problems.Add($"{aat}: \"heavyAsOneHanded\" and \"maxTwoHanded\" cannot be negative and \"maxSameWeapon\" must be 1 or more");
+        if (count is null || two is null)
+            return null;
+        return new Arms(count.Value, two.Value, heavy, maxTwo, maxSame);
     }
 
     // "+2 DICE" is written 2, "-" (no such attack) is written null. The field itself must be present.
@@ -440,13 +509,19 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
             }
             var status = Json.Choice<DataStatus>(a, "status", aat, problems);
             var note = Json.Text(a, "note", aat, problems, required: false);
+            var from = Json.Text(a, "from", aat, problems, required: false);
+            CheckId(from, $"{aat} \"from\"");
+            var group = Json.Text(a, "group", aat, problems, required: false);
+            var needsKit = Json.Text(a, "needsKit", aat, problems, required: false);
+            if (needsKit is not null && catalogue.Find(needsKit) is null)
+                problems.Add($"{aat}: \"needsKit\" names \"{needsKit}\", which is not in the catalogue");
             if (kit is null || status is null)
                 continue;
             var entry = catalogue.Find(kit);
             if (entry is null)
                 problems.Add($"{aat}: battlekit \"{kit}\" is not in the catalogue");
-            if (list.Any(x => x.Kit == kit))
-                problems.Add($"{aat}: listed twice in the same armoury");
+            if (list.Any(x => x.Kit == kit && x.From == from))
+                problems.Add(from is null ? $"{aat}: listed twice in the same armoury" : $"{aat}: listed twice from \"{from}\" in the same armoury");
             if (status == DataStatus.Verified && cost is null)
                 problems.Add($"{aat}: a verified armoury item needs its cost; mark it unverified while the cost is unresolved");
             if (status == DataStatus.Discrepancy && note is null)
@@ -455,9 +530,48 @@ internal sealed class FactionReader(Catalogue catalogue, KeywordVocabulary vocab
                 problems.Add($"{aat}: only a ranged weapon can have a bayonet lug");
             if (entry is not null && stipulations.Contains(Stipulation.ShieldCombo) && entry.Category is not (KitCategory.Shield or KitCategory.Ranged or KitCategory.Melee))
                 problems.Add($"{aat}: Shield Combo is for shields and weapons only");
-            list.Add(new ArmouryItem(kit, cost, limit, perModel, only, stipulations, status.Value, note));
+            list.Add(new ArmouryItem(kit, cost, limit, perModel, only, stipulations, status.Value, note, from, group, needsKit));
         }
         return list;
+    }
+
+    private List<KitGroup> Groups(JsonElement e, string at, List<KitGroup> outer)
+    {
+        var list = new List<KitGroup>();
+        foreach (var g in Json.Objects(e, "kitGroups", at, problems))
+        {
+            var id = Json.Text(g, "id", $"{at} kit group", problems);
+            var gat = $"{at} kit group \"{id}\"";
+            CheckId(id, gat);
+            var name = Json.Text(g, "name", gat, problems);
+            var limit = Json.Whole(g, "limit", gat, problems, required: false);
+            var perModel = Json.Whole(g, "limitPerModel", gat, problems, required: false);
+            if (limit is <= 0 || perModel is <= 0)
+                problems.Add($"{gat}: limits must be 1 or more");
+            var upgrade = Json.Text(g, "needsUpgrade", gat, problems, required: false);
+            var note = Json.Text(g, "note", gat, problems, required: false);
+            if (id is null || name is null)
+                continue;
+            if (list.Concat(outer).Any(x => x.Id == id))
+                problems.Add($"{gat}: the id is used twice");
+            list.Add(new KitGroup(id, name, limit, perModel, upgrade, note));
+        }
+        return list;
+    }
+
+    // Groups, needed upgrades and needed kit must all be things this list has.
+    private void CheckArmouryLinks(IReadOnlyList<ModelEntry> models, IReadOnlyList<ArmouryItem> armoury, IReadOnlyList<KitGroup> groups, string at)
+    {
+        foreach (var a in armoury)
+        {
+            if (a.Group is { } g && groups.All(x => x.Id != g))
+                problems.Add($"{at}: armoury \"{a.Ref}\" is in kit group \"{g}\", which the list does not define");
+            if (a.NeedsKit is { } k && armoury.All(x => x.Kit != k) && models.All(m => !m.StartsWith.Contains(k)))
+                problems.Add($"{at}: armoury \"{a.Ref}\" needs \"{k}\", which no model in the list can have");
+        }
+        foreach (var g in groups.Where(g => g.NeedsUpgrade is not null))
+            if (models.All(m => m.Upgrades.All(u => u.Id != g.NeedsUpgrade)))
+                problems.Add($"{at}: kit group \"{g.Id}\" needs upgrade \"{g.NeedsUpgrade}\", which no model in the list has");
     }
 
     private List<KitPrice> Prices(JsonElement e, string field, string at)

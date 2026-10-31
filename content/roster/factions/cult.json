@@ -147,7 +147,7 @@
       "currency": "ducats"
      },
      "maxPerWarband": 1,
-     "note": "may buy 1 Ranged or Melee Weapon from The Principality or Heretics armoury (not priced by the builder); one rank per Plague Knight"
+     "note": "may buy 1 Ranged or Melee Weapon from The Principality or Heretics armoury (listed in the armoury as from those factions); one rank per Plague Knight"
     }
    ],
    "abilities": [
@@ -538,7 +538,8 @@
     "noCategories": [
      "grenade",
      "armour",
-     "equipment"
+     "equipment",
+     "special"
     ],
     "onlyKit": [
      {
@@ -548,7 +549,13 @@
       ]
      }
     ],
-    "note": "An Amalgam can carry up to six Ranged or Melee Weapons (two HEAVY 2-handed ones count as 1-handed, no weapon more than twice, a Trench Shield may replace a 1-handed weapon without Shield Combo). The builder still applies the normal hand limits, so a six-armed load-out shows as a problem."
+    "arms": {
+     "count": 6,
+     "twoHandedArms": 2,
+     "heavyAsOneHanded": 2,
+     "maxSameWeapon": 2
+    },
+    "note": "Six arms: up to six Ranged or Melee Weapons; a 2-handed weapon counts as two, except up to two HEAVY ones that count as one; no weapon more than twice; a Trench Shield can take one arm, without Shield Combo."
    },
    "source": {
     "book": "Warbands of Trench Crusade",
@@ -1001,10 +1008,592 @@
   },
   {
    "kit": "trench-dog",
-   "cost": null,
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
    "limit": 1,
-   "status": "unverified",
-   "note": "costs 1 to 3 Glory (see the item); not priced here"
+   "status": "verified",
+   "note": "Loyal Hound and one Special Training are +1 Glory each, bought as their own items"
+  },
+  {
+   "kit": "loyal-hound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "needsKit": "trench-dog",
+   "limitPerModel": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "hellhound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
+  },
+  {
+   "kit": "automatic-pistol",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "limit": 3,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "automatic-rifle",
+   "cost": {
+    "amount": 40,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "limit": 1,
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "automatic-shotgun",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "limit": 2,
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bolt-action-rifle",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "flamethrower",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "limit": 3,
+   "status": "verified"
+  },
+  {
+   "kit": "grenade-launcher",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "heavy-flamethrower",
+   "cost": {
+    "amount": 55,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "heavy-shotgun",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "limit": 2,
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "machine-gun",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "pistol",
+   "cost": {
+    "amount": 6,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "semi-automatic-rifle",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "shotgun",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sniper-rifle",
+   "cost": {
+    "amount": 35,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "limit": 3,
+   "status": "verified"
+  },
+  {
+   "kit": "submachine-gun",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "limit": 2,
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bayonet",
+   "cost": {
+    "amount": 2,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "stipulations": [
+    "needsBayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "great-hammer-maul",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "great-sword-axe",
+   "cost": {
+    "amount": 12,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "polearm",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sword-axe",
+   "cost": {
+    "amount": 4,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "trench-club",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "trench-knife",
+   "cost": {
+    "amount": 1,
+    "currency": "ducats"
+   },
+   "from": "principality",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "anti-materiel-rifle",
+   "cost": {
+    "amount": 3,
+    "currency": "glory"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "automatic-rifle",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "limit": 2,
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "automatic-shotgun",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bolt-action-rifle",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "flamethrower",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "limit": 3,
+   "status": "verified"
+  },
+  {
+   "kit": "grenade-launcher",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "heavy-flamethrower",
+   "cost": {
+    "amount": 55,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "machine-gun",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "pistol",
+   "cost": {
+    "amount": 6,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "semi-automatic-rifle",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "shotgun",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "silenced-pistol",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "submachine-gun",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bayonet",
+   "cost": {
+    "amount": 2,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "stipulations": [
+    "needsBayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "blasphemous-staff",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "great-hammer-maul",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "great-sword-axe",
+   "cost": {
+    "amount": 12,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "hellblade",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "polearm",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sacrificial-blade",
+   "cost": {
+    "amount": 23,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "limit": 2,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sword-axe",
+   "cost": {
+    "amount": 4,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "trench-club",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "trench-knife",
+   "cost": {
+    "amount": 1,
+    "currency": "ducats"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "status": "verified"
+  },
+  {
+   "kit": "executioners-axe",
+   "cost": {
+    "amount": 6,
+    "currency": "glory"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "tormentor-chain",
+   "cost": {
+    "amount": 3,
+    "currency": "glory"
+   },
+   "from": "heretics",
+   "group": "rotten-cross",
+   "limit": 2,
+   "status": "verified"
   }
  ],
  "variants": [
@@ -1089,7 +1678,7 @@
         "currency": "ducats"
        },
        "maxPerWarband": 1,
-       "note": "may buy 1 Ranged or Melee Weapon from The Principality or Heretics armoury (not priced by the builder); one rank per Plague Knight"
+       "note": "may buy 1 Ranged or Melee Weapon from The Principality or Heretics armoury (listed in the armoury as from those factions); one rank per Plague Knight"
       }
      ],
      "abilities": [
@@ -1180,7 +1769,7 @@
         "currency": "ducats"
        },
        "maxPerWarband": 1,
-       "note": "may buy 1 Ranged or Melee Weapon from The Principality or Heretics armoury (not priced by the builder); one rank per Plague Knight"
+       "note": "may buy 1 Ranged or Melee Weapon from The Principality or Heretics armoury (listed in the armoury as from those factions); one rank per Plague Knight"
       }
      ],
      "abilities": [
@@ -1486,7 +2075,53 @@
    ],
    "removeArmoury": [
     "plague-lords-axe",
-    "plague-shield"
+    "plague-shield",
+    "automatic-pistol@principality",
+    "automatic-rifle@principality",
+    "automatic-shotgun@principality",
+    "bolt-action-rifle@principality",
+    "flamethrower@principality",
+    "grenade-launcher@principality",
+    "heavy-flamethrower@principality",
+    "heavy-shotgun@principality",
+    "machine-gun@principality",
+    "pistol@principality",
+    "semi-automatic-rifle@principality",
+    "shotgun@principality",
+    "sniper-rifle@principality",
+    "submachine-gun@principality",
+    "bayonet@principality",
+    "great-hammer-maul@principality",
+    "great-sword-axe@principality",
+    "polearm@principality",
+    "sword-axe@principality",
+    "trench-club@principality",
+    "trench-knife@principality",
+    "anti-materiel-rifle@heretics",
+    "automatic-rifle@heretics",
+    "automatic-shotgun@heretics",
+    "bolt-action-rifle@heretics",
+    "flamethrower@heretics",
+    "grenade-launcher@heretics",
+    "heavy-flamethrower@heretics",
+    "machine-gun@heretics",
+    "pistol@heretics",
+    "semi-automatic-rifle@heretics",
+    "shotgun@heretics",
+    "silenced-pistol@heretics",
+    "submachine-gun@heretics",
+    "bayonet@heretics",
+    "blasphemous-staff@heretics",
+    "great-hammer-maul@heretics",
+    "great-sword-axe@heretics",
+    "hellblade@heretics",
+    "polearm@heretics",
+    "sacrificial-blade@heretics",
+    "sword-axe@heretics",
+    "trench-club@heretics",
+    "trench-knife@heretics",
+    "executioners-axe@heretics",
+    "tormentor-chain@heretics"
    ],
    "addArmoury": [
     {
@@ -1592,5 +2227,19 @@
   "page": 127
  },
  "status": "verified",
- "naming": "rename"
+ "naming": "rename",
+ "kitGroups": [
+  {
+   "id": "dog-training",
+   "name": "Trench Dog training",
+   "limitPerModel": 1,
+   "note": "one Special Training per Trench Dog (core rulebook p. 142)"
+  },
+  {
+   "id": "rotten-cross",
+   "name": "Knight of the Rotten Cross",
+   "limitPerModel": 1,
+   "needsUpgrade": "knight-of-the-rotten-cross"
+  }
+ ]
 }

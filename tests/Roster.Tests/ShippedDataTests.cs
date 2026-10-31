@@ -119,7 +119,7 @@ public class ShippedDataTests
         var wretched = faction.Models.Single(m => m.Id == "wretched");
         Assert.Equal(((int?)10, (bool?)true), (wretched.KitRules?.MaxCostDucats, wretched.KitRules?.MustHaveWeapon));
         var greed = faction.As("gilded-knights")!.Value;
-        Assert.DoesNotContain(greed.Armoury, a => a.Kit is "flamethrower" or "frag-grenades" or "incendiary-ammunition");
+        Assert.DoesNotContain(greed.Armoury, a => a.From is null && a.Kit is "flamethrower" or "frag-grenades" or "incendiary-ammunition");
         Assert.Contains(greed.Armoury, a => a.Kit == "grenade-launcher");
     }
 

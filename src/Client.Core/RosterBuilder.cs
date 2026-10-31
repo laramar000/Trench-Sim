@@ -157,7 +157,7 @@ public sealed class RosterBuilder
     public IReadOnlyList<ModelRow> Models => _models.Select((m, i) =>
     {
         var cost = CostOf(m);
-        var kit = m.Kit.Count == 0 ? "" : ": " + string.Join(", ", m.Kit.Select(k => _catalogue.Find(k)!.Name));
+        var kit = m.Kit.Count == 0 ? "" : ": " + string.Join(", ", m.Kit.Select(KitName));
         return new ModelRow(i, $"{i + 1}. {EntryOf(m).Name}{kit}", cost is null ? "cost not verified" : $"{cost} ducats");
     }).ToList();
 
@@ -170,25 +170,47 @@ public sealed class RosterBuilder
             {
                 return [];
             }
-            var entry = EntryOf(_models[Selected]);
+            var model = _models[Selected];
+            var entry = EntryOf(model);
             var armoury = Shown.Armoury;
+            var groups = Faction.GroupsFor(Variant);
+            // Pieces from another faction's armoury come after the list's own; those that need an upgrade show once it is bought.
+            bool Offered(ArmouryItem a) =>
+                a.Group is not { } g || groups.FirstOrDefault(x => x.Id == g)?.NeedsUpgrade is not { } needed || model.Upgrades.Contains(needed);
             IEnumerable<string> ids = entry.Access switch
             {
-                KitAccess.Armoury => armoury.Select(a => a.Kit).Concat(entry.Prices.Select(p => p.Kit)).Distinct(),
+                KitAccess.Armoury => armoury.Where(a => a.From is null).Select(a => a.Kit).Concat(entry.Prices.Select(p => p.Kit)).Distinct()
+                    .Concat(armoury.Where(a => a.From is not null && Offered(a)).Select(a => a.Ref)),
                 KitAccess.Listed => entry.Listed,
                 _ => [],
             };
             return ids.Select(id =>
             {
-                var kit = _catalogue.Find(id)!;
-                var from = armoury.FirstOrDefault(a => a.Kit == id);
-                var cost = entry.Prices.FirstOrDefault(p => p.Kit == id)?.Cost ?? from?.Cost;
-                return new KitRow(id, kit.Name, kit.Category.ToString(), CostText(cost), RulesText(kit, from));
+                var (kitId, fromFaction) = KitRef.Split(id);
+                var kit = _catalogue.Find(kitId)!;
+                var from = armoury.FirstOrDefault(a => a.Kit == kitId && a.From == fromFaction);
+                var group = groups.FirstOrDefault(g => g.Id == from?.Group);
+                return new KitRow(id, KitName(id), kit.Category.ToString(), CostText(PriceOf(entry, id)), RulesText(kit, from, group));
             }).ToList();
         }
     }
 
-    private static string RulesText(CatalogueEntry kit, ArmouryItem? from)
+    // A piece's display name; one from another faction's armoury says which.
+    public string KitName(string kitRef)
+    {
+        var (kitId, from) = KitRef.Split(kitRef);
+        var name = _catalogue.Find(kitId)?.Name ?? kitId;
+        return from is null ? name : $"{name} (from {_factions.FirstOrDefault(f => f.Id == from)?.Name ?? from})";
+    }
+
+    private Cost? PriceOf(ModelEntry entry, string kitRef)
+    {
+        var (kitId, from) = KitRef.Split(kitRef);
+        return (from is null ? entry.Prices.FirstOrDefault(p => p.Kit == kitId)?.Cost : null)
+            ?? Shown.Armoury.FirstOrDefault(a => a.Kit == kitId && a.From == from)?.Cost;
+    }
+
+    private static string RulesText(CatalogueEntry kit, ArmouryItem? from, KitGroup? group)
     {
         var parts = new List<string>();
         if (kit.Hands is { } hands)
@@ -212,6 +234,14 @@ public sealed class RosterBuilder
         {
             parts.Add("only " + string.Join(" or ", from.Only.Select(o => o.Keyword ?? o.Model)));
         }
+        if (from?.NeedsKit is { } needs)
+        {
+            parts.Add($"needs {needs.Replace('-', ' ')}");
+        }
+        if (group is not null)
+        {
+            parts.Add(group.Limit is { } most ? $"{group.Name}, {most} per warband" : group.Name);
+        }
         return string.Join(", ", parts);
     }
 
@@ -226,8 +256,7 @@ public sealed class RosterBuilder
             var m = _models[Selected];
             var entry = EntryOf(m);
             var rows = entry.StartsWith.Select(id => new CarriedRow(-1, id, _catalogue.Find(id)!.Name, "included")).ToList();
-            rows.AddRange(m.Kit.Select((id, i) => new CarriedRow(i, id, _catalogue.Find(id)!.Name,
-                CostText(entry.Prices.FirstOrDefault(p => p.Kit == id)?.Cost ?? Shown.Armoury.FirstOrDefault(a => a.Kit == id)?.Cost))));
+            rows.AddRange(m.Kit.Select((id, i) => new CarriedRow(i, id, KitName(id), CostText(PriceOf(entry, id)))));
             return rows;
         }
     }
@@ -344,7 +373,7 @@ public sealed class RosterBuilder
         {
             return $"This roster has a model this list does not have ({unknown.Entry}).";
         }
-        if (roster.Models.SelectMany(m => m.Kit).FirstOrDefault(k => _catalogue.Find(k) is null) is { } kit)
+        if (roster.Models.SelectMany(m => m.Kit).FirstOrDefault(k => _catalogue.Find(KitRef.Split(k).Kit) is null) is { } kit)
         {
             return $"This roster has battlekit this version does not have ({kit}).";
         }

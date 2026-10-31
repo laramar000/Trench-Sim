@@ -178,4 +178,43 @@ public class RosterBuilderTests
         builder.AddKit("bolt-action-rifle");
         Assert.Contains(builder.CheckLines, l => l.Contains("Bolt-Action Rifle", StringComparison.Ordinal) && l.StartsWith("✕", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void KitFromAnotherFactionIsOfferedByName()
+    {
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseFaction("sultanate");
+        builder.ChooseVariant("house-of-wisdom");
+        builder.Select(builder.Add("alchemist"));
+        var row = builder.KitChoices.Single(k => k.Id == "bolt-action-rifle@principality");
+        Assert.Equal(("Bolt-Action Rifle (from The Principality)", "10 ducats"), (row.Name, row.CostText));
+        Assert.Contains("Weapon Collections: The Principality, 1 per warband", row.Rules, StringComparison.Ordinal);
+        builder.AddKit(row.Id);
+        Assert.Equal("Bolt-Action Rifle (from The Principality)", builder.Carried.Single(c => c.Position == 0).Name);
+        Assert.True(builder.Check().Legal, string.Join("; ", builder.Check().Problems));
+        builder.ChooseVariant(null);
+        builder.Select(builder.Add("yuzbasi"));
+        Assert.DoesNotContain(builder.KitChoices, k => k.Id.Contains('@'));
+    }
+
+    [Fact]
+    public void KitThatNeedsAnUpgradeShowsOnceItIsBought()
+    {
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseFaction("court");
+        builder.ChooseVariant("dedicated-to-envy");
+        builder.Select(builder.Add("praetor"));
+        Assert.DoesNotContain(builder.KitChoices, k => k.Id.EndsWith("@pilgrims", StringComparison.Ordinal));
+        builder.ToggleUpgrade("envious-eyes");
+        Assert.Contains(builder.KitChoices, k => k.Id == "shotgun@pilgrims");
+    }
+
+    [Fact]
+    public void ATrenchDogIsPricedInGlory()
+    {
+        var builder = RosterBuilder.Shipped();
+        builder.Select(builder.Add("lieutenant"));
+        Assert.Equal("1 Glory", builder.KitChoices.Single(k => k.Id == "trench-dog").CostText);
+        Assert.Contains("needs trench dog", builder.KitChoices.Single(k => k.Id == "mercy-dog").Rules, StringComparison.Ordinal);
+    }
 }

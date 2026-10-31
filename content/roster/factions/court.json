@@ -494,9 +494,15 @@
      "grenade",
      "shield",
      "armour",
-     "equipment"
+     "equipment",
+     "special"
     ],
-    "note": "A Fallen Saint can carry three 1-Handed Melee Weapons, or two and one 2-Handed. The builder still applies the normal hand limits, so a third weapon shows as a problem."
+    "arms": {
+     "count": 3,
+     "twoHandedArms": 1,
+     "maxTwoHanded": 1
+    },
+    "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
    },
    "source": {
     "book": "Warbands of Trench Crusade",
@@ -968,10 +974,33 @@
   },
   {
    "kit": "trench-dog",
-   "cost": null,
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
    "limit": 1,
-   "status": "unverified",
-   "note": "costs 1 to 3 Glory (see the item); not priced here"
+   "status": "verified",
+   "note": "Loyal Hound and one Special Training are +1 Glory each, bought as their own items"
+  },
+  {
+   "kit": "loyal-hound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "needsKit": "trench-dog",
+   "limitPerModel": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "hellhound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
   }
  ],
  "variants": [
@@ -1336,9 +1365,15 @@
        "grenade",
        "shield",
        "armour",
-       "equipment"
+       "equipment",
+       "special"
       ],
-      "note": "A Fallen Saint can carry three 1-Handed Melee Weapons, or two and one 2-Handed. The builder still applies the normal hand limits, so a third weapon shows as a problem."
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
       "book": "Warbands of Trench Crusade",
@@ -1463,7 +1498,7 @@
         "amount": 5,
         "currency": "ducats"
        },
-       "note": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (not priced by the builder). Praetors & Sorcerers only"
+       "note": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (listed in the armoury as from those factions). Praetors & Sorcerers only"
       },
       {
        "id": "what-is-yours-is-mine",
@@ -1553,7 +1588,7 @@
         "amount": 5,
         "currency": "ducats"
        },
-       "note": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (not priced by the builder). Praetors & Sorcerers only"
+       "note": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (listed in the armoury as from those factions). Praetors & Sorcerers only"
       },
       {
        "id": "what-is-yours-is-mine",
@@ -1718,9 +1753,15 @@
        "grenade",
        "shield",
        "armour",
-       "equipment"
+       "equipment",
+       "special"
       ],
-      "note": "A Fallen Saint can carry three 1-Handed Melee Weapons, or two and one 2-Handed. The builder still applies the normal hand limits, so a third weapon shows as a problem."
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
       "book": "Warbands of Trench Crusade",
@@ -1744,7 +1785,7 @@
     },
     {
      "name": "Envious Eyes (Ability)",
-     "summary": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (not priced by the builder). Praetors & Sorcerers only.",
+     "summary": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (listed in the armoury as from those factions). Praetors & Sorcerers only.",
      "page": 156
     },
     {
@@ -1759,7 +1800,1680 @@
     "page": 156
    },
    "status": "verified",
-   "naming": "keep"
+   "naming": "keep",
+   "kitGroups": [
+    {
+     "id": "envious-eyes",
+     "name": "Envious Eyes",
+     "limitPerModel": 1,
+     "needsUpgrade": "envious-eyes"
+    }
+   ],
+   "addArmoury": [
+    {
+     "kit": "automatic-pistol",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 3,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-rifle",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-shotgun",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bolt-action-rifle",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "flamethrower",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "grenade-launcher",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "heavy-flamethrower",
+     "cost": {
+      "amount": 55,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "heavy-shotgun",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "pistol",
+     "cost": {
+      "amount": 6,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "semi-automatic-rifle",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "shotgun",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-rifle",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "submachine-gun",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bayonet",
+     "cost": {
+      "amount": 2,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "needsBayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "great-hammer-maul",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 12,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "polearm",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sword-axe",
+     "cost": {
+      "amount": 4,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-club",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-knife",
+     "cost": {
+      "amount": 1,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "frag-grenades",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "incendiary-grenades",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "satchel-charge",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 3,
+     "limitPerModel": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "heavy-ballistic-shield",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified",
+     "note": "models wearing Machine Armour only"
+    },
+    {
+     "kit": "trench-shield",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "machine-armour",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified",
+     "note": "the Limit of 1 does not count Mechanized Heavy Infantry"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "standard-armour",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "binoculars",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "combat-helmet",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "field-shrine",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "gas-mask",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "zealots-draught",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "medi-kit",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "mountaineer-kit",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 4,
+     "status": "verified"
+    },
+    {
+     "kit": "musical-instrument",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "shovel",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "troop-flag",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "battlefield-title",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "book-of-battle-prayers",
+     "cost": {
+      "amount": 7,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "winged-plate",
+     "cost": {
+      "amount": 8,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified",
+     "note": "only a model that already has a Battlefield Title or a Knighthood"
+    },
+    {
+     "kit": "field-hospital",
+     "cost": {
+      "amount": 10,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "great-banner-of-the-principality",
+     "cost": {
+      "amount": 12,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "knighthood",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "resurrection-engine",
+     "cost": {
+      "amount": 11,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "rocket-propelled-grenade",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "salvage-golem",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "smokescreen",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-scope",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-pistol",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "blunderbuss",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bolt-action-rifle",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "flamethrower",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "musket",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "pistol",
+     "cost": {
+      "amount": 6,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "punt-gun",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "semi-automatic-rifle",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "shotgun",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-rifle",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "submachine-gun",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "anti-tank-hammer",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 3,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bayonet",
+     "cost": {
+      "amount": 2,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "needsBayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "flail-scourge",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "great-hammer-maul",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 12,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "misericordia",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "polearm",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sword-axe",
+     "cost": {
+      "amount": 4,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-club",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-knife",
+     "cost": {
+      "amount": 1,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "incendiary-grenades",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "molotov-cocktail",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "warcross",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "holy-icon-shield",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "trench-shield",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "standard-armour",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "blessed-icon",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "field-shrine",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "gas-mask",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "holy-relic",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "incendiary-ammunition",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "iron-capirote",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "zealots-draught",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 3,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "medi-kit",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "mountaineer-kit",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "musical-instrument",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "troop-flag",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "donkeys-jawbone",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "holy-grenade",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "horn-of-joshua",
+     "cost": {
+      "amount": 9,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "rocket-propelled-grenade",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "flamethrower",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "jezzail",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "musket",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "pistol",
+     "cost": {
+      "amount": 6,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "shotgun",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "siege-jezzail",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-rifle",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bayonet",
+     "cost": {
+      "amount": 2,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "needsBayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "great-hammer-maul",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 12,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "halberd-gun",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "polearm",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sword-axe",
+     "cost": {
+      "amount": 4,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-club",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-knife",
+     "cost": {
+      "amount": 1,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "frag-grenades",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-shield",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "alchemist-armour",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "standard-armour",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "alchemical-ammunition",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "binoculars",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "cloak-of-the-mountain",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "combat-helmet",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "gas-mask",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "holy-relic",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "medi-kit",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "mountaineer-kit",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "musical-instrument",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "shovel",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "homunculus-bird",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "troop-flag",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "wind-amulet",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "damascus-armour",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "field-hospital",
+     "cost": {
+      "amount": 10,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "kilij",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "knighthood",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "masterwork-jezzail",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "rocket-propelled-grenade",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-scope",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    }
+   ]
   },
   {
    "id": "dedicated-to-lust",
@@ -2095,9 +3809,15 @@
        "grenade",
        "shield",
        "armour",
-       "equipment"
+       "equipment",
+       "special"
       ],
-      "note": "A Fallen Saint can carry three 1-Handed Melee Weapons, or two and one 2-Handed. The builder still applies the normal hand limits, so a third weapon shows as a problem."
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
       "book": "Warbands of Trench Crusade",
@@ -2472,9 +4192,15 @@
        "grenade",
        "shield",
        "armour",
-       "equipment"
+       "equipment",
+       "special"
       ],
-      "note": "A Fallen Saint can carry three 1-Handed Melee Weapons, or two and one 2-Handed. The builder still applies the normal hand limits, so a third weapon shows as a problem."
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
       "book": "Warbands of Trench Crusade",
@@ -2873,9 +4599,15 @@
        "grenade",
        "shield",
        "armour",
-       "equipment"
+       "equipment",
+       "special"
       ],
-      "note": "A Fallen Saint can carry three 1-Handed Melee Weapons, or two and one 2-Handed. The builder still applies the normal hand limits, so a third weapon shows as a problem."
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
       "book": "Warbands of Trench Crusade",
@@ -3264,9 +4996,15 @@
        "grenade",
        "shield",
        "armour",
-       "equipment"
+       "equipment",
+       "special"
       ],
-      "note": "A Fallen Saint can carry three 1-Handed Melee Weapons, or two and one 2-Handed. The builder still applies the normal hand limits, so a third weapon shows as a problem."
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
       "book": "Warbands of Trench Crusade",
@@ -3683,9 +5421,15 @@
        "grenade",
        "shield",
        "armour",
-       "equipment"
+       "equipment",
+       "special"
       ],
-      "note": "A Fallen Saint can carry three 1-Handed Melee Weapons, or two and one 2-Handed. The builder still applies the normal hand limits, so a third weapon shows as a problem."
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
       "book": "Warbands of Trench Crusade",
@@ -3733,5 +5477,13 @@
   "page": 146
  },
  "status": "verified",
- "naming": "rename"
+ "naming": "rename",
+ "kitGroups": [
+  {
+   "id": "dog-training",
+   "name": "Trench Dog training",
+   "limitPerModel": 1,
+   "note": "one Special Training per Trench Dog (core rulebook p. 142)"
+  }
+ ]
 }

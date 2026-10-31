@@ -80,6 +80,7 @@ The checks catch format errors, not wrong numbers. Accuracy is checked against t
 | `specialRules` | `[{ "name", "summary", "page" }]`: our summaries, never the book's text |
 | `models` | Warband entries, below |
 | `armoury` | Armoury items, below |
+| `kitGroups` | Optional. Groups of armoury items that share one limit, below |
 | `variants` | Variant warbands, below |
 | `source`, `status`, `note`, `naming` | As for catalogue entries |
 
@@ -96,15 +97,29 @@ each bought at most once per model; `keywords` are added to the model); `abiliti
 `noCategories` (categories it cannot buy, e.g. `armour` for a model whose armour is built in), `onlyKit`
 (`[{ "category", "kit": [ids] }]`: in that category only these pieces, e.g. a model limited to pistols),
 `maxCostDucats` (no bought piece costs more), `mustHave` (categories it must carry), `mustHaveWeapon`,
-`weaponsNeedKeyword` (e.g. `HEAVY`: its weapons must have it), `note` (shown as a roster note). Bought kit is checked
-against all of them; `mustHave` and `mustHaveWeapon` count everything the model carries, `startsWith` included.
+`weaponsNeedKeyword` (e.g. `HEAVY`: its weapons must have it), `arms` (below), `note` (shown as a roster note). Bought
+kit is checked against all of them; `mustHave` and `mustHaveWeapon` count everything the model carries, `startsWith`
+included.
+
+**Arms (`kitRules.arms`, for a model with more than two arms).** `count` (3 or more: weapons it can carry),
+`twoHandedArms` (1 or 2: arms a 2-handed weapon uses), `heavyAsOneHanded` (how many 2-handed HEAVY weapons use one arm),
+`maxTwoHanded`, `maxSameWeapon`. A shield uses one arm and never has Shield Combo. These replace the p. 69 hand limits
+for ranged, melee and shields: the Amalgam is `{ count 6, twoHandedArms 2, heavyAsOneHanded 2, maxSameWeapon 2 }`
+(Warbands p. 140), the Fallen Saint `{ count 3, twoHandedArms 1, maxTwoHanded 1 }` (p. 170).
 
 **Armoury item.** `kit` (a catalogue id), `cost`, `limit` (whole warband), `limitPerModel`, `only` (`[{ "keyword" }
 or { "model" }]`: any one of them qualifies), `stipulations` (`bayonetLug`, `needsBayonetLug`, `shieldCombo`,
-`headgear`, `consumable`), `status`, `note`.
+`headgear`, `consumable`), `from` (a faction id: the piece comes from that faction's armoury), `group` (a kit group id),
+`needsKit` (a catalogue id the model must also carry, e.g. a Trench Dog option needs `trench-dog`), `status`, `note`.
+An armoury lists a kit once, or once more for each `from`.
+
+**Kit group.** `id`, `name`, `limit` (pieces from the group in the whole warband), `limitPerModel`, `needsUpgrade` (an
+upgrade id the model must have bought to take any of them), `note`. Groups model "1 piece of Battlekit from the New
+Antioch Armoury" (Weapon Collections, Warbands p. 95; Corrupt Merchants p. 120), Envious Eyes (p. 156), Knight of the
+Rotten Cross (p. 128) and the Trench Dog's one Special Training (core p. 142). A variant may add its own groups.
 
 **Variant.** `id`, `name`, `removeModels`, `addModels`, `modelCosts` (`[{ "model", "cost" }]`), `removeArmoury`,
-`addArmoury` (an added item replaces the faction's item for the same kit), `budgetDucats` and `budgetGlory` (a
+`addArmoury` (an added item replaces the faction's item for the same kit and `from`), `kitGroups`, `budgetDucats` and `budgetGlory` (a
 variant's own starting budget, when the book gives one), `specialRules`, `source`, `status`, `note`, `naming`.
 Everything else is the faction's. A variant changes a model by removing it and adding a changed copy with the same id.
 Book rules the format cannot express are kept as summaries in `specialRules` or a `note`, marked "not checked by the
@@ -122,7 +137,8 @@ the variant's armoury) or the model's own prices.
   "models": [ { "entry": "captain", "name": "Old Bill", "kit": [ "pistol", "knife" ], "upgrades": [] } ] }
 ```
 
-`variant` and `budgetGlory` (default 0) are optional. A piece of kit may be listed twice (two pistols).
+`variant` and `budgetGlory` (default 0) are optional. A piece of kit may be listed twice (two pistols). A piece bought
+from another faction's armoury is written `kit@faction`, e.g. `"bolt-action-rifle@principality"`.
 
 ## Roster validator
 
@@ -133,12 +149,12 @@ it does not check itself, and the totals in ducats and Glory. It checks:
   never more than 6 ELITE models (upgrades that add ELITE count); ducats and Glory Points each within their budget; a
   model or piece with no resolved cost cannot be taken; kit access (`armoury`, `listed`, `none`); "X only"; Limit for
   the whole warband (pieces bought, not what models start with) and per model; Headgear; Bayonet Lug; upgrades bought
-  once per model and within `maxPerWarband`.
+  once per model and within `maxPerWarband`; kit groups (their limits and needed upgrade) and needed kit.
 - 1.0.2 p. 69: one 2-handed or two 1-handed ranged weapons, the same for melee; one type of grenade; one suit of
   armour; one shield; no two pieces of equipment or special battlekit with the same name. A dual-purpose weapon (a
   pistol) counts only as a ranged weapon. With a shield: at most one 1-handed ranged and one 1-handed melee weapon, and
   a 2-handed weapon only when it and the shield both have Shield Combo. STRONG (p. 57) lets one 2-handed melee weapon
-  count as 1-handed, except a CUMBERSOME one (p. 54).
+  count as 1-handed, except a CUMBERSOME one (p. 54). A model with `arms` is checked against those instead.
 - Notes: unverified entries and kit, campaign-only kit, and each upgrade's `note` (conditions the validator cannot
   check, such as a limit that depends on the warband's total cost).
 
@@ -149,8 +165,8 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
 - Stage 3 (done): the builder screen, Build Your Own Roster on the main menu (docs/client.md). It shows the shipped
   factions, the chosen list's special rules and its budget (a variant's own budget when it has one).
 - Stage 4: the official data for the six factions. Not entered: Mercenaries (hired with Glory; the format has no
-  mercenary hiring yet). Known gaps, each said in the list itself: the Trench Dog's 1-3 Glory cost is not priced; the
-  Amalgam's six weapons and the Fallen Saint's three melee weapons still meet the normal hand limits; kit bought from
-  another faction's armoury is not priced; rules marked "not checked by the builder".
+  mercenary hiring yet). Gaps filled after 4b: the Trench Dog (1 Glory) with Loyal Hound and its Special Training
+  (+1 Glory each, only the trainings a faction may take); the Amalgam's six arms and the Fallen Saint's three; kit
+  from another faction's armoury, priced as in that armoury. Still a gap: rules marked "not checked by the builder".
 - Stage 5: sending a roster to a match; kit the engine can't
   play yet is refused by name at match creation.
