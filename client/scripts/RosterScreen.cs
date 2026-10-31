@@ -231,6 +231,10 @@ public partial class Main
         {
             _rosterCheck.AddChild(Text(line));
         }
+        foreach (var line in _builder.MatchLines)
+        {
+            _rosterCheck.AddChild(Text(line));
+        }
 
         Empty(_rosterSaved);
         var saved = RosterBuilder.Saved(RosterFolder);

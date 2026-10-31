@@ -80,8 +80,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   many-armed models (`kitRules.arms`: Amalgam 6, Fallen Saint 3), kit bought from another faction (armoury `from`,
   kit groups, roster refs `kit@faction`). Not entered: Mercenaries (format has no hiring), Restraining Muzzle Glory
   extras, October Rules Review 2026 changes (lists follow the 1.0.2 books).
-- **Roster stage 5 (not started, needs the owner's go):** send a roster into a match; battlekit the engine cannot play
-  yet is refused by name when the match is created (the builder itself allows it).
+- **Roster stage 5a done (2026-10-31):** `src/Roster/MatchReadiness.cs` turns a legal roster into the engine's warband
+  content and names what it refuses and what it plays without; the builder shows it under "For a match".
+  **Stage 5b next (needs the owner's go):** get that warband into a match. See docs/roster.md "Stage 5b" for the two
+  ways (hot-seat first, or a protocol change for Host and Join).
 - The faction JSON files are the source of truth now. The earlier generator scripts held private source names and are
   not in the repo: edit `content/roster/*.json` directly, keep `docs/roster.md` and the tests (`tests/Roster.Tests`,
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).

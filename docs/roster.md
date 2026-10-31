@@ -168,5 +168,13 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   mercenary hiring yet). Gaps filled after 4b: the Trench Dog (1 Glory) with Loyal Hound and its Special Training
   (+1 Glory each, only the trainings a faction may take); the Amalgam's six arms and the Fallen Saint's three; kit
   from another faction's armoury, priced as in that armoury. Still a gap: rules marked "not checked by the builder".
-- Stage 5: sending a roster to a match; kit the engine can't
-  play yet is refused by name at match creation.
+- Stage 5a (done): `MatchReadiness.Check` turns a legal roster into the engine's warband (content format of
+  `content/test-warbands.json`: Movement, round base, one ranged weapon's range, injury modifier and "/Melee", Armour
+  from the model plus armour and shield, one Melee Weapon's injury modifier). **Refused by name:** an oval base, a
+  second ranged or melee weapon, grenades, equipment and other special battlekit. **Played without, by name:** weapon
+  keywords, DICE and INJURY DICE, the model's Ranged and Melee DICE, its keywords, abilities and upgrades; Armour past
+  -3 is played as -3. The builder's Check lists both under "For a match". Tests: `MatchReadinessTests`.
+- Stage 5b (not started, needs the owner's go): sending the warband to a match. The server builds a match from
+  content files on its side (`Sim/ScenarioSetups`, `Match.Server/Lobby.cs`, `CreateMatch(scenario)`), so a roster
+  needs either a protocol change (each player's warband sent on Host and Join) or, smallest first, hot-seat only (the
+  local server is started with both warband files). `MatchReady.ToContentJson` already writes what the server loads.

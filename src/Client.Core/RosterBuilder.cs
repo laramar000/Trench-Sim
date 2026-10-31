@@ -329,6 +329,30 @@ public sealed class RosterBuilder
         }
     }
 
+    // Roster stage 5a: what the warband becomes in a match today (MatchReadiness).
+    public MatchReady MatchCheck() => MatchReadiness.Check(Roster, Faction, _catalogue);
+
+    public IReadOnlyList<string> MatchLines
+    {
+        get
+        {
+            if (_models.Count == 0)
+            {
+                return [];
+            }
+            var ready = MatchCheck();
+            var lines = new List<string>
+            {
+                ready.RosterProblems.Count > 0 ? "For a match: fix the problems above first."
+                : ready.Refused.Count > 0 ? $"For a match: not yet; the game cannot play {ready.Refused.Count} thing{(ready.Refused.Count == 1 ? "" : "s")} below."
+                : $"For a match: ready ({ready.Models.Count} model{(ready.Models.Count == 1 ? "" : "s")}). Matches with your own roster come in a later stage.",
+            };
+            lines.AddRange(ready.Refused.Select(r => "✕ Not playable yet: " + Sentence(r)));
+            lines.AddRange(ready.PlayedWithout.Select(w => "– Played without: " + Sentence(w)));
+            return lines;
+        }
+    }
+
     private static string Sentence(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..] + (s.EndsWith('.') ? "" : ".");
 
     // ---- saving and loading: one roster file per warband, named after it ----
