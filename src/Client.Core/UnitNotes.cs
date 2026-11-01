@@ -25,6 +25,10 @@ public static class UnitNotes
         ArgumentNullException.ThrowIfNull(e);
         return e switch
         {
+            // Roster stage R5h (U113): a Treat ACTION.
+            TreatRolled t => t.Check.Outcome == SuccessOutcome.Failure ? [new(t.Model, "TREAT FAILED", NoteTone.Failure)]
+                : t.Treated ? [new(t.Target, t.Choice == TreatChoice.StandUp ? "STANDS UP" : "-1 BLOOD", NoteTone.Success)]
+                : [new(t.Target, "NOTHING TO TREAT", NoteTone.Info)],
             DashRolled d => [d.Check.Outcome == SuccessOutcome.Failure ? new(d.Model, "DASH FAILED", NoteTone.Failure) : new(d.Model, "DASH", NoteTone.Success)],
             SideClimbRolled c => [c.Check.Outcome == SuccessOutcome.Failure ? new(c.Model, "CLIMB FAILED", NoteTone.Failure) : new(c.Model, "CLIMB", NoteTone.Success)],
             RangedSuccessRolled r => [Hit(r.Attacker, r.Check)],

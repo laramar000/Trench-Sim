@@ -124,6 +124,14 @@ public sealed class ResolutionLog
             case DashDeclared d:
                 Start(seq, d.Model, $"{Id(d.Model)} DASHES", null, null);
                 break;
+            case TreatDeclared t:
+                // Roster stage R5h (U113): a Treat ACTION, with Holy Water's +1 DICE.
+                Start(seq, t.Model, $"{Id(t.Model)} TREATS {Id(t.Target)}", null, t.Target);
+                if (setup?.ProfileOf(t.Model) is { HealingWaters: true })
+                {
+                    _current!.Dice.Add(new("Holy Water of Lalibela", 1));
+                }
+                break;
             case SideClimbDeclared c:
                 // Towers stage T6: a Move or Dash that climbs a tower's side is its own action with its own roll.
                 Start(seq, c.Model, $"{Id(c.Model)} CLIMBS A TOWER'S SIDE", null, null);
@@ -225,6 +233,13 @@ public sealed class ResolutionLog
                     action.Dice.Add(new("Musical Instrument within 4\"", 1));
                 }
                 Success(seq, action, d.Check, setup, "Risky roll", "DASH", "DASH FAILED");
+                break;
+            case TreatRolled t:
+                Success(seq, action, t.Check, setup, "Risky roll", "TREATED", "TREAT FAILED");
+                if (t.Check.Outcome != SuccessOutcome.Failure)
+                {
+                    action.Outcome.Add(!t.Treated ? "nothing left to treat" : t.Choice == TreatChoice.StandUp ? $"{Id(t.Target)} stands up" : $"1 Blood Marker off {Id(t.Target)}");
+                }
                 break;
             case SideClimbRolled c:
                 Success(seq, action, c.Check, setup, "Risky roll", "CLIMB", "CLIMB FAILED");

@@ -217,6 +217,15 @@ public sealed record ModelProfile
     // (a Damned Pact).
     public bool BurnsWhenTakenOut { get; init; }
 
+    // ---- Roster stage R5h (U113): the Treat ACTION ----
+
+    // The model has a Medi-kit: it can take a Treat ACTION (p. 84).
+    public bool Treats { get; init; }
+
+    // The model has Holy Water of Lalibela: +1 DICE to its Success Rolls for ACTIONS that can remove BLOOD MARKERS (its
+    // Treat ACTION; Warbands p. 76).
+    public bool HealingWaters { get; init; }
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -380,6 +389,8 @@ public sealed record ModelProfile
                 DigsIn = DigsIn,
                 BurnsAtActivationEnd = BurnsAtActivationEnd,
                 BurnsWhenTakenOut = BurnsWhenTakenOut,
+                Treats = Treats,
+                HealingWaters = HealingWaters,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -412,6 +423,8 @@ public sealed record ModelProfile
             DigsIn = DigsIn,
             BurnsAtActivationEnd = BurnsAtActivationEnd,
             BurnsWhenTakenOut = BurnsWhenTakenOut,
+            Treats = Treats,
+            HealingWaters = HealingWaters,
         };
     }
 

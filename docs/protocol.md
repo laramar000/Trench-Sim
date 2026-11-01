@@ -236,6 +236,12 @@ The server sends events in log order, one message each, to both players, through
   `InjuryRolled`/`MineExploded` that takes a `burnsWhenTakenOut` model Out of Action (after any `GloriousDeedCompleted`),
   and only when an enemy model is within 1"; nothing else may come between. The state hash adds `,burnsAtEnd=yes` and
   `,burnsWhenOut=yes` to a profile, and a `markersOwed` line only while markers are owed (never between commands).
+- Roster stage R5h (U113): `ModelProfile.treats` and `healingWaters`, left out when false; a new command `TreatModel`
+  (`seat`, `model`, `target`, `choice`: `RemoveMarker` or `StandUp`) and two events: `TreatDeclared` (`model`, `target`,
+  `choice`), followed by the opponent's `SpendMarkersOnSuccessRoll` decision when the model has BLOOD MARKERS, then
+  `TreatRolled` (`model`, `target`, `choice`, `check`, `treated`), and `ActivationEnded` (RiskyFailure) on a Failure
+  unless the model keeps going. The state hash adds `,treats=yes` and `,healingWaters=yes` to a profile, and `:standUp`
+  to a Treat roll in progress, only when set.
 
 ## Rosters online (roster stage 5c)
 

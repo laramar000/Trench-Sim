@@ -63,6 +63,8 @@ public static class Content
                         WardedByBlood = m.TryGetProperty("wardedByBlood", out var warded) && warded.GetBoolean(),
                         BurnsAtActivationEnd = m.TryGetProperty("burnsAtActivationEnd", out var burnsAtEnd) && burnsAtEnd.GetBoolean(),
                         BurnsWhenTakenOut = m.TryGetProperty("burnsWhenTakenOut", out var burnsWhenOut) && burnsWhenOut.GetBoolean(),
+                        Treats = m.TryGetProperty("treats", out var treats) && treats.GetBoolean(),
+                        HealingWaters = m.TryGetProperty("healingWaters", out var healingWaters) && healingWaters.GetBoolean(),
                         HasCover = m.TryGetProperty("hasCover", out var covered) && covered.GetBoolean(),
                         DigsIn = m.TryGetProperty("digsIn", out var digs) && digs.GetBoolean(),
                     }));

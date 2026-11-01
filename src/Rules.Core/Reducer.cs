@@ -101,6 +101,8 @@ public static class Reducer
             MoveResumed x => OnMoveResumed(state, x),
             GloriousDeedCompleted x => OnDeedCompleted(state, x),
             BloodMarkersPlaced x => OnBloodMarkersPlaced(state, x),
+            TreatDeclared x => OnTreatDeclared(state, x),
+            TreatRolled x => OnTreatRolled(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
@@ -336,7 +338,7 @@ public static class Reducer
         {
             return null;
         }
-        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll && actor.BloodMarkers > 0)
+        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll && actor.BloodMarkers > 0)
         {
             return new PendingDecision(DecisionKind.SpendMarkersOnSuccessRoll, actor.Seat.Opponent());
         }
@@ -413,7 +415,7 @@ public static class Reducer
                 break;
             case DecisionKind.SpendMarkersOnSuccessRoll:
                 var rolling = state.InProgress;
-                Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll, MarkersAsked: false }
+                Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll, MarkersAsked: false }
                     && state.FindModel(rolling.Actor) is { BloodMarkers: > 0 } holder
                     && holder.Seat.Opponent() == e.Seat, "Only the rolling model's opponent may spend its markers, once, before a Success Roll.");
                 state = state with { InProgress = rolling! with { MarkersAsked = true } };
@@ -770,6 +772,64 @@ public static class Reducer
             MustEndActivation = e.Check.Outcome == SuccessOutcome.Failure && RiskyEnds(state, e.Model),
         };
     }
+
+    // Roster stage R5h (U113): a Medi-kit's Treat ACTION (p. 84), once per activation, on the model itself or a friendly
+    // model within 1": remove 1 BLOOD MARKER from one that has any, or stand up a Down friend.
+    private static MatchState OnTreatDeclared(MatchState state, TreatDeclared e)
+    {
+        var model = Active(state, e.Model, "A Treat");
+        Require(Enum.IsDefined(e.Choice), "Unknown Treat choice.");
+        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Treat), "A Treat ACTION can be taken once per activation.");
+        Require(state.Setup!.ProfileOf(e.Model)!.Treats, "Only a model with a Medi-kit can take a Treat ACTION.");
+        Require(TreatRefusal(state, model, e.Target, e.Choice) is null, "That model cannot be treated that way.");
+        return state with
+        {
+            Actions = state.Actions | ActionsTaken.Treat,
+            InProgress = new RollInProgress(RollStage.TreatRoll, e.Model, Target: e.Target, BonusDice: TreatDice(state, e.Model), TreatStandUp: e.Choice == TreatChoice.StandUp),
+        };
+    }
+
+    private static MatchState OnTreatRolled(MatchState state, TreatRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.TreatRoll } p && p.Actor == e.Model && p.Target == e.Target && state.Pending is null
+            && p.TreatStandUp == (e.Choice == TreatChoice.StandUp), "No such Treat roll is waiting.");
+        var progress = state.InProgress!;
+        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice, "A Treat is a Risky Success Roll with the spent markers as penalty dice.");
+        var failed = e.Check.Outcome == SuccessOutcome.Failure;
+        var target = state.FindModel(e.Target)!;
+        // The opponent may have spent the model's own last marker; then there is nothing left to remove.
+        var treated = !failed && TreatRefusal(state, state.FindModel(e.Model)!, e.Target, e.Choice) is null;
+        Require(e.Treated == treated, "A successful Treat roll carries out its choice when it still can, and only then.");
+        var next = state with { InProgress = null, MustEndActivation = failed && RiskyEnds(state, e.Model) };
+        return !treated ? next : TurnRules.WithModel(next, e.Choice == TreatChoice.StandUp
+            ? target with { Status = ModelStatus.Standing }
+            : target with { BloodMarkers = target.BloodMarkers - 1 });
+    }
+
+    // Why a Treat on that target with that choice is not possible now, or null (the rules' own words; Decide's check).
+    internal static string? TreatRefusal(MatchState state, ModelState medic, ModelId targetId, TreatChoice choice)
+    {
+        var target = state.FindModel(targetId);
+        if (target is null || target.Seat != medic.Seat || target.Position is null || target.Status == ModelStatus.OutOfAction)
+        {
+            return "A Treat ACTION treats the model itself or a friendly model on the battlefield.";
+        }
+        if (target.Id != medic.Id && !(Board.BodyOf(state, medic) is { } from && Board.BodyOf(state, target) is { } to && Measure.IsWithin(from, to, TreatReach)))
+        {
+            return "A Treat ACTION treats the model itself or a friendly model within 1\".";
+        }
+        return choice switch
+        {
+            TreatChoice.RemoveMarker when target.BloodMarkers == 0 => "That model has no BLOOD MARKER to remove.",
+            TreatChoice.StandUp when target.Id == medic.Id || target.Status != ModelStatus.Down => "A Treat stands up only a Down friendly model.",
+            _ => null,
+        };
+    }
+
+    private static readonly Length TreatReach = Length.FromInches(1);
+
+    // Roster stage R5h (U113): Holy Water of Lalibela's +1 DICE to the Treat roll (an ACTION that can remove BLOOD MARKERS).
+    internal static int TreatDice(MatchState state, ModelId model) => state.Setup?.ProfileOf(model)?.HealingWaters == true ? 1 : 0;
 
     // Towers stage T6 (p. 39, U75, U76): a Move or Dash that climbs a tower's side. A Move is taken here; a Dash has
     // already succeeded its own roll and reached its move.

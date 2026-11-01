@@ -367,6 +367,8 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.DigsIn)),
             (typeof(ModelProfile), nameof(ModelProfile.BurnsAtActivationEnd)),
             (typeof(ModelProfile), nameof(ModelProfile.BurnsWhenTakenOut)),
+            (typeof(ModelProfile), nameof(ModelProfile.Treats)),
+            (typeof(ModelProfile), nameof(ModelProfile.HealingWaters)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Warded)),
             (typeof(MineExploded), nameof(MineExploded.Warded)),
         ];

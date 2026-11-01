@@ -22,6 +22,7 @@ public static class EventText
         ActivationStarted a => $"{a.Seat} activates {a.Model}.",
         ModelStoodUp s => $"  {s.Model} stands up (Movement halved).",
         ModelMoved m => $"  {m.Model} {(m.Kind == MoveKind.Dash ? "dashes" : "moves")} to {m.Path[^1]} (cost {m.Cost}).",
+        TreatRolled t => $"  {t.Model} Treat roll {t.Check.Dice.Total}: {t.Check.Outcome}{(t.Treated ? t.Choice == TreatChoice.StandUp ? $"; {t.Target} stands up." : $"; 1 Blood Marker removed from {t.Target}." : t.Check.Outcome == SuccessOutcome.Failure ? "." : $"; {t.Target} has no Blood Marker left to remove.")}",
         DashRolled d => $"  {d.Model} Dash roll {d.Check.Dice.Total}: {d.Check.Outcome}.",
         SideClimbRolled c => $"  {c.Model} climb roll {c.Check.Dice.Total}: {c.Check.Outcome}.",
         RangedAttackDeclared r => $"  {r.Attacker} shoots {r.Target}{(r.Elevated ? " from an elevated position" : "")}{(r.LongRange ? " at long range" : "")}{(r.InCover ? $" (cover: {r.CoverTerrainId})" : "")}.",
@@ -74,6 +75,7 @@ public static class EventText
         MoraleOrderSet m => $"{Words.Seat(m.First)} takes its Morale Check first{(m.Chosen ? " (chosen)" : "")}.",
         TurnEnded t => $"End of turn {t.Turn}.",
         DashDeclared d => $"  {d.Model} declares a Dash.",
+        TreatDeclared t => $"  {t.Model} declares a Treat ACTION on {t.Target} ({(t.Choice == TreatChoice.StandUp ? "stand it up" : "remove 1 Blood Marker")}).",
         SideClimbDeclared c => $"  {c.Model} climbs a tower's side ({(c.Kind == MoveKind.Dash ? "Dash" : "Move")}): a Risky roll first.",
         _ => e.GetType().Name + ".",
     };
@@ -89,6 +91,8 @@ public static class EventText
         ModelStoodUp s => new(Id(s.Model), "STANDS UP", "(Movement halved)"),
         ModelMoved m => new(Id(m.Model), m.Kind == MoveKind.Dash ? "DASHES" : "MOVES", $"→ {At(m.Path[^1])} (cost {Cost(m.Cost)})"),
         DashDeclared d => new(Id(d.Model), "DECLARES", "a Dash"),
+        TreatDeclared t => new(Id(t.Model), "TREATS", $"{Id(t.Target)}: {(t.Choice == TreatChoice.StandUp ? "stand up" : "remove 1 Blood Marker")}"),
+        TreatRolled t => new(Id(t.Model), "ROLLS", $"Treat {t.Check.Dice.Total}: {t.Check.Outcome}"),
         DashRolled d => new(Id(d.Model), "ROLLS", $"Dash {d.Check.Dice.Total}: {d.Check.Outcome}"),
         SideClimbDeclared c => new(Id(c.Model), "CLIMBS", "a tower's side (Risky roll)"),
         SideClimbRolled c => new(Id(c.Model), "ROLLS", $"climb {c.Check.Dice.Total}: {c.Check.Outcome}"),
@@ -136,6 +140,7 @@ public static class EventText
     public static RowOutcome Outcome(GameEvent e) => e switch
     {
         DashRolled d => Of(d.Check),
+        TreatRolled t => Of(t.Check),
         SideClimbRolled c => Of(c.Check),
         RangedSuccessRolled r => Of(r.Check),
         PointSuccessRolled r => Of(r.Check),
@@ -183,7 +188,7 @@ public static class EventText
         ChargeDeclared or ChargeRolled or ChargeMoved => EventKind.Charge,
         MeleeAttackDeclared or MeleeSuccessRolled or FreeFightsDeclined => EventKind.Fight,
         InjuryRolled or MarkersSpent or MineExploded or BloodMarkersPlaced => EventKind.Injury,
-        ModelStoodUp or MoraleCheckRolled or WarbandShaken or WarbandRecovered or WarbandFled => EventKind.Status,
+        TreatDeclared or TreatRolled or ModelStoodUp or MoraleCheckRolled or WarbandShaken or WarbandRecovered or WarbandFled => EventKind.Status,
         DecisionRequested => EventKind.Decision,
         ObjectivesScored or TrenchesScored or GloriousDeedCompleted => EventKind.Scoring,
         GameLengthRolled => EventKind.Turn,
@@ -214,6 +219,7 @@ public static class EventText
     {
         RollOffResolved r => "Dice: " + string.Join("; ", r.Rounds.Select(x => $"Seat One {x.SeatOne}, Seat Two {x.SeatTwo}{(x.IsTie ? " (tie, rolled again)" : "")}")),
         DashRolled d => Faces(d.Check.Dice, d.Check.NetDice),
+        TreatRolled t => Faces(t.Check.Dice, t.Check.NetDice),
         SideClimbRolled c => Faces(c.Check.Dice, c.Check.NetDice),
         RangedSuccessRolled r => Faces(r.Check.Dice, r.Check.NetDice),
         MeleeSuccessRolled m => Faces(m.Check.Dice, m.Check.NetDice),

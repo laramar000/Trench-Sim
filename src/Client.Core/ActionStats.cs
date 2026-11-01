@@ -30,6 +30,8 @@ public static class ActionStats
             InteractionMode.Fight => profile.HasMeleeWeapon ? $"Fight{second}: Melee Weapon, against an engaged enemy"
                 : profile.RangedAlsoMelee ? "Fight: its ranged weapon (also Melee), against an engaged enemy"
                 : "Fight: no Melee Weapon",
+            // Roster stage R5h: the Treat ACTION's reach and roll.
+            InteractionMode.Treat => owned.Treats ? $"Treat: itself or a friend within 1\", Risky roll{(owned.HealingWaters ? " +1 DICE (Holy Water)" : "")}" : "Treat: no Medi-kit",
             _ => null,
         };
     }

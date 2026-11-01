@@ -1191,6 +1191,8 @@ public partial class BoardView : SubViewportContainer
         // C opens Combat (stage U1: the menu of attacks first, then the target); in Combat, 2 is Charge.
         Key.C => InteractionMode.Combat,
         Key.X => InteractionMode.Fight,
+        // Roster stage R5h: H treats with a Medi-kit.
+        Key.H => InteractionMode.Treat,
         _ => null,
     };
 
@@ -1422,13 +1424,14 @@ public partial class BoardView : SubViewportContainer
         {
             PlaceCombatMenu(actor!);
         }
-        _confirmBox.Visible = Interaction.IsAttack(Interaction.Mode) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
+        _confirmBox.Visible = (Interaction.IsAttack(Interaction.Mode) || Interaction.Mode == InteractionMode.Treat) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
         if (_confirmBox.Visible)
         {
             _confirmButton.Text = Interaction.Mode switch
             {
                 InteractionMode.Shoot => "Confirm shoot",
                 InteractionMode.Fight => "Confirm fight",
+                InteractionMode.Treat => "Confirm treat",
                 _ => "Confirm charge",
             };
             _confirmBox.ResetSize();

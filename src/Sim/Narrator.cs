@@ -20,6 +20,7 @@ public static class Narrator
         ActivationStarted a => $"{a.Seat} activates {a.Model}.",
         ModelStoodUp s => $"  {s.Model} stands up (Movement halved).",
         ModelMoved m => $"  {m.Model} {(m.Kind == MoveKind.Dash ? "dashes" : "moves")} to {m.Path[^1]} (cost {m.Cost}).",
+        TreatRolled t => $"  {t.Model} Treat roll {t.Check.Dice.Total}: {t.Check.Outcome}{(t.Treated ? t.Choice == TreatChoice.StandUp ? $"; {t.Target} stands up." : $"; 1 Blood Marker removed from {t.Target}." : t.Check.Outcome == SuccessOutcome.Failure ? "." : $"; {t.Target} has no Blood Marker left to remove.")}",
         DashRolled d => $"  {d.Model} Dash roll {d.Check.Dice.Total}: {d.Check.Outcome}.",
         SideClimbRolled c => $"  {c.Model} climb roll {c.Check.Dice.Total}: {c.Check.Outcome}.",
         RangedAttackDeclared r => $"  {r.Attacker} shoots {r.Target}{(r.Elevated ? " from an elevated position" : "")}{(r.LongRange ? " at long range" : "")}{(r.InCover ? $" (cover: {r.CoverTerrainId})" : "")}.",

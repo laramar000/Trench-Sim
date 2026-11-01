@@ -136,6 +136,16 @@ public sealed class Bot(Random rng)
             }
         }
         var profile = state.Setup!.ProfileOf(model.Id)!;
+        // Roster stage R5h (U113): a model with a Medi-kit treats itself or a friend first, when it can (no random
+        // numbers are drawn here, so setups without one play as before).
+        if (profile.Treats && !state.Actions.HasFlag(ActionsTaken.Treat))
+        {
+            foreach (var friend in state.Models.Where(m => m.Seat == seat && m.Position is not null))
+            {
+                yield return new TreatModel(seat, model.Id, friend.Id, TreatChoice.StandUp);
+                yield return new TreatModel(seat, model.Id, friend.Id, TreatChoice.RemoveMarker);
+            }
+        }
         var kinds = new List<string>();
         var melee = state.Setup!.ProfileOf(model.Id)!.CanMakeMeleeAttack;
         var engaged = melee && NearestEnemy(state, model) is { } nearest && Gap(state, model, nearest) <= Length.Inch;

@@ -239,6 +239,7 @@ public static partial class TurnSequence
             DashModel c => ValidateMove(state, c.Seat, c.Model, c.Path, ActionsTaken.Dash),
             Shoot c => ValidateShoot(state, c),
             ShootPoint c => ValidateShootPoint(state, c),
+            TreatModel c => ValidateTreat(state, c),
             ChargeModel c => ValidateCharge(state, c),
             RetreatModel c => ValidateRetreat(state, c),
             FightModel c => ValidateFight(state, c),
@@ -321,7 +322,7 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or ScatterAttack;
+        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or ScatterAttack or TreatModel;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
@@ -396,7 +397,7 @@ public static partial class TurnSequence
                     run.Emit(new ModelStoodUp(c.Model));
                 }
                 break;
-            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack:
+            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack:
                 ExecuteBoard(run, command);
                 break;
             case EndActivation:

@@ -611,3 +611,32 @@ public sealed record BloodMarkersPlaced : GameEvent
     public ImmutableArray<ModelId> Targets { get; }
     public ImmutableArray<ModelId> Warded { get; }
 }
+
+// Roster stage R5h (U113): a Treat ACTION (Medi-kit, p. 84) is declared: its Risky Success Roll comes next (after the
+// offer to spend the model's Blood Markers).
+public sealed record TreatDeclared(ModelId Model, ModelId Target, TreatChoice Choice) : GameEvent;
+
+// The Treat ACTION's Risky Success Roll. Treated: it succeeded and the choice was carried out (1 BLOOD MARKER removed
+// from Target, or Target stood up); false on a Failure, or when there was nothing left to do (the markers were spent).
+public sealed record TreatRolled : GameEvent
+{
+    public TreatRolled(ModelId model, ModelId target, TreatChoice choice, SuccessRollResult check, bool treated)
+    {
+        ArgumentNullException.ThrowIfNull(check);
+        if (treated && check.Outcome == SuccessOutcome.Failure)
+        {
+            throw new ArgumentException("A failed Treat roll treats nobody.", nameof(treated));
+        }
+        Model = model;
+        Target = target;
+        Choice = choice;
+        Check = check;
+        Treated = treated;
+    }
+
+    public ModelId Model { get; }
+    public ModelId Target { get; }
+    public TreatChoice Choice { get; }
+    public SuccessRollResult Check { get; }
+    public bool Treated { get; }
+}

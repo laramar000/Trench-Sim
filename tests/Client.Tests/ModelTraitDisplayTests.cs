@@ -247,6 +247,49 @@ public class ModelTraitDisplayTests
         Assert.Equal(" · +1 BLOOD MARKER to enemies within 1\" when it ends an activation · +1 BLOOD MARKER to enemies within 1\" when taken Out of Action", card);
     }
 
+    // Roster stage R5h (U113): a Treat is previewed, logged, noted and shown in the dice popup; the card names it.
+    [Fact]
+    public void TreatIsExplained()
+    {
+        var (treats, previews) = (0, 0);
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select((m, i) => m with { Profile = m.Profile with { Treats = true, HealingWaters = i % 2 == 0 } }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is TreatDeclared d && state.FindModel(d.Model) is { } medic)
+                {
+                    var preview = Previews.Target(state, medic.Seat, PreviewKind.Treat, d.Model, d.Target);
+                    Assert.Null(preview.Refusal);
+                    Assert.Equal(new Rules.Core.Commands.TreatModel(medic.Seat, d.Model, d.Target, d.Choice), preview.Command);
+                    Assert.Contains(Previews.TreatFact, preview.Facts);
+                    var interaction = new Interaction();
+                    interaction.Update(state, medic.Seat);
+                    Assert.Contains(InteractionMode.Treat, interaction.Available);
+                    Assert.Equal(state.Setup!.ProfileOf(d.Model)!.HealingWaters, preview.Facts.Contains(Previews.HolyWaterFact));
+                    previews++;
+                }
+                if (e is TreatRolled t)
+                {
+                    Assert.StartsWith($"  {t.Model} Treat roll {t.Check.Dice.Total}: ", EventText.Line(t), StringComparison.Ordinal);
+                    Assert.Equal(EventKind.Status, EventText.Kind(t));
+                    Assert.NotEmpty(UnitNotes.Of(t));
+                    Assert.Contains($"rolled {string.Join(", ", t.Check.Dice.Rolled)};", EventText.Dice(t));
+                    Assert.NotNull(DiceRolls.Step(t, state.Setup));
+                    treats++;
+                }
+                state = Reducer.Apply(state, e);
+            }
+        }
+        Assert.True(treats > 0 && previews == treats, $"{treats} treats, {previews} previews");
+        var medicCard = new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true) { Treats = true, HealingWaters = true };
+        Assert.Contains("Treat ACTION (H), +1 DICE", UnitPanel.WeaponWords(medicCard), StringComparison.Ordinal);
+    }
+
     // Roster stage R5f (U110): the previews and the breakdown name the COVER keyword's die.
     [Fact]
     public void CoverKeywordIsExplained()

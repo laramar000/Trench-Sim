@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U112), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U113), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -117,20 +117,19 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 
 ## Current step (keep this section up to date at every push)
 
-- 2026-11-01 15:04Z, Jason: "2 and 3 then 1" = hot-seat UI checks on last night's pushes, then the small gaps, then
-  R5g. Earlier asks still in force: "1 2 and 3 no mistakes" (R5 equipment, R6 unit abilities), essentials only for
-  testing (build + `dotnet test TrenchSim.sln`), keep this hand-over updated at every push.
-- Done: hot-seat UI checks at 0e4131e: 38 passed, 0 failed. Small gaps f787535 (U111): the dice popup's RISKY line
-  names the Crucifix; a Shovel is the Melee Weapon of a model with no other (Bronze Shovel: a Trench Club with HEAVY);
-  beside another Melee Weapon the Shovel's melee use is named. R5g (U112): Crown of Hellfire (`burnsAtActivationEnd`)
-  and Damned Pact (`burnsWhenTakenOut`) place 1 BLOOD MARKER on each enemy within 1" (not NEGATE FIRE; a Lamb wards it)
-  with the new event `BloodMarkersPlaced(source, targets, warded)`, owed in `MatchState.MarkersOwed` and announced by
-  `TurnSequence.Run.Emit` after any Glorious Deed; tests `BurnTests` and three more. Essentials 2,148/0.
-- Pushed before: R5a e2ad5d8, R5b dc62195, R5c e516d2b, R5d c1c33db, R5e 1d9a897, R5f a93a518, hand-over 0e4131e.
+- 2026-11-01 15:45Z, Jason: "2 and 1 then 3 no mistakes only essential tests" = (2) new ACTION kit: Medi-kit Treat +
+  Holy Water of Lalibela, Piston Legs (Grind to Dust), Martyrdom Device (Trigger); then (1) Blessed Icon and Unholy
+  Trinket (a player "use it" choice); then (3) R6 unit abilities by faction. Testing: essentials only (build +
+  `dotnet test TrenchSim.sln`), no UI checks. Keep this hand-over updated at every push.
+- Done: R5h (U113): Medi-kit (`ModelProfile.Treats`) gives the Treat ACTION: command `TreatModel(seat, model, target,
+  choice)` (`TreatChoice.RemoveMarker`/`StandUp`), events `TreatDeclared` and `TreatRolled`, `RollStage.TreatRoll`,
+  `ActionsTaken.Treat`; Risky; the opponent may spend the model's markers. Holy Water (`HealingWaters`) +1 DICE.
+  Client: key H, Treat only offered for a Medi-kit model; Bot treats first when it can. Tests `TreatTests` and three more.
+  The "not playable yet" example in tests and the `play-roster-pickers` UI check is now Binoculars (UI check not run).
+  Essentials 2,159/0.
+- Pushed before: R5a e2ad5d8 ... R5f a93a518, gaps f787535 (U111), R5g 6305404 (U112).
 - Decided: Urn of the Bitter Ashes protects any model within 3" (Jason card "1 Any model", U109).
-- Next: the rest of R5, then R6. The R5g ask ("2 and 3 then 1") is finished.
-- After R5g: the rest of R5 (Blessed Icon/Unholy Trinket are optional "you can say" uses, so they need a player
-  decision; new actions such as Medi-kit Treat; deployables; BLESSING/INFECTION markers), then R6 unit abilities by
-  faction. All authorized by "1 2 and 3 no mistakes".
+- Next: Piston Legs (Grind to Dust: own ACTION, melee attack on a Down enemy within 1" with base <= 32 mm), then
+  Martyrdom Device (once per game, Injury Rolls within 3"), then Blessed Icon/Unholy Trinket, then R6.
 - Still refused by name in matches: AMMUNITION with two possible guns (no deployment choice yet), and every equipment
   piece not in `MatchReadiness.PlayedEquipment`. No Windows run since 17a9099/e917e6b.

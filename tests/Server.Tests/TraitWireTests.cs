@@ -136,6 +136,33 @@ public class TraitWireTests
         Assert.Equal((placed.Source, "B1,B2", "B2"), (back.Source, string.Join(",", back.Targets), string.Join(",", back.Warded)));
     }
 
+    // Roster stage R5h (U113): a Medi-kit and Holy Water, the Treat command and its events.
+    [Fact]
+    public void TreatRoundTripsAndIsLeftOutWhenFalse()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        Assert.DoesNotContain("treats", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("healingWaters", plain, StringComparison.Ordinal);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { Treats = true, HealingWaters = true };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        var text = Encoded(created);
+        Assert.Contains("\"treats\":true", text, StringComparison.Ordinal);
+        Assert.Contains("\"healingWaters\":true", text, StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+
+        var (a, b) = (new ModelId("A1"), new ModelId("A2"));
+        var command = new Rules.Core.Commands.TreatModel(Seat.One, a, b, TreatChoice.StandUp);
+        Assert.Equal(command, Assert.IsType<SubmitCommand>(Codec.ParseClient(Codec.Encode(new SubmitCommand("c1", 1, 0, command)), out var failure)).Command);
+        Assert.Null(failure);
+        Assert.Equal(new TreatDeclared(a, b, TreatChoice.RemoveMarker), RoundTrip(new TreatDeclared(a, b, TreatChoice.RemoveMarker)));
+        var rolled = new TreatRolled(a, b, TreatChoice.StandUp, SuccessRoll.Roll(new SeededDice(4), 1, 0, risky: true), false);
+        var back = (TreatRolled)RoundTrip(rolled);
+        Assert.Equal((rolled.Model, rolled.Target, rolled.Choice, rolled.Treated, rolled.Check.Dice.Total), (back.Model, back.Target, back.Choice, back.Treated, back.Check.Dice.Total));
+    }
+
     // Roster stage R5f (U110).
     [Fact]
     public void CoverKeywordRoundTripsAndIsLeftOutWhenFalse()

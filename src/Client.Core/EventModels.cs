@@ -18,6 +18,8 @@ public static class EventModels
             ModelMoved m => [m.Model],
             DashDeclared d => [d.Model],
             DashRolled d => [d.Model],
+            TreatDeclared t => t.Target == t.Model ? [t.Model] : [t.Model, t.Target],
+            TreatRolled t => t.Target == t.Model ? [t.Model] : [t.Model, t.Target],
             SideClimbDeclared c => [c.Model],
             SideClimbRolled c => [c.Model],
             MarkersSpent m => [m.Model],

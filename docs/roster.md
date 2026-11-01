@@ -273,3 +273,7 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   `burnsWhenTakenOut`; a match places their BLOOD MARKERS with `BloodMarkersPlaced` (U112). Tests: `BurnTests`,
   `TraitWireTests.CrownAndPactRoundTripAndAreLeftOutWhenFalse`, `MatchReadinessTests.CrownAndPactArePlayed`,
   `ModelTraitDisplayTests.CrownAndPactAreExplained`.
+- Roster rules stage R5h, Medi-kit and Holy Water of Lalibela (done 2026-11-01, Jason: "2 and 1 then 3 no mistakes"):
+  they travel as `treats` and `healingWaters`; a match plays the Treat ACTION (U113). Tests: `TreatTests`,
+  `TraitWireTests.TreatRoundTripsAndIsLeftOutWhenFalse`, `MatchReadinessTests.MediKitAndHolyWaterArePlayed`,
+  `ModelTraitDisplayTests.TreatIsExplained`.

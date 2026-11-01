@@ -67,6 +67,12 @@ public static class Activation
             {
                 attacks.Add(new FightModel(seat, active, other.Id) { Weapon = 1 });
             }
+            // Roster stage R5h (U113): a Medi-kit's Treat ACTION on the model itself or a friend.
+            if (profile.Treats && other.Seat == seat)
+            {
+                attacks.Add(new TreatModel(seat, active, other.Id, TreatChoice.RemoveMarker));
+                attacks.Add(new TreatModel(seat, active, other.Id, TreatChoice.StandUp));
+            }
             foreach (var attack in attacks)
             {
                 if (TurnSequence.Check(state, attack) is null)

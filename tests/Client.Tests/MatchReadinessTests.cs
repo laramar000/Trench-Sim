@@ -39,11 +39,11 @@ public class MatchReadinessTests
     [Fact]
     public void KitTheEngineCannotPlayIsRefusedByName()
     {
-        var builder = Principality(("lieutenant", ["pistol", "medi-kit"]));
+        var builder = Principality(("lieutenant", ["pistol", "binoculars"]));
         var ready = builder.MatchCheck();
         Assert.False(ready.Ok);
-        Assert.Contains(ready.Refused, r => r.Contains("Medi-kit", StringComparison.Ordinal) && r.Contains("no equipment", StringComparison.Ordinal));
-        Assert.Contains(builder.MatchLines, l => l.StartsWith("✕ Not playable yet:", StringComparison.Ordinal) && l.Contains("Medi-kit", StringComparison.Ordinal));
+        Assert.Contains(ready.Refused, r => r.Contains("Binoculars", StringComparison.Ordinal) && r.Contains("no equipment", StringComparison.Ordinal));
+        Assert.Contains(builder.MatchLines, l => l.StartsWith("✕ Not playable yet:", StringComparison.Ordinal) && l.Contains("Binoculars", StringComparison.Ordinal));
     }
 
     private static RosterBuilder Of(string faction, string entry, params string[] kit)
@@ -522,6 +522,31 @@ public class MatchReadinessTests
         Assert.DoesNotContain("burns", plain, StringComparison.Ordinal);
     }
 
+    // Roster stage R5h (U113): a Medi-kit gives the Treat ACTION; Holy Water of Lalibela +1 DICE to it.
+    [Fact]
+    public void MediKitAndHolyWaterArePlayed()
+    {
+        var medic = Of("principality", "lieutenant", "medi-kit").MatchCheck();
+        Assert.True(medic.Refused.Count == 0, string.Join("; ", medic.Refused));
+        Assert.DoesNotContain(medic.PlayedWithout, w => w.Contains("Medi-kit", StringComparison.Ordinal));
+        Assert.Equal((true, false), (Loaded(medic).Treats, Loaded(medic).HealingWaters));
+        Assert.Contains("\"treats\": true", medic.ToContentJson("p", "P"), StringComparison.Ordinal);
+
+        var abyssinian = RosterBuilder.Shipped();
+        abyssinian.ChooseVariant("abyssinian-expedition");
+        abyssinian.Select(abyssinian.Add("lieutenant"));
+        abyssinian.AddKit("medi-kit");
+        abyssinian.AddKit("holy-water-of-lalibela");
+        var watered = abyssinian.MatchCheck();
+        Assert.True(watered.Refused.Count == 0, string.Join("; ", watered.Refused));
+        Assert.DoesNotContain(watered.PlayedWithout, w => w.Contains("Holy Water", StringComparison.Ordinal));
+        Assert.Equal((true, true), (Loaded(watered).Treats, Loaded(watered).HealingWaters));
+
+        var plain = Of("principality", "lieutenant").MatchCheck().ToContentJson("p", "P");
+        Assert.DoesNotContain("treats", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("healingWaters", plain, StringComparison.Ordinal);
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()
@@ -566,8 +591,8 @@ public class MatchReadinessTests
         Assert.True(fire.Ok, string.Join("; ", fire.Refused.Concat(fire.RosterProblems)));
         Assert.Equal(WeaponKeywords.Fire, Sim.Content.Parse(fire.ToContentJson("f", "F")).Single().Models[0].Profile.Grenade!.Keywords & WeaponKeywords.Fire);
         Assert.Contains(fire.PlayedWithout, w => w.Contains("Incendiary Grenades's own rule (p. 78)", StringComparison.Ordinal));
-        var medic = Principality(("lieutenant", ["bolt-action-rifle", "medi-kit"])).MatchCheck();
-        Assert.Contains(medic.Refused, r => r.Contains("Medi-kit (the engine has no equipment yet)", StringComparison.Ordinal));
+        var medic = Principality(("lieutenant", ["bolt-action-rifle", "binoculars"])).MatchCheck();
+        Assert.Contains(medic.Refused, r => r.Contains("Binoculars (the engine has no equipment yet)", StringComparison.Ordinal));
     }
 
     [Fact]

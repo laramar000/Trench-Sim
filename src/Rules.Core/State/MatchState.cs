@@ -60,6 +60,7 @@ public enum ActionsTaken
     Charge = 8,
     Retreat = 16,
     Fight = 32,
+    Treat = 64,   // roster stage R5h (U113): a Medi-kit's Treat ACTION
 }
 
 public enum RollStage
@@ -77,7 +78,15 @@ public enum RollStage
     ClimbMove,   // that roll succeeded: the whole move follows
     ClimbStop,   // it failed: the model moves only to where the climb starts, then its activation ends
     Blast,       // a BLAST attack hit: who the blast hits follows, then an Injury Roll for each (roster stage R4b)
+    TreatRoll,   // the Risky Success Roll of a Treat ACTION (roster stage R5h); Target is the model treated
     Scatter,     // a SCATTER attack missed: the opponent picks where it lands, or it is a miss after all (roster stage R4c)
+}
+
+// Roster stage R5h (U113): what a successful Treat ACTION does (p. 84).
+public enum TreatChoice
+{
+    RemoveMarker,
+    StandUp,
 }
 
 public enum AttackKind
@@ -117,7 +126,8 @@ public sealed record RollInProgress(
     ImmutableArray<ModelId> BlastQueue = default,
     int ScatterInches = 0,
     Point2? BlastAt = null,
-    bool RiskyEnds = false);
+    bool RiskyEnds = false,
+    bool TreatStandUp = false);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.

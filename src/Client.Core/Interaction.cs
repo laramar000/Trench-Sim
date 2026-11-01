@@ -29,6 +29,9 @@ public enum InteractionMode
     // Roster stage R5a (U105): from the Combat menu, a BLAST weapon aimed at a point: the cursor is the point, and a click
     // sends it when the preview accepts it.
     Blast,
+
+    // Roster stage R5h (U113): a Medi-kit's Treat ACTION: choose the model itself or a friend within 1", then Confirm.
+    Treat,
 }
 
 // Battlefield UI 3, stage U1 (approved by Jason on 2026-10-22): one entry of the Combat menu, which lists the attacks of
@@ -122,7 +125,7 @@ public sealed class Interaction
     public const double BigStep = 2.0;
 
     private static readonly InteractionMode[] ActionModes =
-        [InteractionMode.Move, InteractionMode.Dash, InteractionMode.Retreat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight];
+        [InteractionMode.Move, InteractionMode.Dash, InteractionMode.Retreat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight, InteractionMode.Treat];
 
     private readonly List<TablePoint> _waypoints = [];
 
@@ -246,7 +249,7 @@ public sealed class Interaction
     public bool IsPath => Mode is InteractionMode.Move or InteractionMode.Dash or InteractionMode.Retreat;
 
     // Stage U1: Combat itself chooses no target (it lists the attacks); Shoot, Charge and Fight do.
-    public bool IsTarget => Mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight;
+    public bool IsTarget => Mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Treat;
 
     // Stage U1: the attack being chosen was picked from the Combat menu, so Esc goes back to the menu first.
     public bool FromCombat { get; private set; }
@@ -415,7 +418,10 @@ public sealed class Interaction
             }
             if (_state.Phase == Phase.Activation && _state.ActiveModel is { } active && _state.FindModel(active) is { Seat: var owner, Position: not null } && owner == seat)
             {
-                return [.. ActionModes, InteractionMode.Combat];
+                // Roster stage R5h: Treat only for a model with a Medi-kit, so other models keep their six actions.
+                return _state.Setup.ProfileOf(active) is { Treats: true }
+                    ? [.. ActionModes, InteractionMode.Combat]
+                    : [.. ActionModes.Where(m => m != InteractionMode.Treat), InteractionMode.Combat];
             }
             return [];
         }
@@ -602,7 +608,8 @@ public sealed class Interaction
     // rules (TargetSights, Cover.Of). Empty outside the target modes.
     public IReadOnlyList<TargetSight> TargetSights()
     {
-        if (!IsTarget || Actor is not { } actor)
+        // A Treat (roster stage R5h) needs no sight of the enemies.
+        if (!IsTarget || Mode == InteractionMode.Treat || Actor is not { } actor)
         {
             return [];
         }
@@ -713,7 +720,7 @@ public sealed class Interaction
     // model already chosen. Nothing is chosen or sent.
     public Preview? PreviewOf(ModelId target)
     {
-        if (!IsTarget || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor)
+        if (!IsTarget || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor && Mode != InteractionMode.Treat)
         {
             return null;
         }
@@ -824,6 +831,7 @@ public sealed class Interaction
         InteractionMode.Shoot => "Shoot target",
         InteractionMode.Blast => "Blast here",
         InteractionMode.Charge => "Charge target",
+        InteractionMode.Treat => "Treat",
         _ => "Fight target",
     };
 
@@ -838,6 +846,7 @@ public sealed class Interaction
         InteractionMode.Charge => "Charge an enemy within 12\" into melee; a D6 adds reach: in Combat (C), choose Charge, click a target, then Confirm charge beside it (key 2).",
         InteractionMode.Fight => "Attack an enemy within 1\": click a target, then Confirm fight beside it (key X).",
         InteractionMode.Blast => "Aim a BLAST weapon at a point in sight and range: click the point (in Combat, keys 7, 8 and 9).",
+        InteractionMode.Treat => "Treat the model itself or a friend within 1\" with its Medi-kit: a Risky roll removes 1 Blood Marker, or stands up a Down friend; click the model, then Confirm treat beside it (key H).",
         InteractionMode.Combat => "Shoot, Charge or Fight: choose the attack (1, 2, 3), click an enemy the rules accept (ringed), then Confirm beside it (or Space); an attack the rules refuse is greyed out with the reason (key C).",
         _ => "",
     };
@@ -1241,8 +1250,10 @@ public sealed class Interaction
         {
             return [];
         }
+        // Roster stage R5h: a Treat chooses among the model itself and its friends instead of the enemies.
+        var treat = Mode == InteractionMode.Treat;
         return _state.Models
-            .Where(m => m.Seat != me.Seat && m.Position is not null && m.Status != ModelStatus.OutOfAction)
+            .Where(m => (treat ? m.Seat == me.Seat : m.Seat != me.Seat) && m.Position is not null && m.Status != ModelStatus.OutOfAction)
             .OrderBy(m => Distance(from, m.Position!.Value))
             .ThenBy(m => m.Id.Value, StringComparer.Ordinal)
             .Select(m => m.Id)
@@ -1459,6 +1470,7 @@ public sealed class Interaction
         ShootPoint s => $"Blast {TablePoint.Of(s.At)} with {s.Attacker.Value}",
         ChargeModel c => $"Charge {c.Target.Value} with {c.Model.Value}",
         FightModel f => $"Fight {f.Target.Value} with {f.Model.Value}",
+        TreatModel t => $"Treat {t.Target.Value} with {t.Model.Value} ({(t.Choice == TreatChoice.StandUp ? "stand up" : "remove 1 Blood Marker")})",
         _ => preview.Verb,
     };
 
@@ -1514,6 +1526,7 @@ public sealed class Interaction
         InteractionMode.Fight => "Fight",
         InteractionMode.Combat => "Combat",
         InteractionMode.Blast => "Blast a point",
+        InteractionMode.Treat => "Treat",
         _ => "Nothing",
     };
 
@@ -1530,6 +1543,7 @@ public sealed class Interaction
         InteractionMode.Fight => "X",
         InteractionMode.Combat => "C",
         InteractionMode.Blast => "7",
+        InteractionMode.Treat => "H",
         _ => "",
     };
 
@@ -1558,7 +1572,7 @@ public sealed class Interaction
                 var points = PathPoints();
                 // Towers proposal, stage T4: a point on another level is reached by a ladder (Previews.Route).
                 return points.Count == 0 ? null : Previews.Path(_state, seat, Kind(Mode), actor, Previews.Route(_state, actor, [.. points.Select(p => Previews.PointAt(p.X, p.Y))], Sides));
-            case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight:
+            case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Treat:
                 return Target is { } target ? TargetPreview(seat, Kind(Mode), actor, target, Weapon) : null;
             case InteractionMode.Blast:
                 return Previews.Point(_state, seat, actor, Previews.PointAt(Cursor.X, Cursor.Y), Weapon);
@@ -1576,6 +1590,7 @@ public sealed class Interaction
         InteractionMode.Shoot => PreviewKind.Shoot,
         InteractionMode.Charge => PreviewKind.Charge,
         InteractionMode.Blast => PreviewKind.Point,
+        InteractionMode.Treat => PreviewKind.Treat,
         _ => PreviewKind.Fight,
     };
 

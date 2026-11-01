@@ -55,12 +55,12 @@ public sealed partial class TransportTests
     [Fact]
     public void ARosterTheGameCannotPlayStartsNothing()
     {
-        var one = SaveRoster("Medics", ("lieutenant", ["medi-kit"]));
+        var one = SaveRoster("Lookouts", ("lieutenant", ["binoculars"]));
         var two = SaveRoster("Plain", ("lieutenant", []));
         var prepared = RosterMatch.Prepare(Path.Combine(_dir.FullName, "rosters"), one, two);
         Assert.Null(prepared.Json);
-        Assert.Contains("Seat One's roster Medics has what the game cannot play yet", prepared.Problem, StringComparison.Ordinal);
-        Assert.Contains("Medi-kit", prepared.Problem, StringComparison.Ordinal);
+        Assert.Contains("Seat One's roster Lookouts has what the game cannot play yet", prepared.Problem, StringComparison.Ordinal);
+        Assert.Contains("Binoculars", prepared.Problem, StringComparison.Ordinal);
     }
 
     // Roster stage 5c (rosters online): each player hosts or joins with a saved roster; both windows see the real
@@ -94,9 +94,9 @@ public sealed partial class TransportTests
     [Fact]
     public void ARosterTheGameCannotPlayIsNotSent()
     {
-        var file = SaveRoster("Medics", ("lieutenant", ["medi-kit"]));
+        var file = SaveRoster("Lookouts", ("lieutenant", ["binoculars"]));
         var prepared = RosterMatch.PrepareOne(Path.Combine(_dir.FullName, "rosters"), file);
         Assert.Null(prepared.Json);
-        Assert.Contains("Your roster Medics has what the game cannot play yet", prepared.Problem, StringComparison.Ordinal);
+        Assert.Contains("Your roster Lookouts has what the game cannot play yet", prepared.Problem, StringComparison.Ordinal);
     }
 }

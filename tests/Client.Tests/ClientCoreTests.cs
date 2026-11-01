@@ -84,6 +84,9 @@ public class ClientCoreTests
         seen.TryAdd(typeof(MoveResumed), new MoveResumed(new ModelId("a1"), [Previews.PointAt(20, 8)]));
         // Roster stage R5g: no bot model carries a Crown of Hellfire or a Damned Pact.
         seen.TryAdd(typeof(BloodMarkersPlaced), new BloodMarkersPlaced(new ModelId("a1"), [new ModelId("b1"), new ModelId("b2")], [new ModelId("b2")]));
+        // Roster stage R5h: no bot model carries a Medi-kit.
+        seen.TryAdd(typeof(TreatDeclared), new TreatDeclared(new ModelId("a1"), new ModelId("a2"), TreatChoice.StandUp));
+        seen.TryAdd(typeof(TreatRolled), new TreatRolled(new ModelId("a1"), new ModelId("a2"), TreatChoice.RemoveMarker, Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(1), 1, 0, risky: true), false));
         var all = typeof(GameEvent).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(GameEvent)) && !t.IsAbstract).ToList();
         Assert.True(all.Count >= 30, $"{all.Count} event types");
         Assert.Empty(all.Where(t => !seen.ContainsKey(t)).Select(t => t.Name));
@@ -103,7 +106,7 @@ public class ClientCoreTests
         {
             typeof(RollOffResolved), typeof(DashRolled), typeof(SideClimbRolled), typeof(RangedSuccessRolled), typeof(MeleeSuccessRolled),
             typeof(MoraleCheckRolled), typeof(InjuryRolled), typeof(ChargeRolled), typeof(ShootingTargetRolled), typeof(GameLengthRolled),
-            typeof(MineExploded),
+            typeof(MineExploded), typeof(TreatRolled),
         };
         foreach (var e in Matches.Value.SelectMany(m => m.Log))
         {

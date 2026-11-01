@@ -99,3 +99,7 @@ public sealed record ShootPoint(Seat Seat, ModelId Attacker, Point2 At) : Comman
 {
     public int Weapon { get; init; }
 }
+
+// Roster stage R5h (U113): a Treat ACTION with a Medi-kit (p. 84): a Risky Success Roll, and on a Success, Choice: remove
+// 1 BLOOD MARKER from the model itself or a friendly model within 1" (Target), or stand up a Down friendly model within 1".
+public sealed record TreatModel(Seat Seat, ModelId Model, ModelId Target, TreatChoice Choice) : Command;

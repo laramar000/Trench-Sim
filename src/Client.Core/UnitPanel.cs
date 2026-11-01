@@ -370,6 +370,11 @@ public static class UnitPanel
         {
             parts.Add("+1 BLOOD MARKER to enemies within 1\" when taken Out of Action");
         }
+        // Roster stage R5h (U113).
+        if (p.Treats)
+        {
+            parts.Add(p.HealingWaters ? "Treat ACTION (H), +1 DICE" : "Treat ACTION (H)");
+        }
         // Roster stage R5b (U106): the model keywords the engine plays.
         foreach (var (trait, words) in new[] { (ModelTraits.Fear, "FEAR"), (ModelTraits.NegateFear, "NEGATE FEAR"), (ModelTraits.Tough, "TOUGH"), (ModelTraits.NegateHeavy, "NEGATE HEAVY"), (ModelTraits.Leader, "LEADER") })
         {

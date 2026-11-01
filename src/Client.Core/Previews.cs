@@ -27,6 +27,9 @@ public enum PreviewKind
 
     // Roster stage R5a (U105): a Ranged Attack with a BLAST weapon aimed at a point (ShootPoint).
     Point,
+
+    // Roster stage R5h (U113): a Medi-kit's Treat ACTION on the model itself or a friend within 1" (TreatModel).
+    Treat,
 }
 
 // A point on the table, in inches.
@@ -99,6 +102,7 @@ public sealed record Preview(
         PreviewKind.Shoot => "Shoot",
         PreviewKind.Charge => "Charge",
         PreviewKind.Point => "Blast",
+        PreviewKind.Treat => "Treat",
         _ => "Fight",
     };
 
@@ -350,6 +354,10 @@ public static class Previews
     public static Preview Target(MatchState state, Seat seat, PreviewKind kind, ModelId model, ModelId target, int weapon = 0)
     {
         ArgumentNullException.ThrowIfNull(state);
+        if (kind == PreviewKind.Treat)
+        {
+            return Treat(state, seat, model, target);
+        }
         var next = kind == PreviewKind.Fight ? TurnSequence.NextFightAttack(state, model) : null;
         if (next is not null)
         {
@@ -640,6 +648,38 @@ public static class Previews
         return null;
     }
 
+    // Roster stage R5h (U113): a Treat ACTION on the model itself or a friend: a Down friend is stood up, any other model
+    // has 1 BLOOD MARKER removed. The rules' own check (TurnSequence.Check) decides; the facts say what the roll does.
+    public static TreatChoice TreatChoiceFor(MatchState state, ModelId model, ModelId target) =>
+        target != model && state.FindModel(target) is { Status: ModelStatus.Down } ? TreatChoice.StandUp : TreatChoice.RemoveMarker;
+
+    public const string TreatFact = "A Treat is a Risky Success Roll (p. 84): on a Success it is carried out; a Failure ends the activation.";
+    public const string HolyWaterFact = "+1 DICE on the Treat roll: Holy Water of Lalibela (Warbands p. 44).";
+
+    public static Preview Treat(MatchState state, Seat seat, ModelId model, ModelId target)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var choice = TreatChoiceFor(state, model, target);
+        var command = new TreatModel(seat, model, target, choice);
+        var facts = new List<string>();
+        var refusal = Opening(state) ?? Acting(state, seat, model, out _) ?? TurnSequence.Check(state, command);
+        if (refusal is null)
+        {
+            facts.Add(choice == TreatChoice.StandUp ? $"Stands {target.Value} up." : $"Removes 1 Blood Marker from {target.Value}.");
+            facts.Add(TreatFact);
+            if (TurnSequence.TreatDice(state, model) > 0)
+            {
+                facts.Add(HolyWaterFact);
+            }
+            if (!TurnSequence.RiskyEnds(state, model))
+            {
+                facts.Add("A failed Risky roll does not end this model's activation (its Crucifix).");
+            }
+        }
+        var from = state.FindModel(model) is { } m && BodyOf(state, m) is { } b ? [new PathMark(TablePoint.Of(b.Centre), 0)] : Array.Empty<PathMark>();
+        return new Preview(PreviewKind.Treat, model, command, refusal, facts, from, RadiusOf(state, model), target, [], [], null);
+    }
+
     // ---- which actions to offer (the action bar) ----
 
     // Whether the acting model can take this kind of action at all now, before a path or a target is chosen: the same
@@ -693,6 +733,25 @@ public static class Previews
                     }
                 }
                 return nearest ?? new(ReasonCode.TargetNotOnTable, "No enemy model is on the battlefield.", RefAttack);
+            case PreviewKind.Treat:
+            {
+                // Roster stage R5h: open when the rules would take a Treat on the model itself or some friend.
+                Rejection? firstRefusal = null;
+                foreach (var friend in state.Models.Where(m => m.Seat == acting!.Seat && m.Position is not null && m.Status != ModelStatus.OutOfAction))
+                {
+                    if (Treat(state, seat, model, friend.Id).Refusal is not { } refusal)
+                    {
+                        return null;
+                    }
+                    // The kit or the once-per-activation reason before any target's.
+                    if (refusal.Code is ReasonCode.NoSuchAction or ReasonCode.ActionAlreadyTaken)
+                    {
+                        return refusal;
+                    }
+                    firstRefusal ??= refusal;
+                }
+                return firstRefusal;
+            }
             case PreviewKind.Point:
                 // Roster stage R5a: open when the rules would take a BLAST attack with that weapon at some point; the
                 // model's own spot is always in its sight and range, so it stands for every point.

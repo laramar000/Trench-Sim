@@ -138,6 +138,33 @@ public static partial class TurnSequence
         return assessment.IsLegal ? null : new(assessment.Refusal!.Value, assessment.Text, assessment.RuleRef);
     }
 
+    // Roster stage R5h (U113): a Medi-kit's Treat ACTION (p. 84).
+    private static Rejection? ValidateTreat(MatchState state, TreatModel c)
+    {
+        if (ValidateActing(state, c.Seat, c.Model, out var medic) is { } rejection)
+        {
+            return rejection;
+        }
+        if (!Enum.IsDefined(c.Choice))
+        {
+            return new(ReasonCode.InvalidChoice, "That is not one of the choices on offer.", RefTreat);
+        }
+        if (state.Setup!.ProfileOf(c.Model) is not { Treats: true })
+        {
+            return new(ReasonCode.NoSuchAction, "Only a model with a Medi-kit can take a Treat ACTION.", RefTreat);
+        }
+        if (state.Actions.HasFlag(ActionsTaken.Treat))
+        {
+            return new(ReasonCode.ActionAlreadyTaken, "A Treat ACTION can be taken only once per activation.", RefActions);
+        }
+        return Reducer.TreatRefusal(state, medic!, c.Target, c.Choice) is { } why ? new(ReasonCode.NothingToTreat, why, RefTreat) : null;
+    }
+
+    public const string RefTreat = "1.0.2 p. 84";
+
+    // Roster stage R5h: the bonus dice of a Treat roll (Holy Water of Lalibela).
+    public static int TreatDice(MatchState state, ModelId model) => Reducer.TreatDice(state, model);
+
     // Roster stage R5a (U105): a Shoot ACTION with a BLAST weapon aimed at a point (p. 53).
     private static Rejection? ValidateShootPoint(MatchState state, ShootPoint c)
     {
@@ -394,6 +421,13 @@ public static partial class TurnSequence
                     run.Emit(new ModelMoved(c.Model, MoveKind.Move, c.Path, move.Cost));
                 }
                 break;
+            case TreatModel c:
+                run.Emit(new TreatDeclared(c.Model, c.Target, c.Choice));
+                if (run.State.FindModel(c.Model)!.BloodMarkers > 0)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
+                }
+                break;
             case DashModel c:
                 run.Emit(new DashDeclared(c.Model, c.Path));
                 if (run.State.FindModel(c.Model)!.BloodMarkers > 0)
@@ -514,6 +548,19 @@ public static partial class TurnSequence
                 var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true);
                 run.Emit(new DashRolled(progress.Actor, check));
                 // Roster stage R5d (U108): unless the model keeps going after a failed Risky roll.
+                if (run.State.MustEndActivation)
+                {
+                    run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                }
+                return true;
+            }
+            case RollStage.TreatRoll:
+            {
+                // Roster stage R5h (U113): a Treat is a Risky Success Roll (p. 84); spent markers are penalty dice.
+                var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true);
+                var choice = progress.TreatStandUp ? TreatChoice.StandUp : TreatChoice.RemoveMarker;
+                var treated = check.Outcome != SuccessOutcome.Failure && Reducer.TreatRefusal(s, actor, progress.Target!.Value, choice) is null;
+                run.Emit(new TreatRolled(progress.Actor, progress.Target!.Value, choice, check, treated));
                 if (run.State.MustEndActivation)
                 {
                     run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));

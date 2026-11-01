@@ -21,6 +21,7 @@ public class PreviewMemoTests
         InteractionMode.Move => PreviewKind.Move,
         InteractionMode.Dash => PreviewKind.Dash,
         InteractionMode.Retreat => PreviewKind.Retreat,
+        InteractionMode.Treat => PreviewKind.Treat,
         _ => PreviewKind.Fight,
     };
 

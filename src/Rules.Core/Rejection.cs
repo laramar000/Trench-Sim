@@ -51,6 +51,9 @@ public enum ReasonCode
     MinesIllegal,
     // Roster stage R3: a Fight's next attack is with another weapon
     WrongWeapon,
+    // Roster stage R5h: an ACTION the model's kit does not give it, and a Treat with nothing to treat
+    NoSuchAction,
+    NothingToTreat,
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.
