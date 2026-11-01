@@ -963,7 +963,7 @@ public static class Reducer
             // Roster stage R4b (U102): a BLAST attack: who it hits comes next (BlastHit), then their Injury Rolls.
             return state with { InProgress = progress with { Stage = RollStage.Blast, BonusDice = 0, PenaltyDice = 0, Critical = critical, MarkersAsked = false } };
         }
-        var (bonus, penalty) = AttackDice.InjuryDice(profile, AttackKind.Ranged, critical, meleeOnDownTarget: false, progress.InjuryDiceLater);
+        var (bonus, penalty) = AttackDice.InjuryDice(profile, AttackKind.Ranged, critical, meleeOnDownTarget: false, progress.InjuryDiceLater, state.Setup!.ProfileOf(progress.Target!.Value)!);
         return state with
         {
             InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = bonus, PenaltyDice = penalty, Critical = critical, MarkersAsked = false },
@@ -1024,7 +1024,7 @@ public static class Reducer
     private static RollInProgress NextBlastRoll(MatchState state, RollInProgress progress, ImmutableArray<ModelId> queue)
     {
         var victim = queue[0];
-        var (bonus, penalty) = AttackDice.InjuryDice(AttackProfile(state, progress), AttackKind.Ranged, progress.Critical && victim == progress.Aimed, meleeOnDownTarget: false, progress.InjuryDiceLater);
+        var (bonus, penalty) = AttackDice.InjuryDice(AttackProfile(state, progress), AttackKind.Ranged, progress.Critical && victim == progress.Aimed, meleeOnDownTarget: false, progress.InjuryDiceLater, state.Setup!.ProfileOf(victim)!);
         return progress with
         {
             Stage = RollStage.InjuryRoll,
@@ -1241,7 +1241,7 @@ public static class Reducer
         // +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
         var onDownTarget = state.FindModel(e.Target)!.Status == ModelStatus.Down;
-        var (bonus, penalty) = AttackDice.InjuryDice(fighter, AttackKind.Melee, critical, onDownTarget, 0);
+        var (bonus, penalty) = AttackDice.InjuryDice(fighter, AttackKind.Melee, critical, onDownTarget, 0, state.Setup!.ProfileOf(e.Target)!);
         return state with
         {
             InProgress = progress with

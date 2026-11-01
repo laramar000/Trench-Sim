@@ -215,6 +215,8 @@ The server sends events in log order, one message each, to both players, through
   `tough` only on an Out of Action roll). A Morale Check's `check.netDice` is 1 while the warband has a LEADER on the
   battlefield, neither Down nor Out of Action, else 0. The state hash adds `,traits=` to a profile and `,tough=spent` to a
   model only when set, so older records keep their hashes.
+- Roster stage R5c (U107): `ModelProfile.injuryDiceTaken` (-6 to +6) and `meleeInjuryBonus` (0 to 3), left out when 0.
+  AMMUNITION travels as the gun's keywords and dice (no new field).
 
 ## Rosters online (roster stage 5c)
 

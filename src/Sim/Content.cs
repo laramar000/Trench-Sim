@@ -53,6 +53,8 @@ public static class Content
                         Grenade = SecondWeapon(m, "grenade"),
                         Negates = Keywords(m, "negates"),
                         Traits = Traits(m),
+                        InjuryDiceTaken = Dice(m, "injuryDiceTaken"),
+                        MeleeInjuryBonus = Dice(m, "meleeInjuryBonus"),
                     }));
             }
             warbands.Add(new Warband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));

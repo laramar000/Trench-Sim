@@ -42,6 +42,27 @@ public class TraitWireTests
         Assert.NotEqual(StateHash.Compute(Reducer.Apply(MatchState.None, created)), StateHash.Compute(Reducer.Apply(MatchState.None, new MatchCreated(Plain()))));
     }
 
+    // Roster stage R5c (U107): the INJURY DICE a model takes and its melee INJURY MODIFIER bonus.
+    [Fact]
+    public void InjuryBattlekitRoundTripsAndIsLeftOutWhenZero()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        Assert.DoesNotContain("injuryDiceTaken", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("meleeInjuryBonus", plain, StringComparison.Ordinal);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var smoked = first.Profile! with { InjuryDiceTaken = -1, MeleeInjuryBonus = 2 };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = smoked } : m), setup.Scenario));
+        var text = Encoded(created);
+        Assert.Contains("\"injuryDiceTaken\":-1", text, StringComparison.Ordinal);
+        Assert.Contains("\"meleeInjuryBonus\":2", text, StringComparison.Ordinal);
+        Assert.Equal(smoked, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+        var bad = text.Replace("\"meleeInjuryBonus\":2", "\"meleeInjuryBonus\":-2", StringComparison.Ordinal);
+        Assert.Null(Codec.ParseServer(Encoding.UTF8.GetBytes(bad), out var failure));
+        Assert.NotNull(failure);
+    }
+
     [Fact]
     public void FearAndToughRoundTripAndAreLeftOutWhenFalse()
     {

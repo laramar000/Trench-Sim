@@ -256,7 +256,9 @@ public static class RosterValidator
         foreach (var (category, words) in new[] { (KitCategory.Grenade, "one type of grenade"), (KitCategory.Armour, "one suit of armour"), (KitCategory.Shield, "one shield") })
             if (carried.Count(c => c.Kit.Category == category) > 1)
                 problems.Add($"{who}: can have only {words}");
-        foreach (var dup in carried.Where(c => c.Kit.Category is KitCategory.Equipment or KitCategory.Special)
+        // A piece the list lets a model carry more than one of (Grovelling Devotees, two each) is checked by its
+        // LimitPerModel below instead.
+        foreach (var dup in carried.Where(c => c.Kit.Category is KitCategory.Equipment or KitCategory.Special && !(c.From?.LimitPerModel > 1))
                      .GroupBy(c => c.Kit.Id).Where(g => g.Count() > 1))
             problems.Add($"{who}: cannot have two pieces of {dup.First().Kit.Name}");
         // HEAVY p. 55: at most one piece of HEAVY battlekit. A many-armed model whose entry lets it carry N HEAVY

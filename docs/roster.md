@@ -247,3 +247,9 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   a model with a HELD piece carries one 1-handed weapon or a shield. Tests: `ModelTraitTests`,
   `MineTests.AToughModelSurvivesItsFirstMine`, `TraitWireTests`, `MatchReadinessTests.ModelKeywordsArePlayedAsTraits`,
   `.EquipmentThatGivesKeywordsOrDiceIsPlayed`, `.HeldKitLeavesOneHand`, `ModelTraitDisplayTests`.
+- Roster rules stage R5c, AMMUNITION and Injury Roll battlekit (done 2026-11-01, same ask): AMMUNITION is loaded into the
+  one gun that can take it (a keyword or +DICE; refused when two guns could, or with two pieces), Holy Smoke and
+  Zealot's Draught travel as NEGATE FEAR and `injuryDiceTaken` -1, Grovelling Devotees as `meleeInjuryBonus` (U107). The
+  builder lets a model carry two Devotees. Tests: `InjuryBattlekitTests`, `TraitWireTests.InjuryBattlekitRoundTripsAndIsLeftOutWhenZero`,
+  `MatchReadinessTests.AmmunitionIsLoadedIntoItsGun`, `.SmokeDraughtAndDevoteesArePlayed`,
+  `ModelTraitDisplayTests.InjuryBattlekitIsExplained`.

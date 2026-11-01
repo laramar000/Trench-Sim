@@ -317,6 +317,15 @@ public static class UnitPanel
         {
             parts.Add($"IMPERVIOUS Armour {p.ImperviousArmour}");
         }
+        // Roster stage R5c (U107): battlekit that changes Injury Rolls.
+        if (p.InjuryDiceTaken != 0)
+        {
+            parts.Add($"hit for {p.InjuryDiceTaken:+0;-0} INJURY DICE");
+        }
+        if (p.MeleeInjuryBonus != 0)
+        {
+            parts.Add($"Fight injury {p.MeleeInjuryBonus:+0;-0}");
+        }
         // Roster stage R5b (U106): the model keywords the engine plays.
         foreach (var (trait, words) in new[] { (ModelTraits.Fear, "FEAR"), (ModelTraits.NegateFear, "NEGATE FEAR"), (ModelTraits.Tough, "TOUGH"), (ModelTraits.NegateHeavy, "NEGATE HEAVY"), (ModelTraits.Leader, "LEADER") })
         {

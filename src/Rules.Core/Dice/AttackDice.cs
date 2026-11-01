@@ -41,8 +41,12 @@ public static class AttackDice
     // Injury Roll modifiers: the attacking weapon's modifier and the target's Armour (pp. 46, 48). Roster stage R2:
     // IGNORE ARMOUR drops the Armour; ARMOUR PIERCING lowers it by 1, to at most 0 (p. 52).
     // Roster stage R3: the part of the Armour from IMPERVIOUS battlekit is left alone by both (p. 55).
+    // Roster stage R5c (U107): a Melee Attack's MeleeInjuryBonus (Grovelling Devotees) is a third modifier, when the model
+    // has one.
     public static int[] InjuryModifiers(ModelProfile attacker, ModelProfile target, AttackKind kind) =>
-        [kind == AttackKind.Melee ? attacker.MeleeAttackInjuryModifier : attacker.RangedInjuryModifier, ArmourAgainst(attacker.AttackKeywords(kind), target.Armour, target.ImperviousArmour)];
+        kind == AttackKind.Melee && attacker.MeleeInjuryBonus != 0
+            ? [attacker.MeleeAttackInjuryModifier, ArmourAgainst(attacker.AttackKeywords(kind), target.Armour, target.ImperviousArmour), attacker.MeleeInjuryBonus]
+            : [kind == AttackKind.Melee ? attacker.MeleeAttackInjuryModifier : attacker.RangedInjuryModifier, ArmourAgainst(attacker.AttackKeywords(kind), target.Armour, target.ImperviousArmour)];
 
     public static int ArmourAgainst(WeaponKeywords keywords, int armour, int impervious = 0)
     {
@@ -57,11 +61,13 @@ public static class AttackDice
     public static int CriticalInjuryDice(WeaponKeywords keywords) => keywords.HasFlag(WeaponKeywords.Critical) ? 2 : 1;
 
     // The injury dice before markers once an attack has hit: a Critical Success, a Melee Attack on a Down target, the
-    // weapon's own INJURY DICE and dice carried from the declaration (SHOTGUN at Long Range).
-    public static (int Bonus, int Penalty) InjuryDice(ModelProfile attacker, AttackKind kind, bool critical, bool meleeOnDownTarget, int carried)
+    // weapon's own INJURY DICE and dice carried from the declaration (SHOTGUN at Long Range). Roster stage R5c (U107):
+    // and the INJURY DICE the target takes (Holy Smoke, Zealot's Draught).
+    public static (int Bonus, int Penalty) InjuryDice(ModelProfile attacker, AttackKind kind, bool critical, bool meleeOnDownTarget, int carried, ModelProfile target)
     {
+        ArgumentNullException.ThrowIfNull(target);
         var bonus = InjuryBonus(false, meleeOnDownTarget) + (critical ? CriticalInjuryDice(attacker.AttackKeywords(kind)) : 0);
-        return With(bonus, 0, OwnInjuryDice(attacker, kind) + carried);
+        return With(bonus, 0, OwnInjuryDice(attacker, kind) + carried + target.InjuryDiceTaken);
     }
 
     // Roster stage R2: a Ranged Attack's Success Roll dice from the declared facts and the weapon's keywords (IGNORE

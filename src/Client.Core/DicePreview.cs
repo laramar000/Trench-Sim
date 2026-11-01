@@ -28,11 +28,14 @@ public sealed record DicePreview(
     public IReadOnlyList<string> OwnHitParts { get; init; } = [];
     public int OwnInjuryDice { get; init; }
 
+    // Roster stage R5c (U107): the INJURY DICE the target's own battlekit adds to attacks that hit it (Holy Smoke: -1).
+    public int TargetInjuryDice { get; init; }
+
     // The Success Roll's dice before markers, as the server rolls them: +DICE and -DICE cancel in pairs (p. 15).
     public int HitNetDice => HitBonus - HitPenalty + OwnHitDice;
 
     // The Injury Roll's dice before markers and a Critical Success.
-    public int InjuryNetDice => InjuryBonus + OwnInjuryDice + ShotgunInjuryDice;
+    public int InjuryNetDice => InjuryBonus + OwnInjuryDice + ShotgunInjuryDice + TargetInjuryDice;
 
     // Whether Risky comes from a Shaken warband (else from a RISKY weapon), and a Critical Success's INJURY DICE.
     public bool ShakenRisky { get; init; } = true;
@@ -70,6 +73,7 @@ public sealed record DicePreview(
             OwnHitDice = AttackDice.OwnDice(profile, kind),
             OwnHitParts = OwnParts(profile, kind),
             OwnInjuryDice = AttackDice.OwnInjuryDice(profile, kind),
+            TargetInjuryDice = setup.ProfileOf(target.Id)!.InjuryDiceTaken,
         };
     }
 
@@ -184,6 +188,10 @@ public sealed record DicePreview(
         if (ShotgunInjuryDice != 0)
         {
             injury.Add($"{ShotgunInjuryDice:+0;-0} DICE (SHOTGUN at Long Range)");
+        }
+        if (TargetInjuryDice != 0)
+        {
+            injury.Add($"{TargetInjuryDice:+0;-0} DICE (target's battlekit)");
         }
         if (InjuryModifier != 0)
         {

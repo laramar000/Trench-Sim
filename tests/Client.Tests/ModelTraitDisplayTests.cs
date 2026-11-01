@@ -80,6 +80,46 @@ public class ModelTraitDisplayTests
         Assert.True(previews > 0 && fears > 0 && toughs > 0 && leaders > 0, $"previews {previews}, FEAR {fears}, TOUGH {toughs}, LEADER {leaders}");
     }
 
+    // Roster stage R5c (U107): the target's -1 INJURY DICE and the Devotees' +INJURY MODIFIER are in the preview and in
+    // every Injury Roll's breakdown, which adds up to the roll.
+    [Fact]
+    public void InjuryBattlekitIsExplained()
+    {
+        var warbands = Content.Load(Content.MeleePath()).Select(w => w with
+        {
+            Models = w.Models.Select((m, i) => m with { Profile = m.Profile with { InjuryDiceTaken = i % 2 == 0 ? -1 : 0, MeleeInjuryBonus = i % 2 == 1 ? 2 : 0 } }).ToList(),
+        }).ToList();
+        var (rolls, previews) = (0, 0);
+        for (var seed = 1; seed <= 6; seed++)
+        {
+            var state = MatchState.None;
+            var log = new ResolutionLog();
+            var seq = 0;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is MeleeAttackDeclared m && state.ActiveModel == m.Attacker && !m.FreeFight && state.Pending is null
+                    && Previews.Target(state, state.FindModel(m.Attacker)!.Seat, PreviewKind.Fight, m.Attacker, m.Target, m.Weapon) is { Legal: true, Dice: { } dice })
+                {
+                    Assert.Equal(state.Setup!.ProfileOf(m.Target)!.InjuryDiceTaken, dice.TargetInjuryDice);
+                    Assert.Equal(dice.TargetInjuryDice != 0, dice.Lines(m.Attacker, m.Target).Any(l => l.Contains("-1 DICE (target's battlekit)", StringComparison.Ordinal)));
+                    previews++;
+                }
+                var setup = state.Setup;
+                state = Reducer.Apply(state, e);
+                log.Add(++seq, e, setup ?? state.Setup);
+                if (e is InjuryRolled i && log.WhyOf(seq) is { } why)
+                {
+                    Assert.True(why.Explained, why.Text);
+                    Assert.Equal(state.Setup!.ProfileOf(i.Target)!.InjuryDiceTaken != 0, why.Dice.Any(d => d.Label == "target's battlekit"));
+                    rolls++;
+                }
+            }
+        }
+        Assert.True(rolls > 0 && previews > 0, $"{rolls} rolls, {previews} previews");
+        var card = UnitPanel.WeaponWords(new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true) { InjuryDiceTaken = -1, MeleeInjuryBonus = 2 });
+        Assert.Equal(" · hit for -1 INJURY DICE · Fight injury +2", card);
+    }
+
     [Fact]
     public void TheUnitCardNamesTheTraits()
     {

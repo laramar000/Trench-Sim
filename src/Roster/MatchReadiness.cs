@@ -63,6 +63,11 @@ public sealed record ReadyModel(
     // Roster stage R5b: the model keywords the engine plays, by its names (Rules.Core ModelTraits: Fear, NegateFear,
     // Tough, NegateHeavy, Leader).
     public IReadOnlyList<string> Traits { get; init; } = [];
+
+    // Roster stage R5c (U107): INJURY DICE on the Injury Rolls of attacks that hit the model, and the INJURY MODIFIER its
+    // Melee Attacks add.
+    public int InjuryDiceTaken { get; init; }
+    public int MeleeInjuryBonus { get; init; }
 }
 
 // Roster stage R3: a second weapon, as Rules.Core Weapon holds it (RangeInches 0 for a Melee Weapon).
@@ -134,6 +139,7 @@ public sealed record MatchReady(
                         ("rangedWeaponInjuryDice", m.RangedWeaponInjuryDice), ("meleeWeaponDice", m.MeleeWeaponDice),
                         ("meleeWeaponInjuryDice", m.MeleeWeaponInjuryDice), ("meleeWeaponCleave", m.MeleeWeaponCleave),
                         ("imperviousArmour", m.ImperviousArmour), ("rangedWeaponBlast", m.RangedWeaponBlast),
+                        ("injuryDiceTaken", m.InjuryDiceTaken), ("meleeInjuryBonus", m.MeleeInjuryBonus),
                     })
                     {
                         if (dice != 0)
@@ -231,6 +237,9 @@ public static class MatchReadiness
             var unplayed = entry.Keywords.Where(k => !Gain(k, gains)).ToList();
             var rangedBonus = 0;
             var meleeBonus = 0;
+            var injuryTaken = 0;
+            var meleeInjury = 0;
+            var ammunition = new List<CatalogueEntry>();
             if (unplayed.Count > 0)
             {
                 without.Add($"{who}: its keywords ({string.Join(", ", unplayed.Select(KeywordText))})");
@@ -290,6 +299,9 @@ public static class MatchReadiness
                     case KitCategory.Grenade:
                         refused.Add($"{who}: {piece.Name} (its range is beyond what the engine allows)");
                         break;
+                    case KitCategory.Equipment when piece.Keywords.Any(k => k.Id == "AMMUNITION"):
+                        ammunition.Add(piece);
+                        break;
                     case KitCategory.Equipment when PlayedEquipment.TryGetValue(piece.Id, out var played):
                         Without(who, piece, without, diceToo: true, gains, ruleToo: false);
                         if (played.NotFor is { } notFor && entry.Keywords.Any(k => k.Id == notFor))
@@ -299,6 +311,8 @@ public static class MatchReadiness
                         }
                         rangedBonus += played.RangedDice;
                         meleeBonus += played.MeleeDice;
+                        injuryTaken += played.InjuryDiceTaken;
+                        meleeInjury += played.MeleeInjury;
                         if (played.Trait is { } trait)
                         {
                             traits.Add(trait);
@@ -318,6 +332,8 @@ public static class MatchReadiness
             {
                 guns.Reverse();
             }
+            // Roster stage R5c (U107): AMMUNITION (X) gives one ranged weapon X (p. 52).
+            var (ammoFirst, ammoSecond) = Ammunition(who, ammunition, guns, refused, without);
             var ranged = guns.Count > 0 ? guns[0] : null;
             var melee = blades.Count > 0 ? blades[0] : null;
             var offHand = blades.Count > 1 ? blades[1]
@@ -351,20 +367,24 @@ public static class MatchReadiness
             {
                 RangedDice = Dice(entry.Ranged is { } r ? r + rangedBonus : 0, who, "Ranged", without),
                 MeleeDice = Dice(entry.Melee is { } me ? me + meleeBonus : 0, who, "Melee", without),
-                RangedWeaponDice = Dice(ranged?.Dice ?? 0, who, $"{ranged?.Name}'s DICE", without),
+                RangedWeaponDice = Dice((ranged?.Dice ?? 0) + (ammoFirst?.Dice ?? 0), who, $"{ranged?.Name}'s DICE", without),
                 RangedWeaponInjuryDice = Dice(ranged?.InjuryDice ?? 0, who, $"{ranged?.Name}'s INJURY DICE", without),
                 MeleeWeaponDice = Dice(melee?.Dice ?? 0, who, $"{melee?.Name}'s DICE", without),
                 MeleeWeaponInjuryDice = Dice(melee?.InjuryDice ?? 0, who, $"{melee?.Name}'s INJURY DICE", without),
-                RangedWeaponKeywords = ranged is null ? [] : Played(ranged),
+                RangedWeaponKeywords = ranged is null ? [] : WithAmmunition(Played(ranged), ammoFirst),
                 MeleeWeaponKeywords = melee is null ? [] : Played(melee),
                 MeleeWeaponCleave = melee is null ? 0 : Cleave(melee, who, without),
                 RangedWeaponBlast = ranged is null ? 0 : BlastOf(ranged, who, without),
                 ImperviousArmour = impervious,
-                SecondRangedWeapon = guns.Count > 1 ? Ready(guns[1], ranged: true, who, without) : null,
-                SecondMeleeWeapon = offHand is null || entry.Melee is null || (melee is null && ranged?.AlsoMelee != true) ? null : Ready(offHand, ranged: false, who, without),
+                SecondRangedWeapon = guns.Count > 1 ? Loaded(Ready(guns[1], ranged: true, who, without), ammoSecond, who, without) : null,
+                // A dual-purpose gun used as the second Melee Weapon keeps its AMMUNITION (the weapon gains the keyword).
+                SecondMeleeWeapon = offHand is null || entry.Melee is null || (melee is null && ranged?.AlsoMelee != true) ? null
+                    : Loaded(Ready(offHand, ranged: false, who, without), guns.IndexOf(offHand) switch { 0 => ammoFirst, 1 => ammoSecond, _ => null }, who, without),
                 Grenade = grenade is null ? null : Ready(grenade, ranged: true, who, without),
                 Negates = [.. NegateNames.Where(n => negates.Contains(n.Key)).Select(n => n.Value)],
                 Traits = [.. TraitNames.Where(traits.Contains)],
+                InjuryDiceTaken = Dice(injuryTaken, who, "INJURY DICE against it", without),
+                MeleeInjuryBonus = MeleeInjury(meleeInjury, who, without),
             });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
@@ -507,7 +527,8 @@ public static class MatchReadiness
     // Roster stage R5b (U106): equipment whose own rule the engine plays, by catalogue id: dice added to the model's
     // Ranged or Melee Characteristic, or a keyword it gains (NotFor: a keyword whose models it does nothing for). Its
     // keywords are played as above.
-    private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null);
+    // Roster stage R5c (U107): or INJURY DICE on attacks that hit the model, or an INJURY MODIFIER on its Melee Attacks.
+    private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null, int InjuryDiceTaken = 0, int MeleeInjury = 0);
 
     private static readonly Dictionary<string, PlayedPiece> PlayedEquipment = new(StringComparer.Ordinal)
     {
@@ -519,7 +540,75 @@ public static class MatchReadiness
         ["compound-eyes-helmet"] = new(RangedDice: 1),
         ["elixir-of-life"] = new(Trait: "Tough", NotFor: "ARTIFICIAL"),
         ["assassins-leaf"] = new(Trait: "NegateHeavy"),
+        ["holy-smoke"] = new(Trait: "NegateFear", InjuryDiceTaken: -1),
+        ["zealots-draught"] = new(Trait: "NegateFear", InjuryDiceTaken: -1),
+        ["grovelling-devotee"] = new(MeleeInjury: 1),
     };
+
+    // Roster stage R5c (U107): AMMUNITION (X), what it gives the weapon: +X DICE or a keyword the engine plays.
+    private sealed record Ammo(string Name, int Dice, string? Keyword);
+
+    // The guns AMMUNITION may go on: not one with BLAST, FIRE, GAS or SHRAPNEL (p. 52). Alchemical Ammunition goes only on
+    // an Alaybozan, Halberd-Gun, Jezzail or Siege Jezzail (even the Alaybozan, which has SHRAPNEL; Warbands p. 76).
+    private static readonly string[] AlchemicalGuns = ["alaybozan", "halberd-gun", "jezzail", "siege-jezzail"];
+
+    private static bool TakesAmmunition(CatalogueEntry ammunition, CatalogueEntry gun) => ammunition.Id == "alchemical-ammunition"
+        ? AlchemicalGuns.Contains(gun.Id)
+        : !gun.Keywords.Any(k => k.Id is "BLAST" or "FIRE" or "GAS" or "SHRAPNEL");
+
+    // The AMMUNITION a model's first and second guns get. One piece on a model with one gun it can go on is played; the
+    // player chooses the gun when the model is deployed, so a piece two guns could take, or a second piece, is refused
+    // by name (the engine has no deployment choice yet); a piece no gun can take does nothing and is named.
+    private static (Ammo? First, Ammo? Second) Ammunition(string who, List<CatalogueEntry> ammunition, List<CatalogueEntry> guns, List<string> refused, List<string> without)
+    {
+        if (ammunition.Count == 0)
+        {
+            return (null, null);
+        }
+        if (ammunition.Count > 1)
+        {
+            refused.Add($"{who}: {string.Join(" and ", ammunition.Select(a => a.Name))} (which gun each is used for is chosen at deployment, not built yet)");
+            return (null, null);
+        }
+        var piece = ammunition[0];
+        var takers = guns.Select((g, i) => (g, i)).Where(x => TakesAmmunition(piece, x.g)).ToList();
+        if (takers.Count == 0)
+        {
+            without.Add($"{who}: {piece.Name} (no ranged weapon it can be used with, p. 52)");
+            return (null, null);
+        }
+        if (takers.Count > 1)
+        {
+            refused.Add($"{who}: {piece.Name} (which of its guns it is used for is chosen at deployment, not built yet)");
+            return (null, null);
+        }
+        var what = piece.Keywords.First(k => k.Id == "AMMUNITION").Text ?? "";
+        var ammo = what.EndsWith(" DICE", StringComparison.Ordinal) && int.TryParse(what[..^5], System.Globalization.NumberStyles.AllowLeadingSign, System.Globalization.CultureInfo.InvariantCulture, out var dice)
+            ? new Ammo(piece.Name, dice, null)
+            : PlayedKeywords.GetValueOrDefault(what) is { Length: > 0 } keyword ? new Ammo(piece.Name, 0, keyword) : null;
+        if (ammo is null)
+        {
+            refused.Add($"{who}: {piece.Name} (the engine does not play AMMUNITION ({what}) yet)");
+            return (null, null);
+        }
+        return takers[0].i == 0 ? (ammo, null) : (null, ammo);
+    }
+
+    private static IReadOnlyList<string> WithAmmunition(IReadOnlyList<string> keywords, Ammo? ammo) =>
+        ammo?.Keyword is { } k && !keywords.Contains(k) ? [.. keywords, k] : keywords;
+
+    private static ReadyWeapon Loaded(ReadyWeapon weapon, Ammo? ammo, string who, List<string> without) => ammo is null ? weapon
+        : weapon with { Dice = Dice(weapon.Dice + ammo.Dice, who, $"{weapon.Name}'s DICE", without), Keywords = WithAmmunition(weapon.Keywords, ammo) };
+
+    // Grovelling Devotees: +1 INJURY MODIFIER each, up to what the engine holds.
+    private static int MeleeInjury(int bonus, string who, List<string> without)
+    {
+        if (bonus > MaxModifier)
+        {
+            without.Add($"{who}: melee INJURY MODIFIER beyond +{MaxModifier} (played as +{MaxModifier})");
+        }
+        return Math.Clamp(bonus, 0, MaxModifier);
+    }
 
     private static string KeywordText(KeywordUse k) => k.Id == "NEGATE" && k.Text is { } what ? $"NEGATE {what}" : k.Id;
 

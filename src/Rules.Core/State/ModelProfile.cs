@@ -158,6 +158,23 @@ public sealed record ModelProfile
     // FEAR does not affect a model that has FEAR itself or NEGATE FEAR (pp. 54, 56).
     public bool IgnoresFear => (Traits & (ModelTraits.Fear | ModelTraits.NegateFear)) != 0;
 
+    // ---- Roster stage R5c (U107): battlekit that changes Injury Rolls ----
+
+    // INJURY DICE added to the Injury Rolls of attacks that hit the model (Holy Smoke, Zealot's Draught: -1).
+    public int InjuryDiceTaken { get => _injuryTaken; init => _injuryTaken = Dice(value, nameof(InjuryDiceTaken)); }
+
+    private readonly int _injuryTaken;
+
+    // INJURY MODIFIER added to the Injury Rolls of the model's Melee Attacks, whatever it fights with (a Grovelling
+    // Devotee: +1 each), as a modifier of its own (p. 48).
+    public int MeleeInjuryBonus
+    {
+        get => _meleeInjuryBonus;
+        init => _meleeInjuryBonus = value is < 0 or > MaxModifier ? throw new ArgumentOutOfRangeException(nameof(MeleeInjuryBonus), $"The melee injury bonus is 0 to +{MaxModifier}.") : value;
+    }
+
+    private readonly int _meleeInjuryBonus;
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -309,6 +326,8 @@ public sealed record ModelProfile
                 ImperviousArmour = ImperviousArmour,
                 Negates = Negates,
                 Traits = Traits,
+                InjuryDiceTaken = InjuryDiceTaken,
+                MeleeInjuryBonus = MeleeInjuryBonus,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -329,6 +348,8 @@ public sealed record ModelProfile
             ImperviousArmour = ImperviousArmour,
             Negates = Negates,
             Traits = Traits,
+            InjuryDiceTaken = InjuryDiceTaken,
+            MeleeInjuryBonus = MeleeInjuryBonus,
         };
     }
 

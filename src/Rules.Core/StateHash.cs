@@ -210,7 +210,10 @@ public static class StateHash
             // Roster stage R4b: BLAST, only when present.
             + (p.RangedWeaponBlast == 0 ? "" : $",blast={p.RangedWeaponBlast}")
             // Roster stage R5b: FEAR, NEGATE FEAR, TOUGH, NEGATE HEAVY and LEADER, only when present.
-            + (p.Traits == ModelTraits.None ? "" : $",traits={p.Traits}");
+            + (p.Traits == ModelTraits.None ? "" : $",traits={p.Traits}")
+            // Roster stage R5c: battlekit that changes Injury Rolls, only when present.
+            + (p.InjuryDiceTaken == 0 ? "" : $",injuryDiceTaken={p.InjuryDiceTaken}")
+            + (p.MeleeInjuryBonus == 0 ? "" : $",meleeInjuryBonus={p.MeleeInjuryBonus}");
     }
 
     private static string WeaponText(Weapon w) =>

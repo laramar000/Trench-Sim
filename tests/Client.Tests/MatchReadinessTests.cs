@@ -329,6 +329,84 @@ public class MatchReadinessTests
         Assert.Equal(ModelTraits.None, Loaded(artificial).Traits);
     }
 
+    // Roster stage R5c (U107): AMMUNITION goes on the one gun that can take it; Holy Smoke, Zealot's Draught and Grovelling
+    // Devotees change Injury Rolls.
+    [Fact]
+    public void AmmunitionIsLoadedIntoItsGun()
+    {
+        static RosterBuilder Listed(string faction, string? variant, string entry, params string[] kit)
+        {
+            var b = RosterBuilder.Shipped();
+            b.ChooseFaction(faction);
+            b.ChooseVariant(variant);
+            b.Select(b.Add(entry));
+            foreach (var k in kit)
+            {
+                b.AddKit(k);
+            }
+            return b;
+        }
+
+        // A keyword: the gun gains it; the piece is played, not named.
+        var fire = Listed("heretics", null, "heretic-trooper", "bolt-action-rifle", "incendiary-ammunition").MatchCheck();
+        Assert.Empty(fire.Refused);
+        Assert.DoesNotContain(fire.PlayedWithout, w => w.Contains("Incendiary Ammunition", StringComparison.Ordinal));
+        Assert.Equal(WeaponKeywords.Fire, Loaded(fire).RangedWeaponKeywords);
+        var piercing = Listed("principality", "hibernian-rangers", "yeoman", "bolt-action-rifle", "armour-piercing-bullets").MatchCheck();
+        Assert.Equal(WeaponKeywords.ArmourPiercing, Loaded(piercing).RangedWeaponKeywords);
+        var dumDum = Listed("principality", "highland-assault-detachment", "yeoman", "bolt-action-rifle", "dum-dum-bullets").MatchCheck();
+        Assert.Equal(WeaponKeywords.Critical, Loaded(dumDum).RangedWeaponKeywords);
+
+        // +1 DICE: Alchemical Ammunition goes on a Jezzail (or an Alaybozan, Halberd-Gun or Siege Jezzail), and on no other gun.
+        var jezzail = Listed("sultanate", null, "azeb", "jezzail", "alchemical-ammunition").MatchCheck();
+        Assert.Empty(jezzail.Refused);
+        Assert.DoesNotContain(jezzail.PlayedWithout, w => w.Contains("Alchemical", StringComparison.Ordinal));
+        Assert.Equal(1, Loaded(jezzail).RangedWeaponDice);
+        var musket = Listed("sultanate", null, "azeb", "musket", "alchemical-ammunition").MatchCheck();
+        Assert.Contains(musket.PlayedWithout, w => w.Contains("Alchemical Ammunition (no ranged weapon it can be used with", StringComparison.Ordinal));
+        Assert.Equal(0, Loaded(musket).RangedWeaponDice);
+
+        // Not on a FIRE gun; with two guns that could take it the choice is the player's at deployment: refused.
+        var flamer = Listed("heretics", null, "heretic-trooper", "flamethrower", "incendiary-ammunition").MatchCheck();
+        Assert.Contains(flamer.PlayedWithout, w => w.Contains("no ranged weapon it can be used with", StringComparison.Ordinal));
+        var both = Listed("heretics", null, "heretic-trooper", "pistol", "silenced-pistol", "incendiary-ammunition");
+        both.Select(both.Add("heretic-priest"));
+        both.AddKit("pistol");
+        both.AddKit("silenced-pistol");
+        both.AddKit("incendiary-ammunition");
+        Assert.Contains(both.MatchCheck().Refused, r => r.Contains("which of its guns it is used for is chosen at deployment", StringComparison.Ordinal));
+        // With the flamethrower as the other gun, only the pistol can take it.
+        var one = Listed("heretics", null, "heretic-priest", "pistol", "flamethrower", "incendiary-ammunition").MatchCheck();
+        Assert.Empty(one.Refused);
+        var priest = Loaded(one);
+        Assert.Equal(WeaponKeywords.Fire, (priest.RangedAlsoMelee ? priest.RangedWeaponKeywords : priest.SecondRangedWeapon!.Keywords) & WeaponKeywords.Fire);
+    }
+
+    [Fact]
+    public void SmokeDraughtAndDevoteesArePlayed()
+    {
+        var cleric = RosterBuilder.Shipped();
+        cleric.ChooseVariant("prussian-stormtroopers");
+        cleric.Select(cleric.Add("trench-cleric"));
+        cleric.AddKit("holy-smoke");
+        var smoked = cleric.MatchCheck();
+        Assert.Empty(smoked.Refused);
+        Assert.DoesNotContain(smoked.PlayedWithout, w => w.Contains("Holy Smoke", StringComparison.Ordinal));
+        Assert.Equal((-1, ModelTraits.NegateFear), (Loaded(smoked).InjuryDiceTaken, Loaded(smoked).Traits));
+        Assert.Contains("\"injuryDiceTaken\": -1", smoked.ToContentJson("p", "P"), StringComparison.Ordinal);
+
+        var pilgrim = Of("pilgrims", "trench-pilgrim", "zealots-draught").MatchCheck();
+        Assert.Equal((-1, ModelTraits.NegateFear), (Loaded(pilgrim).InjuryDiceTaken, Loaded(pilgrim).Traits));
+
+        var guard = Of("cult", "corpse-guard", "grovelling-devotee", "grovelling-devotee");
+        Assert.DoesNotContain(guard.Check().Problems, p => p.Contains("Devotee", StringComparison.Ordinal));
+        var followed = guard.MatchCheck();
+        Assert.Empty(followed.Refused);
+        Assert.Equal(2, Loaded(followed).MeleeInjuryBonus);
+        Assert.Equal(1, Loaded(Of("cult", "corpse-guard", "grovelling-devotee").MatchCheck()).MeleeInjuryBonus);
+        Assert.Contains(Of("cult", "corpse-guard", "grovelling-devotee", "grovelling-devotee", "grovelling-devotee").Check().Problems, p => p.Contains("at most 2 Grovelling Devotee", StringComparison.Ordinal));
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

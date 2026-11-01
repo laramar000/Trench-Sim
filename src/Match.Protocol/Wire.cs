@@ -385,6 +385,8 @@ public static class Wire
             (typeof(ShootPoint), nameof(ShootPoint.Weapon)),
             (typeof(PointAttackDeclared), nameof(PointAttackDeclared.Weapon)),
             (typeof(ModelProfile), nameof(ModelProfile.Traits)),
+            (typeof(ModelProfile), nameof(ModelProfile.InjuryDiceTaken)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeInjuryBonus)),
         ];
 
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();

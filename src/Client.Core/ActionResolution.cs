@@ -368,6 +368,11 @@ public sealed class ResolutionLog
         {
             dice.Add(new(DicePreview.WeaponWord(own, attackKind), weaponDice));
         }
+        // Roster stage R5c (U107): the target's Holy Smoke or Zealot's Draught.
+        if (setup?.ProfileOf(i.Target) is { InjuryDiceTaken: not 0 } struck)
+        {
+            dice.Add(new("target's battlekit", struck.InjuryDiceTaken));
+        }
         dice.AddRange(action.Dice);
         var modifiers = new List<ResolutionPart>();
         int? combined = null;
@@ -377,6 +382,10 @@ public sealed class ResolutionLog
             modifiers.Add(new(kind == AttackKind.Melee ? "melee weapon" : "ranged weapon", values[0]));
             var k2 = attacker.AttackKeywords(kind);
             modifiers.Add(new(k2.HasFlag(WeaponKeywords.IgnoreArmour) && values[1] != 0 ? "Armour (IGNORE ARMOUR; IMPERVIOUS counts)" : k2.HasFlag(WeaponKeywords.IgnoreArmour) ? "Armour (IGNORE ARMOUR)" : k2.HasFlag(WeaponKeywords.ArmourPiercing) && values[1] != target.Armour ? "Armour (ARMOUR PIERCING)" : "Armour", values[1]));
+            if (values.Length > 2)
+            {
+                modifiers.Add(new("Grovelling Devotees", values[2]));
+            }
             combined = InjuryRoll.CombineModifiers(values);
         }
         var explained = dice.Sum(p => p.Value) == injury.NetDice && combined == injury.Modifier;
