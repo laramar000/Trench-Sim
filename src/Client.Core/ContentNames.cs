@@ -223,6 +223,11 @@ public sealed class ContentNames
                         GrindsToDust = m.TryGetProperty("grindsToDust", out var grinds) && grinds.GetBoolean(),
                         Martyrdom = m.TryGetProperty("martyrdom", out var martyrdom) && martyrdom.GetBoolean(),
                         Talismans = Dice(m, "talismans"),
+                        ShotsIgnoreMarkers = m.TryGetProperty("shotsIgnoreMarkers", out var shotsIgnoreMarkers) && shotsIgnoreMarkers.GetBoolean(),
+                        ExpertMedic = m.TryGetProperty("expertMedic", out var expertMedic) && expertMedic.GetBoolean(),
+                        FinishesTheFallen = m.TryGetProperty("finishesTheFallen", out var finishesTheFallen) && finishesTheFallen.GetBoolean(),
+                        ExtraChargeDie = m.TryGetProperty("extraChargeDie", out var extraChargeDie) && extraChargeDie.GetBoolean(),
+                        InspiresFaithful = m.TryGetProperty("inspiresFaithful", out var inspiresFaithful) && inspiresFaithful.GetBoolean(),
                         HasCover = m.TryGetProperty("hasCover", out var covered) && covered.GetBoolean(),
                         DigsIn = m.TryGetProperty("digsIn", out var digs) && digs.GetBoolean(),
                     }));

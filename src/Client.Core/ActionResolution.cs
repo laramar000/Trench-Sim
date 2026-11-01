@@ -309,7 +309,8 @@ public sealed class ResolutionLog
                 }
                 break;
             case ChargeRolled c:
-                action.Steps.Add($"Charge roll {c.Die}: +{c.Die}\" to the charge move");
+                action.Steps.Add(c.Dropped == 0 ? $"Charge roll {c.Die}: +{c.Die}\" to the charge move"
+                    : $"Charge roll {c.Die} and {c.Dropped} (Shock Charge keeps the highest): +{c.Die}\" to the charge move");
                 action.Outcome.Add($"charge +{c.Die}\"");
                 break;
             case ChargeMoved m:
@@ -417,6 +418,12 @@ public sealed class ResolutionLog
         if (action.Kind == AttackKind.Melee && injury.TargetAlreadyDown)
         {
             dice.Add(new("Melee Attack on a Down model", AttackDice.InjuryBonus(false, true)));
+            // Roster stage R6a (U117): Finish the Fallen, not against a CULT or DEMONIC model.
+            if (setup?.ProfileOf(i.Attacker) is { FinishesTheFallen: true } && setup.ProfileOf(i.Target) is { } fallen
+                && (fallen.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0)
+            {
+                dice.Add(new("Finish the Fallen", 1));
+            }
         }
         if (own is not null && action.Kind is { } attackKind && AttackDice.OwnInjuryDice(own, attackKind) is var weaponDice and not 0)
         {

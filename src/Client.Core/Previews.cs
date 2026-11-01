@@ -579,7 +579,9 @@ public static class Previews
         }
         if (!heavy)
         {
-            facts.Add($"Charge reach: Movement {Inch(movement)} plus a D6, at most 12\"{halved}.");
+            // Roster stage R6a (U117): Shock Charge keeps the highest of 2D6.
+            var die = state.Setup.ProfileOf(charger.Id)!.ExtraChargeDie ? "the highest of 2D6 (Shock Charge)" : "a D6";
+            facts.Add($"Charge reach: Movement {Inch(movement)} plus {die}, at most 12\"{halved}.");
             facts.Add(needed is { } n
                 ? n == 1 ? "Reaches base contact on any Charge roll." : $"Reaches base contact on a Charge roll of {n} or more; less stops short."
                 : "Would not reach base contact even on a 6; the model would stop short.");
@@ -659,6 +661,11 @@ public static class Previews
         var block = TurnSequence.Blocks(state, attacker.Id, target.Id);
         // Roster stage R5b (U106): a target with FEAR, unless the attacker has FEAR or NEGATE FEAR.
         var fear = TurnSequence.Fears(state, attacker.Id, target.Id);
+        // Roster stage R6a (U117): a Trench Cleric's aura lifts FEAR.
+        if (!fear && TurnSequence.Inspired(state, attacker.Id) && state.Setup!.ProfileOf(target.Id)!.Traits.HasFlag(ModelTraits.Fear) && !state.Setup.ProfileOf(attacker.Id)!.IgnoresFear)
+        {
+            facts.Add(InspiredFact);
+        }
         // Roster stage R5f (U110): a target with the COVER keyword has the Defended Obstacle modifier.
         var keyword = !cover.InCover && TurnSequence.HasCover(state, target.Id);
         if (keyword)
@@ -687,6 +694,10 @@ public static class Previews
 
     public const string TreatFact = "A Treat is a Risky Success Roll (p. 84): on a Success it is carried out; a Failure ends the activation.";
     public const string HolyWaterFact = "+1 DICE on the Treat roll: Holy Water of Lalibela (Warbands p. 44).";
+
+    // Roster stage R6a (U117).
+    public const string InspiredFact = "NEGATE FEAR within 8\" of a friendly Trench Cleric: the target's FEAR does not apply (Onward Christian Soldiers!, Warbands p. 29).";
+    public const string ExpertMedicFact = "+2 DICE on the Treat roll: Expert Medic (Warbands p. 34).";
 
     // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION: the rules' own check, who it would hit and who is within 1".
     public const string MartyrdomFact = "Martyrdom Device (Warbands p. 58), once per game: an Injury Roll for every model within 3\", friend or foe, itself included; its own roll is 4D6 added together.";
@@ -722,9 +733,13 @@ public static class Previews
         {
             facts.Add(choice == TreatChoice.StandUp ? $"Stands {target.Value} up." : $"Removes 1 Blood Marker from {target.Value}.");
             facts.Add(TreatFact);
-            if (TurnSequence.TreatDice(state, model) > 0)
+            if (state.Setup!.ProfileOf(model)!.HealingWaters)
             {
                 facts.Add(HolyWaterFact);
+            }
+            if (state.Setup!.ProfileOf(model)!.ExpertMedic)
+            {
+                facts.Add(ExpertMedicFact);
             }
             if (!TurnSequence.RiskyEnds(state, model))
             {

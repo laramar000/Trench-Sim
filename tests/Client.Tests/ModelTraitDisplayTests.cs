@@ -333,6 +333,24 @@ public class ModelTraitDisplayTests
     }
 
     // Roster stage R5j (U115): a Martyrdom Device is previewed, logged, broken down and named on the card.
+    // Roster stage R6a (U117): New Antioch abilities on the unit card, Shock Charge's two dice in the log.
+    [Fact]
+    public void NewAntiochAbilitiesAreExplained()
+    {
+        var profile = new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true);
+        var card = UnitPanel.WeaponWords(profile with { ShotsIgnoreMarkers = true, ExpertMedic = true, FinishesTheFallen = true, ExtraChargeDie = true, InspiresFaithful = true });
+        foreach (var words in new[] { "no BLOOD MARKERS spent on its shots", "Treat +2 DICE", "+1 INJURY DICE in melee at a Down model", "Charge Bonus: highest of 2D6", "PRINCIPALITY models within 8\" have NEGATE FEAR" })
+        {
+            Assert.Contains(words, card, StringComparison.Ordinal);
+        }
+        Assert.DoesNotContain("2D6", UnitPanel.WeaponWords(profile), StringComparison.Ordinal);
+        var (a, b) = (new ModelId("a1"), new ModelId("b1"));
+        var shock = new ChargeRolled(a, b, 5) { Dropped = 2 };
+        Assert.Equal("  a1 Charge Bonus 5 (Shock Charge, 2 dropped).", EventText.Line(shock));
+        Assert.Equal(EventText.Describe(shock), Narrator.Describe(shock));
+        Assert.Equal("  a1 Charge Bonus 5.", EventText.Line(new ChargeRolled(a, b, 5)));
+    }
+
     // Roster stage R5k (U116): after a failed Risky roll the player of a model with a Talisman gets two answers on a bar
     // over the model, and the log says when it is used.
     [Fact]

@@ -285,6 +285,11 @@ public sealed record ChargeRolled : GameEvent
     public ModelId Model { get; }
     public ModelId Target { get; }
     public int Die { get; }
+
+    // Roster stage R6a (U117): Shock Charge rolls 1 extra D6 and keeps the highest; Dropped is the lower die (0: none).
+    public int Dropped { get => _dropped; init => _dropped = value is < 0 or > 6 ? throw new ArgumentOutOfRangeException(nameof(Dropped), "The dropped die is a D6.") : value; }
+
+    private readonly int _dropped;
 }
 
 // The charge move. Path is empty when the model could not move at all; Reached says it finished within 1" of its

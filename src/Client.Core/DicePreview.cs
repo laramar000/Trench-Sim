@@ -35,7 +35,10 @@ public sealed record DicePreview(
     public int HitNetDice => HitBonus - HitPenalty + OwnHitDice;
 
     // The Injury Roll's dice before markers and a Critical Success.
-    public int InjuryNetDice => InjuryBonus + OwnInjuryDice + ShotgunInjuryDice + TargetInjuryDice;
+    public int InjuryNetDice => InjuryBonus + OwnInjuryDice + ShotgunInjuryDice + TargetInjuryDice + FinishDice;
+
+    // Roster stage R6a (U117): Finish the Fallen's +1 INJURY DICE at a Down target that is neither CULT nor DEMONIC.
+    public int FinishDice { get; init; }
 
     // Whether Risky comes from a Shaken warband (else from a RISKY weapon), and a Critical Success's INJURY DICE.
     public bool ShakenRisky { get; init; } = true;
@@ -74,6 +77,8 @@ public sealed record DicePreview(
             OwnHitParts = OwnParts(profile, kind),
             OwnInjuryDice = AttackDice.OwnInjuryDice(profile, kind),
             TargetInjuryDice = setup.ProfileOf(target.Id)!.InjuryDiceTaken,
+            FinishDice = kind == AttackKind.Melee && profile.FinishesTheFallen && target.Status == ModelStatus.Down
+                && (setup.ProfileOf(target.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0 ? 1 : 0,
         };
     }
 
@@ -192,6 +197,10 @@ public sealed record DicePreview(
         if (TargetInjuryDice != 0)
         {
             injury.Add($"{TargetInjuryDice:+0;-0} DICE (target's battlekit)");
+        }
+        if (FinishDice != 0)
+        {
+            injury.Add($"+{FinishDice} DICE (Finish the Fallen)");
         }
         if (InjuryModifier != 0)
         {

@@ -377,7 +377,8 @@ public static class Reducer
         {
             return null;
         }
-        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll && actor.BloodMarkers > 0)
+        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll && actor.BloodMarkers > 0
+            && !(progress.Stage == RollStage.ShotRoll && ShotsIgnoreMarkers(state, actor.Id)))
         {
             return new PendingDecision(DecisionKind.SpendMarkersOnSuccessRoll, actor.Seat.Opponent());
         }
@@ -457,6 +458,7 @@ public static class Reducer
                 Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll, MarkersAsked: false }
                     && state.FindModel(rolling.Actor) is { BloodMarkers: > 0 } holder
                     && holder.Seat.Opponent() == e.Seat, "Only the rolling model's opponent may spend its markers, once, before a Success Roll.");
+                Require(!(rolling!.Stage == RollStage.ShotRoll && ShotsIgnoreMarkers(state, rolling.Actor)), "No BLOOD MARKERS are spent on the Ranged Attacks of a model with Absolute Faith.");
                 state = state with { InProgress = rolling! with { MarkersAsked = true } };
                 break;
             case DecisionKind.SpendMarkersOnInjuryRoll:
@@ -874,7 +876,17 @@ public static class Reducer
     private static readonly Length TreatReach = Length.FromInches(1);
 
     // Roster stage R5h (U113): Holy Water of Lalibela's +1 DICE to the Treat roll (an ACTION that can remove BLOOD MARKERS).
-    internal static int TreatDice(MatchState state, ModelId model) => state.Setup?.ProfileOf(model)?.HealingWaters == true ? 1 : 0;
+    // Roster stage R6a (U117): +2 DICE more for an Expert Medic.
+    internal static int TreatDice(MatchState state, ModelId model) => state.Setup?.ProfileOf(model) is { } p ? (p.HealingWaters ? 1 : 0) + (p.ExpertMedic ? 2 : 0) : 0;
+
+    // Roster stage R6a (U117): Finish the Fallen, +1 INJURY DICE to a Melee Attack's Injury Roll at a Down target that is
+    // neither CULT nor DEMONIC.
+    internal static int FinishDice(MatchState state, RollInProgress progress, ModelId target) =>
+        state.Setup?.ProfileOf(progress.Actor)?.FinishesTheFallen == true && state.FindModel(target) is { Status: ModelStatus.Down }
+        && (state.Setup.ProfileOf(target)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0 ? 1 : 0;
+
+    // Roster stage R6a (U117): Absolute Faith, no BLOOD MARKERS spent for -DICE on the model's Ranged Attacks.
+    internal static bool ShotsIgnoreMarkers(MatchState state, ModelId model) => state.Setup?.ProfileOf(model)?.ShotsIgnoreMarkers == true;
 
     // Towers stage T6 (p. 39, U75, U76): a Move or Dash that climbs a tower's side. A Move is taken here; a Dash has
     // already succeeded its own roll and reached its move.
@@ -1349,6 +1361,9 @@ public static class Reducer
     private static MatchState OnChargeRolled(MatchState state, ChargeRolled e)
     {
         Require(state.InProgress is { Stage: RollStage.ChargeRoll } p && p.Actor == e.Model && p.Target == e.Target && state.Pending is null, "No Charge Bonus is waiting.");
+        // Roster stage R6a (U117): Shock Charge rolls 2D6 and keeps the highest.
+        Require(state.Setup!.ProfileOf(e.Model)!.ExtraChargeDie ? e.Dropped is >= 1 and <= 6 && e.Dropped <= e.Die : e.Dropped == 0,
+            "The Charge Bonus is one D6, or the highest of two with Shock Charge.");
         return state with { InProgress = state.InProgress! with { Stage = RollStage.ChargeMove, ChargeDie = e.Die } };
     }
 
@@ -1503,7 +1518,7 @@ public static class Reducer
         // +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
         var onDownTarget = state.FindModel(e.Target)!.Status == ModelStatus.Down;
-        var (bonus, penalty) = AttackDice.InjuryDice(fighter, AttackKind.Melee, critical, onDownTarget, 0, state.Setup!.ProfileOf(e.Target)!);
+        var (bonus, penalty) = AttackDice.InjuryDice(fighter, AttackKind.Melee, critical, onDownTarget, FinishDice(state, progress, e.Target), state.Setup!.ProfileOf(e.Target)!);
         return state with
         {
             InProgress = progress with

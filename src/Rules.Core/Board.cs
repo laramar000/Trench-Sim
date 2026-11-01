@@ -475,8 +475,19 @@ internal static class Board
         state.Setup?.ProfileOf(target) is { HasBlock: true } && !state.ChargedThisTurn.IsDefaultOrEmpty && state.ChargedThisTurn.Contains(attacker);
 
     // Roster stage R5b (U106): FEAR on the target and not on the attacker, nor NEGATE FEAR (pp. 54, 56).
+    // Roster stage R6a (U117): a PRINCIPALITY attacker within 8" of a friendly Trench Cleric (Onward Christian Soldiers!)
+    // has NEGATE FEAR.
     public static bool Fears(MatchState state, ModelId attacker, ModelId target) =>
-        state.Setup?.ProfileOf(attacker) is { } a && state.Setup.ProfileOf(target) is { } t && AttackDice.Fears(a, t);
+        state.Setup?.ProfileOf(attacker) is { } a && state.Setup.ProfileOf(target) is { } t && AttackDice.Fears(a, t) && !Inspired(state, attacker);
+
+    // A friendly model with Onward Christian Soldiers! on the battlefield within 8" of this PRINCIPALITY model (itself
+    // included), Down or not.
+    public static bool Inspired(MatchState state, ModelId model) =>
+        state.Setup?.ProfileOf(model) is { } p && p.Traits.HasFlag(ModelTraits.Principality) && state.FindModel(model) is { } m && BodyOf(state, m) is { } body
+        && state.Models.Any(c => c.Seat == m.Seat && state.Setup.ProfileOf(c.Id)!.InspiresFaithful
+            && (c.Id == m.Id || BodyOf(state, c) is { } cleric && Measure.IsWithin(body, cleric, InspireReach)));
+
+    private static readonly Length InspireReach = Length.FromInches(8);
 
     // Why a Shoot ACTION with that weapon is refused when the model does not have it.
     public static string NoSuchGun(int weapon) => weapon switch

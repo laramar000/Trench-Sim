@@ -380,6 +380,27 @@ public static class UnitPanel
         {
             parts.Add("Martyrdom Device (B), once per game");
         }
+        // Roster stage R6a (U117): New Antioch abilities.
+        if (p.ShotsIgnoreMarkers)
+        {
+            parts.Add("no BLOOD MARKERS spent on its shots");
+        }
+        if (p.ExpertMedic)
+        {
+            parts.Add("Treat +2 DICE");
+        }
+        if (p.FinishesTheFallen)
+        {
+            parts.Add("+1 INJURY DICE in melee at a Down model (not CULT or DEMONIC)");
+        }
+        if (p.ExtraChargeDie)
+        {
+            parts.Add("Charge Bonus: highest of 2D6");
+        }
+        if (p.InspiresFaithful)
+        {
+            parts.Add("friendly PRINCIPALITY models within 8\" have NEGATE FEAR");
+        }
         // Roster stage R5k (U116).
         if (p.Talismans > 0)
         {

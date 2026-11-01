@@ -226,6 +226,30 @@ public class TraitWireTests
         Assert.Equal(new DecisionRequested(DecisionKind.UseTalisman, Seat.One), RoundTrip(new DecisionRequested(DecisionKind.UseTalisman, Seat.One)));
     }
 
+    // Roster stage R6a (U117): New Antioch abilities, the new traits and Shock Charge's dropped die.
+    [Fact]
+    public void NewAntiochAbilitiesRoundTripAndAreLeftOutWhenFalse()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        var fields = new[] { "shotsIgnoreMarkers", "expertMedic", "finishesTheFallen", "extraChargeDie", "inspiresFaithful" };
+        Assert.All(fields, f => Assert.DoesNotContain(f, plain, StringComparison.Ordinal));
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with
+        {
+            ShotsIgnoreMarkers = true, ExpertMedic = true, FinishesTheFallen = true, ExtraChargeDie = true, InspiresFaithful = true,
+            Traits = ModelTraits.Principality | ModelTraits.Cult | ModelTraits.Demonic,
+        };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        var text = Encoded(created);
+        Assert.All(fields, f => Assert.Contains($"\"{f}\":true", text, StringComparison.Ordinal));
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+        var (a, b) = (new ModelId("A1"), new ModelId("B1"));
+        Assert.DoesNotContain("dropped", Encoded(new ChargeRolled(a, b, 4)), StringComparison.Ordinal);
+        Assert.Equal(2, ((ChargeRolled)RoundTrip(new ChargeRolled(a, b, 4) { Dropped = 2 })).Dropped);
+    }
+
     // Roster stage R5f (U110).
     [Fact]
     public void CoverKeywordRoundTripsAndIsLeftOutWhenFalse()

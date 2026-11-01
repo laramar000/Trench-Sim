@@ -25,7 +25,7 @@ public static class Narrator
         SideClimbRolled c => $"  {c.Model} climb roll {c.Check.Dice.Total}: {c.Check.Outcome}.",
         RangedAttackDeclared r => $"  {r.Attacker} shoots {r.Target}{(r.Elevated ? " from an elevated position" : "")}{(r.LongRange ? " at long range" : "")}{(r.InCover ? $" (cover: {r.CoverTerrainId})" : "")}.",
         ChargeDeclared c => $"  {c.Model} declares a charge on {c.Target}.",
-        ChargeRolled c => $"  {c.Model} Charge Bonus {c.Die}.",
+        ChargeRolled c => $"  {c.Model} Charge Bonus {c.Die}{(c.Dropped == 0 ? "" : $" (Shock Charge, {c.Dropped} dropped)")}.",
         ChargeMoved c => c.Path.IsEmpty ? $"  {c.Model} cannot move; the charge fails." : $"  {c.Model} charges to {c.Path[^1]} (cost {c.Cost}): {(c.Reached ? "reaches" : "falls short of")} {c.Target}.",
         RetreatDeclared r => $"  {r.Model} retreats.",
         FreeFightsDeclined f => $"  {f.Seat} declines the remaining free attacks.",

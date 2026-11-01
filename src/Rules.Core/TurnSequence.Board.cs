@@ -349,6 +349,9 @@ public static partial class TurnSequence
     // Roster stage R5k (U116): whether the model's player would be asked to use a Talisman after a failed Risky roll now.
     public static bool TalismanReady(MatchState state, ModelId model) => Reducer.TalismanReady(state, model);
 
+    // Roster stage R6a (U117): a Trench Cleric's aura gives this model NEGATE FEAR now.
+    public static bool Inspired(MatchState state, ModelId model) => Board.Inspired(state, model);
+
     // A failed Risky roll ends the activation, unless the model has a Talisman left: then its player is asked first.
     private static void EndForRisky(Run run, ModelId model)
     {
@@ -509,7 +512,7 @@ public static partial class TurnSequence
                     AttackDice.ShotPenalty(facts.LongRange, facts.InCover))
                 { IntoMelee = facts.IntoMelee, Elevated = facts.Elevated, Weapon = c.Weapon });
                 // A shot into melee asks about markers only once the D6 has settled who is shot (p. 42).
-                if (attacker.BloodMarkers > 0 && !facts.IntoMelee)
+                if (attacker.BloodMarkers > 0 && !facts.IntoMelee && !Reducer.ShotsIgnoreMarkers(state, attacker.Id))
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
                 }
@@ -519,7 +522,7 @@ public static partial class TurnSequence
                 var aiming = state.FindModel(c.Attacker)!;
                 var point = Board.AssessPoint(state, aiming, c.At, c.Weapon);
                 run.Emit(new PointAttackDeclared(c.Attacker, c.At, point.LongRange) { Weapon = c.Weapon });
-                if (aiming.BloodMarkers > 0)
+                if (aiming.BloodMarkers > 0 && !Reducer.ShotsIgnoreMarkers(state, aiming.Id))
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
                 }
@@ -557,7 +560,7 @@ public static partial class TurnSequence
                 var shooter = state.FindModel(state.InProgress!.Actor)!;
                 var forced = Board.ForcedShotFacts(state, shooter, state.FindModel(c.Victim)!, state.InProgress.Weapon);
                 run.Emit(new FriendlyTargetChosen(shooter.Id, c.Victim, forced.LongRange, forced.InCover, forced.CoverTerrainId) { Elevated = forced.Elevated });
-                if (shooter.BloodMarkers > 0)
+                if (shooter.BloodMarkers > 0 && !Reducer.ShotsIgnoreMarkers(state, shooter.Id))
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, shooter.Seat.Opponent()));
                 }
@@ -732,7 +735,7 @@ public static partial class TurnSequence
                 {
                     run.Emit(new DecisionRequested(DecisionKind.ChooseFriendlyTarget, actor.Seat));
                 }
-                else if (actor.BloodMarkers > 0)
+                else if (actor.BloodMarkers > 0 && !Reducer.ShotsIgnoreMarkers(s, actor.Id))
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, actor.Seat.Opponent()));
                 }
@@ -759,7 +762,17 @@ public static partial class TurnSequence
             }
             case RollStage.ChargeRoll:
             {
-                run.Emit(new ChargeRolled(progress.Actor, progress.Target!.Value, Roll(dice)));
+                // Roster stage R6a (U117): Shock Charge rolls 1 extra D6 and keeps the highest.
+                var bonus = Roll(dice);
+                if (s.Setup!.ProfileOf(progress.Actor)!.ExtraChargeDie)
+                {
+                    var extra = Roll(dice);
+                    run.Emit(new ChargeRolled(progress.Actor, progress.Target!.Value, Math.Max(bonus, extra)) { Dropped = Math.Min(bonus, extra) });
+                }
+                else
+                {
+                    run.Emit(new ChargeRolled(progress.Actor, progress.Target!.Value, bonus));
+                }
                 return true;
             }
             case RollStage.ChargeMove:

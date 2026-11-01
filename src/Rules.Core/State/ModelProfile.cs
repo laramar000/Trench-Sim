@@ -144,9 +144,10 @@ public sealed record ModelProfile
 
     // ---- Roster stage R5b (U106): model keywords ----
 
-    private const ModelTraits AllTraits = ModelTraits.Fear | ModelTraits.NegateFear | ModelTraits.Tough | ModelTraits.NegateHeavy | ModelTraits.Leader;
+    private const ModelTraits AllTraits = ModelTraits.Fear | ModelTraits.NegateFear | ModelTraits.Tough | ModelTraits.NegateHeavy | ModelTraits.Leader
+        | ModelTraits.Principality | ModelTraits.Cult | ModelTraits.Demonic;
 
-    // FEAR, NEGATE FEAR, TOUGH, NEGATE HEAVY (STRONG) and LEADER.
+    // FEAR, NEGATE FEAR, TOUGH, NEGATE HEAVY (STRONG) and LEADER; roster stage R6a: PRINCIPALITY, CULT and DEMONIC.
     public ModelTraits Traits
     {
         get => _traits;
@@ -247,6 +248,24 @@ public sealed record ModelProfile
     private readonly int _talismans;
 
     public const int MaxTalismans = 2;
+
+    // ---- Roster stage R6a (U117): New Antioch unit abilities ----
+
+    // Absolute Faith (Sniper Priest, Warbands p. 28): the opponent cannot spend BLOOD MARKERS for -DICE on its Ranged Attacks.
+    public bool ShotsIgnoreMarkers { get; init; }
+
+    // Expert Medic (Combat Medic, Warbands p. 34): +2 DICE to its Treat ACTION's Risky Success Roll.
+    public bool ExpertMedic { get; init; }
+
+    // Finish the Fallen (Combat Medic, p. 34): +1 INJURY DICE to its Melee Attacks' Injury Rolls at a Down target that is
+    // neither CULT nor DEMONIC.
+    public bool FinishesTheFallen { get; init; }
+
+    // Shock Charge (Shock Trooper, p. 32): its Charge Bonus is the highest of 2D6.
+    public bool ExtraChargeDie { get; init; }
+
+    // Onward Christian Soldiers! (Trench Cleric, p. 29): friendly PRINCIPALITY models within 8" of it have NEGATE FEAR.
+    public bool InspiresFaithful { get; init; }
 
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
@@ -420,6 +439,11 @@ public sealed record ModelProfile
                 GrindsToDust = GrindsToDust,
                 Martyrdom = Martyrdom,
                 Talismans = Talismans,
+                ShotsIgnoreMarkers = ShotsIgnoreMarkers,
+                ExpertMedic = ExpertMedic,
+                FinishesTheFallen = FinishesTheFallen,
+                ExtraChargeDie = ExtraChargeDie,
+                InspiresFaithful = InspiresFaithful,
             };
         }
         // Roster stage R5i (U114): a Grind to Dust attack uses no Melee Weapon: no weapon DICE, INJURY DICE, modifier,
@@ -455,6 +479,11 @@ public sealed record ModelProfile
                 GrindsToDust = GrindsToDust,
                 Martyrdom = Martyrdom,
                 Talismans = Talismans,
+                ShotsIgnoreMarkers = ShotsIgnoreMarkers,
+                ExpertMedic = ExpertMedic,
+                FinishesTheFallen = FinishesTheFallen,
+                ExtraChargeDie = ExtraChargeDie,
+                InspiresFaithful = InspiresFaithful,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -492,6 +521,11 @@ public sealed record ModelProfile
             GrindsToDust = GrindsToDust,
             Martyrdom = Martyrdom,
             Talismans = Talismans,
+            ShotsIgnoreMarkers = ShotsIgnoreMarkers,
+            ExpertMedic = ExpertMedic,
+            FinishesTheFallen = FinishesTheFallen,
+            ExtraChargeDie = ExtraChargeDie,
+            InspiresFaithful = InspiresFaithful,
         };
     }
 

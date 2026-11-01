@@ -373,6 +373,11 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.Martyrdom)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Warded)),
             (typeof(MineExploded), nameof(MineExploded.Warded)),
+            (typeof(ModelProfile), nameof(ModelProfile.ShotsIgnoreMarkers)),
+            (typeof(ModelProfile), nameof(ModelProfile.ExpertMedic)),
+            (typeof(ModelProfile), nameof(ModelProfile.FinishesTheFallen)),
+            (typeof(ModelProfile), nameof(ModelProfile.ExtraChargeDie)),
+            (typeof(ModelProfile), nameof(ModelProfile.InspiresFaithful)),
         ];
 
         // Optional numbers left out when zero, for the same reason (every match before roster stage R1's profile dice).
@@ -404,6 +409,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.MeleeInjuryBonus)),
             (typeof(ModelProfile), nameof(ModelProfile.ClimbDice)),
             (typeof(ModelProfile), nameof(ModelProfile.Talismans)),
+            (typeof(ChargeRolled), nameof(ChargeRolled.Dropped)),
         ];
 
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();

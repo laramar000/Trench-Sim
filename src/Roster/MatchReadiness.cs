@@ -101,6 +101,14 @@ public sealed record ReadyModel(
     // Roster stage R5k (U116): Talismans (Blessed Icon, Unholy Trinket), each used once per game after a failed Risky roll.
     public int Talismans { get; init; }
 
+    // Roster stage R6a (U117): New Antioch abilities (Absolute Faith, Expert Medic, Finish the Fallen, Shock Charge, Onward
+    // Christian Soldiers!).
+    public bool ShotsIgnoreMarkers { get; init; }
+    public bool ExpertMedic { get; init; }
+    public bool FinishesTheFallen { get; init; }
+    public bool ExtraChargeDie { get; init; }
+    public bool InspiresFaithful { get; init; }
+
     // Roster stage R5j (U115): the Trigger Martyrdom Device ACTION.
     public bool Martyrdom { get; init; }
 }
@@ -183,7 +191,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful) })
                     {
                         if (on)
                         {
@@ -298,9 +306,11 @@ public static class MatchReadiness
             {
                 without.Add($"{who}: its keywords ({string.Join(", ", unplayed.Select(KeywordText))})");
             }
-            if (entry.Abilities.Count > 0)
+            // Roster stage R6a (U117): the abilities the engine plays, by name; the rest are named.
+            var abilities = entry.Abilities.Select(a => a.Name).Where(PlayedAbilities.Contains).ToHashSet(StringComparer.Ordinal);
+            if (entry.Abilities.Where(a => !abilities.Contains(a.Name)).Select(a => a.Name).ToList() is { Count: > 0 } skipped)
             {
-                without.Add($"{who}: its abilities ({string.Join(", ", entry.Abilities.Select(a => a.Name))})");
+                without.Add($"{who}: its abilities ({string.Join(", ", skipped)})");
             }
             foreach (var upgradeId in model.Upgrades)
             {
@@ -475,7 +485,7 @@ public static class MatchReadiness
             {
                 continue;
             }
-            models.Add(new ReadyModel(name, entry.MovementInches, entry.BaseWidthMm,
+            var ready = new ReadyModel(name, entry.MovementInches, entry.BaseWidthMm,
                 ranged?.RangeInches ?? 0, Clamp(ranged?.InjuryModifier ?? 0), ranged?.AlsoMelee == true,
                 armour, melee is not null, Clamp(melee?.InjuryModifier ?? 0))
             {
@@ -514,7 +524,13 @@ public static class MatchReadiness
                 GrindsToDust = grinds,
                 Martyrdom = martyrdom,
                 Talismans = Talismans(talismans, who, without),
-            });
+                ShotsIgnoreMarkers = abilities.Contains(AbsoluteFaith),
+                ExpertMedic = abilities.Contains(ExpertMedic),
+                FinishesTheFallen = abilities.Contains(FinishTheFallen),
+                ExtraChargeDie = abilities.Contains(ShockCharge),
+                InspiresFaithful = abilities.Contains(OnwardSoldiers),
+            };
+            models.Add(Unburdened(ready, abilities, grenade));
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
     }
@@ -560,6 +576,45 @@ public static class MatchReadiness
     };
 
     // Dice the engine holds (-6 to +6 each, Rules.Core ModelProfile.MaxDice); beyond that, played at the limit and named.
+    // Roster stage R6a (U117): the unit abilities a match plays, by their names in the faction lists.
+    private const string AbsoluteFaith = "Absolute Faith";
+    private const string ExpertMedic = "Expert Medic";
+    private const string FinishTheFallen = "Finish the Fallen";
+    private const string ShockCharge = "Shock Charge";
+    private const string OnwardSoldiers = "Onward Christian Soldiers!";
+    private const string AssaultDrill = "Assault Drill";
+    private const string Demolition = "Battlefield Demolition";
+
+    private static readonly HashSet<string> PlayedAbilities = new(StringComparer.Ordinal)
+    {
+        AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition,
+    };
+
+    // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1
+    // Satchel Charge. The builder still allows only 1 HEAVY weapon.
+    private static ReadyModel Unburdened(ReadyModel model, HashSet<string> abilities, CatalogueEntry? grenade)
+    {
+        const string heavy = "Heavy";
+        if (abilities.Contains(AssaultDrill))
+        {
+            if (model.MeleeWeaponKeywords.Contains(heavy))
+            {
+                model = model with { MeleeWeaponKeywords = [.. model.MeleeWeaponKeywords.Where(k => k != heavy)] };
+            }
+            else if (model.SecondMeleeWeapon is { } second && second.Keywords.Contains(heavy))
+            {
+                model = model with { SecondMeleeWeapon = second with { Keywords = [.. second.Keywords.Where(k => k != heavy)] } };
+            }
+        }
+        if (abilities.Contains(Demolition) && grenade?.Id == SatchelCharge && model.Grenade is { } satchel)
+        {
+            model = model with { Grenade = satchel with { Keywords = [.. satchel.Keywords.Where(k => k != heavy)] } };
+        }
+        return model;
+    }
+
+    private const string SatchelCharge = "satchel-charge";
+
     // Roster stage R5k (U116): the engine plays up to two Talismans on one model.
     private static int Talismans(int count, string who, List<string> without)
     {
@@ -642,10 +697,13 @@ public static class MatchReadiness
         ["STRONG"] = "NegateHeavy",
         ["NEGATE HEAVY"] = "NegateHeavy",
         ["LEADER"] = "Leader",
+        // Roster stage R6a (U117): keywords other rules look for.
+        ["PRINCIPALITY"] = "Principality",
+        ["CULT"] = "Cult",
     };
 
     // The engine's trait names in its order (Rules.Core ModelTraits).
-    private static readonly string[] TraitNames = ["Fear", "NegateFear", "Tough", "NegateHeavy", "Leader"];
+    private static readonly string[] TraitNames = ["Fear", "NegateFear", "Tough", "NegateHeavy", "Leader", "Principality", "Cult", "Demonic"];
 
     // What a model takes from its keywords and battlekit: NEGATE values and traits.
     private sealed record Gains(HashSet<string> Negates, HashSet<string> Traits);
@@ -654,6 +712,11 @@ public static class MatchReadiness
     // builder's, p. 55; CONSUMABLE matters only in a campaign, p. 53). Adds it and says so.
     private static bool Gain(KeywordUse k, Gains gains)
     {
+        // DEMONIC is NEGATE FIRE below, and a keyword Finish the Fallen looks for (roster stage R6a).
+        if (k.Id == "DEMONIC")
+        {
+            gains.Traits.Add("Demonic");
+        }
         if (AddNegate(k, gains.Negates))
         {
             return true;

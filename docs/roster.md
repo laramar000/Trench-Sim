@@ -288,3 +288,8 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   up to 2); a match asks its player after a failed Risky roll whether to use one (U116). Tests: `TalismanTests`,
   `TraitWireTests.TalismansRoundTripAndAreLeftOutWhenZero`, `MatchReadinessTests.TalismansArePlayed`,
   `ModelTraitDisplayTests.TalismanIsExplained`.
+- Roster rules stage R6a, New Antioch abilities (done 2026-11-01): Absolute Faith, Expert Medic, Finish the Fallen,
+  Shock Charge, Onward Christian Soldiers!, Assault Drill and Battlefield Demolition are played (U117); the faction keywords
+  PRINCIPALITY and CULT and the keyword DEMONIC travel as traits. Tests: `NewAntiochAbilityTests`,
+  `TraitWireTests.NewAntiochAbilitiesRoundTripAndAreLeftOutWhenFalse`, `MatchReadinessTests.NewAntiochAbilitiesArePlayed`,
+  `ModelTraitDisplayTests.NewAntiochAbilitiesAreExplained`.

@@ -240,7 +240,13 @@ public static class StateHash
             // Roster stage R5j: the Martyrdom Device, only when present.
             + (p.Martyrdom ? ",martyrdom=yes" : "")
             // Roster stage R5k: Talismans, only when present.
-            + (p.Talismans == 0 ? "" : $",talismans={p.Talismans}");
+            + (p.Talismans == 0 ? "" : $",talismans={p.Talismans}")
+            // Roster stage R6a: New Antioch abilities, only when present.
+            + (p.ShotsIgnoreMarkers ? ",shotsIgnoreMarkers=yes" : "")
+            + (p.ExpertMedic ? ",expertMedic=yes" : "")
+            + (p.FinishesTheFallen ? ",finishesTheFallen=yes" : "")
+            + (p.ExtraChargeDie ? ",extraChargeDie=yes" : "")
+            + (p.InspiresFaithful ? ",inspires=yes" : "");
     }
 
     private static string WeaponText(Weapon w) =>

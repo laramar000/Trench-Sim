@@ -255,6 +255,10 @@ The server sends events in log order, one message each, to both players, through
   `ActivationEnded`), answered by the new commands `UseTalisman` (`seat`), giving the new event `TalismanUsed` (`model`),
   or `DeclineTalisman` (`seat`), giving `ActivationEnded` (`RiskyFailure`). The state hash adds `,talismans=N` to a
   profile and `,talismansUsed=N` to a model only when not zero. Trench-cli: `talisman` and `keep`.
+- Roster stage R6a (U117): `ModelProfile` flags `shotsIgnoreMarkers`, `expertMedic`, `finishesTheFallen`,
+  `extraChargeDie` and `inspiresFaithful`, each left out when false, and the traits `Principality`, `Cult` and `Demonic`;
+  `ChargeRolled.dropped` (Shock Charge's lower die), left out when zero. The state hash adds `,shotsIgnoreMarkers=yes`,
+  `,expertMedic=yes`, `,finishesTheFallen=yes`, `,extraChargeDie=yes` and `,inspires=yes` to a profile only when set.
 
 ## Rosters online (roster stage 5c)
 

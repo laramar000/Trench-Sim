@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U116), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U117), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -140,10 +140,14 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   a failed Risky roll that would end the activation first asks the owner (`DecisionKind.UseTalisman`, helper
   `EndForRisky` in TurnSequence.Board); `UseTalisman` -> `TalismanUsed` (activation goes on, RELOAD still ends it),
   `DeclineTalisman` -> `ActivationEnded(RiskyFailure)`. Not asked with a Crucifix or when Down. Client: decision bar "Use
-  Talisman"/"Keep Talisman". Tests `TalismanTests` and three more. Essentials 2,185/0.
+  Talisman"/"Keep Talisman". Tests `TalismanTests` and three more. Pushed 61dd615.
+- Done: R6a (U117): New Antioch abilities played by name (`MatchReadiness.PlayedAbilities`): Absolute Faith
+  (`ShotsIgnoreMarkers`), Expert Medic (+2 Treat DICE), Finish the Fallen (`Reducer.FinishDice`), Shock Charge
+  (`ExtraChargeDie`, `ChargeRolled.Dropped`), Onward Christian Soldiers! (`InspiresFaithful`, `Board.Inspired`), Assault
+  Drill/Battlefield Demolition (readiness drops HEAVY). New traits Principality/Cult/Demonic. Essentials 2,194/0.
+- Next R6 work: New Antioch's Aim/Fortify ACTIONs, then the other factions' simple abilities (survey in the R6a commit).
 - Pushed before: R5a e2ad5d8 ... R5f a93a518, gaps f787535 (U111), R5g 6305404 (U112), R5h 28cf852 (U113),
-  R5i ed2f05f (U114), R5j 013355b (U115).
+  R5i ed2f05f (U114), R5j 013355b (U115), R5k 61dd615 (U116).
 - Decided: Urn of the Bitter Ashes protects any model within 3" (Jason card "1 Any model", U109).
-- Next: R6 unit abilities by faction.
 - Still refused by name in matches: AMMUNITION with two possible guns (no deployment choice yet), and every equipment
   piece not in `MatchReadiness.PlayedEquipment`. No Windows run since 17a9099/e917e6b.
