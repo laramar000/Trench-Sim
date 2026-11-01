@@ -25,6 +25,22 @@ internal sealed record AttackAssessment(
 // (Movement, Placement, Measure, Cover, LineOfSight, Elevation). Nothing here measures anything itself.
 internal static class Board
 {
+    // Roster stage R5f (U110): the cover piece an event names when the target's COVER keyword gives it the Cover or
+    // Defended Obstacle modifier (p. 54) and no piece of terrain does.
+    public const string CoverKeyword = "COVER";
+
+    // Roster stage R5f (U110): the model has the COVER keyword: always (a shield with COVER), or dug in with a Shovel
+    // while it stands where it started the game.
+    public static bool HasCover(MatchState state, ModelState model) =>
+        state.Setup?.ProfileOf(model.Id) is { } profile && model.Position is { } at
+        && (profile.HasCover || profile.DigsIn && model.DugInAt == at);
+
+    // Roster stage R5f (U110): a model starts the game on Open terrain when its centre is on no Difficult or Dangerous
+    // piece.
+    public static bool OnOpenTerrain(MatchState state, Point2 at) =>
+        ScenarioOf(state)?.Battlefield is not { } field
+        || !field.Terrain.Any(t => (t.Kind & (TerrainKind.Difficult | TerrainKind.Dangerous)) != 0 && t.Footprint.Parts.Any(r => r.Contains(at)));
+
     public const string RefAttack = "1.0.2 pp. 42-44";
     public const string RefMove = "1.0.2 pp. 34-35";
     public const string RefCharge = "1.0.2 pp. 34, 36-37";
@@ -151,8 +167,8 @@ internal static class Board
             "",
             RefAttack,
             LongRange: !Measure.IsWithin(from, to, half),
-            InCover: cover.InCover,
-            CoverTerrainId: cover.TerrainId,
+            InCover: cover.InCover || HasCover(state, target),
+            CoverTerrainId: cover.InCover ? cover.TerrainId : HasCover(state, target) ? CoverKeyword : null,
             AttackerLevel: cover.Sight.Attacker.Level,
             TargetLevel: cover.Sight.Target.Level,
             IntoMelee: intoMelee,
@@ -341,7 +357,8 @@ internal static class Board
         var cover = Cover.Of(ScenarioOf(state)!.Battlefield, from, to);
         var half = Length.FromThousandths(profile.RangedRange.Thousandths / 2);
         var inCover = cover.InCover && cover.Sight.Visibility != Visibility.None;
-        return (!Measure.IsWithin(from, to, half), inCover, inCover ? cover.TerrainId : null, SightHeights.IsElevated(ScenarioOf(state)!.Battlefield, from, to));
+        var keyword = !inCover && HasCover(state, victim);
+        return (!Measure.IsWithin(from, to, half), inCover || keyword, inCover ? cover.TerrainId : keyword ? CoverKeyword : null, SightHeights.IsElevated(ScenarioOf(state)!.Battlefield, from, to));
     }
 
     // ---- Charge (pp. 34, 36-37) ----
@@ -510,7 +527,10 @@ internal static class Board
         {
             return Refuse(ReasonCode.NoLineOfSight, "The target must be in the attacker's Line of Sight.");
         }
-        return new MeleeAssessment(null, cover.InCover, cover.InCover ? cover.TerrainId : null);
+        // Roster stage R5f (U110): a target with the COVER keyword has the Defended Obstacle modifier (p. 54).
+        return cover.InCover ? new MeleeAssessment(null, true, cover.TerrainId)
+            : HasCover(state, target) ? new MeleeAssessment(null, true, CoverKeyword)
+            : new MeleeAssessment(null);
     }
 
     private static AttackAssessment Refuse(ReasonCode code, string text, string rule = RefAttack) => new(code, text, rule);

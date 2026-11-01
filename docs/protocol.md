@@ -226,6 +226,10 @@ The server sends events in log order, one message each, to both players, through
   `MineExploded.warded`, all left out when false. A Ranged Attack's Success Roll has one more penalty die when its target
   is within 3" of a `sinisterWhispers` model (or is one); a `warded` roll places one BLOOD MARKER fewer. The state hash
   adds `,whispers=yes` and `,warded=yes` to a profile and `,ward=spent` to a model only when set.
+- Roster stage R5f (U110): `ModelProfile.hasCover` and `digsIn`, left out when false. A model's COVER keyword, when no
+  terrain gives cover, is named "COVER" in `RangedAttackDeclared.coverTerrainId`, `FriendlyTargetChosen.coverTerrainId`
+  and `MeleeAttackDeclared.defendedObstacleId`. The state hash adds `,cover=yes` and `,digsIn=yes` to a profile and
+  `,dugIn=x,y` to a model only when set.
 
 ## Rosters online (roster stage 5c)
 

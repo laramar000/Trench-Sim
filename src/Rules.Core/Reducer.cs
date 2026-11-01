@@ -102,8 +102,27 @@ public static class Reducer
             GloriousDeedCompleted x => OnDeedCompleted(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
+        // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
+        next = Undig(next, e);
         // Glorious Deeds (U96): what the deeds need to know, and any deed this event completed.
         return e is GloriousDeedCompleted ? next : Deeds.Track(state, e, next);
+    }
+
+    // A move that leaves the spot counts even when it ends there again.
+    private static MatchState Undig(MatchState state, GameEvent e)
+    {
+        var walked = e switch
+        {
+            ModelMoved m => (m.Model, m.Path),
+            ChargeMoved c => (c.Model, c.Path),
+            RetreatResolved r => (r.Model, r.Path),
+            MoveResumed r => (r.Model, r.Path),
+            _ => ((ModelId?)null, ImmutableArray<Point2>.Empty),
+        };
+        bool Away(ModelState m) => m.DugInAt is { } at && (m.Position != at || walked.Item1 == m.Id && !walked.Item2.IsDefault && walked.Item2.Any(p => p != at));
+        return state.Models.Any(Away)
+            ? state with { Models = state.Models.Select(m => Away(m) ? m with { DugInAt = null } : m).ToImmutableArray() }
+            : state;
     }
 
     // Roster stage R3 (U100): the Melee Attacks still to come of a Fight or free attack are made one after another;
@@ -474,7 +493,9 @@ public static class Reducer
         {
             Require(e.Position is { } at && Board.CheckPlacement(state, e.Seat, model!, at).IsLegal, "A model must be set up at a legal point in its zone.");
         }
-        return TurnRules.WithModel(state, model! with { Deployed = true, Position = e.Position }) with { LastDeployer = e.Seat };
+        // Roster stage R5f (U110): a model with a Shovel set up on Open terrain is dug in there.
+        var dug = e.Position is { } start && state.Setup!.ProfileOf(e.Model)!.DigsIn && Board.OnOpenTerrain(state, start) ? e.Position : null;
+        return TurnRules.WithModel(state, model! with { Deployed = true, Position = e.Position, DugInAt = dug }) with { LastDeployer = e.Seat };
     }
 
     private static MatchState OnPhaseEntered(MatchState state, PhaseEntered e)

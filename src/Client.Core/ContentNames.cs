@@ -216,6 +216,8 @@ public sealed class ContentNames
                         BlendsIn = m.TryGetProperty("blendsIn", out var blends) && blends.GetBoolean(),
                         SinisterWhispers = m.TryGetProperty("sinisterWhispers", out var whispers) && whispers.GetBoolean(),
                         WardedByBlood = m.TryGetProperty("wardedByBlood", out var warded) && warded.GetBoolean(),
+                        HasCover = m.TryGetProperty("hasCover", out var covered) && covered.GetBoolean(),
+                        DigsIn = m.TryGetProperty("digsIn", out var digs) && digs.GetBoolean(),
                     }));
             }
             warbands.Add(new ContentWarband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));

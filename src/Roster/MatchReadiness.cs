@@ -81,6 +81,10 @@ public sealed record ReadyModel(
     // the first BLOOD MARKER placed on it is ignored (a Sacrificial Lamb, sacrificed when it is deployed).
     public bool SinisterWhispers { get; init; }
     public bool WardedByBlood { get; init; }
+
+    // Roster stage R5f (U110): the COVER keyword, always (a shield with it) or while dug in with a Shovel.
+    public bool HasCover { get; init; }
+    public bool DigsIn { get; init; }
 }
 
 // Roster stage R3: a second weapon, as Rules.Core Weapon holds it (RangeInches 0 for a Melee Weapon).
@@ -161,7 +165,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn) })
                     {
                         if (on)
                         {
@@ -262,6 +266,7 @@ public static class MatchReadiness
             var meleeInjury = 0;
             var (keepsGoing, climbDice, fanfare, blendsIn) = (false, 0, false, false);
             var (whispers, warded) = (false, false);
+            var (hasCover, digsIn) = (false, false);
             var ammunition = new List<CatalogueEntry>();
             if (unplayed.Count > 0)
             {
@@ -310,6 +315,8 @@ public static class MatchReadiness
                         {
                             impervious += piece.InjuryModifier;
                         }
+                        // Roster stage R5f (U110): a shield with COVER gives the model the keyword (p. 54).
+                        hasCover |= piece.Keywords.Any(k => k.Id == "COVER");
                         Without(who, piece, without, diceToo: true, gains);
                         break;
                     case KitCategory.Grenade when grenade is null && piece.RangeInches is { } throwRange && throwRange <= MaxRangeInches:
@@ -342,6 +349,11 @@ public static class MatchReadiness
                         blendsIn |= played.BlendsIn;
                         whispers |= played.Whispers;
                         warded |= played.Warded;
+                        digsIn |= played.DigsIn;
+                        if (played.Unplayed is { } part)
+                        {
+                            without.Add($"{who}: {piece.Name} {part}");
+                        }
                         if (played.Trait is { } trait)
                         {
                             traits.Add(trait);
@@ -420,6 +432,8 @@ public static class MatchReadiness
                 BlendsIn = blendsIn,
                 SinisterWhispers = whispers,
                 WardedByBlood = warded,
+                HasCover = hasCover,
+                DigsIn = digsIn,
             });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
@@ -563,11 +577,13 @@ public static class MatchReadiness
     // Ranged or Melee Characteristic, or a keyword it gains (NotFor: a keyword whose models it does nothing for). Its
     // keywords are played as above.
     // Roster stage R5c (U107): or INJURY DICE on attacks that hit the model, or an INJURY MODIFIER on its Melee Attacks.
+    // Roster stage R5f (U110): or COVER while dug in (Unplayed: the part of its rule a match plays without).
     // Roster stage R5e (U109): or the Urn's -1 DICE aura on Ranged Attacks, or the Lamb's ward against the first BLOOD MARKER.
     // Roster stage R5d (U108): or what a failed Risky roll ends, climb DICE, the Dash DICE it gives friends within 4", or
     // Cover's -2 DICE against the model.
     private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null, int InjuryDiceTaken = 0, int MeleeInjury = 0,
-        bool KeepsGoing = false, int ClimbDice = 0, bool Fanfare = false, bool BlendsIn = false, bool Whispers = false, bool Warded = false);
+        bool KeepsGoing = false, int ClimbDice = 0, bool Fanfare = false, bool BlendsIn = false, bool Whispers = false, bool Warded = false,
+        bool DigsIn = false, string? Unplayed = null);
 
     private static readonly Dictionary<string, PlayedPiece> PlayedEquipment = new(StringComparer.Ordinal)
     {
@@ -588,6 +604,8 @@ public static class MatchReadiness
         ["cloak-of-the-mountain"] = new(BlendsIn: true),
         ["urn-of-the-bitter-ashes"] = new(Whispers: true),
         ["sacrificial-lamb"] = new(Warded: true),
+        ["shovel"] = new(DigsIn: true, Unplayed: "used as a 2-handed Melee Weapon (p. 85)"),
+        ["bronze-shovel"] = new(DigsIn: true, Unplayed: "used as a Trench Club"),
     };
 
     // Roster stage R5c (U107): AMMUNITION (X), what it gives the weapon: +X DICE or a keyword the engine plays.
@@ -658,7 +676,7 @@ public static class MatchReadiness
     private static string KeywordText(KeywordUse k) => k.Id == "NEGATE" && k.Text is { } what ? $"NEGATE {what}" : k.Id;
 
     // Roster stage R3: the keywords of armour and shields the engine plays.
-    private static readonly HashSet<string> PlayedArmourKeywords = new(StringComparer.Ordinal) { "IMPERVIOUS" };
+    private static readonly HashSet<string> PlayedArmourKeywords = new(StringComparer.Ordinal) { "IMPERVIOUS", "COVER" };
 
     private static string KeywordName(KeywordUse k) => k.Id == "IGNORE" && k.Text is { } what ? $"IGNORE {what}" : k.Id;
 

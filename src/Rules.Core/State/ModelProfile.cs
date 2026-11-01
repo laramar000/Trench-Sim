@@ -200,6 +200,14 @@ public sealed record ModelProfile
     // The model's Sacrificial Lamb was sacrificed when it was deployed: the first BLOOD MARKER placed on it is ignored.
     public bool WardedByBlood { get; init; }
 
+    // ---- Roster stage R5f (U110): the COVER keyword (p. 54) ----
+
+    // The model always has COVER (a shield with the keyword).
+    public bool HasCover { get; init; }
+
+    // The model has a Shovel: starting the game on Open terrain it has COVER until it moves away from where it started.
+    public bool DigsIn { get; init; }
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -359,6 +367,8 @@ public sealed record ModelProfile
                 BlendsIn = BlendsIn,
                 SinisterWhispers = SinisterWhispers,
                 WardedByBlood = WardedByBlood,
+                HasCover = HasCover,
+                DigsIn = DigsIn,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -387,6 +397,8 @@ public sealed record ModelProfile
             BlendsIn = BlendsIn,
             SinisterWhispers = SinisterWhispers,
             WardedByBlood = WardedByBlood,
+            HasCover = HasCover,
+            DigsIn = DigsIn,
         };
     }
 

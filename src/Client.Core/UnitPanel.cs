@@ -352,6 +352,15 @@ public static class UnitPanel
         {
             parts.Add("first BLOOD MARKER ignored");
         }
+        // Roster stage R5f (U110).
+        if (p.HasCover)
+        {
+            parts.Add("COVER");
+        }
+        if (p.DigsIn)
+        {
+            parts.Add("COVER while dug in");
+        }
         // Roster stage R5b (U106): the model keywords the engine plays.
         foreach (var (trait, words) in new[] { (ModelTraits.Fear, "FEAR"), (ModelTraits.NegateFear, "NEGATE FEAR"), (ModelTraits.Tough, "TOUGH"), (ModelTraits.NegateHeavy, "NEGATE HEAVY"), (ModelTraits.Leader, "LEADER") })
         {

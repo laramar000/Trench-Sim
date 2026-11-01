@@ -470,6 +470,26 @@ public class MatchReadinessTests
         Assert.DoesNotContain("wardedByBlood", plain, StringComparison.Ordinal);
     }
 
+    // Roster stage R5f (U110): a shield's COVER and a Shovel's Dug In.
+    [Fact]
+    public void CoverFromShieldsAndShovelsIsPlayed()
+    {
+        var shield = Of("principality", "lieutenant", "machine-armour", "heavy-ballistic-shield").MatchCheck();
+        Assert.Empty(shield.Refused);
+        Assert.DoesNotContain(shield.PlayedWithout, w => w.Contains("COVER", StringComparison.Ordinal));
+        Assert.True(Loaded(shield).HasCover);
+        Assert.Contains("\"hasCover\": true", shield.ToContentJson("p", "P"), StringComparison.Ordinal);
+
+        var digger = Of("principality", "yeoman", "shovel").MatchCheck();
+        Assert.Empty(digger.Refused);
+        Assert.Contains("model 1, Yeoman: Shovel used as a 2-handed Melee Weapon (p. 85)", digger.PlayedWithout);
+        Assert.Equal((false, true), (Loaded(digger).HasCover, Loaded(digger).DigsIn));
+
+        var plain = Of("principality", "yeoman").MatchCheck().ToContentJson("p", "P");
+        Assert.DoesNotContain("hasCover", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("digsIn", plain, StringComparison.Ordinal);
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

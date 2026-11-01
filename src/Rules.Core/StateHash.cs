@@ -143,7 +143,7 @@ public static class StateHash
                 $"deployed={Bool(m.Deployed)}",
                 $"activated={Bool(m.ActivatedThisTurn)}",
                 $"at={(m.Position is { } at ? Point(at) : "-")}",
-                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : ""));
+                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : ""));
         }
         return sb.ToString();
     }
@@ -221,7 +221,10 @@ public static class StateHash
             + (p.BlendsIn ? ",blendsIn=yes" : "")
             // Roster stage R5e: the Urn's aura and the Lamb's ward, only when present.
             + (p.SinisterWhispers ? ",whispers=yes" : "")
-            + (p.WardedByBlood ? ",warded=yes" : "");
+            + (p.WardedByBlood ? ",warded=yes" : "")
+            // Roster stage R5f: the COVER keyword, only when present.
+            + (p.HasCover ? ",cover=yes" : "")
+            + (p.DigsIn ? ",digsIn=yes" : "");
     }
 
     private static string WeaponText(Weapon w) =>

@@ -154,7 +154,7 @@ public sealed class ResolutionLog
                 OwnParts(setup, m.Attacker, AttackKind.Melee);
                 if (m.DefendedObstacleId is { } obstacle)
                 {
-                    _current!.Dice.Add(new($"Defended obstacle ({obstacle})", -AttackDice.FightPenalty(true)));
+                    _current!.Dice.Add(new($"Defended obstacle ({(obstacle == Rules.Core.TurnSequence.CoverKeyword ? "its COVER keyword" : obstacle)})", -AttackDice.FightPenalty(true)));
                 }
                 // Roster stage R3 (U100): Off-Hand weapon and BLOCK after a charge.
                 if (m.OffHand)
@@ -339,7 +339,7 @@ public sealed class ResolutionLog
         }
         if (applied.Cover != 0)
         {
-            _current!.Dice.Add(new($"Cover ({coverId}){(cloaked ? ", Cloak of the Mountain" : "")}", -applied.Cover));
+            _current!.Dice.Add(new($"Cover ({(coverId == Rules.Core.TurnSequence.CoverKeyword ? "its COVER keyword" : coverId)}){(cloaked ? ", Cloak of the Mountain" : "")}", -applied.Cover));
         }
         _current!.ShotgunInjury = applied.ShotgunInjury;
     }

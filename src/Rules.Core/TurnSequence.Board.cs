@@ -286,6 +286,12 @@ public static partial class TurnSequence
     // Roster stage R5e (U109): a Ranged Attack at this model now would have the Urn of the Bitter Ashes' -1 DICE.
     public static bool Whispers(MatchState state, ModelId target) => state.FindModel(target) is { } m && Reducer.Whispers(state, m);
 
+    // Roster stage R5f (U110): the model has the COVER keyword now (a shield, or dug in with a Shovel), and the cover id
+    // events name for it.
+    public static bool HasCover(MatchState state, ModelId model) => state.FindModel(model) is { } m && Board.HasCover(state, m);
+
+    public const string CoverKeyword = Board.CoverKeyword;
+
     // The answers that are not Blood Marker spends: free attacks on a retreating model, the friendly model a shot into
     // melee was forced onto, and where a missed SCATTER attack lands (roster stage R4c).
     private static Rejection? ValidateChoice(MatchState state, Command command)

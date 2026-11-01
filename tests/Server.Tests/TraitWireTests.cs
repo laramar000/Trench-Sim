@@ -115,6 +115,24 @@ public class TraitWireTests
         Assert.True(((MineExploded)RoundTrip(mine with { Warded = true })).Warded);
     }
 
+    // Roster stage R5f (U110).
+    [Fact]
+    public void CoverKeywordRoundTripsAndIsLeftOutWhenFalse()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        Assert.DoesNotContain("hasCover", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("digsIn", plain, StringComparison.Ordinal);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { HasCover = true, DigsIn = true };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        var text = Encoded(created);
+        Assert.Contains("\"hasCover\":true", text, StringComparison.Ordinal);
+        Assert.Contains("\"digsIn\":true", text, StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+    }
+
     [Fact]
     public void FearAndToughRoundTripAndAreLeftOutWhenFalse()
     {

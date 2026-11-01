@@ -291,6 +291,9 @@ public static class Previews
     }
 
     // Towers proposal, stage T6 (p. 39, U75).
+    // Roster stage R5f (U110).
+    public const string KeywordCoverFact = "Its COVER keyword (a shield, or dug in with a Shovel) gives it the Cover and Defended Obstacle modifiers (p. 54).";
+
     public const string SideClimbFact = "Climbs the tower's side: a Risky Success Roll when the model reaches it. On a Success it makes the whole move; on a Failure it stops where the climb starts and its activation ends (server).";
 
     // A legal Fight target is engaged with the attacker: within 1" (pp. 45-46).
@@ -456,11 +459,17 @@ public static class Previews
         // The weapon's keywords decide which of these apply (roster stage R2: IGNORE ..., SHOTGUN).
         // Roster stage R5d (U108): a target with a Cloak of the Mountain makes Cover -2 DICE.
         var cloaked = state.Setup.ProfileOf(target.Id)?.BlendsIn == true;
-        var applied = AttackDice.ShotModifiers(profile.RangedWeaponKeywords, longRange, cover.InCover, elevated, cloaked);
+        // Roster stage R5f (U110): a target with the COVER keyword (a shield, or dug in) has the Cover modifier.
+        var keyword = !cover.InCover && TurnSequence.HasCover(state, target.Id);
+        if (keyword)
+        {
+            facts.Add(KeywordCoverFact);
+        }
+        var applied = AttackDice.ShotModifiers(profile.RangedWeaponKeywords, longRange, cover.InCover || keyword, elevated, cloaked);
         // Roster stage R5e (U109): the Urn of the Bitter Ashes' bearer or a model within 3" of it: -1 DICE.
         var whispers = TurnSequence.Whispers(state, target.Id);
         dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, applied.LongRange + applied.Cover + (whispers ? 1 : 0),
-            [.. new[] { applied.LongRange > 0 ? "Long Range, p. 43" : null, applied.Cover > 0 ? (cloaked ? "Cover -2 for its Cloak of the Mountain, pp. 38, 43" : "Cover, pp. 38, 43") : null,
+            [.. new[] { applied.LongRange > 0 ? "Long Range, p. 43" : null, applied.Cover > 0 ? (cloaked ? "Cover -2 for its Cloak of the Mountain, pp. 38, 43" : keyword ? "Cover from its COVER keyword, p. 54" : "Cover, pp. 38, 43") : null,
                 whispers ? "Urn of the Bitter Ashes within 3\", Warbands p. 143" : null }.OfType<string>()], applied.Elevated,
             applied.ShotgunInjury, weapon);
         return null;
@@ -614,9 +623,16 @@ public static class Previews
         var block = TurnSequence.Blocks(state, attacker.Id, target.Id);
         // Roster stage R5b (U106): a target with FEAR, unless the attacker has FEAR or NEGATE FEAR.
         var fear = TurnSequence.Fears(state, attacker.Id, target.Id);
-        var reasons = new[] { cover.InCover ? "Defended Obstacle, p. 45" : null, offHand ? "Off-Hand weapon, p. 45" : null, block ? "BLOCK after a charge, p. 53" : null, fear ? "FEAR, p. 54" : null }.OfType<string>().ToList();
+        // Roster stage R5f (U110): a target with the COVER keyword has the Defended Obstacle modifier.
+        var keyword = !cover.InCover && TurnSequence.HasCover(state, target.Id);
+        if (keyword)
+        {
+            facts.Add(KeywordCoverFact);
+        }
+        var defended = cover.InCover || keyword;
+        var reasons = new[] { cover.InCover ? "Defended Obstacle, p. 45" : keyword ? "Defended Obstacle from its COVER keyword, p. 54" : null, offHand ? "Off-Hand weapon, p. 45" : null, block ? "BLOCK after a charge, p. 53" : null, fear ? "FEAR, p. 54" : null }.OfType<string>().ToList();
         dice = DicePreview.Of(state, attacker, target, AttackKind.Melee,
-            AttackDice.FightPenalty(cover.InCover) + AttackDice.FightPenalty(offHand) + AttackDice.FightPenalty(block) + AttackDice.FightPenalty(fear), reasons, weapon: weapon);
+            AttackDice.FightPenalty(defended) + AttackDice.FightPenalty(offHand) + AttackDice.FightPenalty(block) + AttackDice.FightPenalty(fear), reasons, weapon: weapon);
         if (next is not null)
         {
             facts.Add(offHand ? "The Fight goes on with the Off-Hand weapon (p. 45)." : "The Fight goes on with the weapon's next CLEAVE attack (p. 53).");

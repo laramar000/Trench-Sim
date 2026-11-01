@@ -262,3 +262,7 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   `sinisterWhispers`, the Sacrificial Lamb as `wardedByBlood` (U109). Tests: `AuraAndWardTests`,
   `MineTests.ALambKeepsOffAMinesFirstMarker`, `TraitWireTests.UrnAndLambRoundTripAndAreLeftOutWhenFalse`,
   `MatchReadinessTests.UrnAndLambArePlayed`, `ModelTraitDisplayTests.UrnAndLambAreExplained`.
+- Roster rules stage R5f, COVER (done 2026-11-01, same ask): a shield with COVER travels as `hasCover`, a Shovel or Bronze
+  Shovel as `digsIn`; using the Shovel as a weapon is named as played without (U110). Tests: `CoverKeywordTests`,
+  `TraitWireTests.CoverKeywordRoundTripsAndIsLeftOutWhenFalse`, `MatchReadinessTests.CoverFromShieldsAndShovelsIsPlayed`,
+  `ModelTraitDisplayTests.CoverKeywordIsExplained`.

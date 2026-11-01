@@ -217,6 +217,53 @@ public class ModelTraitDisplayTests
         Assert.Equal(" · shots at it or within 3\" -1 DICE · first BLOOD MARKER ignored", card);
     }
 
+    // Roster stage R5f (U110): the previews and the breakdown name the COVER keyword's die.
+    [Fact]
+    public void CoverKeywordIsExplained()
+    {
+        var (shots, fights, previews) = (0, 0, 0);
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select((m, i) => m with { Profile = m.Profile with { HasCover = i == 0, DigsIn = i % 2 == 1 } }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            var log = new ResolutionLog();
+            var seq = 0;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is RangedAttackDeclared r && state.ActiveModel == r.Attacker && state.Pending is null
+                    && Previews.Target(state, state.FindModel(r.Attacker)!.Seat, PreviewKind.Shoot, r.Attacker, r.Target, r.Weapon) is { Legal: true, Dice: { } dice })
+                {
+                    Assert.Equal(r.CoverTerrainId == TurnSequence.CoverKeyword, dice.HitReasons.Contains("Cover from its COVER keyword, p. 54"));
+                    previews++;
+                }
+                if (e is MeleeAttackDeclared m && state.ActiveModel == m.Attacker && !m.FreeFight && state.Pending is null
+                    && Previews.Target(state, state.FindModel(m.Attacker)!.Seat, PreviewKind.Fight, m.Attacker, m.Target, m.Weapon) is { Legal: true, Dice: { } fight })
+                {
+                    Assert.Equal(m.DefendedObstacleId == TurnSequence.CoverKeyword, fight.HitReasons.Contains("Defended Obstacle from its COVER keyword, p. 54"));
+                    previews++;
+                }
+                var setup = state.Setup;
+                state = Reducer.Apply(state, e);
+                log.Add(++seq, e, setup ?? state.Setup);
+                if (e is RangedSuccessRolled or MeleeSuccessRolled && log.WhyOf(seq) is { } why)
+                {
+                    Assert.True(why.Explained, why.Text);
+                    shots += why.Dice.Count(p => p.Label == "Cover (its COVER keyword)");
+                    fights += why.Dice.Count(p => p.Label == "Defended obstacle (its COVER keyword)");
+                }
+            }
+        }
+        Assert.True(shots > 0 && fights > 0 && previews > 0, $"{shots} shots, {fights} fights, {previews} previews");
+        var card = UnitPanel.WeaponWords(new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true)
+        {
+            HasCover = true, DigsIn = true,
+        });
+        Assert.Equal(" · COVER · COVER while dug in", card);
+    }
+
     [Fact]
     public void TheUnitCardNamesTheTraits()
     {

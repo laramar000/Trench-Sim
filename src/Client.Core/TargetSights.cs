@@ -38,7 +38,8 @@ public static class TargetSights
                 Visibility.Partial => SightMark.Partial,
                 _ => SightMark.Blocked,
             };
-            sights.Add(new TargetSight(enemy.Id, mark, cover.InCover, cover.Sight.Visible, cover.Sight.Total));
+            // Roster stage R5f (U110): a target with the COVER keyword counts as in cover.
+            sights.Add(new TargetSight(enemy.Id, mark, cover.InCover || Rules.Core.TurnSequence.HasCover(state, enemy.Id), cover.Sight.Visible, cover.Sight.Total));
         }
         return sights;
     }

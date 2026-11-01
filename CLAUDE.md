@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U109), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U110), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -106,7 +106,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   AMMUNITION into its one gun, Holy Smoke/Zealot's Draught (`InjuryDiceTaken`), Grovelling Devotees (`MeleeInjuryBonus`), U107. R5d done: Pontiff's Crucifix (`KeepsGoingAfterRisky`, `Reducer.RiskyEnds`),
   Mountaineer Kit (`ClimbDice`), Musical Instrument (`Fanfare`, +1 Dash DICE within 4"), Cloak of the Mountain (`BlendsIn`,
   Cover -2), U108. R5e done: Urn of the Bitter Ashes (`SinisterWhispers`, -1 DICE to shots within 3"), Sacrificial
-  Lamb (`WardedByBlood`, `InjuryRolled/MineExploded.Warded`, `ModelState.WardSpent`), U109.
+  Lamb (`WardedByBlood`, `InjuryRolled/MineExploded.Warded`, `ModelState.WardSpent`), U109; Jason chose "Any model" for
+  the Urn. R5f done: COVER keyword (`HasCover` shields, `DigsIn` Shovels with `ModelState.DugInAt`; events name cover
+  "COVER", `TurnSequence.CoverKeyword`), U110.
 - The faction JSON files are the source of truth now. The earlier generator scripts held private source names and are
   not in the repo: edit `content/roster/*.json` directly, keep `docs/roster.md` and the tests (`tests/Roster.Tests`,
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).
@@ -117,10 +119,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 
 - 2026-11-01, Jason: "Keep going ... keep updating handoff in the github every step. No mistakes"; 03:54Z: essentials
   only for testing tonight (build + `dotnet test TrenchSim.sln`, no UI checks).
-- Done and pushed: R5a e2ad5d8, R5b dc62195, R5c e516d2b, R5d c1c33db, R5e (the commit that adds this line, "Roster R5e"
-  in git log).
-- Next: R5f COVER (Heavy Ballistic Shield, Wall-Shard Kalkan, Shovel/Bronze Shovel "Dug In"); then the rest of R5
-  (once-per-game Blessed Icon/Unholy Trinket need a player choice, new actions such as Medi-kit Treat, deployables,
+- Done and pushed: R5a e2ad5d8, R5b dc62195, R5c e516d2b, R5d c1c33db, R5e 1d9a897, R5f (the commit that adds this line,
+  "Roster R5f" in git log).
+- Next: the rest of R5 (once-per-game Blessed Icon/Unholy Trinket need a player choice, new actions such as Medi-kit Treat, deployables,
   BLESSING/INFECTION markers), then R6 unit abilities by faction. All authorized by "1 2 and 3 no mistakes".
 - Still refused by name in matches: AMMUNITION with two possible guns (no deployment choice yet), and every equipment
   piece not in `MatchReadiness.PlayedEquipment`.
