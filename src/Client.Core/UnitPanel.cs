@@ -361,6 +361,15 @@ public static class UnitPanel
         {
             parts.Add("COVER while dug in");
         }
+        // Roster stage R5g (U112).
+        if (p.BurnsAtActivationEnd)
+        {
+            parts.Add("+1 BLOOD MARKER to enemies within 1\" when it ends an activation");
+        }
+        if (p.BurnsWhenTakenOut)
+        {
+            parts.Add("+1 BLOOD MARKER to enemies within 1\" when taken Out of Action");
+        }
         // Roster stage R5b (U106): the model keywords the engine plays.
         foreach (var (trait, words) in new[] { (ModelTraits.Fear, "FEAR"), (ModelTraits.NegateFear, "NEGATE FEAR"), (ModelTraits.Tough, "TOUGH"), (ModelTraits.NegateHeavy, "NEGATE HEAVY"), (ModelTraits.Leader, "LEADER") })
         {

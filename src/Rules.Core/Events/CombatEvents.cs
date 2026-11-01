@@ -586,3 +586,28 @@ public sealed record PointBlastHit : GameEvent
     public Point2 At { get; }
     public ImmutableArray<ModelId> Hit { get; }
 }
+
+// Roster stage R5g (U112): 1 BLOOD MARKER placed next to each of Targets, the enemy models within 1" of Source, because
+// Source's Crown of Hellfire's bearer ended an activation or its Damned Pact's bearer was taken Out of Action (just
+// before it was removed). Warded are the targets whose Sacrificial Lamb keeps that marker off (U109), in the same order.
+public sealed record BloodMarkersPlaced : GameEvent
+{
+    public BloodMarkersPlaced(ModelId source, ImmutableArray<ModelId> targets, ImmutableArray<ModelId> warded)
+    {
+        if (targets.IsDefaultOrEmpty || targets.Distinct().Count() != targets.Length || targets.Contains(source))
+        {
+            throw new ArgumentException("Blood Markers are placed on one or more other models, each once.", nameof(targets));
+        }
+        if (warded.IsDefault || warded.Distinct().Count() != warded.Length || warded.Any(w => !targets.Contains(w)))
+        {
+            throw new ArgumentException("Only a target can keep its marker off, once.", nameof(warded));
+        }
+        Source = source;
+        Targets = targets;
+        Warded = warded;
+    }
+
+    public ModelId Source { get; }
+    public ImmutableArray<ModelId> Targets { get; }
+    public ImmutableArray<ModelId> Warded { get; }
+}

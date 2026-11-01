@@ -82,6 +82,8 @@ public class ClientCoreTests
         seen.TryAdd(typeof(PointSuccessRolled), new PointSuccessRolled(new ModelId("a1"), Previews.PointAt(20, 8), Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(1), 0, 0, risky: false)));
         seen.TryAdd(typeof(PointBlastHit), new PointBlastHit(new ModelId("a1"), Previews.PointAt(20, 8), [new ModelId("b2")]));
         seen.TryAdd(typeof(MoveResumed), new MoveResumed(new ModelId("a1"), [Previews.PointAt(20, 8)]));
+        // Roster stage R5g: no bot model carries a Crown of Hellfire or a Damned Pact.
+        seen.TryAdd(typeof(BloodMarkersPlaced), new BloodMarkersPlaced(new ModelId("a1"), [new ModelId("b1"), new ModelId("b2")], [new ModelId("b2")]));
         var all = typeof(GameEvent).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(GameEvent)) && !t.IsAbstract).ToList();
         Assert.True(all.Count >= 30, $"{all.Count} event types");
         Assert.Empty(all.Where(t => !seen.ContainsKey(t)).Select(t => t.Name));

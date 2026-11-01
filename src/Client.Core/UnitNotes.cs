@@ -39,6 +39,8 @@ public static class UnitNotes
             BlastHit b => [.. b.Hit.Select(h => new UnitNote(h, "IN THE BLAST", NoteTone.Failure))],
             AttackScattered s => [.. s.Hit.Select(h => new UnitNote(h, "IN THE BLAST", NoteTone.Failure))],
             PointBlastHit b => [.. b.Hit.Select(h => new UnitNote(h, "IN THE BLAST", NoteTone.Failure))],
+            // Roster stage R5g (U112): a Crown of Hellfire or Damned Pact burns the enemies within 1".
+            BloodMarkersPlaced b => [.. b.Targets.Select(t => new UnitNote(t, b.Warded.Contains(t) ? "BLOOD KEPT OFF" : "+1 BLOOD", b.Warded.Contains(t) ? NoteTone.Info : NoteTone.Failure))],
             _ => [],
         };
     }

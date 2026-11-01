@@ -61,6 +61,8 @@ public static class Content
                         BlendsIn = m.TryGetProperty("blendsIn", out var blends) && blends.GetBoolean(),
                         SinisterWhispers = m.TryGetProperty("sinisterWhispers", out var whispers) && whispers.GetBoolean(),
                         WardedByBlood = m.TryGetProperty("wardedByBlood", out var warded) && warded.GetBoolean(),
+                        BurnsAtActivationEnd = m.TryGetProperty("burnsAtActivationEnd", out var burnsAtEnd) && burnsAtEnd.GetBoolean(),
+                        BurnsWhenTakenOut = m.TryGetProperty("burnsWhenTakenOut", out var burnsWhenOut) && burnsWhenOut.GetBoolean(),
                         HasCover = m.TryGetProperty("hasCover", out var covered) && covered.GetBoolean(),
                         DigsIn = m.TryGetProperty("digsIn", out var digs) && digs.GetBoolean(),
                     }));

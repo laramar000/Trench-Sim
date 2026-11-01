@@ -100,10 +100,13 @@ public static class Reducer
             MineExploded x => OnMineExploded(state, x),
             MoveResumed x => OnMoveResumed(state, x),
             GloriousDeedCompleted x => OnDeedCompleted(state, x),
+            BloodMarkersPlaced x => OnBloodMarkersPlaced(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
         next = Undig(next, e);
+        // Roster stage R5g (U112): BLOOD MARKERS this event owes the enemies near a Crown or Damned Pact bearer.
+        next = Burns(state, e, next);
         // Glorious Deeds (U96): what the deeds need to know, and any deed this event completed.
         return e is GloriousDeedCompleted ? next : Deeds.Track(state, e, next);
     }
@@ -128,7 +131,7 @@ public static class Reducer
     // Roster stage R3 (U100): the Melee Attacks still to come of a Fight or free attack are made one after another;
     // anything else that happens ends them (the active model chose to do something else, or the action is over).
     private static MatchState ForgoAttacks(MatchState state, GameEvent e) =>
-        state.AttacksLeft is not null && e is not (MeleeAttackDeclared or MeleeSuccessRolled or InjuryRolled or MarkersSpent or DecisionRequested or GloriousDeedCompleted or MatchEnded)
+        state.AttacksLeft is not null && e is not (MeleeAttackDeclared or MeleeSuccessRolled or InjuryRolled or MarkersSpent or DecisionRequested or GloriousDeedCompleted or BloodMarkersPlaced or MatchEnded)
             ? state with { AttacksLeft = null }
             : state;
 
@@ -184,6 +187,11 @@ public static class Reducer
         if (!state.Deeds.Owed.IsEmpty)
         {
             Require(e is GloriousDeedCompleted, "A Glorious Deed was just completed; it is announced before anything else happens.");
+            return;
+        }
+        if (!state.MarkersOwed.IsDefaultOrEmpty)
+        {
+            Require(e is BloodMarkersPlaced, "BLOOD MARKERS are owed to the enemies near a Crown of Hellfire or Damned Pact; they are placed before anything else happens.");
             return;
         }
         if (TerminalReason(state) is { } reason)
@@ -1109,6 +1117,54 @@ public static class Reducer
     // Roster stage R5b (U106): TOUGH turns the first Out of Action result a model suffers into a Down result (p. 57).
     internal static bool ToughSaves(MatchState state, ModelState model, InjuryOutcome outcome) =>
         outcome == InjuryOutcome.OutOfAction && !model.ToughSpent && state.Setup!.ProfileOf(model.Id)!.Traits.HasFlag(ModelTraits.Tough);
+
+    // Roster stage R5g (U112): the BLOOD MARKERS an event owes. A Crown of Hellfire's bearer that ends an activation on
+    // the battlefield, or a Damned Pact's bearer taken Out of Action by an Injury Roll or a mine (measured from where it
+    // stood before it was removed), owes 1 to each enemy model on the battlefield within 1" of it, except a NEGATE FIRE
+    // model (Warbands p. 150, p. 83).
+    private static MatchState Burns(MatchState before, GameEvent e, MatchState after)
+    {
+        var source = e switch
+        {
+            ActivationEnded a when after.Setup?.ProfileOf(a.Model)?.BurnsAtActivationEnd == true => after.FindModel(a.Model),
+            InjuryRolled { Result: InjuryOutcome.OutOfAction } i => TakenOut(before, i.Target),
+            MineExploded { Result: InjuryOutcome.OutOfAction } m => TakenOut(before, m.Model),
+            _ => null,
+        };
+        if (source is null || Board.BodyOf(before, source) is not { } body)
+        {
+            return after;
+        }
+        var targets = after.Models
+            .Where(m => m.Seat != source.Seat && m.Position is not null && m.Status != ModelStatus.OutOfAction
+                && !after.Setup!.ProfileOf(m.Id)!.Negates.HasFlag(WeaponKeywords.Fire)
+                && Board.BodyOf(after, m) is { } other && Measure.IsWithin(body, other, BurnReach))
+            .Select(m => m.Id).ToImmutableArray();
+        return targets.IsEmpty ? after : after with { MarkersOwed = after.MarkersOwed.Add(new OwedMarkers(source.Id, targets)) };
+    }
+
+    private static ModelState? TakenOut(MatchState before, ModelId model) =>
+        before.FindModel(model) is { Status: not ModelStatus.OutOfAction, Position: not null } m && before.Setup?.ProfileOf(model)?.BurnsWhenTakenOut == true ? m : null;
+
+    private static readonly Length BurnReach = Length.FromInches(1);
+
+    // Roster stage R5g (U112): the owed BLOOD MARKERS are placed, one on each target, in the order they were owed; a
+    // Sacrificial Lamb keeps the first one placed on its model off (U109).
+    private static MatchState OnBloodMarkersPlaced(MatchState state, BloodMarkersPlaced e)
+    {
+        Require(state.MarkersOwed is [var owed, ..] && owed.Source == e.Source && owed.Targets.SequenceEqual(e.Targets), "No such BLOOD MARKERS are owed.");
+        var warded = e.Targets.Where(t => Wards(state, state.FindModel(t)!, 1)).ToList();
+        Require(e.Warded.SequenceEqual(warded), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
+        var next = state with { MarkersOwed = state.MarkersOwed.RemoveAt(0) };
+        foreach (var id in e.Targets)
+        {
+            var model = next.FindModel(id)!;
+            next = TurnRules.WithModel(next, e.Warded.Contains(id)
+                ? model with { WardSpent = true }
+                : model with { BloodMarkers = Math.Min(BloodMarkers.Max, model.BloodMarkers + 1) });
+        }
+        return next;
+    }
 
     // Roster stage R5e (U109): a model with a sacrificed Lamb ignores the first BLOOD MARKER placed on it.
     internal static bool Wards(MatchState state, ModelState model, int placed) =>

@@ -85,6 +85,11 @@ public sealed record ReadyModel(
     // Roster stage R5f (U110): the COVER keyword, always (a shield with it) or while dug in with a Shovel.
     public bool HasCover { get; init; }
     public bool DigsIn { get; init; }
+
+    // Roster stage R5g (U112): 1 BLOOD MARKER on each enemy within 1" when the model ends an activation (Crown of
+    // Hellfire), or when it is taken Out of Action (Damned Pact).
+    public bool BurnsAtActivationEnd { get; init; }
+    public bool BurnsWhenTakenOut { get; init; }
 }
 
 // Roster stage R3: a second weapon, as Rules.Core Weapon holds it (RangeInches 0 for a Melee Weapon).
@@ -165,7 +170,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut) })
                     {
                         if (on)
                         {
@@ -267,6 +272,7 @@ public static class MatchReadiness
             var (keepsGoing, climbDice, fanfare, blendsIn) = (false, 0, false, false);
             var (whispers, warded) = (false, false);
             var (hasCover, digsIn) = (false, false);
+            var (burnsAtEnd, burnsWhenOut) = (false, false);
             CatalogueEntry? digger = null;
             string? diggerUse = null;
             var ammunition = new List<CatalogueEntry>();
@@ -356,6 +362,8 @@ public static class MatchReadiness
                         whispers |= played.Whispers;
                         warded |= played.Warded;
                         digsIn |= played.DigsIn;
+                        burnsAtEnd |= played.BurnsAtEnd;
+                        burnsWhenOut |= played.BurnsWhenOut;
                         if (played.AsWeapon is { } use && digger is null)
                         {
                             (digger, diggerUse) = (piece, use);
@@ -472,6 +480,8 @@ public static class MatchReadiness
                 WardedByBlood = warded,
                 HasCover = hasCover,
                 DigsIn = digsIn,
+                BurnsAtActivationEnd = burnsAtEnd,
+                BurnsWhenTakenOut = burnsWhenOut,
             });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
@@ -616,12 +626,13 @@ public static class MatchReadiness
     // keywords are played as above.
     // Roster stage R5c (U107): or INJURY DICE on attacks that hit the model, or an INJURY MODIFIER on its Melee Attacks.
     // Roster stage R5f (U110): or COVER while dug in (Unplayed: the part of its rule a match plays without).
+    // Roster stage R5g (U112): or BLOOD MARKERS on enemies within 1" (BurnsAtEnd, BurnsWhenOut).
     // Roster stage R5e (U109): or the Urn's -1 DICE aura on Ranged Attacks, or the Lamb's ward against the first BLOOD MARKER.
     // Roster stage R5d (U108): or what a failed Risky roll ends, climb DICE, the Dash DICE it gives friends within 4", or
     // Cover's -2 DICE against the model.
     private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null, int InjuryDiceTaken = 0, int MeleeInjury = 0,
         bool KeepsGoing = false, int ClimbDice = 0, bool Fanfare = false, bool BlendsIn = false, bool Whispers = false, bool Warded = false,
-        bool DigsIn = false, string? Unplayed = null, string? AsWeapon = null);
+        bool DigsIn = false, string? Unplayed = null, string? AsWeapon = null, bool BurnsAtEnd = false, bool BurnsWhenOut = false);
 
     private static readonly Dictionary<string, PlayedPiece> PlayedEquipment = new(StringComparer.Ordinal)
     {
@@ -645,6 +656,9 @@ public static class MatchReadiness
         // The Shovels' melee use (AsWeapon): a 2-handed Melee Weapon with no other rules, or a Trench Club.
         ["shovel"] = new(DigsIn: true, AsWeapon: "2-handed"),
         ["bronze-shovel"] = new(DigsIn: true, AsWeapon: "trench-club"),
+        // Roster stage R5g (U112): BLOOD MARKERS on the enemies within 1".
+        ["crown-of-hellfire"] = new(BurnsAtEnd: true),
+        ["damned-pact"] = new(BurnsWhenOut: true),
     };
 
     // Roster stage R5c (U107): AMMUNITION (X), what it gives the weapon: +X DICE or a keyword the engine plays.

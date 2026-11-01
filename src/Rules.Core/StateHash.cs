@@ -79,6 +79,10 @@ public static class StateHash
         {
             Line(sb, "chargedThisTurn", string.Join(";", state.ChargedThisTurn.Select(m => m.Value)));
         }
+        if (!state.MarkersOwed.IsDefaultOrEmpty)
+        {
+            Line(sb, "markersOwed", string.Join(";", state.MarkersOwed.Select(o => $"{o.Source.Value}>{string.Join(",", o.Targets.Select(t => t.Value))}")));
+        }
         // Trench Warfare only (trench-maps stage S6), so every other match hashes exactly as before.
         if (state.Attacker is { } attacker)
         {
@@ -224,7 +228,10 @@ public static class StateHash
             + (p.WardedByBlood ? ",warded=yes" : "")
             // Roster stage R5f: the COVER keyword, only when present.
             + (p.HasCover ? ",cover=yes" : "")
-            + (p.DigsIn ? ",digsIn=yes" : "");
+            + (p.DigsIn ? ",digsIn=yes" : "")
+            // Roster stage R5g: BLOOD MARKERS on nearby enemies, only when present.
+            + (p.BurnsAtActivationEnd ? ",burnsAtEnd=yes" : "")
+            + (p.BurnsWhenTakenOut ? ",burnsWhenOut=yes" : "");
     }
 
     private static string WeaponText(Weapon w) =>

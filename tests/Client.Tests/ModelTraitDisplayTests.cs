@@ -219,6 +219,34 @@ public class ModelTraitDisplayTests
         Assert.Equal(" · shots at it or within 3\" -1 DICE · first BLOOD MARKER ignored", card);
     }
 
+    // Roster stage R5g (U112): the event lines, the unit notes and the unit card name the burns.
+    [Fact]
+    public void CrownAndPactAreExplained()
+    {
+        var burns = 0;
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select((m, i) => m with { Profile = m.Profile with { BurnsAtActivationEnd = i % 2 == 0, BurnsWhenTakenOut = i % 2 == 1 } }).ToList(),
+            }).ToList();
+            foreach (var placed in Runner.Run(seed, warbands).Log.OfType<BloodMarkersPlaced>())
+            {
+                Assert.StartsWith($"  Flames from {placed.Source} put 1 Blood Marker on each enemy within 1\": ", EventText.Line(placed), StringComparison.Ordinal);
+                Assert.Equal(EventKind.Injury, EventText.Kind(placed));
+                Assert.Equal(placed.Targets.ToArray(), UnitNotes.Of(placed).Select(n => n.Model).ToArray());
+                Assert.Equal("BURNS", EventText.Compact(placed).Verb);
+                burns++;
+            }
+        }
+        Assert.True(burns > 0, $"{burns} burns");
+        var card = UnitPanel.WeaponWords(new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true)
+        {
+            BurnsAtActivationEnd = true, BurnsWhenTakenOut = true,
+        });
+        Assert.Equal(" · +1 BLOOD MARKER to enemies within 1\" when it ends an activation · +1 BLOOD MARKER to enemies within 1\" when taken Out of Action", card);
+    }
+
     // Roster stage R5f (U110): the previews and the breakdown name the COVER keyword's die.
     [Fact]
     public void CoverKeywordIsExplained()

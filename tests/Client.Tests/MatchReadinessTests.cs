@@ -503,6 +503,25 @@ public class MatchReadinessTests
         Assert.DoesNotContain("digsIn", plain, StringComparison.Ordinal);
     }
 
+    // Roster stage R5g (U112): the Crown of Hellfire and the Damned Pact.
+    [Fact]
+    public void CrownAndPactArePlayed()
+    {
+        var crown = Of("court", "hell-knight", "crown-of-hellfire").MatchCheck();
+        Assert.True(crown.Refused.Count == 0, string.Join("; ", crown.Refused));
+        Assert.DoesNotContain(crown.PlayedWithout, w => w.Contains("Crown", StringComparison.Ordinal));
+        Assert.Equal((true, false), (Loaded(crown).BurnsAtActivationEnd, Loaded(crown).BurnsWhenTakenOut));
+        Assert.Contains("\"burnsAtActivationEnd\": true", crown.ToContentJson("p", "P"), StringComparison.Ordinal);
+
+        var pact = Of("heretics", "heretic-trooper", "damned-pact").MatchCheck();
+        Assert.Empty(pact.Refused);
+        Assert.DoesNotContain(pact.PlayedWithout, w => w.Contains("Damned Pact", StringComparison.Ordinal));
+        Assert.Equal((false, true), (Loaded(pact).BurnsAtActivationEnd, Loaded(pact).BurnsWhenTakenOut));
+
+        var plain = Of("heretics", "heretic-trooper").MatchCheck().ToContentJson("p", "P");
+        Assert.DoesNotContain("burns", plain, StringComparison.Ordinal);
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

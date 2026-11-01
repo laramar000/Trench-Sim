@@ -34,6 +34,7 @@ public static class EventModels
             PointAttackDeclared p => [p.Attacker],
             PointSuccessRolled p => [p.Attacker],
             PointBlastHit b => [b.Attacker, .. b.Hit],
+            BloodMarkersPlaced b => [b.Source, .. b.Targets],
             ChargeDeclared c => [c.Model, c.Target],
             ChargeRolled c => [c.Model, c.Target],
             ChargeMoved c => [c.Model, c.Target],

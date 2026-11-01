@@ -208,6 +208,15 @@ public sealed record ModelProfile
     // The model has a Shovel: starting the game on Open terrain it has COVER until it moves away from where it started.
     public bool DigsIn { get; init; }
 
+    // ---- Roster stage R5g (U112): BLOOD MARKERS placed on nearby enemies ----
+
+    // When the model ends an activation, each enemy model within 1" gets 1 BLOOD MARKER (a Crown of Hellfire).
+    public bool BurnsAtActivationEnd { get; init; }
+
+    // When the model is taken Out of Action, before it is removed, each enemy model within 1" gets 1 BLOOD MARKER
+    // (a Damned Pact).
+    public bool BurnsWhenTakenOut { get; init; }
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -369,6 +378,8 @@ public sealed record ModelProfile
                 WardedByBlood = WardedByBlood,
                 HasCover = HasCover,
                 DigsIn = DigsIn,
+                BurnsAtActivationEnd = BurnsAtActivationEnd,
+                BurnsWhenTakenOut = BurnsWhenTakenOut,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -399,6 +410,8 @@ public sealed record ModelProfile
             WardedByBlood = WardedByBlood,
             HasCover = HasCover,
             DigsIn = DigsIn,
+            BurnsAtActivationEnd = BurnsAtActivationEnd,
+            BurnsWhenTakenOut = BurnsWhenTakenOut,
         };
     }
 

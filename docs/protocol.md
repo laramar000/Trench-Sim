@@ -230,6 +230,12 @@ The server sends events in log order, one message each, to both players, through
   terrain gives cover, is named "COVER" in `RangedAttackDeclared.coverTerrainId`, `FriendlyTargetChosen.coverTerrainId`
   and `MeleeAttackDeclared.defendedObstacleId`. The state hash adds `,cover=yes` and `,digsIn=yes` to a profile and
   `,dugIn=x,y` to a model only when set.
+- Roster stage R5g (U112): `ModelProfile.burnsAtActivationEnd` and `burnsWhenTakenOut`, left out when false, and a new
+  event `BloodMarkersPlaced` (`source`, `targets`, `warded`): 1 BLOOD MARKER on each target, except the `warded` ones (a
+  Sacrificial Lamb keeps it off). It comes right after the `ActivationEnded` of a `burnsAtActivationEnd` model, or the
+  `InjuryRolled`/`MineExploded` that takes a `burnsWhenTakenOut` model Out of Action (after any `GloriousDeedCompleted`),
+  and only when an enemy model is within 1"; nothing else may come between. The state hash adds `,burnsAtEnd=yes` and
+  `,burnsWhenOut=yes` to a profile, and a `markersOwed` line only while markers are owed (never between commands).
 
 ## Rosters online (roster stage 5c)
 

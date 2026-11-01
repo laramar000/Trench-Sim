@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U111), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U112), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -120,18 +120,15 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-01 15:04Z, Jason: "2 and 3 then 1" = hot-seat UI checks on last night's pushes, then the small gaps, then
   R5g. Earlier asks still in force: "1 2 and 3 no mistakes" (R5 equipment, R6 unit abilities), essentials only for
   testing (build + `dotnet test TrenchSim.sln`), keep this hand-over updated at every push.
-- Done: hot-seat UI checks at 0e4131e: 38 passed, 0 failed. Small gaps (U111): the dice popup's RISKY line names the
-  Crucifix; a Shovel is the Melee Weapon of a model with no other (Bronze Shovel: a Trench Club with HEAVY); beside
-  another Melee Weapon the Shovel's melee use is named. Essentials 2,141/0.
+- Done: hot-seat UI checks at 0e4131e: 38 passed, 0 failed. Small gaps f787535 (U111): the dice popup's RISKY line
+  names the Crucifix; a Shovel is the Melee Weapon of a model with no other (Bronze Shovel: a Trench Club with HEAVY);
+  beside another Melee Weapon the Shovel's melee use is named. R5g (U112): Crown of Hellfire (`burnsAtActivationEnd`)
+  and Damned Pact (`burnsWhenTakenOut`) place 1 BLOOD MARKER on each enemy within 1" (not NEGATE FIRE; a Lamb wards it)
+  with the new event `BloodMarkersPlaced(source, targets, warded)`, owed in `MatchState.MarkersOwed` and announced by
+  `TurnSequence.Run.Emit` after any Glorious Deed; tests `BurnTests` and three more. Essentials 2,148/0.
 - Pushed before: R5a e2ad5d8, R5b dc62195, R5c e516d2b, R5d c1c33db, R5e 1d9a897, R5f a93a518, hand-over 0e4131e.
 - Decided: Urn of the Bitter Ashes protects any model within 3" (Jason card "1 Any model", U109).
-- Next, R5g (U112): Crown of Hellfire (1 BLOOD MARKER on each enemy within 1" when the bearer ends an activation) and
-  Damned Pact (same, when the bearer is taken Out of Action, before it is removed); NEGATE FIRE models are not affected;
-  a Sacrificial Lamb wards it. Plan: profile flags, a `MatchState` owed-markers entry the reducer works out (after
-  `ActivationEnded`, and from the pre-removal position on an Out of Action Injury Roll or mine), a new
-  `BloodMarkersPlaced(source, targets, warded)` event that `TurnSequence.Run.Emit` announces right after (like
-  `GloriousDeedCompleted`), checked in `RequireFollowUp` after deeds, before the terminal check; exempt from
-  `ForgoAttacks`.
+- Next: the rest of R5, then R6. The R5g ask ("2 and 3 then 1") is finished.
 - After R5g: the rest of R5 (Blessed Icon/Unholy Trinket are optional "you can say" uses, so they need a player
   decision; new actions such as Medi-kit Treat; deployables; BLESSING/INFECTION markers), then R6 unit abilities by
   faction. All authorized by "1 2 and 3 no mistakes".

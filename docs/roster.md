@@ -269,3 +269,7 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
 - After R5f, Shovels as weapons (done 2026-11-01, Jason: "2 and 3 then 1"): a model with no other Melee Weapon fights
   with its Shovel (2-handed, no modifiers) or Bronze Shovel (a Trench Club with HEAVY); beside another Melee Weapon the
   Shovel's melee use is named (U111). Tests: `MatchReadinessTests.CoverFromShieldsAndShovelsIsPlayed`.
+- Roster rules stage R5g, Crown of Hellfire and Damned Pact (done 2026-11-01): they travel as `burnsAtActivationEnd` and
+  `burnsWhenTakenOut`; a match places their BLOOD MARKERS with `BloodMarkersPlaced` (U112). Tests: `BurnTests`,
+  `TraitWireTests.CrownAndPactRoundTripAndAreLeftOutWhenFalse`, `MatchReadinessTests.CrownAndPactArePlayed`,
+  `ModelTraitDisplayTests.CrownAndPactAreExplained`.

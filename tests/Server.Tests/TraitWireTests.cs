@@ -115,6 +115,27 @@ public class TraitWireTests
         Assert.True(((MineExploded)RoundTrip(mine with { Warded = true })).Warded);
     }
 
+    // Roster stage R5g (U112).
+    [Fact]
+    public void CrownAndPactRoundTripAndAreLeftOutWhenFalse()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        Assert.DoesNotContain("burns", plain, StringComparison.Ordinal);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { BurnsAtActivationEnd = true, BurnsWhenTakenOut = true };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        var text = Encoded(created);
+        Assert.Contains("\"burnsAtActivationEnd\":true", text, StringComparison.Ordinal);
+        Assert.Contains("\"burnsWhenTakenOut\":true", text, StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+
+        var placed = new BloodMarkersPlaced(new ModelId("A1"), [new ModelId("B1"), new ModelId("B2")], [new ModelId("B2")]);
+        var back = (BloodMarkersPlaced)RoundTrip(placed);
+        Assert.Equal((placed.Source, "B1,B2", "B2"), (back.Source, string.Join(",", back.Targets), string.Join(",", back.Warded)));
+    }
+
     // Roster stage R5f (U110).
     [Fact]
     public void CoverKeywordRoundTripsAndIsLeftOutWhenFalse()

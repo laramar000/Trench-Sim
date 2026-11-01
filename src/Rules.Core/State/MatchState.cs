@@ -129,6 +129,9 @@ public sealed record MeleeAttacksLeft(ModelId Attacker, bool Free, ImmutableArra
 
 public sealed record MeleeAttackSlot(int Weapon, bool OffHand);
 
+// Roster stage R5g (U112): 1 BLOOD MARKER owed to each of Targets (enemy models within 1" of Source, in the setup's order).
+public sealed record OwedMarkers(ModelId Source, ImmutableArray<ModelId> Targets);
+
 public sealed record RetreatInProgress(ModelId Model, ImmutableArray<Point2> Path, ImmutableArray<ModelId> Fought, bool Closed = false);
 
 // A move halted by a Mine Marker (Trench Warfare, p. 162; U93), between the move event and the rest of the move. Path is
@@ -214,6 +217,11 @@ public sealed record MatchState
     public MeleeAttacksLeft? AttacksLeft { get; init; }
 
     public ImmutableArray<ModelId> ChargedThisTurn { get; init; } = [];
+
+    // Roster stage R5g (U112): BLOOD MARKERS the last event owes nearby enemies (a Crown of Hellfire's bearer ended its
+    // activation, a Damned Pact's bearer was taken Out of Action), each placed by the next event (BloodMarkersPlaced),
+    // in order. Hashed only when set.
+    public ImmutableArray<OwedMarkers> MarkersOwed { get; init; } = [];
 
     public SeatState SeatFor(Seat seat) => seat == Seat.One ? One : Two;
 

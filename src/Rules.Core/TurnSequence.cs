@@ -675,13 +675,24 @@ public static partial class TurnSequence
         {
             State = Reducer.Apply(State, e);
             Events.Add(e);
-            // A Glorious Deed the event completed is announced at once, before anything else (U96).
-            while (!State.Deeds.Owed.IsEmpty)
+            // A Glorious Deed the event completed is announced at once, before anything else (U96); then (roster stage
+            // R5g, U112) the BLOOD MARKERS the event owes nearby enemies, in order.
+            while (!State.Deeds.Owed.IsEmpty || !State.MarkersOwed.IsDefaultOrEmpty)
             {
-                var deed = State.Deeds.Owed[0];
-                var announced = new GloriousDeedCompleted(deed.Seat, deed.Deed, deed.Model);
-                State = Reducer.Apply(State, announced);
-                Events.Add(announced);
+                GameEvent next;
+                if (!State.Deeds.Owed.IsEmpty)
+                {
+                    var deed = State.Deeds.Owed[0];
+                    next = new GloriousDeedCompleted(deed.Seat, deed.Deed, deed.Model);
+                }
+                else
+                {
+                    var owed = State.MarkersOwed[0];
+                    next = new BloodMarkersPlaced(owed.Source, owed.Targets,
+                        owed.Targets.Where(t => Reducer.Wards(State, State.FindModel(t)!, 1)).ToImmutableArray());
+                }
+                State = Reducer.Apply(State, next);
+                Events.Add(next);
             }
         }
     }
