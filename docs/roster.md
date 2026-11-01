@@ -258,3 +258,7 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   builder), Cloak of the Mountain as `blendsIn` (U108). Tests: `RiskyBattlekitTests`,
   `TraitWireTests.RiskyAndCoverBattlekitRoundTripsAndIsLeftOutWhenDefault`, `MatchReadinessTests.RiskyAndCoverBattlekitIsPlayed`,
   `ModelTraitDisplayTests.RiskyAndCoverBattlekitIsExplained`.
+- Roster rules stage R5e, Urn and Lamb (done 2026-11-01, same ask): the Urn of the Bitter Ashes travels as
+  `sinisterWhispers`, the Sacrificial Lamb as `wardedByBlood` (U109). Tests: `AuraAndWardTests`,
+  `MineTests.ALambKeepsOffAMinesFirstMarker`, `TraitWireTests.UrnAndLambRoundTripAndAreLeftOutWhenFalse`,
+  `MatchReadinessTests.UrnAndLambArePlayed`, `ModelTraitDisplayTests.UrnAndLambAreExplained`.

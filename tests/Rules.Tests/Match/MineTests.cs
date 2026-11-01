@@ -201,6 +201,25 @@ public class MineTests
         Assert.Throws<InvalidEventException>(() => Reducer.Apply(state, exploded with { Tough = false }));
     }
 
+    // Roster stage R5e (U109): a Sacrificial Lamb's blood keeps off the first BLOOD MARKER a mine places too.
+    [Fact]
+    [Trait("Rule", "Sacrificial Lamb: the first BLOOD MARKER placed on the model is ignored")]
+    public void ALambKeepsOffAMinesFirstMarker()
+    {
+        var warded = new ModelProfile(L("6"), L("0.5"), L("18")) { WardedByBlood = true };
+        var play = Active(Play(Mine1IsLive, 1, _ => warded), A(1), "14", "25");
+        var before = play.State;
+        var exploded = play.Do(new MoveModel(Seat.One, A(1), Path(("20", "25"))), 4, 4).Events.OfType<MineExploded>().Single();
+        Assert.Equal((InjuryOutcome.Down, true, 1), (exploded.Result, exploded.Warded, exploded.PlacedMarkers));
+        Assert.Equal((ModelStatus.Down, true, 1), (play.M(A(1)).Status, play.M(A(1)).WardSpent, play.M(A(1)).BloodMarkers)); // Down 1, SHRAPNEL 1, less 1
+        var state = before;
+        foreach (var e in TurnSequence.Decide(before, new MoveModel(Seat.One, A(1), Path(("20", "25"))), new FixedDice([4, 4])).Events.TakeWhile(e => e is not MineExploded))
+        {
+            state = Reducer.Apply(state, e);
+        }
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(state, exploded with { Warded = false }));
+    }
+
     [Fact]
     [Trait("Rule", "Slaughter Mines p. 162: a model taken Down stops where it halted, and its activation ends (p. 49)")]
     public void AModelTakenDownStopsWhereItHalted()

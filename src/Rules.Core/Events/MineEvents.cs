@@ -98,6 +98,13 @@ public sealed record MineExploded : GameEvent
     public InjuryOutcome Result => Tough ? InjuryOutcome.Down : Injury.Outcome;
 
     public int ResultMarkers => InjuryRoll.BloodMarkersFor(Result, Injury.TargetAlreadyDown);
+
+    // Roster stage R5e (U109): the Sacrificial Lamb's blood kept off the first BLOOD MARKER placed on the model; left out
+    // when false.
+    public bool Warded { get; init; }
+
+    // The BLOOD MARKERS placed on the model: the result's and SHRAPNEL's, less the one the Lamb's blood kept off.
+    public int PlacedMarkers => ResultMarkers + ExtraMarkers() - (Warded ? 1 : 0);
 }
 
 // The model carries on along its move after a halt, to the next halt or the end: Path is what it walks (may be empty).

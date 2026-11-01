@@ -74,11 +74,12 @@ public static class AttackDice
     // COVER, IGNORE LONG RANGE, IGNORE ELEVATED POSITION; SHOTGUN at Long Range moves the -1 to the Injury Roll as
     // InjuryLater), with the attacker's own dice. Without keywords this is ShotBonus, ShotPenalty and OwnDice.
     // Roster stage R5d (U108): a target that BlendsIn (a Cloak of the Mountain) makes Cover -2 DICE.
-    public static (int Bonus, int Penalty, int InjuryLater) Shot(ModelProfile attacker, bool longRange, bool inCover, bool elevated, ModelProfile? target = null)
+    // Roster stage R5e (U109): whispers, the target is the Urn of the Bitter Ashes' bearer or within 3" of it: -1 DICE.
+    public static (int Bonus, int Penalty, int InjuryLater) Shot(ModelProfile attacker, bool longRange, bool inCover, bool elevated, ModelProfile? target = null, bool whispers = false)
     {
         var k = attacker.RangedWeaponKeywords;
         var counts = ShotModifiers(k, longRange, inCover, elevated, target?.BlendsIn == true);
-        var (bonus, penalty) = With(counts.Elevated, counts.LongRange + counts.Cover, OwnDice(attacker, AttackKind.Ranged));
+        var (bonus, penalty) = With(counts.Elevated, counts.LongRange + counts.Cover + (whispers ? 1 : 0), OwnDice(attacker, AttackKind.Ranged));
         return (bonus, penalty, counts.ShotgunInjury);
     }
 

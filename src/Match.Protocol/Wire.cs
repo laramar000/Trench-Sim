@@ -361,6 +361,10 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.KeepsGoingAfterRisky)),
             (typeof(ModelProfile), nameof(ModelProfile.Fanfare)),
             (typeof(ModelProfile), nameof(ModelProfile.BlendsIn)),
+            (typeof(ModelProfile), nameof(ModelProfile.SinisterWhispers)),
+            (typeof(ModelProfile), nameof(ModelProfile.WardedByBlood)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.Warded)),
+            (typeof(MineExploded), nameof(MineExploded.Warded)),
         ];
 
         // Optional numbers left out when zero, for the same reason (every match before roster stage R1's profile dice).

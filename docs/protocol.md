@@ -222,6 +222,10 @@ The server sends events in log order, one message each, to both players, through
   climb roll's gains `climbDice`, a shot's penalty doubles for Cover on a `blendsIn` target, and after a failed Risky roll
   of a `keepsGoingAfterRisky` model no `ActivationEnded` (riskyFailure) follows. The state hash adds `,keepsGoing=yes`,
   `,climbDice=N`, `,fanfare=yes` and `,blendsIn=yes` to a profile only when set.
+- Roster stage R5e (U109): `ModelProfile.sinisterWhispers` and `wardedByBlood`, `InjuryRolled.warded` and
+  `MineExploded.warded`, all left out when false. A Ranged Attack's Success Roll has one more penalty die when its target
+  is within 3" of a `sinisterWhispers` model (or is one); a `warded` roll places one BLOOD MARKER fewer. The state hash
+  adds `,whispers=yes` and `,warded=yes` to a profile and `,ward=spent` to a model only when set.
 
 ## Rosters online (roster stage 5c)
 

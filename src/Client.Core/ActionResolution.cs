@@ -231,6 +231,12 @@ public sealed class ResolutionLog
                 action.Failed = c.Check.Outcome == SuccessOutcome.Failure;
                 break;
             case RangedSuccessRolled r:
+                // Roster stage R5e (U109): the Urn of the Bitter Ashes' -1 DICE (worked out from the positions by the
+                // rules; here it is what the roll has beyond the known parts).
+                if (r.Check.NetDice - action.Dice.Sum(p => p.Value) == -1 && setup is not null && setup.Models.Any(m => m.Profile?.SinisterWhispers == true))
+                {
+                    action.Dice.Add(new("Urn of the Bitter Ashes within 3\"", -1));
+                }
                 Success(seq, action, r.Check, setup, "Hit roll", "HIT", "MISSED");
                 break;
             case PointSuccessRolled r:

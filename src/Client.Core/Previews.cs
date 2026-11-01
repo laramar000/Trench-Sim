@@ -457,8 +457,11 @@ public static class Previews
         // Roster stage R5d (U108): a target with a Cloak of the Mountain makes Cover -2 DICE.
         var cloaked = state.Setup.ProfileOf(target.Id)?.BlendsIn == true;
         var applied = AttackDice.ShotModifiers(profile.RangedWeaponKeywords, longRange, cover.InCover, elevated, cloaked);
-        dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, applied.LongRange + applied.Cover,
-            [.. new[] { applied.LongRange > 0 ? "Long Range, p. 43" : null, applied.Cover > 0 ? (cloaked ? "Cover -2 for its Cloak of the Mountain, pp. 38, 43" : "Cover, pp. 38, 43") : null }.OfType<string>()], applied.Elevated,
+        // Roster stage R5e (U109): the Urn of the Bitter Ashes' bearer or a model within 3" of it: -1 DICE.
+        var whispers = TurnSequence.Whispers(state, target.Id);
+        dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, applied.LongRange + applied.Cover + (whispers ? 1 : 0),
+            [.. new[] { applied.LongRange > 0 ? "Long Range, p. 43" : null, applied.Cover > 0 ? (cloaked ? "Cover -2 for its Cloak of the Mountain, pp. 38, 43" : "Cover, pp. 38, 43") : null,
+                whispers ? "Urn of the Bitter Ashes within 3\", Warbands p. 143" : null }.OfType<string>()], applied.Elevated,
             applied.ShotgunInjury, weapon);
         return null;
     }

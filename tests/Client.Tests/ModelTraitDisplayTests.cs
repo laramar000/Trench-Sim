@@ -169,6 +169,54 @@ public class ModelTraitDisplayTests
         Assert.Equal(" · Risky failure keeps going · climb +1 DICE · Dash +1 DICE within 4\" · Cover -2 DICE against it", card);
     }
 
+    // Roster stage R5e (U109): the Shoot preview and the breakdown count the Urn's -1 DICE; the Lamb's ward shows in the
+    // log, the notes and the dice.
+    [Fact]
+    public void UrnAndLambAreExplained()
+    {
+        var (urns, previews, wards) = (0, 0, 0);
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select((m, i) => m with { Profile = m.Profile with { SinisterWhispers = i == 0, WardedByBlood = i % 2 == 1 } }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            var log = new ResolutionLog();
+            var seq = 0;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is RangedAttackDeclared r && state.ActiveModel == r.Attacker && state.Pending is null
+                    && Previews.Target(state, state.FindModel(r.Attacker)!.Seat, PreviewKind.Shoot, r.Attacker, r.Target, r.Weapon) is { Legal: true, Dice: { } dice })
+                {
+                    Assert.Equal(TurnSequence.Whispers(state, r.Target), dice.HitReasons.Contains("Urn of the Bitter Ashes within 3\", Warbands p. 143"));
+                    previews++;
+                }
+                var setup = state.Setup;
+                state = Reducer.Apply(state, e);
+                log.Add(++seq, e, setup ?? state.Setup);
+                if (e is RangedSuccessRolled && log.WhyOf(seq) is { } why)
+                {
+                    Assert.True(why.Explained, why.Text);
+                    urns += why.Dice.Count(p => p.Label == "Urn of the Bitter Ashes within 3\"");
+                }
+                if (e is InjuryRolled { Warded: true } i)
+                {
+                    Assert.Contains("Sacrificial Lamb", EventText.Line(i), StringComparison.Ordinal);
+                    Assert.Contains("1 Blood Marker kept off (Sacrificial Lamb)", DiceRolls.Of(i)!.Result, StringComparison.Ordinal);
+                    Assert.Equal(i.PlacedMarkers > 0, UnitNotes.Of(i).Single().Text.Contains("BLOOD", StringComparison.Ordinal));
+                    wards++;
+                }
+            }
+        }
+        Assert.True(urns > 0 && previews > 0 && wards > 0, $"{urns} urns, {previews} previews, {wards} wards");
+        var card = UnitPanel.WeaponWords(new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true)
+        {
+            SinisterWhispers = true, WardedByBlood = true,
+        });
+        Assert.Equal(" · shots at it or within 3\" -1 DICE · first BLOOD MARKER ignored", card);
+    }
+
     [Fact]
     public void TheUnitCardNamesTheTraits()
     {

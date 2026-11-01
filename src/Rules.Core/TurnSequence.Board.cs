@@ -283,6 +283,9 @@ public static partial class TurnSequence
 
     public static bool RiskyEnds(MatchState state, ModelId model) => Reducer.RiskyEnds(state, model);
 
+    // Roster stage R5e (U109): a Ranged Attack at this model now would have the Urn of the Bitter Ashes' -1 DICE.
+    public static bool Whispers(MatchState state, ModelId target) => state.FindModel(target) is { } m && Reducer.Whispers(state, m);
+
     // The answers that are not Blood Marker spends: free attacks on a retreating model, the friendly model a shot into
     // melee was forced onto, and where a missed SCATTER attack lands (roster stage R4c).
     private static Rejection? ValidateChoice(MatchState state, Command command)
@@ -664,6 +667,7 @@ public static partial class TurnSequence
                     ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup.ProfileOf(target.Id)!),
                     Tough = Reducer.ToughSaves(s, target, injury.Outcome),
                 };
+                rolled = rolled with { Warded = Reducer.Wards(s, target, rolled.ResultMarkers + rolled.ExtraMarkers) };
                 run.Emit(rolled);
                 if (rolled.Result == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
                 {
@@ -727,11 +731,13 @@ public static partial class TurnSequence
         {
             var armour = s.Setup!.ProfileOf(model.Id)!.Armour;
             var injury = InjuryRoll.Roll(dice, 0, 0, [armour], model.Status == ModelStatus.Down);
-            run.Emit(new MineExploded(model.Id, stop.Current.Marker, injury)
+            var exploded = new MineExploded(model.Id, stop.Current.Marker, injury)
             {
                 Negated = s.Setup.ProfileOf(model.Id)!.Negates.HasFlag(WeaponKeywords.Shrapnel),
                 Tough = Reducer.ToughSaves(s, model, injury.Outcome),
-            });
+            };
+            // Roster stage R5e (U109): the Sacrificial Lamb's blood keeps off the first BLOOD MARKER.
+            run.Emit(exploded with { Warded = Reducer.Wards(s, model, exploded.ResultMarkers + exploded.ExtraMarkers()) });
             var hurt = run.State.FindModel(model.Id)!;
             if (hurt.Status == ModelStatus.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, model.Seat))
             {

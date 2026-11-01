@@ -192,6 +192,14 @@ public sealed record ModelProfile
     // Cover gives -2 DICE instead of -1 DICE to Ranged Attacks at the model (a Cloak of the Mountain).
     public bool BlendsIn { get; init; }
 
+    // ---- Roster stage R5e (U109): an aura on Ranged Attacks and a ward against BLOOD MARKERS ----
+
+    // The model carries the Urn of the Bitter Ashes: -1 DICE to Ranged Attacks that target it or a model within 3" of it.
+    public bool SinisterWhispers { get; init; }
+
+    // The model's Sacrificial Lamb was sacrificed when it was deployed: the first BLOOD MARKER placed on it is ignored.
+    public bool WardedByBlood { get; init; }
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -349,6 +357,8 @@ public sealed record ModelProfile
                 ClimbDice = ClimbDice,
                 Fanfare = Fanfare,
                 BlendsIn = BlendsIn,
+                SinisterWhispers = SinisterWhispers,
+                WardedByBlood = WardedByBlood,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -375,6 +385,8 @@ public sealed record ModelProfile
             ClimbDice = ClimbDice,
             Fanfare = Fanfare,
             BlendsIn = BlendsIn,
+            SinisterWhispers = SinisterWhispers,
+            WardedByBlood = WardedByBlood,
         };
     }
 

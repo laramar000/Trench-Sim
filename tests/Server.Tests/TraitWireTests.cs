@@ -88,6 +88,33 @@ public class TraitWireTests
         Assert.NotNull(failure);
     }
 
+    // Roster stage R5e (U109).
+    [Fact]
+    public void UrnAndLambRoundTripAndAreLeftOutWhenFalse()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        Assert.DoesNotContain("sinisterWhispers", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("wardedByBlood", plain, StringComparison.Ordinal);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { SinisterWhispers = true, WardedByBlood = true };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        var text = Encoded(created);
+        Assert.Contains("\"sinisterWhispers\":true", text, StringComparison.Ordinal);
+        Assert.Contains("\"wardedByBlood\":true", text, StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+
+        var (a, b) = (new ModelId("A1"), new ModelId("B1"));
+        var downed = Enumerable.Range(1, 100).Select(seed => InjuryRoll.Roll(new SeededDice(seed))).First(r => r.Outcome == InjuryOutcome.Down);
+        var rolled = new InjuryRolled(a, b, downed);
+        Assert.DoesNotContain("warded", Encoded(rolled), StringComparison.OrdinalIgnoreCase);
+        Assert.True(((InjuryRolled)RoundTrip(rolled with { Warded = true })).Warded);
+        var mine = new MineExploded(b, "mine-1", downed);
+        Assert.DoesNotContain("warded", Encoded(mine), StringComparison.OrdinalIgnoreCase);
+        Assert.True(((MineExploded)RoundTrip(mine with { Warded = true })).Warded);
+    }
+
     [Fact]
     public void FearAndToughRoundTripAndAreLeftOutWhenFalse()
     {

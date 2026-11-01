@@ -76,6 +76,11 @@ public sealed record ReadyModel(
     public int ClimbDice { get; init; }
     public bool Fanfare { get; init; }
     public bool BlendsIn { get; init; }
+
+    // Roster stage R5e (U109): -1 DICE to Ranged Attacks at the model or within 3" of it (Urn of the Bitter Ashes), and
+    // the first BLOOD MARKER placed on it is ignored (a Sacrificial Lamb, sacrificed when it is deployed).
+    public bool SinisterWhispers { get; init; }
+    public bool WardedByBlood { get; init; }
 }
 
 // Roster stage R3: a second weapon, as Rules.Core Weapon holds it (RangeInches 0 for a Melee Weapon).
@@ -156,7 +161,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood) })
                     {
                         if (on)
                         {
@@ -256,6 +261,7 @@ public static class MatchReadiness
             var injuryTaken = 0;
             var meleeInjury = 0;
             var (keepsGoing, climbDice, fanfare, blendsIn) = (false, 0, false, false);
+            var (whispers, warded) = (false, false);
             var ammunition = new List<CatalogueEntry>();
             if (unplayed.Count > 0)
             {
@@ -334,6 +340,8 @@ public static class MatchReadiness
                         climbDice += played.ClimbDice;
                         fanfare |= played.Fanfare;
                         blendsIn |= played.BlendsIn;
+                        whispers |= played.Whispers;
+                        warded |= played.Warded;
                         if (played.Trait is { } trait)
                         {
                             traits.Add(trait);
@@ -410,6 +418,8 @@ public static class MatchReadiness
                 ClimbDice = Dice(climbDice, who, "climb DICE", without),
                 Fanfare = fanfare,
                 BlendsIn = blendsIn,
+                SinisterWhispers = whispers,
+                WardedByBlood = warded,
             });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
@@ -553,10 +563,11 @@ public static class MatchReadiness
     // Ranged or Melee Characteristic, or a keyword it gains (NotFor: a keyword whose models it does nothing for). Its
     // keywords are played as above.
     // Roster stage R5c (U107): or INJURY DICE on attacks that hit the model, or an INJURY MODIFIER on its Melee Attacks.
+    // Roster stage R5e (U109): or the Urn's -1 DICE aura on Ranged Attacks, or the Lamb's ward against the first BLOOD MARKER.
     // Roster stage R5d (U108): or what a failed Risky roll ends, climb DICE, the Dash DICE it gives friends within 4", or
     // Cover's -2 DICE against the model.
     private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null, int InjuryDiceTaken = 0, int MeleeInjury = 0,
-        bool KeepsGoing = false, int ClimbDice = 0, bool Fanfare = false, bool BlendsIn = false);
+        bool KeepsGoing = false, int ClimbDice = 0, bool Fanfare = false, bool BlendsIn = false, bool Whispers = false, bool Warded = false);
 
     private static readonly Dictionary<string, PlayedPiece> PlayedEquipment = new(StringComparer.Ordinal)
     {
@@ -575,6 +586,8 @@ public static class MatchReadiness
         ["mountaineer-kit"] = new(ClimbDice: 1),
         ["musical-instrument"] = new(Fanfare: true),
         ["cloak-of-the-mountain"] = new(BlendsIn: true),
+        ["urn-of-the-bitter-ashes"] = new(Whispers: true),
+        ["sacrificial-lamb"] = new(Warded: true),
     };
 
     // Roster stage R5c (U107): AMMUNITION (X), what it gives the weapon: +X DICE or a keyword the engine plays.

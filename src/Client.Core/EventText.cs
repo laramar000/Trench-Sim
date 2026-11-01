@@ -43,7 +43,7 @@ public static class EventText
         ScatterMissed s => $"  The attack would scatter {s.Inches}\" but has nowhere to land: it misses.",
         MarkersSpent m => m.Count == 0 ? $"  {m.Spender} spends no Blood Markers." : $"  {m.Spender} spends {m.Count} Blood Marker(s) from {m.Model}.",
         RangedSuccessRolled r => $"  Success Roll {r.Check.Dice.Total} ({r.Check.NetDice:+0;-0;0} dice): {r.Check.Outcome}.",
-        InjuryRolled i => $"  Injury Roll on {i.Target}: {i.Injury.Total} ({i.Injury.NetDice:+0;-0;0} injury dice): {i.Injury.Outcome}.{(i.Tough ? " TOUGH: Down instead." : "")}",
+        InjuryRolled i => $"  Injury Roll on {i.Target}: {i.Injury.Total} ({i.Injury.NetDice:+0;-0;0} injury dice): {i.Injury.Outcome}.{(i.Tough ? " TOUGH: Down instead." : "")}{(i.Warded ? Warded : "")}",
         ActivationEnded a => $"  {a.Model} ends its activation ({a.Reason}).",
         MoraleCheckRolled m => $"{m.Seat} Morale Check ({m.ModelsDownOrOut} of {m.WarbandSize} down or out{(m.Check.NetDice > 0 ? ", +1 DICE from its LEADER" : "")}): {m.Check.Outcome}.",
         WarbandShaken w => $"{w.Seat} is Shaken.",
@@ -56,13 +56,16 @@ public static class EventText
         GameLengthRolled g => $"{g.Seat} rolls {g.Die} for the game's length: {(g.LastTurn == Rules.Core.Scenarios.TrenchWarfare.LengthRollTurn ? "the game ends now" : $"the game ends after Turn {g.LastTurn}")}.",
         MinesLaid l => $"{l.Seat} sets up {l.Markers.Length} Mine Markers; {Rules.Core.Geometry.Mines.Duds} of them are secret duds.",
         MineRevealed r => $"  {r.Model} halts by {r.Marker}: {(r.Live ? "a live mine" : "a dud")}.",
-        MineExploded x => $"  {x.Marker} explodes under {x.Model}: Injury Roll {x.Injury.Total}: {x.Injury.Outcome}{(x.Tough ? " (TOUGH: Down instead)" : "")}{(x.Negated ? ", and its NEGATE SHRAPNEL stops the extra Blood Marker." : ", and SHRAPNEL adds a Blood Marker.")}",
+        MineExploded x => $"  {x.Marker} explodes under {x.Model}: Injury Roll {x.Injury.Total}: {x.Injury.Outcome}{(x.Tough ? " (TOUGH: Down instead)" : "")}{(x.Negated ? ", and its NEGATE SHRAPNEL stops the extra Blood Marker." : ", and SHRAPNEL adds a Blood Marker.")}{(x.Warded ? Warded : "")}",
         MoveResumed m => m.Path.IsEmpty ? $"  {m.Model} carries on." : $"  {m.Model} carries on to {m.Path[^1]}.",
         MatchEnded m => $"MATCH ENDED: {(m.Winner is { } w ? $"{w} wins" : "draw")} ({m.Reason}).",
         _ => null,
     };
 
     // Every event as a line: the narrator's text, or for the events it leaves out, a short line of their own.
+    // Roster stage R5e (U109).
+    private const string Warded = " The Sacrificial Lamb's blood keeps off the first Blood Marker.";
+
     public static string Line(GameEvent e) => Describe(e) ?? e switch
     {
         DecisionRequested d => $"  {Words.Seat(d.Seat)} must decide: {Words.Decision(d.Kind)}.",

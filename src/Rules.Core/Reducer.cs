@@ -884,7 +884,8 @@ public static class Reducer
             && facts.AttackerLevel == e.AttackerLevel && facts.TargetLevel == e.TargetLevel && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
         Require(facts.IntoMelee == e.IntoMelee, "A target within 1\" of a friendly model needs the D6 that decides who is shot, and no other does.");
         // The declared facts with the weapon's keywords and the attacker's own dice (roster stages R1, R2).
-        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, e.InCover, e.Elevated, state.Setup.ProfileOf(e.Target));
+        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, e.InCover, e.Elevated, state.Setup.ProfileOf(e.Target),
+            Whispers(state, state.FindModel(e.Target)!));
         return state with
         {
             Actions = state.Actions | ActionsTaken.Shoot,
@@ -1070,8 +1071,9 @@ public static class Reducer
         // Roster stage R4a: SHRAPNEL, GAS and FIRE put extra BLOOD MARKERS on the target (U101).
         Require(e.ExtraMarkers == AttackDice.ExtraMarkers(profile, progress.Kind, state.Setup!.ProfileOf(e.Target)!), "The extra BLOOD MARKERS must be the weapon's SHRAPNEL, GAS and FIRE.");
         Require(e.Tough == ToughSaves(state, target, e.Injury.Outcome), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
-        var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.ResultMarkers + e.ExtraMarkers);
-        var hurt = Hurt(target, e.Result, markers, e.Tough);
+        Require(e.Warded == Wards(state, target, e.ResultMarkers + e.ExtraMarkers), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
+        var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.PlacedMarkers);
+        var hurt = Hurt(target, e.Result, markers, e.Tough) with { WardSpent = target.WardSpent || e.Warded };
         // A blast's next model (U102), once this one is rolled for.
         if (!progress.BlastQueue.IsDefaultOrEmpty)
         {
@@ -1086,6 +1088,18 @@ public static class Reducer
     // Roster stage R5b (U106): TOUGH turns the first Out of Action result a model suffers into a Down result (p. 57).
     internal static bool ToughSaves(MatchState state, ModelState model, InjuryOutcome outcome) =>
         outcome == InjuryOutcome.OutOfAction && !model.ToughSpent && state.Setup!.ProfileOf(model.Id)!.Traits.HasFlag(ModelTraits.Tough);
+
+    // Roster stage R5e (U109): a model with a sacrificed Lamb ignores the first BLOOD MARKER placed on it.
+    internal static bool Wards(MatchState state, ModelState model, int placed) =>
+        placed > 0 && !model.WardSpent && state.Setup!.ProfileOf(model.Id)!.WardedByBlood;
+
+    // Roster stage R5e (U109): -1 DICE to a Ranged Attack at a model that has the Urn of the Bitter Ashes or is within 3"
+    // of a model that has it (friend or enemy; a Down bearer too).
+    internal static bool Whispers(MatchState state, ModelState target) =>
+        Board.BodyOf(state, target) is { } body && state.Models.Any(m => m.Position is not null && state.Setup!.ProfileOf(m.Id)!.SinisterWhispers
+            && (m.Id == target.Id || Board.BodyOf(state, m) is { } urn && Measure.IsWithin(body, urn, UrnReach)));
+
+    private static readonly Length UrnReach = Length.FromInches(3);
 
     // The model after an Injury Roll's result, with its BLOOD MARKERS (and TOUGH spent when it saved the model).
     private static ModelState Hurt(ModelState model, InjuryOutcome result, int markers, bool tough) => result switch
@@ -1287,7 +1301,7 @@ public static class Reducer
         Require(victim is not null && Board.FriendsNear(state, shooter, intended).Any(m => m.Id == e.Victim), "The shot must be aimed at one of the shooter's own models within 1\" of the target.");
         var facts = Board.ForcedShotFacts(state, shooter, victim!, progress.Weapon);
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
-        var (bonus, penalty, later) = AttackDice.Shot(AttackProfile(state, progress), e.LongRange, e.InCover, e.Elevated, state.Setup!.ProfileOf(e.Victim));
+        var (bonus, penalty, later) = AttackDice.Shot(AttackProfile(state, progress), e.LongRange, e.InCover, e.Elevated, state.Setup!.ProfileOf(e.Victim), Whispers(state, victim!));
         return state with
         {
             Pending = null,
@@ -1426,8 +1440,9 @@ public static class Reducer
             "A mine's Injury Roll has no extra dice and no weapon modifier, only the model's armour.");
         Require(e.Negated == state.Setup!.ProfileOf(e.Model)!.Negates.HasFlag(WeaponKeywords.Shrapnel), "A mine adds its SHRAPNEL Blood Marker unless the model has NEGATE SHRAPNEL.");
         Require(e.Tough == ToughSaves(state, model, e.Injury.Outcome), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
-        var markers = Math.Min(BloodMarkers.Max, model.BloodMarkers + e.ResultMarkers + e.ExtraMarkers());
-        var hurt = Hurt(model, e.Result, markers, e.Tough);
+        Require(e.Warded == Wards(state, model, e.ResultMarkers + e.ExtraMarkers()), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
+        var markers = Math.Min(BloodMarkers.Max, model.BloodMarkers + e.PlacedMarkers);
+        var hurt = Hurt(model, e.Result, markers, e.Tough) with { WardSpent = model.WardSpent || e.Warded };
         // Taken Down or Out of Action: the move is over (and so is the activation, p. 49). Otherwise it carries on.
         return TurnRules.WithModel(state, hurt) with
         {

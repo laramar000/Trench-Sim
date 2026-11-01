@@ -59,6 +59,8 @@ public static class Content
                         ClimbDice = Dice(m, "climbDice"),
                         Fanfare = m.TryGetProperty("fanfare", out var fanfare) && fanfare.GetBoolean(),
                         BlendsIn = m.TryGetProperty("blendsIn", out var blends) && blends.GetBoolean(),
+                        SinisterWhispers = m.TryGetProperty("sinisterWhispers", out var whispers) && whispers.GetBoolean(),
+                        WardedByBlood = m.TryGetProperty("wardedByBlood", out var warded) && warded.GetBoolean(),
                     }));
             }
             warbands.Add(new Warband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));

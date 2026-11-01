@@ -438,6 +438,38 @@ public class MatchReadinessTests
         }
     }
 
+    // Roster stage R5e (U109): the Urn of the Bitter Ashes and the Sacrificial Lamb.
+    [Fact]
+    public void UrnAndLambArePlayed()
+    {
+        var procession = RosterBuilder.Shipped();
+        procession.ChooseFaction("cult");
+        procession.ChooseVariant("mourning-procession");
+        procession.Select(procession.Add("executor"));
+        procession.AddKit("standard-armour");
+        procession.AddKit("urn-of-the-bitter-ashes");
+        var urn = procession.MatchCheck();
+        Assert.Empty(urn.Refused);
+        Assert.DoesNotContain(urn.PlayedWithout, w => w.Contains("Urn", StringComparison.Ordinal));
+        Assert.True(Loaded(urn).SinisterWhispers);
+        Assert.Contains("\"sinisterWhispers\": true", urn.ToContentJson("p", "P"), StringComparison.Ordinal);
+
+        var cavalcade = RosterBuilder.Shipped();
+        cavalcade.ChooseFaction("pilgrims");
+        cavalcade.ChooseVariant("lambsblood-cavalcade");
+        cavalcade.Select(cavalcade.Add("trench-pilgrim"));
+        cavalcade.AddKit("sacrificial-lamb");
+        Assert.DoesNotContain(cavalcade.Check().Problems, p => p.Contains("Sacrificial Lamb", StringComparison.Ordinal));
+        var lamb = cavalcade.MatchCheck();
+        Assert.Empty(lamb.Refused);
+        Assert.DoesNotContain(lamb.PlayedWithout, w => w.Contains("Sacrificial Lamb", StringComparison.Ordinal));
+        Assert.True(Loaded(lamb).WardedByBlood);
+
+        var plain = Of("pilgrims", "trench-pilgrim").MatchCheck().ToContentJson("p", "P");
+        Assert.DoesNotContain("sinisterWhispers", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("wardedByBlood", plain, StringComparison.Ordinal);
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

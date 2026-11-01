@@ -239,6 +239,13 @@ public sealed record InjuryRolled : GameEvent
     public InjuryOutcome Result => Tough ? InjuryOutcome.Down : Injury.Outcome;
 
     public int ResultMarkers => InjuryRoll.BloodMarkersFor(Result, Injury.TargetAlreadyDown);
+
+    // Roster stage R5e (U109): the Sacrificial Lamb's blood kept off the first BLOOD MARKER placed on the model; left out
+    // when false.
+    public bool Warded { get; init; }
+
+    // The BLOOD MARKERS placed on the target: the result's and the weapon's, less the one the Lamb's blood kept off.
+    public int PlacedMarkers => ResultMarkers + ExtraMarkers - (Warded ? 1 : 0);
 }
 
 public sealed record ObjectiveResult(string ObjectiveId, Seat? Controller, int Points);

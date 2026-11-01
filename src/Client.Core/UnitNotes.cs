@@ -30,7 +30,7 @@ public static class UnitNotes
             RangedSuccessRolled r => [Hit(r.Attacker, r.Check)],
             PointSuccessRolled r => [Hit(r.Attacker, r.Check)],
             MeleeSuccessRolled m => [Hit(m.Attacker, m.Check)],
-            InjuryRolled i => [Injury(i.Target, i.Result, i.ResultMarkers, i.ExtraMarkers, i.Tough)],
+            InjuryRolled i => [Injury(i.Target, i.Result, i.PlacedMarkers, i.Tough)],
             MarkersSpent { Count: > 0 } m => [new(m.Model, $"{m.Count} BLOOD SPENT", NoteTone.Info)],
             ChargeRolled c => [new(c.Model, $"CHARGE +{c.Die}\"", NoteTone.Info)],
             ChargeMoved { Reached: false } c => [new(c.Model, "CHARGE FAILED", NoteTone.Failure)],
@@ -50,16 +50,16 @@ public static class UnitNotes
         _ => new(attacker, "HIT", NoteTone.Success),
     };
 
-    // Roster stage R4a: extra are the BLOOD MARKERS SHRAPNEL, GAS and FIRE add, even on No Effect.
+    // Roster stage R4a: placed counts the BLOOD MARKERS SHRAPNEL, GAS and FIRE add, even on No Effect.
     // Roster stage R5b: TOUGH turns the first Out of Action into Down (U106).
-    private static UnitNote Injury(ModelId target, InjuryOutcome outcome, int markers, int extra, bool tough)
+    // Roster stage R5e: placed, the BLOOD MARKERS placed (a Sacrificial Lamb keeps the first off, U109).
+    private static UnitNote Injury(ModelId target, InjuryOutcome outcome, int placed, bool tough)
     {
-        var count = markers + extra;
-        var blood = count > 0 ? $" +{count} BLOOD" : "";
+        var blood = placed > 0 ? $" +{placed} BLOOD" : "";
         return outcome switch
         {
             InjuryOutcome.Down when tough => new(target, "TOUGH: DOWN" + blood, NoteTone.Damage),
-            InjuryOutcome.NoEffect => new(target, "NO EFFECT" + blood, extra > 0 ? NoteTone.Damage : NoteTone.Info),
+            InjuryOutcome.NoEffect => new(target, "NO EFFECT" + blood, placed > 0 ? NoteTone.Damage : NoteTone.Info),
             InjuryOutcome.MinorHit => new(target, "MINOR HIT" + blood, NoteTone.Damage),
             InjuryOutcome.Down => new(target, "DOWN" + blood, NoteTone.Damage),
             _ => new(target, "OUT OF ACTION", NoteTone.Damage),

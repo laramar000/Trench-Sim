@@ -343,6 +343,15 @@ public static class UnitPanel
         {
             parts.Add("Cover -2 DICE against it");
         }
+        // Roster stage R5e (U109).
+        if (p.SinisterWhispers)
+        {
+            parts.Add("shots at it or within 3\" -1 DICE");
+        }
+        if (p.WardedByBlood)
+        {
+            parts.Add("first BLOOD MARKER ignored");
+        }
         // Roster stage R5b (U106): the model keywords the engine plays.
         foreach (var (trait, words) in new[] { (ModelTraits.Fear, "FEAR"), (ModelTraits.NegateFear, "NEGATE FEAR"), (ModelTraits.Tough, "TOUGH"), (ModelTraits.NegateHeavy, "NEGATE HEAVY"), (ModelTraits.Leader, "LEADER") })
         {

@@ -147,8 +147,10 @@ public static class DiceRolls
         var word = InjuryWord(i.Result).ToUpperInvariant() + (i.Tough ? " (TOUGH, rolled Out of Action)" : "");
         var sum = injury.Modifier == 0 ? "" : $" ({injury.Dice.Total}{injury.Modifier:+0;-0})";
         // Roster stage R4a: with the extra markers of SHRAPNEL, GAS and FIRE (U101).
-        var count = i.ResultMarkers + i.ExtraMarkers;
-        var blood = count > 0 ? $", +{count} Blood Marker{(count == 1 ? "" : "s")}{(i.ExtraMarkers > 0 ? $" ({i.ExtraMarkers} from SHRAPNEL, GAS or FIRE)" : "")}" : "";
+        // Roster stage R5e (U109): less the first one, which a Sacrificial Lamb's blood keeps off.
+        var count = i.PlacedMarkers;
+        var blood = (count > 0 ? $", +{count} Blood Marker{(count == 1 ? "" : "s")}{(i.ExtraMarkers > 0 ? $" ({i.ExtraMarkers} from SHRAPNEL, GAS or FIRE)" : "")}" : "")
+            + (i.Warded ? ", 1 Blood Marker kept off (Sacrificial Lamb)" : "");
         var verdict = i.Result is InjuryOutcome.Down or InjuryOutcome.OutOfAction ? RollVerdict.Pass : RollVerdict.Neutral;
         var mark = verdict == RollVerdict.Pass ? "✓" : "•";
         var modifier = injury.Modifier == 0 ? "" : $", modifier {injury.Modifier:+0;-0}";

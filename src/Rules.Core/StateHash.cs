@@ -143,7 +143,7 @@ public static class StateHash
                 $"deployed={Bool(m.Deployed)}",
                 $"activated={Bool(m.ActivatedThisTurn)}",
                 $"at={(m.Position is { } at ? Point(at) : "-")}",
-                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : ""));
+                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : ""));
         }
         return sb.ToString();
     }
@@ -218,7 +218,10 @@ public static class StateHash
             + (p.KeepsGoingAfterRisky ? ",keepsGoing=yes" : "")
             + (p.ClimbDice == 0 ? "" : $",climbDice={p.ClimbDice}")
             + (p.Fanfare ? ",fanfare=yes" : "")
-            + (p.BlendsIn ? ",blendsIn=yes" : "");
+            + (p.BlendsIn ? ",blendsIn=yes" : "")
+            // Roster stage R5e: the Urn's aura and the Lamb's ward, only when present.
+            + (p.SinisterWhispers ? ",whispers=yes" : "")
+            + (p.WardedByBlood ? ",warded=yes" : "");
     }
 
     private static string WeaponText(Weapon w) =>
