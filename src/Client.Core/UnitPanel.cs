@@ -317,6 +317,14 @@ public static class UnitPanel
         {
             parts.Add($"IMPERVIOUS Armour {p.ImperviousArmour}");
         }
+        // Roster stage R5b (U106): the model keywords the engine plays.
+        foreach (var (trait, words) in new[] { (ModelTraits.Fear, "FEAR"), (ModelTraits.NegateFear, "NEGATE FEAR"), (ModelTraits.Tough, "TOUGH"), (ModelTraits.NegateHeavy, "NEGATE HEAVY"), (ModelTraits.Leader, "LEADER") })
+        {
+            if (p.Traits.HasFlag(trait))
+            {
+                parts.Add(words);
+            }
+        }
         return string.Concat(parts.Select(x => $" · {x}"));
     }
 

@@ -17,6 +17,10 @@ public static class AttackDice
     // for an Off-Hand weapon (p. 45) and for BLOCK after a charge (p. 53).
     public static int FightPenalty(bool defendedObstacle) => defendedObstacle ? 1 : 0;
 
+    // Roster stage R5b (U106): FEAR gives -1 DICE to a Melee Attack that targets the model, unless the attacker has FEAR
+    // or NEGATE FEAR (pp. 54, 56).
+    public static bool Fears(ModelProfile attacker, ModelProfile target) => target.Traits.HasFlag(ModelTraits.Fear) && !attacker.IgnoresFear;
+
     // Injury Roll: +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
     public static int InjuryBonus(bool critical, bool meleeOnDownTarget) => (critical ? 1 : 0) + (meleeOnDownTarget ? 1 : 0);
 

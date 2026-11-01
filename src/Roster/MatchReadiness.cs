@@ -6,7 +6,7 @@ namespace Roster;
 // profile holds Movement, a round base, one ranged weapon (range, injury modifier, "/Melee"), Armour and one Melee
 // Weapon (injury modifier); nothing else (Rules.Core ModelProfile). So:
 // - Refused, by name: what the engine cannot hold at all (an oval base, a third ranged or melee weapon, a second type of
-//   grenade, equipment with more than NEGATE keywords, and other special battlekit). The match is not created while
+//   grenade, equipment whose own rule the engine does not play, and other special battlekit). The match is not created while
 //   anything is refused (Jason 2026-10-30, decision 2: the builder allows it, match creation refuses it by name).
 // - Played without, by name: what the engine leaves out of a piece or model it does play (weapon keywords, the model's
 //   keywords, abilities and upgrades). Shown to both players before the match.
@@ -18,6 +18,9 @@ namespace Roster;
 // played, and so is NEGATE SHRAPNEL, GAS or FIRE (and DEMONIC, which is NEGATE FIRE, p. 54) from the model's keywords and
 // its battlekit. Equipment is played when all it has is NEGATE keywords; a piece's own rule is named.
 // Roster stage R4b (U102): BLAST (X") travels as the weapon's blast radius; R4c: SCATTER is played.
+// Roster stage R5b (U106): the model keywords FEAR, NEGATE FEAR, TOUGH, STRONG (NEGATE HEAVY), NEGATE HEAVY and LEADER are
+// played from the model's keywords and its battlekit, and so is the equipment in PlayedEquipment (its own rule as dice or
+// a keyword). A CONSUMABLE piece the model may use when first deployed is always used in a match.
 // The result is written in the warband content format the server's scenarios load (content/test-warbands.json).
 public sealed record ReadyModel(
     string Name,
@@ -56,6 +59,10 @@ public sealed record ReadyModel(
 
     // Roster stage R4b: BLAST (X") of the ranged weapon, in inches (0: none).
     public int RangedWeaponBlast { get; init; }
+
+    // Roster stage R5b: the model keywords the engine plays, by its names (Rules.Core ModelTraits: Fear, NegateFear,
+    // Tough, NegateHeavy, Leader).
+    public IReadOnlyList<string> Traits { get; init; } = [];
 }
 
 // Roster stage R3: a second weapon, as Rules.Core Weapon holds it (RangeInches 0 for a Melee Weapon).
@@ -109,7 +116,7 @@ public sealed record MatchReady(
                     {
                         w.WriteBoolean("rangedAlsoMelee", true);
                     }
-                    foreach (var (field, words) in new[] { ("rangedWeaponKeywords", m.RangedWeaponKeywords), ("meleeWeaponKeywords", m.MeleeWeaponKeywords), ("negates", m.Negates) })
+                    foreach (var (field, words) in new[] { ("rangedWeaponKeywords", m.RangedWeaponKeywords), ("meleeWeaponKeywords", m.MeleeWeaponKeywords), ("negates", m.Negates), ("traits", m.Traits) })
                     {
                         if (words.Count > 0)
                         {
@@ -219,7 +226,11 @@ public static class MatchReadiness
                 refused.Add($"{who}: its base or Movement is beyond what the engine allows");
             }
             var negates = new HashSet<string>(StringComparer.Ordinal);
-            var unplayed = entry.Keywords.Where(k => !AddNegate(k, negates)).ToList();
+            var traits = new HashSet<string>(StringComparer.Ordinal);
+            var gains = new Gains(negates, traits);
+            var unplayed = entry.Keywords.Where(k => !Gain(k, gains)).ToList();
+            var rangedBonus = 0;
+            var meleeBonus = 0;
             if (unplayed.Count > 0)
             {
                 without.Add($"{who}: its keywords ({string.Join(", ", unplayed.Select(KeywordText))})");
@@ -267,7 +278,7 @@ public static class MatchReadiness
                         {
                             impervious += piece.InjuryModifier;
                         }
-                        Without(who, piece, without, diceToo: true, negates);
+                        Without(who, piece, without, diceToo: true, gains);
                         break;
                     case KitCategory.Grenade when grenade is null && piece.RangeInches is { } throwRange && throwRange <= MaxRangeInches:
                         grenade = piece;
@@ -279,8 +290,22 @@ public static class MatchReadiness
                     case KitCategory.Grenade:
                         refused.Add($"{who}: {piece.Name} (its range is beyond what the engine allows)");
                         break;
-                    case KitCategory.Equipment when piece.Rule is null && piece.Keywords.Count > 0 && piece.Keywords.All(k => k.Id == "NEGATE"):
-                        Without(who, piece, without, diceToo: true, negates);
+                    case KitCategory.Equipment when PlayedEquipment.TryGetValue(piece.Id, out var played):
+                        Without(who, piece, without, diceToo: true, gains, ruleToo: false);
+                        if (played.NotFor is { } notFor && entry.Keywords.Any(k => k.Id == notFor))
+                        {
+                            without.Add($"{who}: {piece.Name} (no effect on an {notFor} model, p. {piece.Rule?.Page})");
+                            break;
+                        }
+                        rangedBonus += played.RangedDice;
+                        meleeBonus += played.MeleeDice;
+                        if (played.Trait is { } trait)
+                        {
+                            traits.Add(trait);
+                        }
+                        break;
+                    case KitCategory.Equipment when piece.Rule is null && piece.Keywords.Count > 0 && piece.Keywords.All(k => Gain(k, new Gains([], []))):
+                        Without(who, piece, without, diceToo: true, gains);
                         break;
                     default:
                         refused.Add($"{who}: {piece.Name} (the engine has no {Words(piece.Category)} yet)");
@@ -324,8 +349,8 @@ public static class MatchReadiness
                 ranged?.RangeInches ?? 0, Clamp(ranged?.InjuryModifier ?? 0), ranged?.AlsoMelee == true,
                 armour, melee is not null, Clamp(melee?.InjuryModifier ?? 0))
             {
-                RangedDice = Dice(entry.Ranged ?? 0, who, "Ranged", without),
-                MeleeDice = Dice(entry.Melee ?? 0, who, "Melee", without),
+                RangedDice = Dice(entry.Ranged is { } r ? r + rangedBonus : 0, who, "Ranged", without),
+                MeleeDice = Dice(entry.Melee is { } me ? me + meleeBonus : 0, who, "Melee", without),
                 RangedWeaponDice = Dice(ranged?.Dice ?? 0, who, $"{ranged?.Name}'s DICE", without),
                 RangedWeaponInjuryDice = Dice(ranged?.InjuryDice ?? 0, who, $"{ranged?.Name}'s INJURY DICE", without),
                 MeleeWeaponDice = Dice(melee?.Dice ?? 0, who, $"{melee?.Name}'s DICE", without),
@@ -339,6 +364,7 @@ public static class MatchReadiness
                 SecondMeleeWeapon = offHand is null || entry.Melee is null || (melee is null && ranged?.AlsoMelee != true) ? null : Ready(offHand, ranged: false, who, without),
                 Grenade = grenade is null ? null : Ready(grenade, ranged: true, who, without),
                 Negates = [.. NegateNames.Where(n => negates.Contains(n.Key)).Select(n => n.Value)],
+                Traits = [.. TraitNames.Where(traits.Contains)],
             });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
@@ -444,6 +470,57 @@ public static class MatchReadiness
         return true;
     }
 
+    // Roster stage R5b (U106): the model keywords the engine plays, by the book's word (NEGATE's value for NEGATE), with the
+    // engine's name. STRONG is NEGATE HEAVY in a match (its two-handed weapon part is the builder's, p. 57).
+    private static readonly Dictionary<string, string> TraitKeywords = new(StringComparer.Ordinal)
+    {
+        ["FEAR"] = "Fear",
+        ["NEGATE FEAR"] = "NegateFear",
+        ["TOUGH"] = "Tough",
+        ["STRONG"] = "NegateHeavy",
+        ["NEGATE HEAVY"] = "NegateHeavy",
+        ["LEADER"] = "Leader",
+    };
+
+    // The engine's trait names in its order (Rules.Core ModelTraits).
+    private static readonly string[] TraitNames = ["Fear", "NegateFear", "Tough", "NegateHeavy", "Leader"];
+
+    // What a model takes from its keywords and battlekit: NEGATE values and traits.
+    private sealed record Gains(HashSet<string> Negates, HashSet<string> Traits);
+
+    // A keyword the engine plays on the model: a played NEGATE, a trait, or HELD and CONSUMABLE (HELD's one hand is the
+    // builder's, p. 55; CONSUMABLE matters only in a campaign, p. 53). Adds it and says so.
+    private static bool Gain(KeywordUse k, Gains gains)
+    {
+        if (AddNegate(k, gains.Negates))
+        {
+            return true;
+        }
+        if (TraitKeywords.TryGetValue(k.Id == "NEGATE" ? $"NEGATE {k.Text}" : k.Id, out var trait))
+        {
+            gains.Traits.Add(trait);
+            return true;
+        }
+        return k.Id is "HELD" or "CONSUMABLE";
+    }
+
+    // Roster stage R5b (U106): equipment whose own rule the engine plays, by catalogue id: dice added to the model's
+    // Ranged or Melee Characteristic, or a keyword it gains (NotFor: a keyword whose models it does nothing for). Its
+    // keywords are played as above.
+    private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null);
+
+    private static readonly Dictionary<string, PlayedPiece> PlayedEquipment = new(StringComparer.Ordinal)
+    {
+        ["unholy-relic"] = new(),
+        ["troop-flag"] = new(),
+        ["iron-capirote"] = new(),
+        ["anfarro"] = new(MeleeDice: 1),
+        ["sacred-geometry"] = new(RangedDice: 1),
+        ["compound-eyes-helmet"] = new(RangedDice: 1),
+        ["elixir-of-life"] = new(Trait: "Tough", NotFor: "ARTIFICIAL"),
+        ["assassins-leaf"] = new(Trait: "NegateHeavy"),
+    };
+
     private static string KeywordText(KeywordUse k) => k.Id == "NEGATE" && k.Text is { } what ? $"NEGATE {what}" : k.Id;
 
     // Roster stage R3: the keywords of armour and shields the engine plays.
@@ -460,10 +537,11 @@ public static class MatchReadiness
     // played; armour and shields play only their injury modifier, so their dice are named too).
     // Roster stage R4a: armour, shields and equipment play their NEGATE SHRAPNEL, GAS or FIRE (into negates), and every
     // played piece's own rule is named.
-    private static void Without(string who, CatalogueEntry piece, List<string> without, bool diceToo = false, HashSet<string>? negates = null)
+    // Roster stage R5b: and their played model keywords (into gains); a piece in PlayedEquipment plays its rule too.
+    private static void Without(string who, CatalogueEntry piece, List<string> without, bool diceToo = false, Gains? gains = null, bool ruleToo = true)
     {
         var parts = piece.Keywords
-            .Where(k => diceToo ? !PlayedArmourKeywords.Contains(k.Id) && !(negates is not null && AddNegate(k, negates)) : !IsPlayed(k))
+            .Where(k => diceToo ? !PlayedArmourKeywords.Contains(k.Id) && !(gains is not null && Gain(k, gains)) : !IsPlayed(k))
             .Select(k => k.Id == "NEGATE" ? KeywordText(k) : KeywordName(k)).ToList();
         if (diceToo && piece.Dice != 0)
         {
@@ -477,7 +555,7 @@ public static class MatchReadiness
         {
             without.Add($"{who}: {piece.Name}'s {string.Join(", ", parts)}");
         }
-        if (piece.Rule is { } rule)
+        if (ruleToo && piece.Rule is { } rule)
         {
             without.Add($"{who}: {piece.Name}'s own rule (p. {rule.Page})");
         }

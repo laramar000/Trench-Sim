@@ -181,6 +181,27 @@ public class MineTests
     }
 
     [Fact]
+    [Trait("Rule", "TOUGH p. 57 (U106): a mine's first Out of Action result on a TOUGH model is Down instead; a forged claim is refused")]
+    public void AToughModelSurvivesItsFirstMine()
+    {
+        var tough = new ModelProfile(L("6"), L("0.5"), L("18")) { Traits = ModelTraits.Tough };
+        var play = Active(Play(Mine1IsLive, 1, _ => tough), A(1), "14", "25");
+        var before = play.State;
+        var result = play.Do(new MoveModel(Seat.One, A(1), Path(("20", "25"))), 5, 5);
+        var exploded = result.Events.OfType<MineExploded>().Single();
+        Assert.Equal((InjuryOutcome.OutOfAction, true, InjuryOutcome.Down), (exploded.Injury.Outcome, exploded.Tough, exploded.Result));
+        Assert.Equal((ModelStatus.Down, true, 2), (play.M(A(1)).Status, play.M(A(1)).ToughSpent, play.M(A(1)).BloodMarkers)); // Down 1, SHRAPNEL 1
+        Assert.IsType<ActivationEnded>(result.Events[^1]);
+
+        var state = before;
+        foreach (var e in TurnSequence.Decide(before, new MoveModel(Seat.One, A(1), Path(("20", "25"))), new FixedDice([5, 5])).Events.TakeWhile(e => e is not MineExploded))
+        {
+            state = Reducer.Apply(state, e);
+        }
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(state, exploded with { Tough = false }));
+    }
+
+    [Fact]
     [Trait("Rule", "Slaughter Mines p. 162: a model taken Down stops where it halted, and its activation ends (p. 49)")]
     public void AModelTakenDownStopsWhereItHalted()
     {

@@ -229,6 +229,16 @@ public sealed record InjuryRolled : GameEvent
     public int ExtraMarkers { get => _extra; init => _extra = value is >= 0 and <= 3 ? value : throw new ArgumentOutOfRangeException(nameof(ExtraMarkers), "SHRAPNEL, GAS and FIRE put 0 to 3 extra markers."); }
 
     private readonly int _extra;
+
+    // Roster stage R5b (U106): TOUGH turned this Out of Action result into a Down result (p. 57); left out when false.
+    public bool Tough { get => _tough; init => _tough = value && Injury.Outcome != InjuryOutcome.OutOfAction ? throw new ArgumentException("TOUGH turns only an Out of Action result into Down.", nameof(Tough)) : value; }
+
+    private readonly bool _tough;
+
+    // The result the model takes, and the BLOOD MARKERS it gives (TOUGH's Down instead of Out of Action).
+    public InjuryOutcome Result => Tough ? InjuryOutcome.Down : Injury.Outcome;
+
+    public int ResultMarkers => InjuryRoll.BloodMarkersFor(Result, Injury.TargetAlreadyDown);
 }
 
 public sealed record ObjectiveResult(string ObjectiveId, Seat? Controller, int Points);
@@ -361,9 +371,13 @@ public sealed record MeleeAttackDeclared : GameEvent
 
     public bool Block { get; init; }
 
+    // Roster stage R5b (U106): the target has FEAR and the attacker neither FEAR nor NEGATE FEAR, -1 DICE (p. 54). Left
+    // off the wire when false.
+    public bool Fear { get; init; }
+
     private readonly int _weapon;
 
-    public int PenaltyDice => AttackDice.FightPenalty(DefendedObstacleId is not null) + AttackDice.FightPenalty(OffHand) + AttackDice.FightPenalty(Block);
+    public int PenaltyDice => AttackDice.FightPenalty(DefendedObstacleId is not null) + AttackDice.FightPenalty(OffHand) + AttackDice.FightPenalty(Block) + AttackDice.FightPenalty(Fear);
 }
 
 public sealed record MeleeSuccessRolled : GameEvent

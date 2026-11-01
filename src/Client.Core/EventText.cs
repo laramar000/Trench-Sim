@@ -43,9 +43,9 @@ public static class EventText
         ScatterMissed s => $"  The attack would scatter {s.Inches}\" but has nowhere to land: it misses.",
         MarkersSpent m => m.Count == 0 ? $"  {m.Spender} spends no Blood Markers." : $"  {m.Spender} spends {m.Count} Blood Marker(s) from {m.Model}.",
         RangedSuccessRolled r => $"  Success Roll {r.Check.Dice.Total} ({r.Check.NetDice:+0;-0;0} dice): {r.Check.Outcome}.",
-        InjuryRolled i => $"  Injury Roll on {i.Target}: {i.Injury.Total} ({i.Injury.NetDice:+0;-0;0} injury dice): {i.Injury.Outcome}.",
+        InjuryRolled i => $"  Injury Roll on {i.Target}: {i.Injury.Total} ({i.Injury.NetDice:+0;-0;0} injury dice): {i.Injury.Outcome}.{(i.Tough ? " TOUGH: Down instead." : "")}",
         ActivationEnded a => $"  {a.Model} ends its activation ({a.Reason}).",
-        MoraleCheckRolled m => $"{m.Seat} Morale Check ({m.ModelsDownOrOut} of {m.WarbandSize} down or out): {m.Check.Outcome}.",
+        MoraleCheckRolled m => $"{m.Seat} Morale Check ({m.ModelsDownOrOut} of {m.WarbandSize} down or out{(m.Check.NetDice > 0 ? ", +1 DICE from its LEADER" : "")}): {m.Check.Outcome}.",
         WarbandShaken w => $"{w.Seat} is Shaken.",
         WarbandRecovered w => $"{w.Seat} recovers.",
         WarbandFled w => $"{w.Seat} flees ({w.Reason}).",
@@ -56,7 +56,7 @@ public static class EventText
         GameLengthRolled g => $"{g.Seat} rolls {g.Die} for the game's length: {(g.LastTurn == Rules.Core.Scenarios.TrenchWarfare.LengthRollTurn ? "the game ends now" : $"the game ends after Turn {g.LastTurn}")}.",
         MinesLaid l => $"{l.Seat} sets up {l.Markers.Length} Mine Markers; {Rules.Core.Geometry.Mines.Duds} of them are secret duds.",
         MineRevealed r => $"  {r.Model} halts by {r.Marker}: {(r.Live ? "a live mine" : "a dud")}.",
-        MineExploded x => $"  {x.Marker} explodes under {x.Model}: Injury Roll {x.Injury.Total}: {x.Injury.Outcome}{(x.Negated ? ", and its NEGATE SHRAPNEL stops the extra Blood Marker." : ", and SHRAPNEL adds a Blood Marker.")}",
+        MineExploded x => $"  {x.Marker} explodes under {x.Model}: Injury Roll {x.Injury.Total}: {x.Injury.Outcome}{(x.Tough ? " (TOUGH: Down instead)" : "")}{(x.Negated ? ", and its NEGATE SHRAPNEL stops the extra Blood Marker." : ", and SHRAPNEL adds a Blood Marker.")}",
         MoveResumed m => m.Path.IsEmpty ? $"  {m.Model} carries on." : $"  {m.Model} carries on to {m.Path[^1]}.",
         MatchEnded m => $"MATCH ENDED: {(m.Winner is { } w ? $"{w} wins" : "draw")} ({m.Reason}).",
         _ => null,
@@ -106,18 +106,18 @@ public static class EventText
         AttackScattered s => new(Id(s.Attacker), "SCATTERS", $"{s.Inches}\" to {At(s.At)}: {(s.Hit.IsEmpty ? "hits nobody" : "hits " + string.Join(", ", s.Hit.Select(Id)))}"),
         ScatterMissed s => new(Id(s.Attacker), "MISSES", $"nowhere to scatter {s.Inches}\""),
         MineRevealed r => new(Id(r.Model), "HALTS", $"by {r.Marker}: {(r.Live ? "LIVE MINE" : "a dud")}"),
-        MineExploded x => x.Injury.Outcome switch
+        MineExploded x => x.Result switch
         {
             InjuryOutcome.OutOfAction => new(Id(x.Model), "BLOWN UP", $"by {x.Marker} (Out of Action)"),
-            InjuryOutcome.Down => new(Id(x.Model), "BLOWN DOWN", $"by {x.Marker}"),
+            InjuryOutcome.Down => new(Id(x.Model), "BLOWN DOWN", $"by {x.Marker}{(x.Tough ? " (TOUGH)" : "")}"),
             InjuryOutcome.MinorHit => new(Id(x.Model), "HIT", $"by {x.Marker} (Minor Hit{(x.Negated ? "" : ", +1 SHRAPNEL")})"),
             _ => new(Id(x.Model), "HIT", $"by {x.Marker} (No Effect{(x.Negated ? ", NEGATE SHRAPNEL" : ", +1 SHRAPNEL")})"),
         },
         MoveResumed m => new(Id(m.Model), "CARRIES ON", m.Path.IsEmpty ? "" : $"→ {At(m.Path[^1])}"),
-        InjuryRolled i => i.Injury.Outcome switch
+        InjuryRolled i => i.Result switch
         {
             InjuryOutcome.OutOfAction => new(Id(i.Attacker), "KILLS", $"{Id(i.Target)} (Out of Action)"),
-            InjuryOutcome.Down => new(Id(i.Attacker), "DOWNS", Id(i.Target)),
+            InjuryOutcome.Down => new(Id(i.Attacker), "DOWNS", $"{Id(i.Target)}{(i.Tough ? " (TOUGH)" : "")}"),
             InjuryOutcome.MinorHit => new(Id(i.Attacker), "HITS", $"{Id(i.Target)} (Minor Hit)"),
             _ => new(Id(i.Attacker), "HITS", $"{Id(i.Target)} (No Effect)"),
         },
@@ -136,7 +136,7 @@ public static class EventText
         PointSuccessRolled r => Of(r.Check),
         MeleeSuccessRolled m => Of(m.Check),
         MoraleCheckRolled m => Of(m.Check),
-        InjuryRolled i => i.Injury.Outcome switch
+        InjuryRolled i => i.Result switch
         {
             InjuryOutcome.OutOfAction or InjuryOutcome.Down => RowOutcome.Success,
             InjuryOutcome.MinorHit => RowOutcome.None,

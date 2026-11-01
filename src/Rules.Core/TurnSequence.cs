@@ -620,8 +620,9 @@ public static partial class TurnSequence
 
         var seat = remaining.Count == 2 ? s.MoraleFirst!.Value : remaining[0];
         var wasShaken = s.SeatFor(seat).Shaken;
-        // Provisional rule R3: a Morale Check is a plain Success Roll with no modifiers (pp. 21, 50).
-        var check = SuccessRoll.Roll(dice);
+        // Provisional rule R3: a Morale Check is a plain Success Roll (pp. 21, 50); the only modifier is LEADER's +1 DICE
+        // (p. 55, U106).
+        var check = SuccessRoll.Roll(dice, TurnRules.LeaderDice(s, seat));
         run.Emit(new MoraleCheckRolled(seat, check, TurnRules.DownOrOut(s, seat), TurnRules.WarbandSize(s, seat), wasShaken));
         if (check.Outcome != SuccessOutcome.Failure)
         {

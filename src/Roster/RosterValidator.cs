@@ -278,6 +278,18 @@ public static class RosterValidator
                     problems.Add($"{who}: cannot carry {two.Kit.Name} with {shield.Kit.Name}; both need Shield Combo");
         }
 
+        // HELD p. 55: the piece needs one hand and cannot be put down, so the model may carry either one 1-handed weapon
+        // or a shield (grenades still allowed); a STRONG model's eased weapon counts as 1-handed (p. 57). A many-armed
+        // model gives it one arm (CheckArms).
+        var heldKit = carried.Where(c => Has(c.Kit, "HELD")).ToList();
+        if (heldKit.Count > 0 && arms is null)
+        {
+            var inHand = ranged.Count + melee.Count + carried.Count(c => c.Kit.Category == KitCategory.Shield);
+            var free = Math.Max(0, 2 - heldKit.Count);
+            if (inHand > Math.Min(free, 1) || ranged.Any(c => c.Kit.Hands == 2) || meleeHands.Any(h => h == 2))
+                problems.Add($"{who}: with {string.Join(" and ", heldKit.Select(c => c.Kit.Name))} (HELD) it can carry only one 1-handed weapon or a shield");
+        }
+
         var needsLug = carried.Where(c => c.From?.Stipulations.Contains(Stipulation.NeedsBayonetLug) == true).ToList();
         if (needsLug.Count > 0 && !carried.Any(c => c.From?.Stipulations.Contains(Stipulation.BayonetLug) == true))
             problems.Add($"{who}: {needsLug[0].Kit.Name} needs a ranged weapon with a Bayonet Lug");
@@ -293,7 +305,9 @@ public static class RosterValidator
     {
         var held = carried.Where(c => c.Kit.Category is KitCategory.Ranged or KitCategory.Melee or KitCategory.Shield).ToList();
         var heavyLeft = arms.HeavyAsOneHanded;
-        var used = 0;
+        // HELD battlekit takes one arm (p. 55).
+        var heldKit = carried.Count(c => c.Kit.Keywords.Any(k => k.Id == "HELD"));
+        var used = heldKit;
         foreach (var (kit, _, _) in held)
         {
             if (kit.Category == KitCategory.Shield || kit.Hands != 2)
@@ -307,7 +321,7 @@ public static class RosterValidator
                 used += arms.TwoHandedArms;
         }
         if (used > arms.Count)
-            problems.Add($"{who}: has {arms.Count} arms, and its weapons{(held.Any(c => c.Kit.Category == KitCategory.Shield) ? " and shield" : "")} need {used}");
+            problems.Add($"{who}: has {arms.Count} arms, and its weapons{(held.Any(c => c.Kit.Category == KitCategory.Shield) ? " and shield" : "")}{(heldKit > 0 ? " and HELD kit" : "")} need {used}");
         var twoHanded = held.Count(c => c.Kit.Category != KitCategory.Shield && c.Kit.Hands == 2);
         if (arms.MaxTwoHanded is { } maxTwo && twoHanded > maxTwo)
             problems.Add($"{who}: can carry at most {maxTwo} 2-handed weapon{(maxTwo == 1 ? "" : "s")} (it has {twoHanded})");

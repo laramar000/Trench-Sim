@@ -100,7 +100,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   `AttackScattered`, `ScatterMissed`, `Geometry.Blast`). That finishes Jason's "1 2 and 3" ask. **2026-11-01 Jason: "1 2 and 3 no mistakes" =
   R5 equipment, R6 unit abilities and the blast leftovers.** R5a done: DEADLY (U104, Injury Roll keeps 3 dice) and BLAST
   at a point (U105: `ShootPoint`, `PointAttackDeclared`/`PointSuccessRolled`/`PointBlastHit`, Combat menu keys 7/8/9,
-  scatter click anywhere, `Interaction.ScatterAt`).
+  scatter click anywhere, `Interaction.ScatterAt`). R5b done: model traits (U106: `ModelTraits` FEAR, NEGATE FEAR, TOUGH,
+  NEGATE HEAVY/STRONG, LEADER; `MeleeAttackDeclared.Fear`, `InjuryRolled/MineExploded.Tough`, `ModelState.ToughSpent`,
+  LEADER +1 Morale DICE) and 8 equipment pieces (MatchReadiness `PlayedEquipment`); builder checks HELD.
 - The faction JSON files are the source of truth now. The earlier generator scripts held private source names and are
   not in the repo: edit `content/roster/*.json` directly, keep `docs/roster.md` and the tests (`tests/Roster.Tests`,
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).

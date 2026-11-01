@@ -1,3 +1,4 @@
+using Rules.Core.Dice;
 using Rules.Core.Geometry;
 using Rules.Core.State;
 
@@ -454,6 +455,10 @@ internal static class Board
     // ACTION before the attack this turn (p. 53). Charges are only tracked in matches with a BLOCK model.
     public static bool Blocks(MatchState state, ModelId attacker, ModelId target) =>
         state.Setup?.ProfileOf(target) is { HasBlock: true } && !state.ChargedThisTurn.IsDefaultOrEmpty && state.ChargedThisTurn.Contains(attacker);
+
+    // Roster stage R5b (U106): FEAR on the target and not on the attacker, nor NEGATE FEAR (pp. 54, 56).
+    public static bool Fears(MatchState state, ModelId attacker, ModelId target) =>
+        state.Setup?.ProfileOf(attacker) is { } a && state.Setup.ProfileOf(target) is { } t && AttackDice.Fears(a, t);
 
     // Why a Shoot ACTION with that weapon is refused when the model does not have it.
     public static string NoSuchGun(int weapon) => weapon switch

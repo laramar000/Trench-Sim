@@ -143,7 +143,7 @@ public static class StateHash
                 $"deployed={Bool(m.Deployed)}",
                 $"activated={Bool(m.ActivatedThisTurn)}",
                 $"at={(m.Position is { } at ? Point(at) : "-")}",
-                $"markers={m.BloodMarkers}"));
+                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : ""));
         }
         return sb.ToString();
     }
@@ -208,7 +208,9 @@ public static class StateHash
             + (p.Grenade is { } g ? $",grenade={WeaponText(g)}" : "")
             + (p.Negates == WeaponKeywords.None ? "" : $",negates={p.Negates}")
             // Roster stage R4b: BLAST, only when present.
-            + (p.RangedWeaponBlast == 0 ? "" : $",blast={p.RangedWeaponBlast}");
+            + (p.RangedWeaponBlast == 0 ? "" : $",blast={p.RangedWeaponBlast}")
+            // Roster stage R5b: FEAR, NEGATE FEAR, TOUGH, NEGATE HEAVY and LEADER, only when present.
+            + (p.Traits == ModelTraits.None ? "" : $",traits={p.Traits}");
     }
 
     private static string WeaponText(Weapon w) =>

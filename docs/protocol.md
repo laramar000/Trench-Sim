@@ -210,6 +210,11 @@ The server sends events in log order, one message each, to both players, through
   `PointBlastHit` (`attacker`, `at`, `hit`, possibly empty). `AttackScattered.target` and `ScatterMissed.target` are null
   for an attack aimed at a point. A point out of sight is refused as `NoLineOfSight`, out of range as `TargetOutOfRange`,
   off the battlefield or with a weapon without BLAST as `NotACandidate`.
+- Roster stage R5b (U106): `ModelProfile.traits` (flags by name: `Fear`, `NegateFear`, `Tough`, `NegateHeavy`, `Leader`;
+  left out when none), `MeleeAttackDeclared.fear`, `InjuryRolled.tough` and `MineExploded.tough` (left out when false;
+  `tough` only on an Out of Action roll). A Morale Check's `check.netDice` is 1 while the warband has a LEADER on the
+  battlefield, neither Down nor Out of Action, else 0. The state hash adds `,traits=` to a profile and `,tough=spent` to a
+  model only when set, so older records keep their hashes.
 
 ## Rosters online (roster stage 5c)
 

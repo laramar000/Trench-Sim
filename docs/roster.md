@@ -239,3 +239,11 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   DEADLY travels as `Deadly` and is no longer named under "played without" (U104); a BLAST weapon may be aimed at a
   point in a match (U105). Tests: `PointBlastTests`, `BlastWireTests.APointAttackAndADeadlyRollRoundTrip`,
   `MatchReadinessTests.DeadlyIsPlayed`, `PointBlastPreviewTests`.
+- Roster rules stage R5b, model keywords and the first equipment (done 2026-11-01, same ask): a model's FEAR, NEGATE
+  FEAR, TOUGH, STRONG (as NEGATE HEAVY), NEGATE HEAVY and LEADER, from its keywords and its battlekit, travel as
+  `traits` and are no longer named. Equipment played in full: Unholy Relic, Troop Flag, Iron Capirote, Anfarro (+1 Melee),
+  Sacred Geometry (+1 Ranged), Compound Eyes Helmet (+1 Ranged), Elixir of Life (TOUGH; "no effect" named on an
+  ARTIFICIAL model) and Assassin's Leaf (STRONG); a CONSUMABLE piece is always used in a match (U106). HELD is checked:
+  a model with a HELD piece carries one 1-handed weapon or a shield. Tests: `ModelTraitTests`,
+  `MineTests.AToughModelSurvivesItsFirstMine`, `TraitWireTests`, `MatchReadinessTests.ModelKeywordsArePlayedAsTraits`,
+  `.EquipmentThatGivesKeywordsOrDiceIsPlayed`, `.HeldKitLeavesOneHand`, `ModelTraitDisplayTests`.

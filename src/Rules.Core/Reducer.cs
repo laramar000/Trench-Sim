@@ -608,6 +608,7 @@ public static class Reducer
         Require(e.ModelsDownOrOut == TurnRules.DownOrOut(state, e.Seat)
             && e.WarbandSize == TurnRules.WarbandSize(state, e.Seat)
             && e.WasShaken == state.SeatFor(e.Seat).Shaken, "Counts do not match the state.");
+        Require(e.Check.NetDice == TurnRules.LeaderDice(state, e.Seat) && !e.Check.Risky, "The Morale Check's dice do not match the state.");
         var failed = e.Check.Outcome == Dice.SuccessOutcome.Failure;
         var seat = state.SeatFor(e.Seat) with
         {
@@ -1053,13 +1054,9 @@ public static class Reducer
 
         // Roster stage R4a: SHRAPNEL, GAS and FIRE put extra BLOOD MARKERS on the target (U101).
         Require(e.ExtraMarkers == AttackDice.ExtraMarkers(profile, progress.Kind, state.Setup!.ProfileOf(e.Target)!), "The extra BLOOD MARKERS must be the weapon's SHRAPNEL, GAS and FIRE.");
-        var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.Injury.BloodMarkers + e.ExtraMarkers);
-        var hurt = e.Injury.Outcome switch
-        {
-            InjuryOutcome.OutOfAction => target with { Status = ModelStatus.OutOfAction, Position = null, BloodMarkers = markers },
-            InjuryOutcome.Down => target with { Status = ModelStatus.Down, BloodMarkers = markers },
-            _ => target with { BloodMarkers = markers },
-        };
+        Require(e.Tough == ToughSaves(state, target, e.Injury.Outcome), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
+        var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.ResultMarkers + e.ExtraMarkers);
+        var hurt = Hurt(target, e.Result, markers, e.Tough);
         // A blast's next model (U102), once this one is rolled for.
         if (!progress.BlastQueue.IsDefaultOrEmpty)
         {
@@ -1070,6 +1067,18 @@ public static class Reducer
         // scattered attack's failed Risky roll ends it instead (U103).
         return AttackOver(TurnRules.WithModel(state, hurt), progress);
     }
+
+    // Roster stage R5b (U106): TOUGH turns the first Out of Action result a model suffers into a Down result (p. 57).
+    internal static bool ToughSaves(MatchState state, ModelState model, InjuryOutcome outcome) =>
+        outcome == InjuryOutcome.OutOfAction && !model.ToughSpent && state.Setup!.ProfileOf(model.Id)!.Traits.HasFlag(ModelTraits.Tough);
+
+    // The model after an Injury Roll's result, with its BLOOD MARKERS (and TOUGH spent when it saved the model).
+    private static ModelState Hurt(ModelState model, InjuryOutcome result, int markers, bool tough) => result switch
+    {
+        InjuryOutcome.OutOfAction => model with { Status = ModelStatus.OutOfAction, Position = null, BloodMarkers = markers },
+        InjuryOutcome.Down => model with { Status = ModelStatus.Down, BloodMarkers = markers, ToughSpent = model.ToughSpent || tough },
+        _ => model with { BloodMarkers = markers },
+    };
 
     // ---- M4 Slice B: Charge, Retreat, Fight, shooting into melee ----
 
@@ -1149,6 +1158,7 @@ public static class Reducer
         var owned = state.Setup!.ProfileOf(e.Attacker)!;
         Require(e.Weapon < owned.Weapons(AttackKind.Melee), "The model has no such Melee Weapon.");
         Require(e.Block == Board.Blocks(state, e.Attacker, e.Target), "BLOCK applies exactly when the target has it and the attacker charged this turn.");
+        Require(e.Fear == Board.Fears(state, e.Attacker, e.Target), "FEAR applies exactly when the target has it and the attacker has neither FEAR nor NEGATE FEAR.");
         var left = state.AttacksLeft is { Next.Length: > 0 } l && l.Attacker == e.Attacker && l.Free == e.FreeFight ? l : null;
         ImmutableArray<MeleeAttackSlot> rest;
         if (!e.FreeFight)
@@ -1400,13 +1410,9 @@ public static class Reducer
         Require(e.Injury.NetDice == 0 && !e.Injury.Deadly && e.Injury.Modifier == InjuryRoll.CombineModifiers([armour]) && e.Injury.TargetAlreadyDown == (model.Status == ModelStatus.Down),
             "A mine's Injury Roll has no extra dice and no weapon modifier, only the model's armour.");
         Require(e.Negated == state.Setup!.ProfileOf(e.Model)!.Negates.HasFlag(WeaponKeywords.Shrapnel), "A mine adds its SHRAPNEL Blood Marker unless the model has NEGATE SHRAPNEL.");
-        var markers = Math.Min(BloodMarkers.Max, model.BloodMarkers + e.Injury.BloodMarkers + e.ExtraMarkers());
-        var hurt = e.Injury.Outcome switch
-        {
-            InjuryOutcome.OutOfAction => model with { Status = ModelStatus.OutOfAction, Position = null, BloodMarkers = markers },
-            InjuryOutcome.Down => model with { Status = ModelStatus.Down, BloodMarkers = markers },
-            _ => model with { BloodMarkers = markers },
-        };
+        Require(e.Tough == ToughSaves(state, model, e.Injury.Outcome), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
+        var markers = Math.Min(BloodMarkers.Max, model.BloodMarkers + e.ResultMarkers + e.ExtraMarkers());
+        var hurt = Hurt(model, e.Result, markers, e.Tough);
         // Taken Down or Out of Action: the move is over (and so is the activation, p. 49). Otherwise it carries on.
         return TurnRules.WithModel(state, hurt) with
         {

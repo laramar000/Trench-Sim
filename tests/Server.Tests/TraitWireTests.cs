@@ -1,0 +1,64 @@
+using System.Text;
+using Match.Protocol;
+using Rules.Core;
+using Rules.Core.Dice;
+using Rules.Core.Events;
+using Rules.Core.State;
+using Sim;
+
+namespace Server.Tests;
+
+// Roster stage R5b (U106): a profile's traits (FEAR, TOUGH, LEADER...) and the events' FEAR and TOUGH flags travel on the
+// wire and back unchanged; a setup and events without them write nothing new, so every existing record keeps its bytes.
+public class TraitWireTests
+{
+    private static MatchSetup Plain() => ((MatchCreated)Runner.Run(1, Content.Load(Content.DefaultPath())).Log[0]).Setup;
+
+    private static string Encoded(GameEvent e) =>
+        Encoding.UTF8.GetString(Codec.Encode(new EventPublished(1, e, new string('0', 64))));
+
+    private static GameEvent RoundTrip(GameEvent e)
+    {
+        var text = Encoded(e);
+        var read = Assert.IsType<EventPublished>(Codec.ParseServer(Encoding.UTF8.GetBytes(text), out var failure));
+        Assert.Null(failure);
+        Assert.Equal(text, Encoded(read.Event));
+        return read.Event;
+    }
+
+    [Fact]
+    public void TraitsRoundTripAndAreLeftOutWhenNone()
+    {
+        Assert.DoesNotContain("traits", Encoded(new MatchCreated(Plain())), StringComparison.OrdinalIgnoreCase);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var leader = first.Profile! with { Traits = ModelTraits.Leader | ModelTraits.Tough | ModelTraits.NegateHeavy };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = leader } : m), setup.Scenario));
+        Assert.Contains("\"traits\"", Encoded(created), StringComparison.Ordinal);
+        var back = (MatchCreated)RoundTrip(created);
+        Assert.Equal(leader, back.Setup.Models[0].Profile);
+        Assert.Equal(StateHash.Compute(Reducer.Apply(MatchState.None, created)), StateHash.Compute(Reducer.Apply(MatchState.None, back)));
+        Assert.NotEqual(StateHash.Compute(Reducer.Apply(MatchState.None, created)), StateHash.Compute(Reducer.Apply(MatchState.None, new MatchCreated(Plain()))));
+    }
+
+    [Fact]
+    public void FearAndToughRoundTripAndAreLeftOutWhenFalse()
+    {
+        var (a, b) = (new ModelId("A1"), new ModelId("B1"));
+        var fight = new MeleeAttackDeclared(a, b, false, null);
+        Assert.DoesNotContain("fear", Encoded(fight), StringComparison.OrdinalIgnoreCase);
+        Assert.True(((MeleeAttackDeclared)RoundTrip(fight with { Fear = true })).Fear);
+
+        var killing = Enumerable.Range(1, 100).Select(seed => InjuryRoll.Roll(new SeededDice(seed))).First(r => r.Outcome == InjuryOutcome.OutOfAction);
+        Assert.Equal(InjuryOutcome.OutOfAction, killing.Outcome);
+        var rolled = new InjuryRolled(a, b, killing);
+        Assert.DoesNotContain("tough", Encoded(rolled), StringComparison.OrdinalIgnoreCase);
+        var saved = (InjuryRolled)RoundTrip(rolled with { Tough = true });
+        Assert.Equal((true, InjuryOutcome.Down), (saved.Tough, saved.Result));
+
+        var mine = new MineExploded(a, "mine-1", killing);
+        Assert.DoesNotContain("tough", Encoded(mine), StringComparison.OrdinalIgnoreCase);
+        Assert.True(((MineExploded)RoundTrip(mine with { Tough = true })).Tough);
+    }
+}

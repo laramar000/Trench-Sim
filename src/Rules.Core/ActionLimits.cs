@@ -16,7 +16,8 @@ public static class ActionLimits
 
     private static bool Assault(ModelProfile? p) => p is not null && p.RangedWeaponKeywords.HasFlag(WeaponKeywords.Assault);
 
-    private static bool HeavyGun(ModelProfile? p) => p is not null && p.RangedWeaponKeywords.HasFlag(WeaponKeywords.Heavy);
+    // Roster stage R5b: NEGATE HEAVY (STRONG) lifts HEAVY's limits (pp. 56, 57).
+    private static bool HeavyGun(ModelProfile? p) => p is not null && p.RangedWeaponKeywords.HasFlag(WeaponKeywords.Heavy) && !p.Traits.HasFlag(ModelTraits.NegateHeavy);
 
     // Roster stage R3: the ranged weapon a Shoot ACTION would use, or used this activation (state.ShotWeapon). ASSAULT
     // and HEAVY are that weapon's (pp. 52, 55).

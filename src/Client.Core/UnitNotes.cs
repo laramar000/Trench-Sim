@@ -30,7 +30,7 @@ public static class UnitNotes
             RangedSuccessRolled r => [Hit(r.Attacker, r.Check)],
             PointSuccessRolled r => [Hit(r.Attacker, r.Check)],
             MeleeSuccessRolled m => [Hit(m.Attacker, m.Check)],
-            InjuryRolled i => [Injury(i.Target, i.Injury, i.ExtraMarkers)],
+            InjuryRolled i => [Injury(i.Target, i.Result, i.ResultMarkers, i.ExtraMarkers, i.Tough)],
             MarkersSpent { Count: > 0 } m => [new(m.Model, $"{m.Count} BLOOD SPENT", NoteTone.Info)],
             ChargeRolled c => [new(c.Model, $"CHARGE +{c.Die}\"", NoteTone.Info)],
             ChargeMoved { Reached: false } c => [new(c.Model, "CHARGE FAILED", NoteTone.Failure)],
@@ -51,12 +51,14 @@ public static class UnitNotes
     };
 
     // Roster stage R4a: extra are the BLOOD MARKERS SHRAPNEL, GAS and FIRE add, even on No Effect.
-    private static UnitNote Injury(ModelId target, InjuryRollResult injury, int extra = 0)
+    // Roster stage R5b: TOUGH turns the first Out of Action into Down (U106).
+    private static UnitNote Injury(ModelId target, InjuryOutcome outcome, int markers, int extra, bool tough)
     {
-        var count = injury.BloodMarkers + extra;
+        var count = markers + extra;
         var blood = count > 0 ? $" +{count} BLOOD" : "";
-        return injury.Outcome switch
+        return outcome switch
         {
+            InjuryOutcome.Down when tough => new(target, "TOUGH: DOWN" + blood, NoteTone.Damage),
             InjuryOutcome.NoEffect => new(target, "NO EFFECT" + blood, extra > 0 ? NoteTone.Damage : NoteTone.Info),
             InjuryOutcome.MinorHit => new(target, "MINOR HIT" + blood, NoteTone.Damage),
             InjuryOutcome.Down => new(target, "DOWN" + blood, NoteTone.Damage),

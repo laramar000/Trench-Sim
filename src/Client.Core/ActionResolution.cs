@@ -160,6 +160,11 @@ public sealed class ResolutionLog
                 {
                     _current!.Dice.Add(new("BLOCK after a charge", -AttackDice.FightPenalty(true)));
                 }
+                // Roster stage R5b (U106): the target has FEAR.
+                if (m.Fear)
+                {
+                    _current!.Dice.Add(new("target has FEAR", -AttackDice.FightPenalty(true)));
+                }
                 break;
             case ChargeDeclared c:
                 Start(seq, c.Model, $"{Id(c.Model)} CHARGES {Id(c.Target)}", null, c.Target);

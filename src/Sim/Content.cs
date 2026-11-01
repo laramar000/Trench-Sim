@@ -52,6 +52,7 @@ public static class Content
                         SecondMeleeWeapon = SecondWeapon(m, "secondMeleeWeapon"),
                         Grenade = SecondWeapon(m, "grenade"),
                         Negates = Keywords(m, "negates"),
+                        Traits = Traits(m),
                     }));
             }
             warbands.Add(new Warband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));
@@ -83,6 +84,17 @@ public static class Content
         model.TryGetProperty(name, out var value)
             ? value.EnumerateArray().Aggregate(WeaponKeywords.None, (all, k) => all | Keyword(k.GetString()!))
             : WeaponKeywords.None;
+
+    // Roster stage R5b: the model's played traits (Rules.Core ModelTraits: FEAR, TOUGH, LEADER...); none when not given.
+    private static ModelTraits Traits(JsonElement model) =>
+        model.TryGetProperty("traits", out var value)
+            ? value.EnumerateArray().Aggregate(ModelTraits.None, (all, t) => all | Trait(t.GetString()!))
+            : ModelTraits.None;
+
+    private static ModelTraits Trait(string name) =>
+        Enum.GetValues<ModelTraits>().FirstOrDefault(t => t != ModelTraits.None && t.ToString() == name) is var t && t != ModelTraits.None
+            ? t
+            : throw new FormatException($"Unknown model trait {name}.");
 
     private static WeaponKeywords Keyword(string name) =>
         Enum.GetValues<WeaponKeywords>().FirstOrDefault(k => k != WeaponKeywords.None && k.ToString() == name) is var k && k != WeaponKeywords.None

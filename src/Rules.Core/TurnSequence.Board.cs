@@ -273,6 +273,8 @@ public static partial class TurnSequence
     // Roster stage R3: whether BLOCK gives this Melee Attack a penalty die (the target blocks a model that charged this turn).
     public static bool Blocks(MatchState state, ModelId attacker, ModelId target) => Board.Blocks(state, attacker, target);
 
+    public static bool Fears(MatchState state, ModelId attacker, ModelId target) => Board.Fears(state, attacker, target);
+
     // The answers that are not Blood Marker spends: free attacks on a retreating model, the friendly model a shot into
     // melee was forced onto, and where a missed SCATTER attack lands (roster stage R4c).
     private static Rejection? ValidateChoice(MatchState state, Command command)
@@ -466,6 +468,7 @@ public static partial class TurnSequence
             Weapon = weapon,
             OffHand = offHand,
             Block = Board.Blocks(state, attacker.Id, target.Id),
+            Fear = Board.Fears(state, attacker.Id, target.Id),
         });
         if (attacker.BloodMarkers > 0)
         {
@@ -647,8 +650,13 @@ public static partial class TurnSequence
                 var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup.ProfileOf(target.Id)!, progress.Kind);
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down,
                     deadly: (weapon.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0);
-                run.Emit(new InjuryRolled(actor.Id, target.Id, injury) { ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup.ProfileOf(target.Id)!) });
-                if (injury.Outcome == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
+                var rolled = new InjuryRolled(actor.Id, target.Id, injury)
+                {
+                    ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup.ProfileOf(target.Id)!),
+                    Tough = Reducer.ToughSaves(s, target, injury.Outcome),
+                };
+                run.Emit(rolled);
+                if (rolled.Result == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
                 {
                     run.Emit(new MatchEnded(target.Seat.Opponent(), OutcomeReason.AllEnemiesOutOfAction));
                 }
@@ -710,7 +718,11 @@ public static partial class TurnSequence
         {
             var armour = s.Setup!.ProfileOf(model.Id)!.Armour;
             var injury = InjuryRoll.Roll(dice, 0, 0, [armour], model.Status == ModelStatus.Down);
-            run.Emit(new MineExploded(model.Id, stop.Current.Marker, injury) { Negated = s.Setup.ProfileOf(model.Id)!.Negates.HasFlag(WeaponKeywords.Shrapnel) });
+            run.Emit(new MineExploded(model.Id, stop.Current.Marker, injury)
+            {
+                Negated = s.Setup.ProfileOf(model.Id)!.Negates.HasFlag(WeaponKeywords.Shrapnel),
+                Tough = Reducer.ToughSaves(s, model, injury.Outcome),
+            });
             var hurt = run.State.FindModel(model.Id)!;
             if (hurt.Status == ModelStatus.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, model.Seat))
             {

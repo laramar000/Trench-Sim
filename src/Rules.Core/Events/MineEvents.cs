@@ -88,6 +88,16 @@ public sealed record MineExploded : GameEvent
     public bool Negated { get; init; }
 
     public int ExtraMarkers() => Negated ? 0 : ShrapnelMarkers;
+
+    // Roster stage R5b (U106): TOUGH turned this Out of Action result into a Down result (p. 57); left out when false.
+    public bool Tough { get => _tough; init => _tough = value && Injury.Outcome != InjuryOutcome.OutOfAction ? throw new ArgumentException("TOUGH turns only an Out of Action result into Down.", nameof(Tough)) : value; }
+
+    private readonly bool _tough;
+
+    // The result the model takes, and the BLOOD MARKERS it gives (TOUGH's Down instead of Out of Action).
+    public InjuryOutcome Result => Tough ? InjuryOutcome.Down : Injury.Outcome;
+
+    public int ResultMarkers => InjuryRoll.BloodMarkersFor(Result, Injury.TargetAlreadyDown);
 }
 
 // The model carries on along its move after a halt, to the next halt or the end: Path is what it walks (may be empty).

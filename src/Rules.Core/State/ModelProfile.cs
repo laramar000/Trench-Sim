@@ -138,8 +138,25 @@ public sealed record ModelProfile
     // Roster stage R4a: the keywords that put an extra BLOOD MARKER on the target, which NEGATE can turn away.
     public const WeaponKeywords MarkerKeywords = WeaponKeywords.Shrapnel | WeaponKeywords.Gas | WeaponKeywords.Fire;
 
-    // HEAVY battlekit (a HEAVY weapon here; other HEAVY pieces are equipment, not played): no Charge Bonus (p. 55).
-    public bool NoChargeBonus => (AllWeaponKeywords & WeaponKeywords.Heavy) != 0;
+    // HEAVY battlekit (a HEAVY weapon here; other HEAVY pieces are equipment, not played): no Charge Bonus (p. 55),
+    // unless the model has NEGATE HEAVY (R5b).
+    public bool NoChargeBonus => (AllWeaponKeywords & WeaponKeywords.Heavy) != 0 && !Traits.HasFlag(ModelTraits.NegateHeavy);
+
+    // ---- Roster stage R5b (U106): model keywords ----
+
+    private const ModelTraits AllTraits = ModelTraits.Fear | ModelTraits.NegateFear | ModelTraits.Tough | ModelTraits.NegateHeavy | ModelTraits.Leader;
+
+    // FEAR, NEGATE FEAR, TOUGH, NEGATE HEAVY (STRONG) and LEADER.
+    public ModelTraits Traits
+    {
+        get => _traits;
+        init => _traits = (value & ~AllTraits) != 0 ? throw new ArgumentOutOfRangeException(nameof(Traits), "Unknown model keywords.") : value;
+    }
+
+    private readonly ModelTraits _traits;
+
+    // FEAR does not affect a model that has FEAR itself or NEGATE FEAR (pp. 54, 56).
+    public bool IgnoresFear => (Traits & (ModelTraits.Fear | ModelTraits.NegateFear)) != 0;
 
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
@@ -291,6 +308,7 @@ public sealed record ModelProfile
                 Block = Block,
                 ImperviousArmour = ImperviousArmour,
                 Negates = Negates,
+                Traits = Traits,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -310,6 +328,7 @@ public sealed record ModelProfile
             Block = Block,
             ImperviousArmour = ImperviousArmour,
             Negates = Negates,
+            Traits = Traits,
         };
     }
 

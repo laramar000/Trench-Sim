@@ -62,7 +62,7 @@ public sealed record DicePreview(
             ShakenRisky = state.IsShaken(attacker.Seat),
             ShotgunInjuryDice = shotgunInjury,
             // SHRAPNEL, GAS and FIRE are named only when the target does not NEGATE them (roster stage R4a).
-            KeywordNotes = [.. Notes(profile.AttackKeywords(kind) & ~setup.ProfileOf(target.Id)!.Negates, kind), .. CleaveNote(profile, kind), .. BlastNote(state, attacker, target, profile, kind, weapon)],
+            KeywordNotes = [.. Notes(profile.AttackKeywords(kind) & ~setup.ProfileOf(target.Id)!.Negates & ~(profile.Traits.HasFlag(ModelTraits.NegateHeavy) ? WeaponKeywords.Heavy : WeaponKeywords.None), kind), .. CleaveNote(profile, kind), .. BlastNote(state, attacker, target, profile, kind, weapon)],
             BlastHits = kind == AttackKind.Ranged ? TurnSequence.BlastHits(state, attacker.Id, target.Id, weapon) : [],
             ExtraMarkers = AttackDice.ExtraMarkers(profile, kind, setup.ProfileOf(target.Id)!),
             CriticalDice = AttackDice.CriticalInjuryDice(profile.AttackKeywords(kind)),

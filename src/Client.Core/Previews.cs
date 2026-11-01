@@ -594,9 +594,11 @@ public static class Previews
         // Roster stage R3 (U100): an Off-Hand weapon's attacks and BLOCK after a charge are a penalty die each.
         var offHand = next?.OffHand ?? false;
         var block = TurnSequence.Blocks(state, attacker.Id, target.Id);
-        var reasons = new[] { cover.InCover ? "Defended Obstacle, p. 45" : null, offHand ? "Off-Hand weapon, p. 45" : null, block ? "BLOCK after a charge, p. 53" : null }.OfType<string>().ToList();
+        // Roster stage R5b (U106): a target with FEAR, unless the attacker has FEAR or NEGATE FEAR.
+        var fear = TurnSequence.Fears(state, attacker.Id, target.Id);
+        var reasons = new[] { cover.InCover ? "Defended Obstacle, p. 45" : null, offHand ? "Off-Hand weapon, p. 45" : null, block ? "BLOCK after a charge, p. 53" : null, fear ? "FEAR, p. 54" : null }.OfType<string>().ToList();
         dice = DicePreview.Of(state, attacker, target, AttackKind.Melee,
-            AttackDice.FightPenalty(cover.InCover) + AttackDice.FightPenalty(offHand) + AttackDice.FightPenalty(block), reasons, weapon: weapon);
+            AttackDice.FightPenalty(cover.InCover) + AttackDice.FightPenalty(offHand) + AttackDice.FightPenalty(block) + AttackDice.FightPenalty(fear), reasons, weapon: weapon);
         if (next is not null)
         {
             facts.Add(offHand ? "The Fight goes on with the Off-Hand weapon (p. 45)." : "The Fight goes on with the weapon's next CLEAVE attack (p. 53).");

@@ -237,6 +237,107 @@ public class MatchReadinessTests
         Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("DEADLY", StringComparison.Ordinal));
     }
 
+    // Roster stage R5b (U106): the model keywords FEAR, NEGATE FEAR, TOUGH, STRONG (NEGATE HEAVY) and LEADER are played.
+    [Fact]
+    public void ModelKeywordsArePlayedAsTraits()
+    {
+        var lieutenant = Of("principality", "lieutenant", "pistol");
+        var ready = lieutenant.MatchCheck();
+        Assert.Equal(ModelTraits.Leader | ModelTraits.Tough, Loaded(ready).Traits);
+        Assert.Contains(ready.PlayedWithout, w => w.Contains("its keywords (PRINCIPALITY, ELITE)", StringComparison.Ordinal));
+        Assert.Contains("\"traits\"", ready.ToContentJson("p", "P"), StringComparison.Ordinal);
+
+        Assert.Equal(ModelTraits.NegateFear, Loaded(Of("principality", "trench-cleric", "pistol").MatchCheck()).Traits);
+        Assert.Equal(ModelTraits.NegateHeavy, Loaded(Of("principality", "mechanized-heavy-infantry").MatchCheck()).Traits);
+        var bull = Loaded(Of("sultanate", "brazen-bull").MatchCheck());
+        Assert.Equal(ModelTraits.Fear | ModelTraits.Tough | ModelTraits.NegateHeavy, bull.Traits);
+        // A model with none writes nothing new.
+        var yeoman = Of("principality", "yeoman", "bolt-action-rifle").MatchCheck();
+        Assert.Equal(ModelTraits.None, Loaded(yeoman).Traits);
+        Assert.DoesNotContain("traits", yeoman.ToContentJson("p", "P"), StringComparison.Ordinal);
+    }
+
+    // Roster stage R5b (U106): equipment whose rule is a keyword or dice is played in full; the rest is still refused.
+    [Fact]
+    public void EquipmentThatGivesKeywordsOrDiceIsPlayed()
+    {
+        static void Played(MatchReady ready, string piece)
+        {
+            Assert.Empty(ready.Refused);
+            Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains(piece, StringComparison.Ordinal));
+        }
+
+        var flag = Of("principality", "yeoman", "troop-flag").MatchCheck();
+        Played(flag, "Troop Flag");
+        Assert.DoesNotContain(flag.RosterProblems, p => p.Contains("HELD", StringComparison.Ordinal));
+        Assert.Equal(ModelTraits.Leader, Loaded(flag).Traits);
+
+        var relic = Of("heretics", "heretic-trooper", "unholy-relic").MatchCheck();
+        Played(relic, "Unholy Relic");
+        Assert.Equal(ModelTraits.Fear, Loaded(relic).Traits);
+
+        var capirote = Of("pilgrims", "trench-pilgrim", "iron-capirote").MatchCheck();
+        Played(capirote, "Iron Capirote");
+        Assert.Equal((ModelTraits.NegateFear, WeaponKeywords.Shrapnel), (Loaded(capirote).Traits, Loaded(capirote).Negates));
+
+        var eyes = Of("cult", "corpse-guard", "compound-eyes-helmet").MatchCheck();
+        Played(eyes, "Compound Eyes Helmet");
+        Assert.Equal((1, 1, WeaponKeywords.Gas | WeaponKeywords.Shrapnel), (Loaded(eyes).RangedDice, Loaded(eyes).MeleeDice, Loaded(eyes).Negates));
+
+        var abyssinian = RosterBuilder.Shipped();
+        abyssinian.ChooseVariant("abyssinian-expedition");
+        abyssinian.Select(abyssinian.Add("lieutenant"));
+        abyssinian.AddKit("anfarro");
+        var crowned = abyssinian.MatchCheck();
+        Played(crowned, "Anfarro");
+        Assert.Equal((2, 3, ModelTraits.Leader | ModelTraits.Tough | ModelTraits.NegateFear), (Loaded(crowned).RangedDice, Loaded(crowned).MeleeDice, Loaded(crowned).Traits));
+
+        var monastery = RosterBuilder.Shipped();
+        monastery.ChooseFaction("pilgrims");
+        monastery.ChooseVariant("mountain-monastery-pilgrimage");
+        monastery.Select(monastery.Add("reliquary-walker"));
+        monastery.AddKit("sacred-geometry");
+        var geometry = monastery.MatchCheck();
+        Assert.Empty(geometry.Refused);
+        Assert.DoesNotContain(geometry.PlayedWithout, w => w.Contains("Sacred Geometry", StringComparison.Ordinal));
+        Assert.Equal(1, Loaded(geometry).RangedDice);
+
+        var cabal = RosterBuilder.Shipped();
+        cabal.ChooseFaction("sultanate");
+        cabal.ChooseVariant("cabal-of-the-mountain");
+        cabal.Select(cabal.Add("azeb"));
+        cabal.AddKit("assassins-leaf");
+        Played(cabal.MatchCheck(), "Assassin");
+        Assert.Equal(ModelTraits.NegateHeavy, Loaded(cabal.MatchCheck()).Traits);
+
+        // The Elixir of Life makes a model TOUGH, but does nothing for an ARTIFICIAL one (it is named).
+        var house = RosterBuilder.Shipped();
+        house.ChooseFaction("sultanate");
+        house.ChooseVariant("house-of-wisdom");
+        house.Select(house.Add("azeb"));
+        house.AddKit("elixir-of-life");
+        Played(house.MatchCheck(), "Elixir");
+        Assert.Equal(ModelTraits.Tough, Loaded(house.MatchCheck()).Traits);
+        var lion = RosterBuilder.Shipped();
+        lion.ChooseFaction("sultanate");
+        lion.ChooseVariant("house-of-wisdom");
+        lion.Select(lion.Add("alchemical-lion"));
+        lion.AddKit("elixir-of-life");
+        var artificial = lion.MatchCheck();
+        Assert.Empty(artificial.Refused);
+        Assert.Contains(artificial.PlayedWithout, w => w.Contains("Elixir of Life (no effect on an ARTIFICIAL model", StringComparison.Ordinal));
+        Assert.Equal(ModelTraits.None, Loaded(artificial).Traits);
+    }
+
+    // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
+    [Fact]
+    public void HeldKitLeavesOneHand()
+    {
+        Assert.DoesNotContain(Of("principality", "lieutenant", "pistol", "troop-flag").Check().Problems, p => p.Contains("HELD", StringComparison.Ordinal));
+        Assert.Contains(Of("principality", "lieutenant", "pistol", "sword-axe", "troop-flag").Check().Problems, p => p.Contains("(HELD) it can carry only one 1-handed weapon or a shield", StringComparison.Ordinal));
+        Assert.Contains(Of("principality", "yeoman", "bolt-action-rifle", "troop-flag").Check().Problems, p => p.Contains("(HELD)", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void ASecondGrenadeAndGrenadesWithoutRangedAreRefused()
     {
@@ -250,10 +351,11 @@ public class MatchReadinessTests
         var thrower = builder.Roster with { Models = [new RosterModel("plague-thrall", null, ["frag-grenades"], [])] };
         Assert.Contains(MatchReadiness.Check(thrower, builder.Faction, catalogue).Refused, r => r.Contains("it may not throw grenades", StringComparison.Ordinal));
 
-        // A Plague Thrall's NEGATE GAS is played; its FEAR is named.
+        // A Plague Thrall's NEGATE GAS and (roster stage R5b) its FEAR are played; its CULT tag is named.
         var thrall = MatchReadiness.Check(builder.Roster with { Models = [new RosterModel("plague-thrall", null, [], [])] }, builder.Faction, catalogue);
-        Assert.Equal(WeaponKeywords.Gas, Sim.Content.Parse(thrall.ToContentJson("t", "T")).Single().Models[0].Profile.Negates);
-        Assert.Contains(thrall.PlayedWithout, w => w.Contains("its keywords (CULT, FEAR)", StringComparison.Ordinal));
+        var thrallProfile = Sim.Content.Parse(thrall.ToContentJson("t", "T")).Single().Models[0].Profile;
+        Assert.Equal((WeaponKeywords.Gas, ModelTraits.Fear), (thrallProfile.Negates, thrallProfile.Traits));
+        Assert.Contains(thrall.PlayedWithout, w => w.Contains("its keywords (CULT)", StringComparison.Ordinal));
     }
 
     [Fact]

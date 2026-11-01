@@ -18,4 +18,7 @@ public sealed record ModelState(
     bool Deployed = false,
     bool ActivatedThisTurn = false,
     Point2? Position = null,
-    int BloodMarkers = 0);
+    int BloodMarkers = 0,
+    bool ToughSpent = false);
+
+// Roster stage R5b (U106): ToughSpent, the model's TOUGH has already turned an Out of Action result into Down (p. 57).
