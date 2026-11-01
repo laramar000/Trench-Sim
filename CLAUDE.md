@@ -1,6 +1,6 @@
 # Hand-over for the next Claude session (Trenches / Trench-Sim)
 
-Written 2026-10-31 so a new session can carry on with no other history. Read this file, then `docs/` as needed.
+Written 2026-10-31, last updated 2026-11-01, so a new session can carry on with no other history. Read this file, then `docs/` as needed.
 
 ## What this is
 
@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U103), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U107), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -68,7 +68,7 @@ signature units, special kit) to original, recognisable alternatives; mechanics 
 is private to the owner and never goes in this repo. Faction display names: The Principality, Pilgrims, The Sultanate,
 Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan companion app is a cross-check only.
 
-## Where things stand (2026-10-31)
+## Where things stand (2026-11-01)
 
 - Game: M0-M7.4 accepted; M7.5 stages 5a-5c accepted, 5d (manual two-window match) and Gate G5 not yet accepted.
   Main menu (Play, Build Your Own Roster, Credits) done. Battlefield perf and long-range line done.
@@ -109,3 +109,14 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).
 - Windows: the owner tests on Windows with Test Center (install line in `docs/testing.md`). Last Windows results were
   at 17a9099/e917e6b; later commits are checked on Linux only.
+
+## Current step (keep this section up to date at every push)
+
+- 2026-11-01, Jason: "Keep going ... keep updating handoff in the github every step. No mistakes"; 03:54Z: essentials
+  only for testing tonight (build + `dotnet test TrenchSim.sln`, no UI checks).
+- Done and pushed: R5a e2ad5d8, R5b dc62195, R5c e516d2b.
+- Next: R5d risky-roll equipment (Pontiff's Crucifix, Mountaineer Kit, Musical Instrument) and the Cloak's Cover -2;
+  then the rest of R5 (Urn aura, COVER from shovels/shields, new actions such as Medi-kit Treat, deployables,
+  BLESSING/INFECTION markers), then R6 unit abilities by faction. All authorized by "1 2 and 3 no mistakes".
+- Still refused by name in matches: AMMUNITION with two possible guns (no deployment choice yet), and every equipment
+  piece not in `MatchReadiness.PlayedEquipment`.
