@@ -403,6 +403,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.InjuryDiceTaken)),
             (typeof(ModelProfile), nameof(ModelProfile.MeleeInjuryBonus)),
             (typeof(ModelProfile), nameof(ModelProfile.ClimbDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.Talismans)),
         ];
 
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();

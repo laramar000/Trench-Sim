@@ -104,6 +104,7 @@ public static class Reducer
             TreatDeclared x => OnTreatDeclared(state, x),
             TreatRolled x => OnTreatRolled(state, x),
             MartyrdomTriggered x => OnMartyrdomTriggered(state, x),
+            TalismanUsed x => OnTalismanUsed(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
@@ -257,6 +258,20 @@ public static class Reducer
 
         if (state.MustEndActivation)
         {
+            // Roster stage R5k (U116): first the player of a model with a Talisman left is asked whether it uses one.
+            if (state.Pending is { Kind: DecisionKind.UseTalisman })
+            {
+                Require(e is TalismanUsed used && used.Model == state.ActiveModel
+                    || e is ActivationEnded { Reason: ActivationEndReason.RiskyFailure } declined && declined.Model == state.ActiveModel,
+                    "After a failed Risky roll the model either uses a Talisman or its activation ends.");
+                return;
+            }
+            if (TalismanReady(state, state.ActiveModel))
+            {
+                Require(e is DecisionRequested { Kind: DecisionKind.UseTalisman } asked && asked.Seat == state.FindModel(state.ActiveModel!.Value)!.Seat,
+                    "A model with a Talisman left is asked whether it uses one after a failed Risky roll.");
+                return;
+            }
             Require(e is ActivationEnded { Reason: ActivationEndReason.RiskyFailure } lost && lost.Model == state.ActiveModel,
                 "A failed Risky roll ends the activation at once.");
             return;
@@ -467,6 +482,10 @@ public static class Reducer
                     && state.FindModel(retreat.Model) is { } retreater && retreater.Seat.Opponent() == e.Seat
                     && Board.FreeFighters(state, retreat).Count > 0, "Free attacks are offered to the opponent of a retreating model while someone can still attack.");
                 break;
+            case DecisionKind.UseTalisman:
+                Require(state.MustEndActivation && TalismanReady(state, state.ActiveModel) && state.FindModel(state.ActiveModel!.Value)!.Seat == e.Seat,
+                    "Only the player of an active model with a Talisman left is asked, after its failed Risky roll.");
+                break;
             case DecisionKind.ChooseFriendlyTarget:
                 Require(state.InProgress is { Stage: RollStage.TargetChoice } choosing
                     && state.FindModel(choosing.Actor) is { } chooser && chooser.Seat == e.Seat, "Only the shooter chooses which of its own models is shot.");
@@ -622,7 +641,9 @@ public static class Reducer
     {
         Require(state.Phase == Phase.Activation && state.ActiveModel == e.Model, "That model is not the one activating.");
         Require(Enum.IsDefined(e.Reason), "Unknown end reason.");
-        Require(state.InProgress is null && state.Pending is null && state.Retreat is null && state.MineStop is null, "An action is still being resolved.");
+        // A Talisman's player may let the activation end instead of using one (roster stage R5k).
+        var declined = state.Pending is { Kind: DecisionKind.UseTalisman } && e.Reason == ActivationEndReason.RiskyFailure;
+        Require(state.InProgress is null && (state.Pending is null || declined) && state.Retreat is null && state.MineStop is null, "An action is still being resolved.");
         if (e.Reason == ActivationEndReason.TakenDown)
         {
             Require(state.FindModel(e.Model)!.Status != ModelStatus.Standing, "An activation ends as taken Down only when the model is Down or Out of Action.");
@@ -635,7 +656,7 @@ public static class Reducer
         {
             Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0 };
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -903,6 +924,25 @@ public static class Reducer
     // Pontiff's Crucifix).
     internal static bool RiskyEnds(MatchState state, ModelId model) => state.Setup?.ProfileOf(model)?.KeepsGoingAfterRisky != true;
 
+    // Roster stage R5k (U116): the model would lose its activation to a failed Risky roll, is Standing, and has a Talisman
+    // it has not used yet, so its player is asked first. A Down or Out of Action model loses its activation anyway.
+    internal static bool TalismanReady(MatchState state, ModelId? model) =>
+        model is { } id && RiskyEnds(state, id) && state.FindModel(id) is { Status: ModelStatus.Standing } bearer
+        && bearer.TalismansUsed < (state.Setup?.ProfileOf(id)?.Talismans ?? 0);
+
+    // A failed Risky roll surely ends the activation: no Crucifix and no Talisman left to use. RELOAD ends it otherwise.
+    private static bool RiskyStops(MatchState state, ModelId model) => RiskyEnds(state, model) && !TalismanReady(state, model);
+
+    // Roster stage R5k (U116): the model uses a Talisman, so its failed Risky roll does not end the activation; RELOAD
+    // still does, when the attack was made with a RELOAD weapon.
+    private static MatchState OnTalismanUsed(MatchState state, TalismanUsed e)
+    {
+        Require(state.Pending is { Kind: DecisionKind.UseTalisman } && state.ActiveModel == e.Model && state.MustEndActivation,
+            "A Talisman is used only when its player is asked, after the model's failed Risky roll.");
+        var model = state.FindModel(e.Model)!;
+        return TurnRules.WithModel(state, model with { TalismansUsed = model.TalismansUsed + 1 }) with { Pending = null, MustEndActivation = false };
+    }
+
     // Roster stage R5d (U108): a Dash roll's bonus dice: +1 within 4" of a friendly Musical Instrument (the dashing
     // model's own included); a climb roll's: the model's Mountaineer Kit.
     internal static int DashDice(MatchState state, ModelState model) =>
@@ -1082,7 +1122,7 @@ public static class Reducer
         if (check.Outcome == SuccessOutcome.Failure)
         {
             var ends = check.RiskyFailure && RiskyEnds(state, progress.Actor);
-            return state with { InProgress = null, MustEndActivation = ends, ReloadEnds = !ends && ActionLimits.Reloads(profile, AttackKind.Ranged) };
+            return state with { InProgress = null, MustEndActivation = ends, ReloadEnds = !(ends && RiskyStops(state, progress.Actor)) && ActionLimits.Reloads(profile, AttackKind.Ranged) };
         }
         // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE"),
         // +2 with CRITICAL; the weapon's own INJURY DICE and SHOTGUN's -1 at Long Range (roster stages R1, R2).
@@ -1145,7 +1185,7 @@ public static class Reducer
     {
         InProgress = null,
         MustEndActivation = state.MustEndActivation || progress.RiskyEnds,
-        ReloadEnds = !progress.RiskyEnds && !progress.FreeFight && ActionLimits.Reloads(AttackProfile(state, progress), progress.Kind),
+        ReloadEnds = !(progress.RiskyEnds && RiskyStops(state, progress.Actor)) && !progress.FreeFight && ActionLimits.Reloads(AttackProfile(state, progress), progress.Kind),
     };
 
     // The next model a blast hit: its Injury Roll, with a Critical Success's extra dice only for the model the attack
@@ -1457,7 +1497,7 @@ public static class Reducer
             {
                 InProgress = null,
                 MustEndActivation = e.Check.RiskyFailure && !progress.FreeFight && RiskyEnds(state, progress.Actor),
-                ReloadEnds = !progress.FreeFight && !(e.Check.RiskyFailure && RiskyEnds(state, progress.Actor)) && ActionLimits.Reloads(fighter, AttackKind.Melee),
+                ReloadEnds = !progress.FreeFight && !(e.Check.RiskyFailure && RiskyStops(state, progress.Actor)) && ActionLimits.Reloads(fighter, AttackKind.Melee),
             };
         }
         // +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).

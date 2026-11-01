@@ -88,6 +88,7 @@ public class ClientCoreTests
         seen.TryAdd(typeof(TreatDeclared), new TreatDeclared(new ModelId("a1"), new ModelId("a2"), TreatChoice.StandUp));
         seen.TryAdd(typeof(TreatRolled), new TreatRolled(new ModelId("a1"), new ModelId("a2"), TreatChoice.RemoveMarker, Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(1), 1, 0, risky: true), false));
         // Roster stage R5j: no bot model carries a Martyrdom Device.
+        seen.TryAdd(typeof(TalismanUsed), new TalismanUsed(new ModelId("a1")));
         seen.TryAdd(typeof(MartyrdomTriggered), new MartyrdomTriggered(new ModelId("a1"), [new ModelId("b1"), new ModelId("a1")], [new ModelId("b1")]));
         var all = typeof(GameEvent).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(GameEvent)) && !t.IsAbstract).ToList();
         Assert.True(all.Count >= 30, $"{all.Count} event types");

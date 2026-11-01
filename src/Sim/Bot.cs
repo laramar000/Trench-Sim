@@ -54,6 +54,8 @@ public sealed class Bot(Random rng)
                 : legal.OrderBy(_ => rng.Next()),
             // Trench Warfare: Mine Markers at random spots in the Mine Placement Area, 4 of them duds at random.
             DecisionKind.LayMines => RandomMines(state, pending.Seat).Concat(legal),
+            // Roster stage R5k: a Talisman is there to be used.
+            DecisionKind.UseTalisman => legal.OrderBy(c => c is UseTalisman ? 0 : 1),
             _ => legal.OrderBy(_ => rng.Next()),
         };
     }

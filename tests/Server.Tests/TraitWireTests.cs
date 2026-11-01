@@ -205,6 +205,27 @@ public class TraitWireTests
         Assert.Equal((true, four.Total), (back.Injury.AllFour, back.Injury.Total));
     }
 
+    // Roster stage R5k (U116): Talismans, the decision, its two answers and the event.
+    [Fact]
+    public void TalismansRoundTripAndAreLeftOutWhenZero()
+    {
+        Assert.DoesNotContain("talisman", Encoded(new MatchCreated(Plain())), StringComparison.OrdinalIgnoreCase);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { Talismans = 2 };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        Assert.Contains("\"talismans\":2", Encoded(created), StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+        foreach (Rules.Core.Commands.Command command in new Rules.Core.Commands.Command[] { new Rules.Core.Commands.UseTalisman(Seat.One), new Rules.Core.Commands.DeclineTalisman(Seat.Two) })
+        {
+            Assert.Equal(command, Assert.IsType<SubmitCommand>(Codec.ParseClient(Codec.Encode(new SubmitCommand("c1", 1, 0, command)), out var failure)).Command);
+            Assert.Null(failure);
+        }
+        Assert.Equal(new TalismanUsed(new ModelId("A1")), RoundTrip(new TalismanUsed(new ModelId("A1"))));
+        Assert.Equal(new DecisionRequested(DecisionKind.UseTalisman, Seat.One), RoundTrip(new DecisionRequested(DecisionKind.UseTalisman, Seat.One)));
+    }
+
     // Roster stage R5f (U110).
     [Fact]
     public void CoverKeywordRoundTripsAndIsLeftOutWhenFalse()

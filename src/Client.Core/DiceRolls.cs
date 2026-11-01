@@ -141,6 +141,8 @@ public static class DiceRolls
             + (!check.Risky ? ""
                 // Roster stage R5d (U108): the Pontiff's Crucifix keeps the activation going after a failed RISKY roll.
                 : model is { } m && setup?.ProfileOf(m)?.KeepsGoingAfterRisky == true ? "; RISKY: a fail does not end the activation (Crucifix)"
+                // Roster stage R5k (U116): unless the model uses a Talisman.
+                : model is { } t && setup?.ProfileOf(t)?.Talismans > 0 ? "; RISKY: a fail ends the activation unless a Talisman is used"
                 : "; RISKY: a fail ends the activation");
         return new(model, title, Faces(check.Dice), rule, result, verdict);
     }

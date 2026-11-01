@@ -284,3 +284,7 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   a match plays the Trigger Martyrdom Device ACTION (U115). Tests: `MartyrdomTests`,
   `TraitWireTests.MartyrdomRoundTripsAndIsLeftOutWhenFalse`, `MatchReadinessTests.TheMartyrdomDeviceIsPlayed`,
   `ModelTraitDisplayTests.MartyrdomIsExplained`.
+- Roster rules stage R5k, Talismans (done 2026-11-01): a Blessed Icon or Unholy Trinket travels as `talismans` (a count,
+  up to 2); a match asks its player after a failed Risky roll whether to use one (U116). Tests: `TalismanTests`,
+  `TraitWireTests.TalismansRoundTripAndAreLeftOutWhenZero`, `MatchReadinessTests.TalismansArePlayed`,
+  `ModelTraitDisplayTests.TalismanIsExplained`.

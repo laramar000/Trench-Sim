@@ -53,6 +53,7 @@ public static class EventText
         ObjectivesScored o => $"Turn {o.Turn} scoring: {string.Join(", ", o.Results.Where(r => r.Controller is not null).Select(r => $"{r.ObjectiveId} to {r.Controller}"))}{(o.Results.All(r => r.Controller is null) ? "nobody controls an Objective" : "")}.",
         AttackerChosen a => $"{a.Attacker} attacks; {a.Attacker.Opponent()} defends.",
         TrenchesScored t => $"Turn {t.Turn} trench scoring: {string.Join(", ", t.Results.Select(r => $"{r.TrenchId} defender +{r.DefenderPoints}, attacker +{r.AttackerPoints}"))}.",
+        TalismanUsed t => $"  {t.Model} uses a Talisman: the failed Risky roll does not end its activation.",
         MartyrdomTriggered m => $"  {m.Model} detonates its Martyrdom Device: Injury Rolls for {string.Join(", ", m.Hit)}{(m.Close.IsEmpty ? "" : $" (+1 INJURY DICE within 1\": {string.Join(", ", m.Close)})")}.",
         BloodMarkersPlaced b => $"  Flames from {b.Source} put 1 Blood Marker on each enemy within 1\": {string.Join(", ", b.Targets)}.{(b.Warded.IsEmpty ? "" : $" The Sacrificial Lamb's blood keeps it off {string.Join(", ", b.Warded)}.")}",
         GloriousDeedCompleted d => $"{d.Seat} completes the Glorious Deed {Rules.Core.Deeds.Name(d.Deed)}{(d.Model is { } m ? $" ({m})" : "")}: +{Rules.Core.Deeds.VictoryPoints} VP.",
@@ -112,6 +113,7 @@ public static class EventText
         PointAttackDeclared p => new(Id(p.Attacker), p.Weapon == ModelProfile.GrenadeWeapon ? "THROWS AT" : "SHOOTS AT", At(p.At) + (p.LongRange ? " (long range)" : "")),
         PointSuccessRolled r => new(Id(r.Attacker), "ROLLS", $"{r.Check.Dice.Total} to hit {At(r.At)}: {r.Check.Outcome}"),
         MartyrdomTriggered m => new(Id(m.Model), "DETONATES", string.Join(", ", m.Hit.Select(Id))),
+        TalismanUsed t => new(Id(t.Model), "USES A TALISMAN", "the activation goes on"),
         BloodMarkersPlaced b => new(Id(b.Source), "BURNS", string.Join(", ", b.Targets.Select(Id)) + " (+1 Blood Marker)"),
         PointBlastHit b => new(Id(b.Attacker), "BLAST HITS", b.Hit.IsEmpty ? "nobody" : string.Join(", ", b.Hit.Select(Id))),
         AttackScattered s => new(Id(s.Attacker), "SCATTERS", $"{s.Inches}\" to {At(s.At)}: {(s.Hit.IsEmpty ? "hits nobody" : "hits " + string.Join(", ", s.Hit.Select(Id)))}"),
@@ -183,7 +185,7 @@ public static class EventText
     {
         MatchCreated or RollOffResolved or DeploymentZoneChosen or DeploymentOrderSet or ModelDeployed or AttackerChosen or MinesLaid => EventKind.Setup,
         TurnStarted or TurnEnded or PhaseEntered or InitiativeDetermined or FirstActivationChosen or MoraleOrderSet => EventKind.Turn,
-        ActivationStarted or ActivationEnded => EventKind.Activation,
+        ActivationStarted or ActivationEnded or TalismanUsed => EventKind.Activation,
         ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved or MineRevealed or MoveResumed => EventKind.Movement,
         RangedAttackDeclared or ShootingTargetRolled or FriendlyTargetChosen or RangedSuccessRolled or BlastHit or AttackScattered or ScatterMissed
             or PointAttackDeclared or PointSuccessRolled or PointBlastHit => EventKind.Shooting,

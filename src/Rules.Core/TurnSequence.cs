@@ -146,6 +146,10 @@ public static partial class TurnSequence
                 var compass = points.Where(p => p.Degree % 45 == 0).ToList();
                 commands.AddRange((compass.Count > 0 ? compass : points.Take(1)).Select(p => new ScatterAttack(pending.Seat, p.At)));
                 break;
+            case DecisionKind.UseTalisman:
+                commands.Add(new UseTalisman(pending.Seat));
+                commands.Add(new DeclineTalisman(pending.Seat));
+                break;
             case DecisionKind.SpendMarkersOnSuccessRoll or DecisionKind.SpendMarkersOnInjuryRoll:
                 var available = MarkersAvailable(state, pending.Kind);
                 commands.AddRange(Enumerable.Range(0, available + 1).Select(n => new SpendMarkers(pending.Seat, n)));
@@ -192,7 +196,7 @@ public static partial class TurnSequence
         {
             return ValidateSpend(state, spend);
         }
-        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack)
+        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman)
         {
             return ValidateChoice(state, command);
         }
@@ -323,7 +327,7 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or ScatterAttack or TreatModel or TriggerMartyrdom;
+        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or ScatterAttack or TreatModel or TriggerMartyrdom or UseTalisman or DeclineTalisman;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
@@ -398,7 +402,7 @@ public static partial class TurnSequence
                     run.Emit(new ModelStoodUp(c.Model));
                 }
                 break;
-            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack:
+            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman:
                 ExecuteBoard(run, command);
                 break;
             case EndActivation:
@@ -450,7 +454,7 @@ public static partial class TurnSequence
         // Roster stage R4c (U103): a scattered attack's failed Risky roll ends the activation once the attack is over.
         if (s.MustEndActivation && s.Phase == Phase.Activation && s.ActiveModel is { } risked)
         {
-            run.Emit(new ActivationEnded(risked, ActivationEndReason.RiskyFailure));
+            EndForRisky(run, risked);
             return true;
         }
 

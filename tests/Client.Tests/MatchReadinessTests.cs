@@ -582,6 +582,24 @@ public class MatchReadinessTests
         Assert.Contains("\"martyrdom\": true", device.ToContentJson("p", "P"), StringComparison.Ordinal);
     }
 
+    // Roster stage R5k (U116): a Blessed Icon or an Unholy Trinket is a Talisman, used once per game after a failed Risky roll.
+    [Fact]
+    public void TalismansArePlayed()
+    {
+        var icon = Of("pilgrims", "trench-pilgrim", "blessed-icon").MatchCheck();
+        Assert.True(icon.Refused.Count == 0, string.Join("; ", icon.Refused));
+        Assert.DoesNotContain(icon.PlayedWithout, w => w.Contains("Blessed Icon", StringComparison.Ordinal));
+        Assert.Equal(1, Loaded(icon).Talismans);
+        Assert.Contains("\"talismans\": 1", icon.ToContentJson("p", "P"), StringComparison.Ordinal);
+
+        var trinket = Of("heretics", "heretic-trooper", "unholy-trinket").MatchCheck();
+        Assert.True(trinket.Refused.Count == 0, string.Join("; ", trinket.Refused));
+        Assert.DoesNotContain(trinket.PlayedWithout, w => w.Contains("Unholy Trinket", StringComparison.Ordinal));
+        Assert.Equal(1, Loaded(trinket).Talismans);
+
+        Assert.DoesNotContain("talismans", Of("pilgrims", "trench-pilgrim").MatchCheck().ToContentJson("p", "P"), StringComparison.Ordinal);
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

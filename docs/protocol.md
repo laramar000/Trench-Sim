@@ -250,6 +250,11 @@ The server sends events in log order, one message each, to both players, through
   within 1"), followed by one `InjuryRolled` per hit model in that order (the bearer's own has 4 dice kept, 4D6 added
   together), with the usual Blood Marker offers for enemies. The state hash adds `,martyrdom=yes` to a profile,
   `,martyrdom=spent` to a model and `:martyr=...` to an Injury Roll in progress, only when set.
+- Roster stage R5k (U116): `ModelProfile.talismans` (0 to 2), left out when zero; a new decision kind `UseTalisman`
+  (asked of the active model's seat after a failed Risky roll that would end its activation, in place of
+  `ActivationEnded`), answered by the new commands `UseTalisman` (`seat`), giving the new event `TalismanUsed` (`model`),
+  or `DeclineTalisman` (`seat`), giving `ActivationEnded` (`RiskyFailure`). The state hash adds `,talismans=N` to a
+  profile and `,talismansUsed=N` to a model only when not zero. Trench-cli: `talisman` and `keep`.
 
 ## Rosters online (roster stage 5c)
 

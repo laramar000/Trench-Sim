@@ -666,3 +666,7 @@ public sealed record TreatRolled : GameEvent
     public SuccessRollResult Check { get; }
     public bool Treated { get; }
 }
+
+// Roster stage R5k (U116): after its failed Risky Success Roll, Model uses one of its Talismans (core rulebook pp. 81, 86):
+// its activation does not end. Declining is the ActivationEnded (RiskyFailure) that would have come anyway.
+public sealed record TalismanUsed(ModelId Model) : GameEvent;

@@ -17,6 +17,7 @@ public enum DecisionKind
     ChooseAttacker,            // Trench Warfare: the roles roll-off winner chooses who attacks (p. 161)
     LayMines,                  // Trench Warfare: the defender sets up the Mine Markers and secretly picks the duds (p. 162)
     ChooseScatterPoint,        // a SCATTER attack missed: the attacker's opponent picks where it lands (p. 57, roster stage R4c)
+    UseTalisman,               // a Risky roll failed: the model's player may use a Talisman so the activation goes on (roster stage R5k)
 }
 
 // A choice only one player can make. While one is pending, nothing else may happen.

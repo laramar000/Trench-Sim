@@ -291,6 +291,11 @@ public sealed class ResolutionLog
                 action.Steps.Add($"Scatters {s.Inches}\" to {TablePoint.Of(s.At)}: {(s.Hit.IsEmpty ? "hits nobody" : "BLAST hits " + string.Join(", ", s.Hit.Select(Id)))}");
                 action.Outcome.Add(s.Hit.IsEmpty ? $"scatters {s.Inches}\", hits nobody" : $"scatters {s.Inches}\", BLAST hits {s.Hit.Length}");
                 break;
+            case TalismanUsed:
+                // Roster stage R5k (U116).
+                action.Steps.Add("Uses a Talisman: the activation goes on");
+                action.Outcome.Add("Talisman used: the activation goes on");
+                break;
             case ScatterMissed s:
                 action.Steps.Add($"Nowhere to scatter {s.Inches}\": misses");
                 action.Outcome.Add("nowhere to scatter");
@@ -386,7 +391,9 @@ public sealed class ResolutionLog
         if (check.RiskyFailure && !action.FreeFight)
         {
             // Roster stage R5d (U108): not for a model with a Pontiff's Crucifix.
-            action.Outcome.Add(setup?.ProfileOf(action.Actor)?.KeepsGoingAfterRisky == true ? "RISKY: the Crucifix keeps the activation going" : "RISKY: the activation ends");
+            // Roster stage R5k (U116): a model with a Talisman may use it; the TalismanUsed event says when it does.
+            action.Outcome.Add(setup?.ProfileOf(action.Actor) is { KeepsGoingAfterRisky: true } ? "RISKY: the Crucifix keeps the activation going"
+                : setup?.ProfileOf(action.Actor) is { Talismans: > 0 } ? "RISKY: the activation ends unless a Talisman is used" : "RISKY: the activation ends");
         }
         action.Critical = check.Outcome == SuccessOutcome.CriticalSuccess;
         // The Injury Roll starts afresh: its dice come from the hit and the target's markers.

@@ -238,6 +238,16 @@ public sealed record ModelProfile
     // within 3" of it, itself included.
     public bool Martyrdom { get; init; }
 
+    // ---- Roster stage R5k (U116): a Talisman (a Blessed Icon or an Unholy Trinket) ----
+
+    // How many Talismans the model carries (0 to 2). Each is used once per game: when a Risky Success Roll of the model is
+    // a Failure, its player can say it uses one, and the activation does not end (core rulebook pp. 81, 86).
+    public int Talismans { get => _talismans; init => _talismans = value is < 0 or > MaxTalismans ? throw new ArgumentOutOfRangeException(nameof(Talismans), $"A model carries 0 to {MaxTalismans} Talismans.") : value; }
+
+    private readonly int _talismans;
+
+    public const int MaxTalismans = 2;
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -409,6 +419,7 @@ public sealed record ModelProfile
                 HealingWaters = HealingWaters,
                 GrindsToDust = GrindsToDust,
                 Martyrdom = Martyrdom,
+                Talismans = Talismans,
             };
         }
         // Roster stage R5i (U114): a Grind to Dust attack uses no Melee Weapon: no weapon DICE, INJURY DICE, modifier,
@@ -443,6 +454,7 @@ public sealed record ModelProfile
                 HealingWaters = HealingWaters,
                 GrindsToDust = GrindsToDust,
                 Martyrdom = Martyrdom,
+                Talismans = Talismans,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -479,6 +491,7 @@ public sealed record ModelProfile
             HealingWaters = HealingWaters,
             GrindsToDust = GrindsToDust,
             Martyrdom = Martyrdom,
+            Talismans = Talismans,
         };
     }
 

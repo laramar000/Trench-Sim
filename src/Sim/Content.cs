@@ -67,6 +67,7 @@ public static class Content
                         HealingWaters = m.TryGetProperty("healingWaters", out var healingWaters) && healingWaters.GetBoolean(),
                         GrindsToDust = m.TryGetProperty("grindsToDust", out var grinds) && grinds.GetBoolean(),
                         Martyrdom = m.TryGetProperty("martyrdom", out var martyrdom) && martyrdom.GetBoolean(),
+                        Talismans = Dice(m, "talismans"),
                         HasCover = m.TryGetProperty("hasCover", out var covered) && covered.GetBoolean(),
                         DigsIn = m.TryGetProperty("digsIn", out var digs) && digs.GetBoolean(),
                     }));

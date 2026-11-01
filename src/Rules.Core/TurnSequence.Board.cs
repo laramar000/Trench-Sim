@@ -346,6 +346,22 @@ public static partial class TurnSequence
 
     public static bool RiskyEnds(MatchState state, ModelId model) => Reducer.RiskyEnds(state, model);
 
+    // Roster stage R5k (U116): whether the model's player would be asked to use a Talisman after a failed Risky roll now.
+    public static bool TalismanReady(MatchState state, ModelId model) => Reducer.TalismanReady(state, model);
+
+    // A failed Risky roll ends the activation, unless the model has a Talisman left: then its player is asked first.
+    private static void EndForRisky(Run run, ModelId model)
+    {
+        if (Reducer.TalismanReady(run.State, model))
+        {
+            run.Emit(new DecisionRequested(DecisionKind.UseTalisman, run.State.FindModel(model)!.Seat));
+        }
+        else
+        {
+            run.Emit(new ActivationEnded(model, ActivationEndReason.RiskyFailure));
+        }
+    }
+
     // Roster stage R5e (U109): a Ranged Attack at this model now would have the Urn of the Bitter Ashes' -1 DICE.
     public static bool Whispers(MatchState state, ModelId target) => state.FindModel(target) is { } m && Reducer.Whispers(state, m);
 
@@ -365,6 +381,8 @@ public static partial class TurnSequence
             DeclineFreeFights c => (DecisionKind.FreeFight, c.Seat),
             ChooseFriendlyTarget c => (DecisionKind.ChooseFriendlyTarget, c.Seat),
             ScatterAttack c => (DecisionKind.ChooseScatterPoint, c.Seat),
+            UseTalisman c => (DecisionKind.UseTalisman, c.Seat),
+            DeclineTalisman c => (DecisionKind.UseTalisman, c.Seat),
             _ => throw new ArgumentException("Not a choice."),
         };
         if (state.Pending is not { } pending)
@@ -522,6 +540,12 @@ public static partial class TurnSequence
             case DeclineFreeFights c:
                 run.Emit(new FreeFightsDeclined(c.Seat));
                 break;
+            case UseTalisman:
+                run.Emit(new TalismanUsed(state.ActiveModel!.Value));
+                break;
+            case DeclineTalisman:
+                run.Emit(new ActivationEnded(state.ActiveModel!.Value, ActivationEndReason.RiskyFailure));
+                break;
             case ScatterAttack c:
             {
                 var scattering = state.InProgress!;
@@ -592,7 +616,7 @@ public static partial class TurnSequence
                 // Roster stage R5d (U108): unless the model keeps going after a failed Risky roll.
                 if (run.State.MustEndActivation)
                 {
-                    run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                    EndForRisky(run, progress.Actor);
                 }
                 return true;
             }
@@ -605,7 +629,7 @@ public static partial class TurnSequence
                 run.Emit(new TreatRolled(progress.Actor, progress.Target!.Value, choice, check, treated));
                 if (run.State.MustEndActivation)
                 {
-                    run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                    EndForRisky(run, progress.Actor);
                 }
                 return true;
             }
@@ -629,7 +653,7 @@ public static partial class TurnSequence
                 run.Emit(new SideClimbRolled(progress.Actor, check));
                 if (run.State.MustEndActivation && run.State.InProgress is null)
                 {
-                    run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                    EndForRisky(run, progress.Actor);
                 }
                 return true;
             }
@@ -647,7 +671,7 @@ public static partial class TurnSequence
                 // A Mine Marker on the way halts the move first; the activation ends once the move is over.
                 if (run.State.MineStop is null && run.State.MustEndActivation)
                 {
-                    run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                    EndForRisky(run, progress.Actor);
                 }
                 return true;
             }
@@ -663,7 +687,7 @@ public static partial class TurnSequence
                 // A scattering attack (roster stage R4c) is resolved first; its activation ends once it is over.
                 if (check.RiskyFailure && run.State.MustEndActivation && run.State.InProgress is null)
                 {
-                    run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                    EndForRisky(run, progress.Actor);
                 }
                 else if (check.Outcome != SuccessOutcome.Failure && run.State.InProgress is { Stage: RollStage.InjuryRoll }
                     && !progress.FriendlyFire && run.State.FindModel(progress.Target!.Value)!.BloodMarkers > 0)
@@ -724,7 +748,7 @@ public static partial class TurnSequence
                     // Only the active model has an activation to lose; a free attack that fails simply misses (U49).
                     if (run.State.MustEndActivation)
                     {
-                        run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
+                        EndForRisky(run, progress.Actor);
                     }
                 }
                 else if (check.Outcome != SuccessOutcome.Failure && run.State.FindModel(progress.Target.Value)!.BloodMarkers > 0)
@@ -857,7 +881,7 @@ public static partial class TurnSequence
         if (run.State.MustEndActivation)
         {
             // The move was a failed side climb's (U75): its activation ends now the move is over.
-            run.Emit(new ActivationEnded(model.Id, ActivationEndReason.RiskyFailure));
+            EndForRisky(run, model.Id);
         }
         return true;
     }

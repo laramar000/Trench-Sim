@@ -333,6 +333,49 @@ public class ModelTraitDisplayTests
     }
 
     // Roster stage R5j (U115): a Martyrdom Device is previewed, logged, broken down and named on the card.
+    // Roster stage R5k (U116): after a failed Risky roll the player of a model with a Talisman gets two answers on a bar
+    // over the model, and the log says when it is used.
+    [Fact]
+    public void TalismanIsExplained()
+    {
+        var (asked, used) = (0, 0);
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select(m => m with { Profile = m.Profile with { Talismans = 1 } }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                state = Reducer.Apply(state, e);
+                if (e is DecisionRequested { Kind: DecisionKind.UseTalisman } d)
+                {
+                    var interaction = new Interaction();
+                    interaction.Update(state, d.Seat);
+                    var bar = interaction.Bar(null);
+                    Assert.Equal(state.ActiveModel, bar.Anchor);
+                    Assert.Equal(["Use Talisman", "Keep Talisman"], bar.Items.Where(i => i.Kind == BarKind.Decide).Select(i => i.Label));
+                    Assert.Equal(TurnSequence.LegalCommands(state), bar.Items.Where(i => i.Kind == BarKind.Decide).Select(i => i.Command!));
+                    Assert.Contains("use a Talisman", EventText.Line(d), StringComparison.Ordinal);
+                    asked++;
+                }
+                if (e is TalismanUsed t)
+                {
+                    Assert.Equal($"  {t.Model} uses a Talisman: the failed Risky roll does not end its activation.", EventText.Line(t));
+                    Assert.Equal(("USES A TALISMAN", EventKind.Activation), (EventText.Compact(t).Verb, EventText.Kind(t)));
+                    Assert.Equal(EventText.Describe(t), Narrator.Describe(t));
+                    used++;
+                }
+            }
+        }
+        Assert.True(asked > 0 && used > 0, $"{asked} asked, {used} used");
+        var profile = new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true);
+        Assert.Contains("Talisman: once per game", UnitPanel.WeaponWords(profile with { Talismans = 1 }), StringComparison.Ordinal);
+        Assert.Contains("2 Talismans", UnitPanel.WeaponWords(profile with { Talismans = 2 }), StringComparison.Ordinal);
+        Assert.DoesNotContain("Talisman", UnitPanel.WeaponWords(profile), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void MartyrdomIsExplained()
     {

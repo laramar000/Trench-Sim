@@ -91,6 +91,8 @@ public static class ActionHints
         FreeFight f => $"Free attack with {names.Of(f.Attacker)}",
         DeclineFreeFights => "Decline the remaining free attacks",
         ChooseFriendlyTarget t => $"The shot hits your own {names.Of(t.Victim)}",
+        UseTalisman => "Use a Talisman: the failed Risky roll does not end the activation",
+        DeclineTalisman => "Keep the Talisman: the activation ends",
         ScatterAttack s => $"The missed attack lands {ScatterWords.Where(state, s.At)}: {ScatterWords.Hits(state, s.At, names.Of)}",
         _ => command.GetType().Name,
     };

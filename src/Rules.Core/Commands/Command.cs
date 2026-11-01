@@ -106,3 +106,8 @@ public sealed record TreatModel(Seat Seat, ModelId Model, ModelId Target, TreatC
 
 // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION (Warbands p. 58): the device detonates, once per game.
 public sealed record TriggerMartyrdom(Seat Seat, ModelId Model) : Command;
+
+// Roster stage R5k (U116): answers the UseTalisman decision after the active model's Risky Success Roll failed: use one of
+// its Talismans (a Blessed Icon or an Unholy Trinket) so the activation does not end, or let the activation end.
+public sealed record UseTalisman(Seat Seat) : Command;
+public sealed record DeclineTalisman(Seat Seat) : Command;

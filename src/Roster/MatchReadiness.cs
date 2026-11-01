@@ -98,6 +98,9 @@ public sealed record ReadyModel(
     // Roster stage R5i (U114): the Grind to Dust ACTION (Piston Legs).
     public bool GrindsToDust { get; init; }
 
+    // Roster stage R5k (U116): Talismans (Blessed Icon, Unholy Trinket), each used once per game after a failed Risky roll.
+    public int Talismans { get; init; }
+
     // Roster stage R5j (U115): the Trigger Martyrdom Device ACTION.
     public bool Martyrdom { get; init; }
 }
@@ -172,7 +175,7 @@ public sealed record MatchReady(
                         ("meleeWeaponInjuryDice", m.MeleeWeaponInjuryDice), ("meleeWeaponCleave", m.MeleeWeaponCleave),
                         ("imperviousArmour", m.ImperviousArmour), ("rangedWeaponBlast", m.RangedWeaponBlast),
                         ("injuryDiceTaken", m.InjuryDiceTaken), ("meleeInjuryBonus", m.MeleeInjuryBonus),
-                        ("climbDice", m.ClimbDice),
+                        ("climbDice", m.ClimbDice), ("talismans", m.Talismans),
                     })
                     {
                         if (dice != 0)
@@ -287,6 +290,7 @@ public static class MatchReadiness
             var (hasCover, digsIn) = (false, false);
             var (burnsAtEnd, burnsWhenOut) = (false, false);
             var (treats, healingWaters, grinds, martyrdom) = (false, false, false, false);
+            var talismans = 0;
             CatalogueEntry? digger = null;
             string? diggerUse = null;
             var ammunition = new List<CatalogueEntry>();
@@ -386,6 +390,7 @@ public static class MatchReadiness
                         treats |= played.Treats;
                         healingWaters |= played.HealingWaters;
                         grinds |= played.Grinds;
+                        talismans += played.Talisman ? 1 : 0;
                         if (played.AsWeapon is { } use && digger is null)
                         {
                             (digger, diggerUse) = (piece, use);
@@ -508,6 +513,7 @@ public static class MatchReadiness
                 HealingWaters = healingWaters,
                 GrindsToDust = grinds,
                 Martyrdom = martyrdom,
+                Talismans = Talismans(talismans, who, without),
             });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
@@ -554,6 +560,19 @@ public static class MatchReadiness
     };
 
     // Dice the engine holds (-6 to +6 each, Rules.Core ModelProfile.MaxDice); beyond that, played at the limit and named.
+    // Roster stage R5k (U116): the engine plays up to two Talismans on one model.
+    private static int Talismans(int count, string who, List<string> without)
+    {
+        if (count <= MaxTalismans)
+        {
+            return count;
+        }
+        without.Add($"{who}: Talismans beyond {MaxTalismans}");
+        return MaxTalismans;
+    }
+
+    private const int MaxTalismans = 2;
+
     private static int Dice(int dice, string who, string what, List<string> without)
     {
         if (Math.Abs(dice) <= MaxDice)
@@ -659,7 +678,7 @@ public static class MatchReadiness
     // Cover's -2 DICE against the model.
     private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null, int InjuryDiceTaken = 0, int MeleeInjury = 0,
         bool KeepsGoing = false, int ClimbDice = 0, bool Fanfare = false, bool BlendsIn = false, bool Whispers = false, bool Warded = false,
-        bool DigsIn = false, string? Unplayed = null, string? AsWeapon = null, bool BurnsAtEnd = false, bool BurnsWhenOut = false, bool Treats = false, bool HealingWaters = false, bool Grinds = false);
+        bool DigsIn = false, string? Unplayed = null, string? AsWeapon = null, bool BurnsAtEnd = false, bool BurnsWhenOut = false, bool Treats = false, bool HealingWaters = false, bool Grinds = false, bool Talisman = false);
 
     private static readonly Dictionary<string, PlayedPiece> PlayedEquipment = new(StringComparer.Ordinal)
     {
@@ -691,6 +710,9 @@ public static class MatchReadiness
         ["holy-water-of-lalibela"] = new(HealingWaters: true),
         // Roster stage R5i (U114).
         ["piston-legs"] = new(Grinds: true),
+        // Roster stage R5k (U116): a Talisman each, used once per game after a failed Risky roll.
+        ["blessed-icon"] = new(Talisman: true),
+        ["unholy-trinket"] = new(Talisman: true),
     };
 
     // Roster stage R5c (U107): AMMUNITION (X), what it gives the weapon: +X DICE or a keyword the engine plays.

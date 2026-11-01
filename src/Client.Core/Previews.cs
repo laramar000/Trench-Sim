@@ -295,6 +295,10 @@ public static class Previews
         {
             facts.Add("A failed Risky roll does not end this model's activation (its Crucifix).");
         }
+        else if ((kind == PreviewKind.Dash || result.SideClimb is not null) && TurnSequence.TalismanReady(state, id))
+        {
+            facts.Add(TalismanFact);
+        }
         return result.IsLegal ? null : new(ReasonCode.MoveIllegal, result.Text, result.RuleRef);
     }
 
@@ -302,6 +306,8 @@ public static class Previews
     // Roster stage R5f (U110).
     public const string KeywordCoverFact = "Its COVER keyword (a shield, or dug in with a Shovel) gives it the Cover and Defended Obstacle modifiers (p. 54).";
 
+    // Roster stage R5k (U116).
+    public const string TalismanFact = "A failed Risky roll: you may use one of this model's Talismans so its activation does not end (once per game each).";
     public const string SideClimbFact = "Climbs the tower's side: a Risky Success Roll when the model reaches it. On a Success it makes the whole move; on a Failure it stops where the climb starts and its activation ends (server).";
 
     // A legal Fight target is engaged with the attacker: within 1" (pp. 45-46).
@@ -723,6 +729,10 @@ public static class Previews
             if (!TurnSequence.RiskyEnds(state, model))
             {
                 facts.Add("A failed Risky roll does not end this model's activation (its Crucifix).");
+            }
+            else if (TurnSequence.TalismanReady(state, model))
+            {
+                facts.Add(TalismanFact);
             }
         }
         var from = state.FindModel(model) is { } m && BodyOf(state, m) is { } b ? [new PathMark(TablePoint.Of(b.Centre), 0)] : Array.Empty<PathMark>();

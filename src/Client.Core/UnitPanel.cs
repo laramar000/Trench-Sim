@@ -380,6 +380,12 @@ public static class UnitPanel
         {
             parts.Add("Martyrdom Device (B), once per game");
         }
+        // Roster stage R5k (U116).
+        if (p.Talismans > 0)
+        {
+            parts.Add(p.Talismans == 1 ? "Talisman: once per game a failed Risky roll need not end the activation"
+                : $"{p.Talismans} Talismans: each once per game, a failed Risky roll need not end the activation");
+        }
         // Roster stage R5i (U114).
         if (p.GrindsToDust)
         {
