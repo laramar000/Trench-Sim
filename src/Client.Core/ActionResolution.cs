@@ -156,7 +156,7 @@ public sealed class ResolutionLog
                 ShotParts(setup, p.Attacker, p.LongRange, null, false);
                 break;
             case MeleeAttackDeclared m:
-                Start(seq, m.Attacker, $"{Id(m.Attacker)} {(m.FreeFight ? "MAKES A FREE ATTACK ON" : "FIGHTS")} {Id(m.Target)}{(m.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Melee, m.Target);
+                Start(seq, m.Attacker, $"{Id(m.Attacker)} {(m.FreeFight ? "MAKES A FREE ATTACK ON" : m.Weapon == ModelProfile.GrindWeapon ? "GRINDS TO DUST" : "FIGHTS")} {Id(m.Target)}{(m.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Melee, m.Target);
                 _current!.FreeFight = m.FreeFight;
                 _current!.Weapon = m.Weapon;
                 OwnParts(setup, m.Attacker, AttackKind.Melee);

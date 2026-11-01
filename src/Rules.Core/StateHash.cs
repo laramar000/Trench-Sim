@@ -234,7 +234,9 @@ public static class StateHash
             + (p.BurnsWhenTakenOut ? ",burnsWhenOut=yes" : "")
             // Roster stage R5h: the Treat ACTION, only when present.
             + (p.Treats ? ",treats=yes" : "")
-            + (p.HealingWaters ? ",healingWaters=yes" : "");
+            + (p.HealingWaters ? ",healingWaters=yes" : "")
+            // Roster stage R5i: the Grind to Dust ACTION, only when present.
+            + (p.GrindsToDust ? ",grinds=yes" : "");
     }
 
     private static string WeaponText(Weapon w) =>

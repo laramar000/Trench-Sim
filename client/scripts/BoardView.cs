@@ -1263,6 +1263,8 @@ public partial class BoardView : SubViewportContainer
                 Key.Key7 or Key.Kp7 => (InteractionMode.Blast, 0),
                 Key.Key8 or Key.Kp8 => (InteractionMode.Blast, 1),
                 Key.Key9 or Key.Kp9 => (InteractionMode.Blast, Rules.Core.State.ModelProfile.GrenadeWeapon),
+                // Roster stage R5i: 0 is Piston Legs' Grind to Dust ACTION.
+                Key.Key0 or Key.Kp0 => (InteractionMode.Fight, Rules.Core.State.ModelProfile.GrindWeapon),
                 _ => (InteractionMode.None, 0),
             } is var (attack, weapon) && attack != InteractionMode.None)
         {

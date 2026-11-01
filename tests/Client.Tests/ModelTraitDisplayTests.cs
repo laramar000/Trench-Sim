@@ -290,6 +290,48 @@ public class ModelTraitDisplayTests
         Assert.Contains("Treat ACTION (H), +1 DICE", UnitPanel.WeaponWords(medicCard), StringComparison.Ordinal);
     }
 
+    // Roster stage R5i (U114): Grind to Dust is key 0 of the Combat menu, previewed, logged and named on the card.
+    [Fact]
+    public void GrindIsExplained()
+    {
+        var (grinds, menus) = (0, 0);
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select(m => m with { Profile = m.Profile with { GrindsToDust = true } }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is MeleeAttackDeclared { Weapon: ModelProfile.GrindWeapon } m && state.FindModel(m.Attacker) is { } grinder)
+                {
+                    var preview = Previews.Target(state, grinder.Seat, PreviewKind.Fight, m.Attacker, m.Target, ModelProfile.GrindWeapon);
+                    Assert.Null(preview.Refusal);
+                    Assert.Equal(new Rules.Core.Commands.FightModel(grinder.Seat, m.Attacker, m.Target) { Weapon = ModelProfile.GrindWeapon }, preview.Command);
+                    Assert.Contains(Previews.GrindFact, preview.Facts);
+                    Assert.Equal($"Grind {m.Target.Value} to dust with {m.Attacker.Value}", Interaction.Describe(preview));
+                    var interaction = new Interaction();
+                    interaction.Update(state, grinder.Seat);
+                    if (interaction.Start(InteractionMode.Combat))
+                    {
+                        var entry = interaction.CombatEntries().Single(c => c.Weapon == ModelProfile.GrindWeapon);
+                        Assert.Equal((InteractionMode.Fight, "Grind to Dust", "0", true), (entry.Mode, entry.Label, entry.Key, entry.Enabled));
+                        menus++;
+                    }
+                    Assert.StartsWith($"  {m.Attacker} grinds to dust {m.Target}", EventText.Line(m), StringComparison.Ordinal);
+                    Assert.Equal("GRINDS", EventText.Compact(m).Verb);
+                    grinds++;
+                }
+                state = Reducer.Apply(state, e);
+            }
+        }
+        Assert.True(grinds > 0 && menus == grinds, $"{grinds} grinds, {menus} menus");
+        var card = new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true) { GrindsToDust = true };
+        Assert.Contains("Grind to Dust ACTION (Combat 0)", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
+        Assert.DoesNotContain("Grind", UnitPanel.WeaponWords(card with { GrindsToDust = false }), StringComparison.Ordinal);
+    }
+
     // Roster stage R5f (U110): the previews and the breakdown name the COVER keyword's die.
     [Fact]
     public void CoverKeywordIsExplained()

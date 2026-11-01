@@ -242,6 +242,9 @@ The server sends events in log order, one message each, to both players, through
   `TreatRolled` (`model`, `target`, `choice`, `check`, `treated`), and `ActivationEnded` (RiskyFailure) on a Failure
   unless the model keeps going. The state hash adds `,treats=yes` and `,healingWaters=yes` to a profile, and `:standUp`
   to a Treat roll in progress, only when set.
+- Roster stage R5i (U114): `ModelProfile.grindsToDust`, left out when false. A Grind to Dust ACTION is a `FightModel`
+  with `weapon` 3 (`ModelProfile.GrindWeapon`) and its `MeleeAttackDeclared` has `weapon` 3; the rest of the attack is a
+  normal Melee Attack. The state hash adds `,grinds=yes` to a profile only when set.
 
 ## Rosters online (roster stage 5c)
 

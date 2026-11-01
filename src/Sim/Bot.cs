@@ -146,6 +146,14 @@ public sealed class Bot(Random rng)
                 yield return new TreatModel(seat, model.Id, friend.Id, TreatChoice.RemoveMarker);
             }
         }
+        // Roster stage R5i (U114): a model with Piston Legs grinds a Down enemy first, when it can (no random numbers).
+        if (profile.GrindsToDust && !state.Actions.HasFlag(ActionsTaken.Grind))
+        {
+            foreach (var target in Targets(state, model).Where(t => t.Status == ModelStatus.Down).Take(3))
+            {
+                yield return new FightModel(seat, model.Id, target.Id) { Weapon = ModelProfile.GrindWeapon };
+            }
+        }
         var kinds = new List<string>();
         var melee = state.Setup!.ProfileOf(model.Id)!.CanMakeMeleeAttack;
         var engaged = melee && NearestEnemy(state, model) is { } nearest && Gap(state, model, nearest) <= Length.Inch;

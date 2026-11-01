@@ -1122,6 +1122,11 @@ public sealed class Interaction
                 choices.Add((mode, weapon, key));
             }
         }
+        // Roster stage R5i: 0 is Piston Legs' Grind to Dust ACTION.
+        if (_state.Setup?.ProfileOf(actor) is { GrindsToDust: true })
+        {
+            choices.Add((InteractionMode.Fight, ModelProfile.GrindWeapon, "0"));
+        }
         // Roster stage R5a: 7, 8 and 9 aim a BLAST weapon (first, second, grenade) at a point.
         foreach (var weapon in Previews.BlastWeaponsOf(_state, actor))
         {
@@ -1141,7 +1146,7 @@ public sealed class Interaction
                     : new CombatEntry(mode, blastLabel, key, true, null, 0, weapon));
                 continue;
             }
-            var label = weapon == 0 ? Words(mode) : weapon == ModelProfile.GrenadeWeapon ? "Throw grenade" : $"{Words(mode)}, 2nd weapon";
+            var label = weapon == 0 ? Words(mode) : weapon == ModelProfile.GrenadeWeapon ? "Throw grenade" : weapon == ModelProfile.GrindWeapon ? "Grind to Dust" : $"{Words(mode)}, 2nd weapon";
             if (ActionOpen(seat, actor, Kind(mode), weapon) is { } closed)
             {
                 entries.Add(new CombatEntry(mode, label, key, false, $"{closed.Text} ({closed.RuleRef})", 0, weapon));
@@ -1469,6 +1474,7 @@ public sealed class Interaction
         Shoot s => $"Shoot {s.Target.Value} with {s.Attacker.Value}",
         ShootPoint s => $"Blast {TablePoint.Of(s.At)} with {s.Attacker.Value}",
         ChargeModel c => $"Charge {c.Target.Value} with {c.Model.Value}",
+        FightModel { Weapon: ModelProfile.GrindWeapon } g => $"Grind {g.Target.Value} to dust with {g.Model.Value}",
         FightModel f => $"Fight {f.Target.Value} with {f.Model.Value}",
         TreatModel t => $"Treat {t.Target.Value} with {t.Model.Value} ({(t.Choice == TreatChoice.StandUp ? "stand up" : "remove 1 Blood Marker")})",
         _ => preview.Verb,

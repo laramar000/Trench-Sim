@@ -223,8 +223,14 @@ public sealed record ModelProfile
     public bool Treats { get; init; }
 
     // The model has Holy Water of Lalibela: +1 DICE to its Success Rolls for ACTIONS that can remove BLOOD MARKERS (its
-    // Treat ACTION; Warbands p. 76).
+    // Treat ACTION; Warbands p. 44).
     public bool HealingWaters { get; init; }
+
+    // ---- Roster stage R5i (U114): Piston Legs ----
+
+    // The model can take a Grind to Dust ACTION (Warbands p. 66): a Melee Attack, with no Melee Weapon, at a Down enemy
+    // within 1" on a base of 32 mm or smaller. Its attack is the melee "weapon" GrindWeapon.
+    public bool GrindsToDust { get; init; }
 
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
@@ -337,13 +343,17 @@ public sealed record ModelProfile
     {
         0 or 1 => Weapons(kind) > weapon,
         2 => kind == AttackKind.Ranged && Grenade is not null,
+        3 => kind == AttackKind.Melee && GrindsToDust,
         _ => false,
     };
 
     public const int GrenadeWeapon = 2;
 
+    // Roster stage R5i (U114): a Grind to Dust ACTION's Melee Attack, made without a Melee Weapon.
+    public const int GrindWeapon = 3;
+
     // The Melee Attacks a Fight makes with a weapon: CLEAVE (X), else one.
-    public int MeleeAttacksWith(int weapon) => Math.Max(1, weapon == 0 ? (HasMeleeWeapon ? MeleeWeaponCleave : 0) : SecondMeleeWeapon?.Cleave ?? 0);
+    public int MeleeAttacksWith(int weapon) => weapon == GrindWeapon ? 1 : Math.Max(1, weapon == 0 ? (HasMeleeWeapon ? MeleeWeaponCleave : 0) : SecondMeleeWeapon?.Cleave ?? 0);
 
     // The profile as an attack with one of the model's weapons sees it: weapon 0 is the profile itself; weapon 1 puts
     // the second weapon of that kind in the first one's place, so every rule about "the weapon" reads that weapon.
@@ -391,6 +401,40 @@ public sealed record ModelProfile
                 BurnsWhenTakenOut = BurnsWhenTakenOut,
                 Treats = Treats,
                 HealingWaters = HealingWaters,
+                GrindsToDust = GrindsToDust,
+            };
+        }
+        // Roster stage R5i (U114): a Grind to Dust attack uses no Melee Weapon: no weapon DICE, INJURY DICE, modifier,
+        // keywords or CLEAVE; the model's own Melee dice and traits still count.
+        if (weapon == GrindWeapon)
+        {
+            return new ModelProfile(Movement, BaseRadius, RangedRange, RangedInjuryModifier, Armour, hasMeleeWeapon: true, meleeInjuryModifier: 0)
+            {
+                RangedDice = RangedDice,
+                MeleeDice = MeleeDice,
+                RangedWeaponDice = RangedWeaponDice,
+                RangedWeaponInjuryDice = RangedWeaponInjuryDice,
+                RangedWeaponKeywords = RangedWeaponKeywords,
+                RangedWeaponBlast = RangedWeaponBlast,
+                Block = Block,
+                ImperviousArmour = ImperviousArmour,
+                Negates = Negates,
+                Traits = Traits,
+                InjuryDiceTaken = InjuryDiceTaken,
+                MeleeInjuryBonus = MeleeInjuryBonus,
+                KeepsGoingAfterRisky = KeepsGoingAfterRisky,
+                ClimbDice = ClimbDice,
+                Fanfare = Fanfare,
+                BlendsIn = BlendsIn,
+                SinisterWhispers = SinisterWhispers,
+                WardedByBlood = WardedByBlood,
+                HasCover = HasCover,
+                DigsIn = DigsIn,
+                BurnsAtActivationEnd = BurnsAtActivationEnd,
+                BurnsWhenTakenOut = BurnsWhenTakenOut,
+                Treats = Treats,
+                HealingWaters = HealingWaters,
+                GrindsToDust = GrindsToDust,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -425,6 +469,7 @@ public sealed record ModelProfile
             BurnsWhenTakenOut = BurnsWhenTakenOut,
             Treats = Treats,
             HealingWaters = HealingWaters,
+            GrindsToDust = GrindsToDust,
         };
     }
 

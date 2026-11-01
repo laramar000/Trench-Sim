@@ -358,7 +358,8 @@ public static class Previews
         {
             return Treat(state, seat, model, target);
         }
-        var next = kind == PreviewKind.Fight ? TurnSequence.NextFightAttack(state, model) : null;
+        // Roster stage R5i: a Grind to Dust ACTION (GrindWeapon) is its own ACTION, not the Fight's next attack.
+        var next = kind == PreviewKind.Fight && weapon != ModelProfile.GrindWeapon ? TurnSequence.NextFightAttack(state, model) : null;
         if (next is not null)
         {
             weapon = next.Weapon;
@@ -586,11 +587,20 @@ public static class Previews
         {
             return rejection;
         }
-        if (next is null && state.Actions.HasFlag(ActionsTaken.Fight))
+        var grind = weapon == ModelProfile.GrindWeapon;
+        if (grind && state.Setup?.ProfileOf(id) is not { GrindsToDust: true })
+        {
+            return new(ReasonCode.NoSuchAction, "Only a model with Piston Legs can take a Grind to Dust ACTION.", RefGrind);
+        }
+        if (grind && state.Actions.HasFlag(ActionsTaken.Grind))
+        {
+            return new(ReasonCode.ActionAlreadyTaken, "A Grind to Dust ACTION can be taken only once per activation.", RefActions);
+        }
+        if (!grind && next is null && state.Actions.HasFlag(ActionsTaken.Fight))
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Fight ACTION can be taken only once per activation.", RefActions);
         }
-        if (next is null && ActionLimits.MeleeExcluded(state, id, ActionsTaken.Fight) is { } excluded)
+        if (!grind && next is null && ActionLimits.MeleeExcluded(state, id, ActionsTaken.Fight) is { } excluded)
         {
             return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
@@ -599,11 +609,11 @@ public static class Previews
             return new(ReasonCode.UnknownModel, "There is no such target.", RefMelee);
         }
         var from = BodyOf(state, attacker!)!;
-        if (!state.Setup!.ProfileOf(attacker!.Id)!.CanMakeMeleeAttack)
+        if (!state.Setup!.ProfileOf(attacker!.Id)!.CanMakeMeleeAttack && !grind)
         {
             return new(ReasonCode.NoMeleeWeapon, "That model has no Melee Weapon.", RefMelee);
         }
-        if (weapon != 0 && (weapon < 0 || state.Setup.ProfileOf(attacker.Id)!.Weapons(AttackKind.Melee) <= weapon))
+        if (!grind && weapon != 0 && (weapon < 0 || state.Setup.ProfileOf(attacker.Id)!.Weapons(AttackKind.Melee) <= weapon))
         {
             return new(ReasonCode.NoMeleeWeapon, "That model has no second Melee Weapon.", RefMelee);
         }
@@ -625,6 +635,10 @@ public static class Previews
         if (cover.Sight.Visibility == Visibility.None)
         {
             return new(ReasonCode.NoLineOfSight, "The target must be in the attacker's Line of Sight.", RefMelee);
+        }
+        if (grind)
+        {
+            facts.Add(GrindFact);
         }
         // Roster stage R3 (U100): an Off-Hand weapon's attacks and BLOCK after a charge are a penalty die each.
         var offHand = next?.OffHand ?? false;
@@ -652,6 +666,10 @@ public static class Previews
     // has 1 BLOOD MARKER removed. The rules' own check (TurnSequence.Check) decides; the facts say what the roll does.
     public static TreatChoice TreatChoiceFor(MatchState state, ModelId model, ModelId target) =>
         target != model && state.FindModel(target) is { Status: ModelStatus.Down } ? TreatChoice.StandUp : TreatChoice.RemoveMarker;
+
+    // Roster stage R5i (U114): Piston Legs' Grind to Dust ACTION.
+    public const string GrindFact = "Grind to Dust (Warbands p. 66): a Melee Attack with no Melee Weapon, at a Down enemy on a base of 32 mm or smaller.";
+    public const string RefGrind = "Warbands 1.0.2 p. 66";
 
     public const string TreatFact = "A Treat is a Risky Success Roll (p. 84): on a Success it is carried out; a Failure ends the activation.";
     public const string HolyWaterFact = "+1 DICE on the Treat roll: Holy Water of Lalibela (Warbands p. 44).";

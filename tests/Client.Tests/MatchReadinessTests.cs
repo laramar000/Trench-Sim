@@ -547,6 +547,23 @@ public class MatchReadinessTests
         Assert.DoesNotContain("healingWaters", plain, StringComparison.Ordinal);
     }
 
+    // Roster stage R5i (U114): Piston Legs give the Grind to Dust ACTION.
+    [Fact]
+    public void PistonLegsArePlayed()
+    {
+        var monastery = RosterBuilder.Shipped();
+        monastery.ChooseFaction("pilgrims");
+        monastery.ChooseVariant("mountain-monastery-pilgrimage");
+        monastery.Select(monastery.Add("reliquary-walker"));
+        monastery.AddKit("piston-legs");
+        var legs = monastery.MatchCheck();
+        Assert.True(legs.Refused.Count == 0, string.Join("; ", legs.Refused));
+        Assert.DoesNotContain(legs.PlayedWithout, w => w.Contains("Piston Legs", StringComparison.Ordinal));
+        Assert.True(Loaded(legs).GrindsToDust);
+        Assert.Contains("\"grindsToDust\": true", legs.ToContentJson("p", "P"), StringComparison.Ordinal);
+        Assert.DoesNotContain("grindsToDust", Of("pilgrims", "trench-pilgrim").MatchCheck().ToContentJson("p", "P"), StringComparison.Ordinal);
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

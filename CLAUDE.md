@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U113), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U114), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -126,10 +126,13 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   `ActionsTaken.Treat`; Risky; the opponent may spend the model's markers. Holy Water (`HealingWaters`) +1 DICE.
   Client: key H, Treat only offered for a Medi-kit model; Bot treats first when it can. Tests `TreatTests` and three more.
   The "not playable yet" example in tests and the `play-roster-pickers` UI check is now Binoculars (UI check not run).
-  Essentials 2,159/0.
-- Pushed before: R5a e2ad5d8 ... R5f a93a518, gaps f787535 (U111), R5g 6305404 (U112).
+  Pushed 28cf852.
+- Done: R5i (U114): Piston Legs (`GrindsToDust`) give the Grind to Dust ACTION: a `FightModel`/`MeleeAttackDeclared`
+  with weapon 3 (`ModelProfile.GrindWeapon`, `ActionsTaken.Grind`), at a Down enemy within 1" on a base <= 32 mm, no
+  Melee Weapon stats (`Using(Melee, 3)`); its own ACTION beside a Fight. Client: Combat menu key 0. Tests `GrindTests`
+  and three more. Essentials 2,166/0.
+- Pushed before: R5a e2ad5d8 ... R5f a93a518, gaps f787535 (U111), R5g 6305404 (U112), R5h 28cf852 (U113).
 - Decided: Urn of the Bitter Ashes protects any model within 3" (Jason card "1 Any model", U109).
-- Next: Piston Legs (Grind to Dust: own ACTION, melee attack on a Down enemy within 1" with base <= 32 mm), then
-  Martyrdom Device (once per game, Injury Rolls within 3"), then Blessed Icon/Unholy Trinket, then R6.
+- Next: Martyrdom Device (Trigger: once per game, Injury Rolls within 3"), then Blessed Icon/Unholy Trinket, then R6.
 - Still refused by name in matches: AMMUNITION with two possible guns (no deployment choice yet), and every equipment
   piece not in `MatchReadiness.PlayedEquipment`. No Windows run since 17a9099/e917e6b.

@@ -61,6 +61,7 @@ public enum ActionsTaken
     Retreat = 16,
     Fight = 32,
     Treat = 64,   // roster stage R5h (U113): a Medi-kit's Treat ACTION
+    Grind = 128,  // roster stage R5i (U114): Piston Legs' Grind to Dust ACTION
 }
 
 public enum RollStage

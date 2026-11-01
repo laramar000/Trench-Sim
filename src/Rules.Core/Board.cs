@@ -501,11 +501,16 @@ internal static class Board
         {
             return Refuse(ReasonCode.ModelNotStanding, "A Down model cannot fight.");
         }
-        if (!state.Setup!.ProfileOf(attacker.Id)!.CanMakeMeleeAttack)
+        var grind = weapon == ModelProfile.GrindWeapon;
+        if (grind && !state.Setup!.ProfileOf(attacker.Id)!.GrindsToDust)
+        {
+            return new MeleeAssessment(new Rejection(ReasonCode.NoSuchAction, "Only a model with Piston Legs can take a Grind to Dust ACTION.", RefGrind));
+        }
+        if (!grind && !state.Setup!.ProfileOf(attacker.Id)!.CanMakeMeleeAttack)
         {
             return Refuse(ReasonCode.NoMeleeWeapon, "That model has no Melee Weapon.");
         }
-        if (weapon != 0 && (weapon < 0 || state.Setup!.ProfileOf(attacker.Id)!.Weapons(AttackKind.Melee) <= weapon))
+        if (!grind && weapon != 0 && (weapon < 0 || state.Setup!.ProfileOf(attacker.Id)!.Weapons(AttackKind.Melee) <= weapon))
         {
             return Refuse(ReasonCode.NoMeleeWeapon, "That model has no second Melee Weapon.");
         }
@@ -522,6 +527,15 @@ internal static class Board
         {
             return Refuse(ReasonCode.TargetNotInMelee, "The target of a Melee Attack must be within 1\".");
         }
+        // Roster stage R5i (U114): Grind to Dust targets a Down enemy on a base of 32 mm or smaller (Warbands p. 66).
+        if (grind && target.Status != ModelStatus.Down)
+        {
+            return new MeleeAssessment(new Rejection(ReasonCode.TargetNotDown, "A Grind to Dust ACTION must target a Down enemy model.", RefGrind));
+        }
+        if (grind && state.Setup!.ProfileOf(target.Id)!.BaseRadius > GrindBaseRadius)
+        {
+            return new MeleeAssessment(new Rejection(ReasonCode.TargetTooLarge, "A Grind to Dust ACTION must target a model on a base of 32 mm or smaller.", RefGrind));
+        }
         var cover = Cover.Of(ScenarioOf(state)!.Battlefield, from, to);
         if (cover.Sight.Visibility == Visibility.None)
         {
@@ -534,6 +548,11 @@ internal static class Board
     }
 
     private static AttackAssessment Refuse(ReasonCode code, string text, string rule = RefAttack) => new(code, text, rule);
+
+    public const string RefGrind = "Warbands 1.0.2 p. 66";
+
+    // A 32 mm base's radius, as content reads one (half the diameter in thousandths of an inch, rounded down).
+    private static readonly Length GrindBaseRadius = Length.FromThousandths(Length.FromMillimetres(32).Thousandths / 2);
 
     // ---- Objectives (Scenario I, p. 152) ----
 

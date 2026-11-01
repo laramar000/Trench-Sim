@@ -233,6 +233,21 @@ public static partial class TurnSequence
         {
             return rejection;
         }
+        // Roster stage R5i (U114): a Grind to Dust ACTION (weapon GrindWeapon) is its own ACTION, once per activation; it
+        // is not a Fight ACTION, so the Shoot/Fight limits do not apply, and it ends a Fight's attacks still to come.
+        if (c.Weapon == ModelProfile.GrindWeapon)
+        {
+            if (state.Setup!.ProfileOf(c.Model) is not { GrindsToDust: true })
+            {
+                return new(ReasonCode.NoSuchAction, "Only a model with Piston Legs can take a Grind to Dust ACTION.", Board.RefGrind);
+            }
+            if (state.Actions.HasFlag(ActionsTaken.Grind))
+            {
+                return new(ReasonCode.ActionAlreadyTaken, "A Grind to Dust ACTION can be taken only once per activation.", RefActions);
+            }
+            return state.FindModel(c.Target) is { } prey ? Board.AssessMelee(state, attacker!, prey, c.Weapon).Refusal
+                : new(ReasonCode.UnknownModel, "There is no such target.", Board.RefMelee);
+        }
         // Roster stage R3 (U100): a Fight with attacks still to come (a second weapon, CLEAVE) goes on with the next one.
         if (NextFightAttack(state, c.Model) is { } next)
         {
@@ -472,7 +487,7 @@ public static partial class TurnSequence
                 run.Emit(new RetreatDeclared(c.Model, c.Path));
                 break;
             case FightModel c:
-                DeclareMelee(run, state.FindModel(c.Model)!, state.FindModel(c.Target)!, free: false, c.Weapon, NextFightAttack(state, c.Model)?.OffHand ?? false);
+                DeclareMelee(run, state.FindModel(c.Model)!, state.FindModel(c.Target)!, free: false, c.Weapon, c.Weapon != ModelProfile.GrindWeapon && (NextFightAttack(state, c.Model)?.OffHand ?? false));
                 break;
             case FreeFight c:
                 DeclareMelee(run, state.FindModel(c.Attacker)!, state.FindModel(state.Retreat!.Model)!, free: true, c.Weapon, offHand: false);

@@ -375,6 +375,11 @@ public static class UnitPanel
         {
             parts.Add(p.HealingWaters ? "Treat ACTION (H), +1 DICE" : "Treat ACTION (H)");
         }
+        // Roster stage R5i (U114).
+        if (p.GrindsToDust)
+        {
+            parts.Add("Grind to Dust ACTION (Combat 0)");
+        }
         // Roster stage R5b (U106): the model keywords the engine plays.
         foreach (var (trait, words) in new[] { (ModelTraits.Fear, "FEAR"), (ModelTraits.NegateFear, "NEGATE FEAR"), (ModelTraits.Tough, "TOUGH"), (ModelTraits.NegateHeavy, "NEGATE HEAVY"), (ModelTraits.Leader, "LEADER") })
         {

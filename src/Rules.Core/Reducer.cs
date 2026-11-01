@@ -1322,7 +1322,7 @@ public static class Reducer
         var target = state.FindModel(e.Target);
         Require(attacker is not null && target is not null, "Unknown model.");
         var owned = state.Setup!.ProfileOf(e.Attacker)!;
-        Require(e.Weapon < owned.Weapons(AttackKind.Melee), "The model has no such Melee Weapon.");
+        Require(e.Weapon == ModelProfile.GrindWeapon ? owned.GrindsToDust && !e.FreeFight && !e.OffHand : e.Weapon < owned.Weapons(AttackKind.Melee), "The model has no such Melee Weapon.");
         Require(e.Block == Board.Blocks(state, e.Attacker, e.Target), "BLOCK applies exactly when the target has it and the attacker charged this turn.");
         Require(e.Fear == Board.Fears(state, e.Attacker, e.Target), "FEAR applies exactly when the target has it and the attacker has neither FEAR nor NEGATE FEAR.");
         var left = state.AttacksLeft is { Next.Length: > 0 } l && l.Attacker == e.Attacker && l.Free == e.FreeFight ? l : null;
@@ -1331,6 +1331,20 @@ public static class Reducer
         {
             var fighter = Active(state, e.Attacker, "A Fight");
             Require(state.InProgress is null && state.Retreat is null, "A Melee Attack waits for the last action to finish.");
+            // Roster stage R5i (U114): a Grind to Dust ACTION, once per activation; it ends a Fight's attacks still to come.
+            if (e.Weapon == ModelProfile.GrindWeapon)
+            {
+                Require(!state.Actions.HasFlag(ActionsTaken.Grind), "A Grind to Dust ACTION is taken once per activation.");
+                var grind = Board.AssessMelee(state, fighter, target!, e.Weapon);
+                Require(grind.Refusal is null && grind.CoverTerrainId == e.DefendedObstacleId, "The Grind to Dust attack is not legal here, or its modifiers do not match the positions.");
+                var (grindBonus, grindPenalty) = MeleeDice(state, e);
+                return state with
+                {
+                    Actions = state.Actions | ActionsTaken.Grind,
+                    AttacksLeft = null,
+                    InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, grindBonus, grindPenalty, Kind: AttackKind.Melee, Weapon: e.Weapon),
+                };
+            }
             if (left is null)
             {
                 Require(!state.Actions.HasFlag(ActionsTaken.Fight) && ActionLimits.MeleeExcluded(state, e.Attacker, ActionsTaken.Fight) is null,

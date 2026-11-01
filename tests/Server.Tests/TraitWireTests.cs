@@ -163,6 +163,25 @@ public class TraitWireTests
         Assert.Equal((rolled.Model, rolled.Target, rolled.Choice, rolled.Treated, rolled.Check.Dice.Total), (back.Model, back.Target, back.Choice, back.Treated, back.Check.Dice.Total));
     }
 
+    // Roster stage R5i (U114): Piston Legs and the Grind to Dust attack.
+    [Fact]
+    public void GrindRoundTripsAndIsLeftOutWhenFalse()
+    {
+        Assert.DoesNotContain("grinds", Encoded(new MatchCreated(Plain())), StringComparison.Ordinal);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { GrindsToDust = true };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        Assert.Contains("\"grindsToDust\":true", Encoded(created), StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+        var grind = new MeleeAttackDeclared(new ModelId("A1"), new ModelId("B1"), false, null) { Weapon = ModelProfile.GrindWeapon };
+        Assert.Equal(ModelProfile.GrindWeapon, ((MeleeAttackDeclared)RoundTrip(grind)).Weapon);
+        var command = new Rules.Core.Commands.FightModel(Seat.One, new ModelId("A1"), new ModelId("B1")) { Weapon = ModelProfile.GrindWeapon };
+        Assert.Equal(command, Assert.IsType<SubmitCommand>(Codec.ParseClient(Codec.Encode(new SubmitCommand("c1", 1, 0, command)), out var failure)).Command);
+        Assert.Null(failure);
+    }
+
     // Roster stage R5f (U110).
     [Fact]
     public void CoverKeywordRoundTripsAndIsLeftOutWhenFalse()

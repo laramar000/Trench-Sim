@@ -67,6 +67,11 @@ public static class Activation
             {
                 attacks.Add(new FightModel(seat, active, other.Id) { Weapon = 1 });
             }
+            // Roster stage R5i (U114): Piston Legs' Grind to Dust ACTION.
+            if (profile.GrindsToDust)
+            {
+                attacks.Add(new FightModel(seat, active, other.Id) { Weapon = ModelProfile.GrindWeapon });
+            }
             // Roster stage R5h (U113): a Medi-kit's Treat ACTION on the model itself or a friend.
             if (profile.Treats && other.Seat == seat)
             {
