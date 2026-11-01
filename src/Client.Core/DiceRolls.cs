@@ -43,7 +43,7 @@ public sealed record DiceRoll(ModelId? Model, string Title, IReadOnlyList<DieFac
 // the result comes from the rules' own Outcome and Classify. The client rolls nothing; events without dice give null.
 public static class DiceRolls
 {
-    public static DiceRoll? Of(GameEvent e)
+    public static DiceRoll? Of(GameEvent e, MatchSetup? setup = null)
     {
         ArgumentNullException.ThrowIfNull(e);
         ModelId? other = e switch
@@ -55,18 +55,18 @@ public static class DiceRolls
             ShootingTargetRolled t => t.Target,
             _ => null,
         };
-        return Roll(e) is { } roll ? roll with { Other = other } : null;
+        return Roll(e, setup) is { } roll ? roll with { Other = other } : null;
     }
 
-    private static DiceRoll? Roll(GameEvent e)
+    private static DiceRoll? Roll(GameEvent e, MatchSetup? setup)
     {
         return e switch
         {
-            DashRolled d => Success(d.Model, $"{Id(d.Model)} DASHES: Risky roll", d.Check, "DASH", "DASH FAILED"),
-            SideClimbRolled c => Success(c.Model, $"{Id(c.Model)} CLIMBS THE SIDE: Risky roll", c.Check, "CLIMB", "CLIMB FAILED"),
-            RangedSuccessRolled r => Success(r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}: hit roll", r.Check, "HIT", "MISSED"),
-            MeleeSuccessRolled m => Success(m.Attacker, $"{Id(m.Attacker)} FIGHTS {Id(m.Target)}: hit roll", m.Check, "HIT", "MISSED"),
-            MoraleCheckRolled m => Success(null, $"{Words.Seat(m.Seat)}: morale check", m.Check, "HOLDS", "FAILS"),
+            DashRolled d => Success(d.Model, $"{Id(d.Model)} DASHES: Risky roll", d.Check, setup, "DASH", "DASH FAILED"),
+            SideClimbRolled c => Success(c.Model, $"{Id(c.Model)} CLIMBS THE SIDE: Risky roll", c.Check, setup, "CLIMB", "CLIMB FAILED"),
+            RangedSuccessRolled r => Success(r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}: hit roll", r.Check, setup, "HIT", "MISSED"),
+            MeleeSuccessRolled m => Success(m.Attacker, $"{Id(m.Attacker)} FIGHTS {Id(m.Target)}: hit roll", m.Check, setup, "HIT", "MISSED"),
+            MoraleCheckRolled m => Success(null, $"{Words.Seat(m.Seat)}: morale check", m.Check, setup, "HOLDS", "FAILS"),
             InjuryRolled i => Injury(i),
             ChargeRolled c => new(c.Model, $"{Id(c.Model)} CHARGES {Id(c.Target)}: charge bonus", [new(c.Die, true)], "1 die, added to the charge move",
                 $"• +{c.Die}\"", RollVerdict.Neutral),
@@ -80,10 +80,11 @@ public static class DiceRolls
 
     // What an event means for the dice on screen (stage F2): a roll to show, the start or end of an action (so the rolls
     // of one action share a box and the next action starts a new one), or the end of a charge. Null for the rest.
-    public static DiceStep? Step(GameEvent e)
+    // setup (optional): the match's setup, so a roll can name what a model's profile changes (the Crucifix's RISKY line).
+    public static DiceStep? Step(GameEvent e, MatchSetup? setup = null)
     {
         ArgumentNullException.ThrowIfNull(e);
-        if (Of(e) is { } roll)
+        if (Of(e, setup) is { } roll)
         {
             return new(roll, e is MoraleCheckRolled or RollOffResolved ? DiceCue.OwnBox : DiceCue.None);
         }
@@ -120,7 +121,7 @@ public static class DiceRolls
         return string.Join(", ", parts);
     }
 
-    private static DiceRoll Success(ModelId? model, string title, SuccessRollResult check, string pass, string fail)
+    private static DiceRoll Success(ModelId? model, string title, SuccessRollResult check, MatchSetup? setup, string pass, string fail)
     {
         var outcome = check.Outcome;
         var result = outcome switch
@@ -136,7 +137,10 @@ public static class DiceRolls
             _ => RollVerdict.Fail,
         };
         var rule = $"{Kept(check.Dice, check.NetDice)}; {SuccessRoll.SuccessFrom}+ passes, {SuccessRoll.CriticalFrom}+ critical"
-            + (check.Risky ? "; RISKY: a fail ends the activation" : "");
+            + (!check.Risky ? ""
+                // Roster stage R5d (U108): the Pontiff's Crucifix keeps the activation going after a failed RISKY roll.
+                : model is { } m && setup?.ProfileOf(m)?.KeepsGoingAfterRisky == true ? "; RISKY: a fail does not end the activation (Crucifix)"
+                : "; RISKY: a fail ends the activation");
         return new(model, title, Faces(check.Dice), rule, result, verdict);
     }
 

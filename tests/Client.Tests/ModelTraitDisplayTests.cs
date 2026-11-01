@@ -155,6 +155,8 @@ public class ModelTraitDisplayTests
                     {
                         var kept = state.Setup!.ProfileOf(failed.Model)!.KeepsGoingAfterRisky;
                         Assert.Contains(kept ? "RISKY: the Crucifix keeps the activation going" : "RISKY: the activation ends", log.Actions[^1].Outcome);
+                        // The dice popup's rule line says the same.
+                        Assert.EndsWith(kept ? "RISKY: a fail does not end the activation (Crucifix)" : "RISKY: a fail ends the activation", DiceRolls.Step(e, state.Setup)!.Roll!.Rule, StringComparison.Ordinal);
                         crucifixes += kept ? 1 : 0;
                     }
                     cloaks += why.Dice.Count(p => p.Label.EndsWith(", Cloak of the Mountain", StringComparison.Ordinal) && p.Value == -2);

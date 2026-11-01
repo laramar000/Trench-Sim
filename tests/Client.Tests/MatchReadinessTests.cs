@@ -480,10 +480,23 @@ public class MatchReadinessTests
         Assert.True(Loaded(shield).HasCover);
         Assert.Contains("\"hasCover\": true", shield.ToContentJson("p", "P"), StringComparison.Ordinal);
 
+        // U111: a model with no other Melee Weapon fights with its Shovel; with one, it is named.
         var digger = Of("principality", "yeoman", "shovel").MatchCheck();
         Assert.Empty(digger.Refused);
-        Assert.Contains("model 1, Yeoman: Shovel used as a 2-handed Melee Weapon (p. 85)", digger.PlayedWithout);
-        Assert.Equal((false, true), (Loaded(digger).HasCover, Loaded(digger).DigsIn));
+        Assert.DoesNotContain(digger.PlayedWithout, w => w.Contains("Shovel", StringComparison.Ordinal));
+        Assert.Equal((false, true, true), (Loaded(digger).HasCover, Loaded(digger).DigsIn, Loaded(digger).HasMeleeWeapon));
+        Assert.Equal(WeaponKeywords.None, Loaded(digger).MeleeWeaponKeywords);
+        var armed = Of("principality", "yeoman", "trench-club", "shovel").MatchCheck();
+        Assert.Empty(armed.Refused);
+        Assert.Contains("model 1, Yeoman: Shovel used as a 2-handed Melee Weapon (it fights with its other Melee Weapon)", armed.PlayedWithout);
+        Assert.True(Loaded(armed).DigsIn);
+
+        // The Bronze Shovel is a Trench Club with its HEAVY (no Charge Bonus) when it is the Melee Weapon.
+        var bull = Of("sultanate", "brazen-bull", "bronze-shovel").MatchCheck();
+        Assert.Empty(bull.Refused);
+        Assert.DoesNotContain(bull.PlayedWithout, w => w.Contains("Bronze Shovel", StringComparison.Ordinal));
+        Assert.Equal((true, true), (Loaded(bull).DigsIn, Loaded(bull).HasMeleeWeapon));
+        Assert.Equal(WeaponKeywords.Heavy, Loaded(bull).MeleeWeaponKeywords);
 
         var plain = Of("principality", "yeoman").MatchCheck().ToContentJson("p", "P");
         Assert.DoesNotContain("hasCover", plain, StringComparison.Ordinal);

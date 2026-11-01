@@ -267,6 +267,8 @@ public static class MatchReadiness
             var (keepsGoing, climbDice, fanfare, blendsIn) = (false, 0, false, false);
             var (whispers, warded) = (false, false);
             var (hasCover, digsIn) = (false, false);
+            CatalogueEntry? digger = null;
+            string? diggerUse = null;
             var ammunition = new List<CatalogueEntry>();
             if (unplayed.Count > 0)
             {
@@ -333,7 +335,11 @@ public static class MatchReadiness
                         ammunition.Add(piece);
                         break;
                     case KitCategory.Equipment when PlayedEquipment.TryGetValue(piece.Id, out var played):
-                        Without(who, piece, without, diceToo: true, gains, ruleToo: false);
+                        // A Shovel's keywords are named below, unless it is the model's second Shovel.
+                        if (played.AsWeapon is null || digger is not null)
+                        {
+                            Without(who, piece, without, diceToo: true, gains, ruleToo: false);
+                        }
                         if (played.NotFor is { } notFor && entry.Keywords.Any(k => k.Id == notFor))
                         {
                             without.Add($"{who}: {piece.Name} (no effect on an {notFor} model, p. {piece.Rule?.Page})");
@@ -350,6 +356,10 @@ public static class MatchReadiness
                         whispers |= played.Whispers;
                         warded |= played.Warded;
                         digsIn |= played.DigsIn;
+                        if (played.AsWeapon is { } use && digger is null)
+                        {
+                            (digger, diggerUse) = (piece, use);
+                        }
                         if (played.Unplayed is { } part)
                         {
                             without.Add($"{who}: {piece.Name} {part}");
@@ -365,6 +375,34 @@ public static class MatchReadiness
                     default:
                         refused.Add($"{who}: {piece.Name} (the engine has no {Words(piece.Category)} yet)");
                         break;
+                }
+            }
+            // After roster stage R5f (U111): a Shovel can be used as a 2-handed Melee Weapon instead of the model's other Melee
+            // Weapons (p. 85), a Bronze Shovel as a Trench Club (Warbands p. 78). A model with no other Melee Weapon (nor
+            // a dual-purpose Pistol) fights with it, and the Bronze Shovel keeps its HEAVY; with another one, which to use
+            // would be a choice the engine has no command for, so the model fights with its own and the Shovel's melee use
+            // is named.
+            if (digger is not null)
+            {
+                if (blades.Count == 0 && !guns.Any(g => g.AlsoMelee))
+                {
+                    var club = diggerUse == "trench-club" ? catalogue.Find("trench-club") : null;
+                    blades.Add(digger with
+                    {
+                        Category = KitCategory.Melee,
+                        Hands = club?.Hands ?? 2,
+                        Dice = club?.Dice ?? 0,
+                        InjuryDice = club?.InjuryDice ?? 0,
+                        InjuryModifier = club?.InjuryModifier ?? 0,
+                        Keywords = [.. (club?.Keywords ?? []), .. digger.Keywords],
+                        Rule = null,
+                    });
+                    Without(who, blades[0], without);
+                }
+                else
+                {
+                    Without(who, digger, without, diceToo: true, gains, ruleToo: false);
+                    without.Add($"{who}: {digger.Name} used as a {(diggerUse == "trench-club" ? "Trench Club" : "2-handed Melee Weapon")} (it fights with its other Melee Weapon)");
                 }
             }
             // A model with no Melee Weapon fights with its dual-purpose Pistol: that one is its first ranged weapon. With
@@ -583,7 +621,7 @@ public static class MatchReadiness
     // Cover's -2 DICE against the model.
     private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null, int InjuryDiceTaken = 0, int MeleeInjury = 0,
         bool KeepsGoing = false, int ClimbDice = 0, bool Fanfare = false, bool BlendsIn = false, bool Whispers = false, bool Warded = false,
-        bool DigsIn = false, string? Unplayed = null);
+        bool DigsIn = false, string? Unplayed = null, string? AsWeapon = null);
 
     private static readonly Dictionary<string, PlayedPiece> PlayedEquipment = new(StringComparer.Ordinal)
     {
@@ -604,8 +642,9 @@ public static class MatchReadiness
         ["cloak-of-the-mountain"] = new(BlendsIn: true),
         ["urn-of-the-bitter-ashes"] = new(Whispers: true),
         ["sacrificial-lamb"] = new(Warded: true),
-        ["shovel"] = new(DigsIn: true, Unplayed: "used as a 2-handed Melee Weapon (p. 85)"),
-        ["bronze-shovel"] = new(DigsIn: true, Unplayed: "used as a Trench Club"),
+        // The Shovels' melee use (AsWeapon): a 2-handed Melee Weapon with no other rules, or a Trench Club.
+        ["shovel"] = new(DigsIn: true, AsWeapon: "2-handed"),
+        ["bronze-shovel"] = new(DigsIn: true, AsWeapon: "trench-club"),
     };
 
     // Roster stage R5c (U107): AMMUNITION (X), what it gives the weapon: +X DICE or a keyword the engine plays.

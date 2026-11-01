@@ -266,3 +266,6 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   Shovel as `digsIn`; using the Shovel as a weapon is named as played without (U110). Tests: `CoverKeywordTests`,
   `TraitWireTests.CoverKeywordRoundTripsAndIsLeftOutWhenFalse`, `MatchReadinessTests.CoverFromShieldsAndShovelsIsPlayed`,
   `ModelTraitDisplayTests.CoverKeywordIsExplained`.
+- After R5f, Shovels as weapons (done 2026-11-01, Jason: "2 and 3 then 1"): a model with no other Melee Weapon fights
+  with its Shovel (2-handed, no modifiers) or Bronze Shovel (a Trench Club with HEAVY); beside another Melee Weapon the
+  Shovel's melee use is named (U111). Tests: `MatchReadinessTests.CoverFromShieldsAndShovelsIsPlayed`.
