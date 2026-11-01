@@ -31,6 +31,7 @@ internal static class Board
     public const string RefMelee = "1.0.2 pp. 45-46, 49";
     public const string RefIntoMelee = "1.0.2 p. 42";
     public const string RefScatter = "1.0.2 p. 57";
+    public const string RefBlast = "1.0.2 p. 53";
     public const string RefObjectives = "1.0.2 pp. 152-153";
     public static readonly Length EngagementRange = Length.Inch;
 
@@ -222,37 +223,103 @@ internal static class Board
 
     // Roster stage R4c (U103): whether a scattering attack may land at this point: exactly the scatter distance from the
     // target's base centre (Geometry.Blast.IsScatterDistance), on the battlefield, and with Line of Sight between the
-    // point and the target (HeightSight.SeesPoint, from the target).
+    // point and the target (HeightSight.SeesPoint, from the target). R5a (U105): an attack aimed at a point scatters
+    // from that point, and the sight is from 1.1" above it, as from a model standing there.
     public static bool CanScatterTo(MatchState state, RollInProgress progress, Point2 at)
     {
-        if (ScenarioOf(state) is not { } scenario || progress.Target is not { } aimed || BodyOf(state, state.FindModel(aimed)!) is not { } target)
+        if (ScenarioOf(state) is not { } scenario || ScatterOrigin(state, progress) is not { } origin)
         {
             return false;
         }
         var battlefield = scenario.Battlefield;
-        return at.X >= Length.Zero && at.Y >= Length.Zero && at.X <= battlefield.Width && at.Y <= battlefield.Height
-            && Geometry.Blast.IsScatterDistance(target.Centre, at, progress.ScatterInches)
-            && HeightSight.SeesPoint(battlefield, target, at);
+        return OnBattlefield(battlefield, at)
+            && Geometry.Blast.IsScatterDistance(origin.Centre, at, progress.ScatterInches)
+            && HeightSight.SeesPoint(battlefield, origin, at);
     }
+
+    private static ModelBody? ScatterOrigin(MatchState state, RollInProgress progress) =>
+        progress.Target is { } aimed ? BodyOf(state, state.FindModel(aimed)!)
+        : progress.BlastAt is { } point ? new ModelBody("point", point, HeightSight.PointRadius)
+        : null;
+
+    public static Point2? ScatterCentre(MatchState state, RollInProgress progress) => ScatterOrigin(state, progress)?.Centre;
+
+    private static bool OnBattlefield(Battlefield battlefield, Point2 at) =>
+        at.X >= Length.Zero && at.Y >= Length.Zero && at.X <= battlefield.Width && at.Y <= battlefield.Height;
 
     // The points, of the 360 one-degree directions (Geometry.Blast.ScatterPoint), where a scattering attack may land, in
     // direction order. None: the attack is a miss (p. 57).
     public static List<(int Degree, Point2 At)> ScatterPoints(MatchState state, RollInProgress progress)
     {
         var found = new List<(int, Point2)>();
-        if (progress.Target is not { } aimed || BodyOf(state, state.FindModel(aimed)!) is not { } target)
+        if (ScatterOrigin(state, progress) is not { } origin)
         {
             return found;
         }
         for (var degree = 0; degree < Geometry.Blast.ScatterDirections; degree++)
         {
-            var at = Geometry.Blast.ScatterPoint(target.Centre, progress.ScatterInches, degree);
+            var at = Geometry.Blast.ScatterPoint(origin.Centre, progress.ScatterInches, degree);
             if (CanScatterTo(state, progress, at))
             {
                 found.Add((degree, at));
             }
         }
         return found;
+    }
+
+    // Roster stage R5a (U105): a Ranged Attack with a BLAST weapon at a point (p. 53): the attacker as for any Ranged
+    // Attack (on the table, standing, not within 1" of an enemy, with that weapon), the weapon with BLAST, the point on
+    // the battlefield, in the attacker's Line of Sight (HeightSight.SeesPoint) and within the weapon's range of the
+    // attacker's base (its centre within range plus the base radius). Long Range is beyond half that range. A point has
+    // no cover and no height to shoot down at, so neither modifier applies.
+    public static AttackAssessment AssessPoint(MatchState state, ModelState attacker, Point2 at, int weapon)
+    {
+        var owned = state.Setup!.ProfileOf(attacker.Id)!;
+        if (ScenarioOf(state) is not { } scenario || BodyOf(state, attacker) is not { } from || attacker.Status == ModelStatus.OutOfAction)
+        {
+            return Refuse(ReasonCode.ModelNotOnTable, "The attacking model is not on the battlefield.");
+        }
+        if (attacker.Status != ModelStatus.Standing)
+        {
+            return Refuse(ReasonCode.ModelNotStanding, "A Down model cannot shoot.");
+        }
+        if (!owned.Has(AttackKind.Ranged, weapon))
+        {
+            return Refuse(ReasonCode.NoRangedWeapon, NoSuchGun(weapon));
+        }
+        var profile = owned.Using(AttackKind.Ranged, weapon);
+        if (profile.RangedWeaponBlast == 0)
+        {
+            return Refuse(ReasonCode.NotACandidate, "Only a BLAST weapon may be aimed at a point.", RefBlast);
+        }
+        if (IsEngaged(state, attacker))
+        {
+            return Refuse(ReasonCode.AttackerEngaged, "A model within 1\" of an enemy cannot make a Ranged Attack.");
+        }
+        var battlefield = scenario.Battlefield;
+        if (!OnBattlefield(battlefield, at))
+        {
+            return Refuse(ReasonCode.NotACandidate, "The point must be on the battlefield.", RefBlast);
+        }
+        if (!HeightSight.SeesPoint(battlefield, from, at))
+        {
+            return Refuse(ReasonCode.NoLineOfSight, "The point is not in the attacker's Line of Sight.", RefBlast);
+        }
+        if (!Reaches(from, at, profile.RangedRange))
+        {
+            return Refuse(ReasonCode.TargetOutOfRange, "The point is beyond the weapon's range.");
+        }
+        return new AttackAssessment(null, "", RefBlast, LongRange: !Reaches(from, at, Length.FromThousandths(profile.RangedRange.Thousandths / 2)),
+            InCover: false, CoverTerrainId: null, AttackerLevel: Elevation.Of(battlefield, from).Level, TargetLevel: ModelLevel.Ground, IntoMelee: false, Elevated: false);
+    }
+
+    // Whether a point is within that distance of a base: its centre within the distance plus the radius. Exact.
+    private static bool Reaches(ModelBody from, Point2 at, Length distance)
+    {
+        var dx = (Int128)(at.X.Thousandths - from.Centre.X.Thousandths);
+        var dy = (Int128)(at.Y.Thousandths - from.Centre.Y.Thousandths);
+        var reach = (Int128)(distance.Thousandths + from.Radius.Thousandths);
+        return dx * dx + dy * dy <= reach * reach;
     }
 
     // The attacker's own models (on the table, Down ones included) within 1" of a target: the models a shot at that

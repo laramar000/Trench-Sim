@@ -92,3 +92,10 @@ public sealed record ChooseFriendlyTarget(Seat Seat, ModelId Victim) : Command;
 // Roster stage R4c (U103): a SCATTER attack missed; the attacker's opponent picks the point it lands at, exactly the
 // scatter distance from the target and in Line of Sight of it (p. 57). Answers the ChooseScatterPoint decision.
 public sealed record ScatterAttack(Seat Seat, Point2 At) : Command;
+
+// Roster stage R5a (U105): a Shoot ACTION with a BLAST weapon aimed at a visible point on the battlefield instead of a
+// model (p. 53). Weapon as for Shoot.
+public sealed record ShootPoint(Seat Seat, ModelId Attacker, Point2 At) : Command
+{
+    public int Weapon { get; init; }
+}

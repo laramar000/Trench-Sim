@@ -27,6 +27,15 @@ public static class PreviewCard
             case PreviewKind.Place:
                 lines.Add($"{preview.Model.Value} at {preview.Path[0].At}");
                 break;
+            case PreviewKind.Point:
+                // Roster stage R5a: the aimed point, range, who the blast hits, and the dice note.
+                lines.Add(RulesHeading);
+                lines.AddRange(preview.Facts.Select(f => f.TrimEnd('.')));
+                if (preview.Legal)
+                {
+                    lines.Add("dice: rolled by the server");
+                }
+                break;
             case PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat:
                 if (preview.Used is { } used)
                 {

@@ -102,4 +102,45 @@ public class BlastWireTests
         Assert.Null(Codec.ParseServer(Encoding.UTF8.GetBytes(bad), out failure));
         Assert.NotNull(failure);
     }
+
+    // Roster stage R5a (U105, U104): a BLAST attack aimed at a point, a scatter from a point (no target) and a DEADLY
+    // Injury Roll (three dice kept) travel and come back unchanged; a ShootPoint with the first weapon writes no weapon.
+    [Fact]
+    public void APointAttackAndADeadlyRollRoundTrip()
+    {
+        var at = new Point2(Length.Parse("13.5"), Length.Parse("2"));
+        foreach (var command in new Command[] { new ShootPoint(Seat.One, new ModelId("A1"), at), new ShootPoint(Seat.One, new ModelId("A1"), at) { Weapon = 1 } })
+        {
+            var bytes = Codec.Encode(new SubmitCommand("c1", 1, 0, command));
+            Assert.Equal(command, Assert.IsType<SubmitCommand>(Codec.ParseClient(bytes, out var failure)).Command);
+            Assert.Null(failure);
+            Assert.Equal(((ShootPoint)command).Weapon != 0, Encoding.UTF8.GetString(bytes).Contains("\"weapon\"", StringComparison.Ordinal));
+        }
+
+        GameEvent[] events =
+        [
+            new PointAttackDeclared(new ModelId("A1"), at, true),
+            new PointAttackDeclared(new ModelId("A1"), at, false) { Weapon = 1 },
+            new PointSuccessRolled(new ModelId("A1"), at, Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(3), 1, 0, risky: false)),
+            new PointBlastHit(new ModelId("A1"), at, [new ModelId("B1"), new ModelId("A2")]),
+            new PointBlastHit(new ModelId("A1"), at, []),
+            new AttackScattered(new ModelId("A1"), null, at, 3, [new ModelId("B1")]),
+            new ScatterMissed(new ModelId("A1"), null, 5),
+            new InjuryRolled(new ModelId("A1"), new ModelId("B1"), Rules.Core.Dice.InjuryRoll.Roll(new SeededDice(4), 1, 0, deadly: true)),
+        ];
+        foreach (var e in events)
+        {
+            var text = Encoded(e);
+            var read = Assert.IsType<EventPublished>(Codec.ParseServer(Encoding.UTF8.GetBytes(text), out var failure));
+            Assert.Null(failure);
+            Assert.Equal(text, Encoded(read.Event));
+        }
+        Assert.DoesNotContain("weapon", Encoded(events[0]), StringComparison.Ordinal);
+        Assert.True(((InjuryRolled)events[^1]).Injury.Deadly);
+        Assert.Equal(3, ((InjuryRolled)events[^1]).Injury.Dice.Kept.Count);
+        var doubled = Encoded(events[3]).Replace("\"hit\":[\"B1\",\"A2\"]", "\"hit\":[\"B1\",\"B1\"]", StringComparison.Ordinal);
+        Assert.NotEqual(Encoded(events[3]), doubled);
+        Assert.Null(Codec.ParseServer(Encoding.UTF8.GetBytes(doubled), out var bad));
+        Assert.NotNull(bad);
+    }
 }

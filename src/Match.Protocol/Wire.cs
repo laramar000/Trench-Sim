@@ -379,6 +379,8 @@ public static class Wire
             (typeof(InjuryRolled), nameof(InjuryRolled.ExtraMarkers)),
             (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponBlast)),
             (typeof(Weapon), nameof(Weapon.Blast)),
+            (typeof(ShootPoint), nameof(ShootPoint.Weapon)),
+            (typeof(PointAttackDeclared), nameof(PointAttackDeclared.Weapon)),
         ];
 
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();

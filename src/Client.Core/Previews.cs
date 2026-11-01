@@ -24,6 +24,9 @@ public enum PreviewKind
     Shoot,
     Charge,
     Fight,
+
+    // Roster stage R5a (U105): a Ranged Attack with a BLAST weapon aimed at a point (ShootPoint).
+    Point,
 }
 
 // A point on the table, in inches.
@@ -95,6 +98,7 @@ public sealed record Preview(
         PreviewKind.Retreat => "Retreat",
         PreviewKind.Shoot => "Shoot",
         PreviewKind.Charge => "Charge",
+        PreviewKind.Point => "Blast",
         _ => "Fight",
     };
 
@@ -653,8 +657,22 @@ public static class Previews
                     }
                 }
                 return nearest ?? new(ReasonCode.TargetNotOnTable, "No enemy model is on the battlefield.", RefAttack);
+            case PreviewKind.Point:
+                // Roster stage R5a: open when the rules would take a BLAST attack with that weapon at some point; the
+                // model's own spot is always in its sight and range, so it stands for every point.
+                var blasts = weapon is { } chosen ? [chosen] : BlastWeaponsOf(state, model);
+                Rejection? first = null;
+                foreach (var each in blasts)
+                {
+                    if (TurnSequence.Check(state, new ShootPoint(seat, model, acting!.Position!.Value) { Weapon = each }) is not { } refusal)
+                    {
+                        return null;
+                    }
+                    first ??= refusal;
+                }
+                return first ?? new(ReasonCode.NotACandidate, "Only a BLAST weapon may be aimed at a point.", RefBlast);
             default:
-                throw new ArgumentOutOfRangeException(nameof(kind), "Move, Dash, Retreat, Shoot, Charge or Fight.");
+                throw new ArgumentOutOfRangeException(nameof(kind), "Move, Dash, Retreat, Shoot, Charge, Fight or Point.");
         }
     }
 
@@ -669,6 +687,44 @@ public static class Previews
             PreviewKind.Fight when profile?.Weapons(AttackKind.Melee) == 2 && TurnSequence.NextFightAttack(state, model) is null => [0, 1],
             _ => [0],
         };
+    }
+
+    // Roster stage R5a: the model's ranged weapons with BLAST (0, 1 and the grenade), which may be aimed at a point.
+    public static int[] BlastWeaponsOf(MatchState state, ModelId model)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        return state.Setup?.ProfileOf(model) is { } profile
+            ? [.. new[] { 0, 1, ModelProfile.GrenadeWeapon }.Where(w => profile.Has(AttackKind.Ranged, w) && profile.Using(AttackKind.Ranged, w).RangedWeaponBlast > 0)]
+            : [];
+    }
+
+    public const string RefBlast = "1.0.2 p. 53";
+
+    // Roster stage R5a (U105): a BLAST attack aimed at a point: the rules' own check (TurnSequence.Check), Long Range,
+    // and who the blast there would hit (TurnSequence.BlastHitsAt). Path holds the point; Radius is the blast's radius.
+    public static Preview Point(MatchState state, Seat seat, ModelId model, Point2 at, int weapon = 0)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var command = new ShootPoint(seat, model, at) { Weapon = weapon };
+        var profile = state.Setup?.ProfileOf(model) is { } owned && owned.Has(AttackKind.Ranged, weapon) ? owned.Using(AttackKind.Ranged, weapon) : null;
+        var blast = profile?.RangedWeaponBlast ?? 0;
+        var facts = new List<string> { $"Aimed at {TablePoint.Of(at)}." };
+        var refusal = Opening(state) ?? TurnSequence.Check(state, command);
+        bool? longRange = null;
+        if (refusal is null)
+        {
+            longRange = TurnSequence.CheckPoint(state, model, at, weapon).LongRange;
+            facts.Add(longRange == true ? "Long range: -1 DICE." : "Short range.");
+            var hit = TurnSequence.BlastHitsAt(state, model, at, weapon);
+            var mine = state.FindModel(model)?.Seat;
+            facts.Add($"BLAST {blast}\": hits {(hit.Count == 0 ? "nobody" : string.Join(", ", hit.Select(h => h.Value + (state.FindModel(h)?.Seat == mine ? " (yours)" : ""))))}.");
+            facts.Add("No model is the target, so a Critical Success adds no INJURY DICE.");
+            if (profile is not null && (profile.RangedWeaponKeywords & WeaponKeywords.Scatter) != 0)
+            {
+                facts.Add("SCATTER: a miss lands (7 - the roll)\" from the point, where your opponent puts it.");
+            }
+        }
+        return new Preview(PreviewKind.Point, model, command, refusal, facts, [new PathMark(TablePoint.Of(at), 0)], blast, null, [], [], null, LongRange: longRange);
     }
 
     // How far the acting model may move in a Move, Dash or Retreat (inches), to draw its reach; null when it cannot act.

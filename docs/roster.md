@@ -235,3 +235,7 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   SCATTER as `Scatter` (U102, U103); neither is named under "played without" any more. Tests: `BlastTests`,
   `ScatterTests`, `BlastWireTests`, `MatchReadinessTests.AGrenadeAndNegateArePlayed`, `.BlastAndScatterArePlayed`,
   `BlastPreviewTests`.
+- Roster rules stage R5a, DEADLY and BLAST at a point (done 2026-11-01, part 3 of Jason's "1 2 and 3 no mistakes"):
+  DEADLY travels as `Deadly` and is no longer named under "played without" (U104); a BLAST weapon may be aimed at a
+  point in a match (U105). Tests: `PointBlastTests`, `BlastWireTests.APointAttackAndADeadlyRollRoundTrip`,
+  `MatchReadinessTests.DeadlyIsPlayed`, `PointBlastPreviewTests`.

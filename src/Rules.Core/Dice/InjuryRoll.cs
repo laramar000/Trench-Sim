@@ -16,7 +16,8 @@ public sealed record InjuryRollResult
     public InjuryRollResult(RollRecord dice, int netDice, int modifier, bool targetAlreadyDown)
     {
         ArgumentNullException.ThrowIfNull(dice);
-        dice.EnsureKeptFor(InjuryRoll.KeptDice, netDice, nameof(dice));
+        // DEADLY (p. 54, U104): three dice kept instead of two; the count kept says which roll it was.
+        dice.EnsureKeptFor(dice.Kept.Count == InjuryRoll.DeadlyKeptDice ? InjuryRoll.DeadlyKeptDice : InjuryRoll.KeptDice, netDice, nameof(dice));
         // Combined modifiers can't be below the floor: negatives are floored, positives only add.
         ArgumentOutOfRangeException.ThrowIfLessThan(modifier, InjuryRoll.NegativeModifierFloor);
         Dice = dice;
@@ -29,6 +30,7 @@ public sealed record InjuryRollResult
     public int NetDice { get; }
     public int Modifier { get; }
     public bool TargetAlreadyDown { get; }
+    public bool Deadly => Dice.Kept.Count == InjuryRoll.DeadlyKeptDice;
     public int Total => Dice.Total + Modifier;
     public InjuryOutcome Outcome => InjuryRoll.Classify(Total);
     public int BloodMarkers => InjuryRoll.BloodMarkersFor(Outcome, TargetAlreadyDown);
@@ -40,6 +42,7 @@ public sealed record InjuryRollResult
 public static class InjuryRoll
 {
     public const int KeptDice = 2;
+    public const int DeadlyKeptDice = 3;
     public const int NegativeModifierFloor = -3;
 
     public static InjuryRollResult Roll(
@@ -47,10 +50,11 @@ public static class InjuryRoll
         int bonusDice = 0,
         int penaltyDice = 0,
         IEnumerable<int>? modifiers = null,
-        bool targetAlreadyDown = false)
+        bool targetAlreadyDown = false,
+        bool deadly = false)
     {
         var net = RollRecord.NetDice(bonusDice, penaltyDice);
-        var record = RollRecord.RollAndKeep(dice, KeptDice, net);
+        var record = RollRecord.RollAndKeep(dice, deadly ? DeadlyKeptDice : KeptDice, net);
         return new InjuryRollResult(record, net, CombineModifiers(modifiers ?? []), targetAlreadyDown);
     }
 

@@ -93,6 +93,9 @@ public static class Deeds
             case FriendlyTargetChosen x:
                 d = d with { ShotAtLongRange = x.LongRange };
                 break;
+            case PointAttackDeclared x:
+                d = d with { ShotAtLongRange = x.LongRange };
+                break;
             case RetreatDeclared x:
                 var engaged = Engagement.Pairs(before).Where(p => p.One == x.Model || p.Two == x.Model).Select(p => p.One == x.Model ? p.Two : p.One);
                 d = d with { RetreatingFrom = [.. engaged.Order(ModelOrder)] };

@@ -65,8 +65,8 @@ public class ProfileDiceWireTests
     [Fact]
     public void AnUnknownKeywordIsAnInvalidValue()
     {
-        var text = Encoded(WithDice(Plain())).Replace("\"meleeWeaponKeywords\":[\"IgnoreArmour\"]", "\"meleeWeaponKeywords\":[\"Deadly\"]", StringComparison.Ordinal);
-        Assert.Contains("Deadly", text, StringComparison.Ordinal);
+        var text = Encoded(WithDice(Plain())).Replace("\"meleeWeaponKeywords\":[\"IgnoreArmour\"]", "\"meleeWeaponKeywords\":[\"Unheard\"]", StringComparison.Ordinal);
+        Assert.Contains("Unheard", text, StringComparison.Ordinal);
         Assert.Null(Codec.ParseServer(Encoding.UTF8.GetBytes(text), out var failure));
         Assert.NotNull(failure);
     }

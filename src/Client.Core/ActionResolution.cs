@@ -79,6 +79,10 @@ public sealed class ResolutionLog
 
         // Roster stage R4b: the model a BLAST attack was aimed at, once the blast has hit (only its roll is critical).
         public ModelId? BlastAimed { get; set; }
+
+        // Roster stage R5a: a blast has hit (at a model, at a point or where a missed attack scattered to), so each
+        // model it hit has its own Injury Roll.
+        public bool Blasting { get; set; }
         public List<string> Steps { get; } = [];
         public List<string> Outcome { get; } = [];
 
@@ -130,6 +134,13 @@ public sealed class ResolutionLog
                 _current!.Weapon = r.Weapon;
                 OwnParts(setup, r.Attacker, AttackKind.Ranged);
                 ShotParts(setup, r.Attacker, r.LongRange, r.CoverTerrainId, r.Elevated);
+                break;
+            case PointAttackDeclared p:
+                // Roster stage R5a (U105): a BLAST attack aimed at a point.
+                Start(seq, p.Attacker, $"{Id(p.Attacker)} {(p.Weapon == ModelProfile.GrenadeWeapon ? "THROWS A GRENADE AT" : "SHOOTS AT")} {TablePoint.Of(p.At)}{(p.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Ranged, null);
+                _current!.Weapon = p.Weapon;
+                OwnParts(setup, p.Attacker, AttackKind.Ranged);
+                ShotParts(setup, p.Attacker, p.LongRange, null, false);
                 break;
             case MeleeAttackDeclared m:
                 Start(seq, m.Attacker, $"{Id(m.Attacker)} {(m.FreeFight ? "MAKES A FREE ATTACK ON" : "FIGHTS")} {Id(m.Target)}{(m.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Melee, m.Target);
@@ -205,17 +216,29 @@ public sealed class ResolutionLog
             case RangedSuccessRolled r:
                 Success(seq, action, r.Check, "Hit roll", "HIT", "MISSED");
                 break;
+            case PointSuccessRolled r:
+                Success(seq, action, r.Check, "Hit roll", "HIT", "MISSED");
+                break;
+            case PointBlastHit b:
+                // No model was the target, so a Critical Success adds no dice to anyone (U105).
+                action.Blasting = true;
+                action.Critical = false;
+                action.Steps.Add(b.Hit.IsEmpty ? "BLAST hits nobody" : $"BLAST hits {string.Join(", ", b.Hit.Select(Id))}");
+                action.Outcome.Add(b.Hit.IsEmpty ? "BLAST hits nobody" : $"BLAST hits {b.Hit.Length}");
+                break;
             case MeleeSuccessRolled m:
                 Success(seq, action, m.Check, "Hit roll", "HIT", "MISSED");
                 break;
             case BlastHit b:
                 action.BlastAimed = b.Target;
+                action.Blasting = true;
                 action.Steps.Add($"BLAST hits {string.Join(", ", b.Hit.Select(Id))}");
                 action.Outcome.Add($"BLAST hits {b.Hit.Length}");
                 break;
             case AttackScattered s:
                 // Roster stage R4c: the attack missed and scatters; no Critical Success, so no model gets extra dice.
                 action.BlastAimed = s.Target;
+                action.Blasting = true;
                 action.Steps.Add($"Scatters {s.Inches}\" to {TablePoint.Of(s.At)}: {(s.Hit.IsEmpty ? "hits nobody" : "BLAST hits " + string.Join(", ", s.Hit.Select(Id)))}");
                 action.Outcome.Add(s.Hit.IsEmpty ? $"scatters {s.Inches}\", hits nobody" : $"scatters {s.Inches}\", BLAST hits {s.Hit.Length}");
                 break;
@@ -225,7 +248,7 @@ public sealed class ResolutionLog
                 break;
             case InjuryRolled i:
                 Injury(seq, action, i, setup);
-                if (action.BlastAimed is not null)
+                if (action.Blasting)
                 {
                     // Each model the blast hit has its own Injury Roll, with its own spent markers.
                     action.Dice.Clear();

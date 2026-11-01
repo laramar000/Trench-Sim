@@ -138,6 +138,25 @@ public static partial class TurnSequence
         return assessment.IsLegal ? null : new(assessment.Refusal!.Value, assessment.Text, assessment.RuleRef);
     }
 
+    // Roster stage R5a (U105): a Shoot ACTION with a BLAST weapon aimed at a point (p. 53).
+    private static Rejection? ValidateShootPoint(MatchState state, ShootPoint c)
+    {
+        if (ValidateActing(state, c.Seat, c.Attacker, out var attacker) is { } rejection)
+        {
+            return rejection;
+        }
+        if (state.Actions.HasFlag(ActionsTaken.Shoot))
+        {
+            return new(ReasonCode.ActionAlreadyTaken, "A Shoot ACTION can be taken only once per activation.", RefActions);
+        }
+        if (ActionLimits.ShootExcluded(state, c.Attacker, c.Weapon) is { } excluded)
+        {
+            return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
+        }
+        var assessment = Board.AssessPoint(state, attacker!, c.At, c.Weapon);
+        return assessment.IsLegal ? null : new(assessment.Refusal!.Value, assessment.Text, assessment.RuleRef);
+    }
+
     private static Rejection? ValidateCharge(MatchState state, ChargeModel c)
     {
         if (ValidateActing(state, c.Seat, c.Model, out var charger) is { } rejection)
@@ -231,6 +250,22 @@ public static partial class TurnSequence
 
     public static bool CanScatterTo(MatchState state, Point2 at) =>
         state.InProgress is { Stage: RollStage.Scatter } progress && Board.CanScatterTo(state, progress, at);
+
+    // Roster stage R5a (U105): whether a BLAST attack may be aimed at that point, with its Long Range (for previews).
+    public static (Rejection? Refusal, bool LongRange) CheckPoint(MatchState state, ModelId attacker, Point2 at, int weapon = 0)
+    {
+        if (state.FindModel(attacker) is not { } a)
+        {
+            return (new(ReasonCode.UnknownModel, "There is no such model.", Board.RefBlast), false);
+        }
+        var facts = Board.AssessPoint(state, a, at, weapon);
+        return (facts.IsLegal ? null : new(facts.Refusal!.Value, facts.Text, facts.RuleRef), facts.LongRange);
+    }
+
+    // Roster stage R4c/R5a: the centre a scattering attack in progress scatters from (its target's, or its aimed
+    // point), or null.
+    public static Point2? ScatterOrigin(MatchState state) =>
+        state.InProgress is { Stage: RollStage.Scatter } progress ? Board.ScatterCentre(state, progress) : null;
 
     public static IReadOnlyList<ModelId> BlastHitsAt(MatchState state, ModelId attacker, Point2 at, int weapon = 0) =>
         state.FindModel(attacker) is { } a ? Board.BlastHitsAt(state, a, at, weapon) : [];
@@ -366,6 +401,17 @@ public static partial class TurnSequence
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
                 }
                 break;
+            case ShootPoint c:
+            {
+                var aiming = state.FindModel(c.Attacker)!;
+                var point = Board.AssessPoint(state, aiming, c.At, c.Weapon);
+                run.Emit(new PointAttackDeclared(c.Attacker, c.At, point.LongRange) { Weapon = c.Weapon });
+                if (aiming.BloodMarkers > 0)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
+                }
+                break;
+            }
             case ChargeModel c:
                 run.Emit(new ChargeDeclared(c.Model, c.Target));
                 break;
@@ -385,7 +431,7 @@ public static partial class TurnSequence
             {
                 var scattering = state.InProgress!;
                 var thrower = state.FindModel(scattering.Actor)!;
-                run.Emit(new AttackScattered(thrower.Id, scattering.Target!.Value, c.At, scattering.ScatterInches, Board.BlastHitsAt(state, thrower, c.At, scattering.Weapon).ToImmutableArray()));
+                run.Emit(new AttackScattered(thrower.Id, scattering.Target, c.At, scattering.ScatterInches, Board.BlastHitsAt(state, thrower, c.At, scattering.Weapon).ToImmutableArray()));
                 break;
             }
             case ChooseFriendlyTarget c:
@@ -501,14 +547,16 @@ public static partial class TurnSequence
                 // RISKY weapons too (roster stage R2, p. 55).
                 var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice,
                     risky: AttackDice.Risky(s.Setup!.ProfileOf(actor.Id)!.Using(AttackKind.Ranged, progress.Weapon), AttackKind.Ranged, s.IsShaken(actor.Seat)));
-                run.Emit(new RangedSuccessRolled(progress.Actor, progress.Target!.Value, check));
+                run.Emit(progress.Target is { } shotAt
+                    ? new RangedSuccessRolled(progress.Actor, shotAt, check)
+                    : new PointSuccessRolled(progress.Actor, progress.BlastAt!.Value, check));
                 // A scattering attack (roster stage R4c) is resolved first; its activation ends once it is over.
                 if (check.RiskyFailure && run.State.InProgress is null)
                 {
                     run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
                 }
                 else if (check.Outcome != SuccessOutcome.Failure && run.State.InProgress is { Stage: RollStage.InjuryRoll }
-                    && !progress.FriendlyFire && run.State.FindModel(progress.Target.Value)!.BloodMarkers > 0)
+                    && !progress.FriendlyFire && run.State.FindModel(progress.Target!.Value)!.BloodMarkers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
                 }
@@ -517,7 +565,14 @@ public static partial class TurnSequence
             case RollStage.Blast:
             {
                 // Roster stage R4b (U102): who the blast hits; each then has its Injury Roll.
-                var aimedAt = s.FindModel(progress.Target!.Value)!;
+                if (progress.Target is not { } aimed)
+                {
+                    // Roster stage R5a (U105): an attack aimed at a point hits what is around the point.
+                    var point = progress.BlastAt!.Value;
+                    run.Emit(new PointBlastHit(actor.Id, point, Board.BlastHitsAt(s, actor, point, progress.Weapon).ToImmutableArray()));
+                    return true;
+                }
+                var aimedAt = s.FindModel(aimed)!;
                 run.Emit(new BlastHit(actor.Id, aimedAt.Id, Board.BlastHits(s, actor, aimedAt, progress.Weapon).ToImmutableArray()));
                 return true;
             }
@@ -527,7 +582,7 @@ public static partial class TurnSequence
                 // it has nowhere to land.
                 if (Board.ScatterPoints(s, progress).Count == 0)
                 {
-                    run.Emit(new ScatterMissed(actor.Id, progress.Target!.Value, progress.ScatterInches));
+                    run.Emit(new ScatterMissed(actor.Id, progress.Target, progress.ScatterInches));
                 }
                 else
                 {
@@ -590,7 +645,8 @@ public static partial class TurnSequence
                 }
                 var weapon = s.Setup!.ProfileOf(actor.Id)!.Using(progress.Kind, progress.Weapon);
                 var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup.ProfileOf(target.Id)!, progress.Kind);
-                var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down);
+                var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down,
+                    deadly: (weapon.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0);
                 run.Emit(new InjuryRolled(actor.Id, target.Id, injury) { ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup.ProfileOf(target.Id)!) });
                 if (injury.Outcome == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
                 {

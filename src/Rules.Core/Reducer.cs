@@ -74,6 +74,9 @@ public static class Reducer
             MarkersSpent x => OnMarkersSpent(state, x),
             RangedAttackDeclared x => OnRangedAttackDeclared(state, x),
             RangedSuccessRolled x => OnRangedSuccessRolled(state, x),
+            PointAttackDeclared x => OnPointAttackDeclared(state, x),
+            PointSuccessRolled x => OnPointSuccessRolled(state, x),
+            PointBlastHit x => OnPointBlastHit(state, x),
             InjuryRolled x => OnInjuryRolled(state, x),
             ObjectivesScored x => OnObjectivesScored(state, x),
             ChargeDeclared x => OnChargeDeclared(state, x),
@@ -878,12 +881,59 @@ public static class Reducer
     private static MatchState OnRangedSuccessRolled(MatchState state, RangedSuccessRolled e)
     {
         Require(state.InProgress is { Stage: RollStage.ShotRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No attack roll is waiting.");
+        return AfterShotRoll(state, e.Check);
+    }
+
+    // Roster stage R5a (U105): a Ranged Attack with a BLAST weapon at a point (p. 53). Its dice are those of any Ranged
+    // Attack (the weapon's keywords, the model's own dice, Long Range); a point has no cover and no height to shoot at.
+    private static MatchState OnPointAttackDeclared(MatchState state, PointAttackDeclared e)
+    {
+        var attacker = Active(state, e.Attacker, "A Ranged Attack");
+        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Shoot)
+            && ActionLimits.ShootExcluded(state, e.Attacker, e.Weapon) is null,
+            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION (unless ASSAULT) or, with a HEAVY weapon, a move.");
+        var facts = Board.AssessPoint(state, attacker, e.At, e.Weapon);
+        Require(facts.IsLegal, "The attack is not legal here.");
+        Require(facts.LongRange == e.LongRange, "The declared Long Range does not match the positions.");
+        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, false, false);
+        return state with
+        {
+            Actions = state.Actions | ActionsTaken.Shoot,
+            ShotWeapon = e.Weapon,
+            InProgress = new RollInProgress(RollStage.ShotRoll, e.Attacker, null, bonus, penalty, InjuryDiceLater: later, Weapon: e.Weapon) { BlastAt = e.At },
+        };
+    }
+
+    private static MatchState OnPointSuccessRolled(MatchState state, PointSuccessRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.ShotRoll, Target: null } p && p.Actor == e.Attacker && p.BlastAt == e.At && state.Pending is null,
+            "No attack roll at that point is waiting.");
+        return AfterShotRoll(state, e.Check);
+    }
+
+    // Roster stage R5a (U105): the models the blast at the aimed point hits, worked out again from the positions; then
+    // the first one's Injury Roll. No model was the attack's target, so a Critical Success adds no dice to any of them.
+    private static MatchState OnPointBlastHit(MatchState state, PointBlastHit e)
+    {
+        Require(state.InProgress is { Stage: RollStage.Blast, Target: null } p && p.Actor == e.Attacker && p.BlastAt == e.At && state.Pending is null,
+            "No blast at that point is waiting.");
         var progress = state.InProgress!;
-        var attacker = state.FindModel(e.Attacker)!;
+        Require(Board.BlastHitsAt(state, state.FindModel(e.Attacker)!, e.At, progress.Weapon).SequenceEqual(e.Hit),
+            "The blast must hit exactly the models within its radius of the point that see it, and the friends of those beside them.");
+        return e.Hit.IsEmpty
+            ? AttackOver(state, progress)
+            : state with { InProgress = NextBlastRoll(state, progress with { Aimed = null, Critical = false }, e.Hit) };
+    }
+
+    // A Ranged Attack's Success Roll, at a model or (R5a) at a point: a miss, a scatter, a blast or the Injury Roll.
+    private static MatchState AfterShotRoll(MatchState state, SuccessRollResult check)
+    {
+        var progress = state.InProgress!;
+        var attacker = state.FindModel(progress.Actor)!;
         var profile = AttackProfile(state, progress);
-        Require(e.Check.Risky == AttackDice.Risky(profile, AttackKind.Ranged, state.IsShaken(attacker.Seat)) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
+        Require(check.Risky == AttackDice.Risky(profile, AttackKind.Ranged, state.IsShaken(attacker.Seat)) && check.NetDice == progress.BonusDice - progress.PenaltyDice,
             "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
-        if (e.Check.Outcome == SuccessOutcome.Failure && profile.RangedWeaponBlast > 0 && (profile.RangedWeaponKeywords & WeaponKeywords.Scatter) != 0)
+        if (check.Outcome == SuccessOutcome.Failure && profile.RangedWeaponBlast > 0 && (profile.RangedWeaponKeywords & WeaponKeywords.Scatter) != 0)
         {
             // Roster stage R4c (U103): SCATTER: the attack scatters (7 - the roll)" instead of missing (p. 57); a failed
             // Risky roll still ends the activation, once the attack is over.
@@ -892,21 +942,21 @@ public static class Reducer
                 InProgress = progress with
                 {
                     Stage = RollStage.Scatter,
-                    ScatterInches = SuccessRoll.SuccessFrom - e.Check.Dice.Total,
-                    RiskyEnds = e.Check.RiskyFailure,
+                    ScatterInches = SuccessRoll.SuccessFrom - check.Dice.Total,
+                    RiskyEnds = check.RiskyFailure,
                     BonusDice = 0,
                     PenaltyDice = 0,
                     MarkersAsked = false,
                 },
             };
         }
-        if (e.Check.Outcome == SuccessOutcome.Failure)
+        if (check.Outcome == SuccessOutcome.Failure)
         {
-            return state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure, ReloadEnds = !e.Check.RiskyFailure && ActionLimits.Reloads(profile, AttackKind.Ranged) };
+            return state with { InProgress = null, MustEndActivation = check.RiskyFailure, ReloadEnds = !check.RiskyFailure && ActionLimits.Reloads(profile, AttackKind.Ranged) };
         }
         // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE"),
         // +2 with CRITICAL; the weapon's own INJURY DICE and SHOTGUN's -1 at Long Range (roster stages R1, R2).
-        var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
+        var critical = check.Outcome == SuccessOutcome.CriticalSuccess;
         if (profile.RangedWeaponBlast > 0)
         {
             // Roster stage R4b (U102): a BLAST attack: who it hits comes next (BlastHit), then their Injury Rolls.
@@ -992,12 +1042,14 @@ public static class Reducer
         var progress = state.InProgress!;
         var attacker = state.FindModel(e.Attacker)!;
         var target = state.FindModel(e.Target)!;
-        Require((target.Id != attacker.Id || progress.Aimed is not null) && (target.Seat == attacker.Seat) == progress.FriendlyFire,
+        Require((target.Id != attacker.Id || progress.Aimed is not null || progress.BlastAt is not null) && (target.Seat == attacker.Seat) == progress.FriendlyFire,
             "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one or a blast hits it.");
         var profile = AttackProfile(state, progress);
         Require(e.Injury.NetDice == progress.BonusDice - progress.PenaltyDice
             && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(e.Target)!, progress.Kind))
             && e.Injury.TargetAlreadyDown == (target.Status == ModelStatus.Down), "The Injury Roll must match the dice, modifiers and state of the target.");
+        // Roster stage R5 (U104): a DEADLY weapon's Injury Rolls keep three dice, every other one two.
+        Require(e.Injury.Deadly == ((profile.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0), "A DEADLY weapon's Injury Roll is 3D6, any other is 2D6.");
 
         // Roster stage R4a: SHRAPNEL, GAS and FIRE put extra BLOOD MARKERS on the target (U101).
         Require(e.ExtraMarkers == AttackDice.ExtraMarkers(profile, progress.Kind, state.Setup!.ProfileOf(e.Target)!), "The extra BLOOD MARKERS must be the weapon's SHRAPNEL, GAS and FIRE.");
@@ -1345,7 +1397,7 @@ public static class Reducer
             "Only a live mine that was just revealed detonates.");
         var model = state.FindModel(e.Model)!;
         var armour = state.Setup!.ProfileOf(e.Model)!.Armour;
-        Require(e.Injury.NetDice == 0 && e.Injury.Modifier == InjuryRoll.CombineModifiers([armour]) && e.Injury.TargetAlreadyDown == (model.Status == ModelStatus.Down),
+        Require(e.Injury.NetDice == 0 && !e.Injury.Deadly && e.Injury.Modifier == InjuryRoll.CombineModifiers([armour]) && e.Injury.TargetAlreadyDown == (model.Status == ModelStatus.Down),
             "A mine's Injury Roll has no extra dice and no weapon modifier, only the model's armour.");
         Require(e.Negated == state.Setup!.ProfileOf(e.Model)!.Negates.HasFlag(WeaponKeywords.Shrapnel), "A mine adds its SHRAPNEL Blood Marker unless the model has NEGATE SHRAPNEL.");
         var markers = Math.Min(BloodMarkers.Max, model.BloodMarkers + e.Injury.BloodMarkers + e.ExtraMarkers());

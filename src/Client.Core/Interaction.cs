@@ -25,6 +25,10 @@ public enum InteractionMode
     // Battlefield UI, stage K6: one Combat action for Shoot, Charge and Fight. Choosing an enemy opens a small menu of the
     // attacks that apply to it now; each stays its own command and its own preview.
     Combat,
+
+    // Roster stage R5a (U105): from the Combat menu, a BLAST weapon aimed at a point: the cursor is the point, and a click
+    // sends it when the preview accepts it.
+    Blast,
 }
 
 // Battlefield UI 3, stage U1 (approved by Jason on 2026-10-22): one entry of the Combat menu, which lists the attacks of
@@ -250,7 +254,13 @@ public sealed class Interaction
     // Stage K6: Shoot, Charge and Fight, which the bar offers as one Combat action.
     public static bool IsAttack(InteractionMode mode) => mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight;
 
-    public bool UsesCursor => IsPath || Mode == InteractionMode.Place || Mines is not null;
+    // Roster stage R5a: the attacks the Combat menu can pick (Shoot, Charge, Fight and a BLAST at a point).
+    private static bool IsCombatPick(InteractionMode mode) => IsAttack(mode) || mode == InteractionMode.Blast;
+
+    // A BLAST at a point is open whenever Shoot is one of the choices; the rules decide the rest.
+    private bool IsAvailable(InteractionMode mode) => Available.Contains(mode == InteractionMode.Blast ? InteractionMode.Shoot : mode);
+
+    public bool UsesCursor => IsPath || Mode is InteractionMode.Place or InteractionMode.Blast || Mines is not null;
 
     // Trench Warfare (p. 162): while this seat must set up its Mine Markers, the markers put down so far on this screen.
     // A click on the battlefield goes to it, and the decision card sends the whole layout.
@@ -546,7 +556,7 @@ public sealed class Interaction
             DecisionKind.SpendMarkersOnSuccessRoll => _state.InProgress?.Actor,
             DecisionKind.SpendMarkersOnInjuryRoll => _state.InProgress?.Target,
             DecisionKind.ChooseFriendlyTarget => _state.InProgress?.Actor,
-            DecisionKind.ChooseScatterPoint => _state.InProgress?.Target,
+            DecisionKind.ChooseScatterPoint => _state.InProgress?.Target ?? _state.InProgress?.Actor,
             DecisionKind.FreeFight => _state.Retreat?.Model,
             _ => null,
         };
@@ -812,6 +822,7 @@ public sealed class Interaction
         InteractionMode.Dash => "Dash here",
         InteractionMode.Retreat => "Retreat here",
         InteractionMode.Shoot => "Shoot target",
+        InteractionMode.Blast => "Blast here",
         InteractionMode.Charge => "Charge target",
         _ => "Fight target",
     };
@@ -826,6 +837,7 @@ public sealed class Interaction
         InteractionMode.Shoot => "Shoot an enemy in range and in sight: click a target, then Confirm shoot beside it (key S).",
         InteractionMode.Charge => "Charge an enemy within 12\" into melee; a D6 adds reach: in Combat (C), choose Charge, click a target, then Confirm charge beside it (key 2).",
         InteractionMode.Fight => "Attack an enemy within 1\": click a target, then Confirm fight beside it (key X).",
+        InteractionMode.Blast => "Aim a BLAST weapon at a point in sight and range: click the point (in Combat, keys 7, 8 and 9).",
         InteractionMode.Combat => "Shoot, Charge or Fight: choose the attack (1, 2, 3), click an enemy the rules accept (ringed), then Confirm beside it (or Space); an attack the rules refuse is greyed out with the reason (key C).",
         _ => "",
     };
@@ -988,7 +1000,7 @@ public sealed class Interaction
             _placeDismissed = true;
         }
         // Stage U1: an attack picked from the Combat menu goes back to the menu; Esc again leaves Combat.
-        if (!all && FromCombat && IsAttack(Mode) && Available.Contains(InteractionMode.Combat))
+        if (!all && FromCombat && IsCombatPick(Mode) && Available.Contains(InteractionMode.Combat))
         {
             var actor = Actor;
             Clear();
@@ -1000,6 +1012,34 @@ public sealed class Interaction
         Clear();
         Changed();
     }
+
+    // Roster stage R5a (U105): while a missed SCATTER attack waits for this seat to say where it lands, a click on the
+    // battlefield at (x, y): the point the scatter distance from where the attack scatters from, in the click's
+    // direction, as the ScatterAttack the rules accept there; null when that is not this moment or the rules refuse it
+    // (off the battlefield, out of sight). The decision bar's compass points stay as they were.
+    public ScatterAttack? ScatterAt(double x, double y)
+    {
+        if (Pending is not null || ScatterCircle() is not { } circle || _seat is not { } seat)
+        {
+            return null;
+        }
+        var (dx, dy) = (x - circle.Centre.X, y - circle.Centre.Y);
+        var length = Math.Sqrt(dx * dx + dy * dy);
+        if (length < 1e-6)
+        {
+            return null;
+        }
+        var command = new ScatterAttack(seat, Previews.PointAt(circle.Centre.X + dx / length * circle.Radius, circle.Centre.Y + dy / length * circle.Radius));
+        return TurnSequence.Check(_state, command) is null ? command : null;
+    }
+
+    // Roster stage R5a: where this seat's scatter decision may land: the circle around the point it scatters from, its
+    // radius the scatter distance in inches; null when no such decision is this seat's now.
+    public (TablePoint Centre, double Radius)? ScatterCircle() =>
+        _seat is { } seat && _state.Pending is { Kind: DecisionKind.ChooseScatterPoint } pending && pending.Seat == seat
+        && TurnSequence.ScatterOrigin(_state) is { } origin && _state.InProgress is { } progress
+            ? (TablePoint.Of(origin), progress.ScatterInches)
+            : null;
 
     // Moves the cursor by inches (east and south are positive), kept on the table.
     public void MoveCursor(double dx, double dy) => SetCursor(Cursor.X + dx, Cursor.Y + dy);
@@ -1073,10 +1113,23 @@ public sealed class Interaction
                 choices.Add((mode, weapon, key));
             }
         }
+        // Roster stage R5a: 7, 8 and 9 aim a BLAST weapon (first, second, grenade) at a point.
+        foreach (var weapon in Previews.BlastWeaponsOf(_state, actor))
+        {
+            choices.Add((InteractionMode.Blast, weapon, weapon == 0 ? "7" : weapon == 1 ? "8" : "9"));
+        }
         foreach (var (mode, weapon, key) in choices)
         {
-            if (!Available.Contains(mode))
+            if (!IsAvailable(mode))
             {
+                continue;
+            }
+            if (mode == InteractionMode.Blast)
+            {
+                var blastLabel = weapon == 0 ? "Blast a point" : weapon == ModelProfile.GrenadeWeapon ? "Grenade at a point" : "2nd weapon at a point";
+                entries.Add(ActionOpen(seat, actor, PreviewKind.Point, weapon) is { } shut
+                    ? new CombatEntry(mode, blastLabel, key, false, $"{shut.Text} ({shut.RuleRef})", 0, weapon)
+                    : new CombatEntry(mode, blastLabel, key, true, null, 0, weapon));
                 continue;
             }
             var label = weapon == 0 ? Words(mode) : weapon == ModelProfile.GrenadeWeapon ? "Throw grenade" : $"{Words(mode)}, 2nd weapon";
@@ -1106,7 +1159,7 @@ public sealed class Interaction
     // Nothing is ever sent from here.
     public CombatPick ChooseCombat(InteractionMode mode, bool byKey = false, int weapon = 0)
     {
-        if (Pending is not null || Mode != InteractionMode.Combat || !IsAttack(mode) || CombatEntries().FirstOrDefault(e => e.Mode == mode && e.Weapon == weapon) is not { } entry)
+        if (Pending is not null || Mode != InteractionMode.Combat || !IsCombatPick(mode) || CombatEntries().FirstOrDefault(e => e.Mode == mode && e.Weapon == weapon) is not { } entry)
         {
             return CombatPick.None;
         }
@@ -1118,6 +1171,11 @@ public sealed class Interaction
         Weapon = weapon;
         FromCombat = true;
         Target = null;
+        if (mode == InteractionMode.Blast && Actor is { } aiming && _state.FindModel(aiming)?.Position is { } from)
+        {
+            // The point starts on the attacker; the cursor (or a click) moves it.
+            Cursor = TablePoint.Of(from);
+        }
         _armed = false;
         Notice = null;
         Changed();
@@ -1383,6 +1441,7 @@ public sealed class Interaction
         DashModel d => d.Model,
         RetreatModel r => r.Model,
         Shoot s => s.Attacker,
+        ShootPoint s => s.Attacker,
         ChargeModel c => c.Model,
         FightModel f => f.Model,
         ActivateModel a => a.Model,
@@ -1397,6 +1456,7 @@ public sealed class Interaction
         DashModel d => $"Dash {d.Model.Value} to {TablePoint.Of(d.Path[^1])}",
         RetreatModel r => $"Retreat {r.Model.Value} to {TablePoint.Of(r.Path[^1])}",
         Shoot s => $"Shoot {s.Target.Value} with {s.Attacker.Value}",
+        ShootPoint s => $"Blast {TablePoint.Of(s.At)} with {s.Attacker.Value}",
         ChargeModel c => $"Charge {c.Target.Value} with {c.Model.Value}",
         FightModel f => $"Fight {f.Target.Value} with {f.Model.Value}",
         _ => preview.Verb,
@@ -1453,6 +1513,7 @@ public sealed class Interaction
         InteractionMode.Charge => "Charge",
         InteractionMode.Fight => "Fight",
         InteractionMode.Combat => "Combat",
+        InteractionMode.Blast => "Blast a point",
         _ => "Nothing",
     };
 
@@ -1468,6 +1529,7 @@ public sealed class Interaction
         InteractionMode.Charge => "2",
         InteractionMode.Fight => "X",
         InteractionMode.Combat => "C",
+        InteractionMode.Blast => "7",
         _ => "",
     };
 
@@ -1476,7 +1538,8 @@ public sealed class Interaction
         InteractionMode.Place => "Click a spot in your zone to place the model. Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), N and P choose the model, Space sends.",
         _ when IsPath => "Click a spot in the shaded area to go there (Shift+click adds a waypoint for a path around something). Right-click or Esc cancels. Keys: arrows move the cursor (2\" with Shift), Enter fixes a point, Backspace removes one, Space sends."
             + (CanClimbSides ? (ClimbSides ? " K: back to ladders (now climbing a tower's side, a Risky roll)." : " K: climb a tower's side instead of a ladder (a Risky roll).") : ""),
-        InteractionMode.Combat => "Choose Shoot, Charge or Fight; then click an enemy the rules accept (ringed) and Confirm beside it (or Space). An attack the rules refuse is greyed out with the reason. Right-click or Esc cancels. Keys: 1 Shoot, 2 Charge, 3 Fight.",
+        InteractionMode.Combat => "Choose Shoot, Charge or Fight; then click an enemy the rules accept (ringed) and Confirm beside it (or Space). An attack the rules refuse is greyed out with the reason. Right-click or Esc cancels. Keys: 1 Shoot, 2 Charge, 3 Fight; 7, 8 and 9 aim a BLAST weapon at a point.",
+        InteractionMode.Blast => "Click the point to aim at (the ring is the blast); a click the preview accepts sends it. Right-click or Esc goes back to the Combat menu. Keys: arrows move the point (2\" with Shift), Space sends.",
         InteractionMode.Charge => "Click Confirm charge beside the target. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
         _ => "Click a target (valid ones are marked), then Confirm beside it. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
     };
@@ -1497,6 +1560,8 @@ public sealed class Interaction
                 return points.Count == 0 ? null : Previews.Path(_state, seat, Kind(Mode), actor, Previews.Route(_state, actor, [.. points.Select(p => Previews.PointAt(p.X, p.Y))], Sides));
             case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight:
                 return Target is { } target ? TargetPreview(seat, Kind(Mode), actor, target, Weapon) : null;
+            case InteractionMode.Blast:
+                return Previews.Point(_state, seat, actor, Previews.PointAt(Cursor.X, Cursor.Y), Weapon);
             default:
                 return null;
         }
@@ -1510,12 +1575,13 @@ public sealed class Interaction
         InteractionMode.Retreat => PreviewKind.Retreat,
         InteractionMode.Shoot => PreviewKind.Shoot,
         InteractionMode.Charge => PreviewKind.Charge,
+        InteractionMode.Blast => PreviewKind.Point,
         _ => PreviewKind.Fight,
     };
 
     private bool StillPossible()
     {
-        if (!Available.Contains(Mode))
+        if (!IsAvailable(Mode))
         {
             return false;
         }

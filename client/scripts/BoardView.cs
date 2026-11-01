@@ -1052,6 +1052,21 @@ public partial class BoardView : SubViewportContainer
             MinesChanged();
             return;
         }
+        // Roster stage R5a (U105): your opponent's missed SCATTER attack waits for you: a click lands it that way, at the
+        // scatter distance (the circle drawn), when the rules accept the point.
+        if (Interaction.Mode == InteractionMode.None && Interaction.ScatterCircle() is not null && CursorAt(local) is { } aim)
+        {
+            if (Interaction.ScatterAt(aim.X, aim.Y) is { } landing)
+            {
+                LastClick = $"Scatter to {TablePoint.Of(landing.At)}";
+                SendScatter(landing);
+            }
+            else
+            {
+                LastClick = $"Scatter at ({aim.X:0.0}, {aim.Y:0.0}): the rules refuse that direction";
+            }
+            return;
+        }
         // While a unit is only chosen (not activated on the server yet), a click on another of your units that may
         // activate switches to it, whatever action was being chosen.
         if (Interaction.Chosen is { } chosen && ModelAt(local) is { Yours: true } other && other.Id != chosen && Interaction.CanChoose(other.Id))
@@ -1242,6 +1257,10 @@ public partial class BoardView : SubViewportContainer
                 Key.Key4 or Key.Kp4 => (InteractionMode.Shoot, 1),
                 Key.Key5 or Key.Kp5 => (InteractionMode.Fight, 1),
                 Key.Key6 or Key.Kp6 => (InteractionMode.Shoot, Rules.Core.State.ModelProfile.GrenadeWeapon),
+                // Roster stage R5a: 7, 8 and 9 aim a BLAST weapon (first, second, grenade) at a point.
+                Key.Key7 or Key.Kp7 => (InteractionMode.Blast, 0),
+                Key.Key8 or Key.Kp8 => (InteractionMode.Blast, 1),
+                Key.Key9 or Key.Kp9 => (InteractionMode.Blast, Rules.Core.State.ModelProfile.GrenadeWeapon),
                 _ => (InteractionMode.None, 0),
             } is var (attack, weapon) && attack != InteractionMode.None)
         {
@@ -1288,6 +1307,13 @@ public partial class BoardView : SubViewportContainer
             default:
                 return false;
         }
+    }
+
+    private async void SendScatter(Rules.Core.Commands.ScatterAttack landing)
+    {
+        await Interaction.SendCommandAsync(landing, $"Land the attack at {TablePoint.Of(landing.At)}");
+        Sync();
+        UpdateBar();
     }
 
     // Sends the previewed command (an explicit key press: Space, or Enter for a placement or a target). The answer comes
@@ -1747,6 +1773,12 @@ public partial class BoardView : SubViewportContainer
             Segment(new TablePoint(c.X - 0.4, c.Y), new TablePoint(c.X + 0.4, c.Y), level, Colors.White, 0.08f);
             Segment(new TablePoint(c.X, c.Y - 0.4), new TablePoint(c.X, c.Y + 0.4), level, Colors.White, 0.08f);
         }
+        // Roster stage R5a: where your opponent's missed SCATTER attack may land, when it is yours to say: a click on this
+        // circle (or anywhere in that direction) lands it there.
+        if (Interaction.ScatterCircle() is { } scatter)
+        {
+            Ring(scatter.Centre, scatter.Radius, _highContrast ? Colors.Yellow : new Color(1f, 0.65f, 0.2f), (float)LevelAt(scatter.Centre.X, scatter.Centre.Y) + 0.1f);
+        }
         if (preview is null)
         {
             DrawSightIcons();
@@ -1768,6 +1800,31 @@ public partial class BoardView : SubViewportContainer
                     _reasonSource = why.Text;
                 }
                 break;
+            case PreviewKind.Point:
+            {
+                // Roster stage R5a: the blast's ring at the aimed point, a dashed line to it, and a ring on each model it
+                // would hit; the reason box when the rules refuse the point.
+                var point = preview.Path[0].At;
+                var pointLevel = (float)LevelAt(point.X, point.Y) + 0.12f;
+                if (_scene.Find(preview.Model) is { } shooter)
+                {
+                    Dashed(new TablePoint(shooter.X, shooter.Y), point, pointLevel, colour);
+                }
+                Ring(point, preview.Radius, colour, pointLevel);
+                foreach (var hit in Rules.Core.TurnSequence.BlastHitsAt(Interaction.PreviewState, preview.Model, Previews.PointAt(point.X, point.Y), Interaction.Weapon))
+                {
+                    if (preview.Legal && _scene.Find(hit) is { } struck)
+                    {
+                        Ring(new TablePoint(struck.X, struck.Y), struck.Radius, bad, (float)struck.Standing);
+                    }
+                }
+                if (preview.Refusal is { } refused)
+                {
+                    _reasonAt = point;
+                    _reasonSource = refused.Text;
+                }
+                break;
+            }
             case PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat:
                 // A dashed path and a see-through "ghost" base at its end: a preview never looks like the real model,
                 // which stays where it is until the server's events move it.

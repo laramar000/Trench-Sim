@@ -475,11 +475,11 @@ public sealed record BlastHit : GameEvent
 }
 
 // Roster stage R4c (U103): a missed SCATTER attack lands at At, Inches (7 - the Success Roll) from the target's base
-// centre, where the attacker's opponent put it (p. 57). Hit is every model the blast there hits, in the order their Injury
+// centre (or, R5a, from the point it was aimed at; Target is then null), where the attacker's opponent put it (p. 57). Hit is every model the blast there hits, in the order their Injury
 // Rolls are made (the setup's); it may be empty.
 public sealed record AttackScattered : GameEvent
 {
-    public AttackScattered(ModelId attacker, ModelId target, Point2 at, int inches, ImmutableArray<ModelId> hit)
+    public AttackScattered(ModelId attacker, ModelId? target, Point2 at, int inches, ImmutableArray<ModelId> hit)
     {
         if (inches < 1 || inches > 5)
         {
@@ -497,7 +497,7 @@ public sealed record AttackScattered : GameEvent
     }
 
     public ModelId Attacker { get; }
-    public ModelId Target { get; }
+    public ModelId? Target { get; }
     public Point2 At { get; }
     public int Inches { get; }
     public ImmutableArray<ModelId> Hit { get; }
@@ -507,7 +507,7 @@ public sealed record AttackScattered : GameEvent
 // battlefield, in Line of Sight of it), so it is a miss (p. 57).
 public sealed record ScatterMissed : GameEvent
 {
-    public ScatterMissed(ModelId attacker, ModelId target, int inches)
+    public ScatterMissed(ModelId attacker, ModelId? target, int inches)
     {
         if (inches < 1 || inches > 5)
         {
@@ -519,6 +519,49 @@ public sealed record ScatterMissed : GameEvent
     }
 
     public ModelId Attacker { get; }
-    public ModelId Target { get; }
+    public ModelId? Target { get; }
     public int Inches { get; }
+}
+
+// Roster stage R5a (U105): a Ranged Attack with a BLAST weapon aimed at a point (p. 53): the point, whether it is beyond
+// half the weapon's range (Long Range, -1 DICE), and the weapon (as RangedAttackDeclared's).
+public sealed record PointAttackDeclared(ModelId Attacker, Point2 At, bool LongRange) : GameEvent
+{
+    public int Weapon { get; init; }
+}
+
+// Roster stage R5a (U105): the Success Roll of an attack aimed at a point.
+public sealed record PointSuccessRolled : GameEvent
+{
+    public PointSuccessRolled(ModelId attacker, Point2 at, SuccessRollResult check)
+    {
+        ArgumentNullException.ThrowIfNull(check);
+        Attacker = attacker;
+        At = at;
+        Check = check;
+    }
+
+    public ModelId Attacker { get; }
+    public Point2 At { get; }
+    public SuccessRollResult Check { get; }
+}
+
+// Roster stage R5a (U105): an attack aimed at a point hit: every model the blast there hits, in the order their Injury
+// Rolls are made (the setup's); it may be empty.
+public sealed record PointBlastHit : GameEvent
+{
+    public PointBlastHit(ModelId attacker, Point2 at, ImmutableArray<ModelId> hit)
+    {
+        if (hit.IsDefault || hit.Distinct().Count() != hit.Length)
+        {
+            throw new ArgumentException("A blast hits each model once.", nameof(hit));
+        }
+        Attacker = attacker;
+        At = at;
+        Hit = hit;
+    }
+
+    public ModelId Attacker { get; }
+    public Point2 At { get; }
+    public ImmutableArray<ModelId> Hit { get; }
 }

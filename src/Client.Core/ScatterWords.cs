@@ -5,7 +5,7 @@ using Rules.Core.State;
 namespace Client.Core;
 
 // Roster stage R4c (U103): how the decision bar names a point a missed SCATTER attack may land at: its compass
-// direction from the target (east and south are positive x and y, as for the cursor), how far, and who the blast there
+// direction from the target, or (R5a) from the point it was aimed at (east and south are positive x and y, as for the cursor), how far, and who the blast there
 // would hit, worked out by the rules (TurnSequence.BlastHitsAt).
 public static class ScatterWords
 {
@@ -14,7 +14,7 @@ public static class ScatterWords
     public static string Direction(MatchState state, Point2 at)
     {
         ArgumentNullException.ThrowIfNull(state);
-        if (state.InProgress?.Target is not { } target || state.FindModel(target)?.Position is not { } centre)
+        if (TurnSequence.ScatterOrigin(state) is not { } centre)
         {
             return "here";
         }
@@ -28,7 +28,8 @@ public static class ScatterWords
     {
         ArgumentNullException.ThrowIfNull(state);
         var inches = state.InProgress?.ScatterInches ?? 0;
-        var target = state.InProgress?.Target is { } t ? UnitPanel.ShortId(t) : "the target";
+        var target = state.InProgress?.Target is { } t ? UnitPanel.ShortId(t)
+            : state.InProgress?.BlastAt is { } aimed ? $"the aimed point {TablePoint.Of(aimed)}" : "the target";
         return $"{inches}\" {Direction(state, at)} of {target}, at {TablePoint.Of(at)}";
     }
 

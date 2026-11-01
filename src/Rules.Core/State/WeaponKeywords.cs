@@ -54,4 +54,7 @@ public enum WeaponKeywords
     // Roster stage R4c: SCATTER: a BLAST attack whose Success Roll fails scatters 7 minus the roll instead of missing
     // (p. 57).
     Scatter = 65536,
+
+    // DEADLY: its Injury Rolls are 3D6, all three added, keeping the 3 highest or lowest with INJURY DICE (p. 54, U104).
+    Deadly = 131072,
 }

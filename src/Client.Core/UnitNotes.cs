@@ -28,6 +28,7 @@ public static class UnitNotes
             DashRolled d => [d.Check.Outcome == SuccessOutcome.Failure ? new(d.Model, "DASH FAILED", NoteTone.Failure) : new(d.Model, "DASH", NoteTone.Success)],
             SideClimbRolled c => [c.Check.Outcome == SuccessOutcome.Failure ? new(c.Model, "CLIMB FAILED", NoteTone.Failure) : new(c.Model, "CLIMB", NoteTone.Success)],
             RangedSuccessRolled r => [Hit(r.Attacker, r.Check)],
+            PointSuccessRolled r => [Hit(r.Attacker, r.Check)],
             MeleeSuccessRolled m => [Hit(m.Attacker, m.Check)],
             InjuryRolled i => [Injury(i.Target, i.Injury, i.ExtraMarkers)],
             MarkersSpent { Count: > 0 } m => [new(m.Model, $"{m.Count} BLOOD SPENT", NoteTone.Info)],
@@ -37,6 +38,7 @@ public static class UnitNotes
             ShootingTargetRolled { HitsFriend: true } t => [new(t.Attacker, "FRIENDLY FIRE", NoteTone.Failure)],
             BlastHit b => [.. b.Hit.Select(h => new UnitNote(h, "IN THE BLAST", NoteTone.Failure))],
             AttackScattered s => [.. s.Hit.Select(h => new UnitNote(h, "IN THE BLAST", NoteTone.Failure))],
+            PointBlastHit b => [.. b.Hit.Select(h => new UnitNote(h, "IN THE BLAST", NoteTone.Failure))],
             _ => [],
         };
     }

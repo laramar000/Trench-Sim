@@ -423,6 +423,8 @@ public static class MatchReadiness
         // Roster stage R4b (U102): BLAST travels as the weapon's blast radius; R4c: SCATTER is a flag.
         ["BLAST"] = "",
         ["SCATTER"] = "Scatter",
+        // Roster stage R5 (U104): DEADLY Injury Rolls are 3D6.
+        ["DEADLY"] = "Deadly",
     };
 
     // Roster stage R4a: the NEGATE values the engine plays, by the book's word, with the engine's name, in its order.

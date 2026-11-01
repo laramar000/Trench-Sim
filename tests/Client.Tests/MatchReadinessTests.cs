@@ -221,6 +221,23 @@ public class MatchReadinessTests
     }
 
     [Fact]
+    public void DeadlyIsPlayed()
+    {
+        // Roster stage R5a (U104): the Reliquary Walker's Catherine Wheel is DEADLY; it is played, not named.
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseFaction("pilgrims");
+        builder.Add("war-prophet");
+        builder.Add("reliquary-walker");
+        var ready = builder.MatchCheck();
+        Assert.True(ready.Ok, string.Join("; ", ready.Refused.Concat(ready.RosterProblems)));
+        var profile = Sim.Content.Parse(ready.ToContentJson("p", "P")).Single().Models[1].Profile;
+        // Its Bonebreaker Mace is the first Melee Weapon, the Catherine Wheel the second.
+        Assert.Equal(WeaponKeywords.None, profile.AttackKeywords(AttackKind.Melee) & WeaponKeywords.Deadly);
+        Assert.Equal(WeaponKeywords.Deadly, profile.Using(AttackKind.Melee, 1).AttackKeywords(AttackKind.Melee) & WeaponKeywords.Deadly);
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("DEADLY", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ASecondGrenadeAndGrenadesWithoutRangedAreRefused()
     {
         var two = Principality(("lieutenant", ["frag-grenades", "incendiary-grenades"])).MatchCheck();

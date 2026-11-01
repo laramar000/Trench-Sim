@@ -133,7 +133,7 @@ public sealed record ModelProfile
         | WeaponKeywords.Shotgun | WeaponKeywords.Risky | WeaponKeywords.Pistol | WeaponKeywords.IgnoreCover
         | WeaponKeywords.IgnoreLongRange | WeaponKeywords.IgnoreElevatedPosition | WeaponKeywords.Assault | WeaponKeywords.Heavy
         | WeaponKeywords.Reload | WeaponKeywords.Block | WeaponKeywords.Shrapnel | WeaponKeywords.Gas | WeaponKeywords.Fire
-        | WeaponKeywords.Scatter;
+        | WeaponKeywords.Scatter | WeaponKeywords.Deadly;
 
     // Roster stage R4a: the keywords that put an extra BLOOD MARKER on the target, which NEGATE can turn away.
     public const WeaponKeywords MarkerKeywords = WeaponKeywords.Shrapnel | WeaponKeywords.Gas | WeaponKeywords.Fire;

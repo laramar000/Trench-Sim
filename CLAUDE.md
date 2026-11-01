@@ -97,8 +97,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (`InjuryRolled.ExtraMarkers`), NEGATE (`ModelProfile.Negates`, DEMONIC = NEGATE FIRE, mines too), U101. **R4b BLAST and
   R4c SCATTER done** (U102, U103): `Weapon.Blast`/`RangedWeaponBlast`, `BlastHit`, `RollStage.Blast` with a queue of
   Injury Rolls; a missed SCATTER attack's point is the opponent's `ChooseScatterPoint` decision (`ScatterAttack`,
-  `AttackScattered`, `ScatterMissed`, `Geometry.Blast`). That finishes Jason's "1 2 and 3" ask. Not built: BLAST at a
-  point, DEADLY. Next roster rules work (R5+) needs Jason's go.
+  `AttackScattered`, `ScatterMissed`, `Geometry.Blast`). That finishes Jason's "1 2 and 3" ask. **2026-11-01 Jason: "1 2 and 3 no mistakes" =
+  R5 equipment, R6 unit abilities and the blast leftovers.** R5a done: DEADLY (U104, Injury Roll keeps 3 dice) and BLAST
+  at a point (U105: `ShootPoint`, `PointAttackDeclared`/`PointSuccessRolled`/`PointBlastHit`, Combat menu keys 7/8/9,
+  scatter click anywhere, `Interaction.ScatterAt`).
 - The faction JSON files are the source of truth now. The earlier generator scripts held private source names and are
   not in the repo: edit `content/roster/*.json` directly, keep `docs/roster.md` and the tests (`tests/Roster.Tests`,
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).

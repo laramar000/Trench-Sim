@@ -77,6 +77,10 @@ public class ClientCoreTests
         seen.TryAdd(typeof(BlastHit), new BlastHit(new ModelId("a1"), new ModelId("b1"), [new ModelId("b1"), new ModelId("b2")]));
         seen.TryAdd(typeof(AttackScattered), new AttackScattered(new ModelId("a1"), new ModelId("b1"), Previews.PointAt(20, 8), 3, [new ModelId("b2")]));
         seen.TryAdd(typeof(ScatterMissed), new ScatterMissed(new ModelId("a1"), new ModelId("b1"), 5));
+        // Roster stage R5a: a BLAST attack aimed at a point.
+        seen.TryAdd(typeof(PointAttackDeclared), new PointAttackDeclared(new ModelId("a1"), Previews.PointAt(20, 8), true) { Weapon = 1 });
+        seen.TryAdd(typeof(PointSuccessRolled), new PointSuccessRolled(new ModelId("a1"), Previews.PointAt(20, 8), Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(1), 0, 0, risky: false)));
+        seen.TryAdd(typeof(PointBlastHit), new PointBlastHit(new ModelId("a1"), Previews.PointAt(20, 8), [new ModelId("b2")]));
         seen.TryAdd(typeof(MoveResumed), new MoveResumed(new ModelId("a1"), [Previews.PointAt(20, 8)]));
         var all = typeof(GameEvent).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(GameEvent)) && !t.IsAbstract).ToList();
         Assert.True(all.Count >= 30, $"{all.Count} event types");

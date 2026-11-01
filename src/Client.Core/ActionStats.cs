@@ -15,7 +15,7 @@ public static class ActionStats
         {
             return null;
         }
-        var kind = mode == InteractionMode.Shoot ? AttackKind.Ranged : AttackKind.Melee;
+        var kind = mode is InteractionMode.Shoot or InteractionMode.Blast ? AttackKind.Ranged : AttackKind.Melee;
         var profile = weapon > 0 && owned.Has(kind, weapon) ? owned.Using(kind, weapon) : owned;
         var second = ReferenceEquals(profile, owned) ? "" : weapon == ModelProfile.GrenadeWeapon ? " (grenades)" : " (2nd weapon)";
         var halved = state.MovementHalved ? " (halved after standing up)" : "";
@@ -25,6 +25,7 @@ public static class ActionStats
                 ? $"{Interaction.Words(mode)}: up to {BoardScene.Inch(reach)}{halved}"
                 : null,
             InteractionMode.Shoot => profile.HasRangedWeapon || weapon == ModelProfile.GrenadeWeapon && owned.Has(kind, weapon) ? $"Shoot{second}: weapon range {BoardScene.Inch(TableRect.Inches(profile.RangedRange))}" : "Shoot: no Ranged Weapon",
+            InteractionMode.Blast => $"Blast{second}: weapon range {BoardScene.Inch(TableRect.Inches(profile.RangedRange))}, BLAST {BoardScene.Inch(profile.RangedWeaponBlast)}",
             InteractionMode.Charge => $"Charge: reach Movement {BoardScene.Inch(TableRect.Inches(profile.Movement))} plus a D6, at most {TableRect.Inches(Rules.Core.Geometry.Charging.MaxMovement).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}\"{halved}",
             InteractionMode.Fight => profile.HasMeleeWeapon ? $"Fight{second}: Melee Weapon, against an engaged enemy"
                 : profile.RangedAlsoMelee ? "Fight: its ranged weapon (also Melee), against an engaged enemy"

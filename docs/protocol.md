@@ -204,6 +204,12 @@ The server sends events in log order, one message each, to both players, through
   target first), `AttackScattered` (`attacker`, `target`, `at`, `inches` 1 to 5, `hit`, possibly empty) and
   `ScatterMissed` (`attacker`, `target`, `inches`); a new decision kind `ChooseScatterPoint` (the attacker's opponent) and
   its answer, the command `ScatterAttack` (`seat`, `at`). A point it may not land at is refused as `NotACandidate`.
+- Roster stage R5a (U104, U105): the weapon keyword names gain `Deadly`; a DEADLY Injury Roll keeps 3 dice (no new
+  field). New command `ShootPoint` (`seat`, `attacker`, `at`, `weapon` left out when 0) and events `PointAttackDeclared`
+  (`attacker`, `at`, `longRange`, `weapon` left out when 0), `PointSuccessRolled` (`attacker`, `at`, `check`) and
+  `PointBlastHit` (`attacker`, `at`, `hit`, possibly empty). `AttackScattered.target` and `ScatterMissed.target` are null
+  for an attack aimed at a point. A point out of sight is refused as `NoLineOfSight`, out of range as `TargetOutOfRange`,
+  off the battlefield or with a weapon without BLAST as `NotACandidate`.
 
 ## Rosters online (roster stage 5c)
 
