@@ -162,6 +162,27 @@ public static partial class TurnSequence
 
     public const string RefTreat = "1.0.2 p. 84";
 
+    // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION (Warbands p. 58), once per game.
+    private static Rejection? ValidateTrigger(MatchState state, TriggerMartyrdom c)
+    {
+        if (ValidateActing(state, c.Seat, c.Model, out var bearer) is { } rejection)
+        {
+            return rejection;
+        }
+        if (state.Setup!.ProfileOf(c.Model) is not { Martyrdom: true })
+        {
+            return new(ReasonCode.NoSuchAction, "Only a model with a Martyrdom Device can take a Trigger Martyrdom Device ACTION.", Board.RefMartyrdom);
+        }
+        return Reducer.MartyrdomRefusal(state, bearer!) is { } why
+            ? new(bearer!.MartyrdomSpent ? ReasonCode.ActionAlreadyTaken : ReasonCode.ModelNotStanding, why, Board.RefMartyrdom)
+            : null;
+    }
+
+    // Roster stage R5j: the models a Martyrdom Device would hit now (its bearer last) and those within 1" of it, for the
+    // client's preview.
+    public static (IReadOnlyList<ModelId> Hit, IReadOnlyList<ModelId> Close) MartyrdomHits(MatchState state, ModelId bearer) =>
+        state.FindModel(bearer) is { } m ? Board.MartyrdomHits(state, m) : ([], []);
+
     // Roster stage R5h: the bonus dice of a Treat roll (Holy Water of Lalibela).
     public static int TreatDice(MatchState state, ModelId model) => Reducer.TreatDice(state, model);
 
@@ -436,6 +457,12 @@ public static partial class TurnSequence
                     run.Emit(new ModelMoved(c.Model, MoveKind.Move, c.Path, move.Cost));
                 }
                 break;
+            case TriggerMartyrdom c:
+            {
+                var (hit, close) = Board.MartyrdomHits(state, state.FindModel(c.Model)!);
+                run.Emit(new MartyrdomTriggered(c.Model, hit, close));
+                break;
+            }
             case TreatModel c:
                 run.Emit(new TreatDeclared(c.Model, c.Target, c.Choice));
                 if (run.State.FindModel(c.Model)!.BloodMarkers > 0)
@@ -726,10 +753,11 @@ public static partial class TurnSequence
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
                     return true;
                 }
-                var weapon = s.Setup!.ProfileOf(actor.Id)!.Using(progress.Kind, progress.Weapon);
-                var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup.ProfileOf(target.Id)!, progress.Kind);
+                var weapon = Reducer.AttackProfile(s, progress);
+                var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup!.ProfileOf(target.Id)!, progress.Kind);
+                // Roster stage R5j (U115): a Martyrdom Device's bearer rolls 4D6 added together.
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down,
-                    deadly: (weapon.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0);
+                    deadly: (weapon.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0, allFour: progress.Martyrdom && target.Id == actor.Id);
                 var rolled = new InjuryRolled(actor.Id, target.Id, injury)
                 {
                     ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup.ProfileOf(target.Id)!),
@@ -740,6 +768,12 @@ public static partial class TurnSequence
                 if (rolled.Result == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
                 {
                     run.Emit(new MatchEnded(target.Seat.Opponent(), OutcomeReason.AllEnemiesOutOfAction));
+                }
+                else if (progress.Martyrdom && target.Id == actor.Id && run.State.FindModel(actor.Id)!.Status != ModelStatus.Standing
+                    && run.State.ActiveModel == actor.Id)
+                {
+                    // Roster stage R5j (U115): the bearer taken Down or Out of Action by its own device: its activation ends (p. 49).
+                    run.Emit(new ActivationEnded(actor.Id, ActivationEndReason.TakenDown));
                 }
                 return true;
             }

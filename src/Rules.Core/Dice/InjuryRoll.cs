@@ -16,8 +16,9 @@ public sealed record InjuryRollResult
     public InjuryRollResult(RollRecord dice, int netDice, int modifier, bool targetAlreadyDown)
     {
         ArgumentNullException.ThrowIfNull(dice);
-        // DEADLY (p. 54, U104): three dice kept instead of two; the count kept says which roll it was.
-        dice.EnsureKeptFor(dice.Kept.Count == InjuryRoll.DeadlyKeptDice ? InjuryRoll.DeadlyKeptDice : InjuryRoll.KeptDice, netDice, nameof(dice));
+        // DEADLY (p. 54, U104): three dice kept instead of two; a Martyrdom Device's bearer (U115): 4D6 added together.
+        // The count kept says which roll it was.
+        dice.EnsureKeptFor(dice.Kept.Count is InjuryRoll.DeadlyKeptDice or InjuryRoll.AllFourDice ? dice.Kept.Count : InjuryRoll.KeptDice, netDice, nameof(dice));
         // Combined modifiers can't be below the floor: negatives are floored, positives only add.
         ArgumentOutOfRangeException.ThrowIfLessThan(modifier, InjuryRoll.NegativeModifierFloor);
         Dice = dice;
@@ -31,6 +32,7 @@ public sealed record InjuryRollResult
     public int Modifier { get; }
     public bool TargetAlreadyDown { get; }
     public bool Deadly => Dice.Kept.Count == InjuryRoll.DeadlyKeptDice;
+    public bool AllFour => Dice.Kept.Count == InjuryRoll.AllFourDice;
     public int Total => Dice.Total + Modifier;
     public InjuryOutcome Outcome => InjuryRoll.Classify(Total);
     public int BloodMarkers => InjuryRoll.BloodMarkersFor(Outcome, TargetAlreadyDown);
@@ -43,6 +45,7 @@ public static class InjuryRoll
 {
     public const int KeptDice = 2;
     public const int DeadlyKeptDice = 3;
+    public const int AllFourDice = 4;
     public const int NegativeModifierFloor = -3;
 
     public static InjuryRollResult Roll(
@@ -51,10 +54,11 @@ public static class InjuryRoll
         int penaltyDice = 0,
         IEnumerable<int>? modifiers = null,
         bool targetAlreadyDown = false,
-        bool deadly = false)
+        bool deadly = false,
+        bool allFour = false)
     {
         var net = RollRecord.NetDice(bonusDice, penaltyDice);
-        var record = RollRecord.RollAndKeep(dice, deadly ? DeadlyKeptDice : KeptDice, net);
+        var record = RollRecord.RollAndKeep(dice, allFour ? AllFourDice : deadly ? DeadlyKeptDice : KeptDice, net);
         return new InjuryRollResult(record, net, CombineModifiers(modifiers ?? []), targetAlreadyDown);
     }
 

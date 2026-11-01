@@ -54,7 +54,7 @@ public static class StateHash
         Line(sb, "movementHalved", state.MovementHalved);
         Line(sb, "scoredTurn", state.ScoredTurn);
         Line(sb, "inProgress", state.InProgress is { } r
-            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}{(r.InjuryDiceLater == 0 ? "" : $":injuryLater={r.InjuryDiceLater}")}{(r.Weapon == 0 ? "" : $":weapon={r.Weapon}")}{(r.OffHand ? ":offHand" : "")}{(r.Aimed is { } aimed ? $":aimed={aimed.Value}" : "")}{(r.BlastQueue.IsDefaultOrEmpty ? "" : $":blast={string.Join(";", r.BlastQueue.Select(q => q.Value))}")}{(r.ScatterInches == 0 ? "" : $":scatter={r.ScatterInches}")}{(r.BlastAt is { } landed ? $":at={landed.X.Thousandths},{landed.Y.Thousandths}" : "")}{(r.RiskyEnds ? ":riskyEnds" : "")}{(r.TreatStandUp ? ":standUp" : "")}"
+            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}{(r.InjuryDiceLater == 0 ? "" : $":injuryLater={r.InjuryDiceLater}")}{(r.Weapon == 0 ? "" : $":weapon={r.Weapon}")}{(r.OffHand ? ":offHand" : "")}{(r.Aimed is { } aimed ? $":aimed={aimed.Value}" : "")}{(r.BlastQueue.IsDefaultOrEmpty ? "" : $":blast={string.Join(";", r.BlastQueue.Select(q => q.Value))}")}{(r.ScatterInches == 0 ? "" : $":scatter={r.ScatterInches}")}{(r.BlastAt is { } landed ? $":at={landed.X.Thousandths},{landed.Y.Thousandths}" : "")}{(r.RiskyEnds ? ":riskyEnds" : "")}{(r.TreatStandUp ? ":standUp" : "")}{(r.Martyrdom ? $":martyr={string.Join(";", r.MartyrClose.Select(c => c.Value))}" : "")}"
             : null);
         Line(sb, "retreat", state.Retreat is { } t
             ? $"{t.Model.Value}:{Path(t.Path)}:{string.Join(";", t.Fought.Select(f => f.Value))}:{Bool(t.Closed)}"
@@ -147,7 +147,7 @@ public static class StateHash
                 $"deployed={Bool(m.Deployed)}",
                 $"activated={Bool(m.ActivatedThisTurn)}",
                 $"at={(m.Position is { } at ? Point(at) : "-")}",
-                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : ""));
+                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : ""));
         }
         return sb.ToString();
     }
@@ -236,7 +236,9 @@ public static class StateHash
             + (p.Treats ? ",treats=yes" : "")
             + (p.HealingWaters ? ",healingWaters=yes" : "")
             // Roster stage R5i: the Grind to Dust ACTION, only when present.
-            + (p.GrindsToDust ? ",grinds=yes" : "");
+            + (p.GrindsToDust ? ",grinds=yes" : "")
+            // Roster stage R5j: the Martyrdom Device, only when present.
+            + (p.Martyrdom ? ",martyrdom=yes" : "");
     }
 
     private static string WeaponText(Weapon w) =>

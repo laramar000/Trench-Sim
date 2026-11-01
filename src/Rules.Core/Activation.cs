@@ -67,6 +67,11 @@ public static class Activation
             {
                 attacks.Add(new FightModel(seat, active, other.Id) { Weapon = 1 });
             }
+            // Roster stage R5j (U115): the Trigger Martyrdom Device ACTION (once, not per target).
+            if (profile.Martyrdom && other.Id == active)
+            {
+                attacks.Add(new TriggerMartyrdom(seat, active));
+            }
             // Roster stage R5i (U114): Piston Legs' Grind to Dust ACTION.
             if (profile.GrindsToDust)
             {

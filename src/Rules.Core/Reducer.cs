@@ -103,6 +103,7 @@ public static class Reducer
             BloodMarkersPlaced x => OnBloodMarkersPlaced(state, x),
             TreatDeclared x => OnTreatDeclared(state, x),
             TreatRolled x => OnTreatRolled(state, x),
+            MartyrdomTriggered x => OnMartyrdomTriggered(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
@@ -165,9 +166,32 @@ public static class Reducer
         return next.ToImmutable();
     }
 
-    // The weapon an attack in progress is made with (roster stage R3).
-    private static ModelProfile AttackProfile(MatchState state, RollInProgress progress) =>
-        state.Setup!.ProfileOf(progress.Actor)!.Using(progress.Kind, progress.Weapon);
+    // The weapon an attack in progress is made with (roster stage R3). A Martyrdom Device's detonation (U115) has no
+    // weapon: no injury modifier or keywords of its own.
+    internal static ModelProfile AttackProfile(MatchState state, RollInProgress progress) => progress.Martyrdom
+        ? new ModelProfile(state.Setup!.ProfileOf(progress.Actor)!.Movement, state.Setup.ProfileOf(progress.Actor)!.BaseRadius, Length.Zero)
+        : state.Setup!.ProfileOf(progress.Actor)!.Using(progress.Kind, progress.Weapon);
+
+    // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION, once per game: the models within 3" (itself last) and
+    // the others within 1", worked out again from the positions; then the first one's Injury Roll.
+    private static MatchState OnMartyrdomTriggered(MatchState state, MartyrdomTriggered e)
+    {
+        var model = Active(state, e.Model, "A Martyrdom Device");
+        Require(state.InProgress is null && state.Retreat is null, "A Martyrdom Device waits for the last action to finish.");
+        Require(MartyrdomRefusal(state, model) is null, "Only a model with a Martyrdom Device not yet detonated can trigger it, standing on the battlefield.");
+        var (hit, close) = Board.MartyrdomHits(state, model);
+        Require(hit.SequenceEqual(e.Hit) && close.SequenceEqual(e.Close), "The device hits exactly the models within 3\" (its bearer last); +1 INJURY DICE for the others within 1\".");
+        var spent = TurnRules.WithModel(state, model with { MartyrdomSpent = true }) with { Actions = state.Actions | ActionsTaken.Trigger, AttacksLeft = null };
+        var progress = new RollInProgress(RollStage.InjuryRoll, e.Model, Martyrdom: true, MartyrClose: e.Close);
+        return spent with { InProgress = NextBlastRoll(spent, progress, e.Hit) };
+    }
+
+    // Why the model cannot trigger its Martyrdom Device now (Decide's check, in the rules' words), or null.
+    internal static string? MartyrdomRefusal(MatchState state, ModelState model) =>
+        state.Setup?.ProfileOf(model.Id)?.Martyrdom != true ? "Only a model with a Martyrdom Device can take a Trigger Martyrdom Device ACTION."
+        : model.MartyrdomSpent ? "The Martyrdom Device has already detonated; it cannot be used again."
+        : model.Position is null || model.Status != ModelStatus.Standing ? "A Down model cannot take a Trigger Martyrdom Device ACTION."
+        : null;
 
     // A Glorious Deed is announced right after the event that completed it, in the order they were completed, and gives
     // its seat 1 Victory Point (pp. 149-150; counted at once, U96).
@@ -1129,6 +1153,22 @@ public static class Reducer
     private static RollInProgress NextBlastRoll(MatchState state, RollInProgress progress, ImmutableArray<ModelId> queue)
     {
         var victim = queue[0];
+        if (progress.Martyrdom)
+        {
+            // Roster stage R5j (U115): +1 INJURY DICE within 1" and the INJURY DICE the target takes (Holy Smoke); the
+            // bearer's own roll is always 4D6 added together.
+            var (more, fewer) = victim == progress.Actor ? (0, 0)
+                : AttackDice.With(progress.MartyrClose.Contains(victim) ? 1 : 0, 0, state.Setup!.ProfileOf(victim)!.InjuryDiceTaken);
+            return progress with
+            {
+                Target = victim,
+                BlastQueue = queue.RemoveAt(0),
+                FriendlyFire = state.FindModel(victim)!.Seat == state.FindModel(progress.Actor)!.Seat,
+                BonusDice = more,
+                PenaltyDice = fewer,
+                MarkersAsked = false,
+            };
+        }
         var (bonus, penalty) = AttackDice.InjuryDice(AttackProfile(state, progress), AttackKind.Ranged, progress.Critical && victim == progress.Aimed, meleeOnDownTarget: false, progress.InjuryDiceLater, state.Setup!.ProfileOf(victim)!);
         return progress with
         {
@@ -1148,8 +1188,10 @@ public static class Reducer
         var progress = state.InProgress!;
         var attacker = state.FindModel(e.Attacker)!;
         var target = state.FindModel(e.Target)!;
-        Require((target.Id != attacker.Id || progress.Aimed is not null || progress.BlastAt is not null) && (target.Seat == attacker.Seat) == progress.FriendlyFire,
+        Require((target.Id != attacker.Id || progress.Aimed is not null || progress.BlastAt is not null || progress.Martyrdom) && (target.Seat == attacker.Seat) == progress.FriendlyFire,
             "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one or a blast hits it.");
+        // Roster stage R5j (U115): a Martyrdom Device's bearer rolls 4D6 added together; every other roll keeps two or three.
+        Require(e.Injury.AllFour == (progress.Martyrdom && target.Id == attacker.Id), "Only a Martyrdom Device's bearer rolls 4D6 added together.");
         var profile = AttackProfile(state, progress);
         Require(e.Injury.NetDice == progress.BonusDice - progress.PenaltyDice
             && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(e.Target)!, progress.Kind))

@@ -375,6 +375,11 @@ public static class UnitPanel
         {
             parts.Add(p.HealingWaters ? "Treat ACTION (H), +1 DICE" : "Treat ACTION (H)");
         }
+        // Roster stage R5j (U115).
+        if (p.Martyrdom)
+        {
+            parts.Add("Martyrdom Device (B), once per game");
+        }
         // Roster stage R5i (U114).
         if (p.GrindsToDust)
         {

@@ -613,6 +613,31 @@ public sealed record BloodMarkersPlaced : GameEvent
     public ImmutableArray<ModelId> Warded { get; }
 }
 
+// Roster stage R5j (U115): Model's Martyrdom Device detonates (Warbands p. 58). Hit are the models within 3" of it (friend
+// or foe, Down ones too), in the setup's order with Model itself last: each has an Injury Roll, in that order. Close are
+// the other models within 1" of it, whose Injury Rolls have +1 INJURY DICE. Model's own roll is 4D6 added together.
+public sealed record MartyrdomTriggered : GameEvent
+{
+    public MartyrdomTriggered(ModelId model, ImmutableArray<ModelId> hit, ImmutableArray<ModelId> close)
+    {
+        if (hit.IsDefaultOrEmpty || hit.Distinct().Count() != hit.Length || hit[^1] != model)
+        {
+            throw new ArgumentException("A Martyrdom Device hits each model within 3\" once, its bearer last.", nameof(hit));
+        }
+        if (close.IsDefault || close.Distinct().Count() != close.Length || close.Contains(model) || close.Any(c => !hit.Contains(c)))
+        {
+            throw new ArgumentException("The models within 1\" are other models it hits, each once.", nameof(close));
+        }
+        Model = model;
+        Hit = hit;
+        Close = close;
+    }
+
+    public ModelId Model { get; }
+    public ImmutableArray<ModelId> Hit { get; }
+    public ImmutableArray<ModelId> Close { get; }
+}
+
 // Roster stage R5h (U113): a Treat ACTION (Medi-kit, p. 84) is declared: its Risky Success Roll comes next (after the
 // offer to spend the model's Blood Markers).
 public sealed record TreatDeclared(ModelId Model, ModelId Target, TreatChoice Choice) : GameEvent;

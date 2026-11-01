@@ -97,6 +97,9 @@ public sealed record ReadyModel(
 
     // Roster stage R5i (U114): the Grind to Dust ACTION (Piston Legs).
     public bool GrindsToDust { get; init; }
+
+    // Roster stage R5j (U115): the Trigger Martyrdom Device ACTION.
+    public bool Martyrdom { get; init; }
 }
 
 // Roster stage R3: a second weapon, as Rules.Core Weapon holds it (RangeInches 0 for a Melee Weapon).
@@ -177,7 +180,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom) })
                     {
                         if (on)
                         {
@@ -235,6 +238,9 @@ public static class MatchReadiness
     // to 60", modifiers -3 to +3, Armour 0 to -3.
     public const int MaxMovementInches = 24;
     public const int MaxBaseMm = 152;
+
+    // Roster stage R5j (U115): the upgrade that gives the Trigger Martyrdom Device ACTION.
+    public const string MartyrdomUpgrade = "martyrdom-device";
     public const int MaxRangeInches = 60;
     public const int MaxModifier = 3;
     public const int MaxDice = 6;
@@ -280,7 +286,7 @@ public static class MatchReadiness
             var (whispers, warded) = (false, false);
             var (hasCover, digsIn) = (false, false);
             var (burnsAtEnd, burnsWhenOut) = (false, false);
-            var (treats, healingWaters, grinds) = (false, false, false);
+            var (treats, healingWaters, grinds, martyrdom) = (false, false, false, false);
             CatalogueEntry? digger = null;
             string? diggerUse = null;
             var ammunition = new List<CatalogueEntry>();
@@ -294,7 +300,12 @@ public static class MatchReadiness
             }
             foreach (var upgradeId in model.Upgrades)
             {
-                if (entry.Upgrades.FirstOrDefault(u => u.Id == upgradeId) is { } upgrade)
+                // Roster stage R5j (U115): the Martyrdom Device upgrade is played (its Trigger ACTION).
+                if (upgradeId == MartyrdomUpgrade && entry.Upgrades.Any(u => u.Id == upgradeId))
+                {
+                    martyrdom = true;
+                }
+                else if (entry.Upgrades.FirstOrDefault(u => u.Id == upgradeId) is { } upgrade)
                 {
                     without.Add($"{who}: {upgrade.Name}");
                 }
@@ -496,6 +507,7 @@ public static class MatchReadiness
                 Treats = treats,
                 HealingWaters = healingWaters,
                 GrindsToDust = grinds,
+                Martyrdom = martyrdom,
             });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);

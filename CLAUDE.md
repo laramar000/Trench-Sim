@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U114), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U115), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -130,9 +130,15 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - Done: R5i (U114): Piston Legs (`GrindsToDust`) give the Grind to Dust ACTION: a `FightModel`/`MeleeAttackDeclared`
   with weapon 3 (`ModelProfile.GrindWeapon`, `ActionsTaken.Grind`), at a Down enemy within 1" on a base <= 32 mm, no
   Melee Weapon stats (`Using(Melee, 3)`); its own ACTION beside a Fight. Client: Combat menu key 0. Tests `GrindTests`
-  and three more. Essentials 2,166/0.
-- Pushed before: R5a e2ad5d8 ... R5f a93a518, gaps f787535 (U111), R5g 6305404 (U112), R5h 28cf852 (U113).
+  and three more. Pushed ed2f05f.
+- Done: R5j (U115): Martyrdom Device (the Ecclesiastic Prisoner's upgrade, `ModelProfile.Martyrdom`,
+  `MatchReadiness.MartyrdomUpgrade`): command `TriggerMartyrdom`, event `MartyrdomTriggered(model, hit, close)`, then one
+  `InjuryRolled` per hit model (bearer last, its roll 4D6 added together: `InjuryRoll.AllFourDice`), via
+  `RollInProgress.Martyrdom`/`MartyrClose` and the blast queue; `ModelState.MartyrdomSpent`. Client: Detonate, key B.
+  Tests `MartyrdomTests` and three more. Essentials 2,175/0. Martyrdom Dog and Awaited not played.
+- Pushed before: R5a e2ad5d8 ... R5f a93a518, gaps f787535 (U111), R5g 6305404 (U112), R5h 28cf852 (U113),
+  R5i ed2f05f (U114).
 - Decided: Urn of the Bitter Ashes protects any model within 3" (Jason card "1 Any model", U109).
-- Next: Martyrdom Device (Trigger: once per game, Injury Rolls within 3"), then Blessed Icon/Unholy Trinket, then R6.
+- Next: Blessed Icon/Unholy Trinket (optional "you can say" uses: a player decision), then R6 unit abilities.
 - Still refused by name in matches: AMMUNITION with two possible guns (no deployment choice yet), and every equipment
   piece not in `MatchReadiness.PlayedEquipment`. No Windows run since 17a9099/e917e6b.

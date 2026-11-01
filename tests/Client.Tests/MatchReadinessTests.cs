@@ -564,6 +564,24 @@ public class MatchReadinessTests
         Assert.DoesNotContain("grindsToDust", Of("pilgrims", "trench-pilgrim").MatchCheck().ToContentJson("p", "P"), StringComparison.Ordinal);
     }
 
+    // Roster stage R5j (U115): the Martyrdom Device upgrade gives the Trigger Martyrdom Device ACTION.
+    [Fact]
+    public void TheMartyrdomDeviceIsPlayed()
+    {
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseFaction("pilgrims");
+        builder.Select(builder.Add("ecclesiastic-prisoner"));
+        var plain = builder.MatchCheck();
+        Assert.False(Loaded(plain).Martyrdom);
+        Assert.DoesNotContain("martyrdom", plain.ToContentJson("p", "P"), StringComparison.Ordinal);
+        builder.ToggleUpgrade("martyrdom-device");
+        var device = builder.MatchCheck();
+        Assert.True(device.Refused.Count == 0, string.Join("; ", device.Refused));
+        Assert.DoesNotContain(device.PlayedWithout, w => w.Contains("Martyrdom Device", StringComparison.Ordinal));
+        Assert.True(Loaded(device).Martyrdom);
+        Assert.Contains("\"martyrdom\": true", device.ToContentJson("p", "P"), StringComparison.Ordinal);
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

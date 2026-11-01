@@ -30,6 +30,9 @@ public enum PreviewKind
 
     // Roster stage R5h (U113): a Medi-kit's Treat ACTION on the model itself or a friend within 1" (TreatModel).
     Treat,
+
+    // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION (TriggerMartyrdom); its "target" is the model itself.
+    Detonate,
 }
 
 // A point on the table, in inches.
@@ -103,6 +106,7 @@ public sealed record Preview(
         PreviewKind.Charge => "Charge",
         PreviewKind.Point => "Blast",
         PreviewKind.Treat => "Treat",
+        PreviewKind.Detonate => "Detonate",
         _ => "Fight",
     };
 
@@ -357,6 +361,10 @@ public static class Previews
         if (kind == PreviewKind.Treat)
         {
             return Treat(state, seat, model, target);
+        }
+        if (kind == PreviewKind.Detonate)
+        {
+            return Detonate(state, seat, model);
         }
         // Roster stage R5i: a Grind to Dust ACTION (GrindWeapon) is its own ACTION, not the Fight's next attack.
         var next = kind == PreviewKind.Fight && weapon != ModelProfile.GrindWeapon ? TurnSequence.NextFightAttack(state, model) : null;
@@ -674,6 +682,29 @@ public static class Previews
     public const string TreatFact = "A Treat is a Risky Success Roll (p. 84): on a Success it is carried out; a Failure ends the activation.";
     public const string HolyWaterFact = "+1 DICE on the Treat roll: Holy Water of Lalibela (Warbands p. 44).";
 
+    // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION: the rules' own check, who it would hit and who is within 1".
+    public const string MartyrdomFact = "Martyrdom Device (Warbands p. 58), once per game: an Injury Roll for every model within 3\", friend or foe, itself included; its own roll is 4D6 added together.";
+
+    public static Preview Detonate(MatchState state, Seat seat, ModelId model)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var command = new TriggerMartyrdom(seat, model);
+        var facts = new List<string>();
+        var refusal = Opening(state) ?? Acting(state, seat, model, out _) ?? TurnSequence.Check(state, command);
+        if (refusal is null)
+        {
+            var (hit, close) = TurnSequence.MartyrdomHits(state, model);
+            facts.Add(MartyrdomFact);
+            facts.Add($"Hits {string.Join(", ", hit.Select(h => h.Value))}.");
+            if (close.Count > 0)
+            {
+                facts.Add($"+1 INJURY DICE within 1\": {string.Join(", ", close.Select(c => c.Value))}.");
+            }
+        }
+        var from = state.FindModel(model) is { } m && BodyOf(state, m) is { } b ? [new PathMark(TablePoint.Of(b.Centre), 0)] : Array.Empty<PathMark>();
+        return new Preview(PreviewKind.Detonate, model, command, refusal, facts, from, RadiusOf(state, model), model, [], [], null);
+    }
+
     public static Preview Treat(MatchState state, Seat seat, ModelId model, ModelId target)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -751,6 +782,8 @@ public static class Previews
                     }
                 }
                 return nearest ?? new(ReasonCode.TargetNotOnTable, "No enemy model is on the battlefield.", RefAttack);
+            case PreviewKind.Detonate:
+                return Detonate(state, seat, model).Refusal;
             case PreviewKind.Treat:
             {
                 // Roster stage R5h: open when the rules would take a Treat on the model itself or some friend.

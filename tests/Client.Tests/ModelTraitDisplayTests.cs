@@ -332,6 +332,66 @@ public class ModelTraitDisplayTests
         Assert.DoesNotContain("Grind", UnitPanel.WeaponWords(card with { GrindsToDust = false }), StringComparison.Ordinal);
     }
 
+    // Roster stage R5j (U115): a Martyrdom Device is previewed, logged, broken down and named on the card.
+    [Fact]
+    public void MartyrdomIsExplained()
+    {
+        var (devices, selves, explained) = (0, 0, 0);
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select((m, i) => m with { Profile = m.Profile with { Martyrdom = i % 2 == 0 } }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            var log = new ResolutionLog();
+            var seq = 0;
+            var blasting = false;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is MartyrdomTriggered t && state.FindModel(t.Model) is { } bearer)
+                {
+                    var preview = Previews.Target(state, bearer.Seat, PreviewKind.Detonate, t.Model, t.Model);
+                    Assert.Null(preview.Refusal);
+                    Assert.Equal(new Rules.Core.Commands.TriggerMartyrdom(bearer.Seat, t.Model), preview.Command);
+                    Assert.Contains(Previews.MartyrdomFact, preview.Facts);
+                    Assert.Contains($"Hits {string.Join(", ", t.Hit.Select(h => h.Value))}.", preview.Facts);
+                    var interaction = new Interaction();
+                    interaction.Update(state, bearer.Seat);
+                    Assert.Contains(InteractionMode.Detonate, interaction.Available);
+                    Assert.StartsWith($"  {t.Model} detonates its Martyrdom Device: Injury Rolls for ", EventText.Line(t), StringComparison.Ordinal);
+                    Assert.Equal(("DETONATES", EventKind.Injury), (EventText.Compact(t).Verb, EventText.Kind(t)));
+                    Assert.Equal(EventText.Describe(t), Narrator.Describe(t));
+                    devices++;
+                    blasting = true;
+                }
+                if (e is ActivationEnded or ActivationStarted)
+                {
+                    blasting = false;
+                }
+                var setup = state.Setup;
+                state = Reducer.Apply(state, e);
+                log.Add(++seq, e, setup ?? state.Setup);
+                if (e is InjuryRolled i && blasting)
+                {
+                    var why = log.WhyOf(seq);
+                    Assert.True(why is { Explained: true }, why?.Text);
+                    explained++;
+                    if (i.Injury.AllFour)
+                    {
+                        Assert.Contains("4D6 added together", EventText.Line(i), StringComparison.Ordinal);
+                        Assert.Contains("CAUGHT BY ITS OWN DEVICE", DiceRolls.Of(i)!.Title, StringComparison.Ordinal);
+                        selves++;
+                        blasting = false;
+                    }
+                }
+            }
+        }
+        Assert.True(devices > 0 && selves > 0 && explained > selves, $"{devices} devices, {selves} bearers, {explained} rolls");
+        var card = new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true) { Martyrdom = true };
+        Assert.Contains("Martyrdom Device (B), once per game", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
+    }
+
     // Roster stage R5f (U110): the previews and the breakdown name the COVER keyword's die.
     [Fact]
     public void CoverKeywordIsExplained()

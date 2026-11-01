@@ -62,6 +62,7 @@ public enum ActionsTaken
     Fight = 32,
     Treat = 64,   // roster stage R5h (U113): a Medi-kit's Treat ACTION
     Grind = 128,  // roster stage R5i (U114): Piston Legs' Grind to Dust ACTION
+    Trigger = 256, // roster stage R5j (U115): a Trigger Martyrdom Device ACTION
 }
 
 public enum RollStage
@@ -106,6 +107,8 @@ public enum AttackKind
 // Roster stage R4c (U103): a SCATTER attack that missed keeps how far it scatters (ScatterInches, 7 - the roll), where it
 // landed once chosen (BlastAt), and whether its roll was a failed Risky one, so the activation ends once it is over
 // (RiskyEnds).
+// Roster stage R5j (U115): a Martyrdom Device's detonation (Martyrdom) rolls for the models in BlastQueue, its bearer last;
+// MartyrClose are the other models within 1" of it (+1 INJURY DICE each).
 public sealed record RollInProgress(
     RollStage Stage,
     ModelId Actor,
@@ -128,7 +131,9 @@ public sealed record RollInProgress(
     int ScatterInches = 0,
     Point2? BlastAt = null,
     bool RiskyEnds = false,
-    bool TreatStandUp = false);
+    bool TreatStandUp = false,
+    bool Martyrdom = false,
+    ImmutableArray<ModelId> MartyrClose = default);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.

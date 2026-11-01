@@ -83,6 +83,9 @@ public sealed class ResolutionLog
         // Roster stage R5a: a blast has hit (at a model, at a point or where a missed attack scattered to), so each
         // model it hit has its own Injury Roll.
         public bool Blasting { get; set; }
+
+        // Roster stage R5j: a Martyrdom Device detonated; the other models within 1" of it get +1 INJURY DICE.
+        public System.Collections.Immutable.ImmutableArray<ModelId>? MartyrClose { get; set; }
         public List<string> Steps { get; } = [];
         public List<string> Outcome { get; } = [];
 
@@ -123,6 +126,14 @@ public sealed class ResolutionLog
         {
             case DashDeclared d:
                 Start(seq, d.Model, $"{Id(d.Model)} DASHES", null, null);
+                break;
+            case MartyrdomTriggered mt:
+                // Roster stage R5j (U115): each model within 3" has an Injury Roll, the bearer last.
+                Start(seq, mt.Model, $"{Id(mt.Model)} DETONATES ITS MARTYRDOM DEVICE", null, null);
+                _current!.Blasting = true;
+                _current!.MartyrClose = mt.Close;
+                _current!.Steps.Add($"Hits {string.Join(", ", mt.Hit.Select(Id))}{(mt.Close.IsEmpty ? "" : $"; +1 INJURY DICE within 1\": {string.Join(", ", mt.Close.Select(Id))}")}");
+                _current!.Outcome.Add($"hits {mt.Hit.Length}");
                 break;
             case TreatDeclared t:
                 // Roster stage R5h (U113): a Treat ACTION, with Holy Water's +1 DICE.
@@ -412,7 +423,23 @@ public sealed class ResolutionLog
         dice.AddRange(action.Dice);
         var modifiers = new List<ResolutionPart>();
         int? combined = null;
-        if (own is { } attacker && setup?.ProfileOf(i.Target) is { } target && action.Kind is { } kind)
+        if (action.MartyrClose is { } close && setup?.ProfileOf(i.Attacker) is { } bearer && setup.ProfileOf(i.Target) is { } blasted)
+        {
+            // Roster stage R5j (U115): no weapon; +1 INJURY DICE within 1"; the bearer's own roll is 4D6 added together.
+            if (close.Contains(i.Target))
+            {
+                dice.Insert(0, new("within 1\" of the Martyrdom Device", 1));
+            }
+            if (injury.AllFour)
+            {
+                dice.Clear();
+                action.Steps.Add($"{Id(i.Target)} rolls 4D6 added together (its own Martyrdom Device)");
+            }
+            var values = AttackDice.InjuryModifiers(new ModelProfile(bearer.Movement, bearer.BaseRadius, Rules.Core.Geometry.Length.Zero), blasted, AttackKind.Ranged);
+            modifiers.Add(new("Armour", values[1]));
+            combined = InjuryRoll.CombineModifiers(values);
+        }
+        else if (own is { } attacker && setup?.ProfileOf(i.Target) is { } target && action.Kind is { } kind)
         {
             var values = AttackDice.InjuryModifiers(attacker, target, kind);
             modifiers.Add(new(kind == AttackKind.Melee ? "melee weapon" : "ranged weapon", values[0]));

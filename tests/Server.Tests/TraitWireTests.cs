@@ -182,6 +182,29 @@ public class TraitWireTests
         Assert.Null(failure);
     }
 
+    // Roster stage R5j (U115): the Martyrdom Device, its trigger, its detonation and the bearer's 4D6 roll.
+    [Fact]
+    public void MartyrdomRoundTripsAndIsLeftOutWhenFalse()
+    {
+        Assert.DoesNotContain("martyrdom", Encoded(new MatchCreated(Plain())), StringComparison.OrdinalIgnoreCase);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { Martyrdom = true };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        Assert.Contains("\"martyrdom\":true", Encoded(created), StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+        var (a, b) = (new ModelId("A1"), new ModelId("B1"));
+        var command = new Rules.Core.Commands.TriggerMartyrdom(Seat.One, a);
+        Assert.Equal(command, Assert.IsType<SubmitCommand>(Codec.ParseClient(Codec.Encode(new SubmitCommand("c1", 1, 0, command)), out var failure)).Command);
+        Assert.Null(failure);
+        var triggered = (MartyrdomTriggered)RoundTrip(new MartyrdomTriggered(a, [b, a], [b]));
+        Assert.Equal(("B1,A1", "B1"), (string.Join(",", triggered.Hit), string.Join(",", triggered.Close)));
+        var four = InjuryRoll.Roll(new SeededDice(5), modifiers: [0, 0], allFour: true);
+        var back = (InjuryRolled)RoundTrip(new InjuryRolled(a, a, four));
+        Assert.Equal((true, four.Total), (back.Injury.AllFour, back.Injury.Total));
+    }
+
     // Roster stage R5f (U110).
     [Fact]
     public void CoverKeywordRoundTripsAndIsLeftOutWhenFalse()

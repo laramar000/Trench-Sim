@@ -232,6 +232,12 @@ public sealed record ModelProfile
     // within 1" on a base of 32 mm or smaller. Its attack is the melee "weapon" GrindWeapon.
     public bool GrindsToDust { get; init; }
 
+    // ---- Roster stage R5j (U115): the Martyrdom Device ----
+
+    // The model can take a Trigger Martyrdom Device ACTION once per game (Warbands p. 58): an Injury Roll for every model
+    // within 3" of it, itself included.
+    public bool Martyrdom { get; init; }
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -402,6 +408,7 @@ public sealed record ModelProfile
                 Treats = Treats,
                 HealingWaters = HealingWaters,
                 GrindsToDust = GrindsToDust,
+                Martyrdom = Martyrdom,
             };
         }
         // Roster stage R5i (U114): a Grind to Dust attack uses no Melee Weapon: no weapon DICE, INJURY DICE, modifier,
@@ -435,6 +442,7 @@ public sealed record ModelProfile
                 Treats = Treats,
                 HealingWaters = HealingWaters,
                 GrindsToDust = GrindsToDust,
+                Martyrdom = Martyrdom,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -470,6 +478,7 @@ public sealed record ModelProfile
             Treats = Treats,
             HealingWaters = HealingWaters,
             GrindsToDust = GrindsToDust,
+            Martyrdom = Martyrdom,
         };
     }
 

@@ -370,6 +370,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.Treats)),
             (typeof(ModelProfile), nameof(ModelProfile.HealingWaters)),
             (typeof(ModelProfile), nameof(ModelProfile.GrindsToDust)),
+            (typeof(ModelProfile), nameof(ModelProfile.Martyrdom)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Warded)),
             (typeof(MineExploded), nameof(MineExploded.Warded)),
         ];

@@ -32,6 +32,7 @@ public static class ActionStats
                 : profile.RangedAlsoMelee ? "Fight: its ranged weapon (also Melee), against an engaged enemy"
                 : "Fight: no Melee Weapon",
             // Roster stage R5h: the Treat ACTION's reach and roll.
+            InteractionMode.Detonate => owned.Martyrdom ? "Detonate: Injury Rolls within 3\", +1 INJURY DICE within 1\", once per game" : "Detonate: no Martyrdom Device",
             InteractionMode.Treat => owned.Treats ? $"Treat: itself or a friend within 1\", Risky roll{(owned.HealingWaters ? " +1 DICE (Holy Water)" : "")}" : "Treat: no Medi-kit",
             _ => null,
         };

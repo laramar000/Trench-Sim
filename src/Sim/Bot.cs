@@ -146,6 +146,12 @@ public sealed class Bot(Random rng)
                 yield return new TreatModel(seat, model.Id, friend.Id, TreatChoice.RemoveMarker);
             }
         }
+        // Roster stage R5j (U115): a Martyrdom Device is triggered when an enemy is within 3" (no random numbers).
+        if (profile.Martyrdom && !model.MartyrdomSpent
+            && Rules.Core.TurnSequence.MartyrdomHits(state, model.Id).Hit.Any(h => state.FindModel(h)!.Seat != seat))
+        {
+            yield return new TriggerMartyrdom(seat, model.Id);
+        }
         // Roster stage R5i (U114): a model with Piston Legs grinds a Down enemy first, when it can (no random numbers).
         if (profile.GrindsToDust && !state.Actions.HasFlag(ActionsTaken.Grind))
         {

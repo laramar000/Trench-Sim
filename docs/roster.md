@@ -280,3 +280,7 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
 - Roster rules stage R5i, Piston Legs (done 2026-11-01): they travel as `grindsToDust`; a match plays the Grind to Dust
   ACTION (U114). Tests: `GrindTests`, `TraitWireTests.GrindRoundTripsAndIsLeftOutWhenFalse`,
   `MatchReadinessTests.PistonLegsArePlayed`, `ModelTraitDisplayTests.GrindIsExplained`.
+- Roster rules stage R5j, Martyrdom Device (done 2026-11-01): the Ecclesiastic Prisoner's upgrade travels as `martyrdom`;
+  a match plays the Trigger Martyrdom Device ACTION (U115). Tests: `MartyrdomTests`,
+  `TraitWireTests.MartyrdomRoundTripsAndIsLeftOutWhenFalse`, `MatchReadinessTests.TheMartyrdomDeviceIsPlayed`,
+  `ModelTraitDisplayTests.MartyrdomIsExplained`.

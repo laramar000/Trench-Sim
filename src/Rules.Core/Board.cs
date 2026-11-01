@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Rules.Core.Dice;
 using Rules.Core.Geometry;
 using Rules.Core.State;
@@ -550,6 +551,24 @@ internal static class Board
     private static AttackAssessment Refuse(ReasonCode code, string text, string rule = RefAttack) => new(code, text, rule);
 
     public const string RefGrind = "Warbands 1.0.2 p. 66";
+
+    // Roster stage R5j (U115): the models a Martyrdom Device hits (friend or foe on the battlefield within 3", Down ones
+    // too, in the setup's order, the bearer last) and the other models within 1" of the bearer (Warbands p. 58).
+    public static (ImmutableArray<ModelId> Hit, ImmutableArray<ModelId> Close) MartyrdomHits(MatchState state, ModelState bearer)
+    {
+        if (BodyOf(state, bearer) is not { } from)
+        {
+            return (ImmutableArray<ModelId>.Empty, ImmutableArray<ModelId>.Empty);
+        }
+        var near = state.Models
+            .Where(m => m.Id != bearer.Id && m.Status != ModelStatus.OutOfAction && BodyOf(state, m) is { } to && Measure.IsWithin(from, to, MartyrdomReach))
+            .ToList();
+        var close = near.Where(m => Measure.IsWithin(from, BodyOf(state, m)!, EngagementRange)).Select(m => m.Id).ToImmutableArray();
+        return (near.Select(m => m.Id).Append(bearer.Id).ToImmutableArray(), close);
+    }
+
+    private static readonly Length MartyrdomReach = Length.FromInches(3);
+    public const string RefMartyrdom = "Warbands 1.0.2 p. 58";
 
     // A 32 mm base's radius, as content reads one (half the diameter in thousandths of an inch, rounded down).
     private static readonly Length GrindBaseRadius = Length.FromThousandths(Length.FromMillimetres(32).Thousandths / 2);
