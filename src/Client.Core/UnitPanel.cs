@@ -326,6 +326,23 @@ public static class UnitPanel
         {
             parts.Add($"Fight injury {p.MeleeInjuryBonus:+0;-0}");
         }
+        // Roster stage R5d (U108): battlekit for Risky rolls and Cover.
+        if (p.KeepsGoingAfterRisky)
+        {
+            parts.Add("Risky failure keeps going");
+        }
+        if (p.ClimbDice != 0)
+        {
+            parts.Add($"climb {p.ClimbDice:+0;-0} DICE");
+        }
+        if (p.Fanfare)
+        {
+            parts.Add("Dash +1 DICE within 4\"");
+        }
+        if (p.BlendsIn)
+        {
+            parts.Add("Cover -2 DICE against it");
+        }
         // Roster stage R5b (U106): the model keywords the engine plays.
         foreach (var (trait, words) in new[] { (ModelTraits.Fear, "FEAR"), (ModelTraits.NegateFear, "NEGATE FEAR"), (ModelTraits.Tough, "TOUGH"), (ModelTraits.NegateHeavy, "NEGATE HEAVY"), (ModelTraits.Leader, "LEADER") })
         {

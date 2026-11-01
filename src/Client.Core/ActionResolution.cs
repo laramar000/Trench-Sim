@@ -128,12 +128,17 @@ public sealed class ResolutionLog
                 // Towers stage T6: a Move or Dash that climbs a tower's side is its own action with its own roll.
                 Start(seq, c.Model, $"{Id(c.Model)} CLIMBS A TOWER'S SIDE", null, null);
                 _current!.Climb = true;
+                // Roster stage R5d (U108).
+                if (setup?.ProfileOf(c.Model) is { ClimbDice: > 0 } climber)
+                {
+                    _current!.Dice.Add(new("Mountaineer Kit", climber.ClimbDice));
+                }
                 break;
             case RangedAttackDeclared r:
                 Start(seq, r.Attacker, $"{Id(r.Attacker)} {(r.Weapon == ModelProfile.GrenadeWeapon ? "THROWS A GRENADE AT" : "SHOOTS")} {Id(r.Target)}{(r.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Ranged, r.Target);
                 _current!.Weapon = r.Weapon;
                 OwnParts(setup, r.Attacker, AttackKind.Ranged);
-                ShotParts(setup, r.Attacker, r.LongRange, r.CoverTerrainId, r.Elevated);
+                ShotParts(setup, r.Attacker, r.LongRange, r.CoverTerrainId, r.Elevated, r.Target);
                 break;
             case PointAttackDeclared p:
                 // Roster stage R5a (U105): a BLAST attack aimed at a point.
@@ -191,7 +196,7 @@ public sealed class ResolutionLog
                 action.Target = f.Victim;
                 action.Dice.Clear();
                 OwnParts(setup, f.Attacker, AttackKind.Ranged);
-                ShotParts(setup, f.Attacker, f.LongRange, f.CoverTerrainId, f.Elevated);
+                ShotParts(setup, f.Attacker, f.LongRange, f.CoverTerrainId, f.Elevated, f.Victim);
                 action.Steps.Add($"Friendly target: {Id(f.Victim)}");
                 action.Outcome.Add($"shoots {Id(f.Victim)}");
                 break;
@@ -212,17 +217,24 @@ public sealed class ResolutionLog
                 }
                 break;
             case DashRolled d:
-                Success(seq, action, d.Check, "Risky roll", "DASH", "DASH FAILED");
+                // Roster stage R5d (U108): the Dash roll's die from a Musical Instrument within 4" (worked out from the
+                // positions by the rules; here it is what the roll has beyond the markers).
+                if (d.Check.NetDice - action.Dice.Sum(p => p.Value) == 1 && setup is not null
+                    && setup.Models.Any(m => m.Seat == setup.Models.First(x => x.Id == d.Model).Seat && m.Profile?.Fanfare == true))
+                {
+                    action.Dice.Add(new("Musical Instrument within 4\"", 1));
+                }
+                Success(seq, action, d.Check, setup, "Risky roll", "DASH", "DASH FAILED");
                 break;
             case SideClimbRolled c:
-                Success(seq, action, c.Check, "Risky roll", "CLIMB", "CLIMB FAILED");
+                Success(seq, action, c.Check, setup, "Risky roll", "CLIMB", "CLIMB FAILED");
                 action.Failed = c.Check.Outcome == SuccessOutcome.Failure;
                 break;
             case RangedSuccessRolled r:
-                Success(seq, action, r.Check, "Hit roll", "HIT", "MISSED");
+                Success(seq, action, r.Check, setup, "Hit roll", "HIT", "MISSED");
                 break;
             case PointSuccessRolled r:
-                Success(seq, action, r.Check, "Hit roll", "HIT", "MISSED");
+                Success(seq, action, r.Check, setup, "Hit roll", "HIT", "MISSED");
                 break;
             case PointBlastHit b:
                 // No model was the target, so a Critical Success adds no dice to anyone (U105).
@@ -232,7 +244,7 @@ public sealed class ResolutionLog
                 action.Outcome.Add(b.Hit.IsEmpty ? "BLAST hits nobody" : $"BLAST hits {b.Hit.Length}");
                 break;
             case MeleeSuccessRolled m:
-                Success(seq, action, m.Check, "Hit roll", "HIT", "MISSED");
+                Success(seq, action, m.Check, setup, "Hit roll", "HIT", "MISSED");
                 break;
             case BlastHit b:
                 action.BlastAimed = b.Target;
@@ -305,10 +317,12 @@ public sealed class ResolutionLog
     }
 
     // The shot's modifiers as they apply with the weapon's keywords (roster stage R2: IGNORE ..., SHOTGUN).
-    private void ShotParts(MatchSetup? setup, ModelId attacker, bool longRange, string? coverId, bool elevated)
+    // Roster stage R5d (U108): a target with a Cloak of the Mountain makes Cover -2 DICE.
+    private void ShotParts(MatchSetup? setup, ModelId attacker, bool longRange, string? coverId, bool elevated, ModelId? target = null)
     {
         var keywords = Armed(setup, attacker, AttackKind.Ranged, _current!.Weapon)?.RangedWeaponKeywords ?? WeaponKeywords.None;
-        var applied = AttackDice.ShotModifiers(keywords, longRange, coverId is not null, elevated);
+        var cloaked = target is { } t && setup?.ProfileOf(t)?.BlendsIn == true;
+        var applied = AttackDice.ShotModifiers(keywords, longRange, coverId is not null, elevated, cloaked);
         if (applied.Elevated != 0)
         {
             _current!.Dice.Add(new("Elevated position", applied.Elevated));
@@ -319,12 +333,12 @@ public sealed class ResolutionLog
         }
         if (applied.Cover != 0)
         {
-            _current!.Dice.Add(new($"Cover ({coverId})", -applied.Cover));
+            _current!.Dice.Add(new($"Cover ({coverId}){(cloaked ? ", Cloak of the Mountain" : "")}", -applied.Cover));
         }
         _current!.ShotgunInjury = applied.ShotgunInjury;
     }
 
-    private void Success(int seq, Builder action, SuccessRollResult check, string what, string pass, string fail)
+    private void Success(int seq, Builder action, SuccessRollResult check, MatchSetup? setup, string what, string pass, string fail)
     {
         var parts = action.Dice.ToList();
         var why = new RollWhy(parts, check.NetDice, [], null, parts.Sum(p => p.Value) == check.NetDice);
@@ -339,7 +353,8 @@ public sealed class ResolutionLog
         action.Outcome.Add(outcome);
         if (check.RiskyFailure && !action.FreeFight)
         {
-            action.Outcome.Add("RISKY: the activation ends");
+            // Roster stage R5d (U108): not for a model with a Pontiff's Crucifix.
+            action.Outcome.Add(setup?.ProfileOf(action.Actor)?.KeepsGoingAfterRisky == true ? "RISKY: the Crucifix keeps the activation going" : "RISKY: the activation ends");
         }
         action.Critical = check.Outcome == SuccessOutcome.CriticalSuccess;
         // The Injury Roll starts afresh: its dice come from the hit and the target's markers.

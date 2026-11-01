@@ -253,3 +253,8 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   builder lets a model carry two Devotees. Tests: `InjuryBattlekitTests`, `TraitWireTests.InjuryBattlekitRoundTripsAndIsLeftOutWhenZero`,
   `MatchReadinessTests.AmmunitionIsLoadedIntoItsGun`, `.SmokeDraughtAndDevoteesArePlayed`,
   `ModelTraitDisplayTests.InjuryBattlekitIsExplained`.
+- Roster rules stage R5d, Risky-roll and Cover battlekit (done 2026-11-01, same ask): Pontiff's Crucifix travels as
+  `keepsGoingAfterRisky`, Mountaineer Kit as `climbDice` 1, Musical Instrument as `fanfare` (HELD is checked by the
+  builder), Cloak of the Mountain as `blendsIn` (U108). Tests: `RiskyBattlekitTests`,
+  `TraitWireTests.RiskyAndCoverBattlekitRoundTripsAndIsLeftOutWhenDefault`, `MatchReadinessTests.RiskyAndCoverBattlekitIsPlayed`,
+  `ModelTraitDisplayTests.RiskyAndCoverBattlekitIsExplained`.

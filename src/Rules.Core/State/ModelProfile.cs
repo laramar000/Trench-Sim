@@ -175,6 +175,23 @@ public sealed record ModelProfile
 
     private readonly int _meleeInjuryBonus;
 
+    // ---- Roster stage R5d (U108): battlekit for Risky rolls and Cover ----
+
+    // A failed Risky Success Roll does not end the model's activation (the Supreme Pontiff's Crucifix); what else the
+    // failure does still happens.
+    public bool KeepsGoingAfterRisky { get; init; }
+
+    // +DICE to the model's Risky Success Rolls to climb a sheer surface (a Mountaineer Kit: +1).
+    public int ClimbDice { get => _climbDice; init => _climbDice = value is < 0 or > MaxDice ? throw new ArgumentOutOfRangeException(nameof(ClimbDice), $"Climb dice are 0 to +{MaxDice}.") : value; }
+
+    private readonly int _climbDice;
+
+    // The model carries a Musical Instrument: +1 DICE to the Dash rolls of friendly models within 4" of it.
+    public bool Fanfare { get; init; }
+
+    // Cover gives -2 DICE instead of -1 DICE to Ranged Attacks at the model (a Cloak of the Mountain).
+    public bool BlendsIn { get; init; }
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -328,6 +345,10 @@ public sealed record ModelProfile
                 Traits = Traits,
                 InjuryDiceTaken = InjuryDiceTaken,
                 MeleeInjuryBonus = MeleeInjuryBonus,
+                KeepsGoingAfterRisky = KeepsGoingAfterRisky,
+                ClimbDice = ClimbDice,
+                Fanfare = Fanfare,
+                BlendsIn = BlendsIn,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -350,6 +371,10 @@ public sealed record ModelProfile
             Traits = Traits,
             InjuryDiceTaken = InjuryDiceTaken,
             MeleeInjuryBonus = MeleeInjuryBonus,
+            KeepsGoingAfterRisky = KeepsGoingAfterRisky,
+            ClimbDice = ClimbDice,
+            Fanfare = Fanfare,
+            BlendsIn = BlendsIn,
         };
     }
 

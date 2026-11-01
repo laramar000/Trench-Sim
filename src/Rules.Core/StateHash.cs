@@ -213,7 +213,12 @@ public static class StateHash
             + (p.Traits == ModelTraits.None ? "" : $",traits={p.Traits}")
             // Roster stage R5c: battlekit that changes Injury Rolls, only when present.
             + (p.InjuryDiceTaken == 0 ? "" : $",injuryDiceTaken={p.InjuryDiceTaken}")
-            + (p.MeleeInjuryBonus == 0 ? "" : $",meleeInjuryBonus={p.MeleeInjuryBonus}");
+            + (p.MeleeInjuryBonus == 0 ? "" : $",meleeInjuryBonus={p.MeleeInjuryBonus}")
+            // Roster stage R5d: battlekit for Risky rolls and Cover, only when present.
+            + (p.KeepsGoingAfterRisky ? ",keepsGoing=yes" : "")
+            + (p.ClimbDice == 0 ? "" : $",climbDice={p.ClimbDice}")
+            + (p.Fanfare ? ",fanfare=yes" : "")
+            + (p.BlendsIn ? ",blendsIn=yes" : "");
     }
 
     private static string WeaponText(Weapon w) =>

@@ -210,6 +210,10 @@ public sealed class ContentNames
                         Traits = Traits(m),
                         InjuryDiceTaken = Dice(m, "injuryDiceTaken"),
                         MeleeInjuryBonus = Dice(m, "meleeInjuryBonus"),
+                        KeepsGoingAfterRisky = m.TryGetProperty("keepsGoingAfterRisky", out var keeps) && keeps.GetBoolean(),
+                        ClimbDice = Dice(m, "climbDice"),
+                        Fanfare = m.TryGetProperty("fanfare", out var fanfare) && fanfare.GetBoolean(),
+                        BlendsIn = m.TryGetProperty("blendsIn", out var blends) && blends.GetBoolean(),
                     }));
             }
             warbands.Add(new ContentWarband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));

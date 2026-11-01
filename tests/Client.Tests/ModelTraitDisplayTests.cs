@@ -120,6 +120,55 @@ public class ModelTraitDisplayTests
         Assert.Equal(" · hit for -1 INJURY DICE · Fight injury +2", card);
     }
 
+    // Roster stage R5d (U108): the Dash preview names the Musical Instrument's die and the Crucifix; every Dash roll's
+    // breakdown adds up with that die; the unit card names the four pieces.
+    [Fact]
+    public void RiskyAndCoverBattlekitIsExplained()
+    {
+        var (helped, previews, cloaks, crucifixes) = (0, 0, 0, 0);
+        foreach (var (path, seed) in new[] { Content.MeleePath(), Content.DefaultPath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select((m, i) => m with { Profile = m.Profile with { Fanfare = i == 0, KeepsGoingAfterRisky = i % 2 == 1, BlendsIn = i % 2 == 0 } }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            var log = new ResolutionLog();
+            var seq = 0;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is DashDeclared d && state.ActiveModel == d.Model && state.Pending is null)
+                {
+                    var preview = Previews.Path(state, state.FindModel(d.Model)!.Seat, PreviewKind.Dash, d.Model, d.Path);
+                    Assert.Equal(TurnSequence.DashDice(state, d.Model) > 0, preview.Facts.Contains("+1 DICE on the Dash roll: a Musical Instrument within 4\" (p. 85)."));
+                    Assert.Equal(!TurnSequence.RiskyEnds(state, d.Model), preview.Facts.Contains("A failed Risky roll does not end this model's activation (its Crucifix)."));
+                    previews++;
+                }
+                var setup = state.Setup;
+                state = Reducer.Apply(state, e);
+                log.Add(++seq, e, setup ?? state.Setup);
+                if (e is DashRolled or RangedSuccessRolled && log.WhyOf(seq) is { } why)
+                {
+                    Assert.True(why.Explained, why.Text);
+                    helped += why.Dice.Count(p => p.Label == "Musical Instrument within 4\"");
+                    if (e is DashRolled { Check.RiskyFailure: true } failed)
+                    {
+                        var kept = state.Setup!.ProfileOf(failed.Model)!.KeepsGoingAfterRisky;
+                        Assert.Contains(kept ? "RISKY: the Crucifix keeps the activation going" : "RISKY: the activation ends", log.Actions[^1].Outcome);
+                        crucifixes += kept ? 1 : 0;
+                    }
+                    cloaks += why.Dice.Count(p => p.Label.EndsWith(", Cloak of the Mountain", StringComparison.Ordinal) && p.Value == -2);
+                }
+            }
+        }
+        Assert.True(helped > 0 && previews > 0 && cloaks > 0 && crucifixes > 0, $"{helped} helped, {previews} previews, {cloaks} cloaks, {crucifixes} crucifixes");
+        var card = UnitPanel.WeaponWords(new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true)
+        {
+            KeepsGoingAfterRisky = true, ClimbDice = 1, Fanfare = true, BlendsIn = true,
+        });
+        Assert.Equal(" · Risky failure keeps going · climb +1 DICE · Dash +1 DICE within 4\" · Cover -2 DICE against it", card);
+    }
+
     [Fact]
     public void TheUnitCardNamesTheTraits()
     {

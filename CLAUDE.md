@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U107), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U108), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -103,7 +103,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   scatter click anywhere, `Interaction.ScatterAt`). R5b done: model traits (U106: `ModelTraits` FEAR, NEGATE FEAR, TOUGH,
   NEGATE HEAVY/STRONG, LEADER; `MeleeAttackDeclared.Fear`, `InjuryRolled/MineExploded.Tough`, `ModelState.ToughSpent`,
   LEADER +1 Morale DICE) and 8 equipment pieces (MatchReadiness `PlayedEquipment`); builder checks HELD. R5c done:
-  AMMUNITION into its one gun, Holy Smoke/Zealot's Draught (`InjuryDiceTaken`), Grovelling Devotees (`MeleeInjuryBonus`), U107.
+  AMMUNITION into its one gun, Holy Smoke/Zealot's Draught (`InjuryDiceTaken`), Grovelling Devotees (`MeleeInjuryBonus`), U107. R5d done: Pontiff's Crucifix (`KeepsGoingAfterRisky`, `Reducer.RiskyEnds`),
+  Mountaineer Kit (`ClimbDice`), Musical Instrument (`Fanfare`, +1 Dash DICE within 4"), Cloak of the Mountain (`BlendsIn`,
+  Cover -2), U108.
 - The faction JSON files are the source of truth now. The earlier generator scripts held private source names and are
   not in the repo: edit `content/roster/*.json` directly, keep `docs/roster.md` and the tests (`tests/Roster.Tests`,
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).
@@ -114,9 +116,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 
 - 2026-11-01, Jason: "Keep going ... keep updating handoff in the github every step. No mistakes"; 03:54Z: essentials
   only for testing tonight (build + `dotnet test TrenchSim.sln`, no UI checks).
-- Done and pushed: R5a e2ad5d8, R5b dc62195, R5c e516d2b.
-- Next: R5d risky-roll equipment (Pontiff's Crucifix, Mountaineer Kit, Musical Instrument) and the Cloak's Cover -2;
-  then the rest of R5 (Urn aura, COVER from shovels/shields, new actions such as Medi-kit Treat, deployables,
+- Done and pushed: R5a e2ad5d8, R5b dc62195, R5c e516d2b, R5d (the commit that adds this line, "Roster R5d" in git log).
+- Next: the rest of R5 (Urn aura, COVER from shovels/shields, new actions such as Medi-kit Treat, deployables,
   BLESSING/INFECTION markers), then R6 unit abilities by faction. All authorized by "1 2 and 3 no mistakes".
 - Still refused by name in matches: AMMUNITION with two possible guns (no deployment choice yet), and every equipment
   piece not in `MatchReadiness.PlayedEquipment`.

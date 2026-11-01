@@ -275,6 +275,14 @@ public static partial class TurnSequence
 
     public static bool Fears(MatchState state, ModelId attacker, ModelId target) => Board.Fears(state, attacker, target);
 
+    // Roster stage R5d (U108): the bonus dice a Dash roll (Musical Instrument within 4") and a climb roll (Mountaineer
+    // Kit) would start with now, and whether a failed Risky roll ends the model's activation (not with a Crucifix).
+    public static int DashDice(MatchState state, ModelId model) => state.FindModel(model) is { } m ? Reducer.DashDice(state, m) : 0;
+
+    public static int ClimbDice(MatchState state, ModelId model) => Reducer.ClimbDice(state, model);
+
+    public static bool RiskyEnds(MatchState state, ModelId model) => Reducer.RiskyEnds(state, model);
+
     // The answers that are not Blood Marker spends: free attacks on a retreating model, the friendly model a shot into
     // melee was forced onto, and where a missed SCATTER attack lands (roster stage R4c).
     private static Rejection? ValidateChoice(MatchState state, Command command)
@@ -496,7 +504,8 @@ public static partial class TurnSequence
                 // A Dash is always a Risky Success Roll (p. 34); spent markers are penalty dice.
                 var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true);
                 run.Emit(new DashRolled(progress.Actor, check));
-                if (check.Outcome == SuccessOutcome.Failure)
+                // Roster stage R5d (U108): unless the model keeps going after a failed Risky roll.
+                if (run.State.MustEndActivation)
                 {
                     run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
                 }
@@ -520,7 +529,7 @@ public static partial class TurnSequence
                 // Climbing a sheer surface is always a Risky Success Roll (p. 39); spent markers are penalty dice.
                 var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true);
                 run.Emit(new SideClimbRolled(progress.Actor, check));
-                if (check.Outcome == SuccessOutcome.Failure && run.State.InProgress is null)
+                if (run.State.MustEndActivation && run.State.InProgress is null)
                 {
                     run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
                 }
@@ -538,7 +547,7 @@ public static partial class TurnSequence
                 var stop = Reducer.ClimbStopPath(s, progress);
                 run.Emit(new ModelMoved(progress.Actor, kind, stop, Board.CheckMove(s, actor, stop).Cost));
                 // A Mine Marker on the way halts the move first; the activation ends once the move is over.
-                if (run.State.MineStop is null)
+                if (run.State.MineStop is null && run.State.MustEndActivation)
                 {
                     run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
                 }
@@ -554,7 +563,7 @@ public static partial class TurnSequence
                     ? new RangedSuccessRolled(progress.Actor, shotAt, check)
                     : new PointSuccessRolled(progress.Actor, progress.BlastAt!.Value, check));
                 // A scattering attack (roster stage R4c) is resolved first; its activation ends once it is over.
-                if (check.RiskyFailure && run.State.InProgress is null)
+                if (check.RiskyFailure && run.State.MustEndActivation && run.State.InProgress is null)
                 {
                     run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
                 }
@@ -615,7 +624,7 @@ public static partial class TurnSequence
                 if (check.RiskyFailure)
                 {
                     // Only the active model has an activation to lose; a free attack that fails simply misses (U49).
-                    if (!progress.FreeFight)
+                    if (run.State.MustEndActivation)
                     {
                         run.Emit(new ActivationEnded(progress.Actor, ActivationEndReason.RiskyFailure));
                     }

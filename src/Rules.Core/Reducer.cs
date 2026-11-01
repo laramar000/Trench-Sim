@@ -726,7 +726,7 @@ public static class Reducer
         return state with
         {
             Actions = state.Actions | ActionsTaken.Dash,
-            InProgress = new RollInProgress(RollStage.DashRoll, e.Model, DashPath: e.Path),
+            InProgress = new RollInProgress(RollStage.DashRoll, e.Model, BonusDice: DashDice(state, model), DashPath: e.Path),
         };
     }
 
@@ -738,7 +738,7 @@ public static class Reducer
         return state with
         {
             InProgress = e.Check.Outcome == SuccessOutcome.Failure ? null : progress with { Stage = RollStage.DashMove },
-            MustEndActivation = e.Check.Outcome == SuccessOutcome.Failure,
+            MustEndActivation = e.Check.Outcome == SuccessOutcome.Failure && RiskyEnds(state, e.Model),
         };
     }
 
@@ -764,7 +764,7 @@ public static class Reducer
         return state with
         {
             Actions = state.Actions | action,
-            InProgress = new RollInProgress(RollStage.ClimbRoll, e.Model, DashPath: e.Path, ClimbAction: action),
+            InProgress = new RollInProgress(RollStage.ClimbRoll, e.Model, BonusDice: ClimbDice(state, e.Model), DashPath: e.Path, ClimbAction: action),
         };
     }
 
@@ -782,9 +782,23 @@ public static class Reducer
         return state with
         {
             InProgress = stops ? progress with { Stage = RollStage.ClimbStop } : null,
-            MustEndActivation = !stops,
+            MustEndActivation = !stops && RiskyEnds(state, e.Model),
         };
     }
+
+    // Roster stage R5d (U108): a failed Risky roll ends the activation, unless the model keeps going (the Supreme
+    // Pontiff's Crucifix).
+    internal static bool RiskyEnds(MatchState state, ModelId model) => state.Setup?.ProfileOf(model)?.KeepsGoingAfterRisky != true;
+
+    // Roster stage R5d (U108): a Dash roll's bonus dice: +1 within 4" of a friendly Musical Instrument (the dashing
+    // model's own included); a climb roll's: the model's Mountaineer Kit.
+    internal static int DashDice(MatchState state, ModelState model) =>
+        Board.BodyOf(state, model) is { } body && state.Models.Any(m => m.Seat == model.Seat && m.Position is not null
+            && state.Setup!.ProfileOf(m.Id)!.Fanfare && (m.Id == model.Id || Board.BodyOf(state, m) is { } other && Measure.IsWithin(body, other, FanfareReach))) ? 1 : 0;
+
+    private static readonly Length FanfareReach = Length.FromInches(4);
+
+    internal static int ClimbDice(MatchState state, ModelId model) => state.Setup!.ProfileOf(model)!.ClimbDice;
 
     // The part of a climbing move before the climb: where a failed climb leaves the model (may be empty).
     internal static ImmutableArray<Point2> ClimbStopPath(MatchState state, RollInProgress progress)
@@ -807,7 +821,7 @@ public static class Reducer
             var climbedTo = TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
             {
                 InProgress = null,
-                MustEndActivation = climb.Stage == RollStage.ClimbStop,
+                MustEndActivation = climb.Stage == RollStage.ClimbStop && RiskyEnds(state, e.Model),
             };
             return HaltAtMine(state, climbedTo, e.Model, e.Path);
         }
@@ -870,7 +884,7 @@ public static class Reducer
             && facts.AttackerLevel == e.AttackerLevel && facts.TargetLevel == e.TargetLevel && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
         Require(facts.IntoMelee == e.IntoMelee, "A target within 1\" of a friendly model needs the D6 that decides who is shot, and no other does.");
         // The declared facts with the weapon's keywords and the attacker's own dice (roster stages R1, R2).
-        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, e.InCover, e.Elevated);
+        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, e.InCover, e.Elevated, state.Setup.ProfileOf(e.Target));
         return state with
         {
             Actions = state.Actions | ActionsTaken.Shoot,
@@ -944,7 +958,7 @@ public static class Reducer
                 {
                     Stage = RollStage.Scatter,
                     ScatterInches = SuccessRoll.SuccessFrom - check.Dice.Total,
-                    RiskyEnds = check.RiskyFailure,
+                    RiskyEnds = check.RiskyFailure && RiskyEnds(state, progress.Actor),
                     BonusDice = 0,
                     PenaltyDice = 0,
                     MarkersAsked = false,
@@ -953,7 +967,8 @@ public static class Reducer
         }
         if (check.Outcome == SuccessOutcome.Failure)
         {
-            return state with { InProgress = null, MustEndActivation = check.RiskyFailure, ReloadEnds = !check.RiskyFailure && ActionLimits.Reloads(profile, AttackKind.Ranged) };
+            var ends = check.RiskyFailure && RiskyEnds(state, progress.Actor);
+            return state with { InProgress = null, MustEndActivation = ends, ReloadEnds = !ends && ActionLimits.Reloads(profile, AttackKind.Ranged) };
         }
         // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE"),
         // +2 with CRITICAL; the weapon's own INJURY DICE and SHOTGUN's -1 at Long Range (roster stages R1, R2).
@@ -1234,8 +1249,8 @@ public static class Reducer
             return state with
             {
                 InProgress = null,
-                MustEndActivation = e.Check.RiskyFailure && !progress.FreeFight,
-                ReloadEnds = !progress.FreeFight && !e.Check.RiskyFailure && ActionLimits.Reloads(fighter, AttackKind.Melee),
+                MustEndActivation = e.Check.RiskyFailure && !progress.FreeFight && RiskyEnds(state, progress.Actor),
+                ReloadEnds = !progress.FreeFight && !(e.Check.RiskyFailure && RiskyEnds(state, progress.Actor)) && ActionLimits.Reloads(fighter, AttackKind.Melee),
             };
         }
         // +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
@@ -1272,7 +1287,7 @@ public static class Reducer
         Require(victim is not null && Board.FriendsNear(state, shooter, intended).Any(m => m.Id == e.Victim), "The shot must be aimed at one of the shooter's own models within 1\" of the target.");
         var facts = Board.ForcedShotFacts(state, shooter, victim!, progress.Weapon);
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
-        var (bonus, penalty, later) = AttackDice.Shot(AttackProfile(state, progress), e.LongRange, e.InCover, e.Elevated);
+        var (bonus, penalty, later) = AttackDice.Shot(AttackProfile(state, progress), e.LongRange, e.InCover, e.Elevated, state.Setup!.ProfileOf(e.Victim));
         return state with
         {
             Pending = null,

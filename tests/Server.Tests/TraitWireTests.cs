@@ -63,6 +63,31 @@ public class TraitWireTests
         Assert.NotNull(failure);
     }
 
+    // Roster stage R5d (U108).
+    [Fact]
+    public void RiskyAndCoverBattlekitRoundTripsAndIsLeftOutWhenDefault()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        foreach (var field in new[] { "keepsGoingAfterRisky", "climbDice", "fanfare", "blendsIn" })
+        {
+            Assert.DoesNotContain(field, plain, StringComparison.Ordinal);
+        }
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { KeepsGoingAfterRisky = true, ClimbDice = 1, Fanfare = true, BlendsIn = true };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        var text = Encoded(created);
+        Assert.Contains("\"keepsGoingAfterRisky\":true", text, StringComparison.Ordinal);
+        Assert.Contains("\"climbDice\":1", text, StringComparison.Ordinal);
+        Assert.Contains("\"fanfare\":true", text, StringComparison.Ordinal);
+        Assert.Contains("\"blendsIn\":true", text, StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+        var bad = text.Replace("\"climbDice\":1", "\"climbDice\":-1", StringComparison.Ordinal);
+        Assert.Null(Codec.ParseServer(Encoding.UTF8.GetBytes(bad), out var failure));
+        Assert.NotNull(failure);
+    }
+
     [Fact]
     public void FearAndToughRoundTripAndAreLeftOutWhenFalse()
     {

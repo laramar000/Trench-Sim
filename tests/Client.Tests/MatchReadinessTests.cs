@@ -407,6 +407,37 @@ public class MatchReadinessTests
         Assert.Contains(Of("cult", "corpse-guard", "grovelling-devotee", "grovelling-devotee", "grovelling-devotee").Check().Problems, p => p.Contains("at most 2 Grovelling Devotee", StringComparison.Ordinal));
     }
 
+    // Roster stage R5d (U108): the Crucifix, the Mountaineer Kit, the Musical Instrument and the Cloak of the Mountain.
+    [Fact]
+    public void RiskyAndCoverBattlekitIsPlayed()
+    {
+        var task = RosterBuilder.Shipped();
+        task.ChooseFaction("principality");
+        task.ChooseVariant("pontifical-task-force");
+        task.Select(task.Add("lieutenant"));
+        task.AddKit("pontiffs-crucifix");
+        var blessed = task.MatchCheck();
+        Assert.Empty(blessed.Refused);
+        Assert.DoesNotContain(blessed.PlayedWithout, w => w.Contains("Crucifix", StringComparison.Ordinal));
+        Assert.True(Loaded(blessed).KeepsGoingAfterRisky);
+        Assert.Contains("\"keepsGoingAfterRisky\": true", blessed.ToContentJson("p", "P"), StringComparison.Ordinal);
+
+        var officer = Of("sultanate", "yuzbasi", "mountaineer-kit", "musical-instrument", "cloak-of-the-mountain");
+        Assert.Empty(officer.Check().Problems);
+        var ready = officer.MatchCheck();
+        Assert.Empty(ready.Refused);
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("Mountaineer", StringComparison.Ordinal) || w.Contains("Musical", StringComparison.Ordinal) || w.Contains("Cloak", StringComparison.Ordinal));
+        var profile = Loaded(ready);
+        Assert.Equal((false, 1, true, true), (profile.KeepsGoingAfterRisky, profile.ClimbDice, profile.Fanfare, profile.BlendsIn));
+
+        // Without them nothing is written.
+        var plain = Of("sultanate", "yuzbasi").MatchCheck().ToContentJson("p", "P");
+        foreach (var field in new[] { "keepsGoingAfterRisky", "climbDice", "fanfare", "blendsIn" })
+        {
+            Assert.DoesNotContain(field, plain, StringComparison.Ordinal);
+        }
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

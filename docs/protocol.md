@@ -217,6 +217,11 @@ The server sends events in log order, one message each, to both players, through
   model only when set, so older records keep their hashes.
 - Roster stage R5c (U107): `ModelProfile.injuryDiceTaken` (-6 to +6) and `meleeInjuryBonus` (0 to 3), left out when 0.
   AMMUNITION travels as the gun's keywords and dice (no new field).
+- Roster stage R5d (U108): `ModelProfile.keepsGoingAfterRisky`, `fanfare` and `blendsIn` (left out when false) and
+  `climbDice` (0 to 6, left out when 0). A Dash roll's `check.netDice` gains +1 within 4" of a friendly `fanfare` model, a
+  climb roll's gains `climbDice`, a shot's penalty doubles for Cover on a `blendsIn` target, and after a failed Risky roll
+  of a `keepsGoingAfterRisky` model no `ActivationEnded` (riskyFailure) follows. The state hash adds `,keepsGoing=yes`,
+  `,climbDice=N`, `,fanfare=yes` and `,blendsIn=yes` to a profile only when set.
 
 ## Rosters online (roster stage 5c)
 

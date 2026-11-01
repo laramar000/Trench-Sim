@@ -269,10 +269,23 @@ public static class Previews
         if (kind == PreviewKind.Dash)
         {
             facts.Add("A Dash is a Risky Success Roll: the dice decide whether the model moves (server).");
+            // Roster stage R5d (U108).
+            if (TurnSequence.DashDice(state, id) > 0)
+            {
+                facts.Add("+1 DICE on the Dash roll: a Musical Instrument within 4\" (p. 85).");
+            }
         }
         if (result.SideClimb is not null)
         {
             facts.Add(SideClimbFact);
+            if (TurnSequence.ClimbDice(state, id) is var climb and > 0)
+            {
+                facts.Add($"+{climb} DICE on the climb roll: Mountaineer Kit (p. 84).");
+            }
+        }
+        if ((kind == PreviewKind.Dash || result.SideClimb is not null) && !TurnSequence.RiskyEnds(state, id))
+        {
+            facts.Add("A failed Risky roll does not end this model's activation (its Crucifix).");
         }
         return result.IsLegal ? null : new(ReasonCode.MoveIllegal, result.Text, result.RuleRef);
     }
@@ -441,9 +454,11 @@ public static class Previews
             facts.Add("Elevated position: 3\" or more above the target (+1 DICE, p. 43).");
         }
         // The weapon's keywords decide which of these apply (roster stage R2: IGNORE ..., SHOTGUN).
-        var applied = AttackDice.ShotModifiers(profile.RangedWeaponKeywords, longRange, cover.InCover, elevated);
+        // Roster stage R5d (U108): a target with a Cloak of the Mountain makes Cover -2 DICE.
+        var cloaked = state.Setup.ProfileOf(target.Id)?.BlendsIn == true;
+        var applied = AttackDice.ShotModifiers(profile.RangedWeaponKeywords, longRange, cover.InCover, elevated, cloaked);
         dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, applied.LongRange + applied.Cover,
-            [.. new[] { applied.LongRange > 0 ? "Long Range, p. 43" : null, applied.Cover > 0 ? "Cover, pp. 38, 43" : null }.OfType<string>()], applied.Elevated,
+            [.. new[] { applied.LongRange > 0 ? "Long Range, p. 43" : null, applied.Cover > 0 ? (cloaked ? "Cover -2 for its Cloak of the Mountain, pp. 38, 43" : "Cover, pp. 38, 43") : null }.OfType<string>()], applied.Elevated,
             applied.ShotgunInjury, weapon);
         return null;
     }

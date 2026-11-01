@@ -73,24 +73,25 @@ public static class AttackDice
     // Roster stage R2: a Ranged Attack's Success Roll dice from the declared facts and the weapon's keywords (IGNORE
     // COVER, IGNORE LONG RANGE, IGNORE ELEVATED POSITION; SHOTGUN at Long Range moves the -1 to the Injury Roll as
     // InjuryLater), with the attacker's own dice. Without keywords this is ShotBonus, ShotPenalty and OwnDice.
-    public static (int Bonus, int Penalty, int InjuryLater) Shot(ModelProfile attacker, bool longRange, bool inCover, bool elevated)
+    // Roster stage R5d (U108): a target that BlendsIn (a Cloak of the Mountain) makes Cover -2 DICE.
+    public static (int Bonus, int Penalty, int InjuryLater) Shot(ModelProfile attacker, bool longRange, bool inCover, bool elevated, ModelProfile? target = null)
     {
         var k = attacker.RangedWeaponKeywords;
-        var counts = ShotModifiers(k, longRange, inCover, elevated);
+        var counts = ShotModifiers(k, longRange, inCover, elevated, target?.BlendsIn == true);
         var (bonus, penalty) = With(counts.Elevated, counts.LongRange + counts.Cover, OwnDice(attacker, AttackKind.Ranged));
         return (bonus, penalty, counts.ShotgunInjury);
     }
 
     // Each Success Roll modifier of a shot as it applies with these keywords: +1 Elevated, 1 penalty die each for Long
     // Range and Cover, and SHOTGUN's -1 INJURY DICE at Long Range.
-    public static (int Elevated, int LongRange, int Cover, int ShotgunInjury) ShotModifiers(WeaponKeywords k, bool longRange, bool inCover, bool elevated)
+    public static (int Elevated, int LongRange, int Cover, int ShotgunInjury) ShotModifiers(WeaponKeywords k, bool longRange, bool inCover, bool elevated, bool blendsIn = false)
     {
         var far = longRange && !k.HasFlag(WeaponKeywords.IgnoreLongRange);
         var shotgun = far && k.HasFlag(WeaponKeywords.Shotgun);
         return (
             ShotBonus(elevated && !k.HasFlag(WeaponKeywords.IgnoreElevatedPosition)),
             far && !shotgun ? ShotPenalty(true, false) : 0,
-            ShotPenalty(false, inCover && !k.HasFlag(WeaponKeywords.IgnoreCover)),
+            ShotPenalty(false, inCover && !k.HasFlag(WeaponKeywords.IgnoreCover)) * (blendsIn ? 2 : 1),
             shotgun ? -1 : 0);
     }
 

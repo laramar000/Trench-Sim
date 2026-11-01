@@ -68,6 +68,14 @@ public sealed record ReadyModel(
     // Melee Attacks add.
     public int InjuryDiceTaken { get; init; }
     public int MeleeInjuryBonus { get; init; }
+
+    // Roster stage R5d (U108): a failed Risky roll does not end its activation (Pontiff's Crucifix), +DICE on its Risky
+    // climb rolls (Mountaineer Kit), +1 DICE on friendly Dash rolls within 4" (Musical Instrument), and Cover gives -2
+    // DICE against it (Cloak of the Mountain).
+    public bool KeepsGoingAfterRisky { get; init; }
+    public int ClimbDice { get; init; }
+    public bool Fanfare { get; init; }
+    public bool BlendsIn { get; init; }
 }
 
 // Roster stage R3: a second weapon, as Rules.Core Weapon holds it (RangeInches 0 for a Melee Weapon).
@@ -140,11 +148,19 @@ public sealed record MatchReady(
                         ("meleeWeaponInjuryDice", m.MeleeWeaponInjuryDice), ("meleeWeaponCleave", m.MeleeWeaponCleave),
                         ("imperviousArmour", m.ImperviousArmour), ("rangedWeaponBlast", m.RangedWeaponBlast),
                         ("injuryDiceTaken", m.InjuryDiceTaken), ("meleeInjuryBonus", m.MeleeInjuryBonus),
+                        ("climbDice", m.ClimbDice),
                     })
                     {
                         if (dice != 0)
                         {
                             w.WriteNumber(field, dice);
+                        }
+                    }
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn) })
+                    {
+                        if (on)
+                        {
+                            w.WriteBoolean(field, true);
                         }
                     }
                     foreach (var (field, weapon) in new[] { ("secondRangedWeapon", m.SecondRangedWeapon), ("secondMeleeWeapon", m.SecondMeleeWeapon), ("grenade", m.Grenade) })
@@ -239,6 +255,7 @@ public static class MatchReadiness
             var meleeBonus = 0;
             var injuryTaken = 0;
             var meleeInjury = 0;
+            var (keepsGoing, climbDice, fanfare, blendsIn) = (false, 0, false, false);
             var ammunition = new List<CatalogueEntry>();
             if (unplayed.Count > 0)
             {
@@ -313,6 +330,10 @@ public static class MatchReadiness
                         meleeBonus += played.MeleeDice;
                         injuryTaken += played.InjuryDiceTaken;
                         meleeInjury += played.MeleeInjury;
+                        keepsGoing |= played.KeepsGoing;
+                        climbDice += played.ClimbDice;
+                        fanfare |= played.Fanfare;
+                        blendsIn |= played.BlendsIn;
                         if (played.Trait is { } trait)
                         {
                             traits.Add(trait);
@@ -385,6 +406,10 @@ public static class MatchReadiness
                 Traits = [.. TraitNames.Where(traits.Contains)],
                 InjuryDiceTaken = Dice(injuryTaken, who, "INJURY DICE against it", without),
                 MeleeInjuryBonus = MeleeInjury(meleeInjury, who, without),
+                KeepsGoingAfterRisky = keepsGoing,
+                ClimbDice = Dice(climbDice, who, "climb DICE", without),
+                Fanfare = fanfare,
+                BlendsIn = blendsIn,
             });
         }
         return new MatchReady(models, refused, without.Distinct().ToList(), check.Problems);
@@ -528,7 +553,10 @@ public static class MatchReadiness
     // Ranged or Melee Characteristic, or a keyword it gains (NotFor: a keyword whose models it does nothing for). Its
     // keywords are played as above.
     // Roster stage R5c (U107): or INJURY DICE on attacks that hit the model, or an INJURY MODIFIER on its Melee Attacks.
-    private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null, int InjuryDiceTaken = 0, int MeleeInjury = 0);
+    // Roster stage R5d (U108): or what a failed Risky roll ends, climb DICE, the Dash DICE it gives friends within 4", or
+    // Cover's -2 DICE against the model.
+    private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null, int InjuryDiceTaken = 0, int MeleeInjury = 0,
+        bool KeepsGoing = false, int ClimbDice = 0, bool Fanfare = false, bool BlendsIn = false);
 
     private static readonly Dictionary<string, PlayedPiece> PlayedEquipment = new(StringComparer.Ordinal)
     {
@@ -543,6 +571,10 @@ public static class MatchReadiness
         ["holy-smoke"] = new(Trait: "NegateFear", InjuryDiceTaken: -1),
         ["zealots-draught"] = new(Trait: "NegateFear", InjuryDiceTaken: -1),
         ["grovelling-devotee"] = new(MeleeInjury: 1),
+        ["pontiffs-crucifix"] = new(KeepsGoing: true),
+        ["mountaineer-kit"] = new(ClimbDice: 1),
+        ["musical-instrument"] = new(Fanfare: true),
+        ["cloak-of-the-mountain"] = new(BlendsIn: true),
     };
 
     // Roster stage R5c (U107): AMMUNITION (X), what it gives the weapon: +X DICE or a keyword the engine plays.
