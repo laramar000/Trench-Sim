@@ -21,7 +21,7 @@ public static class Narrator
         ModelStoodUp s => $"  {s.Model} stands up{(s.Quick ? " (Movement not halved: Frightening Speed)" : " (Movement halved)")}.",
         ModelMoved m => $"  {m.Model} {(m.Kind == MoveKind.Dash ? "dashes" : "moves")} to {m.Path[^1]} (cost {m.Cost}).",
         TreatRolled t => $"  {t.Model} Treat roll {t.Check.Dice.Total}: {t.Check.Outcome}{(t.Treated ? t.Choice == TreatChoice.StandUp ? $"; {t.Target} stands up." : $"; 1 Blood Marker removed from {t.Target}." : t.Check.Outcome == SuccessOutcome.Failure ? "." : $"; {t.Target} has no Blood Marker left to remove.")}",
-        SelfActionRolled s => $"  {s.Model} {s.Action} roll {s.Check.Dice.Total}: {s.Check.Outcome}{(s.Succeeded ? s.Action == SelfActionKind.Aim ? "; its Ranged Attacks get +2 DICE this activation." : "; it has COVER until it moves." : ".")}",
+        SelfActionRolled s => $"  {s.Model} {SelfAction(s.Action)} roll {s.Check.Dice.Total}: {s.Check.Outcome}{(s.Succeeded ? $"; {SelfActionResult(s)}." : ".")}",
         DashRolled d => $"  {d.Model} Dash roll {d.Check.Dice.Total}: {d.Check.Outcome}.",
         SideClimbRolled c => $"  {c.Model} climb roll {c.Check.Dice.Total}: {c.Check.Outcome}.",
         RangedAttackDeclared r => $"  {r.Attacker} shoots {r.Target}{(r.Elevated ? " from an elevated position" : "")}{(r.LongRange ? " at long range" : "")}{(r.InCover ? $" (cover: {r.CoverTerrainId})" : "")}.",
@@ -63,5 +63,22 @@ public static class Narrator
         MoveResumed m => m.Path.IsEmpty ? $"  {m.Model} carries on." : $"  {m.Model} carries on to {m.Path[^1]}.",
         MatchEnded m => $"MATCH ENDED: {(m.Winner is { } w ? $"{w} wins" : "draw")} ({m.Reason}).",
         _ => null,
+    };
+
+    // Roster stage R6b/R6e: the same words as the client's log (Client.Core Words.SelfAction, SelfActionResult).
+    private static string SelfAction(SelfActionKind action) => action switch
+    {
+        SelfActionKind.Aim => "Aim",
+        SelfActionKind.Fortify => "Fortify",
+        SelfActionKind.EnforcedOrthodoxy => "Enforced Orthodoxy",
+        _ => "Laying on of Hands",
+    };
+
+    private static string SelfActionResult(SelfActionRolled rolled) => rolled.Action switch
+    {
+        SelfActionKind.Aim => "its Ranged Attacks get +2 DICE this activation",
+        SelfActionKind.Fortify => "it has COVER until it moves",
+        SelfActionKind.EnforcedOrthodoxy => rolled.StoodUp.IsEmpty ? "no Down friend within 8\" to stand up" : $"{string.Join(", ", rolled.StoodUp)} stand{(rolled.StoodUp.Length == 1 ? "s" : "")} up",
+        _ => rolled.Removed == 0 ? $"{rolled.Target} has no BLOOD MARKER left to remove" : $"{rolled.Removed} BLOOD MARKER{(rolled.Removed == 1 ? "" : "S")} removed from {rolled.Target}",
     };
 }

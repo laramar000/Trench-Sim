@@ -713,6 +713,21 @@ public class MatchReadinessTests
         Assert.DoesNotContain("horde", plain, StringComparison.Ordinal);
     }
 
+    // Roster stage R6e (U121): Enforced Orthodoxy and Laying on of Hands, played by name.
+    [Fact]
+    public void HelpingActionsArePlayed()
+    {
+        var castigator = Of("pilgrims", "castigator", "trench-club").MatchCheck();
+        Assert.DoesNotContain(castigator.PlayedWithout, w => w.Contains("Enforced Orthodoxy", StringComparison.Ordinal));
+        Assert.True(Loaded(castigator).EnforcesOrthodoxy);
+        var prophet = Of("pilgrims", "war-prophet", "trench-club").MatchCheck();
+        Assert.DoesNotContain(prophet.PlayedWithout, w => w.Contains("Laying on of Hands", StringComparison.Ordinal));
+        Assert.True(Loaded(prophet).LaysOnHands);
+        var plain = Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P");
+        Assert.DoesNotContain("enforcesOrthodoxy", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("laysOnHands", plain, StringComparison.Ordinal);
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

@@ -271,6 +271,10 @@ The server sends events in log order, one message each, to both players, through
 - Roster stage R6d (U120): `ModelProfile` flags `tramples` and `horde`, left out when false; a Trample ACTION is a
   `FightModel` and a `MeleeAttackDeclared` with `weapon` 4. The state hash adds `,tramples=yes` and `,horde=yes` to a
   profile only when set.
+- Roster stage R6e (U121): `ModelProfile` flags `enforcesOrthodoxy` and `laysOnHands`, left out when false;
+  `TakeSelfAction` kinds `EnforcedOrthodoxy` and `LayingOnHands`, with `target` (Laying on of Hands only) on the
+  command and `SelfActionDeclared`, and `target`, `removed` and `stoodUp` on `SelfActionRolled`, each left out when null,
+  zero or empty. The state hash adds `,orthodoxy=yes` and `,laysOnHands=yes` to a profile only when set.
 
 ## Rosters online (roster stage 5c)
 

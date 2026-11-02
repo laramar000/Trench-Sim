@@ -158,6 +158,19 @@ public sealed class Bot(Random rng)
         {
             yield return new TakeSelfAction(seat, model.Id, SelfActionKind.Fortify);
         }
+        // Roster stage R6e (U121): Enforced Orthodoxy when a Down friend is within 8", Laying on of Hands on a friend with a
+        // BLOOD MARKER (no random numbers).
+        if (profile.EnforcesOrthodoxy && !state.Actions.HasFlag(ActionsTaken.Orthodoxy) && TurnSequence.OrthodoxyStands(state, model.Id).Count > 0)
+        {
+            yield return new TakeSelfAction(seat, model.Id, SelfActionKind.EnforcedOrthodoxy);
+        }
+        if (profile.LaysOnHands && !state.Actions.HasFlag(ActionsTaken.LayingOnHands))
+        {
+            foreach (var friend in state.Models.Where(m => m.Seat == seat && m.BloodMarkers > 0))
+            {
+                yield return new TakeSelfAction(seat, model.Id, SelfActionKind.LayingOnHands) { Target = friend.Id };
+            }
+        }
         // Roster stage R5j (U115): a Martyrdom Device is triggered when an enemy is within 3" (no random numbers).
         if (profile.Martyrdom && !model.MartyrdomSpent
             && Rules.Core.TurnSequence.MartyrdomHits(state, model.Id).Hit.Any(h => state.FindModel(h)!.Seat != seat))

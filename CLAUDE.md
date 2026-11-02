@@ -166,7 +166,14 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Blows / Poison Stingers / Overwhelming Horde its Melee Weapon; `ModelProfile.Horde` (`Reducer.HordeDice`, +1 per friend
   within 3" on weapon 0); Trample ACTION = `ModelProfile.TrampleWeapon` 4, `Tramples`, `ActionsTaken.Trample`, shares
   Grind's code (`ModelProfile.IsActionAttack`), Combat key 0 (`Interaction.ZeroKeyWeapon`). Plague Hound and Pit Locust
-  still refused (oval bases). Essentials 2,219/0.
+  still refused (oval bases). Essentials 2,219/0. Pushed 0178220.
+- Done: R6e (U121): `SelfActionKind.EnforcedOrthodoxy` (+1 DICE, Risky, stands Down friends within 8",
+  `SelfActionRolled.StoodUp`) and `LayingOnHands` (plain Success Roll, `TakeSelfAction.Target`, removes 1 or 3 on a
+  Critical, `SelfActionRolled.Removed`, Holy Water +1); `Reducer.SelfActionBonus/SelfActionRisky/OrthodoxyStands/HandsRefusal`;
+  wire gained `OmitWhenEmpty` (only `SelfActionRolled.StoodUp`); `Words.SelfAction*` for all four kinds; keys Y and Z.
+  Essentials 2,227/0.
+- 2026-11-02, Jason (mid-R6e): "In the history log I want to visually see the dice for the rolls so there's no
+  wondering" = next, before R6f.
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):
   R6c numbers on existing hooks: Dash +1 DICE (Frightening Speed, Loping Dash, Mad Dash, Agile's Dash/Climb part),
   INJURY DICE against it (Corpulent -2, Artificial Life, Undead Fortitude unless FIRE, Abiotic Life vs GAS), Stealth

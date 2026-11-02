@@ -689,7 +689,11 @@ public sealed record TalismanUsed(ModelId Model) : GameEvent;
 
 // Roster stage R6b (U118): an Aim or Fortify ACTION is declared: its Risky Success Roll comes next (after the offer to
 // spend the model's Blood Markers).
-public sealed record SelfActionDeclared(ModelId Model, SelfActionKind Action) : GameEvent;
+// Roster stage R6e (U121): Target, as on TakeSelfAction; left out when null.
+public sealed record SelfActionDeclared(ModelId Model, SelfActionKind Action) : GameEvent
+{
+    public ModelId? Target { get; init; }
+}
 
 // The Aim or Fortify ACTION's Risky Success Roll; anything but a Failure carries it out.
 public sealed record SelfActionRolled : GameEvent
@@ -706,4 +710,14 @@ public sealed record SelfActionRolled : GameEvent
     public SelfActionKind Action { get; }
     public SuccessRollResult Check { get; }
     public bool Succeeded => Check.Outcome != SuccessOutcome.Failure;
+
+    // Roster stage R6e (U121): a Laying on of Hands' Target and the BLOOD MARKERS it lost (1, 3 on a Critical, at most what
+    // it had); the Down friends an Enforced Orthodoxy stood up. Left out when null, zero or empty.
+    public ModelId? Target { get; init; }
+
+    public int Removed { get => _removed; init => _removed = value is >= 0 and <= 3 ? value : throw new ArgumentOutOfRangeException(nameof(Removed), "A Laying on of Hands removes 0 to 3 BLOOD MARKERS."); }
+
+    private readonly int _removed;
+
+    public ImmutableArray<ModelId> StoodUp { get; init; } = [];
 }

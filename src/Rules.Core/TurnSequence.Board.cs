@@ -165,7 +165,7 @@ public static partial class TurnSequence
     // Roster stage R6b (U118): an Aim or Fortify ACTION (Warbands pp. 28, 33, 85), once per activation each.
     private static Rejection? ValidateSelfAction(MatchState state, TakeSelfAction c)
     {
-        if (ValidateActing(state, c.Seat, c.Model, out _) is { } rejection)
+        if (ValidateActing(state, c.Seat, c.Model, out var actor) is { } rejection)
         {
             return rejection;
         }
@@ -177,15 +177,37 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.NoSuchAction, $"Only a model whose unit has the {c.Action} ACTION can take it.", RefSelfAction);
         }
-        return state.Actions.HasFlag(Reducer.SelfActionFlag(c.Action))
-            ? new(ReasonCode.ActionAlreadyTaken, $"A {c.Action} ACTION can be taken only once per activation.", RefActions)
-            : null;
+        if (state.Actions.HasFlag(Reducer.SelfActionFlag(c.Action)))
+        {
+            return new(ReasonCode.ActionAlreadyTaken, $"A {c.Action} ACTION can be taken only once per activation.", RefActions);
+        }
+        // Roster stage R6e (U121): a Laying on of Hands is taken on a friend with a BLOOD MARKER; no other ACTION has a target.
+        if (c.Action != SelfActionKind.LayingOnHands)
+        {
+            return c.Target is null ? null : new(ReasonCode.InvalidChoice, $"A {c.Action} ACTION has no target.", RefSelfAction);
+        }
+        return c.Target is not { } target ? new(ReasonCode.UnknownModel, "A Laying on of Hands ACTION needs a target.", RefSelfAction)
+            : Reducer.HandsRefusal(state, actor!, target) is { } why ? new(ReasonCode.NothingToTreat, why, RefSelfAction) : null;
     }
 
-    public const string RefSelfAction = "Warbands pp. 28, 33, 85";
+    public const string RefSelfAction = "Warbands pp. 28, 33, 53, 55, 85";
 
     // Roster stage R6b: the bonus dice of an Aim or Fortify roll, and what a successful Aim adds to the model's shots now.
     public static int SelfActionDice(SelfActionKind action) => action == SelfActionKind.Aim ? Reducer.AimDice : 0;
+
+    // Roster stage R6e (U121): the bonus dice of any of these ACTIONS' rolls for this model, whether that roll is Risky,
+    // the friends an Enforced Orthodoxy would stand up now, and the BLOOD MARKERS a Laying on of Hands' target has.
+    public static int SelfActionBonus(MatchState state, ModelId model, SelfActionKind action) =>
+        state.Setup?.ProfileOf(model) is { } profile ? Reducer.SelfActionBonus(profile, action) : 0;
+
+    public static bool SelfActionRisky(MatchState state, ModelId model, SelfActionKind action) =>
+        state.FindModel(model) is { } m && Reducer.SelfActionRisky(state, m, action);
+
+    public static IReadOnlyList<ModelId> OrthodoxyStands(MatchState state, ModelId model) =>
+        state.FindModel(model) is { } m ? Reducer.OrthodoxyStands(state, m) : [];
+
+    public static string? HandsRefusal(MatchState state, ModelId model, ModelId target) =>
+        state.FindModel(model) is { } m ? Reducer.HandsRefusal(state, m, target) : "There is no such model.";
 
     public static int AimedDice(MatchState state, ModelId shooter) => Reducer.AimedDice(state, shooter);
 
@@ -535,7 +557,7 @@ public static partial class TurnSequence
                 break;
             }
             case TakeSelfAction c:
-                run.Emit(new SelfActionDeclared(c.Model, c.Action));
+                run.Emit(new SelfActionDeclared(c.Model, c.Action) { Target = c.Target });
                 if (run.State.FindModel(c.Model)!.BloodMarkers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
@@ -683,7 +705,16 @@ public static partial class TurnSequence
             case RollStage.SelfRoll:
             {
                 // Roster stage R6b (U118): an Aim or Fortify ACTION is a Risky Success Roll; spent markers are penalty dice.
-                run.Emit(new SelfActionRolled(progress.Actor, progress.SelfAction, SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true)));
+                // Roster stage R6e (U121): Laying on of Hands only for a Shaken warband; Enforced Orthodoxy stands up the Down
+                // friends within 8", Laying on of Hands removes 1 BLOOD MARKER (3 on a Critical).
+                var roll = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: Reducer.SelfActionRisky(s, actor, progress.SelfAction));
+                var helped = roll.Outcome != SuccessOutcome.Failure;
+                run.Emit(new SelfActionRolled(progress.Actor, progress.SelfAction, roll)
+                {
+                    Target = progress.Target,
+                    StoodUp = helped && progress.SelfAction == SelfActionKind.EnforcedOrthodoxy ? Reducer.OrthodoxyStands(s, actor) : [],
+                    Removed = helped && progress.SelfAction == SelfActionKind.LayingOnHands ? Reducer.HandsRemove(s, progress.Target!.Value, roll) : 0,
+                });
                 if (run.State.MustEndActivation)
                 {
                     EndForRisky(run, progress.Actor);

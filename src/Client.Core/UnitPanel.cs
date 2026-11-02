@@ -389,6 +389,15 @@ public static class UnitPanel
         {
             parts.Add("Fortify ACTION (V)");
         }
+        // Roster stage R6e (U121).
+        if (p.EnforcesOrthodoxy)
+        {
+            parts.Add("Enforced Orthodoxy ACTION (Y)");
+        }
+        if (p.LaysOnHands)
+        {
+            parts.Add(p.HealingWaters ? "Laying on of Hands ACTION (Z), +1 DICE" : "Laying on of Hands ACTION (Z)");
+        }
         // Roster stage R6c (U119).
         foreach (var (on, words) in new[]
         {

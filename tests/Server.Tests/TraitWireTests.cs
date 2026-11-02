@@ -304,6 +304,32 @@ public class TraitWireTests
         Assert.Equal(ModelProfile.TrampleWeapon, ((MeleeAttackDeclared)RoundTrip(trample)).Weapon);
     }
 
+    // Roster stage R6e (U121): the two flags, a Laying on of Hands' Target and Removed, and an Enforced Orthodoxy's StoodUp,
+    // each left out when unset (so an Aim's events are written as before).
+    [Fact]
+    public void HelpingActionsRoundTripAndAreLeftOutWhenUnset()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        Assert.DoesNotContain("\"enforcesOrthodoxy\"", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"laysOnHands\"", plain, StringComparison.Ordinal);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { EnforcesOrthodoxy = true, LaysOnHands = true };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+        var (a, b) = (new ModelId("A1"), new ModelId("A2"));
+        var check = SuccessRoll.Roll(new SeededDice(4), 1, 0, risky: true);
+        var aim = Encoded(new SelfActionRolled(a, SelfActionKind.Aim, check));
+        Assert.All(new[] { "target", "removed", "stoodUp" }, f => Assert.DoesNotContain($"\"{f}\"", aim, StringComparison.Ordinal));
+        Assert.DoesNotContain("\"target\"", Encoded(new SelfActionDeclared(a, SelfActionKind.Aim)), StringComparison.Ordinal);
+        var hands = (SelfActionRolled)RoundTrip(new SelfActionRolled(a, SelfActionKind.LayingOnHands, check) { Target = b, Removed = 3 });
+        Assert.Equal(((ModelId?)b, 3), (hands.Target, hands.Removed));
+        var ordered = (SelfActionRolled)RoundTrip(new SelfActionRolled(a, SelfActionKind.EnforcedOrthodoxy, check) { StoodUp = [b] });
+        Assert.Equal([b], ordered.StoodUp.ToArray());
+        Assert.Equal((ModelId?)b, ((SelfActionDeclared)RoundTrip(new SelfActionDeclared(a, SelfActionKind.LayingOnHands) { Target = b })).Target);
+    }
+
     // Roster stage R5f (U110).
     [Fact]
     public void CoverKeywordRoundTripsAndIsLeftOutWhenFalse()

@@ -128,6 +128,10 @@ public sealed record ReadyModel(
     public bool Tramples { get; init; }
     public bool Horde { get; init; }
 
+    // Roster stage R6e (U121): the Enforced Orthodoxy and Laying on of Hands ACTIONS.
+    public bool EnforcesOrthodoxy { get; init; }
+    public bool LaysOnHands { get; init; }
+
     // Roster stage R5j (U115): the Trigger Martyrdom Device ACTION.
     public bool Martyrdom { get; init; }
 }
@@ -210,7 +214,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("tramples", m.Tramples), ("horde", m.Horde) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
                     {
                         if (on)
                         {
@@ -583,6 +587,8 @@ public static class MatchReadiness
                 MementoMori = abilities.Contains(MementoMori),
                 Tramples = abilities.Contains(TrampleAction),
                 Horde = horde,
+                EnforcesOrthodoxy = abilities.Contains(EnforcedOrthodoxy),
+                LaysOnHands = abilities.Contains(LayingOnHands),
             };
             models.Add(Unburdened(ready, abilities, grenade));
         }
@@ -664,6 +670,9 @@ public static class MatchReadiness
     private const string PoisonStingers = "Poison Stingers";
     private const string OverwhelmingHorde = "Overwhelming Horde";
     private const string TrampleAction = "Trample ACTION";
+    // Roster stage R6e (U121).
+    private const string EnforcedOrthodoxy = "Enforced Orthodoxy ACTION";
+    private const string LayingOnHands = "Laying on of Hands ACTION";
 
     // The attack an ability makes without a weapon: Poison Stingers CLEAVE 2 and SHRAPNEL, Crushing Blows CLEAVE 2,
     // Feeble Flailing -1 DICE, Teeth & Claws and Overwhelming Horde (its DICE come in the match) plain; null without one.
@@ -690,6 +699,7 @@ public static class MatchReadiness
         AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
         Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
         TeethAndClaws, TeethAndClawsLion, FeebleFlailing, CrushingBlows, PoisonStingers, OverwhelmingHorde, TrampleAction,
+        EnforcedOrthodoxy, LayingOnHands,
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1

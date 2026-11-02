@@ -343,6 +343,9 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.SecondRangedWeapon)),
             (typeof(ModelProfile), nameof(ModelProfile.SecondMeleeWeapon)),
             (typeof(ModelProfile), nameof(ModelProfile.Grenade)),
+            (typeof(TakeSelfAction), nameof(TakeSelfAction.Target)),
+            (typeof(SelfActionDeclared), nameof(SelfActionDeclared.Target)),
+            (typeof(SelfActionRolled), nameof(SelfActionRolled.Target)),
         ];
 
         // Optional flags left out when false, for the same reason (every match before dual-purpose weapons).
@@ -394,9 +397,17 @@ public static class Wire
             (typeof(ModelStoodUp), nameof(ModelStoodUp.Quick)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Spared)),
             (typeof(MineExploded), nameof(MineExploded.Spared)),
+            (typeof(ModelProfile), nameof(ModelProfile.EnforcesOrthodoxy)),
+            (typeof(ModelProfile), nameof(ModelProfile.LaysOnHands)),
         ];
 
         // Optional numbers left out when zero, for the same reason (every match before roster stage R1's profile dice).
+        // Roster stage R6e (U121): optional lists left out when empty, for the same reason.
+        private static readonly HashSet<(Type, string)> OmitWhenEmpty =
+        [
+            (typeof(SelfActionRolled), nameof(SelfActionRolled.StoodUp)),
+        ];
+
         private static readonly HashSet<(Type, string)> OmitWhenZero =
         [
             (typeof(ModelProfile), nameof(ModelProfile.RangedDice)),
@@ -426,6 +437,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.ClimbDice)),
             (typeof(ModelProfile), nameof(ModelProfile.Talismans)),
             (typeof(ChargeRolled), nameof(ChargeRolled.Dropped)),
+            (typeof(SelfActionRolled), nameof(SelfActionRolled.Removed)),
         ];
 
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();
@@ -559,6 +571,10 @@ public static class Wire
             {
                 var memberValue = member.Property.GetValue(value);
                 if (memberValue is null && member.Parameter is null && OmitWhenNull.Contains((Type, member.Property.Name)))
+                {
+                    continue;
+                }
+                if (memberValue is System.Collections.ICollection { Count: 0 } && member.Parameter is null && OmitWhenEmpty.Contains((Type, member.Property.Name)))
                 {
                     continue;
                 }

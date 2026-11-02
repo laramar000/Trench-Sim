@@ -883,37 +883,111 @@ public static class Reducer
     private static readonly Length TreatReach = Length.FromInches(1);
 
     // Roster stage R6b (U118): an Aim or Fortify ACTION, once per activation each, by a model whose unit has it.
+    // Roster stage R6e (U121): Enforced Orthodoxy and Laying on of Hands (on a friend within 6", its Target) the same way.
     private static MatchState OnSelfActionDeclared(MatchState state, SelfActionDeclared e)
     {
-        Active(state, e.Model, "An Aim or Fortify ACTION");
+        var model = Active(state, e.Model, "That ACTION");
         Require(Enum.IsDefined(e.Action), "Unknown ACTION.");
-        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(SelfActionFlag(e.Action)), "An Aim or Fortify ACTION can be taken once per activation.");
+        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(SelfActionFlag(e.Action)), "That ACTION can be taken once per activation.");
         Require(HasSelfAction(state.Setup!.ProfileOf(e.Model)!, e.Action), "Only a model whose unit has it can take that ACTION.");
+        Require(e.Action == SelfActionKind.LayingOnHands
+            ? e.Target is { } target && HandsRefusal(state, model, target) is null
+            : e.Target is null, "A Laying on of Hands needs a friend within 6\" with a BLOOD MARKER; no other ACTION has a target.");
         return state with
         {
             Actions = state.Actions | SelfActionFlag(e.Action),
-            InProgress = new RollInProgress(RollStage.SelfRoll, e.Model, BonusDice: e.Action == SelfActionKind.Aim ? AimDice : 0, SelfAction: e.Action),
+            InProgress = new RollInProgress(RollStage.SelfRoll, e.Model, Target: e.Target, BonusDice: SelfActionBonus(state.Setup!.ProfileOf(e.Model)!, e.Action), SelfAction: e.Action),
         };
     }
 
     private static MatchState OnSelfActionRolled(MatchState state, SelfActionRolled e)
     {
-        Require(state.InProgress is { Stage: RollStage.SelfRoll } p && p.Actor == e.Model && p.SelfAction == e.Action && state.Pending is null, "No such ACTION roll is waiting.");
+        Require(state.InProgress is { Stage: RollStage.SelfRoll } p && p.Actor == e.Model && p.SelfAction == e.Action && p.Target == e.Target && state.Pending is null, "No such ACTION roll is waiting.");
         var progress = state.InProgress!;
-        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice, "An Aim or Fortify ACTION is a Risky Success Roll with the spent markers as penalty dice.");
-        var next = state with { InProgress = null, MustEndActivation = !e.Succeeded && RiskyEnds(state, e.Model) };
+        var model = state.FindModel(e.Model)!;
+        Require(e.Check.Risky == SelfActionRisky(state, model, e.Action) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
+            "The ACTION's Success Roll is Risky (Laying on of Hands only for a Shaken warband), with the spent markers as penalty dice.");
+        var stood = e.Succeeded && e.Action == SelfActionKind.EnforcedOrthodoxy ? OrthodoxyStands(state, model) : [];
+        var removed = e.Succeeded && e.Action == SelfActionKind.LayingOnHands ? HandsRemove(state, e.Target!.Value, e.Check) : 0;
+        Require(e.StoodUp.SequenceEqual(stood) && e.Removed == removed, "The ACTION's result must be what the rules give.");
+        var next = state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure && RiskyEnds(state, e.Model) };
         if (!e.Succeeded)
         {
             return next;
         }
-        // Fortify: COVER until it moves, as a dug-in Shovel's (Undig ends both).
-        var model = state.FindModel(e.Model)!;
-        return e.Action == SelfActionKind.Aim ? next with { Aiming = true } : TurnRules.WithModel(next, model with { DugInAt = model.Position });
+        switch (e.Action)
+        {
+            case SelfActionKind.Aim:
+                return next with { Aiming = true };
+            case SelfActionKind.Fortify:
+                // COVER until it moves, as a dug-in Shovel's (Undig ends both).
+                return TurnRules.WithModel(next, model with { DugInAt = model.Position });
+            case SelfActionKind.EnforcedOrthodoxy:
+                return next with { Models = [.. next.Models.Select(m => stood.Contains(m.Id) ? m with { Status = ModelStatus.Standing } : m)] };
+            default:
+                var target = next.FindModel(e.Target!.Value)!;
+                return TurnRules.WithModel(next, target with { BloodMarkers = target.BloodMarkers - removed });
+        }
     }
 
-    internal static ActionsTaken SelfActionFlag(SelfActionKind action) => action == SelfActionKind.Aim ? ActionsTaken.Aim : ActionsTaken.Fortify;
+    internal static ActionsTaken SelfActionFlag(SelfActionKind action) => action switch
+    {
+        SelfActionKind.Aim => ActionsTaken.Aim,
+        SelfActionKind.Fortify => ActionsTaken.Fortify,
+        SelfActionKind.EnforcedOrthodoxy => ActionsTaken.Orthodoxy,
+        _ => ActionsTaken.LayingOnHands,
+    };
 
-    internal static bool HasSelfAction(ModelProfile profile, SelfActionKind action) => action == SelfActionKind.Aim ? profile.Aims : profile.Fortifies;
+    internal static bool HasSelfAction(ModelProfile profile, SelfActionKind action) => action switch
+    {
+        SelfActionKind.Aim => profile.Aims,
+        SelfActionKind.Fortify => profile.Fortifies,
+        SelfActionKind.EnforcedOrthodoxy => profile.EnforcesOrthodoxy,
+        _ => profile.LaysOnHands,
+    };
+
+    // The roll's bonus dice: Aim +2, Enforced Orthodoxy +1, Laying on of Hands +1 with Holy Water of Lalibela (an ACTION
+    // that can remove BLOOD MARKERS, Warbands p. 76).
+    internal static int SelfActionBonus(ModelProfile profile, SelfActionKind action) => action switch
+    {
+        SelfActionKind.Aim => AimDice,
+        SelfActionKind.EnforcedOrthodoxy => 1,
+        SelfActionKind.LayingOnHands => profile.HealingWaters ? 1 : 0,
+        _ => 0,
+    };
+
+    // Every one of these ACTIONS is Risky but Laying on of Hands, a plain Success Roll (Risky for a Shaken warband, p. 50).
+    internal static bool SelfActionRisky(MatchState state, ModelState model, SelfActionKind action) =>
+        action != SelfActionKind.LayingOnHands || state.IsShaken(model.Seat);
+
+    // Roster stage R6e (U121): the Down friendly models on the battlefield within 8" of an Enforced Orthodoxy, in order.
+    internal static ImmutableArray<ModelId> OrthodoxyStands(MatchState state, ModelState model) =>
+        Board.BodyOf(state, model) is { } body
+            ? [.. state.Models.Where(m => m.Seat == model.Seat && m.Id != model.Id && m.Status == ModelStatus.Down && Board.BodyOf(state, m) is { } friend && Measure.IsWithin(body, friend, OrthodoxyReach)).Select(m => m.Id)]
+            : [];
+
+    private static readonly Length OrthodoxyReach = Length.FromInches(8);
+
+    // Why a Laying on of Hands on that target is not possible now, or null.
+    internal static string? HandsRefusal(MatchState state, ModelState healer, ModelId targetId)
+    {
+        var target = state.FindModel(targetId);
+        if (target is null || target.Seat != healer.Seat || target.Position is null || target.Status == ModelStatus.OutOfAction)
+        {
+            return "A Laying on of Hands ACTION is taken on the model itself or a friendly model on the battlefield.";
+        }
+        if (target.Id != healer.Id && !(Board.BodyOf(state, healer) is { } from && Board.BodyOf(state, target) is { } to && Measure.IsWithin(from, to, HandsReach)))
+        {
+            return "A Laying on of Hands ACTION is taken on the model itself or a friendly model within 6\".";
+        }
+        return target.BloodMarkers == 0 ? "That model has no BLOOD MARKER to remove." : null;
+    }
+
+    private static readonly Length HandsReach = Length.FromInches(6);
+
+    // A successful Laying on of Hands removes 1 BLOOD MARKER, 3 on a Critical Success, at most what the target has left.
+    internal static int HandsRemove(MatchState state, ModelId target, SuccessRollResult check) =>
+        Math.Min(state.FindModel(target)!.BloodMarkers, check.Outcome == SuccessOutcome.CriticalSuccess ? 3 : 1);
 
     // Roster stage R6b (U118): +2 DICE on the Aim roll, and on the model's Ranged Attacks once it succeeded.
     internal const int AimDice = 2;

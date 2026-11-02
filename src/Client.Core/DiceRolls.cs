@@ -64,7 +64,7 @@ public static class DiceRolls
         {
             DashRolled d => Success(d.Model, $"{Id(d.Model)} DASHES: Risky roll", d.Check, setup, "DASH", "DASH FAILED"),
             TreatRolled t => Success(t.Model, $"{Id(t.Model)} TREATS {Id(t.Target)}: Risky roll", t.Check, setup, "TREATED", "TREAT FAILED"),
-            SelfActionRolled s => Success(s.Model, $"{Id(s.Model)} {(s.Action == SelfActionKind.Aim ? "AIMS" : "FORTIFIES")}: Risky roll", s.Check, setup, s.Action == SelfActionKind.Aim ? "AIMED" : "FORTIFIED", s.Action == SelfActionKind.Aim ? "AIM FAILED" : "FORTIFY FAILED"),
+            SelfActionRolled s => Success(s.Model, $"{Id(s.Model)} {Words.SelfActionVerb(s.Action)}: {(s.Check.Risky ? "Risky roll" : "Success Roll")}", s.Check, setup, Words.SelfActionVerdicts(s.Action).Pass, Words.SelfActionVerdicts(s.Action).Fail),
             SideClimbRolled c => Success(c.Model, $"{Id(c.Model)} CLIMBS THE SIDE: Risky roll", c.Check, setup, "CLIMB", "CLIMB FAILED"),
             RangedSuccessRolled r => Success(r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}: hit roll", r.Check, setup, "HIT", "MISSED"),
             MeleeSuccessRolled m => Success(m.Attacker, $"{Id(m.Attacker)} FIGHTS {Id(m.Target)}: hit roll", m.Check, setup, "HIT", "MISSED"),

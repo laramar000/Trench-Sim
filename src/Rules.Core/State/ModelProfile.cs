@@ -241,6 +241,16 @@ public sealed record ModelProfile
     // roster gave it from the ability) get +1 DICE for each other friendly model within 3".
     public bool Horde { get; init; }
 
+    // ---- Roster stage R6e (U121): ACTIONS that help friends ----
+
+    // Enforced Orthodoxy ACTION (Warbands p. 55): a Risky Success Roll at +1 DICE; on a Success every Down friendly model
+    // within 8" stands up.
+    public bool EnforcesOrthodoxy { get; init; }
+
+    // Laying on of Hands ACTION (p. 53): a Success Roll; on a Success 1 BLOOD MARKER (3 on a Critical) comes off a friendly
+    // model within 6", the model itself included.
+    public bool LaysOnHands { get; init; }
+
     // ---- Roster stage R5j (U115): the Martyrdom Device ----
 
     // The model can take a Trigger Martyrdom Device ACTION once per game (Warbands p. 58): an Injury Roll for every model
@@ -493,6 +503,8 @@ public sealed record ModelProfile
                 GrindsToDust = GrindsToDust,
                 Tramples = Tramples,
                 Horde = Horde,
+                EnforcesOrthodoxy = EnforcesOrthodoxy,
+                LaysOnHands = LaysOnHands,
                 Martyrdom = Martyrdom,
                 Talismans = Talismans,
                 ShotsIgnoreMarkers = ShotsIgnoreMarkers,
@@ -548,6 +560,8 @@ public sealed record ModelProfile
                 GrindsToDust = GrindsToDust,
                 Tramples = Tramples,
                 Horde = Horde,
+                EnforcesOrthodoxy = EnforcesOrthodoxy,
+                LaysOnHands = LaysOnHands,
                 Martyrdom = Martyrdom,
                 Talismans = Talismans,
                 ShotsIgnoreMarkers = ShotsIgnoreMarkers,
@@ -603,6 +617,8 @@ public sealed record ModelProfile
             GrindsToDust = GrindsToDust,
             Tramples = Tramples,
             Horde = Horde,
+            EnforcesOrthodoxy = EnforcesOrthodoxy,
+            LaysOnHands = LaysOnHands,
             Martyrdom = Martyrdom,
             Talismans = Talismans,
             ShotsIgnoreMarkers = ShotsIgnoreMarkers,

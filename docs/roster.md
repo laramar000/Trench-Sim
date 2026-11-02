@@ -305,3 +305,6 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   bases (Plague Hound, Pit Locust) are still refused. Tests: `TrampleAndHordeTests`,
   `TraitWireTests.TrampleAndHordeRoundTripAndAreLeftOutWhenFalse`, `MatchReadinessTests.AttacksWithoutAWeaponArePlayed`,
   `ModelTraitDisplayTests.TrampleAndHordeAreExplained`.
+- Roster rules stage R6e, Enforced Orthodoxy and Laying on of Hands (done 2026-11-02): both ACTIONS are played (U121).
+  Tests: `HelpingActionTests`, `TraitWireTests.HelpingActionsRoundTripAndAreLeftOutWhenUnset`,
+  `MatchReadinessTests.HelpingActionsArePlayed`, `ModelTraitDisplayTests.HelpingActionsAreExplained`.

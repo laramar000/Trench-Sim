@@ -37,6 +37,10 @@ public enum PreviewKind
     // Roster stage R6b (U118): an Aim or Fortify ACTION (TakeSelfAction); its "target" is the model itself.
     Aim,
     Fortify,
+
+    // Roster stage R6e (U121): an Enforced Orthodoxy (the model itself) or a Laying on of Hands (itself or a friend).
+    Orthodoxy,
+    LayHands,
 }
 
 // A point on the table, in inches.
@@ -113,6 +117,8 @@ public sealed record Preview(
         PreviewKind.Detonate => "Detonate",
         PreviewKind.Aim => "Aim",
         PreviewKind.Fortify => "Fortify",
+        PreviewKind.Orthodoxy => "Enforce Orthodoxy",
+        PreviewKind.LayHands => "Lay on Hands",
         _ => "Fight",
     };
 
@@ -383,9 +389,9 @@ public static class Previews
         {
             return Treat(state, seat, model, target);
         }
-        if (kind is PreviewKind.Aim or PreviewKind.Fortify)
+        if (SelfActionOf(kind) is { } self)
         {
-            return SelfAction(state, seat, model, kind == PreviewKind.Aim ? SelfActionKind.Aim : SelfActionKind.Fortify);
+            return SelfAction(state, seat, model, self, target);
         }
         if (kind == PreviewKind.Detonate)
         {
@@ -775,14 +781,65 @@ public static class Previews
     public const string AimFact = "Aim ACTION (Warbands p. 28): a Risky roll at +2 DICE; on a Success the model's Ranged Attacks get +2 DICE for the rest of this activation; a Failure ends the activation.";
     public const string FortifyFact = "Fortify ACTION (Warbands pp. 33, 85): a Risky roll; on a Success the model has COVER until it moves; a Failure ends the activation.";
 
-    public static Preview SelfAction(MatchState state, Seat seat, ModelId model, SelfActionKind action)
+    // Roster stage R6e (U121).
+    public const string OrthodoxyFact = "Enforced Orthodoxy ACTION (Warbands p. 55): a Risky roll at +1 DICE; on a Success every Down friend within 8\" stands up; a Failure ends the activation.";
+    public const string HandsFact = "Laying on of Hands ACTION (Warbands p. 53): a Success Roll; on a Success 1 Blood Marker comes off, 3 on a Critical.";
+
+    public static PreviewKind KindOf(SelfActionKind action) => action switch
+    {
+        SelfActionKind.Aim => PreviewKind.Aim,
+        SelfActionKind.Fortify => PreviewKind.Fortify,
+        SelfActionKind.EnforcedOrthodoxy => PreviewKind.Orthodoxy,
+        _ => PreviewKind.LayHands,
+    };
+
+    public static SelfActionKind? SelfActionOf(PreviewKind kind) => kind switch
+    {
+        PreviewKind.Aim => SelfActionKind.Aim,
+        PreviewKind.Fortify => SelfActionKind.Fortify,
+        PreviewKind.Orthodoxy => SelfActionKind.EnforcedOrthodoxy,
+        PreviewKind.LayHands => SelfActionKind.LayingOnHands,
+        _ => null,
+    };
+
+    // Roster stage R6b/R6e: an Aim, Fortify, Enforced Orthodoxy or Laying on of Hands ACTION (that one on target): the
+    // rules' own check and what a Success gives.
+    public static Preview SelfAction(MatchState state, Seat seat, ModelId model, SelfActionKind action, ModelId? target = null)
     {
         ArgumentNullException.ThrowIfNull(state);
-        var command = new TakeSelfAction(seat, model, action);
+        var on = action == SelfActionKind.LayingOnHands ? target ?? model : (ModelId?)null;
+        var command = new TakeSelfAction(seat, model, action) { Target = on };
         var refusal = Opening(state) ?? Acting(state, seat, model, out _) ?? TurnSequence.Check(state, command);
-        IReadOnlyList<string> facts = refusal is null ? [action == SelfActionKind.Aim ? AimFact : FortifyFact] : [];
+        var facts = new List<string>();
+        if (refusal is null)
+        {
+            facts.Add(action switch
+            {
+                SelfActionKind.Aim => AimFact,
+                SelfActionKind.Fortify => FortifyFact,
+                SelfActionKind.EnforcedOrthodoxy => OrthodoxyFact,
+                _ => HandsFact,
+            });
+            if (action == SelfActionKind.EnforcedOrthodoxy)
+            {
+                var stands = TurnSequence.OrthodoxyStands(state, model);
+                facts.Add(stands.Count == 0 ? "No Down friend is within 8\" now." : $"Stands up {string.Join(", ", stands.Select(s => s.Value))}.");
+            }
+            if (action == SelfActionKind.LayingOnHands)
+            {
+                facts.Add($"Removes a Blood Marker from {on!.Value.Value}.");
+                if (!TurnSequence.SelfActionRisky(state, model, action))
+                {
+                    facts.Add("Not Risky: a Failure does not end the activation.");
+                }
+                if (state.Setup!.ProfileOf(model)!.HealingWaters)
+                {
+                    facts.Add("+1 DICE on the roll: Holy Water of Lalibela (Warbands p. 76).");
+                }
+            }
+        }
         var from = state.FindModel(model) is { } m && BodyOf(state, m) is { } b ? [new PathMark(TablePoint.Of(b.Centre), 0)] : Array.Empty<PathMark>();
-        return new Preview(action == SelfActionKind.Aim ? PreviewKind.Aim : PreviewKind.Fortify, model, command, refusal, facts, from, RadiusOf(state, model), model, [], [], null);
+        return new Preview(KindOf(action), model, command, refusal, facts, from, RadiusOf(state, model), on ?? model, [], [], null);
     }
 
     public static Preview Treat(MatchState state, Seat seat, ModelId model, ModelId target)
@@ -870,8 +927,26 @@ public static class Previews
                     }
                 }
                 return nearest ?? new(ReasonCode.TargetNotOnTable, "No enemy model is on the battlefield.", RefAttack);
-            case PreviewKind.Aim or PreviewKind.Fortify:
-                return SelfAction(state, seat, model, kind == PreviewKind.Aim ? SelfActionKind.Aim : SelfActionKind.Fortify).Refusal;
+            case PreviewKind.LayHands:
+            {
+                // Roster stage R6e: open when the rules would take it on the model itself or some friend.
+                Rejection? firstHands = null;
+                foreach (var friend in state.Models.Where(m => m.Seat == acting!.Seat && m.Position is not null && m.Status != ModelStatus.OutOfAction))
+                {
+                    if (SelfAction(state, seat, model, SelfActionKind.LayingOnHands, friend.Id).Refusal is not { } refusal)
+                    {
+                        return null;
+                    }
+                    if (refusal.Code is ReasonCode.NoSuchAction or ReasonCode.ActionAlreadyTaken)
+                    {
+                        return refusal;
+                    }
+                    firstHands ??= refusal;
+                }
+                return firstHands;
+            }
+            case PreviewKind.Aim or PreviewKind.Fortify or PreviewKind.Orthodoxy:
+                return SelfAction(state, seat, model, SelfActionOf(kind)!.Value).Refusal;
             case PreviewKind.Detonate:
                 return Detonate(state, seat, model).Refusal;
             case PreviewKind.Treat:

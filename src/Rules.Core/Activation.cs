@@ -77,6 +77,7 @@ public static class Activation
             {
                 attacks.Add(new TakeSelfAction(seat, active, SelfActionKind.Aim));
                 attacks.Add(new TakeSelfAction(seat, active, SelfActionKind.Fortify));
+                attacks.Add(new TakeSelfAction(seat, active, SelfActionKind.EnforcedOrthodoxy));
             }
             // Roster stage R5i (U114): Piston Legs' Grind to Dust ACTION; roster stage R6d (U120): a Trample ACTION.
             if (profile.GrindsToDust)
@@ -86,6 +87,11 @@ public static class Activation
             if (profile.Tramples)
             {
                 attacks.Add(new FightModel(seat, active, other.Id) { Weapon = ModelProfile.TrampleWeapon });
+            }
+            // Roster stage R6e (U121): a Laying on of Hands on the model itself or a friend.
+            if (profile.LaysOnHands && other.Seat == seat)
+            {
+                attacks.Add(new TakeSelfAction(seat, active, SelfActionKind.LayingOnHands) { Target = other.Id });
             }
             // Roster stage R5h (U113): a Medi-kit's Treat ACTION on the model itself or a friend.
             if (profile.Treats && other.Seat == seat)

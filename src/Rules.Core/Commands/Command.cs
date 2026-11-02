@@ -115,4 +115,9 @@ public sealed record DeclineTalisman(Seat Seat) : Command;
 // Roster stage R6b (U118): an ACTION the model takes on itself alone, a Risky Success Roll: Aim (+2 DICE to the roll; on
 // a Success its Ranged Attacks get +2 DICE for the rest of the activation) or Fortify (on a Success it has COVER until it
 // moves).
-public sealed record TakeSelfAction(Seat Seat, ModelId Model, SelfActionKind Action) : Command;
+// Roster stage R6e (U121): Target, the friend a Laying on of Hands ACTION is taken on (the model itself included); no other
+// ACTION has one.
+public sealed record TakeSelfAction(Seat Seat, ModelId Model, SelfActionKind Action) : Command
+{
+    public ModelId? Target { get; init; }
+}

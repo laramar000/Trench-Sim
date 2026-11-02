@@ -271,7 +271,10 @@ public static class StateHash
             + (p.MementoMori ? ",mementoMori=yes" : "")
             // Roster stage R6d: Trample and Overwhelming Horde, only when present.
             + (p.Tramples ? ",tramples=yes" : "")
-            + (p.Horde ? ",horde=yes" : "");
+            + (p.Horde ? ",horde=yes" : "")
+            // Roster stage R6e: Enforced Orthodoxy and Laying on of Hands, only when present.
+            + (p.EnforcesOrthodoxy ? ",orthodoxy=yes" : "")
+            + (p.LaysOnHands ? ",laysOnHands=yes" : "");
     }
 
     private static string WeaponText(Weapon w) =>

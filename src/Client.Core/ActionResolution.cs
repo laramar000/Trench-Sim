@@ -161,10 +161,19 @@ public sealed class ResolutionLog
                 break;
             case SelfActionDeclared s:
                 // Roster stage R6b (U118): an Aim (+2 DICE on its roll) or Fortify ACTION.
-                Start(seq, s.Model, $"{Id(s.Model)} {(s.Action == SelfActionKind.Aim ? "AIMS" : "FORTIFIES")}", null, null);
+                Start(seq, s.Model, $"{Id(s.Model)} {Words.SelfActionVerb(s.Action)}{(s.Target is { } on ? $" {Id(on)}" : "")}", null, s.Target);
                 if (s.Action == SelfActionKind.Aim)
                 {
                     _current!.Dice.Add(new("Aim ACTION", Rules.Core.TurnSequence.SelfActionDice(SelfActionKind.Aim)));
+                }
+                // Roster stage R6e (U121): Enforced Orthodoxy's +1 DICE; Holy Water's on a Laying on of Hands.
+                if (s.Action == SelfActionKind.EnforcedOrthodoxy)
+                {
+                    _current!.Dice.Add(new("Enforced Orthodoxy", 1));
+                }
+                if (s.Action == SelfActionKind.LayingOnHands && setup?.ProfileOf(s.Model) is { HealingWaters: true })
+                {
+                    _current!.Dice.Add(new("Holy Water of Lalibela", 1));
                 }
                 break;
             case SideClimbDeclared c:
@@ -283,10 +292,10 @@ public sealed class ResolutionLog
                 }
                 break;
             case SelfActionRolled s:
-                Success(seq, action, s.Check, setup, "Risky roll", s.Action == SelfActionKind.Aim ? "AIMED" : "FORTIFIED", s.Action == SelfActionKind.Aim ? "AIM FAILED" : "FORTIFY FAILED");
+                Success(seq, action, s.Check, setup, s.Check.Risky ? "Risky roll" : "Success Roll", Words.SelfActionVerdicts(s.Action).Pass, Words.SelfActionVerdicts(s.Action).Fail);
                 if (s.Succeeded)
                 {
-                    action.Outcome.Add(s.Action == SelfActionKind.Aim ? "+2 DICE on its shots this activation" : "COVER until it moves");
+                    action.Outcome.Add(s.Action switch { SelfActionKind.Aim => "+2 DICE on its shots this activation", SelfActionKind.Fortify => "COVER until it moves", _ => Words.SelfActionResult(s) });
                     _aiming = s.Action == SelfActionKind.Aim ? s.Model : _aiming;
                 }
                 break;

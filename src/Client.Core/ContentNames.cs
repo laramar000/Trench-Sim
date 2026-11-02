@@ -241,6 +241,8 @@ public sealed class ContentNames
                         MementoMori = m.TryGetProperty("mementoMori", out var mementoMori) && mementoMori.GetBoolean(),
                         Horde = m.TryGetProperty("horde", out var horde) && horde.GetBoolean(),
                         Tramples = m.TryGetProperty("tramples", out var tramples) && tramples.GetBoolean(),
+                        EnforcesOrthodoxy = m.TryGetProperty("enforcesOrthodoxy", out var enforcesOrthodoxy) && enforcesOrthodoxy.GetBoolean(),
+                        LaysOnHands = m.TryGetProperty("laysOnHands", out var laysOnHands) && laysOnHands.GetBoolean(),
                         HasCover = m.TryGetProperty("hasCover", out var covered) && covered.GetBoolean(),
                         DigsIn = m.TryGetProperty("digsIn", out var digs) && digs.GetBoolean(),
                     }));

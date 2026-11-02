@@ -596,6 +596,61 @@ public class ModelTraitDisplayTests
         Assert.Contains("Overwhelming Horde", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
     }
 
+    // Roster stage R6e (U121): Enforced Orthodoxy and Laying on of Hands are on the action bar, previewed, logged, in the
+    // dice popup and broken down; the notes name who stood up and the markers removed.
+    [Fact]
+    public void HelpingActionsAreExplained()
+    {
+        var (declared, stood, removed) = (0, 0, 0);
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select((m, i) => m with { Profile = m.Profile with { EnforcesOrthodoxy = i % 2 == 0, LaysOnHands = i % 2 == 1, HealingWaters = i % 4 == 1 } }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            var log = new ResolutionLog();
+            var seq = 0;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is SelfActionDeclared d && state.FindModel(d.Model) is { } model)
+                {
+                    var kind = Previews.KindOf(d.Action);
+                    var preview = Previews.Target(state, model.Seat, kind, d.Model, d.Target ?? d.Model);
+                    Assert.True(preview.Legal, preview.Refusal?.Text);
+                    Assert.Equal(new Rules.Core.Commands.TakeSelfAction(model.Seat, d.Model, d.Action) { Target = d.Target }, preview.Command);
+                    var interaction = new Interaction();
+                    interaction.Update(state, model.Seat);
+                    Assert.Contains(d.Action == SelfActionKind.EnforcedOrthodoxy ? InteractionMode.Orthodoxy : InteractionMode.LayHands, interaction.BarOffered);
+                    Assert.Equal($"  {d.Model} declares {Words.SelfActionWithArticle(d.Action)} ACTION{(d.Target is { } t ? $" on {t}" : "")}.", EventText.Line(d));
+                    declared++;
+                }
+                if (e is SelfActionRolled r)
+                {
+                    Assert.Equal(EventText.Describe(r), Narrator.Describe(r));
+                    var (pass, fail) = Words.SelfActionVerdicts(r.Action);
+                    Assert.Contains(r.Succeeded ? pass : fail, DiceRolls.Of(r)!.Result, StringComparison.Ordinal);
+                    var notes = UnitNotes.Of(r);
+                    Assert.Equal(r.StoodUp.Length, notes.Count(n => n.Text == "STANDS UP"));
+                    stood += r.StoodUp.Length;
+                    removed += r.Removed;
+                }
+                var setup = state.Setup;
+                state = Reducer.Apply(state, e);
+                log.Add(++seq, e, setup ?? state.Setup);
+                if (e is SelfActionRolled && log.WhyOf(seq) is { } why)
+                {
+                    Assert.True(why.Explained, why.Text);
+                }
+            }
+        }
+        Assert.True(declared > 0 && stood > 0 && removed > 0, $"{declared} declared, {stood} stood up, {removed} removed");
+        var card = new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true) { EnforcesOrthodoxy = true, LaysOnHands = true };
+        Assert.Contains("Enforced Orthodoxy ACTION (Y)", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
+        Assert.Contains("Laying on of Hands ACTION (Z)", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
+        Assert.Equal("Enforced Orthodoxy, Laying on of Hands", Words.Actions(ActionsTaken.Orthodoxy | ActionsTaken.LayingOnHands));
+    }
+
     // Roster stage R6b (U118): Aim and Fortify are on the action bar, previewed, logged and broken down; an aimed shot's
     // breakdown names the Aim's +2 DICE.
     [Fact]

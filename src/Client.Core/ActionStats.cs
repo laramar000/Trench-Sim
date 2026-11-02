@@ -36,6 +36,8 @@ public static class ActionStats
             InteractionMode.Detonate => owned.Martyrdom ? "Detonate: Injury Rolls within 3\", +1 INJURY DICE within 1\", once per game" : "Detonate: no Martyrdom Device",
             InteractionMode.Aim => owned.Aims ? "Aim: Risky roll at +2 DICE, then +2 DICE on its Ranged Attacks this activation" : "Aim: not one of its abilities",
             InteractionMode.Fortify => owned.Fortifies ? "Fortify: Risky roll, then COVER until it moves" : "Fortify: not one of its abilities",
+            InteractionMode.Orthodoxy => owned.EnforcesOrthodoxy ? "Enforced Orthodoxy: Risky roll at +1 DICE, then every Down friend within 8\" stands up" : "Enforced Orthodoxy: not one of its abilities",
+            InteractionMode.LayHands => owned.LaysOnHands ? $"Laying on of Hands: itself or a friend within 6\", Success Roll{(owned.HealingWaters ? " +1 DICE (Holy Water)" : "")}, -1 Blood Marker (-3 on a Critical)" : "Laying on of Hands: not one of its abilities",
             InteractionMode.Treat => owned.Treats ? $"Treat: itself or a friend within 1\", Risky roll{(owned.HealingWaters ? " +1 DICE (Holy Water)" : "")}" : "Treat: no Medi-kit",
             _ => null,
         };

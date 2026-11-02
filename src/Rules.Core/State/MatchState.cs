@@ -67,6 +67,8 @@ public enum ActionsTaken
     Aim = 512,     // roster stage R6b (U118): an Aim ACTION
     Fortify = 1024, // roster stage R6b (U118): a Fortify ACTION
     Trample = 2048, // roster stage R6d (U120): a Trample ACTION
+    Orthodoxy = 4096, // roster stage R6e (U121): an Enforced Orthodoxy ACTION
+    LayingOnHands = 8192, // roster stage R6e (U121): a Laying on of Hands ACTION
 }
 
 public enum RollStage
@@ -97,10 +99,14 @@ public enum TreatChoice
 }
 
 // Roster stage R6b (U118): the ACTIONS a model takes on itself alone with a Risky Success Roll (TakeSelfAction).
+// Roster stage R6e (U121): and Enforced Orthodoxy (Risky, every Down friend within 8"), and Laying on of Hands (a Success
+// Roll, Risky only for a Shaken warband, on a friend within 6").
 public enum SelfActionKind
 {
     Aim,
     Fortify,
+    EnforcedOrthodoxy, // roster stage R6e (U121)
+    LayingOnHands,     // roster stage R6e (U121): with a Target
 }
 
 public enum AttackKind
