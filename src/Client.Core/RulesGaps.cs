@@ -7,12 +7,12 @@ public static class RulesGaps
 
     public static IReadOnlyList<(string Gap, string Effect)> All { get; } =
     [
-        ("Glorious Deeds are not scored; victory points come from Objectives only.", "Can change the winner of a close game."),
+        ("Some Glorious Deeds are never completed: Cast Them Down, Suicidal Bravery and Sniper (U96).", "There is no falling, a charge has one target and no model has ELITE."),
         ("Bloodbath Rolls are not offered.", "Players cannot spend 6 or 3 Blood Markers that way."),
-        ("No elevation: no +1 DICE for height, climbing, jumping or falling.", "All terrain is effectively ground level for attacks."),
+        ("No jumping or falling; climbing only up tower sides and ladders. Towers are under 3\" high (U69).", "The +1 DICE for height never applies."),
         ("Dangerous terrain has no effect.", "Moving through it is safe."),
-        ("No keywords or equipment; no CRITICAL or DEADLY.", "Only the two invented test warbands are playable."),
-        ("One scenario (Claim No Man's Land) on a fixed battlefield (U32).", "Every game uses the same table."),
+        ("Many unit abilities and some keywords (FLYING, INFILTRATOR, SKIRMISHER...) are named, not played; other equipment is refused.", "A roster with refused equipment cannot start a match."),
+        ("Two scenarios: Claim No Man's Land and Trench Warfare (no halved ducats for the defender, no Infiltrators).", "Each is played on the maps made for it."),
         ("Charge routes are approximated (U57 to U65).", "Rarely, a charge the planner cannot find is refused with a reason."),
         ("Provisional rulings U31, U36, U40 and U32; open questions U50, U52, Q5 and Q6.", "Please note anything that looks wrong for playtest feedback."),
     ];
