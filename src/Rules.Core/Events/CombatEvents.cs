@@ -388,7 +388,8 @@ public sealed record MeleeAttackDeclared : GameEvent
     // Melee Weapon); OffHand, the second weapon of a Fight, -1 DICE (p. 45); Block, the target has BLOCK and the
     // attacker made a Charge ACTION before the attack this turn, -1 DICE (p. 53).
     // Roster stage R5i (U114): ModelProfile.GrindWeapon is a Grind to Dust ACTION's attack, with no Melee Weapon.
-    public int Weapon { get => _weapon; init => _weapon = value is 0 or 1 or ModelProfile.GrindWeapon ? value : throw new ArgumentOutOfRangeException(nameof(Weapon), "A model has weapon 0 or 1 (3: Grind to Dust)."); }
+    // Roster stage R6d (U120): ModelProfile.TrampleWeapon a Trample ACTION's.
+    public int Weapon { get => _weapon; init => _weapon = value is 0 or 1 or ModelProfile.GrindWeapon or ModelProfile.TrampleWeapon ? value : throw new ArgumentOutOfRangeException(nameof(Weapon), "A model has weapon 0 or 1 (3: Grind to Dust, 4: Trample)."); }
 
     public bool OffHand { get; init; }
 

@@ -678,6 +678,41 @@ public class MatchReadinessTests
             f => Assert.DoesNotContain(f, plain, StringComparison.Ordinal));
     }
 
+    // Roster stage R6d (U120): an ability that fights without a weapon is the attack of a model with no Melee Weapon; with
+    // one, it fights with that and the ability's attack is named. Trample and Overwhelming Horde travel as flags.
+    [Fact]
+    public void AttacksWithoutAWeaponArePlayed()
+    {
+        var lion = Of("sultanate", "alchemical-lion").MatchCheck();
+        Assert.DoesNotContain(lion.PlayedWithout, w => w.Contains("Teeth and Claws", StringComparison.Ordinal));
+        var lionProfile = Loaded(lion);
+        Assert.Equal((true, 0, 0, 1), (lionProfile.HasMeleeWeapon, lionProfile.MeleeInjuryModifier, lionProfile.MeleeWeaponDice, lionProfile.MeleeAttacksWith(0)));
+
+        var lord = Loaded(Of("cult", "bloated-lord").MatchCheck());
+        Assert.Equal((true, 2), (lord.HasMeleeWeapon, lord.MeleeWeaponCleave));
+        var armedLord = Of("cult", "bloated-lord", "trench-club").MatchCheck();
+        Assert.Contains(armedLord.PlayedWithout, w => w.Contains("Crushing Blows's attack without a weapon (it fights with its Melee Weapon)", StringComparison.Ordinal));
+        Assert.Equal(1, Loaded(armedLord).MeleeAttacksWith(0));
+
+        var thrall = Loaded(Of("cult", "plague-thrall").MatchCheck());
+        Assert.Equal((true, true), (thrall.HasMeleeWeapon, thrall.Horde));
+        Assert.False(Loaded(Of("cult", "plague-thrall", "trench-club").MatchCheck()).Horde);
+
+        Assert.Equal(-1, Loaded(Of("pilgrims", "ecclesiastic-prisoner").MatchCheck()).MeleeWeaponDice);
+
+        var amalgam = Loaded(Of("cult", "amalgam").MatchCheck());
+        Assert.Equal((true, -2), (amalgam.Tramples, amalgam.InjuryDiceTaken));
+        Assert.True(Loaded(Of("sultanate", "brazen-bull").MatchCheck()).Tramples);
+
+        // Oval bases are still refused, whatever the ability.
+        Assert.Contains(Of("cult", "plague-hound").MatchCheck().Refused, r => r.Contains("oval base", StringComparison.Ordinal));
+        Assert.Contains(Of("court", "pit-locust").MatchCheck().Refused, r => r.Contains("oval base", StringComparison.Ordinal));
+
+        var plain = Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P");
+        Assert.DoesNotContain("tramples", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("horde", plain, StringComparison.Ordinal);
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

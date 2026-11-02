@@ -84,6 +84,8 @@ public static class Content
                         HuntsTheTough = m.TryGetProperty("huntsTheTough", out var huntsTheTough) && huntsTheTough.GetBoolean(),
                         CounterCharge = m.TryGetProperty("counterCharge", out var counterCharge) && counterCharge.GetBoolean(),
                         MementoMori = m.TryGetProperty("mementoMori", out var mementoMori) && mementoMori.GetBoolean(),
+                        Horde = m.TryGetProperty("horde", out var horde) && horde.GetBoolean(),
+                        Tramples = m.TryGetProperty("tramples", out var tramples) && tramples.GetBoolean(),
                         HasCover = m.TryGetProperty("hasCover", out var covered) && covered.GetBoolean(),
                         DigsIn = m.TryGetProperty("digsIn", out var digs) && digs.GetBoolean(),
                     }));

@@ -27,6 +27,7 @@ public static class ActionStats
             InteractionMode.Shoot => profile.HasRangedWeapon || weapon == ModelProfile.GrenadeWeapon && owned.Has(kind, weapon) ? $"Shoot{second}: weapon range {BoardScene.Inch(TableRect.Inches(profile.RangedRange))}" : "Shoot: no Ranged Weapon",
             InteractionMode.Blast => $"Blast{second}: weapon range {BoardScene.Inch(TableRect.Inches(profile.RangedRange))}, BLAST {BoardScene.Inch(profile.RangedWeaponBlast)}",
             InteractionMode.Charge => $"Charge: reach Movement {BoardScene.Inch(TableRect.Inches(profile.Movement))} plus a D6, at most {TableRect.Inches(Rules.Core.Geometry.Charging.MaxMovement).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}\"{halved}",
+            InteractionMode.Fight when weapon == ModelProfile.TrampleWeapon => owned.Tramples ? "Trample: no Melee Weapon, IGNORE ARMOUR, a Down enemy within 1\"" : "Trample: not one of its abilities",
             InteractionMode.Fight when weapon == ModelProfile.GrindWeapon => owned.GrindsToDust ? "Grind to Dust: no Melee Weapon, a Down enemy within 1\" on a base of 32 mm or smaller" : "Grind to Dust: no Piston Legs",
             InteractionMode.Fight => profile.HasMeleeWeapon ? $"Fight{second}: Melee Weapon, against an engaged enemy"
                 : profile.RangedAlsoMelee ? "Fight: its ranged weapon (also Melee), against an engaged enemy"

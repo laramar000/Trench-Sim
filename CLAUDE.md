@@ -161,7 +161,12 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Corpulent/Artificial Life (InjuryDiceTaken), UndeadFortitude/AbioticLife (`AttackDice.TakenDice`), Stealthy, HuntsTheTough
   (`AttackDice.HuntDice`), CounterCharge (`MatchState.CounterCharging`), MementoMori (`InjuryRolled/MineExploded.Spared`,
   reuses `ToughSpent`), Nailed Cross (readiness adds its kit). Units with no weapon (Amalgam, Plague Hound, Alchemical
-  Lion, Assault Beast...) are still refused until R6d's unarmed attacks. Essentials 2,212/0.
+  Lion, Assault Beast...) are still refused until R6d's unarmed attacks. Essentials 2,212/0. Pushed 2c4c5ab.
+- Done: R6d (U120): readiness `NaturalWeapon` gives a weaponless model with Teeth & Claws / Feeble Flailing / Crushing
+  Blows / Poison Stingers / Overwhelming Horde its Melee Weapon; `ModelProfile.Horde` (`Reducer.HordeDice`, +1 per friend
+  within 3" on weapon 0); Trample ACTION = `ModelProfile.TrampleWeapon` 4, `Tramples`, `ActionsTaken.Trample`, shares
+  Grind's code (`ModelProfile.IsActionAttack`), Combat key 0 (`Interaction.ZeroKeyWeapon`). Plague Hound and Pit Locust
+  still refused (oval bases). Essentials 2,219/0.
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):
   R6c numbers on existing hooks: Dash +1 DICE (Frightening Speed, Loping Dash, Mad Dash, Agile's Dash/Climb part),
   INJURY DICE against it (Corpulent -2, Artificial Life, Undead Fortitude unless FIRE, Abiotic Life vs GAS), Stealth

@@ -268,7 +268,10 @@ public static class StateHash
             + (p.Stealthy ? ",stealthy=yes" : "")
             + (p.HuntsTheTough ? ",huntsTheTough=yes" : "")
             + (p.CounterCharge ? ",counterCharge=yes" : "")
-            + (p.MementoMori ? ",mementoMori=yes" : "");
+            + (p.MementoMori ? ",mementoMori=yes" : "")
+            // Roster stage R6d: Trample and Overwhelming Horde, only when present.
+            + (p.Tramples ? ",tramples=yes" : "")
+            + (p.Horde ? ",horde=yes" : "");
     }
 
     private static string WeaponText(Weapon w) =>

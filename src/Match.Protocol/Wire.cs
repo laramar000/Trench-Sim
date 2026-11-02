@@ -389,6 +389,8 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.HuntsTheTough)),
             (typeof(ModelProfile), nameof(ModelProfile.CounterCharge)),
             (typeof(ModelProfile), nameof(ModelProfile.MementoMori)),
+            (typeof(ModelProfile), nameof(ModelProfile.Horde)),
+            (typeof(ModelProfile), nameof(ModelProfile.Tramples)),
             (typeof(ModelStoodUp), nameof(ModelStoodUp.Quick)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Spared)),
             (typeof(MineExploded), nameof(MineExploded.Spared)),

@@ -515,15 +515,21 @@ internal static class Board
             return Refuse(ReasonCode.ModelNotStanding, "A Down model cannot fight.");
         }
         var grind = weapon == ModelProfile.GrindWeapon;
+        // Roster stage R6d (U120): a Trample ACTION is the same kind of ACTION attack, at any Down enemy.
+        var trample = weapon == ModelProfile.TrampleWeapon;
         if (grind && !state.Setup!.ProfileOf(attacker.Id)!.GrindsToDust)
         {
             return new MeleeAssessment(new Rejection(ReasonCode.NoSuchAction, "Only a model with Piston Legs can take a Grind to Dust ACTION.", RefGrind));
         }
-        if (!grind && !state.Setup!.ProfileOf(attacker.Id)!.CanMakeMeleeAttack)
+        if (trample && !state.Setup!.ProfileOf(attacker.Id)!.Tramples)
+        {
+            return new MeleeAssessment(new Rejection(ReasonCode.NoSuchAction, "Only a model whose unit has it can take a Trample ACTION.", RefTrample));
+        }
+        if (!grind && !trample && !state.Setup!.ProfileOf(attacker.Id)!.CanMakeMeleeAttack)
         {
             return Refuse(ReasonCode.NoMeleeWeapon, "That model has no Melee Weapon.");
         }
-        if (!grind && weapon != 0 && (weapon < 0 || state.Setup!.ProfileOf(attacker.Id)!.Weapons(AttackKind.Melee) <= weapon))
+        if (!grind && !trample && weapon != 0 && (weapon < 0 || state.Setup!.ProfileOf(attacker.Id)!.Weapons(AttackKind.Melee) <= weapon))
         {
             return Refuse(ReasonCode.NoMeleeWeapon, "That model has no second Melee Weapon.");
         }
@@ -545,6 +551,10 @@ internal static class Board
         {
             return new MeleeAssessment(new Rejection(ReasonCode.TargetNotDown, "A Grind to Dust ACTION must target a Down enemy model.", RefGrind));
         }
+        if (trample && target.Status != ModelStatus.Down)
+        {
+            return new MeleeAssessment(new Rejection(ReasonCode.TargetNotDown, "A Trample ACTION must target a Down enemy model.", RefTrample));
+        }
         if (grind && state.Setup!.ProfileOf(target.Id)!.BaseRadius > GrindBaseRadius)
         {
             return new MeleeAssessment(new Rejection(ReasonCode.TargetTooLarge, "A Grind to Dust ACTION must target a model on a base of 32 mm or smaller.", RefGrind));
@@ -563,6 +573,8 @@ internal static class Board
     private static AttackAssessment Refuse(ReasonCode code, string text, string rule = RefAttack) => new(code, text, rule);
 
     public const string RefGrind = "Warbands 1.0.2 p. 66";
+
+    public const string RefTrample = "Warbands 1.0.2 pp. 88, 140";
 
     // Roster stage R5j (U115): the models a Martyrdom Device hits (friend or foe on the battlefield within 3", Down ones
     // too, in the setup's order, the bearer last) and the other models within 1" of the bearer (Warbands p. 58).

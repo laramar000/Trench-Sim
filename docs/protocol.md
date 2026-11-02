@@ -268,6 +268,9 @@ The server sends events in log order, one message each, to both players, through
   `stealthy`, `huntsTheTough`, `counterCharge` and `mementoMori`, each left out when false; `ModelStoodUp.quick` and
   `InjuryRolled.spared`/`MineExploded.spared`, left out when false. The state hash adds each flag as `,name=yes` to a
   profile and `counterCharging` to the state only when set; Memento Mori reuses `tough=spent`.
+- Roster stage R6d (U120): `ModelProfile` flags `tramples` and `horde`, left out when false; a Trample ACTION is a
+  `FightModel` and a `MeleeAttackDeclared` with `weapon` 4. The state hash adds `,tramples=yes` and `,horde=yes` to a
+  profile only when set.
 
 ## Rosters online (roster stage 5c)
 

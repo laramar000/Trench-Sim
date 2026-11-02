@@ -284,6 +284,26 @@ public class TraitWireTests
         Assert.Equal((true, InjuryOutcome.NoEffect), (((InjuryRolled)RoundTrip(spared)).Spared, ((InjuryRolled)RoundTrip(spared)).Result));
     }
 
+    // Roster stage R6d (U120): Trample and Overwhelming Horde, and a Trample attack's weapon 4.
+    [Fact]
+    public void TrampleAndHordeRoundTripAndAreLeftOutWhenFalse()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        Assert.DoesNotContain("\"tramples\"", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"horde\"", plain, StringComparison.Ordinal);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { Tramples = true, Horde = true };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        var text = Encoded(created);
+        Assert.Contains("\"tramples\":true", text, StringComparison.Ordinal);
+        Assert.Contains("\"horde\":true", text, StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+        var trample = new MeleeAttackDeclared(new ModelId("A1"), new ModelId("B1"), false, null) { Weapon = ModelProfile.TrampleWeapon };
+        Assert.Equal(ModelProfile.TrampleWeapon, ((MeleeAttackDeclared)RoundTrip(trample)).Weapon);
+    }
+
     // Roster stage R5f (U110).
     [Fact]
     public void CoverKeywordRoundTripsAndIsLeftOutWhenFalse()

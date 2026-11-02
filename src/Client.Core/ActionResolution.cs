@@ -196,7 +196,7 @@ public sealed class ResolutionLog
                 ShotParts(setup, p.Attacker, p.LongRange, null, false);
                 break;
             case MeleeAttackDeclared m:
-                Start(seq, m.Attacker, $"{Id(m.Attacker)} {(m.FreeFight ? "MAKES A FREE ATTACK ON" : m.Weapon == ModelProfile.GrindWeapon ? "GRINDS TO DUST" : "FIGHTS")} {Id(m.Target)}{(m.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Melee, m.Target);
+                Start(seq, m.Attacker, $"{Id(m.Attacker)} {(m.FreeFight ? "MAKES A FREE ATTACK ON" : m.Weapon == ModelProfile.GrindWeapon ? "GRINDS TO DUST" : m.Weapon == ModelProfile.TrampleWeapon ? "TRAMPLES" : "FIGHTS")} {Id(m.Target)}{(m.Weapon == 1 ? " (2nd weapon)" : "")}", AttackKind.Melee, m.Target);
                 _current!.FreeFight = m.FreeFight;
                 _current!.Weapon = m.Weapon;
                 OwnParts(setup, m.Attacker, AttackKind.Melee);
@@ -316,7 +316,14 @@ public sealed class ResolutionLog
             case MeleeSuccessRolled m:
                 // Roster stage R6c (U119): Counter-Charge's +1 DICE (worked out by the rules from the activation; here it is
                 // what the roll has beyond the known parts).
-                if (m.Check.NetDice - action.Dice.Sum(p => p.Value) == 1 && setup?.ProfileOf(m.Attacker) is { CounterCharge: true })
+                // Roster stage R6d (U120): Overwhelming Horde's DICE on its attack without a weapon, the same way (no model has
+                // both).
+                var beyond = m.Check.NetDice - action.Dice.Sum(p => p.Value);
+                if (beyond > 0 && action.Weapon == 0 && setup?.ProfileOf(m.Attacker) is { Horde: true })
+                {
+                    action.Dice.Add(new("Overwhelming Horde", beyond));
+                }
+                else if (beyond == 1 && setup?.ProfileOf(m.Attacker) is { CounterCharge: true })
                 {
                     action.Dice.Add(new("Counter-Charge", 1));
                 }

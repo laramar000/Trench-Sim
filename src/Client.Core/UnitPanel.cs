@@ -440,6 +440,15 @@ public static class UnitPanel
         {
             parts.Add("Grind to Dust ACTION (Combat 0)");
         }
+        // Roster stage R6d (U120).
+        if (p.Tramples)
+        {
+            parts.Add(p.GrindsToDust ? "Trample ACTION (Combat menu)" : "Trample ACTION (Combat 0)");
+        }
+        if (p.Horde)
+        {
+            parts.Add("+1 DICE in melee per friend within 3\" (Overwhelming Horde)");
+        }
         // Roster stage R5b (U106): the model keywords the engine plays.
         foreach (var (trait, words) in new[] { (ModelTraits.Fear, "FEAR"), (ModelTraits.NegateFear, "NEGATE FEAR"), (ModelTraits.Tough, "TOUGH"), (ModelTraits.NegateHeavy, "NEGATE HEAVY"), (ModelTraits.Leader, "LEADER") })
         {

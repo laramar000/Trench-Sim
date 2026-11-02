@@ -233,6 +233,14 @@ public sealed record ModelProfile
     // within 1" on a base of 32 mm or smaller. Its attack is the melee "weapon" GrindWeapon.
     public bool GrindsToDust { get; init; }
 
+    // Roster stage R6d (U120): the model can take a Trample ACTION (Warbands pp. 140, 88): a Melee Attack without a
+    // weapon, with IGNORE ARMOUR, at a Down enemy. Its attack is the melee "weapon" TrampleWeapon.
+    public bool Tramples { get; init; }
+
+    // Roster stage R6d (U120): Overwhelming Horde (Warbands p. 137): its attacks without a weapon (its weapon 0, which the
+    // roster gave it from the ability) get +1 DICE for each other friendly model within 3".
+    public bool Horde { get; init; }
+
     // ---- Roster stage R5j (U115): the Martyrdom Device ----
 
     // The model can take a Trigger Martyrdom Device ACTION once per game (Warbands p. 58): an Injury Roll for every model
@@ -418,6 +426,7 @@ public sealed record ModelProfile
         0 or 1 => Weapons(kind) > weapon,
         2 => kind == AttackKind.Ranged && Grenade is not null,
         3 => kind == AttackKind.Melee && GrindsToDust,
+        4 => kind == AttackKind.Melee && Tramples,
         _ => false,
     };
 
@@ -426,8 +435,14 @@ public sealed record ModelProfile
     // Roster stage R5i (U114): a Grind to Dust ACTION's Melee Attack, made without a Melee Weapon.
     public const int GrindWeapon = 3;
 
+    // Roster stage R6d (U120): a Trample ACTION's Melee Attack, made without a Melee Weapon, with IGNORE ARMOUR.
+    public const int TrampleWeapon = 4;
+
+    // The Melee Attacks that are an ACTION of their own, not a Fight: Grind to Dust and Trample.
+    public static bool IsActionAttack(int weapon) => weapon is GrindWeapon or TrampleWeapon;
+
     // The Melee Attacks a Fight makes with a weapon: CLEAVE (X), else one.
-    public int MeleeAttacksWith(int weapon) => weapon == GrindWeapon ? 1 : Math.Max(1, weapon == 0 ? (HasMeleeWeapon ? MeleeWeaponCleave : 0) : SecondMeleeWeapon?.Cleave ?? 0);
+    public int MeleeAttacksWith(int weapon) => IsActionAttack(weapon) ? 1 : Math.Max(1, weapon == 0 ? (HasMeleeWeapon ? MeleeWeaponCleave : 0) : SecondMeleeWeapon?.Cleave ?? 0);
 
     // The profile as an attack with one of the model's weapons sees it: weapon 0 is the profile itself; weapon 1 puts
     // the second weapon of that kind in the first one's place, so every rule about "the weapon" reads that weapon.
@@ -476,6 +491,8 @@ public sealed record ModelProfile
                 Treats = Treats,
                 HealingWaters = HealingWaters,
                 GrindsToDust = GrindsToDust,
+                Tramples = Tramples,
+                Horde = Horde,
                 Martyrdom = Martyrdom,
                 Talismans = Talismans,
                 ShotsIgnoreMarkers = ShotsIgnoreMarkers,
@@ -498,10 +515,12 @@ public sealed record ModelProfile
         }
         // Roster stage R5i (U114): a Grind to Dust attack uses no Melee Weapon: no weapon DICE, INJURY DICE, modifier,
         // keywords or CLEAVE; the model's own Melee dice and traits still count.
-        if (weapon == GrindWeapon)
+        // Roster stage R6d (U120): a Trample ACTION's attack is the same, with IGNORE ARMOUR.
+        if (IsActionAttack(weapon))
         {
             return new ModelProfile(Movement, BaseRadius, RangedRange, RangedInjuryModifier, Armour, hasMeleeWeapon: true, meleeInjuryModifier: 0)
             {
+                MeleeWeaponKeywords = weapon == TrampleWeapon ? WeaponKeywords.IgnoreArmour : WeaponKeywords.None,
                 RangedDice = RangedDice,
                 MeleeDice = MeleeDice,
                 RangedWeaponDice = RangedWeaponDice,
@@ -527,6 +546,8 @@ public sealed record ModelProfile
                 Treats = Treats,
                 HealingWaters = HealingWaters,
                 GrindsToDust = GrindsToDust,
+                Tramples = Tramples,
+                Horde = Horde,
                 Martyrdom = Martyrdom,
                 Talismans = Talismans,
                 ShotsIgnoreMarkers = ShotsIgnoreMarkers,
@@ -580,6 +601,8 @@ public sealed record ModelProfile
             Treats = Treats,
             HealingWaters = HealingWaters,
             GrindsToDust = GrindsToDust,
+            Tramples = Tramples,
+            Horde = Horde,
             Martyrdom = Martyrdom,
             Talismans = Talismans,
             ShotsIgnoreMarkers = ShotsIgnoreMarkers,

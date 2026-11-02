@@ -124,6 +124,10 @@ public sealed record ReadyModel(
     public bool CounterCharge { get; init; }
     public bool MementoMori { get; init; }
 
+    // Roster stage R6d (U120): the Trample ACTION, and Overwhelming Horde's DICE on its attacks without a weapon.
+    public bool Tramples { get; init; }
+    public bool Horde { get; init; }
+
     // Roster stage R5j (U115): the Trigger Martyrdom Device ACTION.
     public bool Martyrdom { get; init; }
 }
@@ -206,7 +210,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("tramples", m.Tramples), ("horde", m.Horde) })
                     {
                         if (on)
                         {
@@ -470,6 +474,22 @@ public static class MatchReadiness
                     without.Add($"{who}: {digger.Name} used as a {(diggerUse == "trench-club" ? "Trench Club" : "2-handed Melee Weapon")} (it fights with its other Melee Weapon)");
                 }
             }
+            // Roster stage R6d (U120): an ability that fights without a weapon gives a model with no other Melee Weapon (nor a
+            // dual-purpose Pistol) its attack: no weapon DICE, INJURY DICE or modifier (U114), with the keywords the ability
+            // names. With a weapon it fights with that, and the ability's attack is named.
+            var horde = false;
+            if (NaturalWeapon(abilities, entry) is { } natural)
+            {
+                if (blades.Count == 0 && !guns.Any(g => g.AlsoMelee))
+                {
+                    blades.Add(natural);
+                    horde = abilities.Contains(OverwhelmingHorde);
+                }
+                else
+                {
+                    without.Add($"{who}: {natural.Name}'s attack without a weapon (it fights with its Melee Weapon)");
+                }
+            }
             // A model with no Melee Weapon fights with its dual-purpose Pistol: that one is its first ranged weapon. With
             // fewer than two Melee Weapons, another dual-purpose Pistol is its second Melee Weapon (p. 69, U100).
             if (blades.Count == 0 && guns.Count == 2 && !guns[0].AlsoMelee && guns[1].AlsoMelee)
@@ -561,6 +581,8 @@ public static class MatchReadiness
                 HuntsTheTough = abilities.Contains(Mubarizun),
                 CounterCharge = abilities.Contains(CounterCharge),
                 MementoMori = abilities.Contains(MementoMori),
+                Tramples = abilities.Contains(TrampleAction),
+                Horde = horde,
             };
             models.Add(Unburdened(ready, abilities, grenade));
         }
@@ -634,11 +656,40 @@ public static class MatchReadiness
     private const string ArtificialLife = "Artificial Life";
     private const string NailedCross = "Nailed Cross";
     private static readonly string[] NailedCrossKit = ["iron-capirote", "gas-mask"];
+    // Roster stage R6d (U120).
+    private const string TeethAndClaws = "Teeth & Claws";
+    private const string TeethAndClawsLion = "Teeth and Claws";
+    private const string FeebleFlailing = "Feeble Flailing";
+    private const string CrushingBlows = "Crushing Blows";
+    private const string PoisonStingers = "Poison Stingers";
+    private const string OverwhelmingHorde = "Overwhelming Horde";
+    private const string TrampleAction = "Trample ACTION";
+
+    // The attack an ability makes without a weapon: Poison Stingers CLEAVE 2 and SHRAPNEL, Crushing Blows CLEAVE 2,
+    // Feeble Flailing -1 DICE, Teeth & Claws and Overwhelming Horde (its DICE come in the match) plain; null without one.
+    private static CatalogueEntry? NaturalWeapon(HashSet<string> abilities, ModelEntry entry)
+    {
+        var name = new[] { PoisonStingers, CrushingBlows, FeebleFlailing, TeethAndClaws, TeethAndClawsLion, OverwhelmingHorde }.FirstOrDefault(abilities.Contains);
+        if (name is null)
+        {
+            return null;
+        }
+        IReadOnlyList<KeywordUse> keywords = name switch
+        {
+            PoisonStingers => [new("CLEAVE", 2, null), new("SHRAPNEL", null, null)],
+            CrushingBlows => [new("CLEAVE", 2, null)],
+            _ => [],
+        };
+        var page = entry.Abilities.First(a => a.Name == name).Page;
+        return new CatalogueEntry("natural-weapon", name, KitCategory.Melee, 0, null, false, null, keywords, name == FeebleFlailing ? -1 : 0, 0, 0, null, [],
+            entry.Source with { Page = page }, DataStatus.Verified, null, Naming.Keep, false);
+    }
 
     private static readonly HashSet<string> PlayedAbilities = new(StringComparer.Ordinal)
     {
         AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
         Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
+        TeethAndClaws, TeethAndClawsLion, FeebleFlailing, CrushingBlows, PoisonStingers, OverwhelmingHorde, TrampleAction,
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1

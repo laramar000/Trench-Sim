@@ -195,6 +195,9 @@ public static partial class TurnSequence
 
     public static int CounterDice(MatchState state, ModelId attacker) => Reducer.CounterDice(state, attacker);
 
+    // Roster stage R6d (U120): Overwhelming Horde's DICE on a Melee Attack with that weapon now.
+    public static int HordeDice(MatchState state, ModelId attacker, int weapon) => Reducer.HordeDice(state, attacker, weapon);
+
     // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION (Warbands p. 58), once per game.
     private static Rejection? ValidateTrigger(MatchState state, TriggerMartyrdom c)
     {
@@ -300,6 +303,20 @@ public static partial class TurnSequence
                 return new(ReasonCode.ActionAlreadyTaken, "A Grind to Dust ACTION can be taken only once per activation.", RefActions);
             }
             return state.FindModel(c.Target) is { } prey ? Board.AssessMelee(state, attacker!, prey, c.Weapon).Refusal
+                : new(ReasonCode.UnknownModel, "There is no such target.", Board.RefMelee);
+        }
+        // Roster stage R6d (U120): a Trample ACTION (weapon TrampleWeapon), the same kind of ACTION.
+        if (c.Weapon == ModelProfile.TrampleWeapon)
+        {
+            if (state.Setup!.ProfileOf(c.Model) is not { Tramples: true })
+            {
+                return new(ReasonCode.NoSuchAction, "Only a model whose unit has it can take a Trample ACTION.", Board.RefTrample);
+            }
+            if (state.Actions.HasFlag(ActionsTaken.Trample))
+            {
+                return new(ReasonCode.ActionAlreadyTaken, "A Trample ACTION can be taken only once per activation.", RefActions);
+            }
+            return state.FindModel(c.Target) is { } trampled ? Board.AssessMelee(state, attacker!, trampled, c.Weapon).Refusal
                 : new(ReasonCode.UnknownModel, "There is no such target.", Board.RefMelee);
         }
         // Roster stage R3 (U100): a Fight with attacks still to come (a second weapon, CLEAVE) goes on with the next one.
@@ -575,7 +592,7 @@ public static partial class TurnSequence
                 run.Emit(new RetreatDeclared(c.Model, c.Path));
                 break;
             case FightModel c:
-                DeclareMelee(run, state.FindModel(c.Model)!, state.FindModel(c.Target)!, free: false, c.Weapon, c.Weapon != ModelProfile.GrindWeapon && (NextFightAttack(state, c.Model)?.OffHand ?? false));
+                DeclareMelee(run, state.FindModel(c.Model)!, state.FindModel(c.Target)!, free: false, c.Weapon, !ModelProfile.IsActionAttack(c.Weapon) && (NextFightAttack(state, c.Model)?.OffHand ?? false));
                 break;
             case FreeFight c:
                 DeclareMelee(run, state.FindModel(c.Attacker)!, state.FindModel(state.Retreat!.Model)!, free: true, c.Weapon, offHand: false);

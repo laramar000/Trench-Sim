@@ -300,3 +300,8 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   Dash, Corpulent, Artificial Life, Undead Fortitude, Abiotic Life, Stealth Generator, Mubarizun, Counter-Charge, Memento
   Mori and Nailed Cross are played (U119). Tests: `NumberAbilityTests`, `TraitWireTests.NumberAbilitiesRoundTripAndAreLeftOutWhenFalse`,
   `MatchReadinessTests.NumberAbilitiesArePlayed`, `ModelTraitDisplayTests.NumberAbilitiesAreExplained`.
+- Roster rules stage R6d, attacks without a weapon (done 2026-11-01): Teeth & Claws, Feeble Flailing, Crushing Blows,
+  Poison Stingers and Overwhelming Horde give a weaponless model its attack, and the Trample ACTION is played (U120); oval
+  bases (Plague Hound, Pit Locust) are still refused. Tests: `TrampleAndHordeTests`,
+  `TraitWireTests.TrampleAndHordeRoundTripAndAreLeftOutWhenFalse`, `MatchReadinessTests.AttacksWithoutAWeaponArePlayed`,
+  `ModelTraitDisplayTests.TrampleAndHordeAreExplained`.

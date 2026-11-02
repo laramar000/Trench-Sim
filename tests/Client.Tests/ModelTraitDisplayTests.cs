@@ -535,6 +535,67 @@ public class ModelTraitDisplayTests
         Assert.Contains("first Out of Action counts as No Effect", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
     }
 
+    // Roster stage R6d (U120): Trample is in the Combat menu (key 0) and previewed; a fight's preview dice match the
+    // server's with Overwhelming Horde; every Melee Attack's breakdown adds up and names the Horde's dice.
+    [Fact]
+    public void TrampleAndHordeAreExplained()
+    {
+        var (tramples, hordes) = (0, 0);
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select((m, i) => m with { Profile = m.Profile with { Tramples = i % 2 == 0, Horde = i % 2 == 1 } }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            var log = new ResolutionLog();
+            var seq = 0;
+            DicePreview? pending = null;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is MeleeAttackDeclared m && state.ActiveModel == m.Attacker && !m.FreeFight && state.Pending is null
+                    && state.FindModel(m.Attacker) is { } attacker)
+                {
+                    var preview = Previews.Target(state, attacker.Seat, PreviewKind.Fight, m.Attacker, m.Target, m.Weapon);
+                    Assert.True(preview.Legal, preview.Refusal?.Text);
+                    pending = preview.Dice;
+                    if (m.Weapon == ModelProfile.TrampleWeapon)
+                    {
+                        Assert.Contains(Previews.TrampleFact, preview.Facts);
+                        var interaction = new Interaction();
+                        interaction.Update(state, attacker.Seat);
+                        Assert.True(interaction.Start(InteractionMode.Combat));
+                        Assert.Contains(interaction.CombatEntries(), c => c.Weapon == ModelProfile.TrampleWeapon && c.Key == "0" && c.Enabled);
+                        Assert.Equal(ModelProfile.TrampleWeapon, interaction.ZeroKeyWeapon);
+                        Assert.Equal(("TRAMPLES", EventText.Describe(m)), (EventText.Compact(m).Verb, Narrator.Describe(m)));
+                        tramples++;
+                    }
+                    hordes += preview.Dice?.HordeDice > 0 ? 1 : 0;
+                }
+                if (e is MarkersSpent { Count: > 0 })
+                {
+                    pending = null;
+                }
+                if (e is MeleeSuccessRolled hit && pending is { } dice)
+                {
+                    Assert.Equal(dice.HitNetDice, hit.Check.NetDice);
+                    pending = null;
+                }
+                var setup = state.Setup;
+                state = Reducer.Apply(state, e);
+                log.Add(++seq, e, setup ?? state.Setup);
+                if (e is MeleeSuccessRolled or InjuryRolled && log.WhyOf(seq) is { } why)
+                {
+                    Assert.True(why.Explained, why.Text);
+                }
+            }
+        }
+        Assert.True(tramples > 0 && hordes > 0, $"{tramples} tramples, {hordes} horde previews");
+        var card = new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true) { Tramples = true, Horde = true };
+        Assert.Contains("Trample ACTION (Combat 0)", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
+        Assert.Contains("Overwhelming Horde", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
+    }
+
     // Roster stage R6b (U118): Aim and Fortify are on the action bar, previewed, logged and broken down; an aimed shot's
     // breakdown names the Aim's +2 DICE.
     [Fact]

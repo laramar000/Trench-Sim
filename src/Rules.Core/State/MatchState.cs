@@ -66,6 +66,7 @@ public enum ActionsTaken
     Trigger = 256, // roster stage R5j (U115): a Trigger Martyrdom Device ACTION
     Aim = 512,     // roster stage R6b (U118): an Aim ACTION
     Fortify = 1024, // roster stage R6b (U118): a Fortify ACTION
+    Trample = 2048, // roster stage R6d (U120): a Trample ACTION
 }
 
 public enum RollStage

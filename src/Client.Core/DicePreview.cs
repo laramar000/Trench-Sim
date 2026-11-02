@@ -32,7 +32,10 @@ public sealed record DicePreview(
     public int TargetInjuryDice { get; init; }
 
     // The Success Roll's dice before markers, as the server rolls them: +DICE and -DICE cancel in pairs (p. 15).
-    public int HitNetDice => HitBonus + AimDice + CounterDice - HitPenalty + OwnHitDice;
+    public int HitNetDice => HitBonus + AimDice + CounterDice + HordeDice - HitPenalty + OwnHitDice;
+
+    // Roster stage R6d (U120): Overwhelming Horde's +1 DICE per friend within 3".
+    public int HordeDice { get; init; }
 
     // Roster stage R6b (U118): +2 DICE on a Ranged Attack after a successful Aim ACTION this activation.
     public int AimDice { get; init; }
@@ -87,6 +90,7 @@ public sealed record DicePreview(
             TargetInjuryDice = AttackDice.TakenDice(setup.ProfileOf(target.Id)!, profile.AttackKeywords(kind)),
             HuntDice = AttackDice.HuntDice(profile, setup.ProfileOf(target.Id)!),
             CounterDice = kind == AttackKind.Melee ? TurnSequence.CounterDice(state, attacker.Id) : 0,
+            HordeDice = kind == AttackKind.Melee ? TurnSequence.HordeDice(state, attacker.Id, weapon) : 0,
             FinishDice = kind == AttackKind.Melee && profile.FinishesTheFallen && target.Status == ModelStatus.Down
                 && (setup.ProfileOf(target.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0 ? 1 : 0,
         };
@@ -189,6 +193,10 @@ public sealed record DicePreview(
         if (CounterDice > 0)
         {
             lines.Insert(0, $"Hit roll: +{CounterDice} DICE (Counter-Charge this activation, Warbands p. 87)");
+        }
+        if (HordeDice > 0)
+        {
+            lines.Insert(0, $"Hit roll: +{HordeDice} DICE (Overwhelming Horde: friends within 3\", Warbands p. 137)");
         }
         if (OwnHitDice != 0)
         {

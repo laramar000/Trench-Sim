@@ -1477,7 +1477,7 @@ public static class Reducer
         var target = state.FindModel(e.Target);
         Require(attacker is not null && target is not null, "Unknown model.");
         var owned = state.Setup!.ProfileOf(e.Attacker)!;
-        Require(e.Weapon == ModelProfile.GrindWeapon ? owned.GrindsToDust && !e.FreeFight && !e.OffHand : e.Weapon < owned.Weapons(AttackKind.Melee), "The model has no such Melee Weapon.");
+        Require(ModelProfile.IsActionAttack(e.Weapon) ? owned.Has(AttackKind.Melee, e.Weapon) && !e.FreeFight && !e.OffHand : e.Weapon < owned.Weapons(AttackKind.Melee), "The model has no such Melee Weapon.");
         Require(e.Block == Board.Blocks(state, e.Attacker, e.Target), "BLOCK applies exactly when the target has it and the attacker charged this turn.");
         Require(e.Fear == Board.Fears(state, e.Attacker, e.Target), "FEAR applies exactly when the target has it and the attacker has neither FEAR nor NEGATE FEAR.");
         var left = state.AttacksLeft is { Next.Length: > 0 } l && l.Attacker == e.Attacker && l.Free == e.FreeFight ? l : null;
@@ -1487,15 +1487,17 @@ public static class Reducer
             var fighter = Active(state, e.Attacker, "A Fight");
             Require(state.InProgress is null && state.Retreat is null, "A Melee Attack waits for the last action to finish.");
             // Roster stage R5i (U114): a Grind to Dust ACTION, once per activation; it ends a Fight's attacks still to come.
-            if (e.Weapon == ModelProfile.GrindWeapon)
+            // Roster stage R6d (U120): a Trample ACTION the same.
+            if (ModelProfile.IsActionAttack(e.Weapon))
             {
-                Require(!state.Actions.HasFlag(ActionsTaken.Grind), "A Grind to Dust ACTION is taken once per activation.");
+                var taken = ActionAttackFlag(e.Weapon);
+                Require(!state.Actions.HasFlag(taken), "A Grind to Dust or Trample ACTION is taken once per activation.");
                 var grind = Board.AssessMelee(state, fighter, target!, e.Weapon);
-                Require(grind.Refusal is null && grind.CoverTerrainId == e.DefendedObstacleId, "The Grind to Dust attack is not legal here, or its modifiers do not match the positions.");
+                Require(grind.Refusal is null && grind.CoverTerrainId == e.DefendedObstacleId, "The Grind to Dust or Trample attack is not legal here, or its modifiers do not match the positions.");
                 var (grindBonus, grindPenalty) = MeleeDice(state, e);
                 return state with
                 {
-                    Actions = state.Actions | ActionsTaken.Grind,
+                    Actions = state.Actions | taken,
                     AttacksLeft = null,
                     InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, grindBonus, grindPenalty, Kind: AttackKind.Melee, Weapon: e.Weapon),
                 };
@@ -1553,10 +1555,22 @@ public static class Reducer
     // A Melee Attack's Success Roll dice: the declared penalty and the attacker's own dice with that weapon (roster
     // stages R1, R3).
     private static (int Bonus, int Penalty) MeleeDice(MatchState state, MeleeAttackDeclared e) =>
-        AttackDice.With(CounterDice(state, e.Attacker), e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Melee, e.Weapon), AttackKind.Melee));
+        AttackDice.With(CounterDice(state, e.Attacker) + HordeDice(state, e.Attacker, e.Weapon), e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Melee, e.Weapon), AttackKind.Melee));
 
     // Roster stage R6c (U119): +1 DICE to the active model's Melee Attacks after a Counter-Charge this activation.
     internal static int CounterDice(MatchState state, ModelId attacker) => state.CounterCharging && state.ActiveModel == attacker ? 1 : 0;
+
+    // Roster stage R6d (U120): the ACTIONS taken by a Grind to Dust or a Trample attack.
+    internal static ActionsTaken ActionAttackFlag(int weapon) => weapon == ModelProfile.TrampleWeapon ? ActionsTaken.Trample : ActionsTaken.Grind;
+
+    // Roster stage R6d (U120): Overwhelming Horde, +1 DICE on its attacks without a weapon (weapon 0) for each other
+    // friendly model on the battlefield within 3" (Down ones too, as for the other auras).
+    internal static int HordeDice(MatchState state, ModelId attacker, int weapon) =>
+        weapon == 0 && state.Setup!.ProfileOf(attacker)!.Horde && state.FindModel(attacker) is { } model && Board.BodyOf(state, model) is { } body
+            ? state.Models.Count(m => m.Seat == model.Seat && m.Id != model.Id && m.Position is not null && m.Status != ModelStatus.OutOfAction && Board.BodyOf(state, m) is { } other && Measure.IsWithin(body, other, HordeReach))
+            : 0;
+
+    private static readonly Length HordeReach = Length.FromInches(3);
 
     private static MatchState OnMeleeSuccessRolled(MatchState state, MeleeSuccessRolled e)
     {

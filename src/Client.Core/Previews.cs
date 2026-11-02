@@ -630,6 +630,17 @@ public static class Previews
             return rejection;
         }
         var grind = weapon == ModelProfile.GrindWeapon;
+        // Roster stage R6d (U120): a Trample ACTION is the same kind of ACTION attack.
+        var trample = weapon == ModelProfile.TrampleWeapon;
+        var action = grind || trample;
+        if (trample && state.Setup?.ProfileOf(id) is not { Tramples: true })
+        {
+            return new(ReasonCode.NoSuchAction, "Only a model whose unit has it can take a Trample ACTION.", RefTrample);
+        }
+        if (trample && state.Actions.HasFlag(ActionsTaken.Trample))
+        {
+            return new(ReasonCode.ActionAlreadyTaken, "A Trample ACTION can be taken only once per activation.", RefActions);
+        }
         if (grind && state.Setup?.ProfileOf(id) is not { GrindsToDust: true })
         {
             return new(ReasonCode.NoSuchAction, "Only a model with Piston Legs can take a Grind to Dust ACTION.", RefGrind);
@@ -638,11 +649,11 @@ public static class Previews
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Grind to Dust ACTION can be taken only once per activation.", RefActions);
         }
-        if (!grind && next is null && state.Actions.HasFlag(ActionsTaken.Fight))
+        if (!action && next is null && state.Actions.HasFlag(ActionsTaken.Fight))
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Fight ACTION can be taken only once per activation.", RefActions);
         }
-        if (!grind && next is null && ActionLimits.MeleeExcluded(state, id, ActionsTaken.Fight) is { } excluded)
+        if (!action && next is null && ActionLimits.MeleeExcluded(state, id, ActionsTaken.Fight) is { } excluded)
         {
             return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
@@ -651,11 +662,11 @@ public static class Previews
             return new(ReasonCode.UnknownModel, "There is no such target.", RefMelee);
         }
         var from = BodyOf(state, attacker!)!;
-        if (!state.Setup!.ProfileOf(attacker!.Id)!.CanMakeMeleeAttack && !grind)
+        if (!state.Setup!.ProfileOf(attacker!.Id)!.CanMakeMeleeAttack && !action)
         {
             return new(ReasonCode.NoMeleeWeapon, "That model has no Melee Weapon.", RefMelee);
         }
-        if (!grind && weapon != 0 && (weapon < 0 || state.Setup.ProfileOf(attacker.Id)!.Weapons(AttackKind.Melee) <= weapon))
+        if (!action && weapon != 0 && (weapon < 0 || state.Setup.ProfileOf(attacker.Id)!.Weapons(AttackKind.Melee) <= weapon))
         {
             return new(ReasonCode.NoMeleeWeapon, "That model has no second Melee Weapon.", RefMelee);
         }
@@ -681,6 +692,10 @@ public static class Previews
         if (grind)
         {
             facts.Add(GrindFact);
+        }
+        if (trample)
+        {
+            facts.Add(TrampleFact);
         }
         // Roster stage R3 (U100): an Off-Hand weapon's attacks and BLOCK after a charge are a penalty die each.
         var offHand = next?.OffHand ?? false;
@@ -715,8 +730,13 @@ public static class Previews
         target != model && state.FindModel(target) is { Status: ModelStatus.Down } ? TreatChoice.StandUp : TreatChoice.RemoveMarker;
 
     // Roster stage R5i (U114): Piston Legs' Grind to Dust ACTION.
+    // Roster stage R6d (U120).
+    public const string TrampleFact = "Trample ACTION (Warbands pp. 88, 140): a Melee Attack with no Melee Weapon, with IGNORE ARMOUR, at a Down enemy.";
+
     public const string GrindFact = "Grind to Dust (Warbands p. 66): a Melee Attack with no Melee Weapon, at a Down enemy on a base of 32 mm or smaller.";
     public const string RefGrind = "Warbands 1.0.2 p. 66";
+
+    public const string RefTrample = "Warbands 1.0.2 pp. 88, 140";
 
     public const string TreatFact = "A Treat is a Risky Success Roll (p. 84): on a Success it is carried out; a Failure ends the activation.";
     public const string HolyWaterFact = "+1 DICE on the Treat roll: Holy Water of Lalibela (Warbands p. 44).";

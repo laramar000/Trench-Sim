@@ -228,6 +228,9 @@ public sealed class Interaction
     // The model placed or acting.
     public ModelId? Actor { get; private set; }
 
+    // Roster stage R5i/R6d: the Combat menu's key 0, Grind to Dust, or Trample for a model without Piston Legs.
+    public int ZeroKeyWeapon => _state.ActiveModel is { } active && _state.Setup?.ProfileOf(active) is { GrindsToDust: false, Tramples: true } ? ModelProfile.TrampleWeapon : ModelProfile.GrindWeapon;
+
     public TablePoint Cursor { get; private set; }
 
     public IReadOnlyList<TablePoint> Waypoints => _waypoints;
@@ -1150,6 +1153,11 @@ public sealed class Interaction
         {
             choices.Add((InteractionMode.Fight, ModelProfile.GrindWeapon, "0"));
         }
+        // Roster stage R6d (U120): a Trample ACTION; 0 too, unless the model also has Grind to Dust.
+        if (_state.Setup?.ProfileOf(actor) is { Tramples: true } trampler)
+        {
+            choices.Add((InteractionMode.Fight, ModelProfile.TrampleWeapon, trampler.GrindsToDust ? "" : "0"));
+        }
         // Roster stage R5a: 7, 8 and 9 aim a BLAST weapon (first, second, grenade) at a point.
         foreach (var weapon in Previews.BlastWeaponsOf(_state, actor))
         {
@@ -1169,7 +1177,7 @@ public sealed class Interaction
                     : new CombatEntry(mode, blastLabel, key, true, null, 0, weapon));
                 continue;
             }
-            var label = weapon == 0 ? Words(mode) : weapon == ModelProfile.GrenadeWeapon ? "Throw grenade" : weapon == ModelProfile.GrindWeapon ? "Grind to Dust" : $"{Words(mode)}, 2nd weapon";
+            var label = weapon == 0 ? Words(mode) : weapon == ModelProfile.GrenadeWeapon ? "Throw grenade" : weapon == ModelProfile.GrindWeapon ? "Grind to Dust" : weapon == ModelProfile.TrampleWeapon ? "Trample" : $"{Words(mode)}, 2nd weapon";
             if (ActionOpen(seat, actor, Kind(mode), weapon) is { } closed)
             {
                 entries.Add(new CombatEntry(mode, label, key, false, $"{closed.Text} ({closed.RuleRef})", 0, weapon));
@@ -1503,6 +1511,7 @@ public sealed class Interaction
         ShootPoint s => $"Blast {TablePoint.Of(s.At)} with {s.Attacker.Value}",
         ChargeModel c => $"Charge {c.Target.Value} with {c.Model.Value}",
         FightModel { Weapon: ModelProfile.GrindWeapon } g => $"Grind {g.Target.Value} to dust with {g.Model.Value}",
+        FightModel { Weapon: ModelProfile.TrampleWeapon } t => $"Trample {t.Target.Value} with {t.Model.Value}",
         FightModel f => $"Fight {f.Target.Value} with {f.Model.Value}",
         TriggerMartyrdom d => $"Detonate the Martyrdom Device of {d.Model.Value}",
         TakeSelfAction a => $"{a.Action} with {a.Model.Value}",

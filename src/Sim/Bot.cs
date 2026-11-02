@@ -172,6 +172,14 @@ public sealed class Bot(Random rng)
                 yield return new FightModel(seat, model.Id, target.Id) { Weapon = ModelProfile.GrindWeapon };
             }
         }
+        // Roster stage R6d (U120): a model with Trample tramples a Down enemy first, when it can (no random numbers).
+        if (profile.Tramples && !state.Actions.HasFlag(ActionsTaken.Trample))
+        {
+            foreach (var target in Targets(state, model).Where(t => t.Status == ModelStatus.Down).Take(3))
+            {
+                yield return new FightModel(seat, model.Id, target.Id) { Weapon = ModelProfile.TrampleWeapon };
+            }
+        }
         var kinds = new List<string>();
         var melee = state.Setup!.ProfileOf(model.Id)!.CanMakeMeleeAttack;
         var engaged = melee && NearestEnemy(state, model) is { } nearest && Gap(state, model, nearest) <= Length.Inch;
