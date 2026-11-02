@@ -308,3 +308,7 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
 - Roster rules stage R6e, Enforced Orthodoxy and Laying on of Hands (done 2026-11-02): both ACTIONS are played (U121).
   Tests: `HelpingActionTests`, `TraitWireTests.HelpingActionsRoundTripAndAreLeftOutWhenUnset`,
   `MatchReadinessTests.HelpingActionsArePlayed`, `ModelTraitDisplayTests.HelpingActionsAreExplained`.
+- Roster rules stage R6f, upgrades in matches (done 2026-11-02): Legionnaire, Zealot Strength, Janissary Veteran, Fearsome,
+  Rapid Assault, Blind Rage and Kavass are played (U122); the builder refuses both Legionnaire upgrades or Kavass with Light
+  Skirmisher on one model, and more Legionnaires than plain Troopers. Tests: `UpgradeRuleTests`,
+  `MatchReadinessTests.UpgradesArePlayed`.

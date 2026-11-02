@@ -728,6 +728,54 @@ public class MatchReadinessTests
         Assert.DoesNotContain("laysOnHands", plain, StringComparison.Ordinal);
     }
 
+    // Roster stage R6f (U122): the upgrades the engine plays: Legionnaire, Zealot Strength (and a Trench Pilgrim's 32 mm
+    // base), Janissary Veteran, Fearsome and Kavass; the others are still named.
+    [Fact]
+    public void UpgradesArePlayed()
+    {
+        ModelProfile With(string faction, string? variant, string entry, string upgrade, params string[] kit)
+        {
+            var builder = RosterBuilder.Shipped();
+            builder.ChooseFaction(faction);
+            builder.ChooseVariant(variant);
+            builder.Select(builder.Add(entry));
+            foreach (var k in kit)
+            {
+                builder.AddKit(k);
+            }
+            builder.ToggleUpgrade(upgrade);
+            Assert.Equal([upgrade], builder.Roster.Models.Single().Upgrades);
+            var ready = builder.MatchCheck();
+            Assert.True(ready.Refused.Count == 0, string.Join("; ", ready.Refused));
+            Assert.DoesNotContain(ready.PlayedWithout, w => w.EndsWith(": " + UpgradeName(faction, upgrade), StringComparison.Ordinal) || w.Contains(UpgradeName(faction, upgrade) + "'s keywords", StringComparison.Ordinal));
+            return Loaded(ready);
+        }
+        static string UpgradeName(string faction, string id) => id switch
+        {
+            "legionnaire-ranged" => "Legionnaire (Ranged +1)",
+            "legionnaire-melee" => "Legionnaire (Melee +1)",
+            "zealot-strength" => "Zealot Strength",
+            "janissary-veteran" => "Janissary Veteran",
+            "fear" => "Fearsome",
+            _ => "Kavass",
+        };
+        var plainTrooper = Loaded(Of("heretics", "heretic-trooper", "trench-club").MatchCheck());
+        Assert.Equal(plainTrooper.RangedDice + 1, With("heretics", null, "heretic-trooper", "legionnaire-ranged", "trench-club").RangedDice);
+        Assert.Equal(plainTrooper.MeleeDice + 1, With("heretics", null, "heretic-trooper", "legionnaire-melee", "trench-club").MeleeDice);
+        var castigator = With("pilgrims", null, "castigator", "zealot-strength", "trench-club");
+        Assert.True(castigator.Traits.HasFlag(ModelTraits.NegateHeavy));
+        var pilgrim = With("pilgrims", null, "trench-pilgrim", "zealot-strength", "trench-club");
+        Assert.Equal(Loaded(Of("pilgrims", "castigator", "trench-club").MatchCheck()).BaseRadius, pilgrim.BaseRadius);
+        var veteran = With("sultanate", null, "yuzbasi", "janissary-veteran", "trench-club");
+        Assert.Equal((true, true), (veteran.CounterCharge, veteran.Traits.HasFlag(ModelTraits.NegateHeavy)));
+        Assert.True(With("sultanate", null, "alchemical-lion", "fear").Traits.HasFlag(ModelTraits.Fear));
+        Assert.Equal(0, With("sultanate", "house-of-wisdom", "azeb", "kavass", "trench-club").MeleeDice);
+        // An upgrade the engine does not play is still named.
+        var mole = Of("principality", "yeoman", "pistol");
+        mole.ToggleUpgrade("trench-mole");
+        Assert.Contains(mole.MatchCheck().PlayedWithout, w => w.Contains("Trench Mole", StringComparison.Ordinal));
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

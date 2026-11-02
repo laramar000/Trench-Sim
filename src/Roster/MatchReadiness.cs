@@ -275,6 +275,25 @@ public static class MatchReadiness
 
     // Roster stage R5j (U115): the upgrade that gives the Trigger Martyrdom Device ACTION.
     public const string MartyrdomUpgrade = "martyrdom-device";
+
+    // Roster stage R6f (U122): what an upgrade the engine plays gives, beside its keywords (STRONG, FEAR): Ranged or Melee
+    // DICE, a Melee Characteristic set to a number (Kavass: +0 instead of -1), +1 DICE to the Dash roll, Counter-Charge,
+    // and a base that changes for one entry (a Trench Pilgrim with Zealot Strength has a 32 mm base).
+    private sealed record PlayedUpgrade(int RangedDice = 0, int MeleeDice = 0, int? MeleeTo = null, bool Dash = false, bool CounterCharge = false, string? BaseFor = null);
+
+    private static readonly Dictionary<string, PlayedUpgrade> PlayedUpgrades = new(StringComparer.Ordinal)
+    {
+        ["legionnaire-ranged"] = new(RangedDice: 1),
+        ["legionnaire-melee"] = new(MeleeDice: 1),
+        ["zealot-strength"] = new(BaseFor: "trench-pilgrim"),
+        ["janissary-veteran"] = new(CounterCharge: true),
+        ["fear"] = new(),
+        ["rapid-assault"] = new(Dash: true),
+        ["blind-rage"] = new(Dash: true),
+        ["kavass"] = new(MeleeTo: 0),
+    };
+
+    private const int ZealotBaseMm = 32;
     public const int MaxRangeInches = 60;
     public const int MaxModifier = 3;
     public const int MaxDice = 6;
@@ -335,6 +354,8 @@ public static class MatchReadiness
             {
                 without.Add($"{who}: its abilities ({string.Join(", ", skipped)})");
             }
+            var baseMm = entry.BaseWidthMm;
+            var (upgradeDash, upgradeCounter) = (false, false);
             foreach (var upgradeId in model.Upgrades)
             {
                 // Roster stage R5j (U115): the Martyrdom Device upgrade is played (its Trigger ACTION).
@@ -342,9 +363,26 @@ public static class MatchReadiness
                 {
                     martyrdom = true;
                 }
-                else if (entry.Upgrades.FirstOrDefault(u => u.Id == upgradeId) is { } upgrade)
+                // Roster stage R6f (U122): the upgrades the engine plays: their keywords and what PlayedUpgrades says.
+                else if (entry.Upgrades.FirstOrDefault(u => u.Id == upgradeId) is { } upgrade && PlayedUpgrades.TryGetValue(upgrade.Id, out var played))
                 {
-                    without.Add($"{who}: {upgrade.Name}");
+                    if (upgrade.AddsKeywords.Where(k => !Gain(k, gains)).ToList() is { Count: > 0 } lost)
+                    {
+                        without.Add($"{who}: {upgrade.Name}'s keywords ({string.Join(", ", lost.Select(KeywordText))})");
+                    }
+                    rangedBonus += played.RangedDice;
+                    meleeBonus += played.MeleeTo is { } to && entry.Melee is { } own ? to - own : 0;
+                    meleeBonus += played.MeleeDice;
+                    upgradeDash |= played.Dash;
+                    upgradeCounter |= played.CounterCharge;
+                    if (played.BaseFor == entry.Id)
+                    {
+                        baseMm = ZealotBaseMm;
+                    }
+                }
+                else if (entry.Upgrades.FirstOrDefault(u => u.Id == upgradeId) is { } unplayedUpgrade)
+                {
+                    without.Add($"{who}: {unplayedUpgrade.Name}");
                 }
             }
 
@@ -529,7 +567,7 @@ public static class MatchReadiness
             {
                 continue;
             }
-            var ready = new ReadyModel(name, entry.MovementInches, entry.BaseWidthMm,
+            var ready = new ReadyModel(name, entry.MovementInches, baseMm,
                 ranged?.RangeInches ?? 0, Clamp(ranged?.InjuryModifier ?? 0), ranged?.AlsoMelee == true,
                 armour, melee is not null, Clamp(melee?.InjuryModifier ?? 0))
             {
@@ -577,13 +615,13 @@ public static class MatchReadiness
                 Aims = abilities.Contains(AimAction),
                 Fortifies = abilities.Contains(FortifyAction),
                 Agile = abilities.Contains(Agile),
-                SwiftDash = abilities.Contains(FrighteningSpeed) || abilities.Contains(LopingDash) || abilities.Contains(MadDash),
+                SwiftDash = upgradeDash || abilities.Contains(FrighteningSpeed) || abilities.Contains(LopingDash) || abilities.Contains(MadDash),
                 QuickToRise = abilities.Contains(FrighteningSpeed),
                 UndeadFortitude = abilities.Contains(UndeadFortitude),
                 AbioticLife = abilities.Contains(AbioticLife),
                 Stealthy = abilities.Contains(StealthGenerator),
                 HuntsTheTough = abilities.Contains(Mubarizun),
-                CounterCharge = abilities.Contains(CounterCharge),
+                CounterCharge = upgradeCounter || abilities.Contains(CounterCharge),
                 MementoMori = abilities.Contains(MementoMori),
                 Tramples = abilities.Contains(TrampleAction),
                 Horde = horde,

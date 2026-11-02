@@ -175,6 +175,15 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-02, Jason (mid-R6e): "In the history log I want to visually see the dice for the rolls so there's no
   wondering" = next, before R6f. Done: `LogLine.Faces` + a settled `DieStrip` (scale 0.6) under each log row with a roll;
   not seen in Godot yet (no Godot on this Windows PC). Pushed R6e 592b378.
+  Pushed log dice 664901a.
+- Done: R6f (U122): the survey was wrong, the purchase options were already upgrades. Readiness `PlayedUpgrades` plays
+  Legionnaire (Ranged/Melee +1), Zealot Strength (STRONG; Trench Pilgrim base 32 mm), Janissary Veteran (STRONG +
+  Counter-Charge), Fearsome, Rapid Assault, Blind Rage (SwiftDash), Kavass (Melee +0). `RosterValidator` refuses
+  `ExclusiveUpgrades` on one model and more Legionnaires than plain Troopers. Essentials 2,230/0. That ends Jason's
+  "Do 1 - 4".
+- Next (not started, owner to choose): the survey's "later" group (Court spells, INFECTION/BLESSING MARKERS, Bodyguard,
+  moving other models, Set/Defuse Mine, Hide, Hateful, multi-Fight models, Time Slip, deployment rules), oval bases
+  (Plague Hound, Pit Locust), and a Windows Godot run to check the UI (log dice, keys I V Y Z, Trample on key 0).
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):
   R6c numbers on existing hooks: Dash +1 DICE (Frightening Speed, Loping Dash, Mad Dash, Agile's Dash/Climb part),
   INJURY DICE against it (Corpulent -2, Artificial Life, Undead Fortitude unless FIRE, Abiotic Life vs GAS), Stealth

@@ -13,6 +13,11 @@ public static class RosterValidator
 {
     public const int MaximumElites = 6;
 
+    // Roster stage R6f (U122): the Legionnaire upgrades, and upgrades one model cannot have together (Warbands pp. 112, 84).
+    private static readonly string[] Legionnaires = ["legionnaire-ranged", "legionnaire-melee"];
+
+    private static readonly (string, string)[] ExclusiveUpgrades = [("legionnaire-ranged", "legionnaire-melee"), ("kavass", "light-skirmisher")];
+
     public static RosterCheck Check(WarbandRoster roster, Faction faction, Catalogue catalogue)
     {
         var problems = new List<string>();
@@ -86,6 +91,10 @@ public static class RosterValidator
                 if (upgrade.Note is not null)
                     notes.Add($"{upgrade.Name}: {upgrade.Note}");
             }
+            // Roster stage R6f (U122): upgrades that exclude each other on one model.
+            foreach (var (one, other) in ExclusiveUpgrades)
+                if (model.Upgrades.Contains(one) && model.Upgrades.Contains(other))
+                    problems.Add($"{who}: {entry.Upgrades.FirstOrDefault(u => u.Id == one)?.Name ?? one} and {entry.Upgrades.FirstOrDefault(u => u.Id == other)?.Name ?? other} cannot both be bought for one model");
             if (keywords.Contains("ELITE"))
                 elites++;
 
@@ -181,6 +190,11 @@ public static class RosterValidator
                 if (upgrade.MaxPerWarband is { } most && upgradeCounts.GetValueOrDefault((entry.Id, upgrade.Id)) > most)
                     problems.Add($"at most {most} {entry.Name} can have {upgrade.Name} (it has {upgradeCounts[(entry.Id, upgrade.Id)]})");
         }
+        // Roster stage R6f (U122): never more Legionnaires than plain Heretic Troopers (Warbands p. 112).
+        var troopers = roster.Models.Where(m => entries.FirstOrDefault(e => e.Id == m.Entry)?.Upgrades.Any(u => Legionnaires.Contains(u.Id)) == true).ToList();
+        var legionnaires = troopers.Count(m => m.Upgrades.Any(Legionnaires.Contains));
+        if (legionnaires > troopers.Count - legionnaires)
+            problems.Add($"a warband can never have more Legionnaires than plain Troopers (it has {legionnaires} and {troopers.Count - legionnaires})");
         if (elites > MaximumElites)
             problems.Add($"a warband can never include more than {MaximumElites} ELITE models (it has {elites})");
         foreach (var item in armoury)
