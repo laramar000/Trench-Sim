@@ -32,7 +32,10 @@ public sealed record DicePreview(
     public int TargetInjuryDice { get; init; }
 
     // The Success Roll's dice before markers, as the server rolls them: +DICE and -DICE cancel in pairs (p. 15).
-    public int HitNetDice => HitBonus - HitPenalty + OwnHitDice;
+    public int HitNetDice => HitBonus + AimDice - HitPenalty + OwnHitDice;
+
+    // Roster stage R6b (U118): +2 DICE on a Ranged Attack after a successful Aim ACTION this activation.
+    public int AimDice { get; init; }
 
     // The Injury Roll's dice before markers and a Critical Success.
     public int InjuryNetDice => InjuryBonus + OwnInjuryDice + ShotgunInjuryDice + TargetInjuryDice + FinishDice;
@@ -73,6 +76,7 @@ public sealed record DicePreview(
             ExtraMarkers = AttackDice.ExtraMarkers(profile, kind, setup.ProfileOf(target.Id)!),
             CriticalDice = AttackDice.CriticalInjuryDice(profile.AttackKeywords(kind)),
             HitBonus = hitBonus,
+            AimDice = kind == AttackKind.Ranged ? TurnSequence.AimedDice(state, attacker.Id) : 0,
             OwnHitDice = AttackDice.OwnDice(profile, kind),
             OwnHitParts = OwnParts(profile, kind),
             OwnInjuryDice = AttackDice.OwnInjuryDice(profile, kind),
@@ -171,6 +175,10 @@ public sealed record DicePreview(
         if (HitBonus > 0)
         {
             lines.Insert(0, $"Hit roll: +{HitBonus} DICE (Elevated position, 3\" or more above the target, p. 43)");
+        }
+        if (AimDice > 0)
+        {
+            lines.Insert(0, $"Hit roll: +{AimDice} DICE (Aim ACTION this activation, Warbands p. 28)");
         }
         if (OwnHitDice != 0)
         {

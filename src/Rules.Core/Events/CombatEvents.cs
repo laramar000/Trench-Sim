@@ -675,3 +675,24 @@ public sealed record TreatRolled : GameEvent
 // Roster stage R5k (U116): after its failed Risky Success Roll, Model uses one of its Talismans (core rulebook pp. 81, 86):
 // its activation does not end. Declining is the ActivationEnded (RiskyFailure) that would have come anyway.
 public sealed record TalismanUsed(ModelId Model) : GameEvent;
+
+// Roster stage R6b (U118): an Aim or Fortify ACTION is declared: its Risky Success Roll comes next (after the offer to
+// spend the model's Blood Markers).
+public sealed record SelfActionDeclared(ModelId Model, SelfActionKind Action) : GameEvent;
+
+// The Aim or Fortify ACTION's Risky Success Roll; anything but a Failure carries it out.
+public sealed record SelfActionRolled : GameEvent
+{
+    public SelfActionRolled(ModelId model, SelfActionKind action, SuccessRollResult check)
+    {
+        ArgumentNullException.ThrowIfNull(check);
+        Model = model;
+        Action = action;
+        Check = check;
+    }
+
+    public ModelId Model { get; }
+    public SelfActionKind Action { get; }
+    public SuccessRollResult Check { get; }
+    public bool Succeeded => Check.Outcome != SuccessOutcome.Failure;
+}

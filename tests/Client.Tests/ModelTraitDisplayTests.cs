@@ -453,6 +453,64 @@ public class ModelTraitDisplayTests
         Assert.Contains("Martyrdom Device (B), once per game", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
     }
 
+    // Roster stage R6b (U118): Aim and Fortify are on the action bar, previewed, logged and broken down; an aimed shot's
+    // breakdown names the Aim's +2 DICE.
+    [Fact]
+    public void SelfActionsAreExplained()
+    {
+        var (declared, aimedShots) = (0, 0);
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select((m, i) => m with { Profile = m.Profile with { Aims = i % 2 == 0, Fortifies = i % 2 == 1 } }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            var log = new ResolutionLog();
+            var seq = 0;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is SelfActionDeclared d && state.FindModel(d.Model) is { } model)
+                {
+                    var (kind, mode) = d.Action == SelfActionKind.Aim ? (PreviewKind.Aim, InteractionMode.Aim) : (PreviewKind.Fortify, InteractionMode.Fortify);
+                    var preview = Previews.Target(state, model.Seat, kind, d.Model, d.Model);
+                    Assert.Null(preview.Refusal);
+                    Assert.Equal(new Rules.Core.Commands.TakeSelfAction(model.Seat, d.Model, d.Action), preview.Command);
+                    Assert.Contains(d.Action == SelfActionKind.Aim ? Previews.AimFact : Previews.FortifyFact, preview.Facts);
+                    var interaction = new Interaction();
+                    interaction.Update(state, model.Seat);
+                    Assert.Contains(mode, interaction.BarOffered);
+                    Assert.Contains(interaction.Bar(null).Items, b => b.Kind == BarKind.Start && b.Mode == mode);
+                    Assert.DoesNotContain(d.Action == SelfActionKind.Aim ? InteractionMode.Fortify : InteractionMode.Aim, interaction.Available);
+                    Assert.Equal(EventKind.Status, EventText.Kind(d));
+                    declared++;
+                }
+                if (e is SelfActionRolled r)
+                {
+                    Assert.Equal(EventText.Describe(r), Narrator.Describe(r));
+                    Assert.Contains(r.Succeeded ? (r.Action == SelfActionKind.Aim ? "AIMED" : "FORTIFIED") : (r.Action == SelfActionKind.Aim ? "AIM FAILED" : "FORTIFY FAILED"), DiceRolls.Of(r)!.Result, StringComparison.Ordinal);
+                }
+                var aiming = e is RangedSuccessRolled shot && state.Aiming && state.ActiveModel == shot.Attacker;
+                var setup = state.Setup;
+                state = Reducer.Apply(state, e);
+                log.Add(++seq, e, setup ?? state.Setup);
+                if (e is SelfActionRolled or RangedSuccessRolled && log.WhyOf(seq) is { } why)
+                {
+                    Assert.True(why.Explained, why.Text);
+                    if (aiming)
+                    {
+                        Assert.Contains("Aim ACTION", why.Text, StringComparison.Ordinal);
+                        aimedShots++;
+                    }
+                }
+            }
+        }
+        Assert.True(declared > 0 && aimedShots > 0, $"{declared} declared, {aimedShots} aimed shots");
+        var card = new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true) { Aims = true, Fortifies = true };
+        Assert.Contains("Aim ACTION (I)", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
+        Assert.Contains("Fortify ACTION (V)", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
+    }
+
     // Roster stage R5f (U110): the previews and the breakdown name the COVER keyword's die.
     [Fact]
     public void CoverKeywordIsExplained()

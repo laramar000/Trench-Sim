@@ -380,6 +380,15 @@ public static class UnitPanel
         {
             parts.Add("Martyrdom Device (B), once per game");
         }
+        // Roster stage R6b (U118).
+        if (p.Aims)
+        {
+            parts.Add("Aim ACTION (I)");
+        }
+        if (p.Fortifies)
+        {
+            parts.Add("Fortify ACTION (V)");
+        }
         // Roster stage R6a (U117): New Antioch abilities.
         if (p.ShotsIgnoreMarkers)
         {

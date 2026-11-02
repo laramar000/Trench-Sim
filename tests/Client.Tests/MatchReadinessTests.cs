@@ -611,9 +611,10 @@ public class MatchReadinessTests
             Assert.All(names, n => Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains(n, StringComparison.Ordinal)));
         }
         var priest = Of("principality", "blind-marksman", "sniper-rifle").MatchCheck();
-        Played(priest, "Absolute Faith");
-        Assert.Contains(priest.PlayedWithout, w => w.Contains("its abilities (Aim ACTION)", StringComparison.Ordinal));
-        Assert.True(Loaded(priest).ShotsIgnoreMarkers);
+        // Roster stage R6b (U118): and its Aim ACTION.
+        Played(priest, "Absolute Faith", "Aim ACTION");
+        Assert.Equal((true, true), (Loaded(priest).ShotsIgnoreMarkers, Loaded(priest).Aims));
+        Assert.Contains("\"aims\": true", priest.ToContentJson("p", "P"), StringComparison.Ordinal);
         Assert.Contains("\"shotsIgnoreMarkers\": true", priest.ToContentJson("p", "P"), StringComparison.Ordinal);
 
         var medic = Of("principality", "combat-medic").MatchCheck();
@@ -632,12 +633,17 @@ public class MatchReadinessTests
 
         // Battlefield Demolition: the same for its Satchel Charge.
         var engineer = Of("principality", "combat-engineer", "pistol", "satchel-charge").MatchCheck();
-        Played(engineer, "Battlefield Demolition");
+        Played(engineer, "Battlefield Demolition", "Fortify ACTION");
+        Assert.True(Loaded(engineer).Fortifies);
+        // The Sultanate's Fortify ACTION too (Warbands p. 85).
+        var sapper = Of("sultanate", "sapper").MatchCheck();
+        Played(sapper, "Fortify ACTION");
+        Assert.Equal((true, false), (Loaded(sapper).Fortifies, Loaded(sapper).Aims));
         Assert.Equal(WeaponKeywords.None, Loaded(engineer).Grenade!.Keywords & WeaponKeywords.Heavy);
         Assert.NotEqual(WeaponKeywords.None, Loaded(Of("principality", "yeoman", "pistol", "satchel-charge").MatchCheck()).Grenade!.Keywords & WeaponKeywords.Heavy);
 
         var plain = Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P");
-        Assert.All(new[] { "shotsIgnoreMarkers", "expertMedic", "finishesTheFallen", "extraChargeDie", "inspiresFaithful" },
+        Assert.All(new[] { "shotsIgnoreMarkers", "expertMedic", "finishesTheFallen", "extraChargeDie", "inspiresFaithful", "aims", "fortifies" },
             f => Assert.DoesNotContain(f, plain, StringComparison.Ordinal));
     }
 

@@ -62,6 +62,9 @@ public sealed class ResolutionLog
     private readonly List<Builder> _actions = [];
     private Builder? _current;
 
+    // Roster stage R6b (U118): the model whose Aim ACTION succeeded this activation (+2 DICE on its shots).
+    private ModelId? _aiming;
+
     private sealed class Builder(int seq, ModelId actor, string headline, AttackKind? kind, ModelId? target)
     {
         public int Seq { get; } = seq;
@@ -98,6 +101,7 @@ public sealed class ResolutionLog
         _actions.Clear();
         _owner.Clear();
         _current = null;
+        _aiming = null;
         _last = -1;
     }
 
@@ -141,6 +145,14 @@ public sealed class ResolutionLog
                 if (setup?.ProfileOf(t.Model) is { HealingWaters: true })
                 {
                     _current!.Dice.Add(new("Holy Water of Lalibela", 1));
+                }
+                break;
+            case SelfActionDeclared s:
+                // Roster stage R6b (U118): an Aim (+2 DICE on its roll) or Fortify ACTION.
+                Start(seq, s.Model, $"{Id(s.Model)} {(s.Action == SelfActionKind.Aim ? "AIMS" : "FORTIFIES")}", null, null);
+                if (s.Action == SelfActionKind.Aim)
+                {
+                    _current!.Dice.Add(new("Aim ACTION", Rules.Core.TurnSequence.SelfActionDice(SelfActionKind.Aim)));
                 }
                 break;
             case SideClimbDeclared c:
@@ -195,6 +207,7 @@ public sealed class ResolutionLog
                 break;
             case ActivationEnded or TurnEnded or MatchEnded or RetreatDeclared:
                 _current = null;
+                _aiming = e is RetreatDeclared ? _aiming : null;
                 break;
         }
         if (_current is not { } action)
@@ -250,6 +263,14 @@ public sealed class ResolutionLog
                 if (t.Check.Outcome != SuccessOutcome.Failure)
                 {
                     action.Outcome.Add(!t.Treated ? "nothing left to treat" : t.Choice == TreatChoice.StandUp ? $"{Id(t.Target)} stands up" : $"1 Blood Marker off {Id(t.Target)}");
+                }
+                break;
+            case SelfActionRolled s:
+                Success(seq, action, s.Check, setup, "Risky roll", s.Action == SelfActionKind.Aim ? "AIMED" : "FORTIFIED", s.Action == SelfActionKind.Aim ? "AIM FAILED" : "FORTIFY FAILED");
+                if (s.Succeeded)
+                {
+                    action.Outcome.Add(s.Action == SelfActionKind.Aim ? "+2 DICE on its shots this activation" : "COVER until it moves");
+                    _aiming = s.Action == SelfActionKind.Aim ? s.Model : _aiming;
                 }
                 break;
             case SideClimbRolled c:
@@ -361,6 +382,11 @@ public sealed class ResolutionLog
         var keywords = Armed(setup, attacker, AttackKind.Ranged, _current!.Weapon)?.RangedWeaponKeywords ?? WeaponKeywords.None;
         var cloaked = target is { } t && setup?.ProfileOf(t)?.BlendsIn == true;
         var applied = AttackDice.ShotModifiers(keywords, longRange, coverId is not null, elevated, cloaked);
+        // Roster stage R6b (U118).
+        if (_aiming == attacker)
+        {
+            _current!.Dice.Add(new("Aim ACTION", Rules.Core.TurnSequence.SelfActionDice(SelfActionKind.Aim)));
+        }
         if (applied.Elevated != 0)
         {
             _current!.Dice.Add(new("Elevated position", applied.Elevated));

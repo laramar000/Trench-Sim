@@ -111,3 +111,8 @@ public sealed record TriggerMartyrdom(Seat Seat, ModelId Model) : Command;
 // its Talismans (a Blessed Icon or an Unholy Trinket) so the activation does not end, or let the activation end.
 public sealed record UseTalisman(Seat Seat) : Command;
 public sealed record DeclineTalisman(Seat Seat) : Command;
+
+// Roster stage R6b (U118): an ACTION the model takes on itself alone, a Risky Success Roll: Aim (+2 DICE to the roll; on
+// a Success its Ranged Attacks get +2 DICE for the rest of the activation) or Fortify (on a Success it has COVER until it
+// moves).
+public sealed record TakeSelfAction(Seat Seat, ModelId Model, SelfActionKind Action) : Command;

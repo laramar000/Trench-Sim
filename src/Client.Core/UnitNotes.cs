@@ -29,6 +29,9 @@ public static class UnitNotes
             TreatRolled t => t.Check.Outcome == SuccessOutcome.Failure ? [new(t.Model, "TREAT FAILED", NoteTone.Failure)]
                 : t.Treated ? [new(t.Target, t.Choice == TreatChoice.StandUp ? "STANDS UP" : "-1 BLOOD", NoteTone.Success)]
                 : [new(t.Target, "NOTHING TO TREAT", NoteTone.Info)],
+            // Roster stage R6b (U118): an Aim or Fortify ACTION.
+            SelfActionRolled s => [s.Succeeded ? new(s.Model, s.Action == SelfActionKind.Aim ? "AIMED +2" : "FORTIFIED", NoteTone.Success)
+                : new(s.Model, s.Action == SelfActionKind.Aim ? "AIM FAILED" : "FORTIFY FAILED", NoteTone.Failure)],
             DashRolled d => [d.Check.Outcome == SuccessOutcome.Failure ? new(d.Model, "DASH FAILED", NoteTone.Failure) : new(d.Model, "DASH", NoteTone.Success)],
             SideClimbRolled c => [c.Check.Outcome == SuccessOutcome.Failure ? new(c.Model, "CLIMB FAILED", NoteTone.Failure) : new(c.Model, "CLIMB", NoteTone.Success)],
             RangedSuccessRolled r => [Hit(r.Attacker, r.Check)],

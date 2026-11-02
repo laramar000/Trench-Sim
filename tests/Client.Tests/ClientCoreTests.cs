@@ -90,6 +90,9 @@ public class ClientCoreTests
         // Roster stage R5j: no bot model carries a Martyrdom Device.
         seen.TryAdd(typeof(TalismanUsed), new TalismanUsed(new ModelId("a1")));
         seen.TryAdd(typeof(MartyrdomTriggered), new MartyrdomTriggered(new ModelId("a1"), [new ModelId("b1"), new ModelId("a1")], [new ModelId("b1")]));
+        // Roster stage R6b: no bot model has Aim or Fortify.
+        seen.TryAdd(typeof(SelfActionDeclared), new SelfActionDeclared(new ModelId("a1"), SelfActionKind.Fortify));
+        seen.TryAdd(typeof(SelfActionRolled), new SelfActionRolled(new ModelId("a1"), SelfActionKind.Aim, Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(1), 2, 0, risky: true)));
         var all = typeof(GameEvent).Assembly.GetTypes().Where(t => t.IsSubclassOf(typeof(GameEvent)) && !t.IsAbstract).ToList();
         Assert.True(all.Count >= 30, $"{all.Count} event types");
         Assert.Empty(all.Where(t => !seen.ContainsKey(t)).Select(t => t.Name));

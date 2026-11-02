@@ -33,6 +33,8 @@ public static class ActionStats
                 : "Fight: no Melee Weapon",
             // Roster stage R5h: the Treat ACTION's reach and roll.
             InteractionMode.Detonate => owned.Martyrdom ? "Detonate: Injury Rolls within 3\", +1 INJURY DICE within 1\", once per game" : "Detonate: no Martyrdom Device",
+            InteractionMode.Aim => owned.Aims ? "Aim: Risky roll at +2 DICE, then +2 DICE on its Ranged Attacks this activation" : "Aim: not one of its abilities",
+            InteractionMode.Fortify => owned.Fortifies ? "Fortify: Risky roll, then COVER until it moves" : "Fortify: not one of its abilities",
             InteractionMode.Treat => owned.Treats ? $"Treat: itself or a friend within 1\", Risky roll{(owned.HealingWaters ? " +1 DICE (Holy Water)" : "")}" : "Treat: no Medi-kit",
             _ => null,
         };

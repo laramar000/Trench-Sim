@@ -228,6 +228,8 @@ public sealed class ContentNames
                         FinishesTheFallen = m.TryGetProperty("finishesTheFallen", out var finishesTheFallen) && finishesTheFallen.GetBoolean(),
                         ExtraChargeDie = m.TryGetProperty("extraChargeDie", out var extraChargeDie) && extraChargeDie.GetBoolean(),
                         InspiresFaithful = m.TryGetProperty("inspiresFaithful", out var inspiresFaithful) && inspiresFaithful.GetBoolean(),
+                        Aims = m.TryGetProperty("aims", out var aims) && aims.GetBoolean(),
+                        Fortifies = m.TryGetProperty("fortifies", out var fortifies) && fortifies.GetBoolean(),
                         HasCover = m.TryGetProperty("hasCover", out var covered) && covered.GetBoolean(),
                         DigsIn = m.TryGetProperty("digsIn", out var digs) && digs.GetBoolean(),
                     }));

@@ -64,6 +64,8 @@ public enum ActionsTaken
     Treat = 64,   // roster stage R5h (U113): a Medi-kit's Treat ACTION
     Grind = 128,  // roster stage R5i (U114): Piston Legs' Grind to Dust ACTION
     Trigger = 256, // roster stage R5j (U115): a Trigger Martyrdom Device ACTION
+    Aim = 512,     // roster stage R6b (U118): an Aim ACTION
+    Fortify = 1024, // roster stage R6b (U118): a Fortify ACTION
 }
 
 public enum RollStage
@@ -82,6 +84,7 @@ public enum RollStage
     ClimbStop,   // it failed: the model moves only to where the climb starts, then its activation ends
     Blast,       // a BLAST attack hit: who the blast hits follows, then an Injury Roll for each (roster stage R4b)
     TreatRoll,   // the Risky Success Roll of a Treat ACTION (roster stage R5h); Target is the model treated
+    SelfRoll,    // the Risky Success Roll of an Aim or Fortify ACTION (roster stage R6b); SelfAction says which
     Scatter,     // a SCATTER attack missed: the opponent picks where it lands, or it is a miss after all (roster stage R4c)
 }
 
@@ -90,6 +93,13 @@ public enum TreatChoice
 {
     RemoveMarker,
     StandUp,
+}
+
+// Roster stage R6b (U118): the ACTIONS a model takes on itself alone with a Risky Success Roll (TakeSelfAction).
+public enum SelfActionKind
+{
+    Aim,
+    Fortify,
 }
 
 public enum AttackKind
@@ -110,6 +120,7 @@ public enum AttackKind
 // (RiskyEnds).
 // Roster stage R5j (U115): a Martyrdom Device's detonation (Martyrdom) rolls for the models in BlastQueue, its bearer last;
 // MartyrClose are the other models within 1" of it (+1 INJURY DICE each).
+// Roster stage R6b (U118): SelfAction, which ACTION a SelfRoll is for.
 public sealed record RollInProgress(
     RollStage Stage,
     ModelId Actor,
@@ -134,7 +145,8 @@ public sealed record RollInProgress(
     bool RiskyEnds = false,
     bool TreatStandUp = false,
     bool Martyrdom = false,
-    ImmutableArray<ModelId> MartyrClose = default);
+    ImmutableArray<ModelId> MartyrClose = default,
+    SelfActionKind SelfAction = SelfActionKind.Aim);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.
@@ -239,6 +251,10 @@ public sealed record MatchState
     // activation, a Damned Pact's bearer was taken Out of Action), each placed by the next event (BloodMarkersPlaced),
     // in order. Hashed only when set.
     public ImmutableArray<OwedMarkers> MarkersOwed { get; init; } = [];
+
+    // Roster stage R6b (U118): the active model's Aim ACTION succeeded: its Ranged Attacks get +2 DICE for the rest of the
+    // activation. Hashed only when set.
+    public bool Aiming { get; init; }
 
     public SeatState SeatFor(Seat seat) => seat == Seat.One ? One : Two;
 

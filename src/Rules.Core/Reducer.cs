@@ -103,6 +103,8 @@ public static class Reducer
             BloodMarkersPlaced x => OnBloodMarkersPlaced(state, x),
             TreatDeclared x => OnTreatDeclared(state, x),
             TreatRolled x => OnTreatRolled(state, x),
+            SelfActionDeclared x => OnSelfActionDeclared(state, x),
+            SelfActionRolled x => OnSelfActionRolled(state, x),
             MartyrdomTriggered x => OnMartyrdomTriggered(state, x),
             TalismanUsed x => OnTalismanUsed(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
@@ -377,7 +379,7 @@ public static class Reducer
         {
             return null;
         }
-        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll && actor.BloodMarkers > 0
+        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll or RollStage.SelfRoll && actor.BloodMarkers > 0
             && !(progress.Stage == RollStage.ShotRoll && ShotsIgnoreMarkers(state, actor.Id)))
         {
             return new PendingDecision(DecisionKind.SpendMarkersOnSuccessRoll, actor.Seat.Opponent());
@@ -455,7 +457,7 @@ public static class Reducer
                 break;
             case DecisionKind.SpendMarkersOnSuccessRoll:
                 var rolling = state.InProgress;
-                Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll, MarkersAsked: false }
+                Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll or RollStage.SelfRoll, MarkersAsked: false }
                     && state.FindModel(rolling.Actor) is { BloodMarkers: > 0 } holder
                     && holder.Seat.Opponent() == e.Seat, "Only the rolling model's opponent may spend its markers, once, before a Success Roll.");
                 Require(!(rolling!.Stage == RollStage.ShotRoll && ShotsIgnoreMarkers(state, rolling.Actor)), "No BLOOD MARKERS are spent on the Ranged Attacks of a model with Absolute Faith.");
@@ -635,6 +637,7 @@ public static class Reducer
             ActiveModel = e.Model,
             LastActivator = e.Seat,
             Actions = ActionsTaken.None,
+            Aiming = false,
             MovementHalved = false,
         };
     }
@@ -658,7 +661,7 @@ public static class Reducer
         {
             Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null };
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -875,6 +878,44 @@ public static class Reducer
 
     private static readonly Length TreatReach = Length.FromInches(1);
 
+    // Roster stage R6b (U118): an Aim or Fortify ACTION, once per activation each, by a model whose unit has it.
+    private static MatchState OnSelfActionDeclared(MatchState state, SelfActionDeclared e)
+    {
+        Active(state, e.Model, "An Aim or Fortify ACTION");
+        Require(Enum.IsDefined(e.Action), "Unknown ACTION.");
+        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(SelfActionFlag(e.Action)), "An Aim or Fortify ACTION can be taken once per activation.");
+        Require(HasSelfAction(state.Setup!.ProfileOf(e.Model)!, e.Action), "Only a model whose unit has it can take that ACTION.");
+        return state with
+        {
+            Actions = state.Actions | SelfActionFlag(e.Action),
+            InProgress = new RollInProgress(RollStage.SelfRoll, e.Model, BonusDice: e.Action == SelfActionKind.Aim ? AimDice : 0, SelfAction: e.Action),
+        };
+    }
+
+    private static MatchState OnSelfActionRolled(MatchState state, SelfActionRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.SelfRoll } p && p.Actor == e.Model && p.SelfAction == e.Action && state.Pending is null, "No such ACTION roll is waiting.");
+        var progress = state.InProgress!;
+        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice, "An Aim or Fortify ACTION is a Risky Success Roll with the spent markers as penalty dice.");
+        var next = state with { InProgress = null, MustEndActivation = !e.Succeeded && RiskyEnds(state, e.Model) };
+        if (!e.Succeeded)
+        {
+            return next;
+        }
+        // Fortify: COVER until it moves, as a dug-in Shovel's (Undig ends both).
+        var model = state.FindModel(e.Model)!;
+        return e.Action == SelfActionKind.Aim ? next with { Aiming = true } : TurnRules.WithModel(next, model with { DugInAt = model.Position });
+    }
+
+    internal static ActionsTaken SelfActionFlag(SelfActionKind action) => action == SelfActionKind.Aim ? ActionsTaken.Aim : ActionsTaken.Fortify;
+
+    internal static bool HasSelfAction(ModelProfile profile, SelfActionKind action) => action == SelfActionKind.Aim ? profile.Aims : profile.Fortifies;
+
+    // Roster stage R6b (U118): +2 DICE on the Aim roll, and on the model's Ranged Attacks once it succeeded.
+    internal const int AimDice = 2;
+
+    internal static int AimedDice(MatchState state, ModelId shooter) => state.Aiming && state.ActiveModel == shooter ? AimDice : 0;
+
     // Roster stage R5h (U113): Holy Water of Lalibela's +1 DICE to the Treat roll (an ACTION that can remove BLOOD MARKERS).
     // Roster stage R6a (U117): +2 DICE more for an Expert Medic.
     internal static int TreatDice(MatchState state, ModelId model) => state.Setup?.ProfileOf(model) is { } p ? (p.HealingWaters ? 1 : 0) + (p.ExpertMedic ? 2 : 0) : 0;
@@ -1050,7 +1091,7 @@ public static class Reducer
         Require(facts.IntoMelee == e.IntoMelee, "A target within 1\" of a friendly model needs the D6 that decides who is shot, and no other does.");
         // The declared facts with the weapon's keywords and the attacker's own dice (roster stages R1, R2).
         var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, e.InCover, e.Elevated, state.Setup.ProfileOf(e.Target),
-            Whispers(state, state.FindModel(e.Target)!));
+            Whispers(state, state.FindModel(e.Target)!), AimedDice(state, e.Attacker));
         return state with
         {
             Actions = state.Actions | ActionsTaken.Shoot,
@@ -1076,7 +1117,7 @@ public static class Reducer
         var facts = Board.AssessPoint(state, attacker, e.At, e.Weapon);
         Require(facts.IsLegal, "The attack is not legal here.");
         Require(facts.LongRange == e.LongRange, "The declared Long Range does not match the positions.");
-        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, false, false);
+        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, false, false, aim: AimedDice(state, e.Attacker));
         return state with
         {
             Actions = state.Actions | ActionsTaken.Shoot,
@@ -1549,7 +1590,7 @@ public static class Reducer
         Require(victim is not null && Board.FriendsNear(state, shooter, intended).Any(m => m.Id == e.Victim), "The shot must be aimed at one of the shooter's own models within 1\" of the target.");
         var facts = Board.ForcedShotFacts(state, shooter, victim!, progress.Weapon);
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
-        var (bonus, penalty, later) = AttackDice.Shot(AttackProfile(state, progress), e.LongRange, e.InCover, e.Elevated, state.Setup!.ProfileOf(e.Victim), Whispers(state, victim!));
+        var (bonus, penalty, later) = AttackDice.Shot(AttackProfile(state, progress), e.LongRange, e.InCover, e.Elevated, state.Setup!.ProfileOf(e.Victim), Whispers(state, victim!), AimedDice(state, e.Attacker));
         return state with
         {
             Pending = null,

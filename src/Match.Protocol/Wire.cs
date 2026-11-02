@@ -378,6 +378,8 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.FinishesTheFallen)),
             (typeof(ModelProfile), nameof(ModelProfile.ExtraChargeDie)),
             (typeof(ModelProfile), nameof(ModelProfile.InspiresFaithful)),
+            (typeof(ModelProfile), nameof(ModelProfile.Aims)),
+            (typeof(ModelProfile), nameof(ModelProfile.Fortifies)),
         ];
 
         // Optional numbers left out when zero, for the same reason (every match before roster stage R1's profile dice).

@@ -35,6 +35,10 @@ public enum InteractionMode
 
     // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION: click the model itself, then Confirm.
     Detonate,
+
+    // Roster stage R6b (U118): an Aim or Fortify ACTION: click the model itself, then Confirm.
+    Aim,
+    Fortify,
 }
 
 // Battlefield UI 3, stage U1 (approved by Jason on 2026-10-22): one entry of the Combat menu, which lists the attacks of
@@ -128,7 +132,7 @@ public sealed class Interaction
     public const double BigStep = 2.0;
 
     private static readonly InteractionMode[] ActionModes =
-        [InteractionMode.Move, InteractionMode.Dash, InteractionMode.Retreat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight, InteractionMode.Treat, InteractionMode.Detonate];
+        [InteractionMode.Move, InteractionMode.Dash, InteractionMode.Retreat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight, InteractionMode.Treat, InteractionMode.Detonate, InteractionMode.Aim, InteractionMode.Fortify];
 
     private readonly List<TablePoint> _waypoints = [];
 
@@ -252,7 +256,7 @@ public sealed class Interaction
     public bool IsPath => Mode is InteractionMode.Move or InteractionMode.Dash or InteractionMode.Retreat;
 
     // Stage U1: Combat itself chooses no target (it lists the attacks); Shoot, Charge and Fight do.
-    public bool IsTarget => Mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Treat or InteractionMode.Detonate;
+    public bool IsTarget => Mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify;
 
     // Stage U1: the attack being chosen was picked from the Combat menu, so Esc goes back to the menu first.
     public bool FromCombat { get; private set; }
@@ -428,6 +432,8 @@ public sealed class Interaction
                 {
                     InteractionMode.Treat => kit is { Treats: true },
                     InteractionMode.Detonate => kit is { Martyrdom: true },
+                    InteractionMode.Aim => kit is { Aims: true },
+                    InteractionMode.Fortify => kit is { Fortifies: true },
                     _ => true,
                 }), InteractionMode.Combat];
             }
@@ -620,7 +626,7 @@ public sealed class Interaction
     public IReadOnlyList<TargetSight> TargetSights()
     {
         // A Treat (roster stage R5h) and a detonation (R5j) need no sight of the enemies.
-        if (!IsTarget || Mode is InteractionMode.Treat or InteractionMode.Detonate || Actor is not { } actor)
+        if (!IsTarget || Mode is InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify || Actor is not { } actor)
         {
             return [];
         }
@@ -731,7 +737,7 @@ public sealed class Interaction
     // model already chosen. Nothing is chosen or sent.
     public Preview? PreviewOf(ModelId target)
     {
-        if (!IsTarget || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor && Mode is not (InteractionMode.Treat or InteractionMode.Detonate))
+        if (!IsTarget || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor && Mode is not (InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify))
         {
             return null;
         }
@@ -844,6 +850,8 @@ public sealed class Interaction
         InteractionMode.Charge => "Charge target",
         InteractionMode.Treat => "Treat",
         InteractionMode.Detonate => "Detonate",
+        InteractionMode.Aim => "Aim",
+        InteractionMode.Fortify => "Fortify",
         _ => "Fight target",
     };
 
@@ -860,6 +868,8 @@ public sealed class Interaction
         InteractionMode.Blast => "Aim a BLAST weapon at a point in sight and range: click the point (in Combat, keys 7, 8 and 9).",
         InteractionMode.Treat => "Treat the model itself or a friend within 1\" with its Medi-kit: a Risky roll removes 1 Blood Marker, or stands up a Down friend; click the model, then Confirm treat beside it (key H).",
         InteractionMode.Detonate => "Detonate the model's Martyrdom Device, once per game: an Injury Roll for every model within 3\", friend or foe, itself included (4D6 added together); +1 INJURY DICE within 1\". Click the model, then Confirm (key B).",
+        InteractionMode.Aim => "Aim: a Risky roll at +2 DICE; on a Success the model's Ranged Attacks get +2 DICE for the rest of this activation. Click the model, then Confirm (key I).",
+        InteractionMode.Fortify => "Fortify: a Risky roll; on a Success the model has COVER until it moves. Click the model, then Confirm (key V).",
         InteractionMode.Combat => "Shoot, Charge or Fight: choose the attack (1, 2, 3), click an enemy the rules accept (ringed), then Confirm beside it (or Space); an attack the rules refuse is greyed out with the reason (key C).",
         _ => "",
     };
@@ -1268,8 +1278,8 @@ public sealed class Interaction
         {
             return [];
         }
-        // Roster stage R5j: a detonation's only choice is the model itself.
-        if (Mode == InteractionMode.Detonate)
+        // Roster stage R5j/R6b: a detonation's, an Aim's and a Fortify's only choice is the model itself.
+        if (Mode is InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify)
         {
             return [actor];
         }
@@ -1495,6 +1505,7 @@ public sealed class Interaction
         FightModel { Weapon: ModelProfile.GrindWeapon } g => $"Grind {g.Target.Value} to dust with {g.Model.Value}",
         FightModel f => $"Fight {f.Target.Value} with {f.Model.Value}",
         TriggerMartyrdom d => $"Detonate the Martyrdom Device of {d.Model.Value}",
+        TakeSelfAction a => $"{a.Action} with {a.Model.Value}",
         TreatModel t => $"Treat {t.Target.Value} with {t.Model.Value} ({(t.Choice == TreatChoice.StandUp ? "stand up" : "remove 1 Blood Marker")})",
         _ => preview.Verb,
     };
@@ -1553,6 +1564,8 @@ public sealed class Interaction
         InteractionMode.Blast => "Blast a point",
         InteractionMode.Treat => "Treat",
         InteractionMode.Detonate => "Detonate",
+        InteractionMode.Aim => "Aim",
+        InteractionMode.Fortify => "Fortify",
         _ => "Nothing",
     };
 
@@ -1571,6 +1584,8 @@ public sealed class Interaction
         InteractionMode.Blast => "7",
         InteractionMode.Treat => "H",
         InteractionMode.Detonate => "B",
+        InteractionMode.Aim => "I",
+        InteractionMode.Fortify => "V",
         _ => "",
     };
 
@@ -1599,7 +1614,7 @@ public sealed class Interaction
                 var points = PathPoints();
                 // Towers proposal, stage T4: a point on another level is reached by a ladder (Previews.Route).
                 return points.Count == 0 ? null : Previews.Path(_state, seat, Kind(Mode), actor, Previews.Route(_state, actor, [.. points.Select(p => Previews.PointAt(p.X, p.Y))], Sides));
-            case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Treat or InteractionMode.Detonate:
+            case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify:
                 return Target is { } target ? TargetPreview(seat, Kind(Mode), actor, target, Weapon) : null;
             case InteractionMode.Blast:
                 return Previews.Point(_state, seat, actor, Previews.PointAt(Cursor.X, Cursor.Y), Weapon);
@@ -1619,6 +1634,8 @@ public sealed class Interaction
         InteractionMode.Blast => PreviewKind.Point,
         InteractionMode.Treat => PreviewKind.Treat,
         InteractionMode.Detonate => PreviewKind.Detonate,
+        InteractionMode.Aim => PreviewKind.Aim,
+        InteractionMode.Fortify => PreviewKind.Fortify,
         _ => PreviewKind.Fight,
     };
 

@@ -30,3 +30,4 @@ public sealed record ModelState(
 // Roster stage R5j (U115): MartyrdomSpent, its Martyrdom Device has detonated and cannot be used again.
 // Roster stage R5k (U116): TalismansUsed, how many of its Talismans it has used (each once per game).
 // Roster stage R5f (U110): DugInAt, where a model with a Shovel started the game on Open terrain, until it moves away.
+// Roster stage R6b (U118): or where a Fortify ACTION succeeded, until it moves away.

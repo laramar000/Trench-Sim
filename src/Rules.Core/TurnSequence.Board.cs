@@ -162,6 +162,33 @@ public static partial class TurnSequence
 
     public const string RefTreat = "1.0.2 p. 84";
 
+    // Roster stage R6b (U118): an Aim or Fortify ACTION (Warbands pp. 28, 33, 85), once per activation each.
+    private static Rejection? ValidateSelfAction(MatchState state, TakeSelfAction c)
+    {
+        if (ValidateActing(state, c.Seat, c.Model, out _) is { } rejection)
+        {
+            return rejection;
+        }
+        if (!Enum.IsDefined(c.Action))
+        {
+            return new(ReasonCode.InvalidChoice, "That is not one of the choices on offer.", RefSelfAction);
+        }
+        if (!Reducer.HasSelfAction(state.Setup!.ProfileOf(c.Model)!, c.Action))
+        {
+            return new(ReasonCode.NoSuchAction, $"Only a model whose unit has the {c.Action} ACTION can take it.", RefSelfAction);
+        }
+        return state.Actions.HasFlag(Reducer.SelfActionFlag(c.Action))
+            ? new(ReasonCode.ActionAlreadyTaken, $"A {c.Action} ACTION can be taken only once per activation.", RefActions)
+            : null;
+    }
+
+    public const string RefSelfAction = "Warbands pp. 28, 33, 85";
+
+    // Roster stage R6b: the bonus dice of an Aim or Fortify roll, and what a successful Aim adds to the model's shots now.
+    public static int SelfActionDice(SelfActionKind action) => action == SelfActionKind.Aim ? Reducer.AimDice : 0;
+
+    public static int AimedDice(MatchState state, ModelId shooter) => Reducer.AimedDice(state, shooter);
+
     // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION (Warbands p. 58), once per game.
     private static Rejection? ValidateTrigger(MatchState state, TriggerMartyrdom c)
     {
@@ -484,6 +511,13 @@ public static partial class TurnSequence
                 run.Emit(new MartyrdomTriggered(c.Model, hit, close));
                 break;
             }
+            case TakeSelfAction c:
+                run.Emit(new SelfActionDeclared(c.Model, c.Action));
+                if (run.State.FindModel(c.Model)!.BloodMarkers > 0)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
+                }
+                break;
             case TreatModel c:
                 run.Emit(new TreatDeclared(c.Model, c.Target, c.Choice));
                 if (run.State.FindModel(c.Model)!.BloodMarkers > 0)
@@ -617,6 +651,16 @@ public static partial class TurnSequence
                 var check = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true);
                 run.Emit(new DashRolled(progress.Actor, check));
                 // Roster stage R5d (U108): unless the model keeps going after a failed Risky roll.
+                if (run.State.MustEndActivation)
+                {
+                    EndForRisky(run, progress.Actor);
+                }
+                return true;
+            }
+            case RollStage.SelfRoll:
+            {
+                // Roster stage R6b (U118): an Aim or Fortify ACTION is a Risky Success Roll; spent markers are penalty dice.
+                run.Emit(new SelfActionRolled(progress.Actor, progress.SelfAction, SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true)));
                 if (run.State.MustEndActivation)
                 {
                     EndForRisky(run, progress.Actor);

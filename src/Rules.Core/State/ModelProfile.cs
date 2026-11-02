@@ -267,6 +267,15 @@ public sealed record ModelProfile
     // Onward Christian Soldiers! (Trench Cleric, p. 29): friendly PRINCIPALITY models within 8" of it have NEGATE FEAR.
     public bool InspiresFaithful { get; init; }
 
+    // ---- Roster stage R6b (U118): ACTIONS a model takes on itself ----
+
+    // Aim ACTION (Warbands p. 28): a Risky Success Roll at +2 DICE; on a Success its Ranged Attacks get +2 DICE for the
+    // rest of the activation.
+    public bool Aims { get; init; }
+
+    // Fortify ACTION (Warbands pp. 33, 85): a Risky Success Roll; on a Success it has COVER until it moves.
+    public bool Fortifies { get; init; }
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -444,6 +453,8 @@ public sealed record ModelProfile
                 FinishesTheFallen = FinishesTheFallen,
                 ExtraChargeDie = ExtraChargeDie,
                 InspiresFaithful = InspiresFaithful,
+                Aims = Aims,
+                Fortifies = Fortifies,
             };
         }
         // Roster stage R5i (U114): a Grind to Dust attack uses no Melee Weapon: no weapon DICE, INJURY DICE, modifier,
@@ -484,6 +495,8 @@ public sealed record ModelProfile
                 FinishesTheFallen = FinishesTheFallen,
                 ExtraChargeDie = ExtraChargeDie,
                 InspiresFaithful = InspiresFaithful,
+                Aims = Aims,
+                Fortifies = Fortifies,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -526,6 +539,8 @@ public sealed record ModelProfile
             FinishesTheFallen = FinishesTheFallen,
             ExtraChargeDie = ExtraChargeDie,
             InspiresFaithful = InspiresFaithful,
+            Aims = Aims,
+            Fortifies = Fortifies,
         };
     }
 

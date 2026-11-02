@@ -75,11 +75,12 @@ public static class AttackDice
     // InjuryLater), with the attacker's own dice. Without keywords this is ShotBonus, ShotPenalty and OwnDice.
     // Roster stage R5d (U108): a target that BlendsIn (a Cloak of the Mountain) makes Cover -2 DICE.
     // Roster stage R5e (U109): whispers, the target is the Urn of the Bitter Ashes' bearer or within 3" of it: -1 DICE.
-    public static (int Bonus, int Penalty, int InjuryLater) Shot(ModelProfile attacker, bool longRange, bool inCover, bool elevated, ModelProfile? target = null, bool whispers = false)
+    // Roster stage R6b (U118): aim, the +2 DICE of a successful Aim ACTION.
+    public static (int Bonus, int Penalty, int InjuryLater) Shot(ModelProfile attacker, bool longRange, bool inCover, bool elevated, ModelProfile? target = null, bool whispers = false, int aim = 0)
     {
         var k = attacker.RangedWeaponKeywords;
         var counts = ShotModifiers(k, longRange, inCover, elevated, target?.BlendsIn == true);
-        var (bonus, penalty) = With(counts.Elevated, counts.LongRange + counts.Cover + (whispers ? 1 : 0), OwnDice(attacker, AttackKind.Ranged));
+        var (bonus, penalty) = With(counts.Elevated + aim, counts.LongRange + counts.Cover + (whispers ? 1 : 0), OwnDice(attacker, AttackKind.Ranged));
         return (bonus, penalty, counts.ShotgunInjury);
     }
 

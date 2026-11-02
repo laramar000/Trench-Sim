@@ -293,3 +293,6 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
   PRINCIPALITY and CULT and the keyword DEMONIC travel as traits. Tests: `NewAntiochAbilityTests`,
   `TraitWireTests.NewAntiochAbilitiesRoundTripAndAreLeftOutWhenFalse`, `MatchReadinessTests.NewAntiochAbilitiesArePlayed`,
   `ModelTraitDisplayTests.NewAntiochAbilitiesAreExplained`.
+- Roster rules stage R6b, Aim and Fortify ACTIONS (done 2026-11-01): the Aim ACTION and the Fortify ACTION (The Principality
+  and The Sultanate) are played (U118). Tests: `SelfActionTests`, `TraitWireTests.NewAntiochAbilitiesRoundTripAndAreLeftOutWhenFalse`,
+  `MatchReadinessTests.NewAntiochAbilitiesArePlayed`, `ModelTraitDisplayTests.SelfActionsAreExplained`.

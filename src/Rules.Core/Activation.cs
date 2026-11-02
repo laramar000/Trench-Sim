@@ -72,6 +72,12 @@ public static class Activation
             {
                 attacks.Add(new TriggerMartyrdom(seat, active));
             }
+            // Roster stage R6b (U118): the Aim and Fortify ACTIONS (once, not per target).
+            if (other.Id == active)
+            {
+                attacks.Add(new TakeSelfAction(seat, active, SelfActionKind.Aim));
+                attacks.Add(new TakeSelfAction(seat, active, SelfActionKind.Fortify));
+            }
             // Roster stage R5i (U114): Piston Legs' Grind to Dust ACTION.
             if (profile.GrindsToDust)
             {

@@ -32,9 +32,10 @@ internal static class Board
 
     // Roster stage R5f (U110): the model has the COVER keyword: always (a shield with COVER), or dug in with a Shovel
     // while it stands where it started the game.
+    // Roster stage R6b (U118): or fortified by a Fortify ACTION where it stands; DugInAt holds that spot too.
     public static bool HasCover(MatchState state, ModelState model) =>
         state.Setup?.ProfileOf(model.Id) is { } profile && model.Position is { } at
-        && (profile.HasCover || profile.DigsIn && model.DugInAt == at);
+        && (profile.HasCover || model.DugInAt == at);
 
     // Roster stage R5f (U110): a model starts the game on Open terrain when its centre is on no Difficult or Dangerous
     // piece.

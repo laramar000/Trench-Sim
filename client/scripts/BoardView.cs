@@ -1195,6 +1195,9 @@ public partial class BoardView : SubViewportContainer
         Key.H => InteractionMode.Treat,
         // Roster stage R5j: B detonates a Martyrdom Device.
         Key.B => InteractionMode.Detonate,
+        // Roster stage R6b: I aims, V fortifies.
+        Key.I => InteractionMode.Aim,
+        Key.V => InteractionMode.Fortify,
         _ => null,
     };
 
@@ -1428,7 +1431,7 @@ public partial class BoardView : SubViewportContainer
         {
             PlaceCombatMenu(actor!);
         }
-        _confirmBox.Visible = (Interaction.IsAttack(Interaction.Mode) || Interaction.Mode is InteractionMode.Treat or InteractionMode.Detonate) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
+        _confirmBox.Visible = (Interaction.IsAttack(Interaction.Mode) || Interaction.Mode is InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
         if (_confirmBox.Visible)
         {
             _confirmButton.Text = Interaction.Mode switch
@@ -1437,6 +1440,8 @@ public partial class BoardView : SubViewportContainer
                 InteractionMode.Fight => "Confirm fight",
                 InteractionMode.Treat => "Confirm treat",
                 InteractionMode.Detonate => "Confirm detonation",
+                InteractionMode.Aim => "Confirm aim",
+                InteractionMode.Fortify => "Confirm fortify",
                 _ => "Confirm charge",
             };
             _confirmBox.ResetSize();

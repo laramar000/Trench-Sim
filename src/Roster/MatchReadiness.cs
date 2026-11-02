@@ -109,6 +109,10 @@ public sealed record ReadyModel(
     public bool ExtraChargeDie { get; init; }
     public bool InspiresFaithful { get; init; }
 
+    // Roster stage R6b (U118): the Aim and Fortify ACTIONS.
+    public bool Aims { get; init; }
+    public bool Fortifies { get; init; }
+
     // Roster stage R5j (U115): the Trigger Martyrdom Device ACTION.
     public bool Martyrdom { get; init; }
 }
@@ -191,7 +195,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies) })
                     {
                         if (on)
                         {
@@ -529,6 +533,8 @@ public static class MatchReadiness
                 FinishesTheFallen = abilities.Contains(FinishTheFallen),
                 ExtraChargeDie = abilities.Contains(ShockCharge),
                 InspiresFaithful = abilities.Contains(OnwardSoldiers),
+                Aims = abilities.Contains(AimAction),
+                Fortifies = abilities.Contains(FortifyAction),
             };
             models.Add(Unburdened(ready, abilities, grenade));
         }
@@ -584,10 +590,13 @@ public static class MatchReadiness
     private const string OnwardSoldiers = "Onward Christian Soldiers!";
     private const string AssaultDrill = "Assault Drill";
     private const string Demolition = "Battlefield Demolition";
+    // Roster stage R6b (U118).
+    private const string AimAction = "Aim ACTION";
+    private const string FortifyAction = "Fortify ACTION";
 
     private static readonly HashSet<string> PlayedAbilities = new(StringComparer.Ordinal)
     {
-        AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition,
+        AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1

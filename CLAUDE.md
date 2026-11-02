@@ -148,7 +148,15 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-01: Windows clone at D:\Claude\Trench-Sim set up. It needs `git config core.autocrlf false` (CRLF checkouts
   break the golden-text and map-file tests); `.claude/settings.json` allows dotnet build/test/run. Essentials 2,194/0
   on Windows at d88ce8b.
-- Next R6 work: New Antioch's Aim/Fortify ACTIONs, then the other factions' simple abilities (survey in the R6a commit).
+- Done: R6b (U118): Aim and Fortify ACTIONs (Principality and Sultanate), one command `TakeSelfAction(seat, model,
+  SelfActionKind)`, events `SelfActionDeclared`/`SelfActionRolled`, `RollStage.SelfRoll`, `ActionsTaken.Aim/Fortify`.
+  Aim: +2 DICE on the roll, then `MatchState.Aiming` gives +2 DICE to its Ranged Attacks until the activation ends
+  (`AttackDice.Shot(aim:)`, `DicePreview.AimDice`). Fortify: sets `ModelState.DugInAt`, so `Board.HasCover` no longer
+  checks `DigsIn`. Client: action bar, keys I and V, Confirm aim/fortify, previews, log, notes, breakdown; Bot aims
+  before shooting and fortifies first. Godot client compiles (`dotnet build client/Client.csproj`); no UI check run.
+  Essentials 2,202/0 on Windows.
+- Next R6 work: the other factions' simple abilities (no survey was written in the R6a commit; survey the faction JSON
+  `abilities` lists first).
 - Pushed before: R5a e2ad5d8 ... R5f a93a518, gaps f787535 (U111), R5g 6305404 (U112), R5h 28cf852 (U113),
   R5i ed2f05f (U114), R5j 013355b (U115), R5k 61dd615 (U116).
 - Decided: Urn of the Bitter Ashes protects any model within 3" (Jason card "1 Any model", U109).

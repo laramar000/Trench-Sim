@@ -259,6 +259,11 @@ The server sends events in log order, one message each, to both players, through
   `extraChargeDie` and `inspiresFaithful`, each left out when false, and the traits `Principality`, `Cult` and `Demonic`;
   `ChargeRolled.dropped` (Shock Charge's lower die), left out when zero. The state hash adds `,shotsIgnoreMarkers=yes`,
   `,expertMedic=yes`, `,finishesTheFallen=yes`, `,extraChargeDie=yes` and `,inspires=yes` to a profile only when set.
+- Roster stage R6b (U118): `ModelProfile` flags `aims` and `fortifies`, each left out when false. New command
+  `TakeSelfAction` (`seat`, `model`, `action`: `Aim` or `Fortify`), giving `SelfActionDeclared` (`model`, `action`), an
+  optional Blood Marker offer, then `SelfActionRolled` (`model`, `action`, `check`). The state hash adds `,aims=yes` and
+  `,fortifies=yes` to a profile, `aiming` to the state and `:self=X` to a roll in progress only when set; a fortified
+  model reuses `dugIn`.
 
 ## Rosters online (roster stage 5c)
 

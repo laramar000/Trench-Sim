@@ -148,6 +148,16 @@ public sealed class Bot(Random rng)
                 yield return new TreatModel(seat, model.Id, friend.Id, TreatChoice.RemoveMarker);
             }
         }
+        // Roster stage R6b (U118): a model with Aim aims before it shoots, and one with Fortify fortifies first (no random
+        // numbers, so setups without them play as before).
+        if (profile.Aims && (state.Actions & (ActionsTaken.Aim | ActionsTaken.Shoot)) == 0)
+        {
+            yield return new TakeSelfAction(seat, model.Id, SelfActionKind.Aim);
+        }
+        if (profile.Fortifies && !state.Actions.HasFlag(ActionsTaken.Fortify))
+        {
+            yield return new TakeSelfAction(seat, model.Id, SelfActionKind.Fortify);
+        }
         // Roster stage R5j (U115): a Martyrdom Device is triggered when an enemy is within 3" (no random numbers).
         if (profile.Martyrdom && !model.MartyrdomSpent
             && Rules.Core.TurnSequence.MartyrdomHits(state, model.Id).Hit.Any(h => state.FindModel(h)!.Seat != seat))

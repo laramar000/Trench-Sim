@@ -231,13 +231,15 @@ public class TraitWireTests
     public void NewAntiochAbilitiesRoundTripAndAreLeftOutWhenFalse()
     {
         var plain = Encoded(new MatchCreated(Plain()));
-        var fields = new[] { "shotsIgnoreMarkers", "expertMedic", "finishesTheFallen", "extraChargeDie", "inspiresFaithful" };
+        // Roster stage R6b (U118): with the Aim and Fortify ACTIONS.
+        var fields = new[] { "shotsIgnoreMarkers", "expertMedic", "finishesTheFallen", "extraChargeDie", "inspiresFaithful", "aims", "fortifies" };
         Assert.All(fields, f => Assert.DoesNotContain(f, plain, StringComparison.Ordinal));
         var setup = Plain();
         var first = setup.Models[0];
         var kitted = first.Profile! with
         {
             ShotsIgnoreMarkers = true, ExpertMedic = true, FinishesTheFallen = true, ExtraChargeDie = true, InspiresFaithful = true,
+            Aims = true, Fortifies = true,
             Traits = ModelTraits.Principality | ModelTraits.Cult | ModelTraits.Demonic,
         };
         var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
@@ -248,6 +250,9 @@ public class TraitWireTests
         var (a, b) = (new ModelId("A1"), new ModelId("B1"));
         Assert.DoesNotContain("dropped", Encoded(new ChargeRolled(a, b, 4)), StringComparison.Ordinal);
         Assert.Equal(2, ((ChargeRolled)RoundTrip(new ChargeRolled(a, b, 4) { Dropped = 2 })).Dropped);
+        Assert.Equal(new SelfActionDeclared(a, SelfActionKind.Aim), RoundTrip(new SelfActionDeclared(a, SelfActionKind.Aim)));
+        var rolled = (SelfActionRolled)RoundTrip(new SelfActionRolled(a, SelfActionKind.Aim, SuccessRoll.Roll(new SeededDice(4), 2, 0, risky: true)));
+        Assert.Equal((SelfActionKind.Aim, 2, true), (rolled.Action, rolled.Check.NetDice, rolled.Check.Risky));
     }
 
     // Roster stage R5f (U110).

@@ -64,6 +64,7 @@ public static class DiceRolls
         {
             DashRolled d => Success(d.Model, $"{Id(d.Model)} DASHES: Risky roll", d.Check, setup, "DASH", "DASH FAILED"),
             TreatRolled t => Success(t.Model, $"{Id(t.Model)} TREATS {Id(t.Target)}: Risky roll", t.Check, setup, "TREATED", "TREAT FAILED"),
+            SelfActionRolled s => Success(s.Model, $"{Id(s.Model)} {(s.Action == SelfActionKind.Aim ? "AIMS" : "FORTIFIES")}: Risky roll", s.Check, setup, s.Action == SelfActionKind.Aim ? "AIMED" : "FORTIFIED", s.Action == SelfActionKind.Aim ? "AIM FAILED" : "FORTIFY FAILED"),
             SideClimbRolled c => Success(c.Model, $"{Id(c.Model)} CLIMBS THE SIDE: Risky roll", c.Check, setup, "CLIMB", "CLIMB FAILED"),
             RangedSuccessRolled r => Success(r.Attacker, $"{Id(r.Attacker)} SHOOTS {Id(r.Target)}: hit roll", r.Check, setup, "HIT", "MISSED"),
             MeleeSuccessRolled m => Success(m.Attacker, $"{Id(m.Attacker)} FIGHTS {Id(m.Target)}: hit roll", m.Check, setup, "HIT", "MISSED"),
@@ -96,7 +97,7 @@ public static class DiceRolls
         }
         return e switch
         {
-            DashDeclared or TreatDeclared or MartyrdomTriggered or SideClimbDeclared or RangedAttackDeclared or MeleeAttackDeclared or ChargeDeclared or RetreatDeclared => new(null, DiceCue.NewAction),
+            DashDeclared or TreatDeclared or SelfActionDeclared or MartyrdomTriggered or SideClimbDeclared or RangedAttackDeclared or MeleeAttackDeclared or ChargeDeclared or RetreatDeclared => new(null, DiceCue.NewAction),
             ActivationEnded or TurnEnded or MatchEnded => new(null, DiceCue.EndAction),
             _ => null,
         };
