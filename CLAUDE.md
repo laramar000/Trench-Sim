@@ -183,7 +183,12 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   "Do 1 - 4".
 - Next (not started, owner to choose): the survey's "later" group (Court spells, INFECTION/BLESSING MARKERS, Bodyguard,
   moving other models, Set/Defuse Mine, Hide, Hateful, multi-Fight models, Time Slip, deployment rules), oval bases
-  (Plague Hound, Pit Locust), and a Windows Godot run to check the UI (log dice, keys I V Y Z, Trample on key 0).
+  (Plague Hound, Pit Locust), and a Windows Godot run of the battlefield (keys I V Y Z, Trample on key 0).
+- 2026-11-02: Godot 4.7.2 .NET installed at %USERPROFILE%\Downloads\Godot_v4.7.2-stable_mono_win64 (SHA-512 checked).
+  Hot-seat UI group run four times on Windows: 39/39 PASS with the new `hotseat-log-draws-dice` check and its
+  screenshot `05-hotseat-log-dice.png`; one run had `tab-reaches-every-control-play-connect` FAIL once (passed on rerun,
+  untouched code: treat as flaky). The new keys and Trample are not covered by any UI check; the online two-window run
+  (BoardChecks) was not run.
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):
   R6c numbers on existing hooks: Dash +1 DICE (Frightening Speed, Loping Dash, Mad Dash, Agile's Dash/Climb part),
   INJURY DICE against it (Corpulent -2, Artificial Life, Undead Fortitude unless FIRE, Abiotic Life vs GAS), Stealth

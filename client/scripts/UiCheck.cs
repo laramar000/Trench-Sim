@@ -2831,6 +2831,19 @@ public partial class UiCheck : Node
 
         await HotSeatFullMatch();
 
+        // 2026-11-02 (Jason: "visually see the dice for the rolls"): every log row with a roll draws its dice.
+        var logMain = (Main)_main;
+        if (!logMain.LogDrawer.IsVisibleInTree())
+        {
+            await ClickButton(logMain.LogButton);
+            await Frames(3);
+        }
+        var (rolls, drawn) = logMain.LogDice;
+        Check("hotseat-log-draws-dice", rolls > 0 && drawn == rolls && logMain.LogDrawer.IsVisibleInTree(), $"{drawn} of {rolls} log rows with a roll draw its dice; log open: {logMain.LogDrawer.IsVisibleInTree()}");
+        logMain.ShowFirstLogDice();
+        await Frames(5);
+        await Shot("hotseat-log-dice");
+
         // Leaving ends both seats and stops the local server: no process is left.
         await Press(ButtonNamed("Leave"), Key.Enter, "hotseat-leave-enter");
         var stopped = false;

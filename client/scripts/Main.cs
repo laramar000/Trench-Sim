@@ -3156,6 +3156,22 @@ public partial class Main : Control
 
     public int LogRowCount => _logRows.Count;
 
+    // For the UI check (2026-11-02): how many log rows have a roll, and how many of them draw its dice.
+    public (int Rolls, int Drawn) LogDice => (_logRows.Count(r => r.Source.Faces is { Count: > 0 }), _logRows.Count(r => r.Source.Faces is { Count: > 0 } && HasDice(r.Box)));
+
+    private static bool HasDice(Node node) => node is DieStrip || node.GetChildren().Any(HasDice);
+
+    // For the UI check: scrolls the log so the first row that draws dice is in view; false when there is none.
+    public bool ShowFirstLogDice()
+    {
+        if (_logRows.FirstOrDefault(r => HasDice(r.Box)) is not { } row)
+        {
+            return false;
+        }
+        _logScroll.EnsureControlVisible(row.Box);
+        return true;
+    }
+
     // What each log row was last painted with (PaintLog), by the row's own box: rows of a new match are new boxes.
     private readonly Dictionary<Control, string> _logPainted = [];
 

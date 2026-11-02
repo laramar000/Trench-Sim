@@ -246,6 +246,7 @@ hotseat: hotseat-leave-enter
 hotseat: hotseat-turn-banner
 hotseat: hotseat-bar-seat-letter
 hotseat: hotseat-full-match
+hotseat: hotseat-log-draws-dice
 hotseat: hotseat-server-stopped
 hotseat: online-roster-type-server
 hotseat: online-roster-match
