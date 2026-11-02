@@ -112,8 +112,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - The faction JSON files are the source of truth now. The earlier generator scripts held private source names and are
   not in the repo: edit `content/roster/*.json` directly, keep `docs/roster.md` and the tests (`tests/Roster.Tests`,
   `tests/Client.Tests/RosterBuilderTests.cs`) in step, and run the Roster tests (`dotnet test tests/Roster.Tests`).
-- Windows: the owner tests on Windows with Test Center (install line in `docs/testing.md`). Last Windows results were
-  at 17a9099/e917e6b; later commits are checked on Linux only.
+- Windows: the owner tests on Windows with Test Center (install line in `docs/testing.md`). Last Windows results:
+  2026-11-02 at a5f6cb5, full Windows UI check (Run-WindowsUiCheck.ps1) PASS: 406 PASS, 0 FAIL, 11 NOT TESTED (5 optional
+  the match gave no chance for: board-send-shoot/charge/fight, charge-confirm-button, pvp-dice-beside-model-clear; 6 manual).
 
 ## Current step (keep this section up to date at every push)
 
