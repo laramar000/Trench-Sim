@@ -145,6 +145,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (`ShotsIgnoreMarkers`), Expert Medic (+2 Treat DICE), Finish the Fallen (`Reducer.FinishDice`), Shock Charge
   (`ExtraChargeDie`, `ChargeRolled.Dropped`), Onward Christian Soldiers! (`InspiresFaithful`, `Board.Inspired`), Assault
   Drill/Battlefield Demolition (readiness drops HEAVY). New traits Principality/Cult/Demonic. Essentials 2,194/0.
+- 2026-11-01: Windows clone at D:\Claude\Trench-Sim set up. It needs `git config core.autocrlf false` (CRLF checkouts
+  break the golden-text and map-file tests); `.claude/settings.json` allows dotnet build/test/run. Essentials 2,194/0
+  on Windows at d88ce8b.
 - Next R6 work: New Antioch's Aim/Fortify ACTIONs, then the other factions' simple abilities (survey in the R6a commit).
 - Pushed before: R5a e2ad5d8 ... R5f a93a518, gaps f787535 (U111), R5g 6305404 (U112), R5h 28cf852 (U113),
   R5i ed2f05f (U114), R5j 013355b (U115), R5k 61dd615 (U116).
