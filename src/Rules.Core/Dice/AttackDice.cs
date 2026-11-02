@@ -66,9 +66,18 @@ public static class AttackDice
     public static (int Bonus, int Penalty) InjuryDice(ModelProfile attacker, AttackKind kind, bool critical, bool meleeOnDownTarget, int carried, ModelProfile target)
     {
         ArgumentNullException.ThrowIfNull(target);
-        var bonus = InjuryBonus(false, meleeOnDownTarget) + (critical ? CriticalInjuryDice(attacker.AttackKeywords(kind)) : 0);
-        return With(bonus, 0, OwnInjuryDice(attacker, kind) + carried + target.InjuryDiceTaken);
+        var bonus = InjuryBonus(false, meleeOnDownTarget) + (critical ? CriticalInjuryDice(attacker.AttackKeywords(kind)) : 0) + HuntDice(attacker, target);
+        return With(bonus, 0, OwnInjuryDice(attacker, kind) + carried + TakenDice(target, attacker.AttackKeywords(kind)));
     }
+
+    // Roster stage R5c (U107): the INJURY DICE the target's battlekit adds to attacks that hit it (Holy Smoke: -1).
+    // Roster stage R6c (U119): and its abilities: Corpulent and Artificial Life are in InjuryDiceTaken; Undead Fortitude
+    // -1 unless the attack has FIRE, Abiotic Life -1 when it has GAS.
+    public static int TakenDice(ModelProfile target, WeaponKeywords attack) =>
+        target.InjuryDiceTaken - (target.UndeadFortitude && !attack.HasFlag(WeaponKeywords.Fire) ? 1 : 0) - (target.AbioticLife && attack.HasFlag(WeaponKeywords.Gas) ? 1 : 0);
+
+    // Roster stage R6c (U119): Mubarizun, +1 INJURY DICE against a TOUGH target.
+    public static int HuntDice(ModelProfile attacker, ModelProfile target) => attacker.HuntsTheTough && target.Traits.HasFlag(ModelTraits.Tough) ? 1 : 0;
 
     // Roster stage R2: a Ranged Attack's Success Roll dice from the declared facts and the weapon's keywords (IGNORE
     // COVER, IGNORE LONG RANGE, IGNORE ELEVATED POSITION; SHOTGUN at Long Range moves the -1 to the Injury Roll as
@@ -76,11 +85,12 @@ public static class AttackDice
     // Roster stage R5d (U108): a target that BlendsIn (a Cloak of the Mountain) makes Cover -2 DICE.
     // Roster stage R5e (U109): whispers, the target is the Urn of the Bitter Ashes' bearer or within 3" of it: -1 DICE.
     // Roster stage R6b (U118): aim, the +2 DICE of a successful Aim ACTION.
+    // Roster stage R6c (U119): a target with a Stealth Generator: -1 DICE.
     public static (int Bonus, int Penalty, int InjuryLater) Shot(ModelProfile attacker, bool longRange, bool inCover, bool elevated, ModelProfile? target = null, bool whispers = false, int aim = 0)
     {
         var k = attacker.RangedWeaponKeywords;
         var counts = ShotModifiers(k, longRange, inCover, elevated, target?.BlendsIn == true);
-        var (bonus, penalty) = With(counts.Elevated + aim, counts.LongRange + counts.Cover + (whispers ? 1 : 0), OwnDice(attacker, AttackKind.Ranged));
+        var (bonus, penalty) = With(counts.Elevated + aim, counts.LongRange + counts.Cover + (whispers ? 1 : 0) + (target?.Stealthy == true ? 1 : 0), OwnDice(attacker, AttackKind.Ranged));
         return (bonus, penalty, counts.ShotgunInjury);
     }
 

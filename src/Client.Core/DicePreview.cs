@@ -32,13 +32,17 @@ public sealed record DicePreview(
     public int TargetInjuryDice { get; init; }
 
     // The Success Roll's dice before markers, as the server rolls them: +DICE and -DICE cancel in pairs (p. 15).
-    public int HitNetDice => HitBonus + AimDice - HitPenalty + OwnHitDice;
+    public int HitNetDice => HitBonus + AimDice + CounterDice - HitPenalty + OwnHitDice;
 
     // Roster stage R6b (U118): +2 DICE on a Ranged Attack after a successful Aim ACTION this activation.
     public int AimDice { get; init; }
 
     // The Injury Roll's dice before markers and a Critical Success.
-    public int InjuryNetDice => InjuryBonus + OwnInjuryDice + ShotgunInjuryDice + TargetInjuryDice + FinishDice;
+    public int InjuryNetDice => InjuryBonus + OwnInjuryDice + ShotgunInjuryDice + TargetInjuryDice + FinishDice + HuntDice;
+
+    // Roster stage R6c (U119): Mubarizun's +1 INJURY DICE against a TOUGH target, and Counter-Charge's +1 DICE on the hit roll.
+    public int HuntDice { get; init; }
+    public int CounterDice { get; init; }
 
     // Roster stage R6a (U117): Finish the Fallen's +1 INJURY DICE at a Down target that is neither CULT nor DEMONIC.
     public int FinishDice { get; init; }
@@ -80,7 +84,9 @@ public sealed record DicePreview(
             OwnHitDice = AttackDice.OwnDice(profile, kind),
             OwnHitParts = OwnParts(profile, kind),
             OwnInjuryDice = AttackDice.OwnInjuryDice(profile, kind),
-            TargetInjuryDice = setup.ProfileOf(target.Id)!.InjuryDiceTaken,
+            TargetInjuryDice = AttackDice.TakenDice(setup.ProfileOf(target.Id)!, profile.AttackKeywords(kind)),
+            HuntDice = AttackDice.HuntDice(profile, setup.ProfileOf(target.Id)!),
+            CounterDice = kind == AttackKind.Melee ? TurnSequence.CounterDice(state, attacker.Id) : 0,
             FinishDice = kind == AttackKind.Melee && profile.FinishesTheFallen && target.Status == ModelStatus.Down
                 && (setup.ProfileOf(target.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0 ? 1 : 0,
         };
@@ -180,6 +186,10 @@ public sealed record DicePreview(
         {
             lines.Insert(0, $"Hit roll: +{AimDice} DICE (Aim ACTION this activation, Warbands p. 28)");
         }
+        if (CounterDice > 0)
+        {
+            lines.Insert(0, $"Hit roll: +{CounterDice} DICE (Counter-Charge this activation, Warbands p. 87)");
+        }
         if (OwnHitDice != 0)
         {
             lines.Insert(0, $"Hit roll: {OwnHitDice:+0;-0} DICE ({string.Join(", ", OwnHitParts)})");
@@ -204,11 +214,15 @@ public sealed record DicePreview(
         }
         if (TargetInjuryDice != 0)
         {
-            injury.Add($"{TargetInjuryDice:+0;-0} DICE (target's battlekit)");
+            injury.Add($"{TargetInjuryDice:+0;-0} DICE (target's battlekit and abilities)");
         }
         if (FinishDice != 0)
         {
             injury.Add($"+{FinishDice} DICE (Finish the Fallen)");
+        }
+        if (HuntDice != 0)
+        {
+            injury.Add($"+{HuntDice} DICE (Mubarizun, a TOUGH target)");
         }
         if (InjuryModifier != 0)
         {

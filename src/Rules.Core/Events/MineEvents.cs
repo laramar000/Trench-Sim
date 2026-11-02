@@ -94,8 +94,14 @@ public sealed record MineExploded : GameEvent
 
     private readonly bool _tough;
 
-    // The result the model takes, and the BLOOD MARKERS it gives (TOUGH's Down instead of Out of Action).
-    public InjuryOutcome Result => Tough ? InjuryOutcome.Down : Injury.Outcome;
+    // Roster stage R6c (U119): Memento Mori turned this first Out of Action result into No Effect; left out when false.
+    public bool Spared { get => _spared; init => _spared = value && Injury.Outcome != InjuryOutcome.OutOfAction ? throw new ArgumentException("Memento Mori turns only an Out of Action result into No Effect.", nameof(Spared)) : value; }
+
+    private readonly bool _spared;
+
+    // The result the model takes, and the BLOOD MARKERS it gives (TOUGH's Down or Memento Mori's No Effect instead of
+    // Out of Action).
+    public InjuryOutcome Result => Spared ? InjuryOutcome.NoEffect : Tough ? InjuryOutcome.Down : Injury.Outcome;
 
     public int ResultMarkers => InjuryRoll.BloodMarkersFor(Result, Injury.TargetAlreadyDown);
 

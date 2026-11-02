@@ -255,6 +255,35 @@ public class TraitWireTests
         Assert.Equal((SelfActionKind.Aim, 2, true), (rolled.Action, rolled.Check.NetDice, rolled.Check.Risky));
     }
 
+    // Roster stage R6c (U119): number-changing abilities, Frightening Speed's stand-up and Memento Mori's spared result.
+    [Fact]
+    public void NumberAbilitiesRoundTripAndAreLeftOutWhenFalse()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        var fields = new[] { "agile", "swiftDash", "quickToRise", "undeadFortitude", "abioticLife", "stealthy", "huntsTheTough", "counterCharge", "mementoMori" };
+        Assert.All(fields, f => Assert.DoesNotContain($"\"{f}\"", plain, StringComparison.Ordinal));
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with
+        {
+            Agile = true, SwiftDash = true, QuickToRise = true, UndeadFortitude = true, AbioticLife = true, Stealthy = true,
+            HuntsTheTough = true, CounterCharge = true, MementoMori = true,
+        };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        var text = Encoded(created);
+        Assert.All(fields, f => Assert.Contains($"\"{f}\":true", text, StringComparison.Ordinal));
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+        var a = new ModelId("A1");
+        Assert.DoesNotContain("quick", Encoded(new ModelStoodUp(a)), StringComparison.Ordinal);
+        Assert.True(((ModelStoodUp)RoundTrip(new ModelStoodUp(a) { Quick = true })).Quick);
+        var injury = InjuryRoll.Roll(new SeededDice(1), 6, 0, [], false);
+        Assert.Equal(InjuryOutcome.OutOfAction, injury.Outcome);
+        var spared = new InjuryRolled(a, new ModelId("B1"), injury) { Spared = true };
+        Assert.DoesNotContain("spared", Encoded(new InjuryRolled(a, new ModelId("B1"), injury)), StringComparison.Ordinal);
+        Assert.Equal((true, InjuryOutcome.NoEffect), (((InjuryRolled)RoundTrip(spared)).Spared, ((InjuryRolled)RoundTrip(spared)).Result));
+    }
+
     // Roster stage R5f (U110).
     [Fact]
     public void CoverKeywordRoundTripsAndIsLeftOutWhenFalse()

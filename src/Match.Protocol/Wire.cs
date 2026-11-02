@@ -380,6 +380,18 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.InspiresFaithful)),
             (typeof(ModelProfile), nameof(ModelProfile.Aims)),
             (typeof(ModelProfile), nameof(ModelProfile.Fortifies)),
+            (typeof(ModelProfile), nameof(ModelProfile.Agile)),
+            (typeof(ModelProfile), nameof(ModelProfile.SwiftDash)),
+            (typeof(ModelProfile), nameof(ModelProfile.QuickToRise)),
+            (typeof(ModelProfile), nameof(ModelProfile.UndeadFortitude)),
+            (typeof(ModelProfile), nameof(ModelProfile.AbioticLife)),
+            (typeof(ModelProfile), nameof(ModelProfile.Stealthy)),
+            (typeof(ModelProfile), nameof(ModelProfile.HuntsTheTough)),
+            (typeof(ModelProfile), nameof(ModelProfile.CounterCharge)),
+            (typeof(ModelProfile), nameof(ModelProfile.MementoMori)),
+            (typeof(ModelStoodUp), nameof(ModelStoodUp.Quick)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.Spared)),
+            (typeof(MineExploded), nameof(MineExploded.Spared)),
         ];
 
         // Optional numbers left out when zero, for the same reason (every match before roster stage R1's profile dice).

@@ -638,6 +638,7 @@ public static class Reducer
             LastActivator = e.Seat,
             Actions = ActionsTaken.None,
             Aiming = false,
+            CounterCharging = false,
             MovementHalved = false,
         };
     }
@@ -661,7 +662,7 @@ public static class Reducer
         {
             Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false };
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -795,7 +796,10 @@ public static class Reducer
             && state.Actions == ActionsTaken.None && !state.MovementHalved && state.InProgress is null, "A model stands up only at the start of its activation.");
         var model = state.FindModel(e.Model)!;
         Require(model.Status == ModelStatus.Down && model.Position is not null, "Only a Down model on the table stands up.");
-        return TurnRules.WithModel(state, model with { Status = ModelStatus.Standing }) with { MovementHalved = true };
+        // Roster stage R6c (U119): Frightening Speed keeps its Movement whole.
+        var quick = state.Setup!.ProfileOf(e.Model)!.QuickToRise;
+        Require(e.Quick == quick, "A model's Movement is halved when it stands up, unless it has Frightening Speed.");
+        return TurnRules.WithModel(state, model with { Status = ModelStatus.Standing }) with { MovementHalved = !quick };
     }
 
     private static MatchState OnDashDeclared(MatchState state, DashDeclared e)
@@ -998,13 +1002,18 @@ public static class Reducer
 
     // Roster stage R5d (U108): a Dash roll's bonus dice: +1 within 4" of a friendly Musical Instrument (the dashing
     // model's own included); a climb roll's: the model's Mountaineer Kit.
-    internal static int DashDice(MatchState state, ModelState model) =>
+    // Roster stage R6c (U119): +1 more for Agile, and +1 for Frightening Speed, Loping Dash or Mad Dash.
+    internal static int DashDice(MatchState state, ModelState model) => FanfareDice(state, model) + OwnDashDice(state.Setup!.ProfileOf(model.Id)!);
+
+    internal static int OwnDashDice(ModelProfile profile) => (profile.Agile ? 1 : 0) + (profile.SwiftDash ? 1 : 0);
+
+    internal static int FanfareDice(MatchState state, ModelState model) =>
         Board.BodyOf(state, model) is { } body && state.Models.Any(m => m.Seat == model.Seat && m.Position is not null
             && state.Setup!.ProfileOf(m.Id)!.Fanfare && (m.Id == model.Id || Board.BodyOf(state, m) is { } other && Measure.IsWithin(body, other, FanfareReach))) ? 1 : 0;
 
     private static readonly Length FanfareReach = Length.FromInches(4);
 
-    internal static int ClimbDice(MatchState state, ModelId model) => state.Setup!.ProfileOf(model)!.ClimbDice;
+    internal static int ClimbDice(MatchState state, ModelId model) => state.Setup!.ProfileOf(model) is { } p ? p.ClimbDice + (p.Agile ? 1 : 0) : 0;
 
     // The part of a climbing move before the climb: where a failed climb leaves the model (may be empty).
     internal static ImmutableArray<Point2> ClimbStopPath(MatchState state, RollInProgress progress)
@@ -1251,7 +1260,7 @@ public static class Reducer
             // Roster stage R5j (U115): +1 INJURY DICE within 1" and the INJURY DICE the target takes (Holy Smoke); the
             // bearer's own roll is always 4D6 added together.
             var (more, fewer) = victim == progress.Actor ? (0, 0)
-                : AttackDice.With(progress.MartyrClose.Contains(victim) ? 1 : 0, 0, state.Setup!.ProfileOf(victim)!.InjuryDiceTaken);
+                : AttackDice.With(progress.MartyrClose.Contains(victim) ? 1 : 0, 0, AttackDice.TakenDice(state.Setup!.ProfileOf(victim)!, WeaponKeywords.None));
             return progress with
             {
                 Target = victim,
@@ -1295,9 +1304,10 @@ public static class Reducer
         // Roster stage R4a: SHRAPNEL, GAS and FIRE put extra BLOOD MARKERS on the target (U101).
         Require(e.ExtraMarkers == AttackDice.ExtraMarkers(profile, progress.Kind, state.Setup!.ProfileOf(e.Target)!), "The extra BLOOD MARKERS must be the weapon's SHRAPNEL, GAS and FIRE.");
         Require(e.Tough == ToughSaves(state, target, e.Injury.Outcome), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
+        Require(e.Spared == MementoSaves(state, target, e.Injury.Outcome), "Memento Mori turns the model's first Out of Action result into No Effect, and nothing else.");
         Require(e.Warded == Wards(state, target, e.ResultMarkers + e.ExtraMarkers), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
         var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.PlacedMarkers);
-        var hurt = Hurt(target, e.Result, markers, e.Tough) with { WardSpent = target.WardSpent || e.Warded };
+        var hurt = Hurt(target, e.Result, markers, e.Tough || e.Spared) with { WardSpent = target.WardSpent || e.Warded };
         // A blast's next model (U102), once this one is rolled for.
         if (!progress.BlastQueue.IsDefaultOrEmpty)
         {
@@ -1311,7 +1321,12 @@ public static class Reducer
 
     // Roster stage R5b (U106): TOUGH turns the first Out of Action result a model suffers into a Down result (p. 57).
     internal static bool ToughSaves(MatchState state, ModelState model, InjuryOutcome outcome) =>
-        outcome == InjuryOutcome.OutOfAction && !model.ToughSpent && state.Setup!.ProfileOf(model.Id)!.Traits.HasFlag(ModelTraits.Tough);
+        outcome == InjuryOutcome.OutOfAction && !model.ToughSpent && state.Setup!.ProfileOf(model.Id)! is { MementoMori: false } p && p.Traits.HasFlag(ModelTraits.Tough);
+
+    // Roster stage R6c (U119): Memento Mori turns the first Out of Action result into No Effect; ToughSpent records it,
+    // as such a model is never TOUGH.
+    internal static bool MementoSaves(MatchState state, ModelState model, InjuryOutcome outcome) =>
+        outcome == InjuryOutcome.OutOfAction && !model.ToughSpent && state.Setup!.ProfileOf(model.Id)!.MementoMori;
 
     // Roster stage R5g (U112): the BLOOD MARKERS an event owes. A Crown of Hellfire's bearer that ends an activation on
     // the battlefield, or a Damned Pact's bearer taken Out of Action by an Injury Roll or a mine (measured from where it
@@ -1373,12 +1388,12 @@ public static class Reducer
 
     private static readonly Length UrnReach = Length.FromInches(3);
 
-    // The model after an Injury Roll's result, with its BLOOD MARKERS (and TOUGH spent when it saved the model).
+    // The model after an Injury Roll's result, with its BLOOD MARKERS (and TOUGH or Memento Mori spent when it saved the model).
     private static ModelState Hurt(ModelState model, InjuryOutcome result, int markers, bool tough) => result switch
     {
         InjuryOutcome.OutOfAction => model with { Status = ModelStatus.OutOfAction, Position = null, BloodMarkers = markers },
         InjuryOutcome.Down => model with { Status = ModelStatus.Down, BloodMarkers = markers, ToughSpent = model.ToughSpent || tough },
-        _ => model with { BloodMarkers = markers },
+        _ => model with { BloodMarkers = markers, ToughSpent = model.ToughSpent || tough },
     };
 
     // ---- M4 Slice B: Charge, Retreat, Fight, shooting into melee ----
@@ -1396,7 +1411,9 @@ public static class Reducer
         var stage = profile.NoChargeBonus ? RollStage.ChargeMove : RollStage.ChargeRoll;
         // Roster stage R3: BLOCK needs to know who charged this turn (p. 53); only matches with BLOCK keep the list.
         var charged = Board.TracksCharges(state.Setup) && !state.ChargedThisTurn.Contains(e.Model) ? state.ChargedThisTurn.Add(e.Model) : state.ChargedThisTurn;
-        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(stage, e.Model, e.Target), ChargedThisTurn = charged };
+        // Roster stage R6c (U119): Counter-Charge, when the Charge is the activation's first ACTION.
+        var counter = profile.CounterCharge && state.Actions == ActionsTaken.None;
+        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(stage, e.Model, e.Target), ChargedThisTurn = charged, CounterCharging = state.CounterCharging || counter };
     }
 
     private static MatchState OnChargeRolled(MatchState state, ChargeRolled e)
@@ -1536,7 +1553,10 @@ public static class Reducer
     // A Melee Attack's Success Roll dice: the declared penalty and the attacker's own dice with that weapon (roster
     // stages R1, R3).
     private static (int Bonus, int Penalty) MeleeDice(MatchState state, MeleeAttackDeclared e) =>
-        AttackDice.With(0, e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Melee, e.Weapon), AttackKind.Melee));
+        AttackDice.With(CounterDice(state, e.Attacker), e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Melee, e.Weapon), AttackKind.Melee));
+
+    // Roster stage R6c (U119): +1 DICE to the active model's Melee Attacks after a Counter-Charge this activation.
+    internal static int CounterDice(MatchState state, ModelId attacker) => state.CounterCharging && state.ActiveModel == attacker ? 1 : 0;
 
     private static MatchState OnMeleeSuccessRolled(MatchState state, MeleeSuccessRolled e)
     {
@@ -1729,9 +1749,10 @@ public static class Reducer
             "A mine's Injury Roll has no extra dice and no weapon modifier, only the model's armour.");
         Require(e.Negated == state.Setup!.ProfileOf(e.Model)!.Negates.HasFlag(WeaponKeywords.Shrapnel), "A mine adds its SHRAPNEL Blood Marker unless the model has NEGATE SHRAPNEL.");
         Require(e.Tough == ToughSaves(state, model, e.Injury.Outcome), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
+        Require(e.Spared == MementoSaves(state, model, e.Injury.Outcome), "Memento Mori turns the model's first Out of Action result into No Effect, and nothing else.");
         Require(e.Warded == Wards(state, model, e.ResultMarkers + e.ExtraMarkers()), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
         var markers = Math.Min(BloodMarkers.Max, model.BloodMarkers + e.PlacedMarkers);
-        var hurt = Hurt(model, e.Result, markers, e.Tough) with { WardSpent = model.WardSpent || e.Warded };
+        var hurt = Hurt(model, e.Result, markers, e.Tough || e.Spared) with { WardSpent = model.WardSpent || e.Warded };
         // Taken Down or Out of Action: the move is over (and so is the activation, p. 49). Otherwise it carries on.
         return TurnRules.WithModel(state, hurt) with
         {

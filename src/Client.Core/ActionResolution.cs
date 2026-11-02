@@ -130,6 +130,18 @@ public sealed class ResolutionLog
         {
             case DashDeclared d:
                 Start(seq, d.Model, $"{Id(d.Model)} DASHES", null, null);
+                // Roster stage R6c (U119): Agile and the Dash abilities.
+                if (setup?.ProfileOf(d.Model) is { } dasher)
+                {
+                    if (dasher.Agile)
+                    {
+                        _current!.Dice.Add(new("Agile", 1));
+                    }
+                    if (dasher.SwiftDash)
+                    {
+                        _current!.Dice.Add(new("its Dash ability", 1));
+                    }
+                }
                 break;
             case MartyrdomTriggered mt:
                 // Roster stage R5j (U115): each model within 3" has an Injury Roll, the bearer last.
@@ -163,6 +175,11 @@ public sealed class ResolutionLog
                 if (setup?.ProfileOf(c.Model) is { ClimbDice: > 0 } climber)
                 {
                     _current!.Dice.Add(new("Mountaineer Kit", climber.ClimbDice));
+                }
+                // Roster stage R6c (U119).
+                if (setup?.ProfileOf(c.Model) is { Agile: true })
+                {
+                    _current!.Dice.Add(new("Agile", 1));
                 }
                 break;
             case RangedAttackDeclared r:
@@ -297,6 +314,12 @@ public sealed class ResolutionLog
                 action.Outcome.Add(b.Hit.IsEmpty ? "BLAST hits nobody" : $"BLAST hits {b.Hit.Length}");
                 break;
             case MeleeSuccessRolled m:
+                // Roster stage R6c (U119): Counter-Charge's +1 DICE (worked out by the rules from the activation; here it is
+                // what the roll has beyond the known parts).
+                if (m.Check.NetDice - action.Dice.Sum(p => p.Value) == 1 && setup?.ProfileOf(m.Attacker) is { CounterCharge: true })
+                {
+                    action.Dice.Add(new("Counter-Charge", 1));
+                }
                 Success(seq, action, m.Check, setup, "Hit roll", "HIT", "MISSED");
                 break;
             case BlastHit b:
@@ -387,6 +410,11 @@ public sealed class ResolutionLog
         {
             _current!.Dice.Add(new("Aim ACTION", Rules.Core.TurnSequence.SelfActionDice(SelfActionKind.Aim)));
         }
+        // Roster stage R6c (U119): a target with a Stealth Generator.
+        if (target is { } hidden && setup?.ProfileOf(hidden)?.Stealthy == true)
+        {
+            _current!.Dice.Add(new("Stealth Generator", -1));
+        }
         if (applied.Elevated != 0)
         {
             _current!.Dice.Add(new("Elevated position", applied.Elevated));
@@ -456,9 +484,19 @@ public sealed class ResolutionLog
             dice.Add(new(DicePreview.WeaponWord(own, attackKind), weaponDice));
         }
         // Roster stage R5c (U107): the target's Holy Smoke or Zealot's Draught.
-        if (setup?.ProfileOf(i.Target) is { InjuryDiceTaken: not 0 } struck)
+        // Roster stage R6c (U119): and its abilities (Corpulent, Artificial Life, Undead Fortitude, Abiotic Life), and
+        // Mubarizun against a TOUGH target.
+        if (setup?.ProfileOf(i.Target) is { } struck)
         {
-            dice.Add(new("target's battlekit", struck.InjuryDiceTaken));
+            var keywords = own is not null && action.Kind is { } hitKind ? own.AttackKeywords(hitKind) : WeaponKeywords.None;
+            if (AttackDice.TakenDice(struck, keywords) is var taken and not 0)
+            {
+                dice.Add(new("target's battlekit and abilities", taken));
+            }
+            if (own is not null && action.MartyrClose is null && AttackDice.HuntDice(own, struck) is var hunt and not 0)
+            {
+                dice.Add(new("Mubarizun, a TOUGH target", hunt));
+            }
         }
         dice.AddRange(action.Dice);
         var modifiers = new List<ResolutionPart>();

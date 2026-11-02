@@ -84,6 +84,10 @@ public static class StateHash
         {
             Line(sb, "aiming", true);
         }
+        if (state.CounterCharging)
+        {
+            Line(sb, "counterCharging", true);
+        }
         if (!state.MarkersOwed.IsDefaultOrEmpty)
         {
             Line(sb, "markersOwed", string.Join(";", state.MarkersOwed.Select(o => $"{o.Source.Value}>{string.Join(",", o.Targets.Select(t => t.Value))}")));
@@ -254,7 +258,17 @@ public static class StateHash
             + (p.InspiresFaithful ? ",inspires=yes" : "")
             // Roster stage R6b: Aim and Fortify ACTIONS, only when present.
             + (p.Aims ? ",aims=yes" : "")
-            + (p.Fortifies ? ",fortifies=yes" : "");
+            + (p.Fortifies ? ",fortifies=yes" : "")
+            // Roster stage R6c: number-changing abilities, only when present.
+            + (p.Agile ? ",agile=yes" : "")
+            + (p.SwiftDash ? ",swiftDash=yes" : "")
+            + (p.QuickToRise ? ",quickToRise=yes" : "")
+            + (p.UndeadFortitude ? ",undeadFortitude=yes" : "")
+            + (p.AbioticLife ? ",abioticLife=yes" : "")
+            + (p.Stealthy ? ",stealthy=yes" : "")
+            + (p.HuntsTheTough ? ",huntsTheTough=yes" : "")
+            + (p.CounterCharge ? ",counterCharge=yes" : "")
+            + (p.MementoMori ? ",mementoMori=yes" : "");
     }
 
     private static string WeaponText(Weapon w) =>

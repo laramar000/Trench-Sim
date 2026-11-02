@@ -264,6 +264,10 @@ The server sends events in log order, one message each, to both players, through
   optional Blood Marker offer, then `SelfActionRolled` (`model`, `action`, `check`). The state hash adds `,aims=yes` and
   `,fortifies=yes` to a profile, `aiming` to the state and `:self=X` to a roll in progress only when set; a fortified
   model reuses `dugIn`.
+- Roster stage R6c (U119): `ModelProfile` flags `agile`, `swiftDash`, `quickToRise`, `undeadFortitude`, `abioticLife`,
+  `stealthy`, `huntsTheTough`, `counterCharge` and `mementoMori`, each left out when false; `ModelStoodUp.quick` and
+  `InjuryRolled.spared`/`MineExploded.spared`, left out when false. The state hash adds each flag as `,name=yes` to a
+  profile and `counterCharging` to the state only when set; Memento Mori reuses `tough=spent`.
 
 ## Rosters online (roster stage 5c)
 

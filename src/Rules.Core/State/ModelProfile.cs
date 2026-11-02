@@ -276,6 +276,36 @@ public sealed record ModelProfile
     // Fortify ACTION (Warbands pp. 33, 85): a Risky Success Roll; on a Success it has COVER until it moves.
     public bool Fortifies { get; init; }
 
+    // ---- Roster stage R6c (U119): unit abilities that change a number ----
+
+    // Agile (Warbands pp. 57, 86): +1 DICE to its Risky rolls to Dash or climb (the engine has no Jump or Diving Charge).
+    public bool Agile { get; init; }
+
+    // Frightening Speed, Loping Dash, Mad Dash (pp. 138, 113, 58): +1 DICE to the Risky roll of its Dash ACTION.
+    public bool SwiftDash { get; init; }
+
+    // Frightening Speed (p. 138): its Movement is not halved when it stands up.
+    public bool QuickToRise { get; init; }
+
+    // Undead Fortitude (p. 134): -1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.
+    public bool UndeadFortitude { get; init; }
+
+    // Abiotic Life (p. 116): -1 INJURY DICE to Injury Rolls against it from attacks with GAS.
+    public bool AbioticLife { get; init; }
+
+    // Stealth Generator (p. 110): -1 DICE to Ranged Attacks that target it.
+    public bool Stealthy { get; init; }
+
+    // Mubarizun (p. 81): +1 INJURY DICE to its attacks' Injury Rolls against TOUGH targets.
+    public bool HuntsTheTough { get; init; }
+
+    // Counter-Charge (p. 87): when its first ACTION of an activation is a Charge, +1 DICE to its Melee Attacks for the
+    // rest of that activation.
+    public bool CounterCharge { get; init; }
+
+    // Memento Mori (p. 53): its first Out of Action result counts as No Effect (it is never TOUGH).
+    public bool MementoMori { get; init; }
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -455,6 +485,15 @@ public sealed record ModelProfile
                 InspiresFaithful = InspiresFaithful,
                 Aims = Aims,
                 Fortifies = Fortifies,
+                Agile = Agile,
+                SwiftDash = SwiftDash,
+                QuickToRise = QuickToRise,
+                UndeadFortitude = UndeadFortitude,
+                AbioticLife = AbioticLife,
+                Stealthy = Stealthy,
+                HuntsTheTough = HuntsTheTough,
+                CounterCharge = CounterCharge,
+                MementoMori = MementoMori,
             };
         }
         // Roster stage R5i (U114): a Grind to Dust attack uses no Melee Weapon: no weapon DICE, INJURY DICE, modifier,
@@ -497,6 +536,15 @@ public sealed record ModelProfile
                 InspiresFaithful = InspiresFaithful,
                 Aims = Aims,
                 Fortifies = Fortifies,
+                Agile = Agile,
+                SwiftDash = SwiftDash,
+                QuickToRise = QuickToRise,
+                UndeadFortitude = UndeadFortitude,
+                AbioticLife = AbioticLife,
+                Stealthy = Stealthy,
+                HuntsTheTough = HuntsTheTough,
+                CounterCharge = CounterCharge,
+                MementoMori = MementoMori,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -541,6 +589,15 @@ public sealed record ModelProfile
             InspiresFaithful = InspiresFaithful,
             Aims = Aims,
             Fortifies = Fortifies,
+            Agile = Agile,
+            SwiftDash = SwiftDash,
+            QuickToRise = QuickToRise,
+            UndeadFortitude = UndeadFortitude,
+            AbioticLife = AbioticLife,
+            Stealthy = Stealthy,
+            HuntsTheTough = HuntsTheTough,
+            CounterCharge = CounterCharge,
+            MementoMori = MementoMori,
         };
     }
 

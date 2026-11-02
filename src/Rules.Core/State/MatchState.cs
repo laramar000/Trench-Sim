@@ -256,6 +256,10 @@ public sealed record MatchState
     // activation. Hashed only when set.
     public bool Aiming { get; init; }
 
+    // Roster stage R6c (U119): the active model's first ACTION was a Charge and it has Counter-Charge: +1 DICE to its Melee
+    // Attacks for the rest of the activation. Hashed only when set.
+    public bool CounterCharging { get; init; }
+
     public SeatState SeatFor(Seat seat) => seat == Seat.One ? One : Two;
 
     public ModelState? FindModel(ModelId id)

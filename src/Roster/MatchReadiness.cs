@@ -113,6 +113,17 @@ public sealed record ReadyModel(
     public bool Aims { get; init; }
     public bool Fortifies { get; init; }
 
+    // Roster stage R6c (U119): abilities that change a number.
+    public bool Agile { get; init; }
+    public bool SwiftDash { get; init; }
+    public bool QuickToRise { get; init; }
+    public bool UndeadFortitude { get; init; }
+    public bool AbioticLife { get; init; }
+    public bool Stealthy { get; init; }
+    public bool HuntsTheTough { get; init; }
+    public bool CounterCharge { get; init; }
+    public bool MementoMori { get; init; }
+
     // Roster stage R5j (U115): the Trigger Martyrdom Device ACTION.
     public bool Martyrdom { get; init; }
 }
@@ -195,7 +206,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori) })
                     {
                         if (on)
                         {
@@ -331,6 +342,11 @@ public static class MatchReadiness
 
             var kit = entry.StartsWith.Concat(model.Kit)
                 .Select(k => catalogue.Find(KitRef.Split(k).Kit)).OfType<CatalogueEntry>().ToList();
+            // Roster stage R6c (U119): Nailed Cross, an Iron Capirote and a Gas Mask the model always has.
+            if (abilities.Contains(NailedCross))
+            {
+                kit.AddRange(NailedCrossKit.Where(id => kit.All(k => k.Id != id)).Select(catalogue.Find).OfType<CatalogueEntry>());
+            }
             var guns = new List<CatalogueEntry>();
             var blades = new List<CatalogueEntry>();
             var armour = entry.Armour;
@@ -510,8 +526,9 @@ public static class MatchReadiness
                     : Loaded(Ready(offHand, ranged: false, who, without), guns.IndexOf(offHand) switch { 0 => ammoFirst, 1 => ammoSecond, _ => null }, who, without),
                 Grenade = grenade is null ? null : Ready(grenade, ranged: true, who, without),
                 Negates = [.. NegateNames.Where(n => negates.Contains(n.Key)).Select(n => n.Value)],
-                Traits = [.. TraitNames.Where(traits.Contains)],
-                InjuryDiceTaken = Dice(injuryTaken, who, "INJURY DICE against it", without),
+                // Roster stage R6c (U119): a model with Memento Mori can never be TOUGH.
+                Traits = [.. TraitNames.Where(t => traits.Contains(t) && !(t == "Tough" && abilities.Contains(MementoMori)))],
+                InjuryDiceTaken = Dice(injuryTaken + (abilities.Contains(Corpulent) ? -2 : 0) + (abilities.Contains(ArtificialLife) ? -1 : 0), who, "INJURY DICE against it", without),
                 MeleeInjuryBonus = MeleeInjury(meleeInjury, who, without),
                 KeepsGoingAfterRisky = keepsGoing,
                 ClimbDice = Dice(climbDice, who, "climb DICE", without),
@@ -535,6 +552,15 @@ public static class MatchReadiness
                 InspiresFaithful = abilities.Contains(OnwardSoldiers),
                 Aims = abilities.Contains(AimAction),
                 Fortifies = abilities.Contains(FortifyAction),
+                Agile = abilities.Contains(Agile),
+                SwiftDash = abilities.Contains(FrighteningSpeed) || abilities.Contains(LopingDash) || abilities.Contains(MadDash),
+                QuickToRise = abilities.Contains(FrighteningSpeed),
+                UndeadFortitude = abilities.Contains(UndeadFortitude),
+                AbioticLife = abilities.Contains(AbioticLife),
+                Stealthy = abilities.Contains(StealthGenerator),
+                HuntsTheTough = abilities.Contains(Mubarizun),
+                CounterCharge = abilities.Contains(CounterCharge),
+                MementoMori = abilities.Contains(MementoMori),
             };
             models.Add(Unburdened(ready, abilities, grenade));
         }
@@ -593,10 +619,26 @@ public static class MatchReadiness
     // Roster stage R6b (U118).
     private const string AimAction = "Aim ACTION";
     private const string FortifyAction = "Fortify ACTION";
+    // Roster stage R6c (U119).
+    private const string Agile = "Agile";
+    private const string FrighteningSpeed = "Frightening Speed";
+    private const string LopingDash = "Loping Dash";
+    private const string MadDash = "Mad Dash";
+    private const string UndeadFortitude = "Undead Fortitude";
+    private const string AbioticLife = "Abiotic Life";
+    private const string StealthGenerator = "Stealth Generator";
+    private const string Mubarizun = "Mubarizun";
+    private const string CounterCharge = "Counter-Charge";
+    private const string MementoMori = "Memento Mori";
+    private const string Corpulent = "Corpulent";
+    private const string ArtificialLife = "Artificial Life";
+    private const string NailedCross = "Nailed Cross";
+    private static readonly string[] NailedCrossKit = ["iron-capirote", "gas-mask"];
 
     private static readonly HashSet<string> PlayedAbilities = new(StringComparer.Ordinal)
     {
         AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
+        Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1

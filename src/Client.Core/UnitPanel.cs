@@ -389,6 +389,25 @@ public static class UnitPanel
         {
             parts.Add("Fortify ACTION (V)");
         }
+        // Roster stage R6c (U119).
+        foreach (var (on, words) in new[]
+        {
+            (p.Agile, "Agile: +1 DICE to Dash and climb rolls"),
+            (p.SwiftDash, "+1 DICE to its Dash roll"),
+            (p.QuickToRise, "Movement not halved when it stands up"),
+            (p.UndeadFortitude, "hit for -1 INJURY DICE unless FIRE"),
+            (p.AbioticLife, "hit for -1 INJURY DICE by GAS"),
+            (p.Stealthy, "-1 DICE to shots at it (Stealth Generator)"),
+            (p.HuntsTheTough, "+1 INJURY DICE against TOUGH"),
+            (p.CounterCharge, "Counter-Charge: +1 DICE in melee after charging first"),
+            (p.MementoMori, "first Out of Action counts as No Effect"),
+        })
+        {
+            if (on)
+            {
+                parts.Add(words);
+            }
+        }
         // Roster stage R6a (U117): New Antioch abilities.
         if (p.ShotsIgnoreMarkers)
         {

@@ -6,7 +6,11 @@ using Rules.Core.State;
 namespace Rules.Core.Events;
 
 // A Down model stood back up at the start of its activation; its Movement is halved for the rest of it (Core p. 20).
-public sealed record ModelStoodUp(ModelId Model) : GameEvent;
+// Roster stage R6c (U119): Quick, its Movement is not halved (Frightening Speed); left out when false.
+public sealed record ModelStoodUp(ModelId Model) : GameEvent
+{
+    public bool Quick { get; init; }
+}
 
 public enum MoveKind
 {
@@ -235,8 +239,14 @@ public sealed record InjuryRolled : GameEvent
 
     private readonly bool _tough;
 
-    // The result the model takes, and the BLOOD MARKERS it gives (TOUGH's Down instead of Out of Action).
-    public InjuryOutcome Result => Tough ? InjuryOutcome.Down : Injury.Outcome;
+    // Roster stage R6c (U119): Memento Mori turned this first Out of Action result into No Effect; left out when false.
+    public bool Spared { get => _spared; init => _spared = value && Injury.Outcome != InjuryOutcome.OutOfAction ? throw new ArgumentException("Memento Mori turns only an Out of Action result into No Effect.", nameof(Spared)) : value; }
+
+    private readonly bool _spared;
+
+    // The result the model takes, and the BLOOD MARKERS it gives (TOUGH's Down or Memento Mori's No Effect instead of
+    // Out of Action).
+    public InjuryOutcome Result => Spared ? InjuryOutcome.NoEffect : Tough ? InjuryOutcome.Down : Injury.Outcome;
 
     public int ResultMarkers => InjuryRoll.BloodMarkersFor(Result, Injury.TargetAlreadyDown);
 

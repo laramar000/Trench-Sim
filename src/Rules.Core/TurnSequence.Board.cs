@@ -189,6 +189,12 @@ public static partial class TurnSequence
 
     public static int AimedDice(MatchState state, ModelId shooter) => Reducer.AimedDice(state, shooter);
 
+    // Roster stage R6c (U119): the Dash roll's die from a Musical Instrument within 4" alone, and Counter-Charge's die on
+    // the active model's Melee Attacks now.
+    public static int FanfareDice(MatchState state, ModelId model) => state.FindModel(model) is { } m ? Reducer.FanfareDice(state, m) : 0;
+
+    public static int CounterDice(MatchState state, ModelId attacker) => Reducer.CounterDice(state, attacker);
+
     // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION (Warbands p. 58), once per game.
     private static Rejection? ValidateTrigger(MatchState state, TriggerMartyrdom c)
     {
@@ -843,6 +849,7 @@ public static partial class TurnSequence
                 {
                     ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup.ProfileOf(target.Id)!),
                     Tough = Reducer.ToughSaves(s, target, injury.Outcome),
+                    Spared = Reducer.MementoSaves(s, target, injury.Outcome),
                 };
                 rolled = rolled with { Warded = Reducer.Wards(s, target, rolled.ResultMarkers + rolled.ExtraMarkers) };
                 run.Emit(rolled);
@@ -918,6 +925,7 @@ public static partial class TurnSequence
             {
                 Negated = s.Setup.ProfileOf(model.Id)!.Negates.HasFlag(WeaponKeywords.Shrapnel),
                 Tough = Reducer.ToughSaves(s, model, injury.Outcome),
+                Spared = Reducer.MementoSaves(s, model, injury.Outcome),
             };
             // Roster stage R5e (U109): the Sacrificial Lamb's blood keeps off the first BLOOD MARKER.
             run.Emit(exploded with { Warded = Reducer.Wards(s, model, exploded.ResultMarkers + exploded.ExtraMarkers()) });

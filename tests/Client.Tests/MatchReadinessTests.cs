@@ -647,6 +647,37 @@ public class MatchReadinessTests
             f => Assert.DoesNotContain(f, plain, StringComparison.Ordinal));
     }
 
+    // Roster stage R6c (U119): abilities that change a number, played by name.
+    [Fact]
+    public void NumberAbilitiesArePlayed()
+    {
+        ModelProfile Played(string faction, string unit, string ability, params string[] kit)
+        {
+            var ready = Of(faction, unit, kit).MatchCheck();
+            Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains(ability, StringComparison.Ordinal));
+            return Loaded(ready);
+        }
+        Assert.True(Played("cult", "plague-knight", "Undead Fortitude", "trench-club").UndeadFortitude);
+        Assert.True(Played("heretics", "night-commando", "Stealth Generator", "pistol").Stealthy);
+        Assert.True(Played("heretics", "bombard-witch", "Abiotic Life").AbioticLife);
+        var prophet = Played("pilgrims", "war-prophet", "Memento Mori", "trench-club");
+        Assert.Equal((true, false), (prophet.MementoMori, prophet.Traits.HasFlag(ModelTraits.Tough)));
+        var nun = Played("pilgrims", "stigmatic-nun", "Agile", "trench-club");
+        Assert.Equal((true, false), (nun.Agile, nun.SwiftDash));
+        Assert.True(Played("pilgrims", "ecclesiastic-prisoner", "Mad Dash", "trench-club").SwiftDash);
+        Assert.True(Played("sultanate", "yuzbasi", "Mubarizun", "trench-club").HuntsTheTough);
+        Assert.True(Played("sultanate", "janissary", "Counter-Charge", "trench-club").CounterCharge);
+        var giant = Played("pilgrims", "sanctified-giant", "Nailed Cross");
+        Assert.True(giant.Negates.HasFlag(WeaponKeywords.Gas));
+        var bull = Of("sultanate", "brazen-bull").MatchCheck();
+        Assert.DoesNotContain(bull.PlayedWithout, w => w.Contains("Artificial Life", StringComparison.Ordinal));
+        Assert.Equal(-1, Loaded(bull).InjuryDiceTaken);
+
+        var plain = Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P");
+        Assert.All(new[] { "agile", "swiftDash", "quickToRise", "undeadFortitude", "abioticLife", "stealthy", "huntsTheTough", "counterCharge", "mementoMori" },
+            f => Assert.DoesNotContain(f, plain, StringComparison.Ordinal));
+    }
+
     // HELD (p. 55): a Troop Flag takes a hand, so the model carries one 1-handed weapon or a shield.
     [Fact]
     public void HeldKitLeavesOneHand()

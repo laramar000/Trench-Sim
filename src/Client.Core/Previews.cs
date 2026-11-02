@@ -284,17 +284,26 @@ public static class Previews
         {
             facts.Add("A Dash is a Risky Success Roll: the dice decide whether the model moves (server).");
             // Roster stage R5d (U108).
-            if (TurnSequence.DashDice(state, id) > 0)
+            if (TurnSequence.FanfareDice(state, id) > 0)
             {
                 facts.Add("+1 DICE on the Dash roll: a Musical Instrument within 4\" (p. 85).");
+            }
+            // Roster stage R6c (U119).
+            if (state.Setup!.ProfileOf(id) is { } dasher && (dasher.Agile || dasher.SwiftDash))
+            {
+                facts.Add($"+{(dasher.Agile ? 1 : 0) + (dasher.SwiftDash ? 1 : 0)} DICE on the Dash roll: {string.Join(" and ", new[] { dasher.Agile ? "Agile" : null, dasher.SwiftDash ? "its Dash ability" : null }.OfType<string>())}.");
             }
         }
         if (result.SideClimb is not null)
         {
             facts.Add(SideClimbFact);
-            if (TurnSequence.ClimbDice(state, id) is var climb and > 0)
+            if (state.Setup!.ProfileOf(id)!.ClimbDice is var climb and > 0)
             {
                 facts.Add($"+{climb} DICE on the climb roll: Mountaineer Kit (p. 84).");
+            }
+            if (state.Setup!.ProfileOf(id)!.Agile)
+            {
+                facts.Add("+1 DICE on the climb roll: Agile.");
             }
         }
         if ((kind == PreviewKind.Dash || result.SideClimb is not null) && !TurnSequence.RiskyEnds(state, id))
@@ -501,9 +510,11 @@ public static class Previews
         var applied = AttackDice.ShotModifiers(profile.RangedWeaponKeywords, longRange, cover.InCover || keyword, elevated, cloaked);
         // Roster stage R5e (U109): the Urn of the Bitter Ashes' bearer or a model within 3" of it: -1 DICE.
         var whispers = TurnSequence.Whispers(state, target.Id);
-        dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, applied.LongRange + applied.Cover + (whispers ? 1 : 0),
+        // Roster stage R6c (U119): a target with a Stealth Generator: -1 DICE.
+        var stealthy = state.Setup.ProfileOf(target.Id)!.Stealthy;
+        dice = DicePreview.Of(state, attacker, target, AttackKind.Ranged, applied.LongRange + applied.Cover + (whispers ? 1 : 0) + (stealthy ? 1 : 0),
             [.. new[] { applied.LongRange > 0 ? "Long Range, p. 43" : null, applied.Cover > 0 ? (cloaked ? "Cover -2 for its Cloak of the Mountain, pp. 38, 43" : keyword ? "Cover from its COVER keyword, p. 54" : "Cover, pp. 38, 43") : null,
-                whispers ? "Urn of the Bitter Ashes within 3\", Warbands p. 143" : null }.OfType<string>()], applied.Elevated,
+                whispers ? "Urn of the Bitter Ashes within 3\", Warbands p. 143" : null, stealthy ? "Stealth Generator, Warbands p. 110" : null }.OfType<string>()], applied.Elevated,
             applied.ShotgunInjury, weapon);
         return null;
     }
@@ -537,6 +548,11 @@ public static class Previews
             return new(ReasonCode.TargetNotOnTable, "The target is not on the battlefield.", RefCharge);
         }
         facts.Add($"Distance {Inch(Measure.Gap(from, to))}; a charge target must be within 12\".");
+        // Roster stage R6c (U119): a Charge as the first ACTION starts a Counter-Charge.
+        if (state.Actions == ActionsTaken.None && state.Setup!.ProfileOf(id)!.CounterCharge)
+        {
+            facts.Add(CounterChargeFact);
+        }
         if (IsEngaged(state, charger))
         {
             return new(ReasonCode.AlreadyEngaged, "A model already within 1\" of an enemy cannot take a Charge ACTION.", "1.0.2 p. 34");
@@ -733,6 +749,9 @@ public static class Previews
     }
 
     // Roster stage R6b (U118): an Aim or Fortify ACTION: the rules' own check and what a Success gives.
+    // Roster stage R6c (U119).
+    public const string CounterChargeFact = "Counter-Charge (Warbands p. 87): a Charge as its first ACTION gives +1 DICE to its Melee Attacks for the rest of this activation.";
+
     public const string AimFact = "Aim ACTION (Warbands p. 28): a Risky roll at +2 DICE; on a Success the model's Ranged Attacks get +2 DICE for the rest of this activation; a Failure ends the activation.";
     public const string FortifyFact = "Fortify ACTION (Warbands pp. 33, 85): a Risky roll; on a Success the model has COVER until it moves; a Failure ends the activation.";
 

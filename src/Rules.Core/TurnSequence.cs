@@ -400,7 +400,7 @@ public static partial class TurnSequence
                 run.Emit(new ActivationStarted(c.Seat, c.Model));
                 if (run.State.Setup!.Scenario is not null && run.State.FindModel(c.Model)!.Status == ModelStatus.Down)
                 {
-                    run.Emit(new ModelStoodUp(c.Model));
+                    run.Emit(new ModelStoodUp(c.Model) { Quick = run.State.Setup.ProfileOf(c.Model)!.QuickToRise });
                 }
                 break;
             case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman:

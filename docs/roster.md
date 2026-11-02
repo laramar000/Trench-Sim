@@ -296,3 +296,7 @@ Not checked yet: Mercenaries (hired with Glory, alignment), and special conditio
 - Roster rules stage R6b, Aim and Fortify ACTIONS (done 2026-11-01): the Aim ACTION and the Fortify ACTION (The Principality
   and The Sultanate) are played (U118). Tests: `SelfActionTests`, `TraitWireTests.NewAntiochAbilitiesRoundTripAndAreLeftOutWhenFalse`,
   `MatchReadinessTests.NewAntiochAbilitiesArePlayed`, `ModelTraitDisplayTests.SelfActionsAreExplained`.
+- Roster rules stage R6c, abilities that change a number (done 2026-11-01): Agile, Frightening Speed, Loping Dash, Mad
+  Dash, Corpulent, Artificial Life, Undead Fortitude, Abiotic Life, Stealth Generator, Mubarizun, Counter-Charge, Memento
+  Mori and Nailed Cross are played (U119). Tests: `NumberAbilityTests`, `TraitWireTests.NumberAbilitiesRoundTripAndAreLeftOutWhenFalse`,
+  `MatchReadinessTests.NumberAbilitiesArePlayed`, `ModelTraitDisplayTests.NumberAbilitiesAreExplained`.

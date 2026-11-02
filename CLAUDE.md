@@ -155,8 +155,24 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   checks `DigsIn`. Client: action bar, keys I and V, Confirm aim/fortify, previews, log, notes, breakdown; Bot aims
   before shooting and fortifies first. Godot client compiles (`dotnet build client/Client.csproj`); no UI check run.
   Essentials 2,202/0 on Windows.
-- Next R6 work: the other factions' simple abilities (no survey was written in the R6a commit; survey the faction JSON
-  `abilities` lists first).
+- Pushed R6b 6d53b77.
+- 2026-11-01, Jason: "Do 1 - 4" then "No mistakes" = R6c, R6d, R6e, R6f in order, each pushed after the essentials.
+- Done: R6c (U119): Agile, SwiftDash (Frightening Speed/Loping Dash/Mad Dash), QuickToRise (`ModelStoodUp.Quick`),
+  Corpulent/Artificial Life (InjuryDiceTaken), UndeadFortitude/AbioticLife (`AttackDice.TakenDice`), Stealthy, HuntsTheTough
+  (`AttackDice.HuntDice`), CounterCharge (`MatchState.CounterCharging`), MementoMori (`InjuryRolled/MineExploded.Spared`,
+  reuses `ToughSpent`), Nailed Cross (readiness adds its kit). Units with no weapon (Amalgam, Plague Hound, Alchemical
+  Lion, Assault Beast...) are still refused until R6d's unarmed attacks. Essentials 2,212/0.
+- R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):
+  R6c numbers on existing hooks: Dash +1 DICE (Frightening Speed, Loping Dash, Mad Dash, Agile's Dash/Climb part),
+  INJURY DICE against it (Corpulent -2, Artificial Life, Undead Fortitude unless FIRE, Abiotic Life vs GAS), Stealth
+  Generator (-1 DICE to shots at it), Mubarizun (+1 INJURY DICE vs TOUGH), Counter-Charge, Memento Mori (first Out of
+  Action = No Effect), Nailed Cross (free Iron Capirote + Gas Mask). R6d unarmed attacks (no engine support yet): Teeth
+  & Claws x2, Feeble Flailing, Crushing Blows, Poison Stingers, Overwhelming Horde, Trample ACTION x2 (like Grind).
+  R6e Treat-like ACTIONs: Enforced Orthodoxy, Laying on of Hands. R6f builder purchase options (Legionnaires, Zealot
+  Strength, Janissary Veteran, Trench Moles, Light Skirmishers, Plague Knight Ranks). Later, new systems: Court spells,
+  INFECTION and BLESSING MARKERS, Bodyguard, moving other models (Puppet Master, Loudspeakers), Set/Defuse Mine, Hide,
+  Hateful, multi-Fight models, Time Slip/Temporal Assassin, deployment rules. Not planned: campaign-only (Chattel,
+  Resurrection, Law of Hell, Witch Battery limit). The engine has no Jump or Diving Charge.
 - Pushed before: R5a e2ad5d8 ... R5f a93a518, gaps f787535 (U111), R5g 6305404 (U112), R5h 28cf852 (U113),
   R5i ed2f05f (U114), R5j 013355b (U115), R5k 61dd615 (U116).
 - Decided: Urn of the Bitter Ashes protects any model within 3" (Jason card "1 Any model", U109).

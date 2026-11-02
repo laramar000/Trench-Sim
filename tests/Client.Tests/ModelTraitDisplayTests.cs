@@ -101,7 +101,7 @@ public class ModelTraitDisplayTests
                     && Previews.Target(state, state.FindModel(m.Attacker)!.Seat, PreviewKind.Fight, m.Attacker, m.Target, m.Weapon) is { Legal: true, Dice: { } dice })
                 {
                     Assert.Equal(state.Setup!.ProfileOf(m.Target)!.InjuryDiceTaken, dice.TargetInjuryDice);
-                    Assert.Equal(dice.TargetInjuryDice != 0, dice.Lines(m.Attacker, m.Target).Any(l => l.Contains("-1 DICE (target's battlekit)", StringComparison.Ordinal)));
+                    Assert.Equal(dice.TargetInjuryDice != 0, dice.Lines(m.Attacker, m.Target).Any(l => l.Contains("-1 DICE (target's battlekit and abilities)", StringComparison.Ordinal)));
                     previews++;
                 }
                 var setup = state.Setup;
@@ -110,7 +110,7 @@ public class ModelTraitDisplayTests
                 if (e is InjuryRolled i && log.WhyOf(seq) is { } why)
                 {
                     Assert.True(why.Explained, why.Text);
-                    Assert.Equal(state.Setup!.ProfileOf(i.Target)!.InjuryDiceTaken != 0, why.Dice.Any(d => d.Label == "target's battlekit"));
+                    Assert.Equal(state.Setup!.ProfileOf(i.Target)!.InjuryDiceTaken != 0, why.Dice.Any(d => d.Label == "target's battlekit and abilities"));
                     rolls++;
                 }
             }
@@ -451,6 +451,88 @@ public class ModelTraitDisplayTests
         Assert.True(devices > 0 && selves > 0 && explained > selves, $"{devices} devices, {selves} bearers, {explained} rolls");
         var card = new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true) { Martyrdom = true };
         Assert.Contains("Martyrdom Device (B), once per game", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
+    }
+
+    // Roster stage R6c (U119): the shot and fight previews' dice match the server's with these abilities, and every
+    // Success and Injury Roll's breakdown adds up and names them.
+    [Fact]
+    public void NumberAbilitiesAreExplained()
+    {
+        var (shots, fights, injuries, spared) = (0, 0, 0, 0);
+        foreach (var (path, seed) in new[] { Content.DefaultPath(), Content.MeleePath() }.SelectMany(p => Enumerable.Range(1, 6).Select(s => (p, s))))
+        {
+            var warbands = Content.Load(path).Select(w => w with
+            {
+                Models = w.Models.Select((m, i) => m with
+                {
+                    Profile = m.Profile with
+                    {
+                        Agile = i % 2 == 0, SwiftDash = i % 3 == 0, QuickToRise = i % 2 == 1, UndeadFortitude = i % 2 == 0, AbioticLife = i % 3 == 1,
+                        Stealthy = i % 2 == 1, HuntsTheTough = true, CounterCharge = true, MementoMori = i % 3 == 0,
+                        Traits = m.Profile.Traits | (i % 3 == 2 ? ModelTraits.Tough : 0),
+                    },
+                }).ToList(),
+            }).ToList();
+            var state = MatchState.None;
+            var log = new ResolutionLog();
+            var seq = 0;
+            DicePreview? pending = null;
+            foreach (var e in Runner.Run(seed, warbands).Log)
+            {
+                if (e is RangedAttackDeclared r && state.Pending is null
+                    && Previews.Target(state, state.FindModel(r.Attacker)!.Seat, PreviewKind.Shoot, r.Attacker, r.Target, r.Weapon) is { Legal: true, Dice: { } shot })
+                {
+                    pending = shot;
+                    Assert.Equal(state.Setup!.ProfileOf(r.Target)!.Stealthy, shot.HitReasons.Contains("Stealth Generator, Warbands p. 110"));
+                    shots++;
+                }
+                if (e is MeleeAttackDeclared m && state.ActiveModel == m.Attacker && !m.FreeFight && state.Pending is null
+                    && Previews.Target(state, state.FindModel(m.Attacker)!.Seat, PreviewKind.Fight, m.Attacker, m.Target, m.Weapon) is { Legal: true, Dice: { } fight })
+                {
+                    pending = fight;
+                    Assert.Equal(TurnSequence.CounterDice(state, m.Attacker), fight.CounterDice);
+                    fights++;
+                }
+                // The preview's dice are before any Blood Markers are spent, and for the target it was made for.
+                if (e is MarkersSpent { Count: > 0 } or FriendlyTargetChosen)
+                {
+                    pending = null;
+                }
+                if (e is RangedSuccessRolled or MeleeSuccessRolled && pending is { } hit)
+                {
+                    var net = e is RangedSuccessRolled rs ? rs.Check.NetDice : ((MeleeSuccessRolled)e).Check.NetDice;
+                    Assert.True(hit.HitNetDice == net, $"{e} preview {hit.HitNetDice} server {net}: {string.Join("; ", hit.HitReasons)} own {hit.OwnHitDice} bonus {hit.HitBonus} aim {hit.AimDice} counter {hit.CounterDice} penalty {hit.HitPenalty} progress {state.InProgress}");
+                    pending = null;
+                }
+                if (e is InjuryRolled ir && ir.Spared)
+                {
+                    Assert.Contains("Memento Mori", EventText.Line(ir), StringComparison.Ordinal);
+                    Assert.Equal(EventText.Describe(ir), Narrator.Describe(ir));
+                    spared++;
+                }
+                if (e is ModelStoodUp up)
+                {
+                    Assert.Equal(EventText.Describe(up), Narrator.Describe(up));
+                    Assert.Equal(up.Quick, EventText.Line(up).Contains("Frightening Speed", StringComparison.Ordinal));
+                }
+                var setup = state.Setup;
+                state = Reducer.Apply(state, e);
+                log.Add(++seq, e, setup ?? state.Setup);
+                if (e is DashRolled or SideClimbRolled or RangedSuccessRolled or MeleeSuccessRolled or InjuryRolled && log.WhyOf(seq) is { } why)
+                {
+                    Assert.True(why.Explained, why.Text);
+                    injuries += e is InjuryRolled ? 1 : 0;
+                }
+                if (e is ActivationEnded or InjuryRolled)
+                {
+                    pending = null;
+                }
+            }
+        }
+        Assert.True(shots > 0 && fights > 0 && injuries > 0 && spared > 0, $"{shots} shots, {fights} fights, {injuries} injuries, {spared} spared");
+        var card = new ModelProfile(Rules.Core.Geometry.Length.Parse("6"), Rules.Core.Geometry.Length.Parse("0.5"), Rules.Core.Geometry.Length.Zero, hasMeleeWeapon: true) { Agile = true, Stealthy = true, MementoMori = true };
+        Assert.Contains("Agile: +1 DICE to Dash and climb rolls", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
+        Assert.Contains("first Out of Action counts as No Effect", UnitPanel.WeaponWords(card), StringComparison.Ordinal);
     }
 
     // Roster stage R6b (U118): Aim and Fortify are on the action bar, previewed, logged and broken down; an aimed shot's

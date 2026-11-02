@@ -153,7 +153,7 @@ public static class DiceRolls
     {
         var injury = i.Injury;
         // Roster stage R5b: TOUGH turns the first Out of Action into Down (U106).
-        var word = InjuryWord(i.Result).ToUpperInvariant() + (i.Tough ? " (TOUGH, rolled Out of Action)" : "");
+        var word = InjuryWord(i.Result).ToUpperInvariant() + (i.Tough ? " (TOUGH, rolled Out of Action)" : "") + (i.Spared ? " (MEMENTO MORI, rolled Out of Action)" : "");
         var sum = injury.Modifier == 0 ? "" : $" ({injury.Dice.Total}{injury.Modifier:+0;-0})";
         // Roster stage R4a: with the extra markers of SHRAPNEL, GAS and FIRE (U101).
         // Roster stage R5e (U109): less the first one, which a Sacrificial Lamb's blood keeps off.
