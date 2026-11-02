@@ -45,6 +45,10 @@ public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<U
 
     public ActionResolution? Action { get; init; }
 
+    // The dice of this event's roll, every die as rolled and whether it was kept (DiceRolls); null for an event without a
+    // roll. The log draws them as dice.
+    public IReadOnlyList<DieFace>? Faces { get; init; }
+
     // Stage U5: a success, a failure or neither, from the event's own result (EventText.Outcome).
     public RowOutcome Outcome { get; init; }
 
@@ -509,6 +513,8 @@ public sealed class MatchController : IAsyncDisposable
         return new LogLine(seq, EventText.Line(e), EventText.Dice(e), UnitNotes.Of(e), EventText.Kind(e), EventText.Compact(e), Motions.Of(e, state), DiceRolls.Step(e, state.Setup), seq <= _replayUntil, EventModels.Of(e), SoundCues.Of(e))
         {
             Why = _resolutions.WhyOf(seq)?.Text is { Length: > 0 } why ? why : null,
+            // 2026-11-02 (Jason: "visually see the dice for the rolls"): the roll's dice as the dice popup draws them.
+            Faces = DiceRolls.Of(e, state.Setup)?.Dice,
             Action = _resolutions.ActionAt(seq),
             Outcome = EventText.Outcome(e),
             Effects = EffectCues.Of(e),

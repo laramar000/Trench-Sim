@@ -2762,6 +2762,12 @@ public partial class Main : Control
             var column = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Pass };
             column.AddThemeConstantOverride("separation", 0);
             column.AddChild(text);
+            // 2026-11-02 (Jason: "visually see the dice for the rolls"): the roll's dice under the row, drawn as the dice
+            // popup draws them (dropped dice grey and struck through), already settled.
+            if (line.Faces is { Count: > 0 } faces)
+            {
+                column.AddChild(new DieStrip(faces, born: double.MinValue / 2, scale: 0.6f, _highContrast));
+            }
             if (line.Action is { } action && action.FirstSeq == line.Seq)
             {
                 var start = line.Seq;

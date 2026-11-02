@@ -173,7 +173,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   wire gained `OmitWhenEmpty` (only `SelfActionRolled.StoodUp`); `Words.SelfAction*` for all four kinds; keys Y and Z.
   Essentials 2,227/0.
 - 2026-11-02, Jason (mid-R6e): "In the history log I want to visually see the dice for the rolls so there's no
-  wondering" = next, before R6f.
+  wondering" = next, before R6f. Done: `LogLine.Faces` + a settled `DieStrip` (scale 0.6) under each log row with a roll;
+  not seen in Godot yet (no Godot on this Windows PC). Pushed R6e 592b378.
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):
   R6c numbers on existing hooks: Dash +1 DICE (Frightening Speed, Loping Dash, Mad Dash, Agile's Dash/Climb part),
   INJURY DICE against it (Corpulent -2, Artificial Life, Undead Fortitude unless FIRE, Abiotic Life vs GAS), Stealth
