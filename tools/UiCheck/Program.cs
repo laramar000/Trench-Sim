@@ -87,6 +87,10 @@ public static class Program
         // 4b. Mines stage M3: a hot-seat window on Trench Warfare lays the defender's Mine Markers by mouse and buttons.
         await HotSeatMines(godot);
 
+        // 4c. The owner's checklist of 2026-11-02: two hot-seat matches with R6 rosters try every ACTION and Combat key,
+        // send each ACTION and answer each decision bar met.
+        await Abilities(godot);
+
         // 5. M7.5 stage 5b: two Godot clients play a whole melee match, one is killed and rejoins, and the signed record
         // is checked with trench-cli verify.
         await PvpMatch(godot);
@@ -428,6 +432,46 @@ public static class Program
             Record("godot-hotseat-mines: engine errors", errors.Count == 0 ? "PASS" : "FAIL", errors.Count == 0 ? "none in the output" : string.Join(" | ", errors.Take(5)));
             var left = ServersUsing(Path.Combine(home, "hotseat-server"));
             Record("hotseat-mines-no-server-left", left.Count == 0 ? "PASS" : "FAIL", left.Count == 0 ? "no Match.Server process uses the hot-seat folder" : string.Join("; ", left));
+        }
+    }
+
+    private static async Task Abilities(string godot)
+    {
+        var e2e = Path.Combine(_out, "e2e");
+        Directory.CreateDirectory(e2e);
+        var home = Path.Combine(_out, "home-abilities");
+        var args = new List<string> { "--audio-driver", "Dummy" };
+        args.AddRange(_renderer);
+        args.AddRange(["--path", Path.Combine(_repo, "client"), "--", "--ui-check", "abilities", "--out", e2e]);
+        var hot = Start("godot-abilities", godot, [.. args], home);
+        try
+        {
+            // Two whole matches, each up to 20 minutes.
+            Record("abilities-exit", await hot.Exit(2700) == 0 ? "PASS" : "FAIL", $"abilities Godot exit code {hot.ExitCode} (0 = all its checks passed)");
+        }
+        catch (Exception e)
+        {
+            Record("abilities-exit", "FAIL", $"{e.GetType().Name}: {e.Message}");
+        }
+        finally
+        {
+            hot.Kill();
+            var log = Path.Combine(e2e, "abilities.log");
+            if (File.Exists(log))
+            {
+                foreach (var line in File.ReadAllLines(log))
+                {
+                    var check = Regex.Match(line, @"CHECK (abilities-\S+) (PASS|FAIL) ?(.*)$");
+                    if (check.Success)
+                    {
+                        Record($"abilities: {check.Groups[1].Value}", check.Groups[2].Value, check.Groups[3].Value);
+                    }
+                }
+            }
+            var errors = EngineErrors(hot.Lines);
+            Record("godot-abilities: engine errors", errors.Count == 0 ? "PASS" : "FAIL", errors.Count == 0 ? "none in the output" : string.Join(" | ", errors.Take(5)));
+            var left = ServersUsing(Path.Combine(home, "hotseat-server"));
+            Record("abilities-no-server-left", left.Count == 0 ? "PASS" : "FAIL", left.Count == 0 ? "no Match.Server process uses the abilities folder" : string.Join("; ", left));
         }
     }
 

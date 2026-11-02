@@ -263,6 +263,24 @@ hotseat-mines: mines-lay
 hotseat-mines: mines-laid
 godot-hotseat-mines: engine errors
 hotseat-mines-no-server-left
+abilities-exit
+abilities: abilities-match-1-started
+abilities: abilities-match-1-to-the-end
+abilities: abilities-match-2-started
+abilities: abilities-match-2-to-the-end
+abilities: abilities-rosters-play-to-the-end
+abilities: abilities-action-keys
+abilities: abilities-action-previews
+abilities: abilities-combat-keys
+abilities: abilities-actions-narrated
+optional abilities: abilities-treat
+optional abilities: abilities-decision-talisman
+optional abilities: abilities-decision-markers-success-roll
+optional abilities: abilities-decision-markers-injury-roll
+optional abilities: abilities-decision-morale
+optional abilities: abilities-decision-scatter
+godot-abilities: engine errors
+abilities-no-server-left
 pvp-b-hard-killed
 pvp-a-exit
 pvp-b-rejoin-exit

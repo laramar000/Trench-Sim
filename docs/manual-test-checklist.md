@@ -26,7 +26,8 @@ are listed in `CLAUDE.md`: rerun a failing one once before reporting it.
 Each confirm bar, preview, narration and dice breakdown shows the right text (UI check group `abilities`, see below).
 
 - [x] 4/5: second ranged and melee weapon (Off-Hand). 6: grenade.
-- [x] 7/8/9: BLAST at a point; a scatter point is clicked anywhere.
+- [x] 7/9: BLAST at a point. 8 cannot come up (no legal roster has a second BLAST ranged weapon). The scatter-point
+  click is optional: it needs a missed BLAST.
 - [x] 0: Grind to Dust (with Piston Legs) and Trample.
 - [x] H: Treat (a Medi-kit model only). B: Detonate the Martyrdom Device.
 - [x] I: Aim. V: Fortify. Y: Enforced Orthodoxy. Z: Laying on of Hands.
@@ -35,7 +36,7 @@ Each confirm bar, preview, narration and dice breakdown shows the right text (UI
 
 - [x] A failed Risky roll with a Talisman: the Use / Keep prompt appears and each choice works (group `abilities`).
 - [x] The Blood Marker spend prompt before the Success Roll and before the Injury Roll (group `abilities`).
-- [x] A failed Morale Check: the flee-or-Shaken choice (group `abilities`).
+- [x] A failed Morale Check: the flee-or-Shaken choice (group `abilities`; optional, it needs the dice to fail one).
 
 ## Roster builder and match readiness
 

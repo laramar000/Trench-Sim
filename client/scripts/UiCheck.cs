@@ -3161,7 +3161,6 @@ public partial class UiCheck : Node
     private readonly SortedDictionary<int, LogLine> _abilityLog = [];   // this match's rows by number
     private readonly List<LogLine> _abilityAll = [];                     // every match's rows, in order
     private int _talismanAnswers;
-    private bool _blastSent;
 
     private async Task AbilitiesPlay()
     {
@@ -3229,8 +3228,8 @@ public partial class UiCheck : Node
         var iron = Save("R6 Iron", "principality", null,
             ("lieutenant", ["pistol", "pistol", "trench-club", "frag-grenades"], []),
             ("blind-marksman", ["sniper-rifle"], []),
-            ("combat-engineer", ["grenade-launcher"], []),
-            ("yeoman", ["bolt-action-rifle", "trench-club", "sword-axe"], []));
+            ("combat-engineer", ["pistol", "satchel-charge"], []),
+            ("yeoman", ["grenade-launcher", "trench-club", "sword-axe"], []));
         var monastery = Save("R6 Monastery", "pilgrims", "mountain-monastery-pilgrimage",
             ("war-prophet", ["trench-club", "blessed-icon"], []),
             ("castigator", ["trench-club", "blessed-icon"], []),
@@ -3249,6 +3248,7 @@ public partial class UiCheck : Node
         var main = (Main)_main;
         var deadline = Time.GetTicksMsec() + 1_200_000;
         var stuck = 0;
+        var decisionTries = 0;
         var idle = 0;
         while (Time.GetTicksMsec() < deadline && !MatchOver() && stuck < 30)
         {
@@ -3267,6 +3267,13 @@ public partial class UiCheck : Node
                 if (await AnswerDecision(board, pending.Kind, label))
                 {
                     stuck = 0;
+                    decisionTries = 0;
+                    continue;
+                }
+                // Not answerable yet (its buttons not drawn): wait for them rather than let a hint answer it; after a
+                // few tries the hint does.
+                if (++decisionTries < 10)
+                {
                     continue;
                 }
             }
@@ -3277,7 +3284,8 @@ public partial class UiCheck : Node
                 stuck = 0;
                 continue;
             }
-            if (Hint() is { } hint)
+            // A decision's choice in the Menu waits for the state that names it (above), so this loop answers it.
+            if (Hint() is { } hint && (decisionTries >= 10 || !(hint.Text.StartsWith("Use a Talisman", StringComparison.Ordinal) || hint.Text.StartsWith("Spend ", StringComparison.Ordinal))))
             {
                 var before = Section("LAST COMMAND");
                 var events = Lines(LogText()).Count;
@@ -3348,10 +3356,25 @@ public partial class UiCheck : Node
         {
             await CombatKeysTry(board);
         }
-        // One ACTION of each kind is sent, the Martyrdom Device only from turn 2 (it takes its bearer out).
-        foreach (var key in AbilityKeys.Where(k => !_abilitiesSent.Contains(k.Mode) && interaction.Available.Contains(k.Mode)
-            && (k.Mode != InteractionMode.Detonate || state.Turn >= 2)))
+        // A Medi-kit model with nobody to Treat moves next to a friend with a BLOOD MARKER or Down, so a Treat can be sent.
+        if (!_abilitiesSent.Contains(InteractionMode.Treat) && interaction.Available.Contains(InteractionMode.Treat)
+            && Previews.ActionOpen(state, state.FindModel(active)!.Seat, active, PreviewKind.Treat) is not null
+            // The scene's models, not state.Models: an ImmutableArray would make the client reference System.Collections.Immutable.
+            && board.Scene?.Models.FirstOrDefault(m => m.Yours && m.Id != active && m.Status != Rules.Core.State.ModelStatus.OutOfAction
+                && (state.FindModel(m.Id)?.BloodMarkers > 0 || m.Status == Rules.Core.State.ModelStatus.Down)) is { } hurt
+            && await MoveNextTo(board, hurt.Id) && ((Main)_main).ServerState is { } moved)
         {
+            state = moved;
+            await AbilityKeyTry(board, AbilityKeys.First(k => k.Mode == InteractionMode.Treat));
+        }
+        // One ACTION of each kind is sent. Each step below first checks the activation goes on with nothing waiting: a
+        // failed roll's decision (a Talisman, Blood Markers) is answered by the match loop, never by this step's keys.
+        foreach (var key in AbilityKeys.Where(k => !_abilitiesSent.Contains(k.Mode) && interaction.Available.Contains(k.Mode)))
+        {
+            if (!await Going(active))
+            {
+                return;
+            }
             if (await AbilitySend(board, key.Mode, key.Key))
             {
                 _abilitiesSent.Add(key.Mode);
@@ -3359,33 +3382,98 @@ public partial class UiCheck : Node
             }
         }
         // A Talisman model Dashes, so that a failed Risky roll asks whether to use one.
-        if (profile.Talismans > 0 && interaction.Available.Contains(InteractionMode.Dash) && await SendPathByKeys(board, Key.D))
+        if (!await Going(active) || profile.Talismans > 0 && interaction.Available.Contains(InteractionMode.Dash) && await SendPathByKeys(board, Key.D))
         {
             return;
         }
-        // Once, a BLAST weapon at a point: the enemy's own spot.
-        if (!_blastSent && Previews.BlastWeaponsOf(state, active).Count() > 0 && board.Scene is { } scene
-            && scene.Models.Where(m => !m.Yours).OrderBy(m => Math.Abs(m.X) + Math.Abs(m.Y)).FirstOrDefault() is { } enemy && await BlastAtSend(board, enemy))
+        // A BLAST weapon at a point, the enemy's own spot, each activation that can (a miss that scatters asks the opponent
+        // where it lands).
+        if (!await Going(active))
         {
-            _blastSent = true;
             return;
+        }
+        if (Previews.BlastWeaponsOf(state, active).Length > 0 && board.Scene is { } scene && scene.Models.FirstOrDefault(m => m.Active) is { } shooter)
+        {
+            foreach (var enemy in scene.Models.Where(m => !m.Yours && m.Status != Rules.Core.State.ModelStatus.OutOfAction)
+                .OrderBy(m => (m.X - shooter.X) * (m.X - shooter.X) + (m.Y - shooter.Y) * (m.Y - shooter.Y)).Take(3))
+            {
+                if (!await Going(active))
+                {
+                    return;
+                }
+                if (await BlastAtSend(board, enemy))
+                {
+                    return;
+                }
+            }
         }
         foreach (var action in new[] { Key.X, Key.C, Key.S })
         {
-            if (await SendFirstLegalAttack(board, action))
+            if (!await Going(active) || await SendFirstLegalAttack(board, action))
             {
                 return;
             }
         }
+        if (!await Going(active))
+        {
+            return;
+        }
         await SendFirstLegalMove(board);
-        if (StillActive(active))
+        if (await Going(active))
         {
             await SendFirstLegalAttack(board, Key.S);
         }
     }
 
+    // M, then the furthest point on the line to that friend, stopping with the bases 0.8" apart (a Treat reaches 1"), whose
+    // preview looks legal; Space sends it. True when the server moved the model.
+    private async Task<bool> MoveNextTo(BoardView board, Rules.Core.State.ModelId friendId)
+    {
+        var interaction = board.Interaction;
+        if (board.Scene is not { } scene || scene.Models.FirstOrDefault(m => m.Active) is not { } me || scene.Find(friendId) is not ModelShape friend)
+        {
+            return false;
+        }
+        var (dx, dy) = (friend.X - me.X, friend.Y - me.Y);
+        var distance = Math.Sqrt(dx * dx + dy * dy);
+        var stop = me.Radius + friend.Radius + 0.8;
+        if (distance <= stop)
+        {
+            return false;
+        }
+        await KeyPress(Key.M);
+        for (var share = 1.0; share > 0.05; share -= 0.05)
+        {
+            var reach = (distance - stop) * share;
+            interaction.SetCursor(me.X + dx / distance * reach, me.Y + dy / distance * reach);
+            await Frames(1);
+            if (interaction.Preview is { Legal: true })
+            {
+                var before = Section("LAST COMMAND");
+                var events = Lines(LogText()).Count;
+                await KeyPress(Key.Space);
+                return (await AnswerAfter(before, events)).StartsWith("DONE:", StringComparison.Ordinal);
+            }
+        }
+        await KeyPress(Key.Escape);
+        return false;
+    }
+
     private bool StillActive(Rules.Core.State.ModelId active) =>
         ((Main)_main).ServerState is { ActiveModel: { } now, Pending: null } && now == active;
+
+    // The activation goes on with nothing waiting, a few frames on (the state that names a new decision can follow the
+    // Menu choice that offers it): no decision card and no decision choice in the Menu.
+    private async Task<bool> Going(Rules.Core.State.ModelId active)
+    {
+        await Frames(5);
+        var main = (Main)_main;
+        var choice = Controls<Button>().Any(b => b.HasMeta("decision") && b.IsVisibleInTree())
+            || main.MenuChoices.Any(b => b.HasMeta("hint") && b.Visible && DecisionWords.Any(w => b.Text.StartsWith(w, StringComparison.Ordinal)));
+        return StillActive(active) && !choice;
+    }
+
+    private static readonly string[] DecisionWords = ["Use a Talisman", "Keep the Talisman", "Spend ", "Failed Morale"];
 
     // The key starts its mode with its stats line; the first target the preview finds legal shows the ACTION's own words
     // and its Confirm button; Esc leaves it, sending nothing.
@@ -3583,9 +3671,11 @@ public partial class UiCheck : Node
             await ClickAt(board.GlobalPosition + at);
             return (await AnswerAfter(before, events)) != before;
         }
+        // A Talisman: used, then kept, in turn.
+        var talismanWord = kind == Rules.Core.State.DecisionKind.UseTalisman && _talismanAnswers++ % 2 == 1 ? "Keep" : "Use";
         Button? choice = kind switch
         {
-            Rules.Core.State.DecisionKind.UseTalisman => buttons.FirstOrDefault(b => b.Text.StartsWith(_talismanAnswers++ % 2 == 0 ? "Use" : "Keep", StringComparison.Ordinal)),
+            Rules.Core.State.DecisionKind.UseTalisman => buttons.FirstOrDefault(b => b.Text.StartsWith(talismanWord, StringComparison.Ordinal)),
             Rules.Core.State.DecisionKind.SpendMarkersOnSuccessRoll or Rules.Core.State.DecisionKind.SpendMarkersOnInjuryRoll => buttons.LastOrDefault(),
             _ => buttons.FirstOrDefault(),
         };
@@ -3609,7 +3699,11 @@ public partial class UiCheck : Node
         Check("abilities-rosters-play-to-the-end", ended.Count == 2 && ended.All(e => e.Length > 0), string.Join(" | ", ended));
         var keys = AbilityKeys.Select(k => (k.Mode, k.Key, Result: _abilityKeyResults.TryGetValue(k.Mode, out var r) ? r : "never offered")).ToList();
         Check("abilities-action-keys", keys.All(k => k.Result == ""), string.Join("; ", keys.Select(k => $"{k.Key} {k.Mode}: {(k.Result == "" ? "ok" : k.Result)}")));
-        var previews = AbilityKeys.Select(k => (k.Mode, k.Key, Result: _abilityPreviewResults.TryGetValue(k.Mode, out var r) ? r : "never offered")).ToList();
+        // A Treat needs a friend with a BLOOD MARKER or Down within 1": when the dice gave none, Treat is NOT TESTED, not
+        // failed (abilities-treat).
+        var treatUnseen = _abilityPreviewResults.GetValueOrDefault(InteractionMode.Treat)?.StartsWith("no legal target yet", StringComparison.Ordinal) == true;
+        OptionalCheck("abilities-treat", treatUnseen ? "" : "seen", _abilitiesSent.Contains(InteractionMode.Treat), treatUnseen ? "" : "a Treat was previewed and sent");
+        var previews = AbilityKeys.Where(k => !(treatUnseen && k.Mode == InteractionMode.Treat)).Select(k => (k.Mode, k.Key, Result: _abilityPreviewResults.TryGetValue(k.Mode, out var r) ? r : "never offered")).ToList();
         Check("abilities-action-previews", previews.All(p => p.Result == ""), string.Join("; ", previews.Select(p => $"{p.Key} {p.Mode}: {(p.Result == "" ? "its words and Confirm button" : p.Result)}")));
         // Key 8 (a second ranged weapon with BLAST) cannot come up: no legal roster in the shipped lists has one (the probe of
         // 2026-11-02 tried every 1-handed BLAST gun); PointBlastTests cover it.
@@ -3627,7 +3721,7 @@ public partial class UiCheck : Node
             narration.Add(at < 0 ? $"{key.Mode}: no \"{key.Declared}\" row" : roll is null ? $"{key.Mode}: no roll after it"
                 : roll.Why is null && roll.Faces!.Count != 2 ? $"{key.Mode}: roll \"{roll.Text.Trim()}\" has no breakdown" : "");
         }
-        var missing = AbilityKeys.Where(k => !_abilitiesSent.Contains(k.Mode)).Select(k => k.Mode.ToString()).ToList();
+        var missing = AbilityKeys.Where(k => !_abilitiesSent.Contains(k.Mode) && !(treatUnseen && k.Mode == InteractionMode.Treat)).Select(k => k.Mode.ToString()).ToList();
         Check("abilities-actions-narrated", missing.Count == 0 && narration.All(n => n == ""),
             (missing.Count > 0 ? $"never sent: {string.Join(", ", missing)}; " : "") + string.Join("; ", narration.Select((n, i) => n == "" ? $"{AbilityKeys.Where(k => _abilitiesSent.Contains(k.Mode)).ElementAt(i).Mode} ok" : n)));
         // Decisions: what was met, and what followed.

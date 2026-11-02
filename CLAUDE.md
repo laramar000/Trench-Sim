@@ -185,7 +185,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - Next (not started, owner to choose): the survey's "later" group (Court spells, INFECTION/BLESSING MARKERS, Bodyguard,
   moving other models, Set/Defuse Mine, Hide, Hateful, multi-Fight models, Time Slip, deployment rules), oval bases
   (Plague Hound, Pit Locust), and a Windows Godot run of the battlefield (keys I V Y Z, Trample on key 0).
-- 2026-11-02: Godot 4.7.2 .NET installed at %USERPROFILE%\Downloads\Godot_v4.7.2-stable_mono_win64 (SHA-512 checked).
+- 2026-11-02: Godot 4.7.2 .NET installed (SHA-512 checked; now at D:\Claude\Godot, see the checklist note below).
   Hot-seat UI group run four times on Windows: 39/39 PASS with the new `hotseat-log-draws-dice` check and its
   screenshot `05-hotseat-log-dice.png`; one run had `tab-reaches-every-control-play-connect` FAIL once (passed on rerun,
   untouched code: treat as flaky). The new keys and Trample are not covered by any UI check; the online two-window run
@@ -206,13 +206,15 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - Decided: Urn of the Bitter Ashes protects any model within 3" (Jason card "1 Any model", U109).
 - Still refused by name in matches: AMMUNITION with two possible guns (no deployment choice yet), and every equipment
   piece not in `MatchReadiness.PlayedEquipment`. No Windows run since 17a9099/e917e6b.
-- 2026-11-02 IN PROGRESS (not pushed, essentials not run since): owner's checklist (`docs/manual-test-checklist.md`, its
-  ticks are targets, not yet all true). New UI check group `abilities` (UiCheck.cs `AbilitiesPlay`; run with
-  `godot --path client -- --ui-check abilities --out <dir>`, Godot now at D:\Claude\Godot\...): two hot-seat matches with
-  R6 rosters. Last run (ui-check-results/abilities-4): both matches end, action keys and Combat keys PASS (key 8 cannot
-  come up: no legal roster has a second BLAST ranged weapon), action previews PASS except Treat (never legal), narration
-  PASS except Treat (never sent); decisions NOT TESTED because they were answered by the generic hint click (fixed since:
-  `AnswerDecision` now also uses Menu choices; not yet rerun). Next: Medi-kit model moves next to a friend with a marker
-  or Down then Treats; rerun; add `abilities` to tools/UiCheck/Program.cs and expected-checks.txt; run essentials; push.
-  Also uncommitted-then-committed: readiness no longer names purchase-option abilities (Zealot Strength, Janissary
-  Veteran, Heretic Legionnaires, Light Skirmishers, Trench Moles, Plague Knight Ranks) as played without.
+- 2026-11-02: owner's checklist (`docs/manual-test-checklist.md`). New UI check group `abilities` (UiCheck.cs
+  `AbilitiesPlay`; in the full runner as step 4c, ids in expected-checks.txt; alone: `godot --path client -- --ui-check
+  abilities --out <dir>`). Godot is now at D:\Claude\Godot\Godot_v4.7.2-stable_mono_win64 (the Downloads copy is gone;
+  point Test Center at it once). Two hot-seat matches with R6 rosters (R6 Faith v R6 Iron, R6 Monastery v R6 Brass).
+  Run abilities-14 (ui-check-results, not in git): failures=0, engine errors 0; action keys I V Y Z H B, previews,
+  Treat (Medi-kit model moves next to a hurt friend first), Combat keys 4 5 6 7 9 0, narration, Talisman Use and Keep,
+  Blood Markers before Success and Injury Rolls all PASS. Optional, dice-dependent: Morale (PASS in abilities-13, NOT
+  TESTED in 14) and scatter (never came up). Key 8 is not checked: no legal roster has a second BLAST ranged weapon.
+  The Godot client must not read `MatchState.Models` (ImmutableArray adds a System.Collections.Immutable reference and
+  fails ClientAuthorityTest); use `board.Scene.Models` plus `state.FindModel`. Readiness no longer names
+  purchase-option abilities (Zealot Strength, Janissary Veteran, Heretic Legionnaires, Light Skirmishers, Trench Moles,
+  Plague Knight Ranks) as played without. Still the owner's: M7.5 stage 5d two-window match and Gate G5 sign-off.
