@@ -738,6 +738,9 @@ public static class MatchReadiness
         Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
         TeethAndClaws, TeethAndClawsLion, FeebleFlailing, CrushingBlows, PoisonStingers, OverwhelmingHorde, TrampleAction,
         EnforcedOrthodoxy, LayingOnHands,
+        // Roster stage R6f (U122): abilities that only describe an upgrade the roster buys; the upgrade itself is played or
+        // named.
+        "Zealot Strength", "Janissary Veteran", "Heretic Legionnaires", "Light Skirmishers", "Trench Moles", "Plague Knight Ranks",
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1

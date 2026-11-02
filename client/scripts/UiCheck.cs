@@ -42,7 +42,7 @@ public partial class UiCheck : Node
             Mark("started", $"{DisplayServer.GetName()} {Engine.GetVersionInfo()["string"]}");
             // Stage M1: the game opens on the main menu. The hot-seat role plays from it (Play); the roles that drive the
             // connect screen open it first through the developer corner button, then do as before.
-            if (_role is not ("hotseat" or "tm-a" or "tm-b" or "pvp-a" or "pvp-b" or "pvp-b-rejoin"))
+            if (_role is not ("hotseat" or "abilities" or "tm-a" or "tm-b" or "pvp-a" or "pvp-b" or "pvp-b-rejoin"))
             {
                 await OpenDeveloperScreen();
             }
@@ -70,6 +70,9 @@ public partial class UiCheck : Node
                     break;
                 case "hotseat-mines":
                     await HotSeatMines();
+                    break;
+                case "abilities":
+                    await AbilitiesPlay();
                     break;
                 case "pvp-a":
                     await PvpCreate();
@@ -3125,6 +3128,534 @@ public partial class UiCheck : Node
             + (_bannerProblems.Count == 0 ? "" : "; " + string.Join(" | ", _bannerProblems)));
         Check("hotseat-bar-seat-letter", _barSeatSamples > 0 && _barSeatProblems.Count == 0,
             $"{_barSeatSamples} looks at the action bar, each starting with the shown seat's letter" + (_barSeatProblems.Count == 0 ? "" : ": " + string.Join(" | ", _barSeatProblems)));
+    }
+
+    // ---- The owner's checklist of 2026-11-02 (group "abilities", docs/manual-test-checklist.md) ----
+    //
+    // Two hot-seat matches with saved rosters of real faction units that have the R5/R6 ACTIONS, weapons and upgrades:
+    // Pilgrims against the Principality, then the Pilgrims' Mountain Monastery list (Piston Legs) against the Sultanate
+    // (Trample). In its first activation each model tries every ACTION key it offers (the mode it starts, its stats line,
+    // its preview's own words and its Confirm button) and every Combat menu key. Then each kind of ACTION is sent once
+    // (Aim, Fortify, Enforced Orthodoxy, Laying on of Hands, Treat, Detonate); a Talisman model Dashes (so a failed Risky
+    // roll asks Use or Keep); anything else attacks or moves towards the enemy. Every decision bar met is answered (a
+    // Talisman used and kept in turn). At the end the log rows are read back: the narration and dice breakdown of each
+    // ACTION sent, and what each decision led to. What the dice never brought about is reported as NOT TESTED.
+
+    private static readonly (InteractionMode Mode, Key Key, string Stats, string Fact, string Confirm, string Declared)[] AbilityKeys =
+    [
+        (InteractionMode.Aim, Key.I, "Aim:", Previews.AimFact, "Confirm aim", "declares an Aim ACTION"),
+        (InteractionMode.Fortify, Key.V, "Fortify:", Previews.FortifyFact, "Confirm fortify", "declares a Fortify ACTION"),
+        (InteractionMode.Orthodoxy, Key.Y, "Enforced Orthodoxy:", Previews.OrthodoxyFact, "Confirm orthodoxy", "declares an Enforced Orthodoxy ACTION"),
+        (InteractionMode.LayHands, Key.Z, "Laying on of Hands:", Previews.HandsFact, "Confirm laying on of hands", "declares a Laying on of Hands ACTION"),
+        (InteractionMode.Treat, Key.H, "Treat:", Previews.TreatFact, "Confirm treat", "declares a Treat ACTION"),
+        (InteractionMode.Detonate, Key.B, "Detonate:", Previews.MartyrdomFact, "Confirm detonation", "detonates its Martyrdom Device"),
+    ];
+
+    private readonly Dictionary<InteractionMode, string> _abilityKeyResults = [];      // the key itself: "" when right
+    private readonly Dictionary<InteractionMode, string> _abilityPreviewResults = [];  // a legal preview: "" when right
+    private readonly Dictionary<string, string> _combatKeyResults = [];
+    private readonly HashSet<InteractionMode> _abilitiesSent = [];
+    private readonly HashSet<string> _abilityModelsTried = [];
+    private readonly HashSet<string> _abilityActivations = [];
+    private readonly Dictionary<Rules.Core.State.DecisionKind, List<string>> _decisionsMet = [];
+    private readonly SortedDictionary<int, LogLine> _abilityLog = [];   // this match's rows by number
+    private readonly List<LogLine> _abilityAll = [];                     // every match's rows, in order
+    private int _talismanAnswers;
+    private bool _blastSent;
+
+    private async Task AbilitiesPlay()
+    {
+        var main = (Main)_main;
+        var rosters = SaveAbilityRosters(main.RosterFolder);
+        OptionButton? Picker(string name) => Controls<OptionButton>().FirstOrDefault(o => o.Name == name && o.IsVisibleInTree());
+        var ended = new List<string>();
+        foreach (var (one, two, label) in rosters)
+        {
+            await Press(ButtonNamed(Main.PlayText), Key.Enter, null);
+            await Until(() => main.ScreenShown == "play" && main.PlayPageShown == "choose" ? "ok" : null, 10, $"abilities-{label}-play");
+            await ChooseOption(Picker("RosterSeatOne"), one, null);
+            await ChooseOption(Picker("RosterSeatTwo"), two, null);
+            await Press(ButtonNamed(Main.StartHotSeatText), Key.Enter, null);
+            var line = await Until(() => Label("HOT-SEAT:")?.Text, 300, $"abilities-{label}-hotseat");
+            var problem = Controls<Godot.Label>().FirstOrDefault(l => l.IsVisibleInTree() && (l.Text.StartsWith("Could not start hot-seat", StringComparison.Ordinal) || l.Text.Contains("cannot play yet", StringComparison.Ordinal)))?.Text;
+            Check($"abilities-{label}-started", line is not null, line is null ? problem ?? "no hot-seat match" : $"{one} against {two}");
+            if (line is null)
+            {
+                continue;
+            }
+            await Until(() => Banner().StartsWith("Connection: Connected", StringComparison.Ordinal) ? "ok" : null, 20, $"abilities-{label}-connected");
+            await Frames(5);
+            if (Dialog<AcceptDialog>() is not null)
+            {
+                await KeyPress(Key.Escape);
+            }
+            ended.Add(await AbilitiesMatch(label));
+            await Press(ButtonNamed("Leave"), Key.Enter, null);
+            await Until(() => main.ScreenShown == "menu" ? "ok" : null, 20, $"abilities-{label}-left");
+        }
+        AbilityChecks(ended);
+    }
+
+    // Saved rosters for the two matches; every one is legal and fully playable (MatchReadinessTests and the probe that
+    // chose them).
+    private static (string One, string Two, string Label)[] SaveAbilityRosters(string folder)
+    {
+        string Save(string name, string faction, string? variant, params (string Unit, string[] Kit, string[] Upgrades)[] models)
+        {
+            var builder = RosterBuilder.Shipped();
+            builder.ChooseFaction(faction);
+            builder.ChooseVariant(variant);
+            builder.Name = name;
+            foreach (var (unit, kit, upgrades) in models)
+            {
+                builder.Select(builder.Add(unit));
+                foreach (var piece in kit)
+                {
+                    builder.AddKit(piece);
+                }
+                foreach (var upgrade in upgrades)
+                {
+                    builder.ToggleUpgrade(upgrade);
+                }
+            }
+            return System.IO.Path.GetFileName(builder.Save(folder));
+        }
+        var faith = Save("R6 Faith", "pilgrims", null,
+            ("war-prophet", ["trench-club", "blessed-icon"], []),
+            ("castigator", ["trench-club", "blessed-icon"], ["zealot-strength"]),
+            ("trench-pilgrim", ["bolt-action-rifle", "medi-kit", "blessed-icon"], []),
+            ("trench-pilgrim", ["trench-club", "incendiary-grenades"], []),
+            ("ecclesiastic-prisoner", [], ["martyrdom-device"]));
+        var iron = Save("R6 Iron", "principality", null,
+            ("lieutenant", ["pistol", "pistol", "trench-club", "frag-grenades"], []),
+            ("blind-marksman", ["sniper-rifle"], []),
+            ("combat-engineer", ["grenade-launcher"], []),
+            ("yeoman", ["bolt-action-rifle", "trench-club", "sword-axe"], []));
+        var monastery = Save("R6 Monastery", "pilgrims", "mountain-monastery-pilgrimage",
+            ("war-prophet", ["trench-club", "blessed-icon"], []),
+            ("castigator", ["trench-club", "blessed-icon"], []),
+            ("trench-pilgrim", ["bolt-action-rifle", "medi-kit", "blessed-icon"], []),
+            ("reliquary-walker", ["piston-legs"], []));
+        var brass = Save("R6 Brass", "sultanate", null,
+            ("yuzbasi", ["trench-club"], ["janissary-veteran"]),
+            ("brazen-bull", [], []),
+            ("sapper", ["pistol"], []),
+            ("alchemical-lion", [], ["fear"]));
+        return [(faith, iron, "match-1"), (monastery, brass, "match-2")];
+    }
+
+    private async Task<string> AbilitiesMatch(string label)
+    {
+        var main = (Main)_main;
+        var deadline = Time.GetTicksMsec() + 1_200_000;
+        var stuck = 0;
+        var idle = 0;
+        while (Time.GetTicksMsec() < deadline && !MatchOver() && stuck < 30)
+        {
+            await Frames(3);
+            ReadAbilityLog(main);
+            var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+            var state = main.ServerState;
+            var seat = HotControlled();
+            if (board is not null && board.Interaction.Available.Contains(InteractionMode.Place) && board.Interaction.Pending is null)
+            {
+                stuck = await PlaceSomewhere(board) ? 0 : stuck + 1;
+                continue;
+            }
+            if (board is not null && state?.Pending is { } pending && $"Seat {pending.Seat}" == seat)
+            {
+                if (await AnswerDecision(board, pending.Kind, label))
+                {
+                    stuck = 0;
+                    continue;
+                }
+            }
+            if (board is not null && state is { ActiveModel: { } active, Pending: null, InProgress: null } && state.FindModel(active) is { } model
+                && $"Seat {model.Seat}" == seat && board.Interaction.Available.Contains(InteractionMode.Move) && _abilityActivations.Add($"{label} {state.Turn} {active.Value}"))
+            {
+                await AbilityActivation(board, state, active, label);
+                stuck = 0;
+                continue;
+            }
+            if (Hint() is { } hint)
+            {
+                var before = Section("LAST COMMAND");
+                var events = Lines(LogText()).Count;
+                if (main.InClosedMenu(hint))
+                {
+                    await ClickButton(main.MenuButton);
+                    await Frames(3);
+                }
+                if (!GodotObject.IsInstanceValid(hint) || hint.IsQueuedForDeletion() || !hint.IsVisibleInTree())
+                {
+                    continue;
+                }
+                await ClickButton(hint);
+                var answered = await Until(() => HotControlled() != seat || Lines(LogText()).Count > events
+                    || (Section("LAST COMMAND") is var now && now != before && !now.StartsWith("SENT:", StringComparison.Ordinal)) ? "answered" : null, 20, "abilities-answer");
+                stuck = answered is null ? stuck + 1 : 0;
+                idle = 0;
+                continue;
+            }
+            var count = Lines(LogText()).Count;
+            var changed = await Until(() => Lines(LogText()).Count != count || Hint() is not null || HotControlled() != seat || MatchOver() ? "changed" : null, 5, "abilities-wait");
+            if (changed is null && ++idle >= 2)
+            {
+                await KeyPress(Key.F2);
+                await Frames(5);
+                idle = 0;
+                stuck++;
+            }
+        }
+        ReadAbilityLog(main);
+        var last = Lines(LogText()).LastOrDefault(l => l.Contains("MATCH ENDED", StringComparison.Ordinal)) ?? "";
+        Check($"abilities-{label}-to-the-end", MatchOver() && last.Length > 0, last.Length > 0 ? last : $"no MATCH ENDED; last command {Section("LAST COMMAND")}");
+        // Every row of the match, for reading the run afterwards.
+        System.IO.File.WriteAllLines(System.IO.Path.Combine(_out, $"abilities-{label}-events.txt"), _abilityLog.Select(l => $"[{l.Key}] {l.Value.Text.Trim()}{(l.Value.Dice is { } d ? "  " + d : "")}"));
+        _abilityAll.AddRange(_abilityLog.Values);
+        _abilityLog.Clear();
+        await Shot($"abilities-{label}-end");
+        return last;
+    }
+
+    // Every log row the window has, kept by number (the log shows the newest 200).
+    private void ReadAbilityLog(Main main)
+    {
+        foreach (var (seq, _) in main.LogRowModels)
+        {
+            if (!_abilityLog.ContainsKey(seq) && main.LogLineAt(seq) is { } line)
+            {
+                _abilityLog[seq] = line;
+            }
+        }
+    }
+
+    private async Task AbilityActivation(BoardView board, Rules.Core.State.MatchState state, Rules.Core.State.ModelId active, string label)
+    {
+        var interaction = board.Interaction;
+        if (!await FocusByTab(board, 80))
+        {
+            return;
+        }
+        await MouseOff(board);
+        var profile = state.Setup!.ProfileOf(active)!;
+        // The keys each time until every one the model offers has shown a legal preview; the Combat keys once per model.
+        foreach (var key in AbilityKeys.Where(k => interaction.Available.Contains(k.Mode) && _abilityPreviewResults.GetValueOrDefault(k.Mode) != ""))
+        {
+            await AbilityKeyTry(board, key);
+        }
+        if (_abilityModelsTried.Add($"{label} {active.Value}") && interaction.Available.Contains(InteractionMode.Combat))
+        {
+            await CombatKeysTry(board);
+        }
+        // One ACTION of each kind is sent, the Martyrdom Device only from turn 2 (it takes its bearer out).
+        foreach (var key in AbilityKeys.Where(k => !_abilitiesSent.Contains(k.Mode) && interaction.Available.Contains(k.Mode)
+            && (k.Mode != InteractionMode.Detonate || state.Turn >= 2)))
+        {
+            if (await AbilitySend(board, key.Mode, key.Key))
+            {
+                _abilitiesSent.Add(key.Mode);
+                return;
+            }
+        }
+        // A Talisman model Dashes, so that a failed Risky roll asks whether to use one.
+        if (profile.Talismans > 0 && interaction.Available.Contains(InteractionMode.Dash) && await SendPathByKeys(board, Key.D))
+        {
+            return;
+        }
+        // Once, a BLAST weapon at a point: the enemy's own spot.
+        if (!_blastSent && Previews.BlastWeaponsOf(state, active).Count() > 0 && board.Scene is { } scene
+            && scene.Models.Where(m => !m.Yours).OrderBy(m => Math.Abs(m.X) + Math.Abs(m.Y)).FirstOrDefault() is { } enemy && await BlastAtSend(board, enemy))
+        {
+            _blastSent = true;
+            return;
+        }
+        foreach (var action in new[] { Key.X, Key.C, Key.S })
+        {
+            if (await SendFirstLegalAttack(board, action))
+            {
+                return;
+            }
+        }
+        await SendFirstLegalMove(board);
+        if (StillActive(active))
+        {
+            await SendFirstLegalAttack(board, Key.S);
+        }
+    }
+
+    private bool StillActive(Rules.Core.State.ModelId active) =>
+        ((Main)_main).ServerState is { ActiveModel: { } now, Pending: null } && now == active;
+
+    // The key starts its mode with its stats line; the first target the preview finds legal shows the ACTION's own words
+    // and its Confirm button; Esc leaves it, sending nothing.
+    private async Task AbilityKeyTry(BoardView board, (InteractionMode Mode, Key Key, string Stats, string Fact, string Confirm, string Declared) key)
+    {
+        var interaction = board.Interaction;
+        var before = Section("LAST COMMAND");
+        var problems = new List<string>();
+        await KeyPress(key.Key);
+        await Frames(2);
+        if (interaction.Mode != key.Mode)
+        {
+            problems.Add($"{key.Key} started {interaction.Mode}");
+        }
+        if (interaction.Stats is not { } stats || !stats.StartsWith(key.Stats, StringComparison.Ordinal))
+        {
+            problems.Add($"stats \"{interaction.Stats}\"");
+        }
+        var count = interaction.Targets().Count;
+        for (var i = 0; i < count && interaction.Preview is not { Legal: true }; i++)
+        {
+            await KeyPress(Key.N);
+        }
+        await Frames(2);
+        var legal = interaction.Preview is { Legal: true };
+        var seen = new List<string>();
+        if (legal)
+        {
+            if (!interaction.Preview!.Facts.Contains(key.Fact))
+            {
+                seen.Add($"preview facts: {string.Join(" | ", interaction.Preview.Facts)}");
+            }
+            if (ButtonNamed(key.Confirm) is null)
+            {
+                seen.Add($"no \"{key.Confirm}\" button");
+            }
+        }
+        var why = interaction.Preview?.Refusal?.Text ?? interaction.WhyNot(key.Mode) ?? "no target";
+        await KeyPress(Key.Escape);
+        await Frames(2);
+        if (interaction.Mode != InteractionMode.None)
+        {
+            await KeyPress(Key.Escape);
+        }
+        if (Section("LAST COMMAND") != before)
+        {
+            problems.Add("something was sent");
+        }
+        // The key itself: a failure is kept. The preview: a pass is kept; until one, the latest reason it was not legal.
+        if (_abilityKeyResults.GetValueOrDefault(key.Mode) is null or "")
+        {
+            _abilityKeyResults[key.Mode] = string.Join("; ", problems);
+        }
+        if (_abilityPreviewResults.GetValueOrDefault(key.Mode) != "")
+        {
+            _abilityPreviewResults[key.Mode] = legal ? string.Join("; ", seen) : $"no legal target yet ({why})";
+        }
+    }
+
+    // In the Combat menu each numbered key the menu lists (4-9, 0) starts its attack, or is greyed with the rules' reason.
+    private async Task CombatKeysTry(BoardView board)
+    {
+        var interaction = board.Interaction;
+        await KeyPress(Key.C);
+        await Frames(2);
+        var entries = interaction.CombatEntries().Where(e => e.Key is "4" or "5" or "6" or "7" or "8" or "9" or "0").ToList();
+        foreach (var entry in entries)
+        {
+            if (interaction.Mode != InteractionMode.Combat)
+            {
+                await KeyPress(Key.C);
+                await Frames(2);
+            }
+            await KeyPress(entry.Key == "0" ? Key.Key0 : Key.Key0 + (entry.Key[0] - '0'));
+            await Frames(2);
+            var started = interaction.Mode == entry.Mode && interaction.Weapon == entry.Weapon && interaction.Stats is { Length: > 0 };
+            var greyed = !entry.Enabled && entry.Why is { Length: > 0 } && interaction.Mode is InteractionMode.Combat or InteractionMode.None;
+            var name = $"{entry.Key} {entry.Label}";
+            var result = started || greyed ? "" : $"mode {interaction.Mode}, weapon {interaction.Weapon}, stats \"{interaction.Stats}\"";
+            if (!_combatKeyResults.TryGetValue(name, out var was) || was != "")
+            {
+                _combatKeyResults[name] = result;
+            }
+            await KeyPress(Key.Escape);
+            await Frames(2);
+        }
+        for (var i = 0; i < 2 && interaction.Mode != InteractionMode.None; i++)
+        {
+            await KeyPress(Key.Escape);
+        }
+    }
+
+    // The ACTION's key, the first target whose preview looks legal, Space; true when the server took it.
+    private async Task<bool> AbilitySend(BoardView board, InteractionMode mode, Key key)
+    {
+        var interaction = board.Interaction;
+        await KeyPress(key);
+        var count = interaction.Targets().Count;
+        for (var i = 0; i < count && interaction.Preview is not { Legal: true }; i++)
+        {
+            await KeyPress(Key.N);
+        }
+        if (interaction.Mode != mode || interaction.Preview is not { Legal: true })
+        {
+            await KeyPress(Key.Escape);
+            return false;
+        }
+        var before = Section("LAST COMMAND");
+        var events = Lines(LogText()).Count;
+        await KeyPress(Key.Space);
+        return (await AnswerAfter(before, events)).StartsWith("DONE:", StringComparison.Ordinal);
+    }
+
+    // X, C (with 2) or S, then N through the targets until the preview looks legal; Space sends it.
+    private async Task<bool> SendFirstLegalAttack(BoardView board, Key action)
+    {
+        var interaction = board.Interaction;
+        if (((Main)_main).ServerState is not { Pending: null, InProgress: null })
+        {
+            return false;
+        }
+        await ActionKey(action);
+        var count = interaction.Targets().Count;
+        for (var i = 0; i < count && interaction.Preview is not { Legal: true }; i++)
+        {
+            await KeyPress(Key.N);
+        }
+        if (interaction.Preview is not { Legal: true })
+        {
+            for (var i = 0; i < 2 && interaction.Mode != InteractionMode.None; i++)
+            {
+                await KeyPress(Key.Escape);
+            }
+            return false;
+        }
+        var before = Section("LAST COMMAND");
+        var events = Lines(LogText()).Count;
+        await KeyPress(Key.Space);
+        return (await AnswerAfter(before, events)).StartsWith("DONE:", StringComparison.Ordinal);
+    }
+
+    // C, 7 (the first BLAST weapon), the point on that enemy; Space when the preview looks legal.
+    private async Task<bool> BlastAtSend(BoardView board, ModelShape enemy)
+    {
+        var interaction = board.Interaction;
+        await KeyPress(Key.C);
+        await Frames(2);
+        var entry = interaction.CombatEntries().FirstOrDefault(e => e.Mode == InteractionMode.Blast && e.Enabled);
+        if (entry is null)
+        {
+            await KeyPress(Key.Escape);
+            return false;
+        }
+        await KeyPress(Key.Key0 + (entry.Key[0] - '0'));
+        interaction.SetCursor(enemy.X, enemy.Y);
+        await Frames(2);
+        if (interaction.Preview is not { Legal: true })
+        {
+            for (var i = 0; i < 3 && interaction.Mode != InteractionMode.None; i++)
+            {
+                await KeyPress(Key.Escape);
+            }
+            return false;
+        }
+        var before = Section("LAST COMMAND");
+        var events = Lines(LogText()).Count;
+        await KeyPress(Key.Space);
+        return (await AnswerAfter(before, events)).StartsWith("DONE:", StringComparison.Ordinal);
+    }
+
+    // A decision of the seat shown: recorded with its buttons, then answered. A Talisman is used and kept in turn; a
+    // scatter point is a click anywhere in reach (its circle's centre); Blood Markers are spent when offered.
+    private async Task<bool> AnswerDecision(BoardView board, Rules.Core.State.DecisionKind kind, string label)
+    {
+        // The decision card's buttons, else the same choices in the Menu.
+        var main = (Main)_main;
+        var buttons = Controls<Button>().Where(b => b.HasMeta("decision") && b.IsVisibleInTree() && !b.IsQueuedForDeletion()).ToList();
+        if (buttons.Count == 0)
+        {
+            buttons = [.. main.MenuChoices.Where(b => b.HasMeta("hint") && b.Visible)];
+        }
+        if (!_decisionsMet.TryGetValue(kind, out var met))
+        {
+            _decisionsMet[kind] = met = [];
+        }
+        var before = Section("LAST COMMAND");
+        var events = Lines(LogText()).Count;
+        if (kind == Rules.Core.State.DecisionKind.ChooseScatterPoint)
+        {
+            if (board.Interaction.ScatterCircle() is not { } circle || board.ScreenOf(circle.Centre.X, circle.Centre.Y, 0) is not { } at)
+            {
+                return false;
+            }
+            met.Add($"{label}: clicked the scatter circle's centre");
+            await ClickAt(board.GlobalPosition + at);
+            return (await AnswerAfter(before, events)) != before;
+        }
+        Button? choice = kind switch
+        {
+            Rules.Core.State.DecisionKind.UseTalisman => buttons.FirstOrDefault(b => b.Text.StartsWith(_talismanAnswers++ % 2 == 0 ? "Use" : "Keep", StringComparison.Ordinal)),
+            Rules.Core.State.DecisionKind.SpendMarkersOnSuccessRoll or Rules.Core.State.DecisionKind.SpendMarkersOnInjuryRoll => buttons.LastOrDefault(),
+            _ => buttons.FirstOrDefault(),
+        };
+        if (choice is null)
+        {
+            return false;
+        }
+        met.Add($"{label}: [{string.Join(" / ", buttons.Select(b => b.Text))}] chose \"{choice.Text}\"");
+        // A choice offered only in the Menu (the Talisman and Blood Marker decisions) needs the Menu open.
+        if (((Main)_main).InClosedMenu(choice))
+        {
+            await ClickButton(((Main)_main).MenuButton);
+            await Frames(3);
+        }
+        await ClickButton(choice);
+        return (await AnswerAfter(before, events)) != before || Lines(LogText()).Count > events;
+    }
+
+    private void AbilityChecks(List<string> ended)
+    {
+        Check("abilities-rosters-play-to-the-end", ended.Count == 2 && ended.All(e => e.Length > 0), string.Join(" | ", ended));
+        var keys = AbilityKeys.Select(k => (k.Mode, k.Key, Result: _abilityKeyResults.TryGetValue(k.Mode, out var r) ? r : "never offered")).ToList();
+        Check("abilities-action-keys", keys.All(k => k.Result == ""), string.Join("; ", keys.Select(k => $"{k.Key} {k.Mode}: {(k.Result == "" ? "ok" : k.Result)}")));
+        var previews = AbilityKeys.Select(k => (k.Mode, k.Key, Result: _abilityPreviewResults.TryGetValue(k.Mode, out var r) ? r : "never offered")).ToList();
+        Check("abilities-action-previews", previews.All(p => p.Result == ""), string.Join("; ", previews.Select(p => $"{p.Key} {p.Mode}: {(p.Result == "" ? "its words and Confirm button" : p.Result)}")));
+        // Key 8 (a second ranged weapon with BLAST) cannot come up: no legal roster in the shipped lists has one (the probe of
+        // 2026-11-02 tried every 1-handed BLAST gun); PointBlastTests cover it.
+        var combat = new[] { "4", "5", "6", "7", "9", "0" }.Select(n => (Key: n, Found: _combatKeyResults.Where(r => r.Key.StartsWith(n + " ", StringComparison.Ordinal)).ToList())).ToList();
+        Check("abilities-combat-keys", combat.All(c => c.Found.Count > 0 && c.Found.All(f => f.Value == "")),
+            string.Join("; ", combat.Select(c => c.Found.Count == 0 ? $"{c.Key}: never offered" : string.Join(", ", c.Found.Select(f => $"{f.Key}: {(f.Value == "" ? "ok" : f.Value)}")))));
+        // Each ACTION sent: its declaration and its roll (or the detonation's Injury Rolls) in the log, every roll with its
+        // dice drawn and its breakdown.
+        var lines = _abilityAll;
+        var narration = new List<string>();
+        foreach (var key in AbilityKeys.Where(k => _abilitiesSent.Contains(k.Mode)))
+        {
+            var at = lines.FindIndex(l => l.Text.Contains(key.Declared, StringComparison.Ordinal));
+            var roll = at < 0 ? null : lines.Skip(at + 1).FirstOrDefault(l => l.Faces is { Count: > 0 });
+            narration.Add(at < 0 ? $"{key.Mode}: no \"{key.Declared}\" row" : roll is null ? $"{key.Mode}: no roll after it"
+                : roll.Why is null && roll.Faces!.Count != 2 ? $"{key.Mode}: roll \"{roll.Text.Trim()}\" has no breakdown" : "");
+        }
+        var missing = AbilityKeys.Where(k => !_abilitiesSent.Contains(k.Mode)).Select(k => k.Mode.ToString()).ToList();
+        Check("abilities-actions-narrated", missing.Count == 0 && narration.All(n => n == ""),
+            (missing.Count > 0 ? $"never sent: {string.Join(", ", missing)}; " : "") + string.Join("; ", narration.Select((n, i) => n == "" ? $"{AbilityKeys.Where(k => _abilitiesSent.Contains(k.Mode)).ElementAt(i).Mode} ok" : n)));
+        // Decisions: what was met, and what followed.
+        string Met(Rules.Core.State.DecisionKind kind) => _decisionsMet.TryGetValue(kind, out var m) && m.Count > 0 ? $"{m.Count}: {string.Join(" | ", m.Take(3))}" : "";
+        var used = lines.Count(l => l.Text.Contains("uses a Talisman", StringComparison.Ordinal));
+        var kept = _decisionsMet.TryGetValue(Rules.Core.State.DecisionKind.UseTalisman, out var talismans) ? talismans.Count(t => t.Contains("chose \"Keep", StringComparison.Ordinal)) : 0;
+        var riskyEnds = lines.Count(l => l.Text.Contains("ends its activation (RiskyFailure)", StringComparison.Ordinal));
+        OptionalCheck("abilities-decision-talisman", Met(Rules.Core.State.DecisionKind.UseTalisman), used > 0 && kept > 0 && riskyEnds > 0,
+            $"{Met(Rules.Core.State.DecisionKind.UseTalisman)}; {used} \"uses a Talisman\" rows; {riskyEnds} activations ended by a failed Risky roll");
+        var spent = lines.Count(l => l.Text.Contains(" spends ", StringComparison.Ordinal));
+        OptionalCheck("abilities-decision-markers-success-roll", Met(Rules.Core.State.DecisionKind.SpendMarkersOnSuccessRoll), spent > 0, $"{Met(Rules.Core.State.DecisionKind.SpendMarkersOnSuccessRoll)}; {spent} spend rows");
+        OptionalCheck("abilities-decision-markers-injury-roll", Met(Rules.Core.State.DecisionKind.SpendMarkersOnInjuryRoll), spent > 0, $"{Met(Rules.Core.State.DecisionKind.SpendMarkersOnInjuryRoll)}; {spent} spend rows");
+        OptionalCheck("abilities-decision-morale", Met(Rules.Core.State.DecisionKind.FailedMorale), lines.Any(l => l.Text.Contains("Shaken", StringComparison.Ordinal) || l.Text.Contains("flee", StringComparison.OrdinalIgnoreCase)),
+            Met(Rules.Core.State.DecisionKind.FailedMorale));
+        OptionalCheck("abilities-decision-scatter", Met(Rules.Core.State.DecisionKind.ChooseScatterPoint), lines.Any(l => l.Text.Contains("scatters", StringComparison.Ordinal)),
+            Met(Rules.Core.State.DecisionKind.ChooseScatterPoint));
+    }
+
+    // A check that only the dice can bring about: NOT TESTED when it never came up, else PASS or FAIL.
+    private void OptionalCheck(string id, string met, bool pass, string detail)
+    {
+        if (met.Length == 0)
+        {
+            Mark($"{id}-not-tested", "the dice never brought it about in these matches");
+            Write($"CHECK {id} NOT-TESTED the dice never brought it about in these matches");
+            return;
+        }
+        Check(id, pass, detail);
     }
 
     // Mines stage M3 (hotseat-mines, Trench Warfare on "ranged-1v1-trench-warfare"): after the attacker is chosen the

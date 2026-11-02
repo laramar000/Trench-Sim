@@ -206,3 +206,13 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - Decided: Urn of the Bitter Ashes protects any model within 3" (Jason card "1 Any model", U109).
 - Still refused by name in matches: AMMUNITION with two possible guns (no deployment choice yet), and every equipment
   piece not in `MatchReadiness.PlayedEquipment`. No Windows run since 17a9099/e917e6b.
+- 2026-11-02 IN PROGRESS (not pushed, essentials not run since): owner's checklist (`docs/manual-test-checklist.md`, its
+  ticks are targets, not yet all true). New UI check group `abilities` (UiCheck.cs `AbilitiesPlay`; run with
+  `godot --path client -- --ui-check abilities --out <dir>`, Godot now at D:\Claude\Godot\...): two hot-seat matches with
+  R6 rosters. Last run (ui-check-results/abilities-4): both matches end, action keys and Combat keys PASS (key 8 cannot
+  come up: no legal roster has a second BLAST ranged weapon), action previews PASS except Treat (never legal), narration
+  PASS except Treat (never sent); decisions NOT TESTED because they were answered by the generic hint click (fixed since:
+  `AnswerDecision` now also uses Menu choices; not yet rerun). Next: Medi-kit model moves next to a friend with a marker
+  or Down then Treats; rerun; add `abilities` to tools/UiCheck/Program.cs and expected-checks.txt; run essentials; push.
+  Also uncommitted-then-committed: readiness no longer names purchase-option abilities (Zealot Strength, Janissary
+  Veteran, Heretic Legionnaires, Light Skirmishers, Trench Moles, Plague Knight Ranks) as played without.
