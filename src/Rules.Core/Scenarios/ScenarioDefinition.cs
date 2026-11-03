@@ -12,6 +12,18 @@ public sealed record MapNeeds(ImmutableArray<string> ZoneIds, int Objectives, Ar
     // Trench-maps stage S6 (Trench Warfare, pp. 161-162, U88): at least this many trench sections 8" or longer, all in
     // one deployment zone (the defender's), and no other terrain in either zone. Zero: no such need.
     public int TrenchLines { get; init; }
+
+    // Map size (owner, 2026-11-03; docs/map-dimensions.md, U125): the square table sizes in inches a map for this scenario may
+    // have. The book recommends 3 ft by 3 ft, the default, and 4 ft by 4 ft, the alternative (pp. 8, 9, 22, 58). Which of
+    // them a map is, and where its zones and Objectives sit on it, is the map's own data: the engine invents no layout.
+    public ImmutableArray<int> TableSizes { get; init; } = [TableSize.Standard, TableSize.Large];
+}
+
+// The recommended table sizes, in inches (one in-game inch is one tabletop inch).
+public static class TableSize
+{
+    public const int Standard = 36;
+    public const int Large = 48;
 }
 
 // Trench-maps stage S5: a scenario's rules, apart from any map: its id, rules version, turn limit, the zones in seat
@@ -23,6 +35,11 @@ public sealed record ScenarioDefinition(string Id, string RulesVersion, int Turn
     {
         ArgumentNullException.ThrowIfNull(map);
         var unmet = new List<string>();
+        var field0 = map.Battlefield;
+        if (field0.Width != field0.Height || !Needs.TableSizes.Any(n => field0.Width == Length.FromInches(n)))
+        {
+            unmet.Add($"{Id} is played on a square table of {string.Join(" or ", Needs.TableSizes.Select(n => n + "\""))}; the map is {field0.Width} by {field0.Height}.");
+        }
         var zones = map.Battlefield.Zones.Select(z => z.ZoneId).Order(StringComparer.Ordinal).ToList();
         var wanted = Needs.ZoneIds.Order(StringComparer.Ordinal).ToList();
         if (!zones.SequenceEqual(wanted, StringComparer.Ordinal))

@@ -60,6 +60,22 @@ public class BattlefieldDimensionTests
         Assert.Equal(Length.FromInches(34), Movement.Cost(field, mover, [new Point2(Length.FromInches(35), Length.FromInches(18))]));
     }
 
+    // Map size (U125): the book's recommended 36" table is the default and 48" the alternative; a scenario takes a map of
+    // either size, and refuses any other, or a table that is not square. The layout on a 48" table is the map's own data.
+    [Fact]
+    public void AScenarioTakesA36Or48InchTableAndNoOther()
+    {
+        var plain = MapFiles.Load(Path.Combine(Repository.Root(), "content", MapFiles.Folder, "claim-no-mans-land.json")).ToScenario();
+        Rules.Core.State.Scenario Resized(int w, int h) => new(new Battlefield(Length.FromInches(w), Length.FromInches(h), plain.Battlefield.Terrain, plain.Battlefield.Zones), plain.ObjectiveIds);
+
+        Assert.Equal(new[] { 36, 48 }, ClaimNoMansLand.Definition.Needs.TableSizes.ToArray());
+        Assert.Equal(new[] { 36, 48 }, TrenchWarfare.Definition.Needs.TableSizes.ToArray());
+        Assert.Empty(ClaimNoMansLand.Definition.Unmet(plain, null));
+        Assert.Empty(ClaimNoMansLand.Definition.Unmet(Resized(48, 48), null));
+        Assert.Contains("square table of 36\" or 48\"", Assert.Single(ClaimNoMansLand.Definition.Unmet(Resized(40, 40), null)));
+        Assert.Contains("square table", Assert.Single(ClaimNoMansLand.Definition.Unmet(Resized(36, 48), null)));
+    }
+
     [Fact]
     public void TheTableEdgesStopAModel()
     {

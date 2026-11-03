@@ -63,6 +63,14 @@ apart, one unit is one inch, edges stop models). No map or dimension was changed
 (needs the page image), the 48" support (a per-scenario allowed-size list, a size parameter for the generator, and a Play
 page choice shown only where a scenario allows two sizes), and the camera check with a screenshot of the full table.
 
+## 4b. Built (2026-11-03, local, not pushed)
+
+`MapNeeds.TableSizes` (default 36 and 48) and a check in `ScenarioDefinition.Unmet`: a map must be square and one of the listed
+sizes, else it is refused with the reason (U125). No map was resized and no 48" map was added: the book prints no 48"
+layout for these scenarios, so a 48" map's zones, Objectives and terrain are a content decision for the owner. The
+generator is still 36" (a 48" generator needs an id version bump, because the id carries no size). The Play page needs a
+size choice only once a scenario has maps of two sizes.
+
 ## 5. Order of work
 
 Review this note first. Then, with the dimension question settled, carry-on (A1, A2 recommended), then Field Shrine in three
