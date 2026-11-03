@@ -240,3 +240,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Suicidal Bravery (Scenario I) completes when a successful charge ends within 1" of a second enemy. ReplayCompatibility
   2 -> 3; golden records regenerated (TRENCH_SIM_UPDATE_GOLDEN=1); melee seeds 1, 5, 15, 23 re-pinned. Tests
   `Match/ChargeCarryOnTests`. UI run abilities-18: failures=0, but no carry-on came up (its bar is unit-tested only). Still blocked: Field Shrine (no deployables).
+- 2026-11-03: owner said "Merge the plans". m7-client (which holds m0-setup to m6-records, PRs #1-#11) took in
+  docs-known-gaps, main (#13, #14: SessionStart hooks; .claude/settings.json now has both the dotnet permissions and
+  the hooks) and claude/pensive-planck-ep84pj; essentials passed; main was fast-forwarded to it (no force-push).
