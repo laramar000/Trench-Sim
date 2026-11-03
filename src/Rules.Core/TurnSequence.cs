@@ -153,6 +153,10 @@ public static partial class TurnSequence
             case DecisionKind.SpendMarkersOnSuccessRoll or DecisionKind.SpendMarkersOnInjuryRoll:
                 var available = MarkersAvailable(state, pending.Kind);
                 commands.AddRange(Enumerable.Range(0, available + 1).Select(n => new SpendMarkers(pending.Seat, n)));
+                if (BloodbathCost(state) is { } cost)
+                {
+                    commands.Add(new SpendMarkers(pending.Seat, cost) { Bloodbath = true });
+                }
                 break;
         }
     }

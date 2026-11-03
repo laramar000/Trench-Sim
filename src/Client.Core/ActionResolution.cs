@@ -268,6 +268,11 @@ public sealed class ResolutionLog
                     action.Dice.Add(new($"{markers} of {Id(spent.Model)} spent by {Words.Seat(spent.Spender)}", -spent.Count));
                     action.Steps.Add($"{Words.Seat(spent.Spender)} spends {markers} of {Id(spent.Model)}: {-spent.Count} DICE on the Success Roll");
                 }
+                else if (spent.Purpose == MarkerSpendPurpose.Bloodbath)
+                {
+                    // U123: the markers buy the Bloodbath Roll; they are not INJURY DICE.
+                    action.Steps.Add($"{Words.Seat(spent.Spender)} spends {markers} of {Id(spent.Model)} for a Bloodbath Roll: the Injury Roll keeps one more die");
+                }
                 else
                 {
                     action.Dice.Add(new($"{markers} of {Id(spent.Model)} spent by {Words.Seat(spent.Spender)}", spent.Count));

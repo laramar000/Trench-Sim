@@ -117,6 +117,7 @@ public enum MarkerSpendPurpose
 {
     ReduceSuccessRoll,  // -1 DICE per marker on a Success Roll for the model holding them
     RaiseInjuryRoll,    // +1 INJURY DICE per marker on an Injury Roll against the model holding them
+    Bloodbath,          // 6 markers (3 if Down) for a Bloodbath Roll: the Injury Roll keeps one more die (p. 47, U123)
 }
 
 // Blood Markers spent (p. 28). Spender is the player who chose to; Model holds the markers. Count 0 is "none".
@@ -253,6 +254,10 @@ public sealed record InjuryRolled : GameEvent
     // Roster stage R5e (U109): the Sacrificial Lamb's blood kept off the first BLOOD MARKER placed on the model; left out
     // when false.
     public bool Warded { get; init; }
+
+    // U123: a Bloodbath Roll (p. 47), which keeps one more die than the Injury Roll would; left out
+    // when false.
+    public bool Bloodbath { get; init; }
 
     // The BLOOD MARKERS placed on the target: the result's and the weapon's, less the one the Lamb's blood kept off.
     public int PlacedMarkers => ResultMarkers + ExtraMarkers - (Warded ? 1 : 0);

@@ -17,7 +17,8 @@ public sealed record InjuryRollResult
     {
         ArgumentNullException.ThrowIfNull(dice);
         // DEADLY (p. 54, U104): three dice kept instead of two; a Martyrdom Device's bearer (U115): 4D6 added together.
-        // The count kept says which roll it was.
+        // A Bloodbath Roll (U123) keeps one more (3, or 4 with DEADLY). The count kept says which roll it was, together with
+        // InjuryRolled.Bloodbath.
         dice.EnsureKeptFor(dice.Kept.Count is InjuryRoll.DeadlyKeptDice or InjuryRoll.AllFourDice ? dice.Kept.Count : InjuryRoll.KeptDice, netDice, nameof(dice));
         // Combined modifiers can't be below the floor: negatives are floored, positives only add.
         ArgumentOutOfRangeException.ThrowIfLessThan(modifier, InjuryRoll.NegativeModifierFloor);
@@ -31,6 +32,7 @@ public sealed record InjuryRollResult
     public int NetDice { get; }
     public int Modifier { get; }
     public bool TargetAlreadyDown { get; }
+    // Only when it is not a Bloodbath Roll (InjuryRolled.Bloodbath), which keeps one more.
     public bool Deadly => Dice.Kept.Count == InjuryRoll.DeadlyKeptDice;
     public bool AllFour => Dice.Kept.Count == InjuryRoll.AllFourDice;
     public int Total => Dice.Total + Modifier;
@@ -55,12 +57,18 @@ public static class InjuryRoll
         IEnumerable<int>? modifiers = null,
         bool targetAlreadyDown = false,
         bool deadly = false,
-        bool allFour = false)
+        bool allFour = false,
+        bool bloodbath = false)
     {
         var net = RollRecord.NetDice(bonusDice, penaltyDice);
-        var record = RollRecord.RollAndKeep(dice, allFour ? AllFourDice : deadly ? DeadlyKeptDice : KeptDice, net);
+        var record = RollRecord.RollAndKeep(dice, KeptFor(deadly, allFour, bloodbath), net);
         return new InjuryRollResult(record, net, CombineModifiers(modifiers ?? []), targetAlreadyDown);
     }
+
+    // The dice an Injury Roll keeps: 2, 3 with DEADLY (p. 54), one more for a Bloodbath Roll (p. 47, U123), and a Martyrdom
+    // Device's bearer 4D6 (U115).
+    public static int KeptFor(bool deadly, bool allFour, bool bloodbath) =>
+        allFour ? AllFourDice : KeptDice + (deadly ? 1 : 0) + (bloodbath ? 1 : 0);
 
     // Negative modifiers together count for no less than -3; positive modifiers are not capped.
     public static int CombineModifiers(IEnumerable<int> modifiers)

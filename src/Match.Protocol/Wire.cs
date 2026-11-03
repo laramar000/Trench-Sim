@@ -399,6 +399,8 @@ public static class Wire
             (typeof(MineExploded), nameof(MineExploded.Spared)),
             (typeof(ModelProfile), nameof(ModelProfile.EnforcesOrthodoxy)),
             (typeof(ModelProfile), nameof(ModelProfile.LaysOnHands)),
+            (typeof(SpendMarkers), nameof(SpendMarkers.Bloodbath)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.Bloodbath)),
         ];
 
         // Optional numbers left out when zero, for the same reason (every match before roster stage R1's profile dice).

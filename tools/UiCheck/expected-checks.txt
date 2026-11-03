@@ -274,6 +274,7 @@ abilities: abilities-action-previews
 abilities: abilities-combat-keys
 abilities: abilities-actions-narrated
 optional abilities: abilities-treat
+optional abilities: abilities-lay-hands
 optional abilities: abilities-decision-talisman
 optional abilities: abilities-decision-markers-success-roll
 optional abilities: abilities-decision-markers-injury-roll

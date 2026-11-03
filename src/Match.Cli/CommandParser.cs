@@ -20,6 +20,7 @@ public static class CommandParser
         decline                   decline free attacks         friendly <model>      choose the friendly victim
         morale BecomeShaken|SoundRetreat                       answer a failed Morale Check
         scatter <x,y>             where a missed SCATTER attack lands
+        bloodbath <n>             spend n Blood Markers (6, or 3 if Down) for a Bloodbath Roll
         blast <model> <x,y>       aim a BLAST weapon at a point
         """;
 
@@ -48,6 +49,7 @@ public static class CommandParser
             "charge" => new ChargeModel(seat, Model(Arg(args, 0)), Model(Arg(args, 1))),
             "fight" => new FightModel(seat, Model(Arg(args, 0)), Model(Arg(args, 1))),
             "markers" => new SpendMarkers(seat, int.Parse(One(args), CultureInfo.InvariantCulture)),
+            "bloodbath" => new SpendMarkers(seat, int.Parse(One(args), CultureInfo.InvariantCulture)) { Bloodbath = true },
             "free" => new FreeFight(seat, Model(One(args))),
             "decline" => new DeclineFreeFights(seat),
             "friendly" => new ChooseFriendlyTarget(seat, Model(One(args))),

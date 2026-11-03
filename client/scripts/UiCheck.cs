@@ -3356,16 +3356,20 @@ public partial class UiCheck : Node
         {
             await CombatKeysTry(board);
         }
-        // A Medi-kit model with nobody to Treat moves next to a friend with a BLOOD MARKER or Down, so a Treat can be sent.
-        if (!_abilitiesSent.Contains(InteractionMode.Treat) && interaction.Available.Contains(InteractionMode.Treat)
-            && Previews.ActionOpen(state, state.FindModel(active)!.Seat, active, PreviewKind.Treat) is not null
-            // The scene's models, not state.Models: an ImmutableArray would make the client reference System.Collections.Immutable.
-            && board.Scene?.Models.FirstOrDefault(m => m.Yours && m.Id != active && m.Status != Rules.Core.State.ModelStatus.OutOfAction
-                && (state.FindModel(m.Id)?.BloodMarkers > 0 || m.Status == Rules.Core.State.ModelStatus.Down)) is { } hurt
-            && await MoveNextTo(board, hurt.Id) && ((Main)_main).ServerState is { } moved)
+        // A Medi-kit model with nobody to Treat moves next to a friend with a BLOOD MARKER or Down, so a Treat can be sent;
+        // a Laying on of Hands model with nobody in reach, next to a friend with a BLOOD MARKER.
+        foreach (var (mode, kind, down) in new[] { (InteractionMode.Treat, PreviewKind.Treat, true), (InteractionMode.LayHands, PreviewKind.LayHands, false) })
         {
-            state = moved;
-            await AbilityKeyTry(board, AbilityKeys.First(k => k.Mode == InteractionMode.Treat));
+            if (!_abilitiesSent.Contains(mode) && interaction.Available.Contains(mode)
+                && Previews.ActionOpen(state, state.FindModel(active)!.Seat, active, kind) is not null
+                // The scene's models, not state.Models: an ImmutableArray would make the client reference System.Collections.Immutable.
+                && board.Scene?.Models.FirstOrDefault(m => m.Yours && m.Id != active && m.Status != Rules.Core.State.ModelStatus.OutOfAction
+                    && (state.FindModel(m.Id)?.BloodMarkers > 0 || (down && m.Status == Rules.Core.State.ModelStatus.Down))) is { } hurt
+                && await MoveNextTo(board, hurt.Id) && ((Main)_main).ServerState is { } moved)
+            {
+                state = moved;
+                await AbilityKeyTry(board, AbilityKeys.First(k => k.Mode == mode));
+            }
         }
         // One ACTION of each kind is sent. Each step below first checks the activation goes on with nothing waiting: a
         // failed roll's decision (a Talisman, Blood Markers) is answered by the match loop, never by this step's keys.
@@ -3691,7 +3695,12 @@ public partial class UiCheck : Node
             await Frames(3);
         }
         await ClickButton(choice);
-        return (await AnswerAfter(before, events)) != before || Lines(LogText()).Count > events;
+        var answered = (await AnswerAfter(before, events)) != before || Lines(LogText()).Count > events;
+        if (!answered)
+        {
+            Mark("decision-unanswered", $"{label} {kind} \"{choice.Text}\" in the {(choice.HasMeta("decision") ? "card" : "Menu")}: {Section("LAST COMMAND")}");
+        }
+        return answered;
     }
 
     private void AbilityChecks(List<string> ended)
@@ -3703,7 +3712,11 @@ public partial class UiCheck : Node
         // failed (abilities-treat).
         var treatUnseen = _abilityPreviewResults.GetValueOrDefault(InteractionMode.Treat)?.StartsWith("no legal target yet", StringComparison.Ordinal) == true;
         OptionalCheck("abilities-treat", treatUnseen ? "" : "seen", _abilitiesSent.Contains(InteractionMode.Treat), treatUnseen ? "" : "a Treat was previewed and sent");
-        var previews = AbilityKeys.Where(k => !(treatUnseen && k.Mode == InteractionMode.Treat)).Select(k => (k.Mode, k.Key, Result: _abilityPreviewResults.TryGetValue(k.Mode, out var r) ? r : "never offered")).ToList();
+        // Laying on of Hands the same: it needs the model or a friend within 6" with a BLOOD MARKER (abilities-lay-hands).
+        var handsUnseen = _abilityPreviewResults.GetValueOrDefault(InteractionMode.LayHands)?.StartsWith("no legal target yet", StringComparison.Ordinal) == true;
+        OptionalCheck("abilities-lay-hands", handsUnseen ? "" : "seen", _abilitiesSent.Contains(InteractionMode.LayHands), handsUnseen ? "" : "a Laying on of Hands was previewed and sent");
+        bool Unseen(InteractionMode mode) => (treatUnseen && mode == InteractionMode.Treat) || (handsUnseen && mode == InteractionMode.LayHands);
+        var previews = AbilityKeys.Where(k => !Unseen(k.Mode)).Select(k => (k.Mode, k.Key, Result: _abilityPreviewResults.TryGetValue(k.Mode, out var r) ? r : "never offered")).ToList();
         Check("abilities-action-previews", previews.All(p => p.Result == ""), string.Join("; ", previews.Select(p => $"{p.Key} {p.Mode}: {(p.Result == "" ? "its words and Confirm button" : p.Result)}")));
         // Key 8 (a second ranged weapon with BLAST) cannot come up: no legal roster in the shipped lists has one (the probe of
         // 2026-11-02 tried every 1-handed BLAST gun); PointBlastTests cover it.
@@ -3721,7 +3734,7 @@ public partial class UiCheck : Node
             narration.Add(at < 0 ? $"{key.Mode}: no \"{key.Declared}\" row" : roll is null ? $"{key.Mode}: no roll after it"
                 : roll.Why is null && roll.Faces!.Count != 2 ? $"{key.Mode}: roll \"{roll.Text.Trim()}\" has no breakdown" : "");
         }
-        var missing = AbilityKeys.Where(k => !_abilitiesSent.Contains(k.Mode) && !(treatUnseen && k.Mode == InteractionMode.Treat)).Select(k => k.Mode.ToString()).ToList();
+        var missing = AbilityKeys.Where(k => !_abilitiesSent.Contains(k.Mode) && !Unseen(k.Mode)).Select(k => k.Mode.ToString()).ToList();
         Check("abilities-actions-narrated", missing.Count == 0 && narration.All(n => n == ""),
             (missing.Count > 0 ? $"never sent: {string.Join(", ", missing)}; " : "") + string.Join("; ", narration.Select((n, i) => n == "" ? $"{AbilityKeys.Where(k => _abilitiesSent.Contains(k.Mode)).ElementAt(i).Mode} ok" : n)));
         // Decisions: what was met, and what followed.

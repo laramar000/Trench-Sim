@@ -1149,8 +1149,14 @@ public static class Reducer
         }
         else if (state.Pending.Kind == DecisionKind.SpendMarkersOnInjuryRoll)
         {
-            Require(e.Purpose == MarkerSpendPurpose.RaiseInjuryRoll && e.Model == rolling.Target, "Those markers belong to the target.");
-            next = state with { InProgress = rolling with { BonusDice = rolling.BonusDice + e.Count } };
+            Require(e.Purpose is MarkerSpendPurpose.RaiseInjuryRoll or MarkerSpendPurpose.Bloodbath && e.Model == rolling.Target, "Those markers belong to the target.");
+            // U123: a Bloodbath Roll's markers are its price, not INJURY DICE; the roll keeps one more die instead.
+            Require(e.Purpose != MarkerSpendPurpose.Bloodbath || TurnSequence.BloodbathCost(state) == e.Count,
+                "A Bloodbath Roll spends exactly 6 of the target's Blood Markers (3 if it is Down).");
+            next = state with
+            {
+                InProgress = e.Purpose == MarkerSpendPurpose.Bloodbath ? rolling with { Bloodbath = true } : rolling with { BonusDice = rolling.BonusDice + e.Count },
+            };
         }
         else
         {
@@ -1367,13 +1373,16 @@ public static class Reducer
         Require((target.Id != attacker.Id || progress.Aimed is not null || progress.BlastAt is not null || progress.Martyrdom) && (target.Seat == attacker.Seat) == progress.FriendlyFire,
             "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one or a blast hits it.");
         // Roster stage R5j (U115): a Martyrdom Device's bearer rolls 4D6 added together; every other roll keeps two or three.
-        Require(e.Injury.AllFour == (progress.Martyrdom && target.Id == attacker.Id), "Only a Martyrdom Device's bearer rolls 4D6 added together.");
+        Require(e.Bloodbath == progress.Bloodbath, "A Bloodbath Roll is made only when its Blood Markers were spent for it.");
         var profile = AttackProfile(state, progress);
         Require(e.Injury.NetDice == progress.BonusDice - progress.PenaltyDice
             && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(e.Target)!, progress.Kind))
             && e.Injury.TargetAlreadyDown == (target.Status == ModelStatus.Down), "The Injury Roll must match the dice, modifiers and state of the target.");
-        // Roster stage R5 (U104): a DEADLY weapon's Injury Rolls keep three dice, every other one two.
-        Require(e.Injury.Deadly == ((profile.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0), "A DEADLY weapon's Injury Roll is 3D6, any other is 2D6.");
+        // Roster stage R5 (U104): a DEADLY weapon's Injury Rolls keep three dice, every other one two; a Martyrdom Device's
+        // bearer rolls 4D6 added together (U115); a Bloodbath Roll keeps one more (U123).
+        Require(e.Injury.Dice.Kept.Count == InjuryRoll.KeptFor((profile.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0,
+                progress.Martyrdom && target.Id == attacker.Id, progress.Bloodbath),
+            "A DEADLY weapon's Injury Roll is 3D6, any other is 2D6; a Martyrdom Device's bearer rolls 4D6; a Bloodbath Roll keeps one more.");
 
         // Roster stage R4a: SHRAPNEL, GAS and FIRE put extra BLOOD MARKERS on the target (U101).
         Require(e.ExtraMarkers == AttackDice.ExtraMarkers(profile, progress.Kind, state.Setup!.ProfileOf(e.Target)!), "The extra BLOOD MARKERS must be the weapon's SHRAPNEL, GAS and FIRE.");

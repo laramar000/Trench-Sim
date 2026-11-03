@@ -218,3 +218,18 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   fails ClientAuthorityTest); use `board.Scene.Models` plus `state.FindModel`. Readiness no longer names
   purchase-option abilities (Zealot Strength, Janissary Veteran, Heretic Legionnaires, Light Skirmishers, Trench Moles,
   Plague Knight Ranks) as played without. Still the owner's: M7.5 stage 5d two-window match and Gate G5 sign-off.
+- 2026-11-03: the cloud session (branch `claude/pensive-planck-ep84pj`, no .NET SDK there) settled rulings in a6d17e3
+  (docs only: U31, U32, U40, R1, R2, R3, R7, Bloodbath); applied here on m7-client. That branch lacks m7-client's
+  commits after 664901a; nothing merged. Built here: Bloodbath Rolls (U123; `SpendMarkers.Bloodbath`,
+  `MarkerSpendPurpose.Bloodbath`, `InjuryRolled.Bloodbath`, all left off the wire when false; tests
+  `Match/BloodbathTests`, `BloodbathWireTests`; CLI `bloodbath <n>`). R3 now notes LEADER +1 DICE on Morale (already
+  played). Not built, owner needed: Suicidal Bravery (the deed's text is not in the repo, and the optional charge
+  continuation, U47, is not built) and Field Shrine (DEPLOYABLE equipment: the engine has no deployed objects; part of
+  the "later" deployment-rules group). Owner also: allow builds.dotnet.microsoft.com in the cloud environment, the merge
+  plan for PRs #1-#11 and `docs-known-gaps`, and which roster work comes next.
+  UI runs after Bloodbath: abilities-15/16/17 (failures 0, 2, 0). Run 16's two FAILs: Laying on of Hands never had a
+  target with a BLOOD MARKER (dice); fixed: its model now moves next to a hurt friend like Treat, and it is the optional
+  check `abilities-lay-hands` when no target ever comes up. No run offered a Bloodbath Roll (needs 6 markers, or 3 on a
+  Down target), so its button and log words are checked by unit tests only. Run 15 stalled ~200 s on one injury
+  marker decision ("Spend 4" clicked, no answer, then answered by the hint fallback); not seen in 16 or 17. UiCheck now
+  writes `MARK decision-unanswered ...` with LAST COMMAND when that happens: read it if it comes back.
