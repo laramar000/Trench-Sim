@@ -37,6 +37,12 @@ public sealed record ChooseAttacker(Seat Seat, Seat Attacker) : Command;
 // the duds among them. Only the defender's seat sees the duds.
 public sealed record LayMines(Seat Seat, ImmutableArray<Point2> Markers, ImmutableArray<string> Duds) : Command;
 
+// Field Shrine (Battlekit p. 82; U127): after a model that carries one is deployed, its player may deploy the shrine anywhere
+// wholly within the deployment zone, or decline.
+public sealed record PlaceShrine(Seat Seat, ModelId Carrier, Point2 At) : Command;
+
+public sealed record DeclineShrine(Seat Seat, ModelId Carrier) : Command;
+
 // ---- M4: commands that need a battlefield (a MatchSetup with a Scenario) ----
 
 // Sets a model up at a point inside its deployment zone (Scenario I, p. 152). Replaces DeployModel when there is a battlefield.

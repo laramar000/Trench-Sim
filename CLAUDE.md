@@ -90,7 +90,8 @@ tests exist; 48" table sizes are accepted per scenario (U125, `MapNeeds.TableSiz
 and the camera check are still open.
 
 Carry-on past contact is built (U126: `ChargeModel.CarryOn`, `ChargeDeclared.CarryOn`, `RollInProgress.CarryOn`, planner
-`ChargePlanner.CarryOn`; `Interaction.ToggleCarryOn`; CLI `charge A1 B1 carry`). K in Charge mode toggles it in the Godot client (compiled, not run in Godot). All
+`ChargePlanner.CarryOn`; `Interaction.ToggleCarryOn`; CLI `charge A1 B1 carry`). K in Charge mode toggles it in the Godot client (compiled, not run in Godot). Field Shrine stage 1 is built (U127: `FieldShrines`, `ShrineState`, `PlaceShrine`/`DeclineShrine`, `Relation.Impassable`, Morale
+bonus); stage 2 (attacks and blasts remove it) and stage 3 (client piece, click placement) are not. All
 of this work is local commits on `claude/pensive-planck-ep84pj` after `d9ac75a`; nothing pushed until the owner approves.
 
 Decisions kept for the carry-on and Field Shrine work: A1 and A2 recommended; B1 to B4 recommended; carry-on first, then

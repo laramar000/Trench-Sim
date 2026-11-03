@@ -60,6 +60,8 @@ public static class EventText
         BloodMarkersPlaced b => $"  Flames from {b.Source} put 1 Blood Marker on each enemy within 1\": {string.Join(", ", b.Targets)}.{(b.Warded.IsEmpty ? "" : $" The Sacrificial Lamb's blood keeps it off {string.Join(", ", b.Warded)}.")}",
         GloriousDeedCompleted d => $"{d.Seat} completes the Glorious Deed {Rules.Core.Deeds.Name(d.Deed)}{(d.Model is { } m ? $" ({m})" : "")}: +{Rules.Core.Deeds.VictoryPoints} VP.",
         GameLengthRolled g => $"{g.Seat} rolls {g.Die} for the game's length: {(g.LastTurn == Rules.Core.Scenarios.TrenchWarfare.LengthRollTurn ? "the game ends now" : $"the game ends after Turn {g.LastTurn}")}.",
+        ShrinePlaced h => $"  {h.Carrier} deploys its Field Shrine at ({h.At.X}, {h.At.Y}).",
+        ShrineDeclined h => $"  {h.Carrier} does not deploy its Field Shrine.",
         MinesLaid l => $"{l.Seat} sets up {l.Markers.Length} Mine Markers; {Rules.Core.Geometry.Mines.Duds} of them are secret duds.",
         MineRevealed r => $"  {r.Model} halts by {r.Marker}: {(r.Live ? "a live mine" : "a dud")}.",
         MineExploded x => $"  {x.Marker} explodes under {x.Model}: Injury Roll {x.Injury.Total}: {x.Injury.Outcome}{(x.Tough ? " (TOUGH: Down instead)" : "")}{(x.Spared ? " (Memento Mori: No Effect instead)" : "")}{(x.Negated ? ", and its NEGATE SHRAPNEL stops the extra Blood Marker." : ", and SHRAPNEL adds a Blood Marker.")}{(x.Warded ? Warded : "")}",
@@ -189,7 +191,7 @@ public static class EventText
     // What kind of event it is, for the event list's tag and colour (QoL stage D). Display only.
     public static EventKind Kind(GameEvent e) => e switch
     {
-        MatchCreated or RollOffResolved or DeploymentZoneChosen or DeploymentOrderSet or ModelDeployed or AttackerChosen or MinesLaid => EventKind.Setup,
+        MatchCreated or RollOffResolved or DeploymentZoneChosen or DeploymentOrderSet or ModelDeployed or AttackerChosen or MinesLaid or ShrinePlaced or ShrineDeclined => EventKind.Setup,
         TurnStarted or TurnEnded or PhaseEntered or InitiativeDetermined or FirstActivationChosen or MoraleOrderSet => EventKind.Turn,
         ActivationStarted or ActivationEnded or TalismanUsed => EventKind.Activation,
         ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved or MineRevealed or MoveResumed => EventKind.Movement,

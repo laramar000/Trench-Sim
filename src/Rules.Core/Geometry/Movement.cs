@@ -4,6 +4,7 @@ public enum Relation
 {
     Friendly,
     Enemy,
+    Impassable,   // a Field Shrine's base (p. 82, U127): not a model, but nothing may cross or end on it
 }
 
 // Another model on the table, as the mover sees it. Down models are included like any other (p. 36).
@@ -16,6 +17,7 @@ public enum MoveRefusal
     PathTooLong,
     CrossesBlockingTerrain,
     CrossesEnemyBase,
+    CrossesPiece,   // a Field Shrine's base (p. 82, U127)
     EntersEnemyZone,
     LeavesEnemyZone,
     EndsOnBase,
@@ -148,6 +150,18 @@ public static class Movement
                 if (Shapes.PointNearSegment(enemy.Centre, segment.A, segment.B, hit, strict: true))
                 {
                     return Refuse(MoveRefusal.CrossesEnemyBase, "A model cannot move through an enemy model's base.", "1.0.2 pp. 31, 35", cost, enemy.Id);
+                }
+            }
+        }
+
+        // Field Shrines (p. 82, U127): Impassable bases, not models; no 1" zone, but nothing crosses or ends on one.
+        foreach (var piece in sorted.Where(o => o.Relation == Relation.Impassable).Select(o => o.Body))
+        {
+            foreach (var segment in segments.Where(g => g.Meets(piece)))
+            {
+                if (Shapes.PointNearSegment(piece.Centre, segment.A, segment.B, mover.Radius + piece.Radius, strict: true))
+                {
+                    return Refuse(MoveRefusal.CrossesPiece, "A model cannot move through a Field Shrine.", "1.0.2 p. 82", cost, piece.Id);
                 }
             }
         }

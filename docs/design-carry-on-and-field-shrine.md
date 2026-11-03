@@ -1,6 +1,6 @@
 # Design: charge carry-on and Field Shrine (draft for the owner, 2026-11-03)
 
-**Status (2026-11-03):** section A (carry-on) is built locally as U126, with decisions A1 and A2 as recommended; the Godot key is not bound yet. Section B (Field Shrine) is not started, decisions B1 to B4 as recommended.
+**Status (2026-11-03):** section A (carry-on) is built locally as U126, with decisions A1 and A2 as recommended; the Godot key is not bound yet. Section B (Field Shrine) stage 1 (state, deployment, geometry, Morale) is built locally as U127, decisions B1 to B4 as recommended; stages 2 (attacks and blasts) and 3 (client and roster panel) are not started.
 
 Nothing here is built. Both features follow the standing rule: design first, then a stage with tests, pushed after the
 essential check. Rule readings are paraphrased from the Digital Rulebook 1.0.2 (charge moves p. 37, Suicidal Bravery

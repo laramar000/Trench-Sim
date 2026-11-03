@@ -96,6 +96,8 @@ public static class Reducer
             TrenchesScored x => OnTrenchesScored(state, x),
             GameLengthRolled x => OnGameLengthRolled(state, x),
             MinesLaid x => OnMinesLaid(state, x),
+            ShrinePlaced x => OnShrinePlaced(state, x),
+            ShrineDeclined x => OnShrineDeclined(state, x),
             MineRevealed x => OnMineRevealed(state, x),
             MineExploded x => OnMineExploded(state, x),
             MoveResumed x => OnMoveResumed(state, x),
@@ -480,6 +482,11 @@ public static class Reducer
             case DecisionKind.LayMines:
                 Require(TrenchWarfare.Is(state.Setup) && state.Phase == Phase.Deployment && state.Attacker is { } attacking && attacking.Opponent() == e.Seat
                     && !state.MinesLaid && state.DeploymentFirst is null, "The defender sets up the Mine Markers once, after the roles are chosen and before deployment.");
+                break;
+            case DecisionKind.PlaceShrine:
+                // Field Shrine (p. 82, U127): right after a deployed model that carries one, and before the next deployment.
+                Require(state.Phase == Phase.Deployment && Board.ShrineCarrierWaiting(state, e.Seat) is not null,
+                    "A Field Shrine is offered to the player of a model that carries one, once it is deployed.");
                 break;
             case DecisionKind.FreeFight:
                 Require(state.Retreat is { Closed: false } retreat && state.InProgress is null && state.Phase == Phase.Activation
@@ -1795,6 +1802,28 @@ public static class Reducer
     }
 
     // ---- Trench Warfare's Mine Markers (p. 162, U93) ----
+
+    // Field Shrine (Battlekit p. 82; U127): the carrier's player deploys the shrine, wholly in the zone and clear of every base,
+    // shrine and Impassable piece, or declines. Either way the carrier is settled and the decision is over.
+    private static MatchState OnShrinePlaced(MatchState state, ShrinePlaced e)
+    {
+        var carrier = state.Pending is { Kind: DecisionKind.PlaceShrine } waiting ? Board.ShrineCarrierWaiting(state, waiting.Seat) : null;
+        Require(carrier is not null && carrier.Id == e.Carrier, "No Field Shrine is waiting for that model.");
+        Require(Board.CheckShrine(state, carrier!.Seat, e.At).IsLegal, "A Field Shrine must stand wholly in the deployment zone, clear of every base, shrine and Impassable piece.");
+        return state with
+        {
+            Pending = null,
+            Shrines = state.Shrines.Add(new ShrineState(e.Carrier, carrier.Seat, e.At)),
+            ShrineSettled = state.ShrineSettled.Add(e.Carrier),
+        };
+    }
+
+    private static MatchState OnShrineDeclined(MatchState state, ShrineDeclined e)
+    {
+        var carrier = state.Pending is { Kind: DecisionKind.PlaceShrine } waiting ? Board.ShrineCarrierWaiting(state, waiting.Seat) : null;
+        Require(carrier is not null && carrier.Id == e.Carrier, "No Field Shrine is waiting for that model.");
+        return state with { Pending = null, ShrineSettled = state.ShrineSettled.Add(e.Carrier) };
+    }
 
     private static MatchState OnMinesLaid(MatchState state, MinesLaid e)
     {

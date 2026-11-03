@@ -313,6 +313,7 @@ public sealed class Bot(Random rng)
             .Select(m => new Obstacle(
                 new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius, ElevationAt(state, m.Position!.Value)),
                 m.Seat == model.Seat ? Relation.Friendly : Relation.Enemy))
+            .Concat(FieldShrines.Obstacles(state))
             .ToList();
         var from = model.Position!.Value;
         var enemy = NearestEnemy(state, model)!.Position!.Value;
@@ -374,6 +375,7 @@ public sealed class Bot(Random rng)
             .Select(m => new Obstacle(
                 new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius, ElevationAt(state, m.Position!.Value)),
                 m.Seat == model.Seat ? Relation.Friendly : Relation.Enemy))
+            .Concat(FieldShrines.Obstacles(state))
             .ToList();
         var goal = Goal(state, model);
         var from = model.Position!.Value;

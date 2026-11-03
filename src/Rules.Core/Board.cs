@@ -70,7 +70,61 @@ internal static class Board
     public static IEnumerable<ModelState> OnTable(MatchState state) => state.Models.Where(m => m.Position is not null);
 
     public static List<ModelBody> AllBodies(MatchState state, ModelId? except = null) =>
-        OnTable(state).Where(m => m.Id != except).Select(m => BodyOf(state, m)!).ToList();
+        OnTable(state).Where(m => m.Id != except).Select(m => BodyOf(state, m)!).Concat(ShrineBodies(state)).ToList();
+
+    // Field Shrines (Battlekit p. 82; U127): each is an Impassable base on the table, not a model.
+    public static List<ModelBody> ShrineBodies(MatchState state) =>
+        state.Shrines.IsDefaultOrEmpty
+            ? []
+            : [.. state.Shrines.Select(h => new ModelBody("shrine-" + h.Carrier.Value, h.At, ShrineState.Radius,
+                ScenarioOf(state) is { } scenario ? Towers.ElevationAt(scenario.Battlefield, h.At) : Length.Zero))];
+
+    public static IEnumerable<Obstacle> ShrineObstacles(MatchState state) => ShrineBodies(state).Select(b => new Obstacle(b, Relation.Impassable));
+
+    // The model whose Field Shrine its player has yet to deploy or decline: the first deployed one of the seat with a shrine
+    // that is not settled. Null if none.
+    public static ModelState? ShrineCarrierWaiting(MatchState state, Seat seat) =>
+        state.Models.FirstOrDefault(m => m.Seat == seat && m.Deployed && !state.ShrineSettled.Contains(m.Id)
+            && state.Setup?.ProfileOf(m.Id) is { FieldShrine: true });
+
+    // Why this centre cannot hold the carrier's Field Shrine: wholly within the seat's zone, not on a base, another shrine
+    // or Impassable terrain. Null when it can.
+    public static PlacementResult CheckShrine(MatchState state, Seat seat, Point2 at) =>
+        Placement.Check(ScenarioOf(state)!.Battlefield, new ModelBody("shrine", at, ShrineState.Radius), AllBodies(state), state.SeatFor(seat).ZoneId);
+
+    // One legal spot for the seat's Field Shrine, nearest the zone's centre on a 1" grid; null if the zone has none. The
+    // rules accept any other legal spot too (U127).
+    public static Point2? SuggestedShrine(MatchState state, Seat seat)
+    {
+        if (ScenarioOf(state)?.Battlefield is not { } field || state.SeatFor(seat).ZoneId is not { } zoneId || field.Zone(zoneId) is not { } zone)
+        {
+            return null;
+        }
+        var b = zone.Area.Bounds;
+        var (cx, cy) = ((b.Min.X.Thousandths + b.Max.X.Thousandths) / 2, (b.Min.Y.Thousandths + b.Max.Y.Thousandths) / 2);
+        var r = ShrineState.Radius.Thousandths;
+        var found = new List<(long D, long X, long Y)>();
+        for (var x = b.Min.X.Thousandths + r; x <= b.Max.X.Thousandths - r; x += 1000)
+        {
+            for (var y = b.Min.Y.Thousandths + r; y <= b.Max.Y.Thousandths - r; y += 1000)
+            {
+                found.Add(((x - cx) * (x - cx) + (y - cy) * (y - cy), x, y));
+            }
+        }
+        foreach (var (_, x, y) in found.OrderBy(f => f.D).ThenBy(f => f.X).ThenBy(f => f.Y))
+        {
+            var at = new Point2(Length.FromThousandths(x), Length.FromThousandths(y));
+            if (CheckShrine(state, seat, at).IsLegal)
+            {
+                return at;
+            }
+        }
+        return null;
+    }
+
+    // The Morale half test counts each shrine of the seat as 3 more models that are not Down or Out of Action, up to 9 (p. 82).
+    public static int ShrineMoraleBonus(MatchState state, Seat seat) =>
+        Math.Min(ShrineState.MaxBonus, ShrineState.MoraleBonus * state.Shrines.Count(h => h.Seat == seat));
 
     // Movement for this activation: the profile's Movement, halved after standing up (Core p. 20, U30).
     public static Length Allowance(MatchState state, ModelState model)
@@ -84,7 +138,8 @@ internal static class Board
         var scenario = ScenarioOf(state)!;
         var others = OnTable(state)
             .Where(m => m.Id != mover.Id)
-            .Select(m => new Obstacle(BodyOf(state, m)!, m.Seat == mover.Seat ? Relation.Friendly : Relation.Enemy));
+            .Select(m => new Obstacle(BodyOf(state, m)!, m.Seat == mover.Seat ? Relation.Friendly : Relation.Enemy))
+            .Concat(ShrineObstacles(state));
         return Movement.CheckPath(scenario.Battlefield, BodyOf(state, mover)!, path, Allowance(state, mover), others, sideClimb: true);
     }
 
@@ -369,6 +424,7 @@ internal static class Board
         OnTable(state)
             .Where(m => m.Id != mover.Id)
             .Select(m => new Obstacle(BodyOf(state, m)!, m.Seat == mover.Seat ? Relation.Friendly : Relation.Enemy))
+            .Concat(ShrineObstacles(state))
             .ToList();
 
     // Declaring a charge: everything that can be decided before the Charge Bonus is rolled.

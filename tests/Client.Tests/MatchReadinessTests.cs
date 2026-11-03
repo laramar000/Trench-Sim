@@ -548,6 +548,18 @@ public class MatchReadinessTests
         Assert.DoesNotContain("healingWaters", plain, StringComparison.Ordinal);
     }
 
+    // Field Shrine (U127): a carrier is played with its shrine to deploy; it is no longer named as played without.
+    [Fact]
+    public void AFieldShrineIsPlayed()
+    {
+        var carrier = Of("principality", "lieutenant", "field-shrine").MatchCheck();
+        Assert.True(carrier.Refused.Count == 0, string.Join("; ", carrier.Refused));
+        Assert.DoesNotContain(carrier.PlayedWithout, w => w.Contains("Field Shrine", StringComparison.Ordinal));
+        Assert.True(Loaded(carrier).FieldShrine);
+        Assert.Contains("\"fieldShrine\": true", carrier.ToContentJson("p", "P"), StringComparison.Ordinal);
+        Assert.DoesNotContain("fieldShrine", Of("principality", "lieutenant").MatchCheck().ToContentJson("p", "P"), StringComparison.Ordinal);
+    }
+
     // Roster stage R5i (U114): Piston Legs give the Grind to Dust ACTION.
     [Fact]
     public void PistonLegsArePlayed()

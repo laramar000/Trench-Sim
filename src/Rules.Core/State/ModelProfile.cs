@@ -218,6 +218,11 @@ public sealed record ModelProfile
     // (a Damned Pact).
     public bool BurnsWhenTakenOut { get; init; }
 
+    // ---- Field Shrine (Battlekit p. 82; U127) ----
+
+    // The model carries a Field Shrine: after it is deployed, its player may deploy the shrine too.
+    public bool FieldShrine { get; init; }
+
     // ---- Roster stage R5h (U113): the Treat ACTION ----
 
     // The model has a Medi-kit: it can take a Treat ACTION (p. 84).
@@ -499,6 +504,7 @@ public sealed record ModelProfile
                 BurnsAtActivationEnd = BurnsAtActivationEnd,
                 BurnsWhenTakenOut = BurnsWhenTakenOut,
                 Treats = Treats,
+                FieldShrine = FieldShrine,
                 HealingWaters = HealingWaters,
                 GrindsToDust = GrindsToDust,
                 Tramples = Tramples,
@@ -556,6 +562,7 @@ public sealed record ModelProfile
                 BurnsAtActivationEnd = BurnsAtActivationEnd,
                 BurnsWhenTakenOut = BurnsWhenTakenOut,
                 Treats = Treats,
+                FieldShrine = FieldShrine,
                 HealingWaters = HealingWaters,
                 GrindsToDust = GrindsToDust,
                 Tramples = Tramples,
@@ -613,6 +620,7 @@ public sealed record ModelProfile
             BurnsAtActivationEnd = BurnsAtActivationEnd,
             BurnsWhenTakenOut = BurnsWhenTakenOut,
             Treats = Treats,
+            FieldShrine = FieldShrine,
             HealingWaters = HealingWaters,
             GrindsToDust = GrindsToDust,
             Tramples = Tramples,

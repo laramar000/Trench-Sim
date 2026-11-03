@@ -1260,6 +1260,7 @@ public static class Previews
     private static List<Obstacle> Obstacles(MatchState state, ModelState mover) =>
         OnTable(state).Where(m => m.Id != mover.Id)
             .Select(m => new Obstacle(BodyOf(state, m)!, m.Seat == mover.Seat ? Relation.Friendly : Relation.Enemy))
+            .Concat(FieldShrines.Obstacles(state))
             .ToList();
 
     private static bool IsEngaged(MatchState state, ModelState model) =>

@@ -18,6 +18,7 @@ public enum DecisionKind
     LayMines,                  // Trench Warfare: the defender sets up the Mine Markers and secretly picks the duds (p. 162)
     ChooseScatterPoint,        // a SCATTER attack missed: the attacker's opponent picks where it lands (p. 57, roster stage R4c)
     UseTalisman,               // a Risky roll failed: the model's player may use a Talisman so the activation goes on (roster stage R5k)
+    PlaceShrine,               // a model with a Field Shrine was just deployed: its player may also deploy the shrine (p. 82, U127)
 }
 
 // A choice only one player can make. While one is pending, nothing else may happen.
@@ -231,6 +232,12 @@ public sealed record MatchState
     public ImmutableArray<string> Duds { get; init; } = [];
     public bool DudsKnown { get; init; }
     public MineStop? MineStop { get; init; }
+
+    // Field Shrines on the table (p. 82, U127), in the order they were placed. Hashed only when there are any.
+    public ImmutableArray<ShrineState> Shrines { get; init; } = [];
+
+    // The carriers whose Field Shrine has been deployed or declined, so each is asked once. Hashed only when not empty.
+    public ImmutableArray<ModelId> ShrineSettled { get; init; } = [];
 
     // Glorious Deeds (U96): those completed, those just completed and still to be announced, and what they need to know.
     public DeedState Deeds { get; init; } = new();

@@ -15,6 +15,7 @@ public static partial class TurnSequence
     private const string RefActions = "1.0.2 p. 34";
     private const string RefMarkers = "1.0.2 pp. 27-28";
     private const string RefBloodbath = "1.0.2 pp. 19, 47";
+    private const string RefShrine = "1.0.2 p. 82";
 
     // ---- validation ----
 
@@ -546,6 +547,11 @@ public static partial class TurnSequence
         {
             case PlaceModel c:
                 run.Emit(new ModelDeployed(c.Seat, c.Model, c.At));
+                // Field Shrine (p. 82, U127): its player may deploy the shrine now, before the next model is set up.
+                if (state.Setup!.ProfileOf(c.Model) is { FieldShrine: true })
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.PlaceShrine, c.Seat));
+                }
                 break;
             case MoveModel c:
                 var move = Board.CheckMove(state, state.FindModel(c.Model)!, c.Path);
@@ -932,6 +938,28 @@ public static partial class TurnSequence
     // ---- Trench Warfare's Mine Markers (p. 162, U93) ----
 
     private const string RefMines = "1.0.2 pp. 161-162";
+
+    private static Rejection? ValidateShrine(MatchState state, Command command)
+    {
+        var (seat, carrier) = command is PlaceShrine p ? (p.Seat, p.Carrier) : (((DeclineShrine)command).Seat, ((DeclineShrine)command).Carrier);
+        if (state.Pending is not { Kind: DecisionKind.PlaceShrine } pending)
+        {
+            return new(ReasonCode.WrongDecision, "No Field Shrine is waiting to be deployed.", RefShrine);
+        }
+        if (pending.Seat != seat)
+        {
+            return new(ReasonCode.NotYourTurn, "That decision belongs to the other player.", RefShrine);
+        }
+        if (Board.ShrineCarrierWaiting(state, seat)?.Id != carrier)
+        {
+            return new(ReasonCode.UnknownModel, "That is not the model whose Field Shrine is waiting.", RefShrine);
+        }
+        if (command is PlaceShrine place && Board.CheckShrine(state, seat, place.At) is { IsLegal: false } refusal)
+        {
+            return new(ReasonCode.PlacementIllegal, refusal.Text, RefShrine);
+        }
+        return null;
+    }
 
     private static Rejection? ValidateMines(MatchState state, LayMines c)
     {

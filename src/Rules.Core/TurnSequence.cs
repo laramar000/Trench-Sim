@@ -115,6 +115,17 @@ public static partial class TurnSequence
                 var suggested = SuggestedMines(state);
                 commands.Add(new LayMines(pending.Seat, suggested, [.. Enumerable.Range(0, Mines.Duds).Select(Mines.IdOf)]));
                 break;
+            case DecisionKind.PlaceShrine:
+                // Field Shrine (U127): decline, or one legal spot; any other legal spot may be sent instead.
+                if (Board.ShrineCarrierWaiting(state, pending.Seat) is { } carrier)
+                {
+                    commands.Add(new DeclineShrine(pending.Seat, carrier.Id));
+                    if (Board.SuggestedShrine(state, pending.Seat) is { } spot)
+                    {
+                        commands.Add(new PlaceShrine(pending.Seat, carrier.Id, spot));
+                    }
+                }
+                break;
             case DecisionKind.ChooseFirstActivation:
                 commands.Add(new ChooseFirstActivation(pending.Seat, Seat.One));
                 commands.Add(new ChooseFirstActivation(pending.Seat, Seat.Two));
@@ -230,6 +241,10 @@ public static partial class TurnSequence
             {
                 return ValidateMines(state, mines);
             }
+            if (command is PlaceShrine or DeclineShrine)
+            {
+                return ValidateShrine(state, command);
+            }
             return command is ChooseDeploymentZone z && !state.Setup!.ZoneIds.Contains(z.ZoneId)
                 ? new(ReasonCode.UnknownZone, "That is not one of the scenario's deployment zones.", RefDeployment)
                 : null;
@@ -334,7 +349,7 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman;
+        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or PlaceShrine or DeclineShrine or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
@@ -351,6 +366,7 @@ public static partial class TurnSequence
         ChooseDeploymentZone => DecisionKind.ChooseDeploymentZone,
         ChooseAttacker => DecisionKind.ChooseAttacker,
         LayMines => DecisionKind.LayMines,
+        PlaceShrine or DeclineShrine => DecisionKind.PlaceShrine,
         ChooseFirstActivation => DecisionKind.ChooseFirstActivation,
         ChooseMoraleOrder => DecisionKind.ChooseMoraleOrder,
         ResolveFailedMorale => DecisionKind.FailedMorale,
@@ -362,6 +378,8 @@ public static partial class TurnSequence
         ChooseDeploymentZone c => c.Seat,
         ChooseAttacker c => c.Seat,
         LayMines c => c.Seat,
+        PlaceShrine c => c.Seat,
+        DeclineShrine c => c.Seat,
         ChooseFirstActivation c => c.Seat,
         ChooseMoraleOrder c => c.Seat,
         ResolveFailedMorale c => c.Seat,
@@ -392,6 +410,12 @@ public static partial class TurnSequence
                 break;
             case ChooseAttacker c:
                 run.Emit(new AttackerChosen(c.Seat, c.Attacker));
+                break;
+            case PlaceShrine c:
+                run.Emit(new ShrinePlaced(c.Carrier, c.At));
+                break;
+            case DeclineShrine c:
+                run.Emit(new ShrineDeclined(c.Carrier));
                 break;
             case LayMines c:
                 run.Emit(new MinesLaid(c.Seat, [.. c.Markers.Select((at, i) => new MineMarker(Mines.IdOf(i), at))], c.Duds));

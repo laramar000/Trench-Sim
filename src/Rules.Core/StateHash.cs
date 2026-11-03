@@ -107,6 +107,14 @@ public static class StateHash
         {
             Line(sb, "mines", string.Join(";", state.Mines.Select(m => $"{m.Id}@{Point(m.At)}")));
         }
+        if (!state.Shrines.IsDefaultOrEmpty)
+        {
+            Line(sb, "shrines", string.Join(";", state.Shrines.Select(h => $"{h.Carrier.Value}:{h.Seat}@{Point(h.At)}")));
+        }
+        if (!state.ShrineSettled.IsDefaultOrEmpty)
+        {
+            Line(sb, "shrineSettled", string.Join(";", state.ShrineSettled.Select(c => c.Value)));
+        }
         if (state.MineStop is { } stop)
         {
             Line(sb, "mineStop", $"{stop.Model.Value}:{Path(stop.Path)}:{string.Join(";", stop.Stops.Select(p => $"{p.Marker}@{Point(p.At)}#{p.Next}"))}:{stop.Index}:{Bool(stop.Revealed)}:{Bool(stop.Live)}:{Bool(stop.EndsActivation)}");
@@ -243,6 +251,7 @@ public static class StateHash
             + (p.BurnsWhenTakenOut ? ",burnsWhenOut=yes" : "")
             // Roster stage R5h: the Treat ACTION, only when present.
             + (p.Treats ? ",treats=yes" : "")
+            + (p.FieldShrine ? ",fieldShrine=yes" : "")
             + (p.HealingWaters ? ",healingWaters=yes" : "")
             // Roster stage R5i: the Grind to Dust ACTION, only when present.
             + (p.GrindsToDust ? ",grinds=yes" : "")

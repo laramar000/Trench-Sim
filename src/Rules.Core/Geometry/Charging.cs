@@ -241,6 +241,14 @@ public static class Charging
             // Charges between heights are refused before planning (Board.AssessCharge, U72). Without towers, unchanged.
             _platform = Towers.TowerAt(field, mover.Centre);
             _blocking = field.Terrain.Where(t => !t.IsWalkable || (_platform is null && t.IsTower)).ToList();
+            // shortcut: a Field Shrine (p. 82, U127) is routed round as an Impassable square holding its round base, so a
+            // route may be refused that a round base would allow; upgrade with a circle in the router if that matters.
+            _blocking.AddRange(others.Where(o => o.Relation == Relation.Impassable && o.Body.Elevation == mover.Elevation).Select(o => new TerrainBlock(
+                "piece-" + o.Body.Id,
+                Footprint.Of(new Rect(
+                    new Point2(o.Body.Centre.X - o.Body.Radius, o.Body.Centre.Y - o.Body.Radius),
+                    new Point2(o.Body.Centre.X + o.Body.Radius, o.Body.Centre.Y + o.Body.Radius))),
+                TerrainProfile.Low, TerrainKind.Impassable)));
             _difficult = field.Terrain.Where(t => t.IsDifficult).Select(t => t.Footprint).ToList();
             var sorted = others.Where(o => o.Body.Id != mover.Id).OrderBy(o => o.Body.Id, StringComparer.Ordinal).ToList();
             _enemyObstacles = sorted.Where(o => o.Relation == Relation.Enemy).ToList();

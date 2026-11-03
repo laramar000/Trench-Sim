@@ -589,6 +589,7 @@ public sealed class Interaction
             DecisionKind.ChooseScatterPoint => _state.InProgress?.Target ?? _state.InProgress?.Actor,
             DecisionKind.FreeFight => _state.Retreat?.Model,
             DecisionKind.UseTalisman => _state.ActiveModel,
+            DecisionKind.PlaceShrine => FieldShrines.CarrierWaiting(_state, seat)?.Id,
             _ => null,
         };
         if (anchor is not { } holder)
@@ -607,6 +608,8 @@ public sealed class Interaction
             DeclineFreeFights d => new BarItem(BarKind.Decide, "No more free attacks", "Let the model retreat without further free attacks.", Command: d),
             ChooseFriendlyTarget t => new BarItem(BarKind.Decide, $"Hit {NameOf(t.Victim)}", $"The shot into melee hits your own {NameOf(t.Victim)}.", Command: t),
             UseTalisman u => new BarItem(BarKind.Decide, "Use Talisman", $"{NameOf(holder)} uses a Talisman (once per game): the failed Risky roll does not end its activation.", Command: u),
+            PlaceShrine h => new BarItem(BarKind.Decide, "Place Field Shrine", $"{NameOf(holder)} deploys its Field Shrine at the suggested spot in your zone: it counts for Morale and can be shot or struck down.", Command: h),
+            DeclineShrine n => new BarItem(BarKind.Decide, "No Field Shrine", $"{NameOf(holder)} does not deploy its Field Shrine.", Command: n),
             DeclineTalisman d => new BarItem(BarKind.Decide, "Keep Talisman", $"Keep the Talisman for later: {NameOf(holder)}'s activation ends.", Command: d),
             ScatterAttack s => new BarItem(BarKind.Decide, $"Land {ScatterWords.Direction(_state, s.At)}",
                 $"The missed attack lands {ScatterWords.Where(_state, s.At)}: {ScatterWords.Hits(_state, s.At, NameOf)}.", Command: s),

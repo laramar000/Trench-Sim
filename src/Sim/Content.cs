@@ -64,6 +64,7 @@ public static class Content
                         BurnsAtActivationEnd = m.TryGetProperty("burnsAtActivationEnd", out var burnsAtEnd) && burnsAtEnd.GetBoolean(),
                         BurnsWhenTakenOut = m.TryGetProperty("burnsWhenTakenOut", out var burnsWhenOut) && burnsWhenOut.GetBoolean(),
                         Treats = m.TryGetProperty("treats", out var treats) && treats.GetBoolean(),
+                        FieldShrine = m.TryGetProperty("fieldShrine", out var fieldShrine) && fieldShrine.GetBoolean(),
                         HealingWaters = m.TryGetProperty("healingWaters", out var healingWaters) && healingWaters.GetBoolean(),
                         GrindsToDust = m.TryGetProperty("grindsToDust", out var grinds) && grinds.GetBoolean(),
                         Martyrdom = m.TryGetProperty("martyrdom", out var martyrdom) && martyrdom.GetBoolean(),

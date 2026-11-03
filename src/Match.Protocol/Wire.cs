@@ -371,6 +371,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.BurnsAtActivationEnd)),
             (typeof(ModelProfile), nameof(ModelProfile.BurnsWhenTakenOut)),
             (typeof(ModelProfile), nameof(ModelProfile.Treats)),
+            (typeof(ModelProfile), nameof(ModelProfile.FieldShrine)),
             (typeof(ModelProfile), nameof(ModelProfile.HealingWaters)),
             (typeof(ModelProfile), nameof(ModelProfile.GrindsToDust)),
             (typeof(ModelProfile), nameof(ModelProfile.Martyrdom)),

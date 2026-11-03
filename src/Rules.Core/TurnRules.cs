@@ -86,7 +86,7 @@ internal static class TurnRules
     // A check is needed when half the warband (rounded up) is Down or Out of Action, or the warband is
     // Shaken (pp. 21 and 50). 2 * count >= size is "half or more, rounded up".
     public static bool NeedsMoraleCheck(MatchState state, Seat seat) =>
-        state.SeatFor(seat).Shaken || 2 * DownOrOut(state, seat) >= WarbandSize(state, seat);
+        state.SeatFor(seat).Shaken || 2 * DownOrOut(state, seat) >= WarbandSize(state, seat) + Board.ShrineMoraleBonus(state, seat);
 
     // Seats that still have to make a Morale Check this turn.
     public static List<Seat> MoraleRemaining(MatchState state)

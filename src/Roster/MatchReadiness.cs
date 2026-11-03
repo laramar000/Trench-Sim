@@ -93,6 +93,9 @@ public sealed record ReadyModel(
 
     // Roster stage R5h (U113): the Treat ACTION (Medi-kit) and +1 DICE to it (Holy Water of Lalibela).
     public bool Treats { get; init; }
+
+    // Field Shrine (Battlekit p. 82; U127): the model carries one, and may deploy it with the model.
+    public bool FieldShrine { get; init; }
     public bool HealingWaters { get; init; }
 
     // Roster stage R5i (U114): the Grind to Dust ACTION (Piston Legs).
@@ -214,7 +217,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("fieldShrine", m.FieldShrine), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
                     {
                         if (on)
                         {
@@ -340,6 +343,7 @@ public static class MatchReadiness
             var (hasCover, digsIn) = (false, false);
             var (burnsAtEnd, burnsWhenOut) = (false, false);
             var (treats, healingWaters, grinds, martyrdom) = (false, false, false, false);
+            var fieldShrine = false;
             var talismans = 0;
             CatalogueEntry? digger = null;
             string? diggerUse = null;
@@ -464,6 +468,7 @@ public static class MatchReadiness
                         burnsAtEnd |= played.BurnsAtEnd;
                         burnsWhenOut |= played.BurnsWhenOut;
                         treats |= played.Treats;
+                        fieldShrine |= played.FieldShrine;
                         healingWaters |= played.HealingWaters;
                         grinds |= played.Grinds;
                         talismans += played.Talisman ? 1 : 0;
@@ -603,6 +608,7 @@ public static class MatchReadiness
                 BurnsAtActivationEnd = burnsAtEnd,
                 BurnsWhenTakenOut = burnsWhenOut,
                 Treats = treats,
+                FieldShrine = fieldShrine,
                 HealingWaters = healingWaters,
                 GrindsToDust = grinds,
                 Martyrdom = martyrdom,
@@ -891,7 +897,7 @@ public static class MatchReadiness
     // Cover's -2 DICE against the model.
     private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null, int InjuryDiceTaken = 0, int MeleeInjury = 0,
         bool KeepsGoing = false, int ClimbDice = 0, bool Fanfare = false, bool BlendsIn = false, bool Whispers = false, bool Warded = false,
-        bool DigsIn = false, string? Unplayed = null, string? AsWeapon = null, bool BurnsAtEnd = false, bool BurnsWhenOut = false, bool Treats = false, bool HealingWaters = false, bool Grinds = false, bool Talisman = false);
+        bool DigsIn = false, string? Unplayed = null, string? AsWeapon = null, bool BurnsAtEnd = false, bool BurnsWhenOut = false, bool Treats = false, bool HealingWaters = false, bool Grinds = false, bool Talisman = false, bool FieldShrine = false);
 
     private static readonly Dictionary<string, PlayedPiece> PlayedEquipment = new(StringComparer.Ordinal)
     {
@@ -920,6 +926,8 @@ public static class MatchReadiness
         ["damned-pact"] = new(BurnsWhenOut: true),
         // Roster stage R5h (U113): the Treat ACTION, and Holy Water's +1 DICE to it.
         ["medi-kit"] = new(Treats: true),
+        // Field Shrine (U127): the shrine is deployed with its carrier and counts for Morale; it is not a model.
+        ["field-shrine"] = new(FieldShrine: true),
         ["holy-water-of-lalibela"] = new(HealingWaters: true),
         // Roster stage R5i (U114).
         ["piston-legs"] = new(Grinds: true),
@@ -1013,7 +1021,7 @@ public static class MatchReadiness
     private static void Without(string who, CatalogueEntry piece, List<string> without, bool diceToo = false, Gains? gains = null, bool ruleToo = true)
     {
         var parts = piece.Keywords
-            .Where(k => diceToo ? !PlayedArmourKeywords.Contains(k.Id) && !(gains is not null && Gain(k, gains)) : !IsPlayed(k))
+            .Where(k => diceToo ? !PlayedArmourKeywords.Contains(k.Id) && !(gains is not null && Gain(k, gains)) && !(k.Id == "DEPLOYABLE" && piece.Id == "field-shrine") : !IsPlayed(k))
             .Select(k => k.Id == "NEGATE" ? KeywordText(k) : KeywordName(k)).ToList();
         if (diceToo && piece.Dice != 0)
         {
