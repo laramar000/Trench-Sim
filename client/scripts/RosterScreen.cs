@@ -37,6 +37,8 @@ public partial class Main
         _rosterKitSection = null!, _rosterCheckSection = null!, _rosterSaveSection = null!;
     private Control? _rosterColumns;
     private HBoxContainer[] _rosterFields = [];
+    private ProgressBar _rosterBar = null!;
+    private readonly StyleBoxFlat _rosterBarFill = new();
     private VBoxContainer _rosterFieldsHolder = null!;
     private ScrollContainer? _rosterLeftScroll;
     private readonly Dictionary<string, bool> _kitOpen = new() { ["Ranged weapons"] = true, ["Melee weapons"] = true };
@@ -78,7 +80,11 @@ public partial class Main
         _rosterTotal.Name = "RosterTotal";
         _rosterFields = [Field("Warband name:", _rosterName), Field("Faction:", _rosterFaction), Field("List:", _rosterVariant)];
         _rosterFieldsHolder = Column();
-        _rosterHeader = Section(RosterTitle, Column(Text(RosterBuilder.SourceNote), _rosterFieldsHolder, _rosterTotal));
+        // The ducats spent against the budget, as a bar under the total (wide and compact layouts); rust when over it.
+        _rosterBar = new ProgressBar { Name = "RosterBar", ShowPercentage = false, CustomMinimumSize = new Vector2(0, 10) };
+        _rosterBar.AddThemeStyleboxOverride("fill", _rosterBarFill);
+        _rosterBar.AddThemeStyleboxOverride("background", new StyleBoxFlat { BgColor = new Color(0.13f, 0.1f, 0.085f), BorderColor = UiLook.Iron, BorderWidthBottom = 1, BorderWidthTop = 1, BorderWidthLeft = 1, BorderWidthRight = 1 });
+        _rosterHeader = Section(RosterTitle, Column(Text(RosterBuilder.SourceNote), _rosterFieldsHolder, _rosterTotal, _rosterBar));
 
         _rosterRules = Column();
         _rosterRules.Name = "RosterRules";
@@ -249,6 +255,11 @@ public partial class Main
     private void RefreshRoster(string? focus = null)
     {
         _rosterTotal.Text = $"{_builder.ListName}: {_builder.TotalText}";
+        var spent = _builder.Check().Ducats;
+        _rosterBar.MaxValue = Math.Max(1, _builder.BudgetDucats);
+        _rosterBar.Value = Math.Min(spent, _builder.BudgetDucats);
+        _rosterBar.Visible = _rosterLayout != 1;
+        _rosterBarFill.BgColor = spent > _builder.BudgetDucats ? new Color(0.72f, 0.2f, 0.14f) : _highContrast ? Colors.Yellow : UiLook.Gold;
 
         Empty(_rosterRules);
         foreach (var line in _builder.RuleLines.DefaultIfEmpty("No special rules for this list."))
