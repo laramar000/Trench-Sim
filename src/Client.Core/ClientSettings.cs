@@ -4,11 +4,15 @@ namespace Client.Core;
 
 // QoL I2 (sound: I3, off by default): what a player chose in the Menu, kept between launches in a small text file ("key=value" lines). A missing,
 // unknown or out-of-range value falls back to its default, so a broken file never stops the client. No match data.
-public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false, int Dice = 1, bool TopDown = false, int InterfaceScale = 0, bool Sound = false)
+public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false, int Dice = 1, bool TopDown = false, int InterfaceScale = 0, bool Sound = false, int RosterLayout = 0)
 {
     public static readonly float[] TextScales = [1f, 1.25f, 1.5f];
     public static readonly float[] InterfaceScales = [1f, 1.25f, 1.5f];
     public const int DiceChoices = 4;
+
+    // The roster builder's layout (owner, 2026-11-03): 0 wide with two columns (the default), 1 classic with one column, 2 compact
+    // with one column and the battlekit under headings.
+    public const int RosterLayoutChoices = 3;
 
     public static ClientSettings Default { get; } = new();
 
@@ -18,7 +22,8 @@ public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false,
         $"dice={Dice}",
         $"topdown={(TopDown ? 1 : 0)}",
         $"scale={InterfaceScale}",
-        $"sound={(Sound ? 1 : 0)}") + "\n";
+        $"sound={(Sound ? 1 : 0)}",
+        $"rosterlayout={RosterLayout}") + "\n";
 
     public static ClientSettings Parse(string? text)
     {
@@ -39,6 +44,7 @@ public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false,
             Pick("dice", DiceChoices, d.Dice),
             Pick("topdown", 2, d.TopDown ? 1 : 0) == 1,
             Pick("scale", InterfaceScales.Length, d.InterfaceScale),
-            Pick("sound", 2, d.Sound ? 1 : 0) == 1);
+            Pick("sound", 2, d.Sound ? 1 : 0) == 1,
+            Pick("rosterlayout", RosterLayoutChoices, d.RosterLayout));
     }
 }

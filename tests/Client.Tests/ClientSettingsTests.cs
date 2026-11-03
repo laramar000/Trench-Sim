@@ -6,6 +6,20 @@ namespace Client.Tests;
 public class ClientSettingsTests
 {
     [Fact]
+    public void TheRosterLayoutDefaultsToWideAndKeepsItsChoice()
+    {
+        Assert.Equal(0, ClientSettings.Default.RosterLayout);
+        Assert.Equal(0, ClientSettings.Parse(null).RosterLayout);
+        for (var layout = 0; layout < ClientSettings.RosterLayoutChoices; layout++)
+        {
+            Assert.Equal(layout, ClientSettings.Parse(new ClientSettings(RosterLayout: layout).Format()).RosterLayout);
+        }
+        Assert.Equal(0, ClientSettings.Parse("rosterlayout=9").RosterLayout);   // out of range: the default
+        Assert.Equal(2, ClientSettings.Parse("text=1\nrosterlayout=2\n").RosterLayout);
+        Assert.Equal(1, ClientSettings.Parse("text=1\n").TextSize);              // a file from before this setting still loads
+    }
+
+    [Fact]
     public void EverySettingSurvivesASaveAndLoad()
     {
         for (var text = 0; text < ClientSettings.TextScales.Length; text++)

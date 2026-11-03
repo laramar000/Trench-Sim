@@ -42,7 +42,7 @@ public partial class UiCheck : Node
             Mark("started", $"{DisplayServer.GetName()} {Engine.GetVersionInfo()["string"]}");
             // Stage M1: the game opens on the main menu. The hot-seat role plays from it (Play); the roles that drive the
             // connect screen open it first through the developer corner button, then do as before.
-            if (_role is not ("hotseat" or "roster-look" or "tm-a" or "tm-b" or "pvp-a" or "pvp-b" or "pvp-b-rejoin"))
+            if (_role is not ("hotseat" or "roster-look" or "roster-check" or "tm-a" or "tm-b" or "pvp-a" or "pvp-b" or "pvp-b-rejoin"))
             {
                 await OpenDeveloperScreen();
             }
@@ -70,6 +70,15 @@ public partial class UiCheck : Node
                     break;
                 case "hotseat-mines":
                     await HotSeatMines();
+                    break;
+                case "roster-check":
+                    // The roster builder check in the layout named by TRENCH_ROSTER_LAYOUT (0 wide, 1 classic, 2 compact; the default
+                    // is the game's own). Each layout needs a fresh window: the check starts from an empty roster.
+                    if (int.TryParse(OS.GetEnvironment("TRENCH_ROSTER_LAYOUT"), out var layout))
+                    {
+                        ((Main)_main).ChooseRosterLayout(layout);
+                    }
+                    await RosterBuilderCheck();
                     break;
                 case "roster-look":
                     // For looking at the roster builder only (never run by the checks): a screenshot of the empty screen and of
@@ -6243,31 +6252,30 @@ public partial class UiCheck : Node
             return;
         }
         var builder = main.RosterBuilderShown;
-        await Shot("roster-start");
-        foreach (var faction in builder.Factions)
+        foreach (var faction in builder.Factions.Where(f => f.Id is "principality" or "court"))
         {
             builder.ChooseFaction(faction.Id);
-            main.RefreshRosterScreen();
-            await Shot($"roster-{faction.Id}-empty");
             foreach (var entry in builder.Entries.Take(4))
             {
                 builder.Add(entry.Id);
             }
             builder.Select(0);
-            main.RefreshRosterScreen();
-            await Shot($"roster-{faction.Id}-list");
-            if (faction.Id is "principality" or "court")
+            for (var layout = 0; layout < ClientSettings.RosterLayoutChoices; layout++)
             {
-                // The whole page, a screen at a time.
-                var scroll = Controls<ScrollContainer>().FirstOrDefault(s => s.IsVisibleInTree());
+                main.ChooseRosterLayout(layout);
+                main.RefreshRosterScreen();
+                await Shot($"roster-{faction.Id}-layout{layout}");
+                // The wide layout's left column, and the whole page of the others, a screen at a time.
+                var scrolls = Controls<ScrollContainer>().Where(sc => sc.IsVisibleInTree()).ToList();
+                var scroll = layout == 0 ? scrolls.FirstOrDefault(sc => sc.Name == "RosterLeftScroll") : scrolls.FirstOrDefault();
                 if (scroll is not null)
                 {
                     var page = (int)scroll.Size.Y - 60;
                     var end = (int)scroll.GetVScrollBar().MaxValue;
-                    for (var at = page; at < end + page && at < page * 8; at += page)
+                    for (var at = page; at < end && at < page * 3; at += page)
                     {
                         scroll.ScrollVertical = at;
-                        await Shot($"roster-{faction.Id}-scroll-{at / page}");
+                        await Shot($"roster-{faction.Id}-layout{layout}-scroll{at / page}");
                     }
                     scroll.ScrollVertical = 0;
                 }

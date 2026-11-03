@@ -2413,11 +2413,23 @@ public partial class Main : Control
             Remember(_settings with { Sound = on });
         };
         _soundChoice = sound;
+        // Roster builder layout (owner, 2026-11-03): wide with two columns is the default.
+        var rosterLayout = new OptionButton { Name = "RosterLayout" };
+        foreach (var name in RosterLayoutNames)
+        {
+            rosterLayout.AddItem(name);
+        }
+        rosterLayout.ItemSelected += index =>
+        {
+            ChooseRosterLayout((int)index);
+            Remember(_settings with { RosterLayout = (int)index });
+        };
+        _rosterLayoutChoice = rosterLayout;
         // Stage N4: the settings wrap onto more lines, so the Menu never needs more than its column's width.
         var flow = new HFlowContainer { Name = "SettingsRow" };
         flow.AddThemeConstantOverride("h_separation", 8);
         flow.AddThemeConstantOverride("v_separation", 6);
-        foreach (var control in new Control[] { size, contrast, scale, dice, sound })
+        foreach (var control in new Control[] { size, contrast, scale, dice, sound, rosterLayout })
         {
             flow.AddChild(control);
         }
@@ -2427,6 +2439,8 @@ public partial class Main : Control
     private static readonly string[] DiceChoices = ["Dice: Short (2 s)", "Dice: Normal (4 s)", "Dice: Long (8 s)", "Dice: Off"];
     private static readonly double[] DiceSeconds = [2, 4, 8, 0];
     private OptionButton? _diceChoice;
+    private OptionButton? _rosterLayoutChoice;
+    private static readonly string[] RosterLayoutNames = ["Roster: Wide, two columns", "Roster: Classic, one column", "Roster: Compact, headings"];
     private OptionButton? _textChoice;
     private OptionButton? _scaleChoice;
     private CheckButton? _contrastChoice;
@@ -2537,6 +2551,7 @@ public partial class Main : Control
             Pick(_textChoice, settings.TextSize);
             Pick(_scaleChoice, settings.InterfaceScale);
             Pick(_diceChoice, settings.Dice);
+            Pick(_rosterLayoutChoice, settings.RosterLayout);
             _soundChoice?.SetPressedNoSignal(settings.Sound);
             _sounds.Enabled = settings.Sound;
             if (_contrastChoice is { } contrast)

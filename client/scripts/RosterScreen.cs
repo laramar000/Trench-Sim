@@ -25,10 +25,27 @@ public partial class Main
     private Label _rosterMessage = null!;
     private string? _rosterFolder;
 
+    // Roster layouts (owner, 2026-11-03; ClientSettings.RosterLayout): 0 wide with two columns (the default: recruit and battlekit
+    // on the left in a column of their own that scrolls, the warband, the check and Save on the right, always in view), 1 classic
+    // (one column, the plain list), 2 compact (one column, the battlekit under headings). The sections are built once and set in
+    // place again when the layout changes.
+    private int _rosterLayout;
+    private bool _rosterBuilt;
+    private VBoxContainer _rosterBody = null!;
+    private int _rosterPanelAt;
+    private Control _rosterHeader = null!, _rosterRulesSection = null!, _rosterRecruitSection = null!, _rosterModelsSection = null!,
+        _rosterKitSection = null!, _rosterCheckSection = null!, _rosterSaveSection = null!;
+    private Control? _rosterColumns;
+    private ScrollContainer? _rosterLeftScroll;
+    private readonly Dictionary<string, bool> _kitOpen = new() { ["Ranged weapons"] = true, ["Melee weapons"] = true };
+    private bool _playedWithoutOpen;
+
     private void BuildRosterScreen()
     {
         _builder = RosterBuilder.Shipped();
         var (screen, body) = MenuScreen("RosterScreen", 760, 8);
+        _rosterBody = body;
+        _rosterPanelAt = _menuPanels.Count - 1;
         _rosterScreen = screen;
         _rosterBack = Button(BackText, ShowHome);
         body.AddChild(Row(_rosterBack));
@@ -57,28 +74,28 @@ public partial class Main
         FillVariants();
         _rosterTotal = Text("");
         _rosterTotal.Name = "RosterTotal";
-        body.AddChild(Section(RosterTitle, Column(
+        _rosterHeader = Section(RosterTitle, Column(
             Text(RosterBuilder.SourceNote),
             Field("Warband name:", _rosterName),
             Field("Faction:", _rosterFaction),
             Field("List:", _rosterVariant),
-            _rosterTotal)));
+            _rosterTotal));
 
         _rosterRules = Column();
         _rosterRules.Name = "RosterRules";
-        body.AddChild(Section("List rules", _rosterRules));
+        _rosterRulesSection = Section("List rules", _rosterRules);
         _rosterRecruit = Column();
         _rosterRecruit.Name = "RosterRecruit";
-        body.AddChild(Section("Recruit", _rosterRecruit));
+        _rosterRecruitSection = Section("Recruit", _rosterRecruit);
         _rosterModels = Column();
         _rosterModels.Name = "RosterModels";
-        body.AddChild(Section("Your warband", _rosterModels));
+        _rosterModelsSection = Section("Your warband", _rosterModels);
         _rosterKit = Column();
         _rosterKit.Name = "RosterKit";
-        body.AddChild(Section("Battlekit", _rosterKit));
+        _rosterKitSection = Section("Battlekit", _rosterKit);
         _rosterCheck = Column();
         _rosterCheck.Name = "RosterCheck";
-        body.AddChild(Section("Check", _rosterCheck));
+        _rosterCheckSection = Section("Check", _rosterCheck);
 
         _rosterSaved = Column();
         _rosterSaved.Name = "RosterSaved";
@@ -87,8 +104,80 @@ public partial class Main
         var save = Button(SaveRosterText, SaveRoster);
         save.Name = "SaveRoster";
         save.ThemeTypeVariation = "MenuPrimary";
-        body.AddChild(Section("Save and load", Column(Row(save), _rosterMessage, Text("Saved rosters on this PC:"), _rosterSaved)));
+        _rosterSaveSection = Section("Save and load", Column(Row(save), _rosterMessage, Text("Saved rosters on this PC:"), _rosterSaved));
+        _rosterBuilt = true;
+        ArrangeRoster();
+        GetViewport().SizeChanged += FitRosterColumns;
     }
+
+    // Sets the sections in place for the layout (see the fields): header first, then the columns or the one column.
+    private void ArrangeRoster()
+    {
+        if (!_rosterBuilt)
+        {
+            return;
+        }
+        foreach (var section in new[] { _rosterHeader, _rosterRulesSection, _rosterRecruitSection, _rosterModelsSection, _rosterKitSection, _rosterCheckSection, _rosterSaveSection })
+        {
+            section.GetParent()?.RemoveChild(section);
+        }
+        if (_rosterColumns is not null)
+        {
+            _rosterBody.RemoveChild(_rosterColumns);
+            _rosterColumns.QueueFree();
+            _rosterColumns = null;
+            _rosterLeftScroll = null;
+        }
+        var wide = _rosterLayout == 0;
+        _menuPanels[_rosterPanelAt] = (_menuPanels[_rosterPanelAt].Panel, wide ? 1500 : 760);
+        FitMenuPanels();
+        _rosterBody.AddChild(_rosterHeader);
+        if (wide)
+        {
+            var left = Column(_rosterRulesSection, _rosterRecruitSection, _rosterKitSection);
+            left.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            _rosterLeftScroll = new ScrollContainer { Name = "RosterLeftScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1.4f };
+            _rosterLeftScroll.AddChild(left);
+            var right = Column(_rosterModelsSection, _rosterCheckSection, _rosterSaveSection);
+            right.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            var columns = new HBoxContainer { Name = "RosterColumns" };
+            columns.AddThemeConstantOverride("separation", 14);
+            columns.AddChild(_rosterLeftScroll);
+            columns.AddChild(right);
+            _rosterColumns = columns;
+            _rosterBody.AddChild(columns);
+            FitRosterColumns();
+        }
+        else
+        {
+            foreach (var section in new[] { _rosterRulesSection, _rosterRecruitSection, _rosterModelsSection, _rosterKitSection, _rosterCheckSection, _rosterSaveSection })
+            {
+                _rosterBody.AddChild(section);
+            }
+        }
+    }
+
+    // The wide layout's left column is as tall as the window leaves room for, so only it scrolls.
+    private void FitRosterColumns()
+    {
+        if (_rosterLeftScroll is { } scroll)
+        {
+            scroll.CustomMinimumSize = new Vector2(0, Math.Max(320, GetViewportRect().Size.Y - 360));
+        }
+    }
+
+    // The player's choice in the settings (and the UI check's): 0 wide, 1 classic, 2 compact.
+    public void ChooseRosterLayout(int layout)
+    {
+        _rosterLayout = Math.Clamp(layout, 0, ClientSettings.RosterLayoutChoices - 1);
+        ArrangeRoster();
+        if (_rosterBuilt)
+        {
+            RefreshRoster();
+        }
+    }
+
+    public int RosterLayoutShown => _rosterLayout;
 
     private void FillVariants()
     {
@@ -208,7 +297,7 @@ public partial class Main
             {
                 _rosterKit.AddChild(Text("This model cannot be given battlekit."));
             }
-            foreach (var k in choices)
+            Button GiveButton(RosterBuilder.KitRow k)
             {
                 var give = Button($"Add {k.Name} · {k.CostText}", () =>
                 {
@@ -217,7 +306,18 @@ public partial class Main
                 });
                 give.Name = AddKitName(k.Id);
                 give.TooltipText = k.Rules;
-                _rosterKit.AddChild(give);
+                return give;
+            }
+            if (_rosterLayout == 1)
+            {
+                foreach (var k in choices)
+                {
+                    _rosterKit.AddChild(GiveButton(k));
+                }
+            }
+            else
+            {
+                AddKitGroups(choices, GiveButton);
             }
         }
 
@@ -231,9 +331,34 @@ public partial class Main
         {
             _rosterCheck.AddChild(Text(line));
         }
-        foreach (var line in _builder.MatchLines)
+        var matchLines = _builder.MatchLines;
+        var without = _rosterLayout == 1 ? [] : matchLines.Where(l => l.Contains("Played without", StringComparison.Ordinal)).ToList();
+        foreach (var line in matchLines.Where(l => !without.Contains(l)))
         {
             _rosterCheck.AddChild(Text(line));
+        }
+        if (without.Count > 0)
+        {
+            // The same lines, folded: one header says how many.
+            var fold = Column();
+            fold.Visible = _playedWithoutOpen;
+            foreach (var line in without)
+            {
+                fold.AddChild(Text(line));
+            }
+            Button header = null!;
+            string Title() => $"{(fold.Visible ? "▼" : "▶")} Played without · {without.Count}";
+            header = Button(Title(), () =>
+            {
+                fold.Visible = !fold.Visible;
+                _playedWithoutOpen = fold.Visible;
+                header.Text = Title();
+            });
+            header.Name = "PlayedWithoutFold";
+            header.Flat = true;
+            header.Alignment = HorizontalAlignment.Left;
+            _rosterCheck.AddChild(header);
+            _rosterCheck.AddChild(fold);
         }
 
         Empty(_rosterSaved);
@@ -252,6 +377,54 @@ public partial class Main
         if (focus is not null && _rosterScreen.FindChild(focus, true, false) is Control again)
         {
             again.CallDeferred(Control.MethodName.GrabFocus);
+        }
+    }
+
+    private static readonly string[] KitGroupOrder = ["Ranged weapons", "Melee weapons", "Grenades", "Shields and armour", "Equipment", "Glory items"];
+
+    private static string KitGroupOf(RosterBuilder.KitRow k) => k.CostText.EndsWith("Glory", StringComparison.Ordinal) ? "Glory items" : k.Category switch
+    {
+        "Ranged" => "Ranged weapons",
+        "Melee" => "Melee weapons",
+        "Grenade" => "Grenades",
+        "Shield" or "Armour" => "Shields and armour",
+        _ => "Equipment",
+    };
+
+    // The battlekit under collapsible headings (wide and compact layouts): weapons open, the rest folded until opened; each
+    // heading says how many pieces it holds, and what is open is kept while the screen is drawn again.
+    private void AddKitGroups(IReadOnlyList<RosterBuilder.KitRow> choices, Func<RosterBuilder.KitRow, Button> give)
+    {
+        foreach (var name in KitGroupOrder)
+        {
+            var items = choices.Where(k => KitGroupOf(k) == name).ToList();
+            if (items.Count == 0)
+            {
+                continue;
+            }
+            var grid = new GridContainer { Columns = _rosterLayout == 0 ? 2 : 1, Visible = _kitOpen.GetValueOrDefault(name) };
+            grid.AddThemeConstantOverride("h_separation", 8);
+            grid.AddThemeConstantOverride("v_separation", 4);
+            foreach (var k in items)
+            {
+                var button = give(k);
+                button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                button.ClipText = true;
+                grid.AddChild(button);
+            }
+            Button header = null!;
+            string Title() => $"{(grid.Visible ? "▼" : "▶")} {name} · {items.Count}";
+            header = Button(Title(), () =>
+            {
+                grid.Visible = !grid.Visible;
+                _kitOpen[name] = grid.Visible;
+                header.Text = Title();
+            });
+            header.Name = "KitGroup-" + name.Replace(' ', '-');
+            header.Flat = true;
+            header.Alignment = HorizontalAlignment.Left;
+            _rosterKit.AddChild(header);
+            _rosterKit.AddChild(grid);
         }
     }
 
