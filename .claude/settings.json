@@ -8,5 +8,21 @@
       "PowerShell(dotnet test:*)",
       "PowerShell(dotnet run:*)"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/install-godot.sh"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/install-claude-mem.sh"
+          }
+        ]
+      }
+    ]
   }
 }
