@@ -92,7 +92,7 @@ and the camera check are still open.
 Carry-on past contact is built (U126: `ChargeModel.CarryOn`, `ChargeDeclared.CarryOn`, `RollInProgress.CarryOn`, planner
 `ChargePlanner.CarryOn`; `Interaction.ToggleCarryOn`; CLI `charge A1 B1 carry`). K in Charge mode toggles it in the Godot client (compiled, not run in Godot). Field Shrine stage 1 is built (U127: `FieldShrines`, `ShrineState`, `PlaceShrine`/`DeclineShrine`, `Relation.Impassable`, Morale
 bonus); stage 2 (attacks and blasts remove it) and stage 3 (client piece, click placement) are not. All
-of this work is local commits on `claude/pensive-planck-ep84pj` after `d9ac75a`; nothing pushed until the owner approves.
+of this work was pushed to `claude/pensive-planck-ep84pj` on the owner's word ("Push them", 2026-11-03).
 
 Decisions kept for the carry-on and Field Shrine work: A1 and A2 recommended; B1 to B4 recommended; carry-on first, then
 Field Shrine in three stages; full build and tests after each stage; **no pushing until the owner has reviewed and approved**.
@@ -222,8 +222,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   second enemy counts, the carry-on past contact is not planned). Melee seeds 1 and 23 re-pinned. Bloodbath Rolls
   done (U124: `SpendMarkers.Bloodbath`, `MarkersSpent` purpose `Bloodbath`, `InjuryRolled.Bloodbath`,
   `RollInProgress.Bloodbath`, `Reducer.BloodbathCost`; client bar "Bloodbath (N)"; CLI `markers 6 bloodbath`; no pin changed).
-  Essentials 2,243/0 (one transport test is flaky, passed on rerun). Field Shrine and the Suicidal Bravery carry-on past
-  contact not started: each needs a design the owner has not seen (see the chat report of 2026-11-03).
+  Essentials 2,243/0 (one transport test is flaky, passed on rerun). Later the same day: carry-on past contact (U126), 48" table
+  sizes (U125) and Field Shrine stage 1 (U127) were built, 2,269/0 (see "Map size and battlefield dimensions" above). Open: Field Shrine
+  stage 2 (attacks and blasts remove it) and stage 3 (client piece, click placement), the Scenario IV zone depth, and a Windows Godot run.
 - Next (not started, owner to choose): the survey's "later" group (Court spells, INFECTION/BLESSING MARKERS, Bodyguard,
   moving other models, Set/Defuse Mine, Hide, Hateful, multi-Fight models, Time Slip, deployment rules), oval bases
   (Plague Hound, Pit Locust), and a Windows Godot run to check the UI (log dice, keys I V Y Z, Trample on key 0).
