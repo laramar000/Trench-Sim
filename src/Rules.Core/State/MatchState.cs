@@ -18,6 +18,7 @@ public enum DecisionKind
     LayMines,                  // Trench Warfare: the defender sets up the Mine Markers and secretly picks the duds (p. 162)
     ChooseScatterPoint,        // a SCATTER attack missed: the attacker's opponent picks where it lands (p. 57, roster stage R4c)
     UseTalisman,               // a Risky roll failed: the model's player may use a Talisman so the activation goes on (roster stage R5k)
+    CarryOnCharge,             // a charge stopped in contact: its player may carry on to within 1" of another enemy (p. 37, U124)
 }
 
 // A choice only one player can make. While one is pending, nothing else may happen.
@@ -89,6 +90,7 @@ public enum RollStage
     TreatRoll,   // the Risky Success Roll of a Treat ACTION (roster stage R5h); Target is the model treated
     SelfRoll,    // the Risky Success Roll of an Aim or Fortify ACTION (roster stage R6b); SelfAction says which
     Scatter,     // a SCATTER attack missed: the opponent picks where it lands, or it is a miss after all (roster stage R4c)
+    ChargeCarryOn, // the charge stopped in contact and may carry on (p. 37, U124); DashPath holds the legs, its player chooses
 }
 
 // Roster stage R5h (U113): what a successful Treat ACTION does (p. 84).

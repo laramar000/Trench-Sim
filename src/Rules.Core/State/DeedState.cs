@@ -14,6 +14,7 @@ public enum GloriousDeed
     Headshot,              // Scenario IV: a model that retreated earlier in its activation takes Out of Action an enemy it retreated from
     IntoTheTrenches,       // Scenario IV: a model charges an enemy in a trench section, then takes it Out of Action in melee
     SurviveToTellTheTale,  // Scenario IV: a model has two mine Injury Rolls and is taken Out of Action by neither
+    SuicidalBravery,       // Scenario I: a model successfully charges two models with the same charge move (U124)
 }
 
 // A deed and who completed it. Model is the model that did it; Hold Your Ground is a warband's, with no model.

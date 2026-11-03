@@ -30,6 +30,8 @@ public static class EventText
         ChargeDeclared c => $"  {c.Model} declares a charge on {c.Target}.",
         ChargeRolled c => $"  {c.Model} Charge Bonus {c.Die}{(c.Dropped == 0 ? "" : $" (Shock Charge, {c.Dropped} dropped)")}.",
         ChargeMoved c => c.Path.IsEmpty ? $"  {c.Model} cannot move; the charge fails." : $"  {c.Model} charges to {c.Path[^1]} (cost {c.Cost}): {(c.Reached ? "reaches" : "falls short of")} {c.Target}.",
+        ChargeCarriedOn c => $"  {c.Model} carries on round {c.Target} to {c.Path[^1]} (cost {c.Cost}), within 1\" of another enemy.",
+        ChargeStopped c => $"  {c.Model} stops where it made contact.",
         RetreatDeclared r => $"  {r.Model} retreats.",
         FreeFightsDeclined f => $"  {f.Seat} declines the remaining free attacks.",
         RetreatResolved r => r.Moved ? $"  {r.Model} retreats to {r.Path[^1]} (cost {r.Cost})." : $"  {r.Model} is taken Down or Out of Action and stays where it is.",
@@ -108,6 +110,8 @@ public static class EventText
         ChargeRolled c => new(Id(c.Model), "ROLLS", $"Charge Bonus {c.Die}"),
         ChargeMoved c => c.Path.IsEmpty ? new(Id(c.Model), "CANNOT MOVE", "(the charge fails)")
             : c.Reached ? new(Id(c.Model), "REACHES", $"{Id(c.Target)} at {At(c.Path[^1])}") : new(Id(c.Model), "FALLS SHORT", $"of {Id(c.Target)} at {At(c.Path[^1])}"),
+        ChargeCarriedOn c => new(Id(c.Model), "CARRIES ON", $"round {Id(c.Target)} to {At(c.Path[^1])}"),
+        ChargeStopped c => new(Id(c.Model), "STOPS", "in contact"),
         RetreatDeclared r => new(Id(r.Model), "RETREATS", ""),
         RetreatResolved r => r.Moved ? new(Id(r.Model), "RETREATS", $"→ {At(r.Path[^1])} (cost {Cost(r.Cost)})") : new(Id(r.Model), "STAYS", "(Down or Out of Action)"),
         MeleeAttackDeclared m => new(Id(m.Attacker), m.FreeFight ? "ATTACKS" : m.Weapon == ModelProfile.GrindWeapon ? "GRINDS" : m.Weapon == ModelProfile.TrampleWeapon ? "TRAMPLES" : "FIGHTS", Id(m.Target) + (m.FreeFight ? " (retreating)" : "") + (m.DefendedObstacleId is { } o ? $" (defended obstacle: {o})" : "")),
@@ -194,7 +198,7 @@ public static class EventText
         ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved or MineRevealed or MoveResumed => EventKind.Movement,
         RangedAttackDeclared or ShootingTargetRolled or FriendlyTargetChosen or RangedSuccessRolled or BlastHit or AttackScattered or ScatterMissed
             or PointAttackDeclared or PointSuccessRolled or PointBlastHit => EventKind.Shooting,
-        ChargeDeclared or ChargeRolled or ChargeMoved => EventKind.Charge,
+        ChargeDeclared or ChargeRolled or ChargeMoved or ChargeCarriedOn or ChargeStopped => EventKind.Charge,
         MeleeAttackDeclared or MeleeSuccessRolled or FreeFightsDeclined => EventKind.Fight,
         InjuryRolled or MarkersSpent or MineExploded or BloodMarkersPlaced or MartyrdomTriggered => EventKind.Injury,
         TreatDeclared or TreatRolled or SelfActionDeclared or SelfActionRolled or ModelStoodUp or MoraleCheckRolled or WarbandShaken or WarbandRecovered or WarbandFled => EventKind.Status,

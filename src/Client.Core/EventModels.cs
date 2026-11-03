@@ -43,6 +43,8 @@ public static class EventModels
             ChargeDeclared c => [c.Model, c.Target],
             ChargeRolled c => [c.Model, c.Target],
             ChargeMoved c => [c.Model, c.Target],
+            ChargeCarriedOn c => [c.Model, c.Target],
+            ChargeStopped c => [c.Model],
             RetreatDeclared r => [r.Model],
             RetreatResolved r => [r.Model],
             MeleeAttackDeclared m => [m.Attacker, m.Target],

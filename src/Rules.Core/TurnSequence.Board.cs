@@ -459,6 +459,8 @@ public static partial class TurnSequence
             ScatterAttack c => (DecisionKind.ChooseScatterPoint, c.Seat),
             UseTalisman c => (DecisionKind.UseTalisman, c.Seat),
             DeclineTalisman c => (DecisionKind.UseTalisman, c.Seat),
+            CarryOnCharge c => (DecisionKind.CarryOnCharge, c.Seat),
+            StopCharge c => (DecisionKind.CarryOnCharge, c.Seat),
             _ => throw new ArgumentException("Not a choice."),
         };
         if (state.Pending is not { } pending)
@@ -653,6 +655,16 @@ public static partial class TurnSequence
                 break;
             case DeclineTalisman:
                 run.Emit(new ActivationEnded(state.ActiveModel!.Value, ActivationEndReason.RiskyFailure));
+                break;
+            case CarryOnCharge:
+            {
+                var carrying = state.InProgress!;
+                var charger = state.FindModel(carrying.Actor)!;
+                run.Emit(new ChargeCarriedOn(charger.Id, carrying.Target!.Value, carrying.DashPath, Reducer.CarryOnCost(state, charger, carrying.DashPath)));
+                break;
+            }
+            case StopCharge:
+                run.Emit(new ChargeStopped(state.InProgress!.Actor));
                 break;
             case ScatterAttack c:
             {
@@ -905,6 +917,10 @@ public static partial class TurnSequence
                 run.Emit(new ChargeMoved(progress.Actor, progress.Target.Value, plan.Path, plan.Cost, plan.Reached));
                 return true;
             }
+            case RollStage.ChargeCarryOn:
+                // U124: the charging model's player chooses whether it carries on.
+                run.Emit(new DecisionRequested(DecisionKind.CarryOnCharge, actor.Seat));
+                return true;
             case RollStage.InjuryRoll:
             {
                 var target = s.FindModel(progress.Target!.Value)!;

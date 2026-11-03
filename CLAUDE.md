@@ -233,3 +233,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Down target), so its button and log words are checked by unit tests only. Run 15 stalled ~200 s on one injury
   marker decision ("Spend 4" clicked, no answer, then answered by the hint fallback); not seen in 16 or 17. UiCheck now
   writes `MARK decision-unanswered ...` with LAST COMMAND when that happens: read it if it comes back.
+- 2026-11-03, later: owner pasted p. 37 (charge carry-on) and p. 153 (Suicidal Bravery) and chose "player chooses".
+  Built U124: after a charge that ends in contact, if sliding round the target (contact ring, 2.8125-degree steps) can
+  end within 1" of another enemy, the charging player gets `DecisionKind.CarryOnCharge` (`CarryOnCharge` /
+  `StopCharge`; events `ChargeCarriedOn`, `ChargeStopped`; RollStage `ChargeCarryOn` keeps the legs in DashPath).
+  Suicidal Bravery (Scenario I) completes when a successful charge ends within 1" of a second enemy. ReplayCompatibility
+  2 -> 3; golden records regenerated (TRENCH_SIM_UPDATE_GOLDEN=1); melee seeds 1, 5, 15, 23 re-pinned. Tests
+  `Match/ChargeCarryOnTests`. UI run abilities-18: failures=0, but no carry-on came up (its bar is unit-tested only). Still blocked: Field Shrine (no deployables).

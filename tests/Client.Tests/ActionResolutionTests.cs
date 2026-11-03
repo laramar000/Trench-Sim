@@ -164,7 +164,7 @@ public class ActionResolutionTests
                 }
                 // Nothing outside its own events: an action never runs past the end of an activation or turn.
                 Assert.DoesNotContain(events.Skip(1), e => e is ActivationEnded or TurnEnded or MatchEnded or RangedAttackDeclared or MeleeAttackDeclared or ChargeDeclared or DashDeclared);
-                Assert.Equal(events.Count, action.Steps.Count + events.Count(e => e is not (ShootingTargetRolled or FriendlyTargetChosen or MarkersSpent or DashRolled or RangedSuccessRolled or MeleeSuccessRolled or InjuryRolled or BlastHit or AttackScattered or ScatterMissed or ChargeRolled or ChargeMoved or ModelMoved { Kind: MoveKind.Dash })));
+                Assert.Equal(events.Count, action.Steps.Count + events.Count(e => e is not (ShootingTargetRolled or FriendlyTargetChosen or MarkersSpent or DashRolled or RangedSuccessRolled or MeleeSuccessRolled or InjuryRolled or BlastHit or AttackScattered or ScatterMissed or ChargeRolled or ChargeMoved or ChargeCarriedOn or ChargeStopped or ModelMoved { Kind: MoveKind.Dash })));
             }
         }
         Assert.True(actions > 500, $"{actions} actions");

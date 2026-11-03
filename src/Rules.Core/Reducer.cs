@@ -82,6 +82,8 @@ public static class Reducer
             ChargeDeclared x => OnChargeDeclared(state, x),
             ChargeRolled x => OnChargeRolled(state, x),
             ChargeMoved x => OnChargeMoved(state, x),
+            ChargeCarriedOn x => OnChargeCarriedOn(state, x),
+            ChargeStopped x => OnChargeStopped(state, x),
             RetreatDeclared x => OnRetreatDeclared(state, x),
             FreeFightsDeclined x => OnFreeFightsDeclined(state, x),
             RetreatResolved x => OnRetreatResolved(state, x),
@@ -124,6 +126,7 @@ public static class Reducer
         {
             ModelMoved m => (m.Model, m.Path),
             ChargeMoved c => (c.Model, c.Path),
+            ChargeCarriedOn c => (c.Model, c.Path),
             RetreatResolved r => (r.Model, r.Path),
             MoveResumed r => (r.Model, r.Path),
             _ => ((ModelId?)null, ImmutableArray<Point2>.Empty),
@@ -489,6 +492,10 @@ public static class Reducer
             case DecisionKind.UseTalisman:
                 Require(state.MustEndActivation && TalismanReady(state, state.ActiveModel) && state.FindModel(state.ActiveModel!.Value)!.Seat == e.Seat,
                     "Only the player of an active model with a Talisman left is asked, after its failed Risky roll.");
+                break;
+            case DecisionKind.CarryOnCharge:
+                Require(state.InProgress is { Stage: RollStage.ChargeCarryOn } carrying && state.FindModel(carrying.Actor) is { } charging && charging.Seat == e.Seat,
+                    "Only the charging model's player is asked whether its charge carries on.");
                 break;
             case DecisionKind.ChooseFriendlyTarget:
                 Require(state.InProgress is { Stage: RollStage.TargetChoice } choosing
@@ -1516,7 +1523,35 @@ public static class Reducer
         var plan = Board.PlanCharge(state, charger, state.FindModel(e.Target)!, progress.ChargeDie);
         Require(plan.Path.SequenceEqual(e.Path) && plan.Cost == e.Cost && plan.Reached == e.Reached, "The charge move must be the one the rules plan from the Charge Bonus.");
         var moved = e.Path.IsEmpty ? charger : charger with { Position = e.Path[^1] };
-        return HaltAtMine(state, TurnRules.WithModel(state, moved) with { InProgress = null }, e.Model, e.Path);
+        var after = HaltAtMine(state, TurnRules.WithModel(state, moved) with { InProgress = null }, e.Model, e.Path);
+        // U124: a charge that stopped in contact and can carry on to within 1" of another enemy waits for its player's
+        // choice, keeping the legs (not if a Mine Marker halted it on the way).
+        return plan.CarryOn.IsEmpty || after.MineStop is not null
+            ? after
+            : after with { InProgress = progress with { Stage = RollStage.ChargeCarryOn, DashPath = plan.CarryOn } };
+    }
+
+    private static MatchState OnChargeCarriedOn(MatchState state, ChargeCarriedOn e)
+    {
+        // The decision is pending, so not Active(): the charger is the active model, still on the table.
+        Require(state.Phase == Phase.Activation && state.ActiveModel == e.Model && state.FindModel(e.Model) is { Position: not null }, "Only the charging model carries on.");
+        var charger = state.FindModel(e.Model)!;
+        Require(state.Pending is { Kind: DecisionKind.CarryOnCharge } && state.InProgress is { Stage: RollStage.ChargeCarryOn } p && p.Actor == e.Model
+            && p.Target == e.Target && p.DashPath.SequenceEqual(e.Path) && e.Cost == CarryOnCost(state, charger, e.Path),
+            "A charge carries on only when its player chooses to, along the legs the rules planned with the charge move.");
+        var after = TurnRules.WithModel(state, charger with { Position = e.Path[^1] }) with { InProgress = null, Pending = null };
+        return HaltAtMine(state, after, e.Model, e.Path);
+    }
+
+    // What a carry-on's legs cost from where the charge stopped (difficult ground counts double, p. 35).
+    internal static Length CarryOnCost(MatchState state, ModelState charger, ImmutableArray<Point2> path) =>
+        Movement.Cost(Board.ScenarioOf(state)!.Battlefield, Board.BodyOf(state, charger)!, path);
+
+    private static MatchState OnChargeStopped(MatchState state, ChargeStopped e)
+    {
+        Require(state.Pending is { Kind: DecisionKind.CarryOnCharge } && state.ActiveModel == e.Model && state.InProgress is { Stage: RollStage.ChargeCarryOn } p && p.Actor == e.Model,
+            "A charge stops in contact only when its player is asked whether it carries on.");
+        return state with { InProgress = null, Pending = null };
     }
 
     private static MatchState OnRetreatDeclared(MatchState state, RetreatDeclared e)

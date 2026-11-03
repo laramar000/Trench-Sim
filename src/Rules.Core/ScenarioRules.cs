@@ -50,9 +50,9 @@ public sealed record ScenarioRules(
             [
                 "The table, deployment zones and terrain are a fixed layout: the book does not print them (U32).",
                 "What counts as \"on\" an Objective is an interpretation (U36).",
-                "Equal Victory Points being a draw is an interpretation: the book is silent on a tie (U40).",
+                "Equal Victory Points are a draw (p. 148, U40).",
                 DeedsCounted,
-                "Not possible in this version, so never completed: Cast Them Down (Falling is not built, U69), Sniper (no model has the ELITE keyword) and Suicidal Bravery (a charge has one target).",
+                "Not possible in this version, so never completed: Cast Them Down (Falling is not built, U69) and Sniper (no model has the ELITE keyword).",
             ]);
     }
 
@@ -92,7 +92,7 @@ public sealed record ScenarioRules(
                 $"Before deployment the defender sets up {Mines.Count} Mine Markers (1\" discs) in the {Mines.PlacementDepth} strip of its zone facing the attacker, {Mines.Duds} of them secret duds known only to the defender and the server (p. 162, U93).",
                 $"A model whose base comes within {Mines.TriggerRange} of a marker halts there and the marker is revealed: a live mine makes an Injury Roll (no Blood Markers) and adds 1 SHRAPNEL marker; a dud does nothing. Then the move goes on unless the model is taken Down.",
                 "Not built yet: the defender's halved ducats and Infiltrators.",
-                "Equal Victory Points being a draw is an interpretation: the book is silent on a tie (U40).",
+                "Equal Victory Points are a draw (p. 148, U40).",
                 DeedsCounted,
                 "Victory or Death is a campaign deed and is left out of this one-off game.",
             ]);

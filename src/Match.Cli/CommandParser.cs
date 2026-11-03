@@ -21,6 +21,7 @@ public static class CommandParser
         morale BecomeShaken|SoundRetreat                       answer a failed Morale Check
         scatter <x,y>             where a missed SCATTER attack lands
         bloodbath <n>             spend n Blood Markers (6, or 3 if Down) for a Bloodbath Roll
+        carry / stop              carry a charge on to within 1" of another enemy, or stop in contact
         blast <model> <x,y>       aim a BLAST weapon at a point
         """;
 
@@ -56,6 +57,8 @@ public static class CommandParser
             "scatter" => new ScatterAttack(seat, Point(One(args))),
             "talisman" => new UseTalisman(seat),
             "keep" => new DeclineTalisman(seat),
+            "carry" => new CarryOnCharge(seat),
+            "stop" => new StopCharge(seat),
             "blast" => new ShootPoint(seat, Model(Arg(args, 0)), Point(Arg(args, 1))),
             "morale" => new ResolveFailedMorale(seat, Enum.Parse<MoraleFailureChoice>(One(args))),
             _ => throw new FormatException($"Unknown command '{words[0]}'. Type 'help'."),

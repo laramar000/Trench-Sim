@@ -12,7 +12,7 @@ public class CompactLogTests
     private static readonly HashSet<string> Verbs =
     [
         "DEPLOYS", "ACTIVATES", "ENDS", "STANDS UP", "MOVES", "DASHES", "DECLARES", "ROLLS", "SHOOTS", "CHARGES", "CANNOT MOVE",
-        "REACHES", "FALLS SHORT", "RETREATS", "STAYS", "FIGHTS", "ATTACKS", "MUST SHOOT", "KILLS", "DOWNS", "HITS",
+        "REACHES", "FALLS SHORT", "CARRIES ON", "STOPS", "RETREATS", "STAYS", "FIGHTS", "ATTACKS", "MUST SHOOT", "KILLS", "DOWNS", "HITS",
     ];
 
     private static IEnumerable<GameEvent> Events => ClientCoreTests.Matches.Value.SelectMany(m => m.Log);

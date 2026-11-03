@@ -4,7 +4,12 @@ namespace Rules.Core.Geometry;
 
 // What a charge move did: the waypoints the model followed (empty if it could not move at all), what they cost,
 // and whether it finished within 1" of its target (a successful charge, p. 37).
-public sealed record ChargePlan(ImmutableArray<Point2> Path, Length Cost, bool Reached);
+// CarryOn (p. 37, U124): the legs a charge that stopped in contact may carry on along, staying in contact with the target,
+// to finish within 1" of another enemy model; empty when it cannot. Its player chooses whether it does.
+public sealed record ChargePlan(ImmutableArray<Point2> Path, Length Cost, bool Reached)
+{
+    public ImmutableArray<Point2> CarryOn { get; init; } = [];
+}
 
 // The charge move (Movement pp. 35-37). The rules say the model "must move by the shortest route available that takes
 // it directly towards the target", may avoid obstacles as long as "the route you use to avoid the obstacles is as short
@@ -111,7 +116,7 @@ public static class Charging
             }
             if (_scene.Finish(pathA, reach) is { } whole)
             {
-                return whole;
+                return _scene.WithCarryOn(whole, reach);
             }
 
             // The route cannot be followed as far as the die allows without ending on a friendly base (or part-way
@@ -127,14 +132,14 @@ public static class Charging
                     var pathB = _scene.Farthest(routeB, reach);
                     if (!pathB.IsEmpty && pathB.Length <= MaxLegs && _scene.Finish(pathB, reach) is { } around)
                     {
-                        return around;
+                        return _scene.WithCarryOn(around, reach);
                     }
                 }
             }
 
             // No way round: stop short of the friendly base. Backing off only shortens route A's path, but the limit is
             // checked again so that no plan of more than MaxLegs legs can leave this method.
-            return _scene.BackOff(routeA, reach) is { } shortOf && shortOf.Path.Length <= MaxLegs ? shortOf : none;
+            return _scene.BackOff(routeA, reach) is { } shortOf && shortOf.Path.Length <= MaxLegs ? _scene.WithCarryOn(shortOf, reach) : none;
         }
     }
 
@@ -145,6 +150,9 @@ public static class Charging
 
     private const int Around = 32;   // vertices on a full circle
     private const int Contacts = 128;  // contact points around the target
+    // U124: a carry-on starts only from a charge that ended in contact: within this many thousandths of touching (U47
+    // finishes about 0.002" away).
+    private const long CarryOnContact = 4;
 
     // 1 / cos(pi / 32) is 1.0048386; this is a little more, so the polygon's edges stay outside the circle.
     private const long SecantNum = 1_004_900;
@@ -668,6 +676,61 @@ public static class Charging
             var reached = ExactMath.Near(path[^1], _target.Centre, _zone, strict: false);
             return new ChargePlan(path, result.Cost, reached);
         }
+
+        // p. 37 (U124): "must stop as soon as it moves into contact with the target, unless carrying on with its move
+        // allows it to stay in contact with the target and finish within 1" of any other enemy models". From the contact
+        // point the model slides round the target, one contact-ring point at a time each way, until a point is within 1"
+        // of another enemy; the cheaper way wins (ties: the lower end point in (X, Y) order). Nothing is offered if the
+        // charge did not end in contact, if it already ends within 1" of another enemy, or if no legal way gets there.
+        public ChargePlan WithCarryOn(ChargePlan plan, Length reach)
+        {
+            var sum = (_mover.Radius + _target.Radius).Thousandths;
+            if (!plan.Reached || plan.Path.IsEmpty || _otherEnemies.Count == 0
+                || !ExactMath.Near(plan.Path[^1], _target.Centre, Length.FromThousandths(sum + CarryOnContact), strict: false)
+                || NearOtherEnemy(plan.Path[^1]))
+            {
+                return plan;
+            }
+            // A ring just far enough out that the chord between two neighbouring points (2.8125 degrees apart) stays clear
+            // of the target's base, after rounding the points to the lattice.
+            var radius = sum + (sum * 302 + 999_999) / 1_000_000 + 2;
+            var end = plan.Path[^1];
+            var start = Enumerable.Range(0, Contacts).MinBy(j => ExactMath.DistanceSquared(RingPoint(_target.Centre, radius, j), end));
+            (ImmutableArray<Point2> Legs, Length Cost)? best = null;
+            foreach (var step in new[] { 1, -1 })
+            {
+                var legs = new List<Point2>();
+                for (var i = 0; i <= Contacts / 2; i++)
+                {
+                    var point = RingPoint(_target.Centre, radius, ((start + step * i) % Contacts + Contacts) % Contacts);
+                    if (point == end)
+                    {
+                        continue;
+                    }
+                    legs.Add(point);
+                    var result = Movement.CheckPath(_field, _mover, plan.Path.AddRange(legs), reach, _others, _target.Id);
+                    if (!result.IsLegal)
+                    {
+                        break;
+                    }
+                    if (NearOtherEnemy(point))
+                    {
+                        var extra = result.Cost - plan.Cost;
+                        if (best is not { } b || extra < b.Cost
+                            || (extra == b.Cost && (point.X.Thousandths, point.Y.Thousandths).CompareTo((b.Legs[^1].X.Thousandths, b.Legs[^1].Y.Thousandths)) < 0))
+                        {
+                            best = (legs.ToImmutableArray(), extra);
+                        }
+                        break;
+                    }
+                }
+            }
+            return best is { } found ? plan with { CarryOn = found.Legs } : plan;
+        }
+
+        // Within 1" of an enemy model other than the target, edge to edge (p. 30: "within" includes exactly 1").
+        private bool NearOtherEnemy(Point2 at) =>
+            _otherEnemies.Any(e => ExactMath.Near(at, e.Centre, _mover.Radius + e.Radius + Length.Inch, strict: false));
 
         // Stops short of whatever stops the full move from being legal, as far along the route as it can.
         public ChargePlan? BackOff(Route route, Length reach)

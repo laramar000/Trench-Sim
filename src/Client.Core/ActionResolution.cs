@@ -382,6 +382,12 @@ public sealed class ResolutionLog
                 action.Steps.Add(m.Reached ? $"Reaches {Id(m.Target)}" : $"Stops short of {Id(m.Target)}");
                 action.Outcome.Add(m.Reached ? "REACHED ✓" : "STOPS SHORT ✗");
                 break;
+            case ChargeCarriedOn c:
+                action.Steps.Add($"Carries on round {Id(c.Target)} to within 1\" of another enemy");
+                break;
+            case ChargeStopped:
+                action.Steps.Add("Stops where it made contact");
+                break;
             case ModelMoved when action.Climb:
                 action.Steps.Add(action.Failed ? "Moves to where the climb starts and stops" : "Moves, up or down the side");
                 break;

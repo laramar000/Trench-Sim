@@ -726,3 +726,28 @@ public sealed record SelfActionRolled : GameEvent
 
     public ImmutableArray<ModelId> StoodUp { get; init; } = [];
 }
+
+// U124: the charging model carries on round its target along Path (the rules' legs, kept since the charge move) to
+// finish within 1" of another enemy model, still in contact with the target (p. 37). Cost is what the legs cost.
+public sealed record ChargeCarriedOn : GameEvent
+{
+    public ChargeCarriedOn(ModelId model, ModelId target, ImmutableArray<Point2> path, Length cost)
+    {
+        if (path.IsDefaultOrEmpty)
+        {
+            throw new ArgumentException("A carry-on has at least one leg.", nameof(path));
+        }
+        Model = model;
+        Target = target;
+        Path = path;
+        Cost = cost;
+    }
+
+    public ModelId Model { get; }
+    public ModelId Target { get; }
+    public ImmutableArray<Point2> Path { get; }
+    public Length Cost { get; }
+}
+
+// U124: the charging model stops where it made contact rather than carry on.
+public sealed record ChargeStopped(ModelId Model) : GameEvent;

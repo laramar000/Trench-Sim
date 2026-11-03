@@ -45,6 +45,7 @@ public static class Words
         DecisionKind.LayMines => "set up the 12 Mine Markers and secretly pick 4 duds",
         DecisionKind.ChooseScatterPoint => "choose where the missed attack scatters to",
         DecisionKind.UseTalisman => "use a Talisman so the activation goes on, or let it end",
+        DecisionKind.CarryOnCharge => "carry the charge on round the target to within 1\" of another enemy, or stop in contact",
         _ => kind.ToString(),
     };
 

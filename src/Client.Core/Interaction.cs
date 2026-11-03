@@ -589,6 +589,7 @@ public sealed class Interaction
             DecisionKind.ChooseScatterPoint => _state.InProgress?.Target ?? _state.InProgress?.Actor,
             DecisionKind.FreeFight => _state.Retreat?.Model,
             DecisionKind.UseTalisman => _state.ActiveModel,
+            DecisionKind.CarryOnCharge => _state.InProgress?.Actor,
             _ => null,
         };
         if (anchor is not { } holder)
@@ -607,6 +608,8 @@ public sealed class Interaction
             ChooseFriendlyTarget t => new BarItem(BarKind.Decide, $"Hit {NameOf(t.Victim)}", $"The shot into melee hits your own {NameOf(t.Victim)}.", Command: t),
             UseTalisman u => new BarItem(BarKind.Decide, "Use Talisman", $"{NameOf(holder)} uses a Talisman (once per game): the failed Risky roll does not end its activation.", Command: u),
             DeclineTalisman d => new BarItem(BarKind.Decide, "Keep Talisman", $"Keep the Talisman for later: {NameOf(holder)}'s activation ends.", Command: d),
+            CarryOnCharge carry => new BarItem(BarKind.Decide, "Carry on", $"{NameOf(holder)} carries on round the target it reached, staying in contact, to finish within 1\" of another enemy model (p. 37).", Command: carry),
+            StopCharge stop => new BarItem(BarKind.Decide, "Stop here", $"{NameOf(holder)} stops where it made contact with its target.", Command: stop),
             ScatterAttack s => new BarItem(BarKind.Decide, $"Land {ScatterWords.Direction(_state, s.At)}",
                 $"The missed attack lands {ScatterWords.Where(_state, s.At)}: {ScatterWords.Hits(_state, s.At, NameOf)}.", Command: s),
             _ => null,

@@ -3477,7 +3477,7 @@ public partial class UiCheck : Node
         return StillActive(active) && !choice;
     }
 
-    private static readonly string[] DecisionWords = ["Use a Talisman", "Keep the Talisman", "Spend ", "Failed Morale"];
+    private static readonly string[] DecisionWords = ["Use a Talisman", "Keep the Talisman", "Spend ", "Failed Morale", "Carry on the charge", "Stop the charge"];
 
     // The key starts its mode with its stats line; the first target the preview finds legal shows the ACTION's own words
     // and its Confirm button; Esc leaves it, sending nothing.

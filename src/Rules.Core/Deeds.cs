@@ -11,12 +11,11 @@ namespace Rules.Core;
 // then announces it with GloriousDeedCompleted, which adds its Victory Point. Each deed is completed once per game, by
 // whoever completes it first. Every deed here is completed by one model's attack, roll or Morale Check, so two seats
 // can never complete one at the same moment and the book's roll-off for that case never arises.
-// Not built: Cast Them Down (Falling, U69) and Suicidal Bravery (a charge has one target) cannot happen in this
-// version; Sniper needs the ELITE keyword, which no model has; Victory or Death is for campaigns only.
+// Not built: Cast Them Down (Falling, U69) cannot happen in this version; Sniper needs the ELITE keyword, which no model has; Victory or Death is for campaigns only.
 public static class Deeds
 {
     private static readonly ImmutableArray<GloriousDeed> ClaimDeeds =
-        [GloriousDeed.Bloodletting, GloriousDeed.HoldYourGround, GloriousDeed.LordOfWar, GloriousDeed.ResistAndBite];
+        [GloriousDeed.Bloodletting, GloriousDeed.HoldYourGround, GloriousDeed.LordOfWar, GloriousDeed.ResistAndBite, GloriousDeed.SuicidalBravery];
 
     private static readonly ImmutableArray<GloriousDeed> TrenchDeeds =
         [GloriousDeed.GoodHunting, GloriousDeed.Headshot, GloriousDeed.HoldYourGround, GloriousDeed.IntoTheTrenches, GloriousDeed.SurviveToTellTheTale];
@@ -34,6 +33,7 @@ public static class Deeds
         GloriousDeed.Headshot => "Headshot",
         GloriousDeed.IntoTheTrenches => "Into the Trenches!",
         GloriousDeed.SurviveToTellTheTale => "Survive to Tell the Tale",
+        GloriousDeed.SuicidalBravery => "Suicidal Bravery",
         _ => throw new ArgumentOutOfRangeException(nameof(deed)),
     };
 
@@ -48,6 +48,7 @@ public static class Deeds
         GloriousDeed.Headshot => "a model that retreated earlier in its activation takes Out of Action an enemy it retreated from",
         GloriousDeed.IntoTheTrenches => "a model charges an enemy model in a trench and takes it Out of Action in melee in that activation",
         GloriousDeed.SurviveToTellTheTale => "a model makes two Injury Rolls from mines and neither takes it Out of Action",
+        GloriousDeed.SuicidalBravery => "a model successfully charges two enemy models with the same charge move",
         _ => throw new ArgumentOutOfRangeException(nameof(deed)),
     };
 
@@ -113,6 +114,15 @@ public static class Deeds
                 {
                     d = d with { ChargedInTrench = x.Target };
                 }
+                // U124: a successful charge that ends within 1" of a second enemy model charged two models (Suicidal
+                // Bravery); one waiting to carry on there completes it when it does.
+                if (after.InProgress is not { Stage: RollStage.ChargeCarryOn } && after.MineStop is null && NearSecondEnemy(after, x.Model, x.Target))
+                {
+                    Complete(GloriousDeed.SuicidalBravery, after.FindModel(x.Model)!.Seat, x.Model);
+                }
+                break;
+            case ChargeCarriedOn x when after.MineStop is null && NearSecondEnemy(after, x.Model, x.Target):
+                Complete(GloriousDeed.SuicidalBravery, after.FindModel(x.Model)!.Seat, x.Model);
                 break;
             case InjuryRolled x when before.InProgress is { FriendlyFire: false } attack:
                 var attacker = before.FindModel(x.Attacker)!;
@@ -172,6 +182,10 @@ public static class Deeds
         }
         return ReferenceEquals(d, after.Deeds) ? after : after with { Deeds = d };
     }
+
+    // U124: the charger is within 1" (the engagement range) of an enemy model other than its target.
+    private static bool NearSecondEnemy(MatchState state, ModelId charger, ModelId target) =>
+        Engagement.Pairs(state).Any(p => (p.One == charger && p.Two != target) || (p.Two == charger && p.One != target));
 
     private static readonly IComparer<ModelId> ModelOrder = Comparer<ModelId>.Create((a, b) => string.CompareOrdinal(a.Value, b.Value));
 }

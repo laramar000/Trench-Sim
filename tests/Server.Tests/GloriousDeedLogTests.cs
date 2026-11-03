@@ -91,6 +91,14 @@ public class GloriousDeedLogTests
                     {
                         chargedInTrench = c.Target;
                     }
+                    // Suicidal Bravery (U124): the charge ends within 1" of a second enemy, unless it waits to carry on.
+                    if (state.InProgress is not { Stage: RollStage.ChargeCarryOn } && state.MineStop is null && NearAnotherEnemy(state, c.Model, c.Target))
+                    {
+                        Done(GloriousDeed.SuicidalBravery, state.FindModel(c.Model)!.Seat, c.Model);
+                    }
+                    break;
+                case ChargeCarriedOn c when state.MineStop is null && NearAnotherEnemy(state, c.Model, c.Target):
+                    Done(GloriousDeed.SuicidalBravery, state.FindModel(c.Model)!.Seat, c.Model);
                     break;
                 case InjuryRolled x when !attack.Friendly:
                     var seat = state.FindModel(x.Attacker)!.Seat;
@@ -135,6 +143,16 @@ public class GloriousDeedLogTests
             }
         }
         return expected;
+    }
+
+    // Within 1" (edge to edge) of an enemy model on the battlefield other than the target, measured here from the positions.
+    private static bool NearAnotherEnemy(MatchState state, ModelId charger, ModelId target)
+    {
+        var field = state.Setup!.Scenario!.Battlefield;
+        ModelBody Body(ModelState m) => new(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius, Towers.ElevationAt(field, m.Position.Value));
+        var me = state.FindModel(charger)!;
+        return state.Models.Any(m => m.Seat != me.Seat && m.Id != target && m.Position is not null && m.Status != ModelStatus.OutOfAction
+            && Measure.IsWithin(Body(me), Body(m), Length.Inch));
     }
 
     private static readonly string[] Names =

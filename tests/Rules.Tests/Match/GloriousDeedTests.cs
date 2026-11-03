@@ -46,7 +46,7 @@ public class GloriousDeedTests
     [Fact]
     public void EachScenarioHasItsOwnDeeds()
     {
-        Same([GloriousDeed.Bloodletting, GloriousDeed.HoldYourGround, GloriousDeed.LordOfWar, GloriousDeed.ResistAndBite], Deeds.For(new BoardPlay().Setup));
+        Same([GloriousDeed.Bloodletting, GloriousDeed.HoldYourGround, GloriousDeed.LordOfWar, GloriousDeed.ResistAndBite, GloriousDeed.SuicidalBravery], Deeds.For(new BoardPlay().Setup));
         Same([GloriousDeed.GoodHunting, GloriousDeed.Headshot, GloriousDeed.HoldYourGround, GloriousDeed.IntoTheTrenches, GloriousDeed.SurviveToTellTheTale], Deeds.For(TrenchWarfare().Setup));
         Assert.Empty(Deeds.For(null));
     }

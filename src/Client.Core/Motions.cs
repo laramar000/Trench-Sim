@@ -21,6 +21,7 @@ public static class Motions
     {
         ModelMoved m => new(m.Model, Cut(m.Model, m.Path, after)),
         ChargeMoved { Path.IsEmpty: false } c => new(c.Model, Cut(c.Model, c.Path, after)),
+        ChargeCarriedOn c => new(c.Model, Cut(c.Model, c.Path, after)),
         RetreatResolved { Moved: true } r => new(r.Model, Cut(r.Model, r.Path, after)),
         MoveResumed { Path.IsEmpty: false } g => new(g.Model, [.. g.Path.Select(TablePoint.Of)]),
         _ => null,
