@@ -258,3 +258,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   chosen from three mock-ups, `NUN_FACE` keeps visor/plate/sallet; fitted plate corset by shrinkwrap; serrated blade and
   pistol gripped in the fist via `FISTS`). New script pieces: `spattered()` baked blood/mud material, female body
   shapes (`shape="female-young-..."`), `head=None`. Owner reviews each figure from turnaround and close-ups.
+- 2026-11-03: third figure, Ecclesiastic Prisoner (`units/ecclesiastic-prisoner.glb`, 1,795 triangles, approved), on
+  the owner's reference cues: stooped gaunt body, enclosed spiked iron helm (no head), stocks board, finned bomb on the
+  back. The bomb and chest ropes are placed by ray-casting the posed body (`back_y`), so they rest on it. The 25 mm
+  pilgrims are done; the War Prophet, Castigator (32 mm), Sanctified Giant (40 mm) and Reliquary Walker (60 mm) wait for
+  the per-entry figure height in the client catalog.

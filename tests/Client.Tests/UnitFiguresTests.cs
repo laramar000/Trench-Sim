@@ -45,9 +45,10 @@ public class UnitFiguresTests
         var known = names.Concat(RosterUnitNames).ToHashSet();
         Assert.Contains("Trench Pilgrim", known);
         Assert.Contains("Stigmatic Nun", known);
+        Assert.Contains("Ecclesiastic Prisoner", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
         Assert.All(units, u => Assert.Contains(u, known));
-        Assert.Equal(6, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.Equal(7, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -55,7 +56,7 @@ public class UnitFiguresTests
     [Fact]
     public void TheEditorLeavesTheFiguresFolderAlone() => Assert.True(File.Exists(Path.Combine(Assets, "units", ".gdignore")));
 
-    public static TheoryData<string> Figures => new() { "units/rifleman.glb", "units/skirmisher.glb", "units/shield.glb", "units/standard.glb", "units/trench-pilgrim.glb", "units/stigmatic-nun.glb" };
+    public static TheoryData<string> Figures => new() { "units/rifleman.glb", "units/skirmisher.glb", "units/shield.glb", "units/standard.glb", "units/trench-pilgrim.glb", "units/stigmatic-nun.glb", "units/ecclesiastic-prisoner.glb" };
 
     [Theory]
     [MemberData(nameof(Figures))]

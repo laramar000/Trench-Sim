@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -75,7 +75,9 @@ M = {k: mat(k, *v) for k, v in {
  "mannequin": ("cfc4b0", 0.03)}.items()}   # the mannequin head: smooth pale plaster, no face (2026-11-03)
 M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate": mat("plate", "7a7c80", 0.3, 18),
           "gauntlet": spattered("gauntlet", "7a1a14", spots=0.5, scale=40),
-          "blade": spattered("blade", "9a9ca0", spots=0.42, scale=9)})   # the Stigmatic Nun (2026-11-03)
+          "blade": spattered("blade", "9a9ca0", spots=0.42, scale=9),
+          "flesh": spattered("flesh", "9c7a6a", spots=0.36, scale=9),      # the Ecclesiastic Prisoner (2026-11-03)
+          "rust": mat("rust", "6a4630", 0.35, 14), "bomb": mat("bomb", "4a5430", 0.2, 10)})   # the Stigmatic Nun (2026-11-03)
 # Faceless heads (visual pass Stage 1, 2026-10-27): every figure wears a plain hood of matte canvas over a smooth,
 # featureless head (no eyes, nose or mouth); the figures are told apart by silhouette, kit and pose.
 FACE_SCALE = 1.12   # the plain head fills the space of the MakeHuman face
@@ -529,6 +531,99 @@ def stigmatic_nun():
     sphere(tuple(hl - e * 0.07), 0.017, "brass", seg=5, rings=3)                      # pommel
     module("Body")
 
+def ecclesiastic_prisoner():
+    # Ecclesiastic Prisoner (2026-11-03, third figure of docs/art-pipeline.md, class A): an original figure on the owner's
+    # reference cues, not a copy of the miniature or the art. A gaunt, stooped penitent, bare and grimed with blood, in a
+    # rag loincloth with ropes bound round his body, his head locked in a rusted iron helm (breathing holes and spikes, no
+    # face and no head modelled under it), his hands shackled in a wooden stocks board, iron cuffs at wrists and ankles,
+    # and the Martyrdom Device, a finned aerial bomb, strapped across his back. Modules: Helmet (iron helm), Weapon (the
+    # stocks board), Back (bomb and its strap), Hip (loincloth), Chest (ropes), Accent (the cloth band round the helm and
+    # the loincloth's front flap).
+    def pose(r):
+        human.aim(r, "spine03", P(0, -0.28, 1.32)); human.aim(r, "neck01", P(0, -0.38, 1.44))
+        human.reach(r, "R", P(-0.2, -0.16, 1.12), P(-0.07, -0.3, 0.98))
+        human.reach(r, "L", P(0.2, -0.16, 1.12), P(0.07, -0.3, 0.98))
+    hands, hp, top = human_body(pose, coat=False, dress={"foot": "flesh", "shin": "flesh", "thigh": "flesh", "torso": "flesh"}, head=None,
+                                mitts="flesh", shape="male-young-minmuscle-minweight")
+    import random; rnd = random.Random(1915)
+    # the bowed back's surface, ray-cast from behind, so the ropes and the bomb sit on it
+    human_ = bpy.data.objects["human"]
+    def back_y(x, z):
+        hit, loc, *_ = human_.ray_cast(Vector((x, 1.0, z)), Vector((0, -1, 0)))
+        return loc.y if hit else None
+    # iron cuffs at both ankles
+    for x in (-0.1, 0.1):
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.05, minor_radius=0.014, major_segments=8, minor_segments=4, location=(x, -0.02, 0.12))
+        add(bpy.context.object, "iron")
+    module("Hip")
+    # the rag loincloth, its hem torn, and a front flap in the seat colour
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.17, radius2=0.155, depth=0.22, end_fill_type='NOTHING', location=(0, 0.0, 0.86))
+    o = bpy.context.object; o.scale = (1, 0.8, 1)
+    for v in o.data.vertices:
+        if v.co.z < 0: v.co.z += rnd.uniform(0.0, 0.06)
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(o, "rags")
+    me = bpy.data.meshes.new("flap")
+    me.from_pydata([(-0.07, -0.135, 0.96), (0.07, -0.135, 0.96), (0.05, -0.16, 0.62), (0.0, -0.16, 0.66), (-0.05, -0.16, 0.6)], [], [(0, 4, 3, 2, 1)])
+    o = bpy.data.objects.new("flap", me); scn.collection.objects.link(o); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(o, "accent")
+    module("Chest")
+    # ropes: a girdle at the waist and two crossing the chest over the shoulders
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.15, minor_radius=0.013, major_segments=10, minor_segments=3, location=(0, 0, 0.97))
+    bpy.context.object.scale = (1, 0.82, 1); add(bpy.context.object, "rope")
+    for x in (-1, 1):
+        top_r = Vector((0.12 * x, back_y(0.12 * x, 1.28) + 0.008, 1.28))   # over the shoulder blade
+        bar(top_r, (0.0, -0.14, 1.12), 0.01, "rope", sides=4); bar((0.0, -0.14, 1.12), (-0.13 * x, -0.09, 0.99), 0.01, "rope", sides=4)
+    module("Helmet")
+    # the iron helm, locked over the whole head: a rusted sphere bowed forward with the stoop, a riveted rim, breathing
+    # holes in a ring round the face side and short spikes
+    fb = FACE_BOX; centre = fb["mid"] - fb["fwd"] * 0.05 + fb["up"] * 0.01
+    sphere(tuple(centre), 0.128, "rust", (1, 1.05, 1.02), seg=10, rings=6)
+    # a cloth band in the seat colour bound round the helm's rim: the top of the figure, so the camera above sees it
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.122, minor_radius=0.018, major_segments=10, minor_segments=3, location=tuple(centre - fb["up"] * 0.075))
+    o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(fb["up"]); add(o, "accent")
+    for i, (a_, u_) in enumerate(((-0.05, 0.03), (0.05, 0.03), (0.0, -0.02), (-0.07, -0.04), (0.07, -0.04), (0.0, 0.07))):
+        q = (fb["fwd"] * 0.96 + fb["ax"] * a_ / 0.13 + fb["up"] * u_ / 0.13).normalized()
+        bar(centre + q * 0.124, centre + q * 0.136, 0.011, "dark", sides=4)
+    for d_ in (fb["up"], (fb["up"] + fb["fwd"]).normalized(), (fb["up"] + fb["ax"]).normalized(), (fb["up"] - fb["ax"]).normalized(),
+               (fb["fwd"] + fb["ax"] * 0.9).normalized(), (fb["fwd"] - fb["ax"] * 0.9).normalized()):
+        tip = centre + d_ * 0.18
+        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.016, radius2=0.0, depth=0.06, location=tuple(centre + d_ * 0.15))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d_); add(o, "iron")
+    module("Weapon")
+    # the stocks board: a heavy wooden plank at the waist with both fists locked through it, iron bands and cuffs
+    fr, _ = FISTS["R"]; fl, _ = FISTS["L"]; mid = (fr + fl) / 2
+    across = (fl - fr).normalized()
+    bar(mid - across * 0.17, mid + across * 0.17, 0.03, "wood", sides=4)
+    for f in (fr, fl):
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.034, minor_radius=0.011, major_segments=6, minor_segments=3, location=tuple(f))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(across); add(o, "iron")
+    for t in (-0.13, 0.13): bar(mid + across * t - Vector((0, 0, 0.035)), mid + across * t + Vector((0, 0, 0.035)), 0.012, "iron", sides=4)
+    module("Back")
+    # the Martyrdom Device: a finned aerial bomb strapped along the bowed back, its tail over the right shoulder
+    # Resting on the back: the body is ray-cast from behind along the bomb's line, and the bomb slides in until its
+    # surface touches the most prominent point of the back (never sinking into it).
+    r_ = 0.075
+    # each end on the back at its own height (the lower back, the shoulder blades), so it leans with the stoop
+    base_, tip_ = Vector((0.06, 0.0, 1.02)), Vector((-0.08, 0.0, 1.3))
+    base_.y, tip_.y = back_y(base_.x, base_.z) + r_, back_y(tip_.x, tip_.z) + r_
+    tip_ = base_ + (tip_ - base_).normalized() * 0.5   # the bomb's full length along that line
+    lift_ = max((y + r_) - (base_.y + (tip_.y - base_.y) * t)
+                for t in [i / 8 for i in range(9)]
+                if (y := back_y(base_.x + (tip_.x - base_.x) * t, base_.z + (tip_.z - base_.z) * t)) is not None)
+    base_.y += lift_; tip_.y += lift_
+    ax = (tip_ - base_).normalized()
+    bar(base_, tip_ - ax * 0.08, 0.075, "bomb", sides=8)
+    sphere(tuple(base_), 0.075, "bomb", seg=8, rings=4)
+    bar(tip_ - ax * 0.08, tip_, 0.04, "bomb", sides=6)
+    side_ = ax.cross(Vector((0, 1, 0))).normalized(); out_ = ax.cross(side_).normalized()
+    for v_ in (side_, out_):   # two crossed fin plates
+        bar(tip_ - ax * 0.06 - v_ * 0.075, tip_ - ax * 0.06 + v_ * 0.075, 0.012, "bomb", sides=4)
+        bar(tip_ - ax * 0.11 - v_ * 0.075, tip_ - ax * 0.01 - v_ * 0.075, 0.008, "bomb", sides=3)
+        bar(tip_ - ax * 0.11 + v_ * 0.075, tip_ - ax * 0.01 + v_ * 0.075, 0.008, "bomb", sides=3)
+    for t in (0.3,):
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.08, minor_radius=0.01, major_segments=8, minor_segments=3, location=tuple(base_ + ax * t))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(ax); add(o, "rope")
+    module("Body")
+
 def pilgrim():
     # Pilgrim (an original figure, not used by any unit): a tall pointed iron hood over the whole head (eye slit,
     # riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud, a rope belt with a rosary, a
@@ -575,7 +670,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o
