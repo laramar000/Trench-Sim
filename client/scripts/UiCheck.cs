@@ -6328,7 +6328,7 @@ public partial class UiCheck : Node
         void Agrees(string when)
         {
             var wanted = $"{builder.ListName}: {builder.TotalText}";
-            var missing = builder.CheckLines.Where(l => !LineShown(l)).ToList();
+            var missing = builder.CheckLines.Where(l => !l.StartsWith("✕", StringComparison.Ordinal) && !LineShown(l)).ToList();
             steps.Add($"{when}: {Total()}");
             if (Total() != wanted || missing.Count > 0)
             {
@@ -6350,6 +6350,8 @@ public partial class UiCheck : Node
         }
 
         Agrees("empty");
+        main.ShowRosterProblems();
+        await Frames(2);
         if (!LineShown("✕ The Principality must include 1 Lieutenant"))
         {
             problems.Add("an empty warband does not say it needs its Lieutenant");
@@ -6368,6 +6370,8 @@ public partial class UiCheck : Node
         }
         await Push("RecruitButton-lieutenant");
         Agrees("a second lieutenant");
+        main.ShowRosterProblems();
+        await Frames(2);
         if (!LineShown("✕ The Principality can include at most 1 Lieutenant (it has 2)"))
         {
             problems.Add("a second Lieutenant is not refused in words");

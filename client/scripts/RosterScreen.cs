@@ -470,8 +470,9 @@ public partial class Main
         }
 
         Empty(_rosterCheck);
-        var lines = _builder.CheckLines;
-        if (lines.Count == 0)
+        // Problems show only when the red total is clicked; the check panel keeps the notes.
+        var lines = _builder.CheckLines.Where(l => !l.StartsWith("✕", StringComparison.Ordinal)).ToList();
+        if (lines.Count == 0 && problems.Count == 0)
         {
             _rosterCheck.AddChild(Text("Legal, nothing to note."));
         }
