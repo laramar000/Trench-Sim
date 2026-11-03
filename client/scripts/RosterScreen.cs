@@ -44,6 +44,7 @@ public partial class Main
     private ScrollContainer? _rosterLeftScroll;
     private readonly Dictionary<string, bool> _kitOpen = new() { ["Ranged weapons"] = true, ["Melee weapons"] = true };
     private bool _playedWithoutOpen;
+    private bool _rulesOpen;
 
     private void BuildRosterScreen()
     {
@@ -272,9 +273,36 @@ public partial class Main
         _rosterBarFill.BgColor = spent > _builder.BudgetDucats ? new Color(0.72f, 0.2f, 0.14f) : _highContrast ? Colors.Yellow : UiLook.Gold;
 
         Empty(_rosterRules);
-        foreach (var line in _builder.RuleLines.DefaultIfEmpty("No special rules for this list."))
+        var ruleLines = _builder.RuleLines.DefaultIfEmpty("No special rules for this list.").ToList();
+        if (_rosterLayout == 1 || ruleLines.Count < 2)
         {
-            _rosterRules.AddChild(Text(line));
+            foreach (var line in ruleLines)
+            {
+                _rosterRules.AddChild(Text(line));
+            }
+        }
+        else
+        {
+            // Wide and compact: a long list's rules fold under one heading with a count, so the recruit buttons are not pushed down.
+            var fold = Column();
+            fold.Visible = _rulesOpen;
+            foreach (var line in ruleLines)
+            {
+                fold.AddChild(Text(line));
+            }
+            Button header = null!;
+            string Title() => $"{(fold.Visible ? "▼" : "▶")} Rules of this list · {ruleLines.Count}";
+            header = Button(Title(), () =>
+            {
+                fold.Visible = !fold.Visible;
+                _rulesOpen = fold.Visible;
+                header.Text = Title();
+            });
+            header.Name = "ListRulesFold";
+            header.Flat = true;
+            header.Alignment = HorizontalAlignment.Left;
+            _rosterRules.AddChild(header);
+            _rosterRules.AddChild(fold);
         }
 
         Empty(_rosterRecruit);

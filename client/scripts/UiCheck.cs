@@ -6399,6 +6399,11 @@ public partial class UiCheck : Node
         await ChooseOption(lists, "pontifical-task-force", null);
         await Frames(3);
         Agrees("Pontifical Task Force");
+        // The wide and compact layouts fold a list's rules under a heading: open it, as a player does, to read them.
+        if (Named("ListRulesFold") is BaseButton)
+        {
+            await Push("ListRulesFold");
+        }
         if (builder.Variant != "pontifical-task-force" || builder.Models.Count != 0 || !Total().Contains("of 500 ducats, 0 of 11 Glory", StringComparison.Ordinal)
             || !LineShown("Specialist Force: "))
         {
