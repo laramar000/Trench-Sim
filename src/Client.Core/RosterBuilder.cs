@@ -345,7 +345,7 @@ public sealed class RosterBuilder
             {
                 ready.RosterProblems.Count > 0 ? "For a match: fix the problems above first."
                 : ready.Refused.Count > 0 ? $"For a match: not yet; the game cannot play {ready.Refused.Count} thing{(ready.Refused.Count == 1 ? "" : "s")} below."
-                : $"For a match: ready ({ready.Models.Count} model{(ready.Models.Count == 1 ? "" : "s")}). Pick it on the Play page (Seat One plays or Seat Two plays) or Online (You play) to use it in a match.",
+                : $"For a match: ready ({ready.Models.Count} model{(ready.Models.Count == 1 ? "" : "s")}). Pick it on the Play page or Online.",
             };
             lines.AddRange(ready.Refused.Select(r => "✕ Not playable yet: " + Sentence(r)));
             lines.AddRange(ready.PlayedWithout.Select(w => "– Played without: " + Sentence(w)));

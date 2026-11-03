@@ -6291,6 +6291,8 @@ public partial class UiCheck : Node
             builder.Add(builder.Entries[0].Id);
             main.RefreshRosterScreen();
             await Shot("roster-glory-budget");
+            main.ShowRosterProblems();
+            await Shot("roster-problems-open");
         }
         builder.ChooseVariant(null);
         builder.Add(builder.Entries[0].Id);

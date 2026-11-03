@@ -38,6 +38,9 @@ public partial class Main
     private Control? _rosterColumns;
     private HBoxContainer[] _rosterFields = [];
     private ProgressBar _rosterBar = null!, _rosterGloryBar = null!;
+    private VBoxContainer _rosterProblems = null!;
+    private Label _rosterNote = null!;
+    private bool _problemsOpen;
     private readonly StyleBoxFlat _rosterBarFill = new();
     private readonly StyleBoxFlat _rosterGloryFill = new();
     private VBoxContainer _rosterFieldsHolder = null!;
@@ -90,7 +93,25 @@ public partial class Main
         _rosterGloryBar = new ProgressBar { Name = "RosterGloryBar", ShowPercentage = false, CustomMinimumSize = new Vector2(0, 6), TooltipText = "Glory spent against the list's Glory budget" };
         _rosterGloryBar.AddThemeStyleboxOverride("fill", _rosterGloryFill);
         _rosterGloryBar.AddThemeStyleboxOverride("background", new StyleBoxFlat { BgColor = new Color(0.13f, 0.1f, 0.085f), BorderColor = UiLook.Iron, BorderWidthBottom = 1, BorderWidthTop = 1, BorderWidthLeft = 1, BorderWidthRight = 1 });
-        _rosterHeader = Section(RosterTitle, Column(Text(RosterBuilder.SourceNote), _rosterFieldsHolder, _rosterTotal, _rosterBar, _rosterGloryBar));
+        _rosterNote = Text(RosterBuilder.SourceNote);
+        // The problems in red: the total turns red while the list has any, and clicking it (or Enter or Space on it) says what is wrong.
+        _rosterTotal.MouseFilter = Control.MouseFilterEnum.Stop;
+        _rosterTotal.FocusMode = Control.FocusModeEnum.All;
+        _rosterTotal.GuiInput += ev =>
+        {
+            if (ev is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } || ev is InputEventKey { Pressed: true, Keycode: Key.Enter or Key.KpEnter or Key.Space })
+            {
+                if (_builder.Check().Problems.Count > 0)
+                {
+                    _problemsOpen = !_problemsOpen;
+                    RefreshRoster();
+                }
+                _rosterTotal.AcceptEvent();
+            }
+        };
+        _rosterProblems = Column();
+        _rosterProblems.Name = "RosterProblems";
+        _rosterHeader = Section(RosterTitle, Column(_rosterNote, _rosterFieldsHolder, _rosterTotal, _rosterBar, _rosterGloryBar, _rosterProblems));
 
         _rosterRules = Column();
         _rosterRules.Name = "RosterRules";
@@ -140,6 +161,18 @@ public partial class Main
             _rosterLeftScroll = null;
         }
         var wide = _rosterLayout == 0;
+        // Condensed (wide and compact): the note under the title is small and dim, and the sections sit closer.
+        _rosterBody.AddThemeConstantOverride("separation", _rosterLayout == 1 ? 10 : 6);
+        if (_rosterLayout == 1)
+        {
+            _rosterNote.RemoveThemeFontSizeOverride("font_size");
+            _rosterNote.RemoveThemeColorOverride("font_color");
+        }
+        else
+        {
+            _rosterNote.AddThemeFontSizeOverride("font_size", (int)(_theme.DefaultFontSize * 0.8f));
+            _rosterNote.AddThemeColorOverride("font_color", _highContrast ? Colors.White : UiLook.Muted);
+        }
         FitRosterPanel();
         // The name, faction and list share one line in the wide layout, and have a line each in the others.
         foreach (var child in _rosterFieldsHolder.GetChildren())
@@ -224,6 +257,13 @@ public partial class Main
 
     public int RosterLayoutShown => _rosterLayout;
 
+    // For the UI check: as if the player had clicked the red problem line.
+    public void ShowRosterProblems()
+    {
+        _problemsOpen = true;
+        RefreshRoster();
+    }
+
     private void FillVariants()
     {
         _rosterVariant.Clear();
@@ -261,6 +301,31 @@ public partial class Main
     private void RefreshRoster(string? focus = null)
     {
         _rosterTotal.Text = $"{_builder.ListName}: {_builder.TotalText}";
+        var problems = _builder.Check().Problems;
+        var red = _highContrast ? Colors.Yellow : new Color(1f, 0.45f, 0.38f);
+        if (problems.Count > 0)
+        {
+            _rosterTotal.AddThemeColorOverride("font_color", red);
+            _rosterTotal.MouseDefaultCursorShape = Control.CursorShape.PointingHand;
+            _rosterTotal.TooltipText = "Click to see what is wrong";
+        }
+        else
+        {
+            _rosterTotal.RemoveThemeColorOverride("font_color");
+            _rosterTotal.MouseDefaultCursorShape = Control.CursorShape.Arrow;
+            _rosterTotal.TooltipText = "";
+            _problemsOpen = false;
+        }
+        Empty(_rosterProblems);
+        if (_problemsOpen)
+        {
+            foreach (var problem in problems)
+            {
+                var line = Text("✕ " + problem);
+                line.AddThemeColorOverride("font_color", red);
+                _rosterProblems.AddChild(line);
+            }
+        }
         var spent = _builder.Check().Ducats;
         _rosterBar.MaxValue = Math.Max(1, _builder.BudgetDucats);
         _rosterBar.Value = Math.Min(spent, _builder.BudgetDucats);
@@ -308,7 +373,7 @@ public partial class Main
         Empty(_rosterRecruit);
         foreach (var e in _builder.Entries)
         {
-            var add = Button($"Add {e.Name} · {e.CostText} · {e.LimitText}", () =>
+            var add = Button($"{e.Name} · {e.CostText} · {e.LimitText}", () =>
             {
                 _builder.Add(e.Id);
                 RefreshRoster("ModelButton-" + _builder.Selected);
@@ -380,10 +445,9 @@ public partial class Main
             {
                 _rosterKit.AddChild(Text("This model cannot be given battlekit."));
             }
-            Button GiveButton(RosterBuilder.KitRow k, bool grouped = false)
+            Button GiveButton(RosterBuilder.KitRow k)
             {
-                // Under a heading the piece needs no "Add" in front: the text is shorter, so it fits two to a row where there is room.
-                var give = Button($"{(grouped ? "" : "Add ")}{k.Name} · {k.CostText}", () =>
+                var give = Button($"{k.Name} · {k.CostText}", () =>
                 {
                     _builder.AddKit(k.Id);
                     RefreshRoster(AddKitName(k.Id));
@@ -401,7 +465,7 @@ public partial class Main
             }
             else
             {
-                AddKitGroups(choices, k => GiveButton(k, grouped: true));
+                AddKitGroups(choices, GiveButton);
             }
         }
 
