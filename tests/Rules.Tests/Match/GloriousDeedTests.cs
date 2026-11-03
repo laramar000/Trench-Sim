@@ -46,7 +46,7 @@ public class GloriousDeedTests
     [Fact]
     public void EachScenarioHasItsOwnDeeds()
     {
-        Same([GloriousDeed.Bloodletting, GloriousDeed.HoldYourGround, GloriousDeed.LordOfWar, GloriousDeed.ResistAndBite], Deeds.For(new BoardPlay().Setup));
+        Same([GloriousDeed.Bloodletting, GloriousDeed.HoldYourGround, GloriousDeed.LordOfWar, GloriousDeed.ResistAndBite, GloriousDeed.SuicidalBravery], Deeds.For(new BoardPlay().Setup));
         Same([GloriousDeed.GoodHunting, GloriousDeed.Headshot, GloriousDeed.HoldYourGround, GloriousDeed.IntoTheTrenches, GloriousDeed.SurviveToTellTheTale], Deeds.For(TrenchWarfare().Setup));
         Assert.Empty(Deeds.For(null));
     }
@@ -235,6 +235,27 @@ public class GloriousDeedTests
         var open = Trench("20", "18", "26", "18");
         Assert.Null(Track(open.State, new ChargeMoved(A(1), B(1), Path(("24.9", "18")), L("4.9"), true), open.State).Deeds.ChargedInTrench);
         Assert.Null(Track(started, new ChargeMoved(A(1), B(1), Path(("29", "18")), L("1"), false), started).Deeds.ChargedInTrench);
+    }
+
+    [Fact]
+    [Trait("Rule", "Scenario I p. 153 with p. 37, Suicidal Bravery: a successful charge ends within 1\" of a second enemy (U123)")]
+    public void AChargeThatEndsBesideASecondEnemyIsSuicidalBravery()
+    {
+        // A1 charges B1 (at 10, 2) and stops at (8.5, 2): B2 at (8.5, 3.3) is then within 1" as well.
+        var near = Claim().Put(B(2), "8.5", "3.3").State;
+        var charged = near with { Models = [.. near.Models.Select(m => m.Id == A(1) ? m with { Position = P("8.5", "2") } : m)] };
+        var reached = new ChargeMoved(A(1), B(1), Path(("8.5", "2")), L("4.5"), true);
+        Same([new CompletedDeed(GloriousDeed.SuicidalBravery, Seat.One, A(1))], Track(near, reached, charged).Deeds.Owed);
+
+        // Not when the charge fell short of its target, nor when no second enemy is within 1".
+        Assert.Empty(Track(near, new ChargeMoved(A(1), B(1), Path(("8.5", "2")), L("4.5"), false), charged).Deeds.Owed);
+        var far = Claim().Put(B(2), "8.5", "6").State;
+        var alone = far with { Models = [.. far.Models.Select(m => m.Id == A(1) ? m with { Position = P("8.5", "2") } : m)] };
+        Assert.Empty(Track(far, reached, alone).Deeds.Owed);
+
+        // Once only: a second such charge adds nothing.
+        var again = Track(near, reached, charged);
+        Assert.Single(Track(again, reached, again).Deeds.Owed);
     }
 
     [Fact]

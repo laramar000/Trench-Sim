@@ -91,6 +91,10 @@ public class GloriousDeedLogTests
                     {
                         chargedInTrench = c.Target;
                     }
+                    if (Engagement.Pairs(state).Any(p => p.One == c.Model && p.Two != c.Target || p.Two == c.Model && p.One != c.Target))
+                    {
+                        Done(GloriousDeed.SuicidalBravery, state.FindModel(c.Model)!.Seat, c.Model);
+                    }
                     break;
                 case InjuryRolled x when !attack.Friendly:
                     var seat = state.FindModel(x.Attacker)!.Seat;

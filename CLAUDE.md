@@ -181,6 +181,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Counter-Charge), Fearsome, Rapid Assault, Blind Rage (SwiftDash), Kavass (Melee +0). `RosterValidator` refuses
   `ExclusiveUpgrades` on one model and more Legionnaires than plain Troopers. Essentials 2,230/0. That ends Jason's
   "Do 1 - 4".
+- 2026-11-03, Jason: "do it all no mistakes" = Suicidal Bravery, Field Shrine, Bloodbath Rolls. Done: Suicidal Bravery (U123,
+  `GloriousDeed.SuicidalBravery`, `Deeds.Track` on `ChargeMoved`; only a stop at first contact already within 1" of a
+  second enemy counts, the carry-on past contact is not planned). Melee seeds 1 and 23 re-pinned. Field Shrine and
+  Bloodbath not started (each needs new events, commands and wire changes: owner to confirm design first).
 - Next (not started, owner to choose): the survey's "later" group (Court spells, INFECTION/BLESSING MARKERS, Bodyguard,
   moving other models, Set/Defuse Mine, Hide, Hateful, multi-Fight models, Time Slip, deployment rules), oval bases
   (Plague Hound, Pit Locust), and a Windows Godot run to check the UI (log dice, keys I V Y Z, Trample on key 0).

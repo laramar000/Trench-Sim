@@ -52,7 +52,7 @@ public sealed record ScenarioRules(
                 "What counts as \"on\" an Objective is an interpretation (U36).",
                 "Equal Victory Points being a draw is an interpretation: the book is silent on a tie (U40).",
                 DeedsCounted,
-                "Not possible in this version, so never completed: Cast Them Down (Falling is not built, U69), Sniper (no model has the ELITE keyword) and Suicidal Bravery (a charge has one target).",
+                "Not possible in this version, so never completed: Cast Them Down (Falling is not built, U69), Sniper (no model has the ELITE keyword). Suicidal Bravery only counts a charge that already stops within 1\" of a second enemy (U123).",
             ]);
     }
 

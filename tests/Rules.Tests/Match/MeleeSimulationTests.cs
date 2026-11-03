@@ -15,9 +15,11 @@ public class MeleeSimulationTests
     // Regression pins of this implementation's own behaviour under StateHash version 5, not an independent oracle.
     // Re-pinned for version 5 (Glorious Deeds, U96, 2026-10-26): every match is event-for-event the same as under
     // version 4 apart from the GloriousDeedCompleted events added, and only the Victory Points those deeds give changed.
+    // Seeds 1 and 23 were re-pinned again for Suicidal Bravery (U123, 2026-11-03): each gains that one GloriousDeedCompleted
+    // event and its Victory Point; the other 28 seeds are unchanged.
     private static readonly Dictionary<int, string> PinnedFinalHashes = new()
     {
-        [1] = "4195beb878aa9df19ee1fccbd9dd537d60dbd0b6073671133ce92ecdb508d512",
+        [1] = "339cdbaea6c36937aff0381a0c90f98d3ad10a795fd83e6797394a128383c18d",
         [2] = "4fb44dbac25f7bc99c2e8bbb93fa49d8cac80f9f2c1238bcc1123d0e3b500686",
         [3] = "dc3942169f148a387837165cca36105bff33cc32dd70e833122aa11665ca2e52",
         [4] = "4a87ea067af29fbbbfd2b0f0e5b5cafe700f79b326a9890fbb0c17fc46a76b19",
@@ -39,7 +41,7 @@ public class MeleeSimulationTests
         [20] = "81f4357f809b35a7dc4c54a9b91d40f1dbd753656a854408ac5135e428ec550a",
         [21] = "8eec11abab0ad5880933602ec28deefdf03b14ccc66ea26efda1b9f76ce9e9b1",
         [22] = "c03a38834e513e5ffcb7c81e2ff7da8feab5c9c096631a426024f603030cc54c",
-        [23] = "b8d5c7398120d003958cdf1bda61e1223d81133de8dc52384b47d0dd999a1ffb",
+        [23] = "d6e44c1412f0e8d2601dbf06a356f582af5f1d91744fda600e3c6f454909b2bc",
         [24] = "7c236546307be3ce6284e4d3dec30d2335817372bd63a7d0e44b27f573e21143",
         [25] = "89c654643c5e3a209a5555e7d68367636ceb88ef44f6236c79339972434e4114",
         [26] = "19be8087888a80352bccaf74a0810cf794d176e34e92b3db914109c99eab8c45",
