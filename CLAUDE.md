@@ -85,6 +85,9 @@ geometry and movement calculations unchanged; an in-game screenshot of the full 
 
 Do not change battlefield dimensions until the research and the proposed implementation have been reviewed and approved.
 
+Approved 2026-11-03: 36" by 36" is the default table and 48" by 48" the alternative (`docs/map-dimensions.md` section 4a). Dimension
+tests exist; 48" support, the Scenario IV zone depth and the camera check are still open.
+
 Decisions kept for the carry-on and Field Shrine work: A1 and A2 recommended; B1 to B4 recommended; carry-on first, then
 Field Shrine in three stages; full build and tests after each stage; **no pushing until the owner has reviewed and approved**.
 

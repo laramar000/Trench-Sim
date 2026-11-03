@@ -55,6 +55,14 @@ network, so no FAQ or errata could be read. The map labels need a look at the pa
    a generated map keeps its declared size; the existing geometry, movement and charge audit tests pass unchanged.
 5. The generator keeps 36" and gains a size parameter only with the 48" stage.
 
+## 4a. Decision (owner, 2026-11-03)
+
+**36" by 36" is the default and 48" by 48" is the alternative.** Done so far: the dimension tests
+(`tests/Server.Tests/BattlefieldDimensionTests.cs`: every shipped and generated map is 36" by 36", zones 6" deep and 24"
+apart, one unit is one inch, edges stop models). No map or dimension was changed. Still open: the Scenario IV zone depth
+(needs the page image), the 48" support (a per-scenario allowed-size list, a size parameter for the generator, and a Play
+page choice shown only where a scenario allows two sizes), and the camera check with a screenshot of the full table.
+
 ## 5. Order of work
 
 Review this note first. Then, with the dimension question settled, carry-on (A1, A2 recommended), then Field Shrine in three
