@@ -3503,18 +3503,21 @@ public partial class BoardView : SubViewportContainer
         {
             var standing = (float)model.Standing;
             var tall = model.Status == ModelStatus.Standing ? 1.2f : 0.3f;
+            var unitKey = model.Type is { } type ? VisualCatalog.UnitKey(type) : VisualCatalog.DefaultUnitKey;
             var colour = BodyColour(model);
             _bodyColours[model.Id] = colour;
             // Graphics stages G0 and G3: a model is drawn with its figure from the art catalog when it has one (not in high
             // contrast), fitted inside the rules' base and to the plain body's height, standing or (Down) lying; otherwise
             // with the plain body, as always. The figure's holder sits where the plain body would, so everything that
             // follows a model (glides, see-through walls) treats both alike.
-            if (!_highContrast && Visuals.Model(model.Type is { } type ? VisualCatalog.UnitKey(type) : VisualCatalog.DefaultUnitKey, VisualCatalog.DefaultUnitKey) is { } figure)
+            // Art pipeline (2026-11-03): a figure on a larger base, or with tall headgear, stands at its catalog height.
+            var figureTall = model.Status == ModelStatus.Standing ? (float)Visuals.Catalog.HeightFor(unitKey, VisualCatalog.DefaultUnitKey) : tall;
+            if (!_highContrast && Visuals.Model(unitKey, VisualCatalog.DefaultUnitKey) is { } figure)
             {
                 var holder = new Node3D
                 {
                     Name = $"Figure{model.Id.Value}",
-                    Position = new Vector3((float)model.X, standing + tall / 2, (float)model.Y),
+                    Position = new Vector3((float)model.X, standing + figureTall / 2, (float)model.Y),
                     // Decoration only: each figure faces the middle of the battlefield.
                     Rotation = new Vector3(0, Mathf.Atan2((float)(_scene!.Width / 2 - model.X), (float)(_scene.Depth / 2 - model.Y)), 0),
                 };
@@ -3526,7 +3529,7 @@ public partial class BoardView : SubViewportContainer
                     figure.RotationDegrees = new Vector3(-90, 0, 0);
                     shape.AddChild(figure);
                 }
-                Visuals.FitOnBase(shape, new Vector3(0, -tall / 2, 0), (float)model.Radius, tall);
+                Visuals.FitOnBase(shape, new Vector3(0, -figureTall / 2, 0), (float)model.Radius, figureTall);
                 // The seat colour is drawn flat (unshaded), so the side reads the same in light and shade.
                 Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
                 // Visual pass Stage 1: the unit light reaches the figure, and a thin outline keeps it apart from the

@@ -81,6 +81,21 @@ public class AssetManifestTests
         Assert.Throws<FormatException>(() => VisualCatalog.Parse("{ \"entries\": { \"unit:\": \"units/a.glb\" } }"));
     }
 
+    // Art pipeline (2026-11-03): a unit entry may give its figure's standing height; otherwise it is the plain body's 1.2".
+    [Fact]
+    public void AUnitEntryMayGiveItsFigureHeight()
+    {
+        var catalog = VisualCatalog.Parse("{ \"entries\": { \"unit:default\": \"units/a.glb\", \"unit:Giant\": { \"file\": \"units/giant.glb\", \"height\": 1.6 } } }");
+        Assert.Equal("units/giant.glb", catalog.PathFor(VisualCatalog.UnitKey("Giant")));
+        Assert.Equal(1.6, catalog.HeightFor(VisualCatalog.UnitKey("Giant"), VisualCatalog.DefaultUnitKey));
+        Assert.Equal(VisualCatalog.DefaultFigureHeight, catalog.HeightFor(VisualCatalog.UnitKey("Runner"), VisualCatalog.DefaultUnitKey));
+        Assert.Equal(VisualCatalog.DefaultFigureHeight, VisualCatalog.Empty.HeightFor(VisualCatalog.DefaultUnitKey));
+        Assert.Throws<FormatException>(() => VisualCatalog.Parse("{ \"entries\": { \"unit:Giant\": { \"file\": \"units/giant.glb\", \"height\": 40 } } }"));
+        Assert.Throws<FormatException>(() => VisualCatalog.Parse("{ \"entries\": { \"unit:Giant\": { \"file\": \"units/giant.glb\", \"height\": \"tall\" } } }"));
+        Assert.Throws<FormatException>(() => VisualCatalog.Parse("{ \"entries\": { \"ground\": { \"file\": \"ground/mud.png\", \"height\": 1.6 } } }"));
+        Assert.Throws<FormatException>(() => VisualCatalog.Parse("{ \"entries\": { \"unit:Giant\": { \"height\": 1.6 } } }"));
+    }
+
     [Fact]
     public void TheCatalogChoosesTheFirstKeyWithAnEntryAndOtherwiseNothing()
     {

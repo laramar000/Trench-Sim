@@ -60,13 +60,12 @@ oppressive, gothic. Every figure must read first as a silhouette, then by its eq
 | E huge | 60 mm | 2.4" | 2,800 | 1,400 | 4,200 | body 256, modules 128 |
 | F oval | 30 x 60 mm | by the creature; length along the oval | 2,000 | 1,000 | 3,000 | body 256, modules 64 |
 
-Tall headgear counts in the figure's height: the client scales the whole figure to 1.2", so the Trench Pilgrim's
-capirote (about a fifth of its height) makes its body shorter than a bare-headed figure's. The per-entry height below
-would fix this too.
-
-Classes B to F need one client change before they look right: the figure height is fixed at 1.2" today
-(`FitOnBase`), so a catalog entry needs its own height (for example `"unit:Brazen Bull": {"file": ..., "height": 2.4}`)
-and oval bases need drawing as ovals. Not done yet: it waits for approval of this standard.
+Figure height (built 2026-11-03): a catalog entry may give its figure's standing height in inches, for example
+`"unit:Sanctified Giant": {"file": "units/sanctified-giant.glb", "height": 1.6}` (0.5" to 6"; `VisualCatalog.HeightFor`).
+Without one a figure stands 1.2", the plain body's height. The client scales the whole figure to that height and, if it is
+wider than its base, narrower still. Tall headgear counts in the height: the Trench Pilgrim's capirote makes its body
+shorter than a bare-headed figure's at the same height, which an entry's height can make up for. Oval bases are still
+drawn round.
 
 ## 4. Materials, textures and lighting
 
