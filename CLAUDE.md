@@ -253,3 +253,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Owner's rules for art: one model at a time, shown for approval before the next; ask before commit. Open: per-entry
   figure height in the catalog (large bases, tall headgear), oval bases; licence warning given (TC community licence
   excludes video games and AI art); the owner chose to go on.
+- 2026-11-03: second figure, Stigmatic Nun (`units/stigmatic-nun.glb`, 1,847 triangles, approved "good enough"), built
+  on the owner's reference images as cues (white blood-spattered habit and hood, porcelain votive mask with a cross slit
+  chosen from three mock-ups, `NUN_FACE` keeps visor/plate/sallet; fitted plate corset by shrinkwrap; serrated blade and
+  pistol gripped in the fist via `FISTS`). New script pieces: `spattered()` baked blood/mud material, female body
+  shapes (`shape="female-young-..."`), `head=None`. Owner reviews each figure from turnaround and close-ups.

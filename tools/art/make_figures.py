@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -46,6 +46,26 @@ def mat(name, hexc, noise=0.25, scale=40.0):
     ramp.color_ramp.elements[1].color = (*[min(1, c*(1+noise*0.6)) for c in rgb], 1)
     nt.links.new(tex.outputs["Fac"], ramp.inputs["Fac"]); nt.links.new(ramp.outputs["Color"], b.inputs["Base Color"])
     return m
+def spattered(name, hexc, blood="5a0f0c", mud="4a4034", spots=0.34, scale=22.0):
+    # cloth spattered with blood (noise below `spots`), muddier towards the bottom of each part (generated z)
+    m = mat(name, hexc, 0.12); nt = m.node_tree; b = nt.nodes["Principled BSDF"]
+    base = b.inputs["Base Color"].links[0].from_socket
+    n = nt.nodes.new("ShaderNodeTexNoise"); n.inputs["Scale"].default_value = scale; n.inputs["Detail"].default_value = 3
+    r = nt.nodes.new("ShaderNodeValToRGB"); r.color_ramp.interpolation = 'CONSTANT'
+    r.color_ramp.elements[0].color = (*lin(blood), 1); r.color_ramp.elements[1].position = spots; r.color_ramp.elements[1].color = (1, 1, 1, 1)
+    nt.links.new(n.outputs["Fac"], r.inputs["Fac"])
+    mul = nt.nodes.new("ShaderNodeMix"); mul.data_type = 'RGBA'; mul.blend_type = 'MULTIPLY'; mul.inputs["Factor"].default_value = 1
+    nt.links.new(base, mul.inputs[6]); nt.links.new(r.outputs["Color"], mul.inputs[7])
+    tc = nt.nodes.new("ShaderNodeTexCoord"); sep = nt.nodes.new("ShaderNodeSeparateXYZ"); nt.links.new(tc.outputs["Generated"], sep.inputs[0])
+    mr = nt.nodes.new("ShaderNodeMapRange"); mr.inputs["From Min"].default_value = 0.0; mr.inputs["From Max"].default_value = 0.35
+    mr.inputs["To Min"].default_value = 0.85; mr.inputs["To Max"].default_value = 0.0; nt.links.new(sep.outputs["Z"], mr.inputs["Value"])
+    n2 = nt.nodes.new("ShaderNodeTexNoise"); n2.inputs["Scale"].default_value = 30
+    mix = nt.nodes.new("ShaderNodeMix"); mix.data_type = 'RGBA'; mix.inputs[7].default_value = (*lin(mud), 1)
+    prod = nt.nodes.new("ShaderNodeMath"); prod.operation = 'MULTIPLY'
+    nt.links.new(mr.outputs["Result"], prod.inputs[0]); nt.links.new(n2.outputs["Fac"], prod.inputs[1])
+    nt.links.new(prod.outputs["Value"], mix.inputs["Factor"]); nt.links.new(mul.outputs[2], mix.inputs[6])
+    nt.links.new(mix.outputs[2], b.inputs["Base Color"])
+    return m
 M = {k: mat(k, *v) for k, v in {
  "coat": ("5a5040",), "trousers": ("4a4436",), "skin": ("d6ae8c", 0.04), "helmet": ("4c5048",),
  "leather": ("4a3020",), "wood": ("6a4a2c", 0.3, 8), "metal": ("3a3a3c",), "iron": ("55555a", 0.35, 20),
@@ -53,10 +73,14 @@ M = {k: mat(k, *v) for k, v in {
  "cloth": ("3e3a34",), "hood": ("5e5646", 0.18), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0),
  "robe": ("3e3428", 0.3), "rags": ("6a5c46", 0.3), "rope": ("7e6c48", 0.2, 60), "blood": ("4e1610", 0.2),
  "mannequin": ("cfc4b0", 0.03)}.items()}   # the mannequin head: smooth pale plaster, no face (2026-11-03)
+M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate": mat("plate", "7a7c80", 0.3, 18),
+          "gauntlet": spattered("gauntlet", "7a1a14", spots=0.5, scale=40),
+          "blade": spattered("blade", "9a9ca0", spots=0.42, scale=9)})   # the Stigmatic Nun (2026-11-03)
 # Faceless heads (visual pass Stage 1, 2026-10-27): every figure wears a plain hood of matte canvas over a smooth,
 # featureless head (no eyes, nose or mouth); the figures are told apart by silhouette, kit and pose.
 FACE_SCALE = 1.12   # the plain head fills the space of the MakeHuman face
 FACE_BOX = None
+FISTS = {}   # with mitts: each gloved fist's centre and its forearm's direction, so a weapon sits in the hand
 HEAD_SEGS, HEAD_RINGS = 14, 11   # the low-poly head: about 280 triangles
 def head_frame(eyes, headp, headtop):
     # the head's own frame (across, up, forward), used to size and place the plain head
@@ -106,8 +130,8 @@ FLOOR = 0.8168
 def P(x, y, h): return Vector((x, y, h - FLOOR))      # a point h metres above the floor
 def lift(v): return Vector((v.x, v.y, v.z + FLOOR))
 
-def human_body(pose, coat=True, dress=None, head="hood", mitts=None, shape="averagemuscle-averageweight"):
-    body, rig = human.load(DATA, ((f"macrodetails/universal-male-young-{shape}.target", 1.0),))
+def human_body(pose, coat=True, dress=None, head="hood", mitts=None, shape="male-young-averagemuscle-averageweight"):
+    body, rig = human.load(DATA, ((f"macrodetails/universal-{shape}.target", 1.0),))
     for s in ("L", "R"):      # legs together, straight
         x = 0.1 if s == "L" else -0.1
         for b in ("upperleg01", "upperleg02"): human.aim(rig, f"{b}.{s}", P(x, 0.0, 0.47))
@@ -160,6 +184,7 @@ def human_body(pose, coat=True, dress=None, head="hood", mitts=None, shape="aver
         # a gloved hand: a flattened fist along the forearm with a thumb, closed round whatever it holds
         for s in ("L", "R"):
             w = hands[s]; d = (w - elbows[s]).normalized(); q = Vector((0, 0, 1)).rotation_difference(d)
+            FISTS[s] = (w + d * 0.045, d)
             g = sphere(tuple(w + d * 0.045), 1, mitts, seg=8, rings=6)
             g.scale = (0.036, 0.03, 0.055); g.rotation_mode = 'QUATERNION'; g.rotation_quaternion = q
             side = d.cross(Vector((0, 0, 1))).normalized() * (1 if s == "L" else -1)
@@ -311,7 +336,7 @@ def trench_pilgrim():
         human.reach(r, "R", P(-0.24, 0.0, 1.06), P(-0.08, -0.24, 0.98))
         human.reach(r, "L", P(0.25, -0.12, 1.12), P(0.1, -0.3, 1.25))
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "rags", "thigh": "robe", "torso": "robe"}, head=None, mitts="leather",
-                                shape="minmuscle-minweight")   # gaunt, under a capirote that hides the head
+                                shape="male-young-minmuscle-minweight")   # gaunt, under a capirote that hides the head
     import random; rnd = random.Random(1914)
     robe_and_tabard(rnd)
     module("Helmet")
@@ -361,6 +386,149 @@ def trench_pilgrim():
     bar(muz, muz + d*0.22, 0.006, "iron", sides=4)
     module("Body")
 
+def stigmatic_nun():
+    # Stigmatic Nun (2026-11-03, second figure of docs/art-pipeline.md, class A): an original figure on the owner's
+    # reference cues (a white, blood-spattered habit and veil, a barred iron face guard, plate over the waist and skirt,
+    # bloody gauntlets, red shoulder tabs, a long blade), not a copy of either reference. No bare skin; the face guard
+    # covers the blank head. Modules: Helmet (veil and face guard), Chest (breastplate band and straps), Hip (tassets and
+    # a medical case), Weapon (pistol), Weapon2 (long blade), Accent (shoulder tabs, seat colour).
+    def pose(r):
+        human.aim(r, "spine03", P(0, -0.06, 1.4))
+        human.reach(r, "R", P(-0.22, -0.16, 1.24), P(-0.2, -0.42, 1.34))
+        human.reach(r, "L", P(0.24, -0.06, 1.0), P(0.22, -0.22, 0.9))
+    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "habit", "thigh": "habit", "torso": "habit"}, head="mannequin",
+                                mitts="gauntlet", shape="female-young-averagemuscle-minweight")
+    import random; rnd = random.Random(1917)
+    # the habit: long, falling to the feet, its hem dragged in the mud
+    bpy.ops.mesh.primitive_cone_add(vertices=16, radius1=0.21, radius2=0.15, depth=0.9, end_fill_type='NOTHING', location=(0, 0, 0.53))
+    o = bpy.context.object; o.scale = (1, 0.85, 1)
+    for v in o.data.vertices:
+        if v.co.z < 0: v.co.z += rnd.uniform(0.0, 0.03)
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(o, "habit")
+    # shoulder tabs in the seat colour, seen from above
+    for x in (-0.17, 0.17):
+        box((x, -0.02, 1.43), (0.09, 0.12, 0.012), "accent", rot=(0, 0.35 if x > 0 else -0.35, 0))
+        box((x * 1.06, -0.075, 1.38), (0.085, 0.012, 0.1), "accent")
+    module("Helmet")
+    # the veil: a white hood over the crown, falling either side of the face to the chest and down the back
+    c = Vector((hp.x, hp.y, top.z))
+    sphere(tuple(c + Vector((0, 0.01, -0.05))), 0.112, "habit", (1, 1.1, 0.9), seg=10, rings=6)
+    # the hood: a drape from the crown to the shoulders, open at the front where the face guard is
+    bpy.ops.mesh.primitive_cone_add(vertices=14, radius1=0.2, radius2=0.115, depth=0.3, end_fill_type='NOTHING', location=tuple(c + Vector((0, 0.01, -0.2))))
+    h = bpy.context.object; h.scale = (1, 1.05, 1)
+    import bmesh as _bm
+    bm = _bm.new(); bm.from_mesh(h.data)
+    _bm.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().y < -0.07 and abs(f.calc_center_median().x) < 0.08], context='FACES')
+    bm.to_mesh(h.data); bm.free()
+    h.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(h, "habit")
+    # the face guard: an iron plate over the whole face with dark horizontal slots, a blood-red cross on the brow band
+    # placed from the head's own frame (FACE_BOX: the eye line and its forward direction), so it covers the whole face
+    fb = FACE_BOX; g = fb["mid"] + fb["fwd"] * 0.012 - fb["up"] * 0.03
+    rot = (0, 0, math.atan2(fb["fwd"].x, -fb["fwd"].y))
+    centre = fb["mid"] - fb["fwd"] * 0.06 - fb["up"] * 0.02   # about the middle of the head
+    face = os.environ.get("NUN_FACE", "mask")   # the owner chose the votive mask (2026-11-03); visor, plate and sallet kept as options
+    def front_arc(radius, depth, at, m, keep=0.35):
+        # a band round the front of the head: a cylinder about the head's up axis with its back half removed
+        bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=radius, depth=depth, end_fill_type='NOTHING', location=tuple(at))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(fb["up"])
+        bpy.context.view_layer.update()
+        import bmesh as _bm
+        bm = _bm.new(); bm.from_mesh(o.data)
+        mw = o.matrix_world
+        _bm.ops.delete(bm, geom=[f for f in bm.faces if ((mw @ f.calc_center_median()) - at).normalized().dot(fb["fwd"]) < keep], context='FACES')
+        bm.to_mesh(o.data); bm.free()
+        o.modifiers.new("sol", "SOLIDIFY").thickness = 0.01
+        return add(o, m)
+    if face == "visor":
+        # a curved grille wrapped round the front of the head, its dark slots following the curve
+        front_arc(0.092, 0.2, centre, "iron")
+        for i in range(4): front_arc(0.097, 0.012, centre + fb["up"] * (0.05 - i * 0.034), "dark", keep=0.5)
+    elif face == "mask":
+        # a votive mask of glazed porcelain: a thin shell that follows the curve of the head, cut to a face-shaped oval
+        # (broad at the brow, narrowing to the chin), with a dark cross-shaped slit and nothing else
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=14, ring_count=10, radius=1, location=tuple(centre))
+        m_ = bpy.context.object; m_.scale = (0.088, 0.094, 0.125); m_.rotation_euler = rot
+        bpy.context.view_layer.update(); mw = m_.matrix_world
+        import bmesh as _bm
+        bm = _bm.new(); bm.from_mesh(m_.data)
+        def outside(f):
+            q = (mw @ f.calc_center_median()) - centre
+            a_, u_, f_ = q.dot(fb["ax"]), q.dot(fb["up"]) + 0.012, q.dot(fb["fwd"])
+            w = 0.072 if u_ > 0 else 0.072 - 0.25 * (-u_)   # narrower towards the chin
+            return f_ < 0.02 or (a_ / max(w, 0.03)) ** 2 + (u_ / (0.105 if u_ > 0 else 0.118)) ** 2 > 1
+        _bm.ops.delete(bm, geom=[f for f in bm.faces if outside(f)], context='FACES')
+        bm.to_mesh(m_.data); bm.free()
+        m_.modifiers.new("sol", "SOLIDIFY").thickness = 0.008; bpy.ops.object.shade_smooth(); add(m_, "bone")
+        # the cross slit, set into the surface of the mask
+        # in short pieces that follow the curve, standing just proud of the surface so it reads as one clean cross
+        def on(a_, u):
+            k = 1 - (a_ / 0.088) ** 2 - (u / 0.125) ** 2
+            return centre + fb["fwd"] * (0.094 * max(k, 0.0) ** 0.5 + 0.005) + fb["up"] * u + fb["ax"] * a_
+        ups = [0.065, 0.03, -0.005, -0.04, -0.065]
+        for u0, u1 in zip(ups, ups[1:]): bar(on(0, u0), on(0, u1), 0.007, "dark", sides=4)
+        across = [-0.04, -0.013, 0.013, 0.04]
+        for a0, a1 in zip(across, across[1:]): bar(on(a0, 0.03), on(a1, 0.03), 0.007, "dark", sides=4)
+    elif face == "sallet":
+        # a close iron sallet under the hood, covering the whole face, with one narrow dark eye slit
+        sl = sphere(tuple(centre + fb["up"] * 0.01), 1, "plate", (0.098, 0.118, 0.13), seg=12, rings=7)
+        sl.rotation_euler = rot
+        box(tuple(centre + fb["fwd"] * 0.112 + fb["up"] * 0.035), (0.12, 0.01, 0.014), "dark", rot=rot)
+        bar(centre + fb["fwd"] * 0.1 + fb["up"] * 0.12, centre + fb["fwd"] * 0.115 - fb["up"] * 0.08, 0.008, "plate", sides=4)   # a ridge down the face
+    else:
+        box(tuple(g), (0.14, 0.03, 0.2), "iron", rot=rot)
+        for i in range(4): box(tuple(g + fb["fwd"] * 0.017 + fb["up"] * (0.05 - i * 0.034)), (0.105, 0.006, 0.014), "dark", rot=rot)
+    # a blood-red cross painted on the front of the hood's crown, above the mask, lying on its curve
+    cross = Vector((c.x, c.y - 0.07, c.z + 0.028)); tilt = (-0.65, 0, rot[2])
+    box(tuple(cross), (0.013, 0.006, 0.036), "blood", rot=tilt); box(tuple(cross + Vector((0, 0.002, 0.004))), (0.036, 0.006, 0.012), "blood", rot=tilt)
+    module("Chest")
+    # a fitted plate corset round the waist and ribs: a band shrink-wrapped onto the torso so it follows the body,
+    # standing just proud of the habit, and a strap up to the throat
+    bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.16, depth=0.15, end_fill_type='NOTHING', location=(0, -0.01, 1.075))
+    o = bpy.context.object
+    import bmesh as _bm
+    bm = _bm.new(); bm.from_mesh(o.data)
+    _bm.ops.subdivide_edges(bm, edges=[e for e in bm.edges if abs(e.verts[0].co.z - e.verts[1].co.z) > 0.01], cuts=1)
+    bm.to_mesh(o.data); bm.free()
+    sw = o.modifiers.new("fit", "SHRINKWRAP"); sw.target = bpy.data.objects["human"]; sw.wrap_method = 'PROJECT'; sw.use_project_x = sw.use_project_y = sw.use_project_z = False
+    sw.use_negative_direction = True; sw.use_positive_direction = True; sw.offset = 0.014   # along each vertex's own outward line: onto the torso, never an arm
+    bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier="fit")   # now, before the body is joined
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(o, "plate")
+    bar((0, -0.13, 1.15), (0, -0.115, 1.45), 0.012, "leather", sides=4)
+    box((0, -0.133, 1.3), (0.03, 0.01, 0.03), "brass")
+    module("Hip")
+    # layered plates (tassets) over the front of the skirt, and a medical case on the right hip
+    for x in (-0.09, 0.09):
+        for i in range(2):
+            z = 0.9 - i * 0.12
+            box((x, -0.145 - i * 0.014, z), (0.1, 0.012, 0.115), "plate", rot=(-0.16, 0, 0.1 if x > 0 else -0.1))
+    box((-0.21, 0.0, 0.88), (0.06, 0.16, 0.13), "leather"); box((-0.24, 0.0, 0.88), (0.008, 0.06, 0.03), "metal")
+    module("Weapon")
+    # pistol in the right fist: the grip through the fist, the barrel above it pointing along the raised forearm
+    fr, d = FISTS["R"]; up_g = (Vector((0, 0, 1)) - d * d.z).normalized()
+    bar(fr - up_g * 0.04, fr + up_g * 0.03, 0.016, "wood", sides=4)
+    bar(fr + up_g * 0.04 - d * 0.03, fr + up_g * 0.04 + d * 0.15, 0.014, "metal", sides=5)
+    module("Weapon2")
+    # a long blade held low, its point forward and up: a flat blade broad at the guard and tapering to a point, its back
+    # edge sawn into teeth, blood dried on the steel; a crossguard, a wrapped grip and a round pommel
+    # the grip runs through the left fist at right angles to the forearm, as a hand closes round it
+    fl, d = FISTS["L"]; want = Vector((0.03, -0.55, 0.45))
+    e = (want - d * want.dot(d)).normalized(); hl = fl
+    side = (Vector((1, 0, 0)) - e * e.x).normalized()      # the blade's width lies side to side: its flat faces up and forward
+    base, L, w = hl + e * 0.055, 0.44, 0.042
+    outline = [(0, w / 2), (L * 0.78, w * 0.4), (L, 0)]   # the cutting edge, then the point
+    teeth = 5
+    for i in range(teeth, -1, -1):                          # the sawn back edge, from the point back to the guard
+        t = L * 0.74 * i / teeth
+        outline.append((t, -w / 2 * (0.95 if i % 2 else 0.62) * (1 - 0.35 * t / L)))
+    me = bpy.data.meshes.new("blade")
+    me.from_pydata([tuple(base + e * a_ + side * c_) for a_, c_ in outline], [], [list(range(len(outline)))])
+    bl = bpy.data.objects.new("blade", me); scn.collection.objects.link(bl); bl.modifiers.new("sol", "SOLIDIFY").thickness = 0.008
+    add(bl, "blade")
+    bar(base - side * 0.055, base + side * 0.055, 0.009, "brass", sides=4)             # crossguard
+    bar(hl - e * 0.06, hl + e * 0.05, 0.011, "leather", sides=4)                       # grip
+    sphere(tuple(hl - e * 0.07), 0.017, "brass", seg=5, rings=3)                      # pommel
+    module("Body")
+
 def pilgrim():
     # Pilgrim (an original figure, not used by any unit): a tall pointed iron hood over the whole head (eye slit,
     # riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud, a rope belt with a rosary, a
@@ -407,7 +575,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o

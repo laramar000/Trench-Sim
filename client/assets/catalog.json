@@ -10,6 +10,7 @@
     "unit:Banner Carrier": "units/standard.glb",
     "unit:Lamp Keeper": "units/standard.glb",
     "unit:Trench Pilgrim": "units/trench-pilgrim.glb",
+    "unit:Stigmatic Nun": "units/stigmatic-nun.glb",
     "ground": "ground/mud.png",
     "terrain:Low": "terrain/rubble.png",
     "terrain:Cover": "terrain/burlap.png",
