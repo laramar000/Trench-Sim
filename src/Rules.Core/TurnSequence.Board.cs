@@ -616,7 +616,7 @@ public static partial class TurnSequence
                 break;
             }
             case ChargeModel c:
-                run.Emit(new ChargeDeclared(c.Model, c.Target));
+                run.Emit(new ChargeDeclared(c.Model, c.Target) { CarryOn = c.CarryOn });
                 break;
             case RetreatModel c:
                 run.Emit(new RetreatDeclared(c.Model, c.Path));
@@ -883,7 +883,7 @@ public static partial class TurnSequence
             }
             case RollStage.ChargeMove:
             {
-                var plan = Board.PlanCharge(s, actor, s.FindModel(progress.Target!.Value)!, progress.ChargeDie);
+                var plan = Board.PlanCharge(s, actor, s.FindModel(progress.Target!.Value)!, progress.ChargeDie, progress.CarryOn);
                 run.Emit(new ChargeMoved(progress.Actor, progress.Target.Value, plan.Path, plan.Cost, plan.Reached));
                 return true;
             }

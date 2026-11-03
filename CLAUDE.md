@@ -86,7 +86,12 @@ geometry and movement calculations unchanged; an in-game screenshot of the full 
 Do not change battlefield dimensions until the research and the proposed implementation have been reviewed and approved.
 
 Approved 2026-11-03: 36" by 36" is the default table and 48" by 48" the alternative (`docs/map-dimensions.md` section 4a). Dimension
-tests exist; 48" support, the Scenario IV zone depth and the camera check are still open.
+tests exist; 48" table sizes are accepted per scenario (U125, `MapNeeds.TableSizes`; no 48" map shipped); the Scenario IV zone depth
+and the camera check are still open.
+
+Carry-on past contact is built (U126: `ChargeModel.CarryOn`, `ChargeDeclared.CarryOn`, `RollInProgress.CarryOn`, planner
+`ChargePlanner.CarryOn`; `Interaction.ToggleCarryOn`; CLI `charge A1 B1 carry`). The Godot key to toggle it is not bound. All
+of this work is local commits on `claude/pensive-planck-ep84pj` after `d9ac75a`; nothing pushed until the owner approves.
 
 Decisions kept for the carry-on and Field Shrine work: A1 and A2 recommended; B1 to B4 recommended; carry-on first, then
 Field Shrine in three stages; full build and tests after each stage; **no pushing until the owner has reviewed and approved**.

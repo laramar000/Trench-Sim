@@ -54,8 +54,8 @@ public static class Charging
     public static MoveResult CheckRoute(Battlefield battlefield, ModelBody mover, ModelBody target, IReadOnlyList<Obstacle> others) =>
         For(battlefield, mover, target, others).CheckRoute();
 
-    public static ChargePlan Plan(Battlefield battlefield, ModelBody mover, ModelBody target, Length reach, IReadOnlyList<Obstacle> others) =>
-        For(battlefield, mover, target, others).Plan(reach);
+    public static ChargePlan Plan(Battlefield battlefield, ModelBody mover, ModelBody target, Length reach, IReadOnlyList<Obstacle> others, bool carryOn = false) =>
+        For(battlefield, mover, target, others).Plan(reach, carryOn);
 
     // One charger, target and table, for asking CheckRoute and Plan several times (the client's preview asks for every
     // Charge Bonus result): the obstacles are sorted and the routes searched once, and each answer is the one the static
@@ -95,7 +95,15 @@ public static class Charging
             return check!;
         }
 
-        public ChargePlan Plan(Length reach)
+        // Carry-on (p. 37, U126): with the flag, a charge that stopped in contact with allowance to spare may slide round the
+        // target's base to the nearest point within 1" of another enemy. Without it the plan is exactly the first-contact plan.
+        public ChargePlan Plan(Length reach, bool carryOn = false)
+        {
+            var plan = PlanToContact(reach);
+            return carryOn && _scene.CarryOn(plan, reach) is { } slid ? slid : plan;
+        }
+
+        private ChargePlan PlanToContact(Length reach)
         {
             var none = new ChargePlan([], Length.Zero, false);
 
@@ -656,6 +664,66 @@ public static class Charging
             }
             return [.. walked];
         }
+
+        // Carry-on past contact (p. 37, U126). From a stop in contact with the target and not yet within 1" of another enemy,
+        // the model slides round the ring of contact points, either way, to the first point within 1" of another enemy
+        // that the whole path to it reaches legally within the allowance. The cheaper way wins, the way of rising ring
+        // numbers on a tie. Null when it is not in contact, already qualifies, or nothing qualifies: the plan stands.
+        public ChargePlan? CarryOn(ChargePlan plan, Length reach)
+        {
+            if (!plan.Reached || plan.Path.IsEmpty || _otherEnemies.Count == 0)
+            {
+                return null;
+            }
+            var end = plan.Path[^1];
+            var radius = (_mover.Radius + _target.Radius).Thousandths + 1;
+            if (!ExactMath.Near(end, _target.Centre, Length.FromThousandths(radius + 2), strict: false) || NearOtherEnemy(end))
+            {
+                return null;
+            }
+            var ring = Enumerable.Range(0, Contacts).Select(j => RingPoint(_target.Centre, radius, j)).ToArray();
+            var start = 0;
+            Int128 closest = Int128.MaxValue;
+            for (var j = 0; j < Contacts; j++)
+            {
+                var dx = ring[j].X.Thousandths - end.X.Thousandths;
+                var dy = ring[j].Y.Thousandths - end.Y.Thousandths;
+                var d = (Int128)dx * dx + (Int128)dy * dy;
+                if (d < closest)
+                {
+                    (closest, start) = (d, j);
+                }
+            }
+            ChargePlan? best = null;
+            foreach (var step in new[] { 1, -1 })
+            {
+                var path = plan.Path.ToBuilder();
+                for (var n = 0; n < Contacts / 2; n++)
+                {
+                    var point = ring[((start + step * n) % Contacts + Contacts) % Contacts];
+                    if (point != path[^1])
+                    {
+                        path.Add(point);
+                    }
+                    if (path.Count > MaxLegs || Movement.Cost(_field, _mover, path.ToImmutable()) > reach)
+                    {
+                        break;
+                    }
+                    if (NearOtherEnemy(point) && Finish(path.ToImmutable(), reach) is { } slid)
+                    {
+                        if (best is null || slid.Cost < best.Cost)
+                        {
+                            best = slid;
+                        }
+                        break;
+                    }
+                }
+            }
+            return best;
+        }
+
+        private bool NearOtherEnemy(Point2 p) =>
+            _otherEnemies.Any(e => ExactMath.Near(p, e.Centre, _mover.Radius + e.Radius + Length.Inch, strict: false));
 
         // The plan for a path, if it is legal against everything on the table (a base may not be ended on).
         public ChargePlan? Finish(ImmutableArray<Point2> path, Length reach)

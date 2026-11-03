@@ -67,7 +67,12 @@ public sealed record SpendMarkers(Seat Seat, int Count) : Command
 // ---- M4 Slice B: Charge, Retreat, Fight and the choices around them ----
 
 // A Charge ACTION (pp. 34, 36-37): declare the target; the Charge Bonus D6 and the charge move follow.
-public sealed record ChargeModel(Seat Seat, ModelId Model, ModelId Target) : Command;
+public sealed record ChargeModel(Seat Seat, ModelId Model, ModelId Target) : Command
+{
+    // Carry-on past contact (p. 37, U126): if the charge stops in contact with allowance to spare, it may slide round the
+    // target to the nearest point within 1" of another enemy. Left off the wire when false.
+    public bool CarryOn { get; init; }
+}
 
 // A Retreat ACTION (pp. 35, 37): the path is fixed now, the move happens after the opponent's free attacks.
 public sealed record RetreatModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command;

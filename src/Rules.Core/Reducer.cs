@@ -1505,7 +1505,7 @@ public static class Reducer
         var charged = Board.TracksCharges(state.Setup) && !state.ChargedThisTurn.Contains(e.Model) ? state.ChargedThisTurn.Add(e.Model) : state.ChargedThisTurn;
         // Roster stage R6c (U119): Counter-Charge, when the Charge is the activation's first ACTION.
         var counter = profile.CounterCharge && state.Actions == ActionsTaken.None;
-        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(stage, e.Model, e.Target), ChargedThisTurn = charged, CounterCharging = state.CounterCharging || counter };
+        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(stage, e.Model, e.Target) { CarryOn = e.CarryOn }, ChargedThisTurn = charged, CounterCharging = state.CounterCharging || counter };
     }
 
     private static MatchState OnChargeRolled(MatchState state, ChargeRolled e)
@@ -1522,7 +1522,7 @@ public static class Reducer
         var charger = Active(state, e.Model, "A charge move");
         Require(state.InProgress is { Stage: RollStage.ChargeMove } p && p.Actor == e.Model && p.Target == e.Target, "No charge move is waiting.");
         var progress = state.InProgress!;
-        var plan = Board.PlanCharge(state, charger, state.FindModel(e.Target)!, progress.ChargeDie);
+        var plan = Board.PlanCharge(state, charger, state.FindModel(e.Target)!, progress.ChargeDie, progress.CarryOn);
         Require(plan.Path.SequenceEqual(e.Path) && plan.Cost == e.Cost && plan.Reached == e.Reached, "The charge move must be the one the rules plan from the Charge Bonus.");
         var moved = e.Path.IsEmpty ? charger : charger with { Position = e.Path[^1] };
         return HaltAtMine(state, TurnRules.WithModel(state, moved) with { InProgress = null }, e.Model, e.Path);

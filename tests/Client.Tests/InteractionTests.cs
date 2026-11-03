@@ -347,6 +347,18 @@ public class InteractionTests
     }
 
     [Fact]
+    public void ACarryOnChargeCarriesTheChoiceOnItsCommand()
+    {
+        var (state, seat) = Activating();
+        var actor = state.ActiveModel!.Value;
+        var enemy = state.Models.First(m => m.Seat != seat).Id;
+        Assert.False(((ChargeModel)Previews.Target(state, seat, PreviewKind.Charge, actor, enemy).Command!).CarryOn);
+        Assert.True(((ChargeModel)Previews.Target(state, seat, PreviewKind.Charge, actor, enemy, carryOn: true).Command!).CarryOn);
+        // Only a charge has the choice: other previews ignore it.
+        Assert.IsType<Shoot>(Previews.Target(state, seat, PreviewKind.Shoot, actor, enemy, carryOn: true).Command);
+    }
+
+    [Fact]
     public void EachCommandIsDescribedInWords()
     {
         var (state, seat) = Activating();

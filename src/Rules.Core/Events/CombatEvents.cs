@@ -282,7 +282,11 @@ public sealed record ObjectivesScored : GameEvent
 // ---- M4 Slice B ----
 
 // A Charge ACTION was taken against this target (pp. 36-37). The Charge Bonus is rolled next.
-public sealed record ChargeDeclared(ModelId Model, ModelId Target) : GameEvent;
+public sealed record ChargeDeclared(ModelId Model, ModelId Target) : GameEvent
+{
+    // Carry-on past contact (p. 37, U126); left off the wire when false.
+    public bool CarryOn { get; init; }
+}
 
 public sealed record ChargeRolled : GameEvent
 {

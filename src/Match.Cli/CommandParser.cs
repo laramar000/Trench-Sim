@@ -45,7 +45,7 @@ public static class CommandParser
             "dash" => new DashModel(seat, Model(Arg(args, 0)), [.. args[1..].Select(Point)]),
             "retreat" => new RetreatModel(seat, Model(Arg(args, 0)), [.. args[1..].Select(Point)]),
             "shoot" => new Shoot(seat, Model(Arg(args, 0)), Model(Arg(args, 1))),
-            "charge" => new ChargeModel(seat, Model(Arg(args, 0)), Model(Arg(args, 1))),
+            "charge" => new ChargeModel(seat, Model(Arg(args, 0)), Model(Arg(args, 1))) { CarryOn = args.Length > 2 && args[2].Equals("carry", StringComparison.OrdinalIgnoreCase) },
             "fight" => new FightModel(seat, Model(Arg(args, 0)), Model(Arg(args, 1))),
             "markers" => new SpendMarkers(seat, int.Parse(Arg(args, 0), CultureInfo.InvariantCulture)) { Bloodbath = args.Length > 1 && args[1].Equals("bloodbath", StringComparison.OrdinalIgnoreCase) },
             "free" => new FreeFight(seat, Model(One(args))),

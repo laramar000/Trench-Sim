@@ -399,6 +399,8 @@ public static class Wire
             (typeof(MineExploded), nameof(MineExploded.Spared)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Bloodbath)),
             (typeof(SpendMarkers), nameof(SpendMarkers.Bloodbath)),
+            (typeof(ChargeModel), nameof(ChargeModel.CarryOn)),
+            (typeof(ChargeDeclared), nameof(ChargeDeclared.CarryOn)),
             (typeof(ModelProfile), nameof(ModelProfile.EnforcesOrthodoxy)),
             (typeof(ModelProfile), nameof(ModelProfile.LaysOnHands)),
         ];

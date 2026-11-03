@@ -295,3 +295,7 @@ The server sends events in log order, one message each, to both players, through
 ## Bloodbath Rolls (U124)
 
 `SpendMarkers` gained an optional `bloodbath` flag (left out when false): on an Injury Roll decision it spends 6 of the target's Blood Markers (3 if the target is Down) or more, and the roll becomes a Bloodbath Roll. `MarkersSpent` has a new `purpose` value `Bloodbath`, and `InjuryRolled` an optional `bloodbath` flag (left out when false). Messages and records that never use it are byte-for-byte unchanged.
+
+## Charge carry-on (U126)
+
+`ChargeModel` gained an optional `carryOn` flag (left out when false), and `ChargeDeclared` the same. The server and every replay plan the charge move from the declared flag, so a record whose path does not match its declaration is refused. Messages and records that never use it are byte-for-byte unchanged.

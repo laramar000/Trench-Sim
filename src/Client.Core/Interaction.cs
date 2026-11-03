@@ -665,10 +665,12 @@ public sealed class Interaction
     private Preview TargetPreview(Seat seat, PreviewKind kind, ModelId actor, ModelId target, int weapon = 0)
     {
         Remember(seat);
-        if (!_targetMemo.TryGetValue((kind, actor, target, weapon), out var preview))
+        // Charge carry-on (U126): the choice is part of the answer, so it is part of the memo's key (as the weapon is).
+        var key = (kind, actor, target, weapon + (kind == PreviewKind.Charge && CarryOn ? CarryOnKey : 0));
+        if (!_targetMemo.TryGetValue(key, out var preview))
         {
-            preview = Previews.Target(_state, seat, kind, actor, target, weapon);
-            _targetMemo[(kind, actor, target, weapon)] = preview;
+            preview = Previews.Target(_state, seat, kind, actor, target, weapon, carryOn: kind == PreviewKind.Charge && CarryOn);
+            _targetMemo[key] = preview;
             TargetPreviewsWorkedOut++;
         }
         return preview;
@@ -830,6 +832,24 @@ public sealed class Interaction
     // Towers proposal, stage T6: whether a Move or Dash to another level climbs a tower's side (a Risky Success Roll,
     // p. 39) instead of using a ladder. K switches it; a new action starts with ladders.
     public bool ClimbSides { get; private set; }
+
+    // Charge carry-on past contact (p. 37, U126): whether the next Charge asks to slide round its target after contact.
+    // The player switches it before charging; a new action starts without it.
+    public bool CarryOn { get; private set; }
+
+    private const int CarryOnKey = 1000;
+
+    public bool CanCarryOn => Mode == InteractionMode.Charge;
+
+    public bool ToggleCarryOn()
+    {
+        if (!CanCarryOn)
+        {
+            return false;
+        }
+        CarryOn = !CarryOn;
+        return true;
+    }
 
     private bool Sides => ClimbSides && Mode is InteractionMode.Move or InteractionMode.Dash;
 
@@ -1712,6 +1732,7 @@ public sealed class Interaction
         Notice = null;
         Answer = null;
         ClimbSides = false;
+        CarryOn = false;
         _waypoints.Clear();
     }
 

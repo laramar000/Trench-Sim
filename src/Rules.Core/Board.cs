@@ -427,8 +427,8 @@ internal static class Board
         return state.MovementHalved ? Length.FromThousandths(total.Thousandths / 2) : total;
     }
 
-    public static ChargePlan PlanCharge(MatchState state, ModelState charger, ModelState target, int bonus) =>
-        Charging.Plan(ScenarioOf(state)!.Battlefield, BodyOf(state, charger)!, BodyOf(state, target)!, ChargeReach(state, charger, bonus), ChargeObstaclesFor(state, charger, BodyOf(state, charger)!));
+    public static ChargePlan PlanCharge(MatchState state, ModelState charger, ModelState target, int bonus, bool carryOn = false) =>
+        Charging.Plan(ScenarioOf(state)!.Battlefield, BodyOf(state, charger)!, BodyOf(state, target)!, ChargeReach(state, charger, bonus), ChargeObstaclesFor(state, charger, BodyOf(state, charger)!), carryOn);
 
     // ---- Retreat (pp. 35, 37) ----
 

@@ -129,6 +129,7 @@ public enum AttackKind
 // MartyrClose are the other models within 1" of it (+1 INJURY DICE each).
 // Roster stage R6b (U118): SelfAction, which ACTION a SelfRoll is for.
 // Bloodbath Roll (p. 47, U124): Bloodbath, the attacker spent the markers that make this Injury Roll a Bloodbath Roll.
+// Charge carry-on (p. 37, U126): CarryOn, the charge may slide round its target after contact.
 public sealed record RollInProgress(
     RollStage Stage,
     ModelId Actor,
@@ -155,7 +156,8 @@ public sealed record RollInProgress(
     bool Martyrdom = false,
     ImmutableArray<ModelId> MartyrClose = default,
     SelfActionKind SelfAction = SelfActionKind.Aim,
-    bool Bloodbath = false);
+    bool Bloodbath = false,
+    bool CarryOn = false);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.

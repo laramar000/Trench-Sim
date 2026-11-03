@@ -382,7 +382,7 @@ public static class Previews
 
     // Roster stage R3: weapon 1 is the model's second Ranged or Melee Weapon. A Fight with attacks still to come (an
     // Off-Hand weapon, CLEAVE) goes on with the weapon the rules name, whatever is asked (TurnSequence.NextFightAttack).
-    public static Preview Target(MatchState state, Seat seat, PreviewKind kind, ModelId model, ModelId target, int weapon = 0)
+    public static Preview Target(MatchState state, Seat seat, PreviewKind kind, ModelId model, ModelId target, int weapon = 0, bool carryOn = false)
     {
         ArgumentNullException.ThrowIfNull(state);
         if (kind == PreviewKind.Treat)
@@ -406,7 +406,7 @@ public static class Previews
         Command command = kind switch
         {
             PreviewKind.Shoot => new Shoot(seat, model, target) { Weapon = weapon },
-            PreviewKind.Charge => new ChargeModel(seat, model, target),
+            PreviewKind.Charge => new ChargeModel(seat, model, target) { CarryOn = carryOn },
             PreviewKind.Fight => new FightModel(seat, model, target) { Weapon = weapon },
             _ => throw new ArgumentOutOfRangeException(nameof(kind), "Shoot, Charge or Fight."),
         };
@@ -419,7 +419,7 @@ public static class Previews
         var refusal = Opening(state) ?? kind switch
         {
             PreviewKind.Shoot => CheckShoot(state, seat, model, target, facts, rays, ref dice, ref longRange, weapon),
-            PreviewKind.Charge => CheckCharge(state, seat, model, target, facts, rays, charge, ref needed),
+            PreviewKind.Charge => CheckCharge(state, seat, model, target, facts, rays, charge, ref needed, carryOn),
             _ => CheckFight(state, seat, model, target, facts, rays, ref dice, weapon, next),
         };
         // Battlefield UI, stage K7: a charger without a Melee Weapon may still charge (1.0.2 p. 37: a charge does not of
@@ -525,7 +525,10 @@ public static class Previews
         return null;
     }
 
-    private static Rejection? CheckCharge(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays, List<PathMark> charge, ref int? needed)
+    private const string CarryOnFact = "Carry on past contact: if the model reaches contact with reach to spare, it slides round the target to finish within 1\" of another enemy (1.0.2 p. 37).";
+    private const string CarryOnPossibleFact = "A carry-on past contact could end within 1\" of a second enemy on a high Charge roll: switch Carry on before charging (1.0.2 p. 37).";
+
+    private static Rejection? CheckCharge(MatchState state, Seat seat, ModelId id, ModelId targetId, List<string> facts, List<PreviewRay> rays, List<PathMark> charge, ref int? needed, bool carryOn = false)
     {
         if (Acting(state, seat, id, out var charger) is { } rejection)
         {
@@ -595,14 +598,14 @@ public static class Previews
         if (heavy)
         {
             // HEAVY (p. 55, U99): no Charge Bonus die, the reach is the Movement alone.
-            plan = planner.Plan(ChargeReach(state, charger, 0));
+            plan = planner.Plan(ChargeReach(state, charger, 0), carryOn);
             facts.Add($"Charge reach: Movement {Inch(movement)}, no Charge Bonus (HEAVY, {ActionLimits.Ref}){halved}.");
             facts.Add(plan.Reached ? "Reaches base contact." : "Would not reach base contact; the model would stop short.");
             needed = plan.Reached ? 1 : null; // reaches whatever happens, like "any Charge roll"
         }
         for (var die = 1; !heavy && die <= ChargeDieFaces; die++)
         {
-            plan = planner.Plan(ChargeReach(state, charger, die));
+            plan = planner.Plan(ChargeReach(state, charger, die), carryOn);
             if (plan.Reached)
             {
                 needed = die;
@@ -617,6 +620,17 @@ public static class Previews
             facts.Add(needed is { } n
                 ? n == 1 ? "Reaches base contact on any Charge roll." : $"Reaches base contact on a Charge roll of {n} or more; less stops short."
                 : "Would not reach base contact even on a 6; the model would stop short.");
+        }
+        // Charge carry-on (p. 37, U126): with it chosen, the model slides round the target to be within 1" of another enemy when
+        // it has the reach; without it, say so when the best Charge roll would let it.
+        if (carryOn)
+        {
+            facts.Add(CarryOnFact);
+        }
+        else if (!heavy && planner.Plan(ChargeReach(state, charger, ChargeDieFaces), true) is { } slid
+            && slid.Path.Length > planner.Plan(ChargeReach(state, charger, ChargeDieFaces)).Path.Length)
+        {
+            facts.Add(CarryOnPossibleFact);
         }
         if (plan is not null)
         {
