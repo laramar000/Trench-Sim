@@ -359,6 +359,26 @@ public class InteractionTests
     }
 
     [Fact]
+    public void KSwitchesCarryOnOnlyForACharge()
+    {
+        var (state, seat) = Activating();
+        var interaction = new Interaction();
+        interaction.Update(state, seat);
+        Assert.False(interaction.ToggleCarryOn());          // no action chosen
+        interaction.Start(InteractionMode.Combat);
+        Assert.False(interaction.ToggleCarryOn());          // the Combat menu has no charge yet
+        Assert.False(interaction.CarryOn);
+        Assert.Equal(CombatPick.Target, interaction.ChooseCombat(InteractionMode.Charge, byKey: true));
+        Assert.True(interaction.CanCarryOn);
+        Assert.True(interaction.ToggleCarryOn());
+        Assert.True(interaction.CarryOn);
+        Assert.True(interaction.ToggleCarryOn());
+        Assert.False(interaction.CarryOn);
+        interaction.Cancel();                               // a new action starts without it
+        Assert.False(interaction.CarryOn);
+    }
+
+    [Fact]
     public void EachCommandIsDescribedInWords()
     {
         var (state, seat) = Activating();

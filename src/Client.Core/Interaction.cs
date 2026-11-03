@@ -1643,7 +1643,8 @@ public sealed class Interaction
             + (CanClimbSides ? (ClimbSides ? " K: back to ladders (now climbing a tower's side, a Risky roll)." : " K: climb a tower's side instead of a ladder (a Risky roll).") : ""),
         InteractionMode.Combat => "Choose Shoot, Charge or Fight; then click an enemy the rules accept (ringed) and Confirm beside it (or Space). An attack the rules refuse is greyed out with the reason. Right-click or Esc cancels. Keys: 1 Shoot, 2 Charge, 3 Fight; 7, 8 and 9 aim a BLAST weapon at a point.",
         InteractionMode.Blast => "Click the point to aim at (the ring is the blast); a click the preview accepts sends it. Right-click or Esc goes back to the Combat menu. Keys: arrows move the point (2\" with Shift), Space sends.",
-        InteractionMode.Charge => "Click Confirm charge beside the target. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
+        InteractionMode.Charge => "Click Confirm charge beside the target. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends."
+            + (CarryOn ? " K: stop at contact (now carrying on past contact to a second enemy when the reach allows)." : " K: carry on past contact to finish beside a second enemy when the reach allows."),
         _ => "Click a target (valid ones are marked), then Confirm beside it. Right-click or Esc cancels. Keys: N and P choose, Enter or Space sends.",
     };
 

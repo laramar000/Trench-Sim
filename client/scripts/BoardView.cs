@@ -1302,7 +1302,8 @@ public partial class BoardView : SubViewportContainer
                 return true;
             case Key.K:
                 // Towers proposal, stage T6: switch between ladders and climbing a tower's side (a Risky roll).
-                return Interaction.ToggleClimbSides();
+                // Charge carry-on (U126): in Charge mode the same key switches the slide round the target after contact.
+                return Interaction.ToggleClimbSides() || Interaction.ToggleCarryOn();
             case Key.Escape:
                 if (Interaction.Mode == InteractionMode.None && Interaction.Pending is null)
                 {
