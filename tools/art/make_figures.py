@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -29,7 +29,7 @@ if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
     sys.exit(0)
 # Builds one modelled figure (Body textured PSX-style + untextured Accent) in headless Blender.
 import bpy, bmesh, math, os, sys
-from mathutils import Vector, Euler
+from mathutils import Vector, Euler, Matrix
 role, outdir, mhdir = sys.argv[-3], sys.argv[-2], sys.argv[-1]
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import makehuman_body as human
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -78,7 +78,8 @@ M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate":
           "blade": spattered("blade", "9a9ca0", spots=0.42, scale=9),
           "flesh": spattered("flesh", "9c7a6a", spots=0.36, scale=9),      # the Ecclesiastic Prisoner (2026-11-03)
           "rust": mat("rust", "6a4630", 0.35, 14), "bomb": mat("bomb", "4a5430", 0.2, 10),
-          "charge": mat("charge", "8a1812", 0.15, 12)})   # the War Prophet's anti-tank charge (2026-11-03)   # the Stigmatic Nun (2026-11-03)
+          "charge": mat("charge", "8a1812", 0.15, 12),
+          "rubber": mat("rubber", "2c2a27", 0.02, 6), "mail": mat("mail", "4c4e52", 0.5, 70), "gilt": mat("gilt", "9a7a32", 0.2, 20), "icon": mat("icon", "6a4a2a", 0.4, 14)})   # the Castigator   # the War Prophet's anti-tank charge (2026-11-03)   # the Stigmatic Nun (2026-11-03)
 # Faceless heads (visual pass Stage 1, 2026-10-27): every figure wears a plain hood of matte canvas over a smooth,
 # featureless head (no eyes, nose or mouth); the figures are told apart by silhouette, kit and pose.
 FACE_SCALE = 1.12   # the plain head fills the space of the MakeHuman face
@@ -728,6 +729,164 @@ def war_prophet():
     box(tuple(ch + Vector((0, -0.035, 0.0))), (0.012, 0.006, 0.05), "bone"); box(tuple(ch + Vector((0, -0.035, 0.01))), (0.04, 0.006, 0.012), "bone")
     module("Body")
 
+def castigator():
+    # Castigator (2026-11-03, fifth figure of docs/art-pipeline.md, class B, 32 mm): an original figure on the owner's
+    # reference cues, not a copy of the miniature, the art or any paint job. A tall flat-topped hat with an Orthodox cross
+    # over a dark hood, a gas mask of smooth dark rubber with a filter snout and a hose to the chest (no eye lenses:
+    # the face stays blank; no head under it), mail sleeves, a long dark robe and cape, gilded icon plaques on the chest, a tall wooden reliquary
+    # shield with a crucifix, severed hands and candles in the left hand, and a spiked flail raised in the right.
+    # Modules: Helmet (hat, hood, mask, respirator), Chest (icons, hose, belt), Back (cape), Weapon (flail), Weapon2
+    # (shield), Accent (the faction's shoulder mantle and the hat's top).
+    global BODY_BUDGET; BODY_BUDGET = 1100
+    def pose(r):
+        human.reach(r, "R", P(-0.3, -0.06, 1.3), P(-0.4, -0.18, 1.42))
+        human.reach(r, "L", P(0.25, -0.1, 1.06), P(0.17, -0.3, 1.1))
+    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "robe", "thigh": "robe", "torso": "mail"}, head=None,
+                                mitts="leather", shape="male-young-averagemuscle-averageweight")
+    import random; rnd = random.Random(1919)
+    # the long robe, its hem ragged
+    bpy.ops.mesh.primitive_cone_add(vertices=16, radius1=0.24, radius2=0.17, depth=0.88, end_fill_type='NOTHING', location=(0, 0, 0.54))
+    o = bpy.context.object; o.scale = (1, 0.84, 1)
+    for v in o.data.vertices:
+        if v.co.z < 0: v.co.z += rnd.uniform(0.0, 0.07)
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(o, "robe")
+    # the pilgrims' shoulder mantle in the seat colour
+    bpy.ops.mesh.primitive_cone_add(vertices=10, radius1=0.255, radius2=0.12, depth=0.12, end_fill_type='NOTHING', location=(hp.x, hp.y - 0.01, 1.41))
+    m_ = bpy.context.object; m_.scale = (1, 0.84, 1); m_.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(m_, "accent")
+    module("Back")
+    # the cape: falling from the shoulders to the ground behind, open at the front
+    bpy.ops.mesh.primitive_cone_add(vertices=10, radius1=0.27, radius2=0.17, depth=1.25, end_fill_type='NOTHING', location=(0, 0.03, 0.72))
+    cp = bpy.context.object; cp.scale = (1, 0.82, 1)
+    import bmesh as _bm
+    bm = _bm.new(); bm.from_mesh(cp.data)
+    _bm.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().y < -0.05], context='FACES')
+    bm.to_mesh(cp.data); bm.free()
+    for v in cp.data.vertices:
+        if v.co.z < -0.5: v.co.z += rnd.uniform(0.0, 0.08)
+    cp.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(cp, "cloth")
+    module("Helmet")
+    # the hood round the head, open at the front; the porcelain mask; the respirator; the tall hat and its cross
+    fb = FACE_BOX; crown = fb["mid"] + fb["up"] * 0.1 - fb["fwd"] * 0.05   # the top of the skull
+    c = crown
+    bpy.ops.mesh.primitive_cone_add(vertices=10, radius1=0.15, radius2=0.1, depth=0.27, end_fill_type='NOTHING', location=tuple(c + Vector((0, 0.01, -0.14))))
+    h = bpy.context.object; h.scale = (1, 1.05, 1)
+    bm = _bm.new(); bm.from_mesh(h.data)
+    _bm.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().y < -0.07 and abs(f.calc_center_median().x) < 0.07], context='FACES')
+    bm.to_mesh(h.data); bm.free()
+    h.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(h, "cloth")
+    rot = (0, 0, math.atan2(fb["fwd"].x, -fb["fwd"].y))
+    centre = fb["mid"] - fb["fwd"] * 0.06 - fb["up"] * 0.02
+    # The gas mask (the owner raised this figure's budget for it, 2026-11-03). A rubber face piece cut to a face-shaped
+    # oval, its lower half drawn forward into the snout; two round eyepieces sealed with plain iron caps (no glass, no
+    # rivets: nothing that reads as an eye); a sealing rim; a large filter canister with screw rings, a crossed grille and air holes; an
+    # exhalation valve; a buckled head harness; and a ribbed hose with metal couplings.
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=14, ring_count=10, radius=1, location=tuple(centre))
+    mk = bpy.context.object; mk.scale = (0.086, 0.092, 0.122); mk.rotation_euler = rot
+    bpy.context.view_layer.update(); mw = mk.matrix_world
+    bm = _bm.new(); bm.from_mesh(mk.data)
+    def outside(f):
+        q = (mw @ f.calc_center_median()) - centre
+        return q.dot(fb["fwd"]) < 0.02 or (q.dot(fb["ax"]) / 0.072) ** 2 + ((q.dot(fb["up"]) + 0.01) / 0.112) ** 2 > 1
+    _bm.ops.delete(bm, geom=[f for f in bm.faces if outside(f)], context='FACES')
+    bm.to_mesh(mk.data); bm.free()
+    mk.data.transform(mk.matrix_world); mk.matrix_world = Matrix.Identity(4)   # work in world space
+    for v in mk.data.vertices:   # the snout: the lower face drawn forward, most at the middle
+        q = v.co - centre
+        u_, a_ = q.dot(fb["up"]), q.dot(fb["ax"])
+        pull = max(0.0, (-0.01 - u_) / 0.09) * max(0.0, 1 - abs(a_) / 0.06)
+        v.co += fb["fwd"] * 0.03 * min(pull, 1.0) ** 0.7
+    mk.modifiers.new("sol", "SOLIDIFY").thickness = 0.008; bpy.ops.object.select_all(action='DESELECT'); mk.select_set(True)
+    bpy.context.view_layer.objects.active = mk; bpy.ops.object.shade_smooth(); add(mk, "rubber")
+    def on_mask(a_, u_, out=0.0):   # a point on the face piece (before the snout pull), a little proud of it
+        k = 1 - (a_ / 0.086) ** 2 - (u_ / 0.122) ** 2
+        return centre + fb["ax"] * a_ + fb["up"] * u_ + fb["fwd"] * (0.092 * max(k, 0.0) ** 0.5 + out)
+    def disc(at, r, depth, m, n=10, axis=None):
+        bpy.ops.mesh.primitive_cylinder_add(vertices=n, radius=r, depth=depth, location=tuple(at))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(axis or fb["fwd"]); return add(o, m)
+    def ring_(at, r, m, n=10, axis=None):
+        bpy.ops.mesh.primitive_torus_add(major_radius=r, minor_radius=0.005, major_segments=n, minor_segments=4, location=tuple(at))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(axis or fb["fwd"]); return add(o, m)
+    for x in (-0.034, 0.034):   # the eyepieces, riveted shut
+        at = on_mask(x, 0.035, 0.004)
+        ring_(at, 0.021, "metal", n=8); disc(at + fb["fwd"] * 0.002, 0.018, 0.006, "iron", n=8)
+    rim = [on_mask(0.072 * math.cos(2 * math.pi * i / 14), -0.01 + 0.112 * math.sin(2 * math.pi * i / 14), 0.005) for i in range(14)]
+    for a_, b_ in zip(rim, rim[1:] + rim[:1]): bar(a_, b_, 0.007, "leather", sides=4)
+    snout = on_mask(0.0, -0.06, 0.025)
+    down = (fb["fwd"] * 0.7 - fb["up"] * 0.71).normalized()                                     # the mouthpiece points down
+    side = fb["ax"]; across = down.cross(side).normalized()
+    bar(snout - down * 0.01, snout + down * 0.02, 0.03, "rubber", sides=10)                    # the snout's collar
+    can0, can1 = snout + down * 0.02, snout + down * 0.08
+    bar(can0, can1, 0.04, "iron", sides=12)                                                     # the filter canister
+    for t in (0.25, 0.55):
+        ring_(can0 + (can1 - can0) * t, 0.041, "metal", n=10, axis=down)                       # screw rings
+    face_ = can1 + down * 0.002
+    disc(face_, 0.036, 0.004, "metal", n=12, axis=down)
+    grille = face_ + down * 0.004                                                               # the crossed grille
+    bar(grille - side * 0.03, grille + side * 0.03, 0.005, "dark", sides=4); bar(grille - across * 0.03, grille + across * 0.03, 0.005, "dark", sides=4)
+    valve = on_mask(0.0, -0.1, 0.012)                                                           # the exhalation valve
+    bar(valve, valve + fb["fwd"] * 0.018 - fb["up"] * 0.008, 0.014, "iron", sides=8)
+    disc(valve + fb["fwd"] * 0.02 - fb["up"] * 0.009, 0.016, 0.005, "metal", n=8)
+    # the head harness: a strap round the head at the eyepieces, one at the jaw, with buckles at the temples
+    for u_ in (0.035, -0.06):
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.094, minor_radius=0.006, major_segments=10, minor_segments=3, location=tuple(centre + fb["up"] * u_))
+        o = bpy.context.object; o.scale = (1, 1.12, 1)
+        bpy.context.view_layer.update(); ow = o.matrix_world
+        bm = _bm.new(); bm.from_mesh(o.data)
+        _bm.ops.delete(bm, geom=[f for f in bm.faces if ((ow @ f.calc_center_median()) - centre).dot(fb["fwd"]) > 0.02], context='FACES')
+        bm.to_mesh(o.data); bm.free(); add(o, "leather")
+    for x in (-1, 1):
+        box(tuple(centre + fb["ax"] * 0.093 * x + fb["up"] * 0.035), (0.008, 0.02, 0.016), "brass", rot=rot)
+    HOSE_START = snout   # where the ribbed hose leaves the mask (used in the chest module)
+    ht = crown - Vector((0, 0, 0.03))   # the hat sits down over the crown
+    bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.09, depth=0.25, location=tuple(ht + Vector((0, 0, 0.125))))
+    bpy.context.object.scale = (1, 1.08, 1); add(bpy.context.object, "dark")
+    bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.091, depth=0.012, location=tuple(ht + Vector((0, 0, 0.25))))
+    bpy.context.object.scale = (1, 1.08, 1); add(bpy.context.object, "accent")
+    cx = ht + Vector((0, -0.098, 0.13))   # an Orthodox cross on the front of the hat: an upright, a short bar, a long bar, a slanted foot
+    # raised gilt, larger, so it reads on the black hat
+    cx = cx + Vector((0, -0.006, 0))
+    box(tuple(cx), (0.018, 0.016, 0.2), "gilt"); box(tuple(cx + Vector((0, 0, 0.068))), (0.05, 0.016, 0.014), "gilt")
+    box(tuple(cx + Vector((0, 0, 0.025))), (0.09, 0.016, 0.017), "gilt"); box(tuple(cx - Vector((0, 0, 0.055))), (0.065, 0.016, 0.014), "gilt", rot=(0, 0.4, 0))
+    module("Chest")
+    # gilded icon plaques on the chest and one on the belt, the respirator hose down to a canister, a belt with pouches
+    for x, z, w, hgt in ((-0.08, 1.24, 0.07, 0.09), (0.08, 1.22, 0.07, 0.1), (-0.02, 1.12, 0.06, 0.08), (0.0, 0.88, 0.1, 0.16)):   # below the mantle
+        y = -0.17 if z > 1 else -0.215
+        box((x, y, z), (w + 0.012, 0.012, hgt + 0.012), "gilt"); box((x, y - 0.007, z), (w, 0.006, hgt), "icon")
+    hose = [HOSE_START - fb["up"] * 0.02, Vector((0.05, -0.2, 1.36)), Vector((0.07, -0.21, 1.12))]
+    pts = [hose[0] + (hose[1] - hose[0]) * (i / 5) for i in range(5)] + [hose[1] + (hose[2] - hose[1]) * (i / 5) for i in range(6)]
+    for i, (a_, b_) in enumerate(zip(pts, pts[1:])): bar(a_, b_, 0.015 if i % 2 else 0.011, "rubber", sides=5)   # ribbed
+    for end_ in (hose[0], hose[2]): sphere(tuple(end_), 0.017, "metal", seg=5, rings=3)                    # couplings
+    bar(Vector((0.07, -0.21, 1.1)), Vector((0.07, -0.21, 1.04)), 0.03, "iron", sides=6)
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.17, minor_radius=0.016, major_segments=8, minor_segments=3, location=(0, -0.005, 0.99))
+    bpy.context.object.scale = (1, 0.84, 1); add(bpy.context.object, "leather")
+    box((-0.12, -0.14, 0.95), (0.06, 0.04, 0.07), "leather")
+    module("Weapon")
+    # the flail: a short handle in the right fist, a chain of links falling from it, a spiked iron head
+    fr, d = FISTS["R"]
+    hand_end = fr + d * 0.1
+    bar(fr - d * 0.05, hand_end, 0.014, "wood", sides=5)
+    links = [hand_end + Vector((-0.025 * i, -0.019 * i, -0.05 * i)) for i in range(5)]
+    for a_, b_ in zip(links, links[1:]): bar(a_, b_, 0.008, "iron", sides=4)
+    head_ = links[-1] + Vector((-0.01, -0.01, -0.04))
+    sphere(tuple(head_), 0.04, "iron", seg=6, rings=4)
+    for v_ in (Vector((1, 0, 0)), Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, -1, 0)), Vector((0, 0, -1))):
+        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.012, radius2=0.0, depth=0.035, location=tuple(head_ + v_ * 0.05))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(v_); add(o, "iron")
+    module("Weapon2")
+    # the reliquary shield: a tall wooden board held before the left side, a crucifix on its face, severed hands nailed
+    # round it, and candles along its top edge
+    fl, _ = FISTS["L"]
+    sc = fl + Vector((0.02, -0.06, 0.0))
+    box(tuple(sc), (0.27, 0.03, 0.56), "wood")
+    front = sc.y - 0.018
+    box((sc.x, front, sc.z + 0.02), (0.022, 0.012, 0.36), "bone"); box((sc.x, front, sc.z + 0.1), (0.17, 0.012, 0.022), "bone")
+    for hx, hz in ((-0.09, 0.14), (0.09, 0.1), (-0.08, -0.1), (0.08, -0.16)):
+        sphere((sc.x + hx, front - 0.01, sc.z + hz), 1, "flesh", (0.034, 0.014, 0.045), seg=5, rings=3)
+    for cx_ in (-0.07, 0.07):
+        bar(Vector((sc.x + cx_, sc.y, sc.z + 0.28)), Vector((sc.x + cx_, sc.y, sc.z + 0.33)), 0.01, "bone", sides=4)
+        sphere((sc.x + cx_, sc.y, sc.z + 0.345), 0.009, "glow", seg=4, rings=3)
+    module("Body")
+
 def pilgrim():
     # Pilgrim (an original figure, not used by any unit): a tall pointed iron hood over the whole head (eye slit,
     # riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud, a rope belt with a rosary, a
@@ -774,7 +933,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o

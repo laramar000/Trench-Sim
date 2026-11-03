@@ -13,6 +13,7 @@
     "unit:Stigmatic Nun": "units/stigmatic-nun.glb",
     "unit:Ecclesiastic Prisoner": "units/ecclesiastic-prisoner.glb",
     "unit:War Prophet": { "file": "units/war-prophet.glb", "height": 1.55 },
+    "unit:Castigator": { "file": "units/castigator.glb", "height": 1.5 },
     "ground": "ground/mud.png",
     "terrain:Low": "terrain/rubble.png",
     "terrain:Cover": "terrain/burlap.png",

@@ -269,3 +269,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   trench-pilgrim (thinner, taller capirote), stigmatic-nun and ecclesiastic-prisoner were rebuilt with it. Figure tests
   take each figure's budget by class; `BODY_BUDGET` sets a larger class's body budget in the script. Left: Castigator
   (32 mm), Sanctified Giant (40 mm), Reliquary Walker (60 mm).
+- 2026-11-03: fifth figure, Castigator (`units/castigator.glb`, class B 32 mm, catalog height 1.5", 3,053 triangles:
+  the owner raised its budget to 3,100 for a detailed gas mask; `UnitFiguresTests` lists budgets per figure, file size
+  limit scales with budget). Gas mask: sealed iron eyepieces (no glass, no rivets: rivets made them read as eyes),
+  mouthpiece angled down, harness straps cut away from the face; no head under it. Left: Sanctified Giant (40 mm),
+  Reliquary Walker (60 mm).

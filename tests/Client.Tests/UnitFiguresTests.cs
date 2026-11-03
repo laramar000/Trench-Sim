@@ -47,9 +47,10 @@ public class UnitFiguresTests
         Assert.Contains("Stigmatic Nun", known);
         Assert.Contains("Ecclesiastic Prisoner", known);
         Assert.Contains("War Prophet", known);
+        Assert.Contains("Castigator", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
         Assert.All(units, u => Assert.Contains(u, known));
-        Assert.Equal(8, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.Equal(9, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -58,12 +59,12 @@ public class UnitFiguresTests
     public void TheEditorLeavesTheFiguresFolderAlone() => Assert.True(File.Exists(Path.Combine(Assets, "units", ".gdignore")));
 
     // Each figure with its triangle budget, by its size class (docs/art-pipeline.md section 3): 1,850 on a 25 mm base, 2,100
-    // on a 32 mm base.
+    // on a 32 mm base; the Castigator 3,100, an exception the owner allowed for its gas mask (2026-11-03).
     public static TheoryData<string, int> Figures => new()
     {
         { "units/rifleman.glb", 1850 }, { "units/skirmisher.glb", 1850 }, { "units/shield.glb", 1850 }, { "units/standard.glb", 1850 },
         { "units/trench-pilgrim.glb", 1850 }, { "units/stigmatic-nun.glb", 1850 }, { "units/ecclesiastic-prisoner.glb", 1850 },
-        { "units/war-prophet.glb", 2100 },
+        { "units/war-prophet.glb", 2100 }, { "units/castigator.glb", 3100 },
     };
 
     [Theory]
@@ -71,7 +72,7 @@ public class UnitFiguresTests
     public void AFigureIsSmallFitsTheSmallestBaseAndHasAnAccent(string file, int budget)
     {
         var bytes = File.ReadAllBytes(Path.Combine(Assets, file));
-        Assert.True(bytes.Length < 160 * 1024, $"{bytes.Length} bytes");
+        Assert.True(bytes.Length < Math.Max(160 * 1024, budget * 80), $"{bytes.Length} bytes");   // a larger budget, a larger file
         Assert.Equal(0x46546C67u, BitConverter.ToUInt32(bytes, 0));
         var length = BitConverter.ToInt32(bytes, 12);
         using var gltf = JsonDocument.Parse(Encoding.UTF8.GetString(bytes, 20, length));

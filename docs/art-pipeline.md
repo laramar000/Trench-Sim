@@ -60,6 +60,8 @@ oppressive, gothic. Every figure must read first as a silhouette, then by its eq
 | E huge | 60 mm | 2.4" | 2,800 | 1,400 | 4,200 | body 256, modules 128 |
 | F oval | 30 x 60 mm | by the creature; length along the oval | 2,000 | 1,000 | 3,000 | body 256, modules 64 |
 
+Exceptions the owner allowed: the Castigator, 3,100 triangles (class B), for its detailed gas mask (2026-11-03).
+
 Figure height (built 2026-11-03): a catalog entry may give its figure's standing height in inches, for example
 `"unit:Sanctified Giant": {"file": "units/sanctified-giant.glb", "height": 1.6}` (0.5" to 6"; `VisualCatalog.HeightFor`).
 Without one a figure stands 1.2", the plain body's height. The client scales the whole figure to that height and, if it is
