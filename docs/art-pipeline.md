@@ -60,7 +60,10 @@ oppressive, gothic. Every figure must read first as a silhouette, then by its eq
 | E huge | 60 mm | 2.4" | 2,800 | 1,400 | 4,200 | body 256, modules 128 |
 | F oval | 30 x 60 mm | by the creature; length along the oval | 2,000 | 1,000 | 3,000 | body 256, modules 64 |
 
-Exceptions the owner allowed: the Castigator, 3,100 triangles (class B), for its detailed gas mask (2026-11-03).
+Exceptions the owner allowed: the Castigator, 3,100 triangles (class B), for its detailed gas mask (2026-11-03); the Reliquary Walker,
+8,000 triangles (class E) with 256 px textures on its body and wheel, for a posed martyr bound to the wheel (2026-11-03).
+A script figure sets these with `BODY_BUDGET` and `TEX_SIZES` (texture size by module name). `render_turnaround.py`
+takes the catalog height as an optional last argument, so a large figure is shown at its drawn size on its base.
 
 Figure height (built 2026-11-03): a catalog entry may give its figure's standing height in inches, for example
 `"unit:Sanctified Giant": {"file": "units/sanctified-giant.glb", "height": 1.6}` (0.5" to 6"; `VisualCatalog.HeightFor`).

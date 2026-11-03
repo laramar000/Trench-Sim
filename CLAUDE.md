@@ -274,3 +274,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   limit scales with budget). Gas mask: sealed iron eyepieces (no glass, no rivets: rivets made them read as eyes),
   mouthpiece angled down, harness straps cut away from the face; no head under it. Left: Sanctified Giant (40 mm),
   Reliquary Walker (60 mm).
+- 2026-11-03: sixth figure, Reliquary Walker (`units/reliquary-walker.glb`, class E 60 mm, catalog height 2.4", 7,635
+  triangles; the owner raised its budget to 6,000 then 8,000). The owner's references were the shrine walker (Catherine
+  wheel, bonebreaker mace), which in the roster is the Reliquary Walker, not the Sanctified Giant. Hard-surface hull, no
+  head (tabernacle and spire), seat colour on pauldron tops and the spire band; the martyr on the wheel is a posed
+  MakeHuman body (`human_body` called inside the figure, moved to Weapon2, then transformed onto the wheel). New script
+  globals: `TEX_SIZES` (texture size by module; the Walker has 256 px body and Weapon2). `UnitFiguresTests` rows now give
+  budget, largest texture and footprint width. `render_turnaround.py` takes an optional height. Left: Sanctified Giant
+  (40 mm), references still to come from the owner.

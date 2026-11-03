@@ -48,9 +48,10 @@ public class UnitFiguresTests
         Assert.Contains("Ecclesiastic Prisoner", known);
         Assert.Contains("War Prophet", known);
         Assert.Contains("Castigator", known);
+        Assert.Contains("Reliquary Walker", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
         Assert.All(units, u => Assert.Contains(u, known));
-        Assert.Equal(9, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.Equal(10, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -59,20 +60,24 @@ public class UnitFiguresTests
     public void TheEditorLeavesTheFiguresFolderAlone() => Assert.True(File.Exists(Path.Combine(Assets, "units", ".gdignore")));
 
     // Each figure with its triangle budget, by its size class (docs/art-pipeline.md section 3): 1,850 on a 25 mm base, 2,100
-    // on a 32 mm base; the Castigator 3,100, an exception the owner allowed for its gas mask (2026-11-03).
-    public static TheoryData<string, int> Figures => new()
+    // on a 32 mm base; the Castigator 3,100, an exception the owner allowed for its gas mask (2026-11-03). Then its largest
+    // texture and its widest footprint at the file's 1.2 height: 0.9 fits a 25 mm base at 1.2"; the Reliquary Walker (8,000
+    // and 256 px, the owner's exception, 2026-11-03) is drawn 2.4" tall, so 1.1 is 2.2" on its 60 mm (2.36") base.
+    public static TheoryData<string, int, int, float> Figures => new()
     {
-        { "units/rifleman.glb", 1850 }, { "units/skirmisher.glb", 1850 }, { "units/shield.glb", 1850 }, { "units/standard.glb", 1850 },
-        { "units/trench-pilgrim.glb", 1850 }, { "units/stigmatic-nun.glb", 1850 }, { "units/ecclesiastic-prisoner.glb", 1850 },
-        { "units/war-prophet.glb", 2100 }, { "units/castigator.glb", 3100 },
+        { "units/rifleman.glb", 1850, 128, 0.9f }, { "units/skirmisher.glb", 1850, 128, 0.9f }, { "units/shield.glb", 1850, 128, 0.9f },
+        { "units/standard.glb", 1850, 128, 0.9f }, { "units/trench-pilgrim.glb", 1850, 128, 0.9f },
+        { "units/stigmatic-nun.glb", 1850, 128, 0.9f }, { "units/ecclesiastic-prisoner.glb", 1850, 128, 0.9f },
+        { "units/war-prophet.glb", 2100, 128, 0.9f }, { "units/castigator.glb", 3100, 128, 0.9f },
+        { "units/reliquary-walker.glb", 8000, 256, 1.1f },
     };
 
     [Theory]
     [MemberData(nameof(Figures))]
-    public void AFigureIsSmallFitsTheSmallestBaseAndHasAnAccent(string file, int budget)
+    public void AFigureIsSmallFitsItsBaseAndHasAnAccent(string file, int budget, int texture, float width)
     {
         var bytes = File.ReadAllBytes(Path.Combine(Assets, file));
-        Assert.True(bytes.Length < Math.Max(160 * 1024, budget * 80), $"{bytes.Length} bytes");   // a larger budget, a larger file
+        Assert.True(bytes.Length < Math.Max(160 * 1024, budget * 80) * (texture / 128), $"{bytes.Length} bytes");   // a larger budget or texture, a larger file
         Assert.Equal(0x46546C67u, BitConverter.ToUInt32(bytes, 0));
         var length = BitConverter.ToInt32(bytes, 12);
         using var gltf = JsonDocument.Parse(Encoding.UTF8.GetString(bytes, 20, length));
@@ -84,7 +89,7 @@ public class UnitFiguresTests
             .Select(p => accessors[p.GetProperty("attributes").GetProperty("POSITION").GetInt32()])
             .ToList();
         // PS1-style budget (docs/art-pipeline.md): at most its class's triangles; PNG textures of at most
-        // 128 x 128 (one, or one per module), sampled nearest.
+        // 128 x 128 (256 for the largest classes; one, or one per module), sampled nearest.
         var triangles = root.GetProperty("meshes").EnumerateArray()
             .SelectMany(m => m.GetProperty("primitives").EnumerateArray())
             .Sum(p => (p.TryGetProperty("indices", out var i) ? accessors[i.GetInt32()] : accessors[p.GetProperty("attributes").GetProperty("POSITION").GetInt32()]).GetProperty("count").GetInt32() / 3);
@@ -98,8 +103,8 @@ public class UnitFiguresTests
             var view = root.GetProperty("bufferViews")[image.GetProperty("bufferView").GetInt32()];
             var png = 20 + length + 8 + (view.TryGetProperty("byteOffset", out var o) ? o.GetInt32() : 0);
             Assert.Equal(0x89, bytes[png]);
-            Assert.InRange(Be(png + 16), 1, 128);
-            Assert.InRange(Be(png + 20), 1, 128);
+            Assert.InRange(Be(png + 16), 1, texture);
+            Assert.InRange(Be(png + 20), 1, texture);
         }
         Assert.All(root.GetProperty("samplers").EnumerateArray(), s => Assert.Equal(9728, s.GetProperty("magFilter").GetInt32()));
         // The accent stays untextured, so the seat colour the client paints is the only colour it has.
@@ -110,7 +115,7 @@ public class UnitFiguresTests
         float Max(int i) => positions.Max(a => a.GetProperty("max")[i].GetSingle());
         Assert.Equal(0f, Min(1), 3);
         Assert.Equal(1.2f, Max(1), 3);
-        // Inside a 25 mm base (0.984" across) at that height, so the client never has to shrink it.
-        Assert.True(Max(0) - Min(0) <= 0.9f && Max(2) - Min(2) <= 0.9f, $"{Max(0) - Min(0)} x {Max(2) - Min(2)}");
+        // Inside its base at its drawn height, so the client never has to shrink it.
+        Assert.True(Max(0) - Min(0) <= width && Max(2) - Min(2) <= width, $"{Max(0) - Min(0)} x {Max(2) - Min(2)}");
     }
 }

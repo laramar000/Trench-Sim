@@ -3,7 +3,8 @@
 base of the given diameter, side by side in one PNG. Flat studio light and the figure's own baked texture; the
 Accent parts in a stand-in seat colour (dark red).
 
-Run: python tools/art/render_turnaround.py client/assets/units/<figure>.glb <out.png> [base_mm]
+Run: python tools/art/render_turnaround.py client/assets/units/<figure>.glb <out.png> [base_mm] [height_in]
+(height_in: the catalog entry's figure height; the .glb is 1.2" tall)
 (Python 3.11 to 3.13 with bpy==5.1.2 and pillow.) Game units are inches: a 25 mm base is 0.984" across.
 """
 import math, os, sys, tempfile
@@ -15,6 +16,11 @@ base_mm = float(sys.argv[3]) if len(sys.argv) > 3 else 25.0
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=glb)
 scn = bpy.context.scene
+if len(sys.argv) > 4:
+    k = float(sys.argv[4]) / 1.2
+    for o in scn.objects:
+        if o.type == 'MESH':
+            for v in o.data.vertices: v.co *= k
 for o in scn.objects:
     if o.type == 'MESH' and o.name.startswith("Accent"):
         m = bpy.data.materials.new("seat"); m.diffuse_color = (0.42, 0.05, 0.04, 1); o.data.materials.clear(); o.data.materials.append(m)

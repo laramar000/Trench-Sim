@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -72,20 +72,23 @@ M = {k: mat(k, *v) for k, v in {
  "boots": ("2a2420",), "dark": ("141210", 0.05), "brass": ("8a6a2a", 0.1), "bone": ("c8bca0", 0.15),
  "cloth": ("3e3a34",), "hood": ("5e5646", 0.18), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0),
  "robe": ("3e3428", 0.3), "rags": ("6a5c46", 0.3), "rope": ("7e6c48", 0.2, 60), "blood": ("4e1610", 0.2),
- "mannequin": ("cfc4b0", 0.03)}.items()}   # the mannequin head: smooth pale plaster, no face (2026-11-03)
+ "mannequin": ("cfc4b0", 0.03), "stone": ("7a7468", 0.3, 16)}.items()}   # the mannequin head: smooth pale plaster, no face (2026-11-03)
 M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate": mat("plate", "7a7c80", 0.3, 18),
           "gauntlet": spattered("gauntlet", "7a1a14", spots=0.5, scale=40),
           "blade": spattered("blade", "9a9ca0", spots=0.42, scale=9),
           "flesh": spattered("flesh", "9c7a6a", spots=0.36, scale=9),      # the Ecclesiastic Prisoner (2026-11-03)
           "rust": mat("rust", "6a4630", 0.35, 14), "bomb": mat("bomb", "4a5430", 0.2, 10),
           "charge": mat("charge", "8a1812", 0.15, 12),
-          "rubber": mat("rubber", "2c2a27", 0.02, 6), "mail": mat("mail", "4c4e52", 0.5, 70), "gilt": mat("gilt", "9a7a32", 0.2, 20), "icon": mat("icon", "6a4a2a", 0.4, 14)})   # the Castigator   # the War Prophet's anti-tank charge (2026-11-03)   # the Stigmatic Nun (2026-11-03)
+          "rubber": mat("rubber", "2c2a27", 0.02, 6), "mail": mat("mail", "4c4e52", 0.5, 70), "gilt": mat("gilt", "9a7a32", 0.2, 20), "icon": mat("icon", "6a4a2a", 0.4, 14),
+          "hull": spattered("hull", "6e5e4c", blood="5a0f0c", mud="4a3a2a", spots=0.4, scale=6.0),   # the Reliquary Walker (2026-11-03)
+          "gore": spattered("gore", "5a2a1e", spots=0.55, scale=12), "pale": spattered("pale", "d8ccb8", spots=0.4, scale=10)})   # the Castigator   # the War Prophet's anti-tank charge (2026-11-03)   # the Stigmatic Nun (2026-11-03)
 # Faceless heads (visual pass Stage 1, 2026-10-27): every figure wears a plain hood of matte canvas over a smooth,
 # featureless head (no eyes, nose or mouth); the figures are told apart by silhouette, kit and pose.
 FACE_SCALE = 1.12   # the plain head fills the space of the MakeHuman face
 FACE_BOX = None
 FISTS = {}   # with mitts: each gloved fist's centre and its forearm's direction, so a weapon sits in the hand
 BODY_BUDGET = None   # a figure of a larger class sets its body's triangle budget (docs/art-pipeline.md section 3)
+TEX_SIZES = None   # and its texture sizes by module name; else 128 for the body and 64 for each module
 HEAD_SEGS, HEAD_RINGS = 14, 11   # the low-poly head: about 280 triangles
 def head_frame(eyes, headp, headtop):
     # the head's own frame (across, up, forward), used to size and place the plain head
@@ -887,6 +890,241 @@ def castigator():
         sphere((sc.x + cx_, sc.y, sc.z + 0.345), 0.009, "glow", seg=4, rings=3)
     module("Body")
 
+def reliquary_walker():
+    # Reliquary Walker (2026-11-03, sixth figure of docs/art-pipeline.md, class E, 60 mm): an original figure on the
+    # owner's reference cues, not a copy of the miniature, the art or any paint job. A squat armoured shrine on stumpy
+    # legs with no head: a gothic tabernacle and a tall spiked spire rise from between the shoulders. Huge rounded
+    # pauldrons, two exhaust stacks, a winged emblem on the chest above a dark slit, a mail skirt with a hanging bell and a
+    # plucked dove, two arched grave-slab plaques over the thighs; a boiler and chain curtains on the back. Right hand: a
+    # long bonebreaker mace, its flanged head at the ground. Left forearm: a spiked Catherine wheel with a martyr bound to
+    # it (a blank mannequin head, no face). Modules: Helmet (tabernacle and spire), Chest (emblem, skirt, plaques, bell, dove),
+    # Back (boiler, stacks, chains), Weapon (mace), Weapon2 (wheel and martyr), Accent (pauldron trims, spire band).
+    # The owner raised its budget (2026-11-03) to 6,000 triangles, then 8,000: rounder armour, gables, a chain fringe, a finer
+    # wheel, and a MakeHuman martyr on it.
+    global BODY_BUDGET, TEX_SIZES; BODY_BUDGET = 2800
+    TEX_SIZES = {"Body": 256, "Helmet": 128, "Chest": 128, "Back": 128, "Weapon": 128, "Weapon2": 256}   # the martyr needs the wheel's 256
+    def rbox(loc, size, m, bev=0.03, rot=(0, 0, 0)):
+        o = box(loc, size, m, rot=rot)
+        if bev:
+            b_ = o.modifiers.new("bev", "BEVEL"); b_.width = bev; b_.segments = 3 if bev >= 0.1 else (2 if bev >= 0.04 else 1); b_.limit_method = 'NONE'
+        return o
+    def cone(at, r1, r2, depth, m, n=8, axis=Vector((0, 0, 1))):
+        bpy.ops.mesh.primitive_cone_add(vertices=n, radius1=r1, radius2=r2, depth=depth, location=tuple(at))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(axis); return add(o, m)
+    def cyl(at, r, depth, m, n=8, axis=Vector((0, 0, 1))):
+        bpy.ops.mesh.primitive_cylinder_add(vertices=n, radius=r, depth=depth, location=tuple(at))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(axis); return add(o, m)
+    def sheet(x0, x1, y, z0, z1, m, sag=0.0, cols=6, rows=3, thick=0.02):
+        # a hanging sheet (mail, chains) from z1 down to z0, between x0 and x1 at depth y; its bottom edge ragged
+        verts, faces = [], []
+        for j in range(rows + 1):
+            for i in range(cols + 1):
+                t = i / cols; z = z1 - (z1 - z0) * j / rows
+                if j == rows: z += (0.04 if i % 2 else 0.0)
+                verts.append((x0 + (x1 - x0) * t, y + sag * math.sin(math.pi * t) * j / rows, z))
+        for j in range(rows):
+            for i in range(cols):
+                a_ = j * (cols + 1) + i; faces.append((a_, a_ + 1, a_ + cols + 2, a_ + cols + 1))
+        me = bpy.data.meshes.new("sh"); me.from_pydata(verts, [], faces)
+        o = bpy.data.objects.new("sh", me); scn.collection.objects.link(o)
+        o.modifiers.new("sol", "SOLIDIFY").thickness = thick; return add(o, m)
+    F = -1   # the front is -y
+    # --- Body: legs, hips, the armoured hull, pauldrons and arms
+    for s in (-1, 1):
+        x = 0.24 * s
+        rbox((x, -0.05, 0.07), (0.26, 0.4, 0.14), "hull", 0.03)                          # the foot, a broad iron sabaton
+        rbox((x, -0.2, 0.05), (0.22, 0.12, 0.1), "hull", 0.02)                            # its toe cap
+        rbox((x, -0.04, 0.27), (0.26, 0.26, 0.28), "hull", 0.04)                          # the greave
+        for z in (0.2, 0.32):
+            box((x, -0.04, z), (0.28, 0.28, 0.035), "iron")                                  # its bands
+        rbox((x, 0.0, 0.52), (0.26, 0.3, 0.26), "hull", 0.04)                             # the thigh
+    rbox((0, 0.0, 0.72), (0.6, 0.44, 0.2), "hull", 0.05)                                   # the hips
+    rbox((0, 0.0, 0.92), (0.66, 0.52, 0.24), "hull", 0.06)                                 # the belly
+    rbox((0, 0.0, 1.16), (0.78, 0.62, 0.36), "hull", 0.12)                                 # the hull, its edges rounded
+    rbox((0, 0.03, 1.35), (0.5, 0.48, 0.1), "hull", 0.04)                                  # the collar under the tabernacle
+    rbox((0, -0.29, 1.2), (0.56, 0.12, 0.28), "hull", 0.05, rot=(math.radians(-8), 0, 0))  # the breastplate, sloped back
+    rbox((0, -0.29, 0.95), (0.46, 0.1, 0.16), "hull", 0.04)                               # the lower faceplate
+    box((0, -0.35, 1.045), (0.36, 0.04, 0.035), "dark")                                    # the anchorite's dark slit
+    for s in (-1, 1):
+        x = 0.47 * s
+        x = 0.5 * s
+        rbox((x, 0.0, 1.22), (0.42, 0.6, 0.44), "hull", 0.14)                             # the pauldron
+        for k, z in enumerate((0.96, 0.85)):
+            rbox((x * (1.02 + 0.03 * k), 0.0, z), (0.38 - 0.03 * k, 0.56 - 0.04 * k, 0.12), "hull", 0.035)   # its lames
+        rbox((x, 0.0, 1.445), (0.3, 0.5, 0.025), "accent", 0.0)                           # the seat colour on its top
+        rbox((x + 0.215 * s, 0.0, 1.22), (0.02, 0.5, 0.06), "iron", 0.0)                  # an iron rim
+    # the right arm hangs with the mace; the left holds the wheel out before it
+    cyl((-0.58, -0.02, 0.78), 0.1, 0.2, "metal", n=8)                                     # elbow piston
+    rbox((-0.58, -0.06, 0.6), (0.22, 0.24, 0.24), "hull", 0.05)                           # right vambrace
+    for z in (0.53, 0.67):
+        box((-0.58, -0.06, z), (0.24, 0.26, 0.03), "iron")                         # its ribs
+    rbox((-0.58, -0.1, 0.43), (0.2, 0.22, 0.14), "hull", 0.04)                            # right fist
+    cyl((0.58, -0.02, 0.78), 0.1, 0.2, "metal", n=8)
+    rbox((0.62, -0.2, 0.68), (0.22, 0.32, 0.22), "hull", 0.05)                            # left vambrace, forward
+    for y in (-0.28, -0.14):
+        box((0.62, y, 0.68), (0.24, 0.03, 0.24), "iron")                           # its ribs
+    # --- Helmet: the tabernacle and its spire, where a head would be
+    module("Helmet")
+    rbox((0, 0.02, 1.49), (0.34, 0.34, 0.26), "stone", 0.02)
+    for s in (-1, 1):
+        for t in (-1, 1):
+            cyl((0.17 * s, 0.02 + 0.17 * t, 1.52), 0.03, 0.34, "stone", n=4)               # corner piers
+            cone((0.17 * s, 0.02 + 0.17 * t, 1.75), 0.035, 0.0, 0.14, "stone", n=4)      # pinnacles
+    for v_ in ((0, -1), (0, 1), (-1, 0), (1, 0)):                                         # a pointed arch window each side
+        for k in (-1, 0, 1):
+            c_ = Vector((0.17 * v_[0], 0.02 + 0.17 * v_[1], 1.48))
+            along = Vector((abs(v_[1]), abs(v_[0]), 0)) * 0.09 * k
+            box(tuple(c_ + along + Vector((0, 0, -0.01))), (0.045 if v_[0] == 0 else 0.03, 0.03 if v_[0] == 0 else 0.045, 0.14), "dark")
+            cone(c_ + along + Vector((0, 0, 0.08)), 0.03, 0.0, 0.06, "dark", n=4, axis=Vector((0, 0, 1)))
+    rbox((0, 0.02, 1.635), (0.38, 0.38, 0.05), "stone", 0.015)                               # the cornice
+    for k in range(4):                                                                    # a gable on each side
+        a_ = k * math.pi / 2; n_ = Vector((math.sin(a_), -math.cos(a_), 0)); t_ = Vector((math.cos(a_), math.sin(a_), 0))
+        c_ = Vector((0, 0.02, 1.66)) + n_ * 0.185
+        verts = [c_ - t_ * 0.17, c_ + t_ * 0.17, c_ + Vector((0, 0, 0.17))]
+        verts += [v - n_ * 0.03 for v in verts]
+        me = bpy.data.meshes.new("gable"); me.from_pydata([tuple(v) for v in verts], [], [(0, 1, 2), (5, 4, 3), (0, 3, 4, 1), (1, 4, 5, 2), (2, 5, 3, 0)])
+        me.validate(); me.update(); g = bpy.data.objects.new("gable", me); scn.collection.objects.link(g); add(g, "stone")
+        cone(c_ + Vector((0, 0, 0.2)), 0.02, 0.0, 0.08, "stone", n=4)                       # its finial
+        box(tuple(c_ + n_ * 0.005 + Vector((0, 0, 0.06))), (0.04 if abs(n_.y) > 0.5 else 0.012, 0.012 if abs(n_.y) > 0.5 else 0.04, 0.06), "dark")   # a rose slit
+    bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.18, depth=0.03, location=(0, 0.02, 1.67))
+    o = bpy.context.object; o.rotation_euler = (0, 0, math.pi / 8); add(o, "accent")       # the seat colour round the spire's foot
+    spire = cone((0, 0.02, 2.04), 0.145, 0.0, 0.72, "rust", n=12)
+    spire.rotation_quaternion = spire.rotation_quaternion @ Euler((0, 0, math.pi / 8)).to_quaternion()
+    for z, r in ((1.8, 0.12), (1.98, 0.084)):                                            # iron bands
+        bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=r, depth=0.025, location=(0, 0.02, z))
+        o = bpy.context.object; o.rotation_euler = (0, 0, math.pi / 8); add(o, "iron")
+    for i in range(8):                                                                    # spikes up its ribs
+        ang = i * math.pi / 4
+        out = Vector((math.cos(ang), math.sin(ang), 0.35)).normalized()
+        for k, z in enumerate((1.78, 1.94, 2.1, 2.24)):
+            if (i + k) % 2: continue
+            r = 0.145 * (1 - (z - 1.68) / 0.72)
+            cone(Vector((r * math.cos(ang), 0.02 + r * math.sin(ang), z)) + out * 0.02, 0.012, 0.0, 0.06, "iron", n=4, axis=out)
+    # --- Chest: the winged emblem, the mail skirt, plaques, bell and the plucked dove
+    module("Chest")
+    em = Vector((0, -0.375, 1.2))
+    cyl(em, 0.05, 0.02, "gilt", n=8, axis=Vector((0, 1, 0)))
+    for s in (-1, 1):
+        for k, (dx, dz, ln, a_) in enumerate(((0.1, 0.045, 0.16, 0.45), (0.12, 0.015, 0.15, 0.2), (0.12, -0.02, 0.13, -0.05), (0.1, -0.05, 0.1, -0.3))):
+            box(tuple(em + Vector((dx * s, 0.005, dz))), (ln, 0.015, 0.03), "gilt", rot=(0, -a_ * s, 0))
+    box(tuple(em + Vector((0, -0.01, 0.0))), (0.018, 0.012, 0.09), "dark"); box(tuple(em + Vector((0, -0.01, 0.01))), (0.06, 0.012, 0.016), "dark")
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.38, radius2=0.33, depth=0.56, end_fill_type='NOTHING', location=(0, 0.0, 0.5))
+    sk = bpy.context.object; sk.scale = (1, 0.75, 1)
+    for v in sk.data.vertices:
+        if v.co.z < 0 and (v.index // 1) % 2: v.co.z += 0.05
+    sk.modifiers.new("sol", "SOLIDIFY").thickness = 0.015; add(sk, "mail")
+    for s in (-1, 1):                                                                     # arched grave-slab plaques
+        x = 0.21 * s
+        rbox((x, -0.33, 0.47), (0.24, 0.045, 0.36), "stone", 0.012)
+        cyl((x, -0.33, 0.65), 0.12, 0.045, "stone", n=10, axis=Vector((0, 1, 0)))
+        box((x, -0.36, 0.5), (0.03, 0.012, 0.24), "iron"); box((x, -0.36, 0.56), (0.13, 0.012, 0.03), "iron")
+        bar(Vector((x, -0.33, 0.86)), Vector((x, -0.33, 0.76)), 0.008, "iron", sides=4)                # hung from the hull
+    for i in range(7):                                                                    # chain strands under the faceplate
+        x = -0.3 + i * 0.1
+        if abs(x) < 0.06: continue
+        for j in range(6):
+            z = 0.86 - j * 0.07 - (0.03 if i % 2 else 0)
+            box((x, -0.36 + 0.005 * j, z), (0.022, 0.008, 0.05) if j % 2 else (0.008, 0.022, 0.05), "iron")
+    # the plucked dove, hung by its feet from two chains under the slit; a bell below it
+    bar(Vector((-0.05, -0.36, 0.95)), Vector((-0.02, -0.4, 0.8)), 0.007, "iron", sides=4)
+    bar(Vector((0.05, -0.36, 0.95)), Vector((0.02, -0.4, 0.8)), 0.007, "iron", sides=4)
+    sphere((0, -0.41, 0.72), 1, "pale", (0.06, 0.05, 0.1), seg=8, rings=6)
+    for s in (-1, 1):
+        o = box((0.07 * s, -0.41, 0.7), (0.1, 0.012, 0.06), "pale", rot=(0, 0.6 * s, 0))  # limp wings
+    bar(Vector((0, -0.38, 0.78)), Vector((0, -0.4, 0.58)), 0.006, "iron", sides=4)
+    cone((0, -0.4, 0.53), 0.05, 0.02, 0.08, "brass", n=8)
+    # --- Back: the boiler, two exhaust stacks, chain curtains with parchment tags
+    module("Back")
+    cyl((0, 0.36, 1.05), 0.22, 0.14, "iron", n=12, axis=Vector((0, 1, 0)))
+    cyl((0, 0.44, 1.05), 0.12, 0.03, "metal", n=10, axis=Vector((0, 1, 0)))                # the hatch
+    bar(Vector((-0.1, 0.46, 1.05)), Vector((0.1, 0.46, 1.05)), 0.012, "brass", sides=4)   # its wheel bar
+    for s in (-1, 1):
+        x = 0.24 * s
+        x = 0.3 * s
+        cyl((x, 0.2, 1.5), 0.06, 0.36, "iron", n=8)
+        cyl((x, 0.2, 1.69), 0.078, 0.04, "metal", n=8)                                    # the stack's lip
+        cyl((x, 0.2, 1.71), 0.05, 0.02, "dark", n=8)
+        bar(Vector((x, 0.32, 1.2)), Vector((0.08 * s, 0.4, 0.92)), 0.03, "metal", sides=6)   # pipes into the boiler
+        sheet(0.3 * s, 0.68 * s, 0.31, 0.3, 1.02, "mail", sag=0.05, cols=5, rows=3)       # chain curtains under the pauldrons
+        for z in (0.7, 0.55):
+            box((0.5 * s, 0.35, z), (0.06, 0.012, 0.08), "bone")                         # parchment tags
+    # --- Weapon: the bonebreaker mace, its haft through the right fist, its flanged head at the ground
+    module("Weapon")
+    fist = Vector((-0.58, -0.12, 0.43)); tip = Vector((-0.8, -0.6, 0.07)); d = (tip - fist).normalized()
+    bar(fist - d * 0.22, tip, 0.026, "wood", sides=6)
+    sphere(tuple(fist - d * 0.24), 0.04, "iron", seg=6, rings=4)                          # the pommel
+    bar(fist - d * 0.14, fist + d * 0.12, 0.032, "leather", sides=6)                       # the grip
+    for t in (0.25, 0.55):
+        bar(fist + (tip - fist) * t - d * 0.02, fist + (tip - fist) * t + d * 0.02, 0.034, "iron", sides=6)   # iron bands
+    head_ = tip + d * 0.07
+    sphere(tuple(head_), 0.075, "gore", seg=8, rings=6)
+    side = d.cross(Vector((0, 0, 1))).normalized(); up_ = side.cross(d).normalized()
+    for k in range(6):                                                                    # the flanges
+        ang = k * math.pi / 3; v_ = side * math.cos(ang) + up_ * math.sin(ang)
+        o = cone(head_ + v_ * 0.085, 0.055, 0.0, 0.12, "gore", n=4, axis=v_)
+        cone(head_ + v_ * 0.06 + d * 0.06, 0.03, 0.0, 0.07, "gore", n=4, axis=(v_ + d).normalized())   # a second row
+    cone(head_ + d * 0.1, 0.03, 0.0, 0.09, "gore", n=4, axis=d)
+    # --- Weapon2: the Catherine wheel on the left forearm, a martyr bound across its outer face
+    module("Weapon2")
+    wc = Vector((0.8, -0.36, 0.62)); R = 0.43
+    ax_ = Vector((math.cos(math.radians(-45)), math.sin(math.radians(-45)), 0)); hz = ax_.cross(Vector((0, 0, 1)))
+    bpy.ops.mesh.primitive_torus_add(major_radius=R, minor_radius=0.05, major_segments=16, minor_segments=6, location=tuple(wc))
+    o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(ax_)
+    o.scale = (1, 1, 1.6); add(o, "wood")
+    def onwheel(a_, r_, out=0.0):   # a point on the wheel at angle a_ (0 = towards the front), radius r_, out along its axle
+        return wc + ax_ * out + hz * math.cos(a_) * r_ + Vector((0, 0, math.sin(a_) * r_))
+    bar(Vector((0.62, -0.28, 0.68)), wc - ax_ * 0.05, 0.05, "metal", sides=6)            # the mount from the vambrace
+    cyl(wc + ax_ * 0.0, 0.07, 0.16, "iron", n=8, axis=ax_)                                # the hub
+    for k in range(6):
+        a_ = k * math.pi / 3 + math.pi / 6
+        bar(onwheel(a_, 0.06), onwheel(a_, R - 0.03), 0.022, "wood", sides=4)             # spokes
+    for k in range(8):
+        a_ = k * math.pi / 4
+        bar(onwheel(a_, R, -0.065), onwheel(a_, R, 0.065), 0.055, "iron", sides=4)        # iron band clamps
+        v_ = (onwheel(a_, 1) - wc).normalized()
+        if k % 2: cone(onwheel(a_, R + 0.1), 0.035, 0.0, 0.14, "iron", n=4, axis=v_)       # spikes outward
+    # The martyr (owner, 2026-11-03: "make the body on the wheel look better"): a gaunt MakeHuman body posed spread-eagled,
+    # with the plain mannequin head (no face) and bound fists, built standing in its own space, then scaled onto the
+    # wheel's outer face. A loincloth; ropes at the wrists, ankles and chest, and from each wrist and ankle to the rim.
+    n0 = len(MODULES["Weapon2"])
+    hand_ = {"L": P(0.6, 0.0, 1.72), "R": P(-0.6, 0.0, 1.72)}; elbow_ = {"L": P(0.42, 0.0, 1.6), "R": P(-0.42, 0.0, 1.6)}
+    ankle_ = {"L": P(0.46, 0.0, 0.16), "R": P(-0.46, 0.0, 0.16)}
+    def spread(r):
+        for s_, x in (("L", 1), ("R", -1)):
+            human.reach(r, s_, elbow_[s_], hand_[s_])
+            for b in ("upperleg01", "upperleg02"): human.aim(r, f"{b}.{s_}", P(0.3 * x, 0.0, 0.55))
+            for b in ("lowerleg01", "lowerleg02"): human.aim(r, f"{b}.{s_}", ankle_[s_])
+            human.aim(r, f"foot.{s_}", ankle_[s_] + Vector((0.05 * x, -0.12, -0.06)))
+    hands_, _, _ = human_body(spread, coat=False, head="mannequin", mitts="flesh", shape="male-young-averagemuscle-minweight",
+                              dress={"foot": "flesh", "shin": "flesh", "thigh": "flesh", "torso": "flesh", "hand": "flesh"})
+    MODULES["Weapon2"].append(MODULES["Body"].pop())                                  # the martyr's body belongs to the wheel
+    bpy.ops.mesh.primitive_cone_add(vertices=10, radius1=0.2, radius2=0.16, depth=0.26, end_fill_type='NOTHING', location=(0, 0.0, 0.9))
+    lc = bpy.context.object; lc.scale = (1, 0.72, 1); lc.modifiers.new("sol", "SOLIDIFY").thickness = 0.02; add(lc, "rags")   # loincloth
+    for z, r in ((1.32, 0.17), (1.12, 0.15)):                                            # ropes round chest and belly
+        bpy.ops.mesh.primitive_torus_add(major_radius=r, minor_radius=0.022, major_segments=10, minor_segments=3, location=(0, 0.0, z))
+        o = bpy.context.object; o.scale = (1, 0.85, 1); add(o, "rope")
+    knots = []
+    def bind(at, d_, r):   # a rope wrapped round a limb at `at`, the limb running along d_
+        bpy.ops.mesh.primitive_torus_add(major_radius=r, minor_radius=0.02, major_segments=8, minor_segments=4, location=tuple(at))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d_); add(o, "rope")
+    for s_, x in (("L", 1), ("R", -1)):
+        el, an = elbow_[s_] + Vector((0, 0, FLOOR)), ankle_[s_] + Vector((0, 0, FLOOR))
+        sh, kn = Vector((0.19 * x, 0, 1.45)), Vector((0.26 * x, 0, 0.56))
+        bind(hands_[s_], hands_[s_] - el, 0.036); knots.append(hands_[s_])                  # wrists, tied off to the rim
+        bind(an, an - kn, 0.04); knots.append(an)                                       # ankles, tied off to the rim
+        bind((sh + el) / 2, el - sh, 0.046)                                              # upper arms
+        bind(Vector((0.13 * x, 0, 0.74)), kn - Vector((0.1 * x, 0, 0.92)), 0.068)        # thighs
+        bind((kn + an) / 2, an - kn, 0.046)                                               # shins
+    # onto the wheel: centred, front turned out along the axle, 0.44 of its size
+    k_ = 0.44; cen = Vector((0, 0, 0.98))
+    Mw = Matrix.Translation(wc + ax_ * 0.09) @ Matrix.Rotation(math.radians(45), 4, 'Z') @ Matrix.Scale(k_, 4) @ Matrix.Translation(-cen)
+    for o in MODULES["Weapon2"][n0:]:
+        o.matrix_world = Mw @ o.matrix_world
+    for at in knots:                                                                      # each binding tied off to the rim
+        w_ = Mw @ at; rim = wc + ((w_ - wc) - ax_ * (w_ - wc).dot(ax_)).normalized() * (R - 0.02) + ax_ * 0.03
+        bar(w_, rim, 0.011, "rope", sides=4)
+    module("Body")
+
 def pilgrim():
     # Pilgrim (an original figure, not used by any unit): a tall pointed iron hood over the whole head (eye slit,
     # riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud, a rope belt with a rosary, a
@@ -933,7 +1171,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o
@@ -962,7 +1200,7 @@ for name, o in OBJS.items():
     only(o)
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris()
     bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.03); bpy.ops.object.mode_set(mode='OBJECT')
-    size = 128 if name == "Body" else 64   # one 128x128 texture for the body, 64x64 for each module
+    size = (TEX_SIZES or {}).get(name, 128 if name == "Body" else 64)   # one 128x128 texture for the body, 64x64 for each module (larger classes more)
     img = bpy.data.images.new(f"{role}-{name}", size, size)
     for m in o.data.materials:
         tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; m.node_tree.nodes.active = tn
