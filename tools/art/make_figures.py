@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -77,12 +77,14 @@ M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate":
           "gauntlet": spattered("gauntlet", "7a1a14", spots=0.5, scale=40),
           "blade": spattered("blade", "9a9ca0", spots=0.42, scale=9),
           "flesh": spattered("flesh", "9c7a6a", spots=0.36, scale=9),      # the Ecclesiastic Prisoner (2026-11-03)
-          "rust": mat("rust", "6a4630", 0.35, 14), "bomb": mat("bomb", "4a5430", 0.2, 10)})   # the Stigmatic Nun (2026-11-03)
+          "rust": mat("rust", "6a4630", 0.35, 14), "bomb": mat("bomb", "4a5430", 0.2, 10),
+          "charge": mat("charge", "8a1812", 0.15, 12)})   # the War Prophet's anti-tank charge (2026-11-03)   # the Stigmatic Nun (2026-11-03)
 # Faceless heads (visual pass Stage 1, 2026-10-27): every figure wears a plain hood of matte canvas over a smooth,
 # featureless head (no eyes, nose or mouth); the figures are told apart by silhouette, kit and pose.
 FACE_SCALE = 1.12   # the plain head fills the space of the MakeHuman face
 FACE_BOX = None
 FISTS = {}   # with mitts: each gloved fist's centre and its forearm's direction, so a weapon sits in the hand
+BODY_BUDGET = None   # a figure of a larger class sets its body's triangle budget (docs/art-pipeline.md section 3)
 HEAD_SEGS, HEAD_RINGS = 14, 11   # the low-poly head: about 280 triangles
 def head_frame(eyes, headp, headtop):
     # the head's own frame (across, up, forward), used to size and place the plain head
@@ -138,7 +140,7 @@ def human_body(pose, coat=True, dress=None, head="hood", mitts=None, shape="male
         x = 0.1 if s == "L" else -0.1
         for b in ("upperleg01", "upperleg02"): human.aim(rig, f"{b}.{s}", P(x, 0.0, 0.47))
         for b in ("lowerleg01", "lowerleg02"): human.aim(rig, f"{b}.{s}", P(x, 0.02, 0.08))
-        human.aim(rig, f"foot.{s}", P(x*1.05, -0.14, 0.02))
+        human.aim(rig, f"foot.{s}", P(x*1.05, -0.14, -0.01))   # the sole flat on the ground, heel and toes alike
     pose(rig)
     hands = {s: lift(human.world(rig, f"wrist.{s}", "head")) for s in ("L", "R")}
     elbows = {s: lift(human.world(rig, f"lowerarm01.{s}", "head")) for s in ("L", "R")}
@@ -347,19 +349,19 @@ def trench_pilgrim():
     # seat-colour band round the foot of the cone, and a short shoulder mantle in the seat colour, so the side reads from
     # the game camera above
     c = Vector((hp.x, hp.y - 0.005, top.z))
-    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.09, radius2=0.0, depth=0.34, location=tuple(c + Vector((0, 0, 0.11))))
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.075, radius2=0.0, depth=0.46, location=tuple(c + Vector((0, 0, 0.17))))
     o = bpy.context.object; o.scale = (1, 1.15, 1); add(o, "hood")
-    bpy.ops.mesh.primitive_cone_add(vertices=14, radius1=0.13, radius2=0.095, depth=0.24, end_fill_type='NOTHING', location=tuple(c + Vector((0, 0, -0.18))))
+    bpy.ops.mesh.primitive_cone_add(vertices=14, radius1=0.12, radius2=0.08, depth=0.24, end_fill_type='NOTHING', location=tuple(c + Vector((0, 0, -0.18))))
     o = bpy.context.object; o.scale = (1, 1.15, 1); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.008; add(o, "hood")
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.094, minor_radius=0.011, major_segments=12, minor_segments=4, location=tuple(c + Vector((0, 0, -0.055))))
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.079, minor_radius=0.011, major_segments=12, minor_segments=4, location=tuple(c + Vector((0, 0, -0.055))))
     bpy.context.object.scale = (1, 1.15, 1); add(bpy.context.object, "accent")
-    f = c + Vector((0, -0.128, -0.15))   # the painted cross on the drape, over where the face is
+    f = c + Vector((0, -0.118, -0.15))   # the painted cross on the drape, over where the face is
     box(tuple(f), (0.022, 0.006, 0.12), "blood", rot=(-0.17, 0, 0)); box(tuple(f + Vector((0, 0.004, 0.02))), (0.08, 0.006, 0.022), "blood", rot=(-0.17, 0, 0))
     bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.21, radius2=0.11, depth=0.13, end_fill_type='NOTHING', location=(hp.x, hp.y - 0.01, 1.41))
     m_ = bpy.context.object; m_.scale = (1, 0.82, 1); m_.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(m_, "accent")
     # a prayer strip pinned to the side of the cone under a wax seal
-    sphere(tuple(c + Vector((0.082, -0.03, -0.02))), 0.018, "blood", (0.5, 1, 1), seg=6, rings=4)
-    box(tuple(c + Vector((0.098, -0.03, -0.09))), (0.006, 0.035, 0.11), "bone", rot=(0, 0.12, 0))
+    sphere(tuple(c + Vector((0.07, -0.03, -0.02))), 0.018, "blood", (0.5, 1, 1), seg=6, rings=4)
+    box(tuple(c + Vector((0.085, -0.03, -0.09))), (0.006, 0.035, 0.11), "bone", rot=(0, 0.12, 0))
     module("Chest")
     # bandolier from the left shoulder to the right hip, with ammunition pouches and a wax seal with its parchment
     skin([(0.15, -0.02, 1.42), (0.02, -0.16, 1.2), (-0.15, -0.12, 0.98)], [(0, 1), (1, 2)], [(0.035, 0.014)]*3, "leather", subdiv=0)
@@ -624,6 +626,108 @@ def ecclesiastic_prisoner():
         o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(ax); add(o, "rope")
     module("Body")
 
+def war_prophet():
+    # War Prophet (2026-11-03, fourth figure of docs/art-pipeline.md, class B, 32 mm): an original figure on the owner's
+    # reference cues, not a copy of the miniature, the art or any paint job. A plate-armoured preacher in a long robe, a
+    # closed pointed iron helm with a dark eye slit (no face, no head under it), the wooden cross frame on his back with
+    # loudspeaker horns and bells, a scroll of scripture on his chest, and the anti-tank hammer: a long pole with a pick
+    # head and a red explosive charge. Modules: Helmet, Chest (cuirass, pauldrons, scroll), Back (cross frame, horns,
+    # bells), Hip (belt and tabard crosses), Weapon (anti-tank hammer), Accent (tabard panels and prayer pennants).
+    global BODY_BUDGET; BODY_BUDGET = 1200
+    def pose(r):
+        human.reach(r, "R", P(-0.28, 0.02, 1.12), P(-0.3, -0.12, 1.22))
+        human.reach(r, "L", P(0.25, 0.0, 1.08), P(0.27, -0.06, 0.88))
+    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "robe", "thigh": "robe", "torso": "plate"}, head=None,
+                                mitts="plate", shape="male-young-averagemuscle-averageweight")
+    import random; rnd = random.Random(1918)
+    # the long robe under the armour, its hem ragged
+    bpy.ops.mesh.primitive_cone_add(vertices=16, radius1=0.25, radius2=0.18, depth=0.86, end_fill_type='NOTHING', location=(0, 0, 0.55))
+    o = bpy.context.object; o.scale = (1, 0.84, 1)
+    for v in o.data.vertices:
+        if v.co.z < 0: v.co.z += rnd.uniform(0.0, 0.06)
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(o, "robe")
+    # tabard panels in the seat colour, front and back, hanging from the belt
+    for y_top, y_low in ((-0.17, -0.22), (0.15, 0.2)):
+        for x in (-0.075, 0.075):
+            me = bpy.data.meshes.new("panel")
+            me.from_pydata([(x - 0.06, y_top, 1.0), (x + 0.06, y_top, 1.0), (x + 0.06, y_low, 0.5), (x - 0.06, y_low, 0.5)], [], [(0, 3, 2, 1)])
+            o = bpy.data.objects.new("panel", me); scn.collection.objects.link(o); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.01
+            add(o, "accent")
+    module("Chest")
+    # a plate cuirass fitted to the torso, pauldrons of two lames on each shoulder, and the scroll with its seal
+    bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.2, depth=0.42, end_fill_type='NOTHING', location=(0, -0.01, 1.22))
+    o = bpy.context.object
+    import bmesh as _bm
+    bm = _bm.new(); bm.from_mesh(o.data)
+    _bm.ops.subdivide_edges(bm, edges=[e for e in bm.edges if abs(e.verts[0].co.z - e.verts[1].co.z) > 0.01], cuts=1)
+    bm.to_mesh(o.data); bm.free()
+    sw = o.modifiers.new("fit", "SHRINKWRAP"); sw.target = bpy.data.objects["human"]; sw.wrap_method = 'PROJECT'
+    sw.use_project_x = sw.use_project_y = sw.use_project_z = False; sw.use_negative_direction = True; sw.use_positive_direction = True; sw.offset = 0.02
+    bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier="fit")
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(o, "plate")
+    for x in (-1, 1):
+        for i, (z, sc) in enumerate(((1.47, 1.0), (1.41, 0.92))):
+            # the top lame in the seat colour, a heraldic shoulder the camera above looks straight down on
+            sphere((0.2 * x, -0.0, z), 1, "accent" if i == 0 else "plate", (0.11 * sc, 0.12 * sc, 0.06), seg=8, rings=4)
+    box((0.08, -0.205, 1.3), (0.1, 0.012, 0.16), "bone", rot=(0.1, 0, 0))
+    sphere((0.08, -0.215, 1.38), 0.02, "blood", (1, 0.5, 1), seg=6, rings=3)
+    module("Hip")
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.18, minor_radius=0.016, major_segments=10, minor_segments=3, location=(0, -0.005, 1.0))
+    bpy.context.object.scale = (1, 0.85, 1); add(bpy.context.object, "leather")
+    for x in (-0.075, 0.075):   # a bone cross on each front panel
+        box((x, -0.205, 0.8), (0.016, 0.006, 0.12), "bone", rot=(0.1, 0, 0)); box((x, -0.203, 0.82), (0.06, 0.006, 0.016), "bone", rot=(0.1, 0, 0))
+    module("Helmet")
+    # the closed helm: a tall iron shell over the whole head rising to a point, an eye slit and a brass cross
+    fb = FACE_BOX; centre = fb["mid"] - fb["fwd"] * 0.04
+    rot = (0, 0, math.atan2(fb["fwd"].x, -fb["fwd"].y))
+    # one shell, so the face part and the point meet with no ledge: a ring at the chin, a ring at the point's base (the
+    # widest), then the apex; the face part narrows a little to the chin
+    rings = [(centre - fb["up"] * 0.15, 0.07), (centre + fb["up"] * 0.09, 0.08)]
+    apex = centre + fb["up"] * 0.47
+    n_ = 12; verts = []
+    for at, r in rings:
+        verts += [tuple(at + fb["ax"] * (r * math.cos(2 * math.pi * k / n_)) + fb["fwd"] * (r * 1.12 * math.sin(2 * math.pi * k / n_))) for k in range(n_)]
+    verts.append(tuple(apex))
+    faces = [(k, (k + 1) % n_, n_ + (k + 1) % n_, n_ + k) for k in range(n_)]
+    faces += [(n_ + k, n_ + (k + 1) % n_, 2 * n_) for k in range(n_)]
+    faces.append(tuple(reversed(range(n_))))   # closed under the chin
+    me = bpy.data.meshes.new("helm"); me.from_pydata(verts, [], faces); me.validate()
+    import bmesh as _bm
+    bm = _bm.new(); bm.from_mesh(me); _bm.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(me); bm.free(); me.update()   # facing out
+    hm = bpy.data.objects.new("helm", me); scn.collection.objects.link(hm); add(hm, "plate")
+    box(tuple(centre + fb["fwd"] * 0.085 + fb["up"] * 0.02), (0.055, 0.012, 0.018), "dark", rot=rot)
+    lean = (-0.25, 0, rot[2])   # lying on the cone's slope
+    box(tuple(centre + fb["fwd"] * 0.077 + fb["up"] * 0.16), (0.013, 0.01, 0.075), "brass", rot=lean)
+    box(tuple(centre + fb["fwd"] * 0.074 + fb["up"] * 0.175), (0.045, 0.01, 0.013), "brass", rot=lean)
+    module("Back")
+    # the cross frame: a post behind the head, a crossbar above the shoulders with a loudspeaker horn at each end, a short
+    # bar at the top, bells hung under the crossbar, and prayer pennants in the seat colour
+    post_y = 0.17
+    bar((0, post_y, 1.05), (0, post_y, 2.0), 0.024, "wood", sides=4)
+    bar((-0.33, post_y, 1.74), (0.33, post_y, 1.74), 0.022, "wood", sides=4)
+    bar((-0.09, post_y, 1.92), (0.09, post_y, 1.92), 0.018, "wood", sides=4)
+    for x in (-1, 1):
+        mouth = Vector((0.36 * x, post_y - 0.05, 1.8))
+        bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.07, radius2=0.022, depth=0.15, end_fill_type='NOTHING', location=tuple(mouth))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'
+        o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(Vector((-0.6 * x, 0.6, -0.5)).normalized())
+        o.modifiers.new("sol", "SOLIDIFY").thickness = 0.008; add(o, "brass")
+        bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.04, radius2=0.018, depth=0.06, location=(0.2 * x, post_y, 1.66)); add(bpy.context.object, "iron")
+        box((0.27 * x, post_y + 0.01, 1.6), (0.035, 0.008, 0.2), "accent")
+    module("Weapon")
+    # the anti-tank hammer, held upright in the right fist: a long pole, a pick head and a red explosive charge with a
+    # white cross
+    fr, _ = FISTS["R"]
+    low, high = Vector((fr.x, fr.y, 0.05)), Vector((fr.x, fr.y, 1.9))
+    bar(low, high, 0.016, "wood", sides=5)
+    bar(high - Vector((0, 0, 0.03)), high + Vector((0, -0.2, -0.06)), 0.014, "iron", sides=3)
+    bar(high - Vector((0, 0, 0.03)), high + Vector((0, 0.08, 0.0)), 0.012, "iron", sides=3)
+    bar(high, high + Vector((0, 0, 0.07)), 0.01, "iron", sides=3)
+    ch = high + Vector((0, -0.07, -0.16))
+    bar(ch + Vector((0, 0, 0.07)), ch - Vector((0, 0, 0.07)), 0.034, "charge", sides=8)
+    box(tuple(ch + Vector((0, -0.035, 0.0))), (0.012, 0.006, 0.05), "bone"); box(tuple(ch + Vector((0, -0.035, 0.01))), (0.04, 0.006, 0.012), "bone")
+    module("Body")
+
 def pilgrim():
     # Pilgrim (an original figure, not used by any unit): a tall pointed iron hood over the whole head (eye slit,
     # riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud, a rope belt with a rosary, a
@@ -670,7 +774,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o
@@ -687,7 +791,7 @@ def only(o):
 OBJS = {name: join(parts, name) for name, parts in MODULES.items() if parts}
 B, A = OBJS["Body"], OBJS["Accent"]
 # the body's budget: 1,400 triangles alone, 1,000 when the equipment is in modules (docs/art-pipeline.md)
-BUDGET = 1400 if len(OBJS) == 2 else 1000
+BUDGET = BODY_BUDGET or (1400 if len(OBJS) == 2 else 1000)
 only(B); t = tris(B); r = BUDGET / t
 while t > BUDGET:   # the head and hands ("head" group) are kept as they are
     d = B.modifiers.new("d","DECIMATE"); d.ratio = r; d.vertex_group = "head"; d.invert_vertex_group = True

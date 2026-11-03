@@ -263,3 +263,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   back. The bomb and chest ropes are placed by ray-casting the posed body (`back_y`), so they rest on it. The 25 mm
   pilgrims are done; the War Prophet, Castigator (32 mm), Sanctified Giant (40 mm) and Reliquary Walker (60 mm) wait for
   the per-entry figure height in the client catalog.
+- 2026-11-03: fourth figure, War Prophet (`units/war-prophet.glb`, class B 32 mm, 2,066 triangles, catalog height 1.55",
+  approved). One-piece pointed helm (built from rings, no ledge), cross frame with horns and bells, anti-tank hammer,
+  seat colour on the pauldrons' top lames and tabards. Feet now flat on the ground for every figure (shared foot aim);
+  trench-pilgrim (thinner, taller capirote), stigmatic-nun and ecclesiastic-prisoner were rebuilt with it. Figure tests
+  take each figure's budget by class; `BODY_BUDGET` sets a larger class's body budget in the script. Left: Castigator
+  (32 mm), Sanctified Giant (40 mm), Reliquary Walker (60 mm).

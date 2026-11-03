@@ -12,6 +12,7 @@
     "unit:Trench Pilgrim": "units/trench-pilgrim.glb",
     "unit:Stigmatic Nun": "units/stigmatic-nun.glb",
     "unit:Ecclesiastic Prisoner": "units/ecclesiastic-prisoner.glb",
+    "unit:War Prophet": { "file": "units/war-prophet.glb", "height": 1.55 },
     "ground": "ground/mud.png",
     "terrain:Low": "terrain/rubble.png",
     "terrain:Cover": "terrain/burlap.png",
