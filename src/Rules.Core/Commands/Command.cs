@@ -57,7 +57,12 @@ public sealed record Shoot(Seat Seat, ModelId Attacker, ModelId Target) : Comman
 }
 
 // Answers a pending Blood Marker decision (p. 28): spend this many markers, or none (Count 0).
-public sealed record SpendMarkers(Seat Seat, int Count) : Command;
+public sealed record SpendMarkers(Seat Seat, int Count) : Command
+{
+    // Bloodbath Roll (p. 47, U124): on a pending Injury Roll decision, Count includes the 6 markers (3 if the target is Down)
+    // that turn the roll into a Bloodbath Roll; any more are +1 INJURY DICE each. Left off the wire when false.
+    public bool Bloodbath { get; init; }
+}
 
 // ---- M4 Slice B: Charge, Retreat, Fight and the choices around them ----
 

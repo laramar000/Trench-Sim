@@ -230,9 +230,9 @@ Resolved by the project owner's ruling of 14 October 2026; see W1 above. It is k
 - **Confidence:** moderate that the readings are equivalent in play, based on automated text checks only.
 - **Status:** provisional (U31). M4 Slice A applies the penalty as -1 DICE on Success Rolls taken for a Down model, which matches both readings in every case found. In Slice A it never changes a roll, because a Down model stands up at the start of its activation, before it can take any roll. A person should still read pp. 20, 25, 41 and 49.
 
-### 3. Bloodbath Rolls and extra injury dice (not implemented in Slice A)
+### 3. Bloodbath Rolls and extra injury dice (resolved and built, U124)
 
-Bloodbath Rolls (p. 47) say to apply +/- INJURY DICE as for an Injury Roll, but keep the three highest or three lowest dice. Ruling (2026-11-02, from the p. 47 text): roll 3D6, add each extra INJURY DIE to them, keep the 3 highest (or 3 lowest with net penalty dice), then apply INJURY MODIFIERS. A DEADLY Bloodbath Roll is 4D6, all four summed; extra dice on top of that keep the 4 best or worst (our reading, matching the DEADLY entry on p. 54). The spend is 6 Blood Markers, or 3 if the target is Down. Still not implemented.
+Bloodbath Rolls (p. 47) say to apply +/- INJURY DICE as for an Injury Roll, but keep the three highest or three lowest dice. Ruling (2026-11-02, from the p. 47 text): roll 3D6, add each extra INJURY DIE to them, keep the 3 highest (or 3 lowest with net penalty dice), then apply INJURY MODIFIERS. A DEADLY Bloodbath Roll is 4D6, all four summed; extra dice on top of that keep the 4 best or worst (our reading, matching the DEADLY entry on p. 54). The spend is 6 Blood Markers, or 3 if the target is Down. Built as U124.
 
 ### 4. Morale Check modifiers and passing (provisional in M2 as R3 and R4)
 

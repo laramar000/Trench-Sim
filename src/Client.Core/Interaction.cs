@@ -598,6 +598,8 @@ public sealed class Interaction
         var items = LegalCommands().Where(c => CommandSeats.Of(c) == seat).Select(c => c switch
         {
             SpendMarkers { Count: 0 } m => new BarItem(BarKind.Decide, "No Blood", "Spend no Blood Markers on this roll.", Command: m),
+            SpendMarkers { Bloodbath: true } m => new BarItem(BarKind.Decide, $"Bloodbath ({m.Count})",
+                $"Spend {m.Count} of {NameOf(holder)}'s Blood Markers for a Bloodbath Roll: 3 dice are added (4 for a DEADLY weapon), and every marker beyond the cost is +1 INJURY DICE.", Command: m),
             SpendMarkers m => new BarItem(BarKind.Decide, $"Spend {m.Count} Blood", pending.Kind == DecisionKind.SpendMarkersOnSuccessRoll
                 ? $"Spend {m.Count} of {NameOf(holder)}'s Blood Markers: -1 DICE each on its Success Roll."
                 : $"Spend {m.Count} of {NameOf(holder)}'s Blood Markers: +1 INJURY DICE each on the Injury Roll against it.", Command: m),

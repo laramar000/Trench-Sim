@@ -47,7 +47,7 @@ public static class CommandParser
             "shoot" => new Shoot(seat, Model(Arg(args, 0)), Model(Arg(args, 1))),
             "charge" => new ChargeModel(seat, Model(Arg(args, 0)), Model(Arg(args, 1))),
             "fight" => new FightModel(seat, Model(Arg(args, 0)), Model(Arg(args, 1))),
-            "markers" => new SpendMarkers(seat, int.Parse(One(args), CultureInfo.InvariantCulture)),
+            "markers" => new SpendMarkers(seat, int.Parse(Arg(args, 0), CultureInfo.InvariantCulture)) { Bloodbath = args.Length > 1 && args[1].Equals("bloodbath", StringComparison.OrdinalIgnoreCase) },
             "free" => new FreeFight(seat, Model(One(args))),
             "decline" => new DeclineFreeFights(seat),
             "friendly" => new ChooseFriendlyTarget(seat, Model(One(args))),

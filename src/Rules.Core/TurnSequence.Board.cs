@@ -14,6 +14,7 @@ public static partial class TurnSequence
 {
     private const string RefActions = "1.0.2 p. 34";
     private const string RefMarkers = "1.0.2 pp. 27-28";
+    private const string RefBloodbath = "1.0.2 pp. 19, 47";
 
     // ---- validation ----
 
@@ -524,9 +525,16 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.NotYourTurn, "That decision belongs to the other player.", RefMarkers);
         }
-        return c.Count < 0 || c.Count > MarkersAvailable(state, pending.Kind)
-            ? new(ReasonCode.InvalidMarkerCount, "You can spend from none up to all of the model's Blood Markers.", RefMarkers)
-            : null;
+        if (c.Count < 0 || c.Count > MarkersAvailable(state, pending.Kind))
+        {
+            return new(ReasonCode.InvalidMarkerCount, "You can spend from none up to all of the model's Blood Markers.", RefMarkers);
+        }
+        // Bloodbath Roll (p. 47, U124): only on an Injury Roll, and only with the 6 markers (3 if Down) it costs.
+        if (c.Bloodbath && (pending.Kind != DecisionKind.SpendMarkersOnInjuryRoll || c.Count < Reducer.BloodbathCost(state.FindModel(state.InProgress!.Target!.Value)!)))
+        {
+            return new(ReasonCode.InvalidMarkerCount, "A Bloodbath Roll is an Injury Roll that costs 6 Blood Markers, or 3 if the target is Down.", RefBloodbath);
+        }
+        return null;
     }
 
     // ---- executing ----
@@ -652,7 +660,7 @@ public static partial class TurnSequence
                     c.Seat,
                     success ? progress.Actor : progress.Target!.Value,
                     c.Count,
-                    success ? MarkerSpendPurpose.ReduceSuccessRoll : MarkerSpendPurpose.RaiseInjuryRoll));
+                    success ? MarkerSpendPurpose.ReduceSuccessRoll : c.Bloodbath ? MarkerSpendPurpose.Bloodbath : MarkerSpendPurpose.RaiseInjuryRoll));
                 break;
         }
     }
@@ -891,10 +899,13 @@ public static partial class TurnSequence
                 var weapon = Reducer.AttackProfile(s, progress);
                 var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup!.ProfileOf(target.Id)!, progress.Kind);
                 // Roster stage R5j (U115): a Martyrdom Device's bearer rolls 4D6 added together.
+                // Roster stage R5j (U115) and Bloodbath Rolls (p. 47, U124): a Bloodbath Roll keeps 3 dice, 4 with DEADLY.
+                var deadly = (weapon.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0;
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down,
-                    deadly: (weapon.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0, allFour: progress.Martyrdom && target.Id == actor.Id);
+                    deadly: progress.Bloodbath ? !deadly : deadly, allFour: progress.Martyrdom && target.Id == actor.Id || progress.Bloodbath && deadly);
                 var rolled = new InjuryRolled(actor.Id, target.Id, injury)
                 {
+                    Bloodbath = progress.Bloodbath,
                     ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup.ProfileOf(target.Id)!),
                     Tough = Reducer.ToughSaves(s, target, injury.Outcome),
                     Spared = Reducer.MementoSaves(s, target, injury.Outcome),

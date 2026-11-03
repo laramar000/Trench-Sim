@@ -291,3 +291,7 @@ The server sends events in log order, one message each, to both players, through
 - Names a player gives (the roster's and its models') reach the opponent; the server refuses names over 60 characters
   or with control characters.
 - Tests: `Server.Tests/RosterOnlineTests` (with `RosterSessionTests`, `RosterCliTests`), `Client.Tests/RosterHotSeatTests` (two controllers on the real server).
+
+## Bloodbath Rolls (U124)
+
+`SpendMarkers` gained an optional `bloodbath` flag (left out when false): on an Injury Roll decision it spends 6 of the target's Blood Markers (3 if the target is Down) or more, and the roll becomes a Bloodbath Roll. `MarkersSpent` has a new `purpose` value `Bloodbath`, and `InjuryRolled` an optional `bloodbath` flag (left out when false). Messages and records that never use it are byte-for-byte unchanged.

@@ -39,6 +39,7 @@ public static class UnitNotes
             PointSuccessRolled r => [Hit(r.Attacker, r.Check)],
             MeleeSuccessRolled m => [Hit(m.Attacker, m.Check)],
             InjuryRolled i => [Injury(i.Target, i.Result, i.PlacedMarkers, i.Tough, i.Spared)],
+            MarkersSpent { Count: > 0, Purpose: MarkerSpendPurpose.Bloodbath } m => [new(m.Model, $"BLOODBATH: {m.Count} BLOOD SPENT", NoteTone.Info)],
             MarkersSpent { Count: > 0 } m => [new(m.Model, $"{m.Count} BLOOD SPENT", NoteTone.Info)],
             ChargeRolled c => [new(c.Model, $"CHARGE +{c.Die}\"", NoteTone.Info)],
             ChargeMoved { Reached: false } c => [new(c.Model, "CHARGE FAILED", NoteTone.Failure)],

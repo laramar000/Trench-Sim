@@ -89,6 +89,8 @@ public sealed class ResolutionLog
 
         // Roster stage R5j: a Martyrdom Device detonated; the other models within 1" of it get +1 INJURY DICE.
         public System.Collections.Immutable.ImmutableArray<ModelId>? MartyrClose { get; set; }
+        // Bloodbath Roll (p. 47, U124): the Blood Markers spent to make the Injury Roll one; the dice they add beyond the cost are worked out when it is rolled.
+        public int BloodbathMarkers { get; set; }
         public List<string> Steps { get; } = [];
         public List<string> Outcome { get; } = [];
 
@@ -267,6 +269,11 @@ public sealed class ResolutionLog
                 {
                     action.Dice.Add(new($"{markers} of {Id(spent.Model)} spent by {Words.Seat(spent.Spender)}", -spent.Count));
                     action.Steps.Add($"{Words.Seat(spent.Spender)} spends {markers} of {Id(spent.Model)}: {-spent.Count} DICE on the Success Roll");
+                }
+                else if (spent.Purpose == MarkerSpendPurpose.Bloodbath)
+                {
+                    action.BloodbathMarkers = spent.Count;
+                    action.Steps.Add($"{Words.Seat(spent.Spender)} spends {markers} of {Id(spent.Model)}: the Injury Roll becomes a Bloodbath Roll");
                 }
                 else
                 {
@@ -515,6 +522,12 @@ public sealed class ResolutionLog
             }
         }
         dice.AddRange(action.Dice);
+        // Bloodbath Roll (p. 47, U124): the markers beyond its cost (6, or 3 if the target was Down) are +1 INJURY DICE each.
+        if (i.Bloodbath && action.BloodbathMarkers - (injury.TargetAlreadyDown ? 3 : 6) is var beyond and > 0)
+        {
+            dice.Add(new("Blood Markers spent beyond the Bloodbath", beyond));
+        }
+        action.BloodbathMarkers = 0;
         var modifiers = new List<ResolutionPart>();
         int? combined = null;
         if (action.MartyrClose is { } close && setup?.ProfileOf(i.Attacker) is { } bearer && setup.ProfileOf(i.Target) is { } blasted)

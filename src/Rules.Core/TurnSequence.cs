@@ -153,6 +153,12 @@ public static partial class TurnSequence
             case DecisionKind.SpendMarkersOnSuccessRoll or DecisionKind.SpendMarkersOnInjuryRoll:
                 var available = MarkersAvailable(state, pending.Kind);
                 commands.AddRange(Enumerable.Range(0, available + 1).Select(n => new SpendMarkers(pending.Seat, n)));
+                // Bloodbath Rolls (p. 47, U124): on an Injury Roll, from the 6 markers (3 if Down) it costs up to all of them.
+                if (pending.Kind == DecisionKind.SpendMarkersOnInjuryRoll && state.FindModel(state.InProgress!.Target!.Value) is { } victim)
+                {
+                    var cost = Reducer.BloodbathCost(victim);
+                    commands.AddRange(Enumerable.Range(cost, Math.Max(0, available - cost + 1)).Select(n => new SpendMarkers(pending.Seat, n) { Bloodbath = true }));
+                }
                 break;
         }
     }

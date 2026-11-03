@@ -128,6 +128,7 @@ public enum AttackKind
 // Roster stage R5j (U115): a Martyrdom Device's detonation (Martyrdom) rolls for the models in BlastQueue, its bearer last;
 // MartyrClose are the other models within 1" of it (+1 INJURY DICE each).
 // Roster stage R6b (U118): SelfAction, which ACTION a SelfRoll is for.
+// Bloodbath Roll (p. 47, U124): Bloodbath, the attacker spent the markers that make this Injury Roll a Bloodbath Roll.
 public sealed record RollInProgress(
     RollStage Stage,
     ModelId Actor,
@@ -153,7 +154,8 @@ public sealed record RollInProgress(
     bool TreatStandUp = false,
     bool Martyrdom = false,
     ImmutableArray<ModelId> MartyrClose = default,
-    SelfActionKind SelfAction = SelfActionKind.Aim);
+    SelfActionKind SelfAction = SelfActionKind.Aim,
+    bool Bloodbath = false);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.

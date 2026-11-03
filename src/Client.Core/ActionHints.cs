@@ -87,6 +87,7 @@ public static class ActionHints
         ResolveFailedMorale r => $"Failed Morale Check: {Words.MoraleChoice(r.Choice)}",
         ActivateModel a => $"Activate {names.Of(a.Model)}",
         EndActivation => state.ActiveModel is { } active ? $"End {names.Of(active)}'s activation" : "End the activation",
+        SpendMarkers { Bloodbath: true } s => $"Bloodbath Roll: spend {s.Count} Blood Markers",
         SpendMarkers s => s.Count == 0 ? "Spend no Blood Markers" : $"Spend {s.Count} Blood Marker{(s.Count == 1 ? "" : "s")}",
         FreeFight f => $"Free attack with {names.Of(f.Attacker)}",
         DeclineFreeFights => "Decline the remaining free attacks",

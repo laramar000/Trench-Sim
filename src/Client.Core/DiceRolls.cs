@@ -163,7 +163,7 @@ public static class DiceRolls
         var verdict = i.Result is InjuryOutcome.Down or InjuryOutcome.OutOfAction ? RollVerdict.Pass : RollVerdict.Neutral;
         var mark = verdict == RollVerdict.Pass ? "✓" : "•";
         var modifier = injury.Modifier == 0 ? "" : $", modifier {injury.Modifier:+0;-0}";
-        return new(i.Target, injury.AllFour ? $"{Id(i.Target)} IS CAUGHT BY ITS OWN DEVICE: 4D6 added together" : $"{Id(i.Attacker)} INJURES {Id(i.Target)}: injury roll", Faces(injury.Dice),
+        return new(i.Target, i.Bloodbath ? $"{Id(i.Attacker)} MAKES A BLOODBATH ROLL ON {Id(i.Target)}: {injury.Dice.Kept.Count} dice added" : injury.AllFour ? $"{Id(i.Target)} IS CAUGHT BY ITS OWN DEVICE: 4D6 added together" : $"{Id(i.Attacker)} INJURES {Id(i.Target)}: injury roll", Faces(injury.Dice),
             $"{Kept(injury.Dice, injury.NetDice)}{modifier}; {InjuryBands()}", $"{mark} {word} {injury.Total}{sum}{blood}", verdict);
     }
 
