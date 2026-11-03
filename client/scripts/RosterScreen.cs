@@ -37,8 +37,9 @@ public partial class Main
         _rosterKitSection = null!, _rosterCheckSection = null!, _rosterSaveSection = null!;
     private Control? _rosterColumns;
     private HBoxContainer[] _rosterFields = [];
-    private ProgressBar _rosterBar = null!;
+    private ProgressBar _rosterBar = null!, _rosterGloryBar = null!;
     private readonly StyleBoxFlat _rosterBarFill = new();
+    private readonly StyleBoxFlat _rosterGloryFill = new();
     private VBoxContainer _rosterFieldsHolder = null!;
     private ScrollContainer? _rosterLeftScroll;
     private readonly Dictionary<string, bool> _kitOpen = new() { ["Ranged weapons"] = true, ["Melee weapons"] = true };
@@ -84,7 +85,11 @@ public partial class Main
         _rosterBar = new ProgressBar { Name = "RosterBar", ShowPercentage = false, CustomMinimumSize = new Vector2(0, 10) };
         _rosterBar.AddThemeStyleboxOverride("fill", _rosterBarFill);
         _rosterBar.AddThemeStyleboxOverride("background", new StyleBoxFlat { BgColor = new Color(0.13f, 0.1f, 0.085f), BorderColor = UiLook.Iron, BorderWidthBottom = 1, BorderWidthTop = 1, BorderWidthLeft = 1, BorderWidthRight = 1 });
-        _rosterHeader = Section(RosterTitle, Column(Text(RosterBuilder.SourceNote), _rosterFieldsHolder, _rosterTotal, _rosterBar));
+        // And the Glory spent against its budget, when the list has one, in a cool blue under it.
+        _rosterGloryBar = new ProgressBar { Name = "RosterGloryBar", ShowPercentage = false, CustomMinimumSize = new Vector2(0, 6), TooltipText = "Glory spent against the list's Glory budget" };
+        _rosterGloryBar.AddThemeStyleboxOverride("fill", _rosterGloryFill);
+        _rosterGloryBar.AddThemeStyleboxOverride("background", new StyleBoxFlat { BgColor = new Color(0.13f, 0.1f, 0.085f), BorderColor = UiLook.Iron, BorderWidthBottom = 1, BorderWidthTop = 1, BorderWidthLeft = 1, BorderWidthRight = 1 });
+        _rosterHeader = Section(RosterTitle, Column(Text(RosterBuilder.SourceNote), _rosterFieldsHolder, _rosterTotal, _rosterBar, _rosterGloryBar));
 
         _rosterRules = Column();
         _rosterRules.Name = "RosterRules";
@@ -259,6 +264,11 @@ public partial class Main
         _rosterBar.MaxValue = Math.Max(1, _builder.BudgetDucats);
         _rosterBar.Value = Math.Min(spent, _builder.BudgetDucats);
         _rosterBar.Visible = _rosterLayout != 1;
+        var glory = _builder.Check().Glory;
+        _rosterGloryBar.Visible = _rosterLayout != 1 && _builder.BudgetGlory > 0;
+        _rosterGloryBar.MaxValue = Math.Max(1, _builder.BudgetGlory);
+        _rosterGloryBar.Value = Math.Min(glory, _builder.BudgetGlory);
+        _rosterGloryFill.BgColor = glory > _builder.BudgetGlory ? new Color(0.72f, 0.2f, 0.14f) : _highContrast ? Colors.White : new Color(0.45f, 0.62f, 0.85f);
         _rosterBarFill.BgColor = spent > _builder.BudgetDucats ? new Color(0.72f, 0.2f, 0.14f) : _highContrast ? Colors.Yellow : UiLook.Gold;
 
         Empty(_rosterRules);

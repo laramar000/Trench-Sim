@@ -6281,6 +6281,26 @@ public partial class UiCheck : Node
                 }
             }
         }
+        // The bars: a list with a Glory budget, and a warband over its ducats.
+        builder.ChooseFaction("principality");
+        main.ChooseRosterLayout(0);
+        var glorious = builder.Variants.FirstOrDefault(v => v is not null && v.Id.Length > 0);
+        if (glorious is not null)
+        {
+            builder.ChooseVariant(glorious.Id);
+            builder.Add(builder.Entries[0].Id);
+            main.RefreshRosterScreen();
+            await Shot("roster-glory-budget");
+        }
+        builder.ChooseVariant(null);
+        builder.Add(builder.Entries[0].Id);
+        var cheap = builder.Entries.First(e => e.Name == "Yeoman");
+        for (var n = 0; n < 24; n++)
+        {
+            builder.Add(cheap.Id);
+        }
+        main.RefreshRosterScreen();
+        await Shot("roster-over-budget");
         Check("roster-look", true, "screenshots saved");
     }
 
