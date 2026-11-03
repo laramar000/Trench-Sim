@@ -810,7 +810,22 @@
     }
    ],
    "status": "verified",
-   "note": "up to 3 more can be bought for 1 Glory each as Glory Items (not priced by the builder)"
+   "note": "up to 3 more can be bought for 1 Glory each as Glory Items"
+  },
+  {
+   "kit": "restraining-muzzle-glory",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 3,
+   "only": [
+    {
+     "model": "chain-fiend"
+    }
+   ],
+   "status": "verified",
+   "note": "in addition to up to 3 bought with ducats"
   },
   {
    "kit": "shovel",

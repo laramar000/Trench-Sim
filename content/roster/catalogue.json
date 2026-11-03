@@ -3010,6 +3010,24 @@
    "cost": null
   },
   {
+   "id": "restraining-muzzle-glory",
+   "name": "Restraining Muzzle (Glory)",
+   "category": "equipment",
+   "rule": {
+    "summary": "Special rules: Brought to Heel.",
+    "page": 138
+   },
+   "source": {
+    "book": "Trench Crusade Digital Rulebook",
+    "version": "1.0.2",
+    "page": 138
+   },
+   "status": "verified",
+   "naming": "keep",
+   "campaignOnly": true,
+   "cost": null
+  },
+  {
    "id": "resurrection-engine",
    "name": "Resurrection Engine",
    "category": "special",
