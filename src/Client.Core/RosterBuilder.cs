@@ -117,7 +117,7 @@ public sealed class RosterBuilder
     };
 
     public static string CostText(Cost? cost) => cost is null ? "cost not verified" :
-        cost.Currency == Currency.Ducats ? $"{cost.Amount} ducats" : $"{cost.Amount} Glory";
+        cost.Currency == Currency.Ducats ? $"{cost.Amount} {(cost.Amount == 1 ? "ducat" : "ducats")}" : $"{cost.Amount} Glory";
 
     public int Add(string entryId)
     {
@@ -158,7 +158,7 @@ public sealed class RosterBuilder
     {
         var cost = CostOf(m);
         var kit = m.Kit.Count == 0 ? "" : ": " + string.Join(", ", m.Kit.Select(KitName));
-        return new ModelRow(i, $"{i + 1}. {EntryOf(m).Name}{kit}", cost is null ? "cost not verified" : $"{cost} ducats");
+        return new ModelRow(i, $"{i + 1}. {EntryOf(m).Name}{kit}", cost is null ? "cost not verified" : $"{cost} {(cost == 1 ? "ducat" : "ducats")}");
     }).ToList();
 
     // The battlekit the selected model may be offered, with its price for that model (the model's own price first).
@@ -345,7 +345,7 @@ public sealed class RosterBuilder
             {
                 ready.RosterProblems.Count > 0 ? "For a match: fix the problems above first."
                 : ready.Refused.Count > 0 ? $"For a match: not yet; the game cannot play {ready.Refused.Count} thing{(ready.Refused.Count == 1 ? "" : "s")} below."
-                : $"For a match: ready ({ready.Models.Count} model{(ready.Models.Count == 1 ? "" : "s")}). Matches with your own roster come in a later stage.",
+                : $"For a match: ready ({ready.Models.Count} model{(ready.Models.Count == 1 ? "" : "s")}). Pick it on the Play page (Seat One plays or Seat Two plays) or Online (You play) to use it in a match.",
             };
             lines.AddRange(ready.Refused.Select(r => "✕ Not playable yet: " + Sentence(r)));
             lines.AddRange(ready.PlayedWithout.Select(w => "– Played without: " + Sentence(w)));

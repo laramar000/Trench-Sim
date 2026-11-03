@@ -42,7 +42,7 @@ public partial class UiCheck : Node
             Mark("started", $"{DisplayServer.GetName()} {Engine.GetVersionInfo()["string"]}");
             // Stage M1: the game opens on the main menu. The hot-seat role plays from it (Play); the roles that drive the
             // connect screen open it first through the developer corner button, then do as before.
-            if (_role is not ("hotseat" or "tm-a" or "tm-b" or "pvp-a" or "pvp-b" or "pvp-b-rejoin"))
+            if (_role is not ("hotseat" or "roster-look" or "tm-a" or "tm-b" or "pvp-a" or "pvp-b" or "pvp-b-rejoin"))
             {
                 await OpenDeveloperScreen();
             }
@@ -70,6 +70,11 @@ public partial class UiCheck : Node
                     break;
                 case "hotseat-mines":
                     await HotSeatMines();
+                    break;
+                case "roster-look":
+                    // For looking at the roster builder only (never run by the checks): a screenshot of the empty screen and of
+                    // a sample list for each faction, in the out folder.
+                    await RosterLook();
                     break;
                 case "pvp-a":
                     await PvpCreate();
@@ -6228,6 +6233,49 @@ public partial class UiCheck : Node
     // Roster builder stage 3: the Build Your Own Roster screen, by keyboard. Recruiting, battlekit, a refusal in words,
     // naming, saving, a list change that empties the warband, and loading it back; the screen's total and check lines
     // are the builder's own every time, and nothing on it is past the window's right edge.
+    private async Task RosterLook()
+    {
+        var main = (Main)_main;
+        await Press(main.RosterButton, Key.Enter, null);
+        if (await Until(() => main.ScreenShown == "roster" ? "ok" : null, 5, "roster-shown") is null)
+        {
+            Check("roster-look", false, $"the roster screen did not open ({main.ScreenShown})");
+            return;
+        }
+        var builder = main.RosterBuilderShown;
+        await Shot("roster-start");
+        foreach (var faction in builder.Factions)
+        {
+            builder.ChooseFaction(faction.Id);
+            main.RefreshRosterScreen();
+            await Shot($"roster-{faction.Id}-empty");
+            foreach (var entry in builder.Entries.Take(4))
+            {
+                builder.Add(entry.Id);
+            }
+            builder.Select(0);
+            main.RefreshRosterScreen();
+            await Shot($"roster-{faction.Id}-list");
+            if (faction.Id is "principality" or "court")
+            {
+                // The whole page, a screen at a time.
+                var scroll = Controls<ScrollContainer>().FirstOrDefault(s => s.IsVisibleInTree());
+                if (scroll is not null)
+                {
+                    var page = (int)scroll.Size.Y - 60;
+                    var end = (int)scroll.GetVScrollBar().MaxValue;
+                    for (var at = page; at < end + page && at < page * 8; at += page)
+                    {
+                        scroll.ScrollVertical = at;
+                        await Shot($"roster-{faction.Id}-scroll-{at / page}");
+                    }
+                    scroll.ScrollVertical = 0;
+                }
+            }
+        }
+        Check("roster-look", true, "screenshots saved");
+    }
+
     private async Task RosterBuilderCheck()
     {
         var main = (Main)_main;

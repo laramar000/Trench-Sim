@@ -278,6 +278,9 @@ public partial class Main
     // For the UI check: the builder behind the screen.
     public RosterBuilder RosterBuilderShown => _builder;
 
+    // For the roster-look check: draw the roster screen again after the check changed the builder.
+    public void RefreshRosterScreen() => RefreshRoster();
+
     // Godot node names cannot hold '@', which marks a piece bought from another faction's armoury.
     public static string AddKitName(string kitRef) => "AddKit-" + kitRef.Replace("@", "-from-");
 }
