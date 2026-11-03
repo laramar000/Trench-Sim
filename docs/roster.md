@@ -158,16 +158,20 @@ it does not check itself, and the totals in ducats and Glory. It checks:
 - Notes: unverified entries and kit, campaign-only kit, and each upgrade's `note` (conditions the validator cannot
   check, such as a limit that depends on the warband's total cost).
 
-Not checked yet: Mercenaries (hired with Glory, alignment), and special conditions written in notes.
+Not checked yet: special conditions written in notes.
 
 ## Later stages
 
 - Stage 3 (done): the builder screen, Build Your Own Roster on the main menu (docs/client.md). It shows the shipped
   factions, the chosen list's special rules and its budget (a variant's own budget when it has one).
-- Stage 4: the official data for the six factions. Not entered: Mercenaries (hired with Glory; the format has no
-  mercenary hiring yet). Gaps filled after 4b: the Trench Dog (1 Glory) with Loyal Hound and its Special Training
+- Stage 4: the official data for the six factions. Gaps filled after 4b: the Trench Dog (1 Glory) with Loyal Hound and its Special Training
   (+1 Glory each, only the trainings a faction may take); the Amalgam's six arms and the Fallen Saint's three; kit
   from another faction's armoury, priced as in that armoury. Still a gap: rules marked "not checked by the builder".
+- Mercenaries (Warbands pp. 172-186, added 2026-11-03): ten 0-1 models entered as ordinary warband entries with a cost in
+  Glory, a fixed `startsWith` battlekit and the abilities named, on the lists of the factions that can hire them (the
+  Scriptural Guardian: all six). Our names: Communed Tank Hunter, Mamluke Fares, Mendelite Ammo Monk, Scriptural Guardian, Sin Devourer, Sister of
+  Saint Kosmas, Hexburner; Combat Biologist, Goetic Warlock and Observer keep theirs. The Mamluke Fares' weapon choice and
+  the Scriptural Guardian's alignment are not checked by the builder beyond its weapon list. Tests: `MercenaryTests`.
 - Stage 5a (done): `MatchReadiness.Check` turns a legal roster into the engine's warband (content format of
   `content/test-warbands.json`: Movement, round base, one ranged weapon's range, injury modifier and "/Melee", Armour
   from the model plus armour and shield, one Melee Weapon's injury modifier). **Refused by name:** an oval base, a

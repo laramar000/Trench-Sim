@@ -4237,6 +4237,79 @@
    "status": "verified",
    "naming": "rename",
    "cost": null
+  },
+  {
+   "id": "vivisector",
+   "name": "Vivisector",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "BLOCK"
+    },
+    {
+     "id": "CUMBERSOME"
+    }
+   ],
+   "rule": {
+    "summary": "Pain Amplifier: easier Critical Success per BLOOD MARKER on the target. Inflict Pain: a Critical Success that does not take a small non-ARTIFICIAL target Out of Action knocks it back D3\".",
+    "page": 174
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 174
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "tenderising-maul",
+   "name": "Tenderising Maul",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "HEAVY"
+    }
+   ],
+   "injuryModifier": 1,
+   "rule": {
+    "summary": "Swinging Blow: a Fight ACTION attacks each enemy within 1\" once.",
+    "page": 184
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 184
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "gavel-of-judgement",
+   "name": "Gavel of Judgement",
+   "category": "melee",
+   "hands": 1,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    }
+   ],
+   "rule": {
+    "summary": "Found Guilty: 1 extra BLOOD MARKER on the target after the Injury Roll (2 for CULT, DEMONIC or HERETIC).",
+    "page": 186
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 186
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
   }
  ]
 }

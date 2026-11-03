@@ -511,6 +511,183 @@
    },
    "status": "verified",
    "naming": "rename"
+  },
+  {
+   "id": "goetic-warlock",
+   "name": "Goetic Warlock",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 1,
+   "armour": -2,
+   "baseMm": [
+    40
+   ],
+   "keywords": [
+    {
+     "id": "ARTIFICIAL"
+    },
+    {
+     "id": "DEMONIC"
+    },
+    {
+     "id": "FEAR"
+    }
+   ],
+   "kitAccess": "none",
+   "startsWith": [
+    "reinforced-armour"
+   ],
+   "abilities": [
+    {
+     "name": "Barbed Embrace",
+     "summary": "An enemy within 1\" cannot take a Retreat ACTION.",
+     "page": 176
+    },
+    {
+     "name": "Iron-Clawed Hands",
+     "summary": "Can make a CLEAVE 2, CRITICAL Melee Attack with no Melee Weapon; the Off-Hand modifier applies to the second attack.",
+     "page": 176
+    },
+    {
+     "name": "Goetic Gaze ACTION",
+     "summary": "Success Roll: on a Success place 1 BLOOD MARKER (2 on a Critical Success) on an enemy within 24\" in Line of Sight.",
+     "page": 176
+    },
+    {
+     "name": "Goetic Portal ACTION",
+     "summary": "Risky Success Roll with +1 DICE: on a Success redeploy within 6\", and may take an adjacent enemy on a base of 32 mm or less along.",
+     "page": 177
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 176
+   },
+   "status": "verified",
+   "naming": "rename",
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules."
+  },
+  {
+   "id": "scriptural-guardian",
+   "name": "Scriptural Guardian",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 7,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": null,
+   "melee": 1,
+   "armour": -2,
+   "baseMm": [
+    40
+   ],
+   "keywords": [
+    {
+     "id": "GOLEM"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "reinforced-armour",
+    "combat-helmet"
+   ],
+   "abilities": [
+    {
+     "name": "Slow",
+     "summary": "Counts as Movement 3\" when it takes a Dash ACTION.",
+     "page": 182
+    },
+    {
+     "name": "Vengeful Scripture ACTION",
+     "summary": "Success Roll against an enemy within 18\" in Line of Sight (+2 DICE within 9\", +1 DICE otherwise): an Injury Roll with +1 INJURY MODIFIER per BLOOD MARKER; a Critical Success adds IGNORE ARMOUR and +1 INJURY DICE.",
+     "page": 182
+    }
+   ],
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules.",
+   "kitRules": {
+    "noCategories": [
+     "ranged",
+     "shield",
+     "armour",
+     "grenade",
+     "equipment",
+     "special"
+    ],
+    "mustHave": [
+     "melee"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 182
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "sin-devourer",
+   "name": "Sin Devourer",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 6,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": null,
+   "melee": 2,
+   "armour": -2,
+   "baseMm": [
+    50
+   ],
+   "keywords": [
+    {
+     "id": "DEMONIC"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "STRONG"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "none",
+   "startsWith": [
+    "reinforced-armour",
+    "combat-helmet",
+    "tenderising-maul"
+   ],
+   "abilities": [
+    {
+     "name": "Devour the Guilty ACTION",
+     "summary": "Picks a model within 1\" on a base of 40 mm or less and, on a Success, devours it (it is held inside, counts as Down for Morale, and gains 1 BLOOD MARKER each Activation of the Sin Devourer until Out of Action at 6; a Purge ACTION releases it).",
+     "page": 183
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 183
+   },
+   "status": "verified",
+   "naming": "rename",
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules."
   }
  ],
  "armoury": [

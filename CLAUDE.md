@@ -114,8 +114,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - Roster builder: stages 1-4 done. Stage 4 shipped the six factions with all variants (Court sins as seven
   "Dedicated to X" lists), then the gap fix: Trench Dog (1 Glory, Loyal Hound and one Special Training +1 each),
   many-armed models (`kitRules.arms`: Amalgam 6, Fallen Saint 3), kit bought from another faction (armoury `from`,
-  kit groups, roster refs `kit@faction`). Not entered: Mercenaries (format has no hiring), Restraining Muzzle Glory
-  extras, October Rules Review 2026 changes (lists follow the 1.0.2 books).
+  kit groups, roster refs `kit@faction`). Mercenaries entered 2026-11-03 (ten 0-1 models hired with Glory, `MercenaryTests`); Restraining Muzzle Glory
+  extra is its own catalogue item. Not entered: October Rules Review 2026 changes (lists follow the 1.0.2 books).
 - **Roster stage 5a done (2026-10-31):** `src/Roster/MatchReadiness.cs` turns a legal roster into the engine's warband
   content and names what it refuses and what it plays without; the builder shows it under "For a match".
   **Stage 5b (hot-seat) done:** Play page "Seat One plays / Seat Two plays" picks saved rosters; the local server runs

@@ -433,6 +433,427 @@
    },
    "status": "verified",
    "naming": "keep"
+  },
+  {
+   "id": "combat-biologist",
+   "name": "Combat Biologist",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 3,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 1,
+   "armour": -1,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "FEAR"
+    }
+   ],
+   "kitAccess": "none",
+   "startsWith": [
+    "gas-grenades",
+    "standard-armour",
+    "gas-mask",
+    "vivisector"
+   ],
+   "abilities": [
+    {
+     "name": "Battlefield Vivisection",
+     "summary": "Adds the Gather Knowledge Glorious Deed (3 or more enemies taken Out of Action within 1\" of a friendly Combat Biologist).",
+     "page": 173
+    },
+    {
+     "name": "Prize Specimens",
+     "summary": "Taking a DEMONIC or CULT enemy Out of Action in melee places 1 BLESSING MARKER beside the Combat Biologist.",
+     "page": 173
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 173
+   },
+   "status": "verified",
+   "naming": "rename",
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules."
+  },
+  {
+   "id": "communed-tank-hunter",
+   "name": "Communed Tank Hunter",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 5,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 1,
+   "armour": -1,
+   "baseMm": [
+    40
+   ],
+   "keywords": [
+    {
+     "id": "REGENERATE",
+     "value": 1
+    },
+    {
+     "id": "STRONG"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "none",
+   "startsWith": [
+    "anti-materiel-rifle",
+    "combat-helmet"
+   ],
+   "abilities": [
+    {
+     "name": "Iron Fists",
+     "summary": "Can make a CLEAVE 2 Melee Attack with no Melee Weapon; the Off-Hand modifier applies to the second attack.",
+     "page": 175
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 175
+   },
+   "status": "verified",
+   "naming": "rename",
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules."
+  },
+  {
+   "id": "mamluke-fares",
+   "name": "Mamluke Fares",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 1,
+   "armour": -2,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "FIRETEAM"
+    },
+    {
+     "id": "IGNORE",
+     "value": "OFF-HAND WEAPON"
+    }
+   ],
+   "kitAccess": "listed",
+   "startsWith": [
+    "reinforced-armour",
+    "combat-helmet",
+    "jezzail",
+    "alchemical-ammunition"
+   ],
+   "abilities": [
+    {
+     "name": "Automaton Destrier",
+     "summary": "If the scenario lets Infiltrators deploy specially, may deploy within 1\" of a table edge and more than 8\" from enemies.",
+     "page": 179
+    },
+    {
+     "name": "Martial Prowess",
+     "summary": "Its Greatsword has no HEAVY; its Jezzail has ASSAULT and the Shield Combo stipulation.",
+     "page": 179
+    },
+    {
+     "name": "Sworn Brethren",
+     "summary": "When recruited, forms a FIRETEAM with 1 ELITE model of the warband; both gain FIRETEAM.",
+     "page": 179
+    }
+   ],
+   "listed": [
+    "great-sword-axe",
+    "polearm",
+    "trench-shield",
+    "pistol",
+    "sword-axe"
+   ],
+   "prices": [
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 0,
+      "currency": "ducats"
+     }
+    },
+    {
+     "kit": "polearm",
+     "cost": {
+      "amount": 0,
+      "currency": "ducats"
+     }
+    },
+    {
+     "kit": "trench-shield",
+     "cost": {
+      "amount": 0,
+      "currency": "ducats"
+     }
+    },
+    {
+     "kit": "pistol",
+     "cost": {
+      "amount": 0,
+      "currency": "ducats"
+     }
+    },
+    {
+     "kit": "sword-axe",
+     "cost": {
+      "amount": 0,
+      "currency": "ducats"
+     }
+    }
+   ],
+   "kitRules": {
+    "note": "Not checked by the builder: it has either a Greatsword, or a Polearm and a Trench Shield, or a Pistol and a Sword/Axe (Armour -3 with a Trench Shield)."
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 178
+   },
+   "status": "verified",
+   "naming": "rename",
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules."
+  },
+  {
+   "id": "mendelite-ammo-monk",
+   "name": "Mendelite Ammo Monk",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": -1,
+   "melee": -1,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [],
+   "kitAccess": "none",
+   "startsWith": [
+    "gas-mask"
+   ],
+   "abilities": [
+    {
+     "name": "Ammunition Sacrament ACTION",
+     "summary": "Risky Success Roll: on a Success a friendly model within 1\" in Line of Sight gets one Sacrament until the end of its next Activation (+1 DICE shots, BLAST 2\" and SHRAPNEL, or +1 INJURY DICE shots).",
+     "page": 180
+    },
+    {
+     "name": "Faithful Followers",
+     "summary": "When a model within 1\" is Activated, the Mendelite Ammo Monk can be Activated with it and the two share their ACTIONS in any order.",
+     "page": 180
+    }
+   ],
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules.",
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 180
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "observer",
+   "name": "Observer",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 3,
+    "currency": "glory"
+   },
+   "movementInches": 8,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 2,
+   "armour": -1,
+   "baseMm": [
+    32
+   ],
+   "keywords": [],
+   "kitAccess": "none",
+   "startsWith": [
+    "standard-armour",
+    "combat-helmet",
+    "gas-mask",
+    "medi-kit",
+    "polearm"
+   ],
+   "abilities": [
+    {
+     "name": "Eye of God",
+     "summary": "Failed Success Rolls and Risky Success Rolls can be re-rolled; if any re-rolled die shows 1 the roll fails, the Observer is Down and its Activation ends.",
+     "page": 181
+    },
+    {
+     "name": "Lightning Speed",
+     "summary": "Its Polearm has CLEAVE 2.",
+     "page": 181
+    },
+    {
+     "name": "Temporal Fugue",
+     "summary": "-1 DICE to Ranged and Melee Attacks that target it.",
+     "page": 181
+    },
+    {
+     "name": "Voice of God ACTION",
+     "summary": "Risky Success Roll: on a Success any model that has not been Activated this Turn is Activated at once and the Observer's Activation ends.",
+     "page": 181
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 181
+   },
+   "status": "verified",
+   "naming": "rename",
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules."
+  },
+  {
+   "id": "scriptural-guardian",
+   "name": "Scriptural Guardian",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 7,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": null,
+   "melee": 1,
+   "armour": -2,
+   "baseMm": [
+    40
+   ],
+   "keywords": [
+    {
+     "id": "GOLEM"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "reinforced-armour",
+    "combat-helmet"
+   ],
+   "abilities": [
+    {
+     "name": "Slow",
+     "summary": "Counts as Movement 3\" when it takes a Dash ACTION.",
+     "page": 182
+    },
+    {
+     "name": "Vengeful Scripture ACTION",
+     "summary": "Success Roll against an enemy within 18\" in Line of Sight (+2 DICE within 9\", +1 DICE otherwise): an Injury Roll with +1 INJURY MODIFIER per BLOOD MARKER; a Critical Success adds IGNORE ARMOUR and +1 INJURY DICE.",
+     "page": 182
+    }
+   ],
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules.",
+   "kitRules": {
+    "noCategories": [
+     "ranged",
+     "shield",
+     "armour",
+     "grenade",
+     "equipment",
+     "special"
+    ],
+    "mustHave": [
+     "melee"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 182
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "hexburner",
+   "name": "Hexburner",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 5,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 1,
+   "armour": -2,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "NEGATE",
+     "value": "FEAR"
+    }
+   ],
+   "kitAccess": "none",
+   "startsWith": [
+    "reinforced-armour",
+    "combat-helmet",
+    "gavel-of-judgement"
+   ],
+   "abilities": [
+    {
+     "name": "Dignified Conduct",
+     "summary": "Cannot take a Dash ACTION.",
+     "page": 186
+    },
+    {
+     "name": "Divine Judgement ACTION",
+     "summary": "Risky Success Roll: on a Success place 1 BLOOD MARKER (2 on a CULT, DEMONIC or HERETIC model) on an enemy within 24\", no Line of Sight needed.",
+     "page": 186
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 186
+   },
+   "status": "verified",
+   "naming": "rename",
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules."
   }
  ],
  "armoury": [

@@ -466,6 +466,224 @@
    },
    "status": "verified",
    "naming": "keep"
+  },
+  {
+   "id": "combat-biologist",
+   "name": "Combat Biologist",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 3,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 1,
+   "armour": -1,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "FEAR"
+    }
+   ],
+   "kitAccess": "none",
+   "startsWith": [
+    "gas-grenades",
+    "standard-armour",
+    "gas-mask",
+    "vivisector"
+   ],
+   "abilities": [
+    {
+     "name": "Battlefield Vivisection",
+     "summary": "Adds the Gather Knowledge Glorious Deed (3 or more enemies taken Out of Action within 1\" of a friendly Combat Biologist).",
+     "page": 173
+    },
+    {
+     "name": "Prize Specimens",
+     "summary": "Taking a DEMONIC or CULT enemy Out of Action in melee places 1 BLESSING MARKER beside the Combat Biologist.",
+     "page": 173
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 173
+   },
+   "status": "verified",
+   "naming": "rename",
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules."
+  },
+  {
+   "id": "mamluke-fares",
+   "name": "Mamluke Fares",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 1,
+   "armour": -2,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "FIRETEAM"
+    },
+    {
+     "id": "IGNORE",
+     "value": "OFF-HAND WEAPON"
+    }
+   ],
+   "kitAccess": "listed",
+   "startsWith": [
+    "reinforced-armour",
+    "combat-helmet",
+    "jezzail",
+    "alchemical-ammunition"
+   ],
+   "abilities": [
+    {
+     "name": "Automaton Destrier",
+     "summary": "If the scenario lets Infiltrators deploy specially, may deploy within 1\" of a table edge and more than 8\" from enemies.",
+     "page": 179
+    },
+    {
+     "name": "Martial Prowess",
+     "summary": "Its Greatsword has no HEAVY; its Jezzail has ASSAULT and the Shield Combo stipulation.",
+     "page": 179
+    },
+    {
+     "name": "Sworn Brethren",
+     "summary": "When recruited, forms a FIRETEAM with 1 ELITE model of the warband; both gain FIRETEAM.",
+     "page": 179
+    }
+   ],
+   "listed": [
+    "great-sword-axe",
+    "polearm",
+    "trench-shield",
+    "pistol",
+    "sword-axe"
+   ],
+   "prices": [
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 0,
+      "currency": "ducats"
+     }
+    },
+    {
+     "kit": "polearm",
+     "cost": {
+      "amount": 0,
+      "currency": "ducats"
+     }
+    },
+    {
+     "kit": "trench-shield",
+     "cost": {
+      "amount": 0,
+      "currency": "ducats"
+     }
+    },
+    {
+     "kit": "pistol",
+     "cost": {
+      "amount": 0,
+      "currency": "ducats"
+     }
+    },
+    {
+     "kit": "sword-axe",
+     "cost": {
+      "amount": 0,
+      "currency": "ducats"
+     }
+    }
+   ],
+   "kitRules": {
+    "note": "Not checked by the builder: it has either a Greatsword, or a Polearm and a Trench Shield, or a Pistol and a Sword/Axe (Armour -3 with a Trench Shield)."
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 178
+   },
+   "status": "verified",
+   "naming": "rename",
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules."
+  },
+  {
+   "id": "scriptural-guardian",
+   "name": "Scriptural Guardian",
+   "min": 0,
+   "max": 1,
+   "cost": {
+    "amount": 7,
+    "currency": "glory"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": null,
+   "melee": 1,
+   "armour": -2,
+   "baseMm": [
+    40
+   ],
+   "keywords": [
+    {
+     "id": "GOLEM"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "reinforced-armour",
+    "combat-helmet"
+   ],
+   "abilities": [
+    {
+     "name": "Slow",
+     "summary": "Counts as Movement 3\" when it takes a Dash ACTION.",
+     "page": 182
+    },
+    {
+     "name": "Vengeful Scripture ACTION",
+     "summary": "Success Roll against an enemy within 18\" in Line of Sight (+2 DICE within 9\", +1 DICE otherwise): an Injury Roll with +1 INJURY MODIFIER per BLOOD MARKER; a Critical Success adds IGNORE ARMOUR and +1 INJURY DICE.",
+     "page": 182
+    }
+   ],
+   "note": "A Mercenary, hired with Glory Points; its battlekit cannot be changed and it has no Faction special rules.",
+   "kitRules": {
+    "noCategories": [
+     "ranged",
+     "shield",
+     "armour",
+     "grenade",
+     "equipment",
+     "special"
+    ],
+    "mustHave": [
+     "melee"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 182
+   },
+   "status": "verified",
+   "naming": "rename"
   }
  ],
  "armoury": [
