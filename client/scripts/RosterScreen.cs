@@ -36,6 +36,8 @@ public partial class Main
     private Control _rosterHeader = null!, _rosterRulesSection = null!, _rosterRecruitSection = null!, _rosterModelsSection = null!,
         _rosterKitSection = null!, _rosterCheckSection = null!, _rosterSaveSection = null!;
     private Control? _rosterColumns;
+    private HBoxContainer[] _rosterFields = [];
+    private VBoxContainer _rosterFieldsHolder = null!;
     private ScrollContainer? _rosterLeftScroll;
     private readonly Dictionary<string, bool> _kitOpen = new() { ["Ranged weapons"] = true, ["Melee weapons"] = true };
     private bool _playedWithoutOpen;
@@ -74,12 +76,9 @@ public partial class Main
         FillVariants();
         _rosterTotal = Text("");
         _rosterTotal.Name = "RosterTotal";
-        _rosterHeader = Section(RosterTitle, Column(
-            Text(RosterBuilder.SourceNote),
-            Field("Warband name:", _rosterName),
-            Field("Faction:", _rosterFaction),
-            Field("List:", _rosterVariant),
-            _rosterTotal));
+        _rosterFields = [Field("Warband name:", _rosterName), Field("Faction:", _rosterFaction), Field("List:", _rosterVariant)];
+        _rosterFieldsHolder = Column();
+        _rosterHeader = Section(RosterTitle, Column(Text(RosterBuilder.SourceNote), _rosterFieldsHolder, _rosterTotal));
 
         _rosterRules = Column();
         _rosterRules.Name = "RosterRules";
@@ -129,14 +128,35 @@ public partial class Main
             _rosterLeftScroll = null;
         }
         var wide = _rosterLayout == 0;
-        _menuPanels[_rosterPanelAt] = (_menuPanels[_rosterPanelAt].Panel, wide ? 1500 : 760);
-        FitMenuPanels();
+        FitRosterPanel();
+        // The name, faction and list share one line in the wide layout, and have a line each in the others.
+        foreach (var child in _rosterFieldsHolder.GetChildren())
+        {
+            _rosterFieldsHolder.RemoveChild(child);
+            if (child is Container old)
+            {
+                foreach (var field in old.GetChildren())
+                {
+                    old.RemoveChild(field);
+                }
+                old.QueueFree();
+            }
+        }
+        Container fields = wide ? new HBoxContainer { Name = "RosterFieldsRow" } : new VBoxContainer { Name = "RosterFieldsColumn" };
+        fields.AddThemeConstantOverride("separation", 14);
+        foreach (var field in _rosterFields)
+        {
+            field.GetParent()?.RemoveChild(field);
+            field.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            fields.AddChild(field);
+        }
+        _rosterFieldsHolder.AddChild(fields);
         _rosterBody.AddChild(_rosterHeader);
         if (wide)
         {
             var left = Column(_rosterRulesSection, _rosterRecruitSection, _rosterKitSection);
             left.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            _rosterLeftScroll = new ScrollContainer { Name = "RosterLeftScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1.4f };
+            _rosterLeftScroll = new ScrollContainer { Name = "RosterLeftScroll", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1f };
             _rosterLeftScroll.AddChild(left);
             var right = Column(_rosterModelsSection, _rosterCheckSection, _rosterSaveSection);
             right.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -157,9 +177,22 @@ public partial class Main
         }
     }
 
+    // The wide layout is three fifths of the window across, with a fifth empty on each side (owner, 2026-11-03), and at least
+    // 900 px; the others keep the menu's 760 px.
+    private void FitRosterPanel()
+    {
+        var width = _rosterLayout == 0 ? (int)Math.Max(900, GetViewportRect().Size.X * 0.6f) : 760;
+        _menuPanels[_rosterPanelAt] = (_menuPanels[_rosterPanelAt].Panel, width);
+        FitMenuPanels();
+    }
+
     // The wide layout's left column is as tall as the window leaves room for, so only it scrolls.
     private void FitRosterColumns()
     {
+        if (_rosterBuilt)
+        {
+            FitRosterPanel();
+        }
         if (_rosterLeftScroll is { } scroll)
         {
             scroll.CustomMinimumSize = new Vector2(0, Math.Max(320, GetViewportRect().Size.Y - 360));
@@ -250,6 +283,7 @@ public partial class Main
             pick.Name = "ModelButton-" + m.Index;
             pick.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             pick.ClipText = true;
+            pick.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
             var remove = Button("Remove", () =>
             {
                 _builder.Remove(m.Index);
@@ -297,9 +331,10 @@ public partial class Main
             {
                 _rosterKit.AddChild(Text("This model cannot be given battlekit."));
             }
-            Button GiveButton(RosterBuilder.KitRow k)
+            Button GiveButton(RosterBuilder.KitRow k, bool grouped = false)
             {
-                var give = Button($"Add {k.Name} · {k.CostText}", () =>
+                // Under a heading the piece needs no "Add" in front: the text is shorter, so it fits two to a row where there is room.
+                var give = Button($"{(grouped ? "" : "Add ")}{k.Name} · {k.CostText}", () =>
                 {
                     _builder.AddKit(k.Id);
                     RefreshRoster(AddKitName(k.Id));
@@ -317,7 +352,7 @@ public partial class Main
             }
             else
             {
-                AddKitGroups(choices, GiveButton);
+                AddKitGroups(choices, k => GiveButton(k, grouped: true));
             }
         }
 
@@ -402,7 +437,8 @@ public partial class Main
             {
                 continue;
             }
-            var grid = new GridContainer { Columns = _rosterLayout == 0 ? 2 : 1, Visible = _kitOpen.GetValueOrDefault(name) };
+            // Two to a row only where the window is very wide (the wide layout is three fifths of it).
+            var grid = new GridContainer { Columns = _rosterLayout == 0 && _menuPanels[_rosterPanelAt].Width >= 1400 ? 2 : 1, Visible = _kitOpen.GetValueOrDefault(name) };
             grid.AddThemeConstantOverride("h_separation", 8);
             grid.AddThemeConstantOverride("v_separation", 4);
             foreach (var k in items)
@@ -410,6 +446,7 @@ public partial class Main
                 var button = give(k);
                 button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
                 button.ClipText = true;
+                button.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
                 grid.AddChild(button);
             }
             Button header = null!;
