@@ -61,6 +61,33 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - Bot/AI opponent deferred until asked. Keep hot-seat. Towers and vertical terrain belong in the default maps.
 - Graphics are decorative only: never change rules, protocol, records, hashes, movement, LOS or base sizes for looks.
 
+## Map size and battlefield dimensions (standing, owner 2026-11-03)
+
+The battlefield must accurately reflect the recommended Trench Crusade tabletop dimensions. Before implementing the charge
+carry-on or Field Shrine:
+
+1. Research the recommended official battlefield dimensions for Trench Crusade 1.0.2.
+2. Identify the standard recommended map size and any alternative sizes for different game formats or model counts.
+3. Verify against official sources; do not rely on assumptions or community conventions when official guidance exists.
+4. Compare the recommended dimensions with the current Trench Sim battlefield.
+5. Document discrepancies and propose the changes before implementing (`docs/map-dimensions.md`).
+
+Implementation requirements:
+
+- The in-game battlefield accurately represents the recommended tabletop dimensions; one in-game inch is one tabletop inch.
+- Deployment zones, terrain placement, movement, shooting ranges, charge distances and map boundaries use the correct dimensions.
+- The camera and zoom fit the full recommended battlefield without distorting its proportions.
+- Never silently resize or stretch existing maps; review existing and generated maps for compatibility.
+- If several official sizes exist, say which is the default and how alternatives work.
+
+Validation: tests of the battlefield dimensions and the measurement scale; deployment boundaries and map edges; existing
+geometry and movement calculations unchanged; an in-game screenshot of the full battlefield at the right proportions.
+
+Do not change battlefield dimensions until the research and the proposed implementation have been reviewed and approved.
+
+Decisions kept for the carry-on and Field Shrine work: A1 and A2 recommended; B1 to B4 recommended; carry-on first, then
+Field Shrine in three stages; full build and tests after each stage; **no pushing until the owner has reviewed and approved**.
+
 ## Naming policy (standing)
 
 Keep generic names (Rifle, Shotgun, Gas Mask, Trench Dog...). Rename distinctive setting-specific names (factions,
