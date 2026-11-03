@@ -4,10 +4,11 @@ using Client.Core;
 
 namespace Client.Tests;
 
-// Graphics stage G3: the four original figures (client/assets/units, made by tools/art/make_figures.py): modelled
-// low-poly bodies with one small PS1-style texture each. Every model type the content has gets a figure, no entry names
-// a type the content does not have, and each figure is small, 1.2" tall, fits inside the smallest base and has the
-// untextured "Accent" part the client paints with the seat colour.
+// Graphics stage G3: the original figures (client/assets/units, made by tools/art/make_figures.py): modelled low-poly
+// bodies with small PS1-style textures. Every model type the test content has gets a figure, no entry names a type the
+// content (or the faction lists) does not have, and each figure is small, 1.2" tall, fits inside the smallest base and
+// has the untextured "Accent" part the client paints with the seat colour. The Trench Pilgrim (2026-11-03) is the
+// template of docs/art-pipeline.md: a modular figure, one node and one texture per module, class A budget.
 public class UnitFiguresTests
 {
     private static string Assets => Path.Combine(Repository.Root, "client", "assets");
@@ -21,15 +22,31 @@ public class UnitFiguresTests
             .Select(m => m.Name)
             .Distinct();
 
+    // The faction lists' unit names (content/roster/factions), which roster matches use as model types.
+    private static IEnumerable<string> RosterUnitNames =>
+        Directory.GetFiles(Path.Combine(Repository.Root, "content", "roster", "factions"), "*.json")
+            .SelectMany(f => Units(JsonDocument.Parse(File.ReadAllText(f)).RootElement))
+            .Distinct();
+
+    private static IEnumerable<string> Units(JsonElement e) => e.ValueKind switch
+    {
+        JsonValueKind.Object => (e.TryGetProperty("baseMm", out _) && e.TryGetProperty("name", out var n) ? [n.GetString()!] : Array.Empty<string>())
+            .Concat(e.EnumerateObject().SelectMany(p => Units(p.Value))),
+        JsonValueKind.Array => e.EnumerateArray().SelectMany(Units),
+        _ => [],
+    };
+
     [Fact]
     public void EveryModelTypeHasAFigureAndNoEntryInventsOne()
     {
         var names = ContentModelNames.ToList();
         Assert.Equal(8, names.Count);
         Assert.All(names, n => Assert.NotNull(Catalog.PathFor(VisualCatalog.UnitKey(n))));
+        var known = names.Concat(RosterUnitNames).ToHashSet();
+        Assert.Contains("Trench Pilgrim", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
-        Assert.All(units, u => Assert.Contains(u, names));
-        Assert.Equal(4, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.All(units, u => Assert.Contains(u, known));
+        Assert.Equal(5, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -37,14 +54,14 @@ public class UnitFiguresTests
     [Fact]
     public void TheEditorLeavesTheFiguresFolderAlone() => Assert.True(File.Exists(Path.Combine(Assets, "units", ".gdignore")));
 
-    public static TheoryData<string> Figures => new() { "units/rifleman.glb", "units/skirmisher.glb", "units/shield.glb", "units/standard.glb" };
+    public static TheoryData<string> Figures => new() { "units/rifleman.glb", "units/skirmisher.glb", "units/shield.glb", "units/standard.glb", "units/trench-pilgrim.glb" };
 
     [Theory]
     [MemberData(nameof(Figures))]
     public void AFigureIsSmallFitsTheSmallestBaseAndHasAnAccent(string file)
     {
         var bytes = File.ReadAllBytes(Path.Combine(Assets, file));
-        Assert.True(bytes.Length < 128 * 1024, $"{bytes.Length} bytes");
+        Assert.True(bytes.Length < 160 * 1024, $"{bytes.Length} bytes");
         Assert.Equal(0x46546C67u, BitConverter.ToUInt32(bytes, 0));
         var length = BitConverter.ToInt32(bytes, 12);
         using var gltf = JsonDocument.Parse(Encoding.UTF8.GetString(bytes, 20, length));
@@ -55,20 +72,24 @@ public class UnitFiguresTests
             .SelectMany(m => m.GetProperty("primitives").EnumerateArray())
             .Select(p => accessors[p.GetProperty("attributes").GetProperty("POSITION").GetInt32()])
             .ToList();
-        // PS1-style budget: at most 1,600 triangles and one PNG texture of at most 128 x 128, sampled nearest.
+        // PS1-style budget (docs/art-pipeline.md, class A, 25 mm): at most 1,850 triangles; PNG textures of at most
+        // 128 x 128 (one, or one per module), sampled nearest.
         var triangles = root.GetProperty("meshes").EnumerateArray()
             .SelectMany(m => m.GetProperty("primitives").EnumerateArray())
             .Sum(p => (p.TryGetProperty("indices", out var i) ? accessors[i.GetInt32()] : accessors[p.GetProperty("attributes").GetProperty("POSITION").GetInt32()]).GetProperty("count").GetInt32() / 3);
-        Assert.InRange(triangles, 1, 1600);
+        Assert.InRange(triangles, 1, 1850);
         var images = root.GetProperty("images").EnumerateArray().ToList();
-        Assert.Single(images);
-        Assert.Equal("image/png", images[0].GetProperty("mimeType").GetString());
-        var view = root.GetProperty("bufferViews")[images[0].GetProperty("bufferView").GetInt32()];
-        var png = 20 + length + 8 + (view.TryGetProperty("byteOffset", out var o) ? o.GetInt32() : 0);
+        Assert.InRange(images.Count, 1, 8);
         int Be(int at) => (bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3];
-        Assert.Equal(0x89, bytes[png]);
-        Assert.InRange(Be(png + 16), 1, 128);
-        Assert.InRange(Be(png + 20), 1, 128);
+        foreach (var image in images)
+        {
+            Assert.Equal("image/png", image.GetProperty("mimeType").GetString());
+            var view = root.GetProperty("bufferViews")[image.GetProperty("bufferView").GetInt32()];
+            var png = 20 + length + 8 + (view.TryGetProperty("byteOffset", out var o) ? o.GetInt32() : 0);
+            Assert.Equal(0x89, bytes[png]);
+            Assert.InRange(Be(png + 16), 1, 128);
+            Assert.InRange(Be(png + 20), 1, 128);
+        }
         Assert.All(root.GetProperty("samplers").EnumerateArray(), s => Assert.Equal(9728, s.GetProperty("magFilter").GetInt32()));
         // The accent stays untextured, so the seat colour the client paints is the only colour it has.
         var accent = root.GetProperty("nodes").EnumerateArray().First(n => n.TryGetProperty("name", out var name) && name.GetString() == "Accent");

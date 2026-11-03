@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -51,7 +51,8 @@ M = {k: mat(k, *v) for k, v in {
  "leather": ("4a3020",), "wood": ("6a4a2c", 0.3, 8), "metal": ("3a3a3c",), "iron": ("55555a", 0.35, 20),
  "boots": ("2a2420",), "dark": ("141210", 0.05), "brass": ("8a6a2a", 0.1), "bone": ("c8bca0", 0.15),
  "cloth": ("3e3a34",), "hood": ("5e5646", 0.18), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0),
- "robe": ("3e3428", 0.3), "rags": ("6a5c46", 0.3), "rope": ("7e6c48", 0.2, 60), "blood": ("4e1610", 0.2)}.items()}
+ "robe": ("3e3428", 0.3), "rags": ("6a5c46", 0.3), "rope": ("7e6c48", 0.2, 60), "blood": ("4e1610", 0.2),
+ "mannequin": ("cfc4b0", 0.03)}.items()}   # the mannequin head: smooth pale plaster, no face (2026-11-03)
 # Faceless heads (visual pass Stage 1, 2026-10-27): every figure wears a plain hood of matte canvas over a smooth,
 # featureless head (no eyes, nose or mouth); the figures are told apart by silhouette, kit and pose.
 FACE_SCALE = 1.12   # the plain head fills the space of the MakeHuman face
@@ -68,9 +69,16 @@ def head_frame(eyes, headp, headtop):
     W = sep * 32 / 11.5 * FACE_SCALE; Hh = W * 1.35   # MakeHuman's face is longer than wide
     global FACE_BOX; FACE_BOX = dict(mid=mid, ax=ax, up=up, fwd=fwd, u0=-16.25 / 32 * W, z0=-(1 - 14 / 32) * Hh, w=W, h=Hh)
 
-body, accent = [], []
+# Modules (docs/art-pipeline.md): every part is added to the module being built (module("Helmet") and so on); each module
+# is exported as its own mesh node with its own texture, so the game can show, hide or swap it. Body and Accent always
+# exist; the older figures put everything in Body.
+MODULES = {"Body": [], "Accent": []}
+body, accent = MODULES["Body"], MODULES["Accent"]
+CUR = "Body"
+def module(name):
+    global CUR; CUR = name; MODULES.setdefault(name, [])
 def add(o, m):
-    o.data.materials.append(M[m]); (accent if m == "accent" else body).append(o); return o
+    o.data.materials.append(M[m]); MODULES["Accent" if m == "accent" else CUR].append(o); return o
 def skin(verts, edges, radii, m, subdiv=1):
     me = bpy.data.meshes.new("s"); me.from_pydata(verts, edges, [])
     o = bpy.data.objects.new("s", me); scn.collection.objects.link(o)
@@ -98,8 +106,8 @@ FLOOR = 0.8168
 def P(x, y, h): return Vector((x, y, h - FLOOR))      # a point h metres above the floor
 def lift(v): return Vector((v.x, v.y, v.z + FLOOR))
 
-def human_body(pose, coat=True, dress=None):
-    body, rig = human.load(DATA)
+def human_body(pose, coat=True, dress=None, head="hood", mitts=None, shape="averagemuscle-averageweight"):
+    body, rig = human.load(DATA, ((f"macrodetails/universal-male-young-{shape}.target", 1.0),))
     for s in ("L", "R"):      # legs together, straight
         x = 0.1 if s == "L" else -0.1
         for b in ("upperleg01", "upperleg02"): human.aim(rig, f"{b}.{s}", P(x, 0.0, 0.47))
@@ -107,6 +115,7 @@ def human_body(pose, coat=True, dress=None):
         human.aim(rig, f"foot.{s}", P(x*1.05, -0.14, 0.02))
     pose(rig)
     hands = {s: lift(human.world(rig, f"wrist.{s}", "head")) for s in ("L", "R")}
+    elbows = {s: lift(human.world(rig, f"lowerarm01.{s}", "head")) for s in ("L", "R")}
     eyes = [lift(human.world(rig, f"eye.{s}", "head")) for s in ("L", "R")]
     headp = lift(human.world(rig, "head", "head")); headtop = lift(human.world(rig, "head", "tail"))
     faces = human.bake_pose(body, rig)
@@ -136,29 +145,48 @@ def human_body(pose, coat=True, dress=None):
     neck_lo = min(q[1] for q in loc)
     import bmesh as _bm
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='DESELECT'); bpy.ops.object.mode_set(mode='OBJECT')
-    for f, p in zip(body.data.polygons, faces): f.select = p == "head"
-    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.delete(type='FACE'); bpy.ops.object.mode_set(mode='OBJECT')
-    def frame(a_, b_, c_): return mid + fb["ax"] * a_ + fb["up"] * b_ + fb["fwd"] * c_
     bc = (top + chin) / 2; rh = (top - chin) / 2; cc = (front + back) / 2; rd = (front - back) / 2; rw = half_w * 0.95
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=HEAD_SEGS, ring_count=HEAD_RINGS, radius=1)
-    h = bpy.context.object
-    for v in h.data.vertices:
-        x, y, z = v.co.x, -v.co.y, v.co.z                         # y forward
-        w = 1 - 0.3 * max(0.0, -z) ** 1.4                         # the jaw narrows to the chin
-        d = 1 - 0.18 * max(0.0, -z) ** 1.2 * max(0.0, -y)         # and the back of the jaw tucks in
-        yy = abs(y) ** 0.8 * (1 if y >= 0 else -1) if y > 0 else y   # a fuller, flatter face at the front
-        a_, c_ = x * rw * w, cc + yy * rd * d
-        v.co = frame(a_, bc + z * rh, c_)
-    bpy.ops.object.shade_smooth(); add(h, "hood")
-    # the neck: from under the jaw down into the collar
-    nb = chin + 0.15 * rh
-    bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=1, depth=1, end_fill_type='NOTHING')
-    n = bpy.context.object
-    for v in n.data.vertices:
-        zz = nb if v.co.z > 0 else neck_lo
-        v.co = frame(v.co.x * rw * 0.46, zz, cc - rd * 0.05 + (-v.co.y) * rd * 0.5)
-    bpy.ops.object.shade_smooth(); add(n, "hood")
-    for o in (h, n): o.vertex_groups.new(name="head").add(list(range(len(o.data.vertices))), 1.0, 'REPLACE')
+    def inside_head(f):   # any face of the eye sockets weighted to other bones would poke through the plain head
+        q = sum((body.data.vertices[i].co for i in f.vertices), Vector()) / len(f.vertices) - mid
+        a_, b_, c_ = q.dot(fb["ax"]), q.dot(fb["up"]), q.dot(fb["fwd"])
+        # the head's column above the chin too: jaw and neck faces hidden inside the plain head still darken its baked
+        # occlusion
+        return ((a_ / (rw * 1.3)) ** 2 + ((b_ - bc) / (rh * 1.15)) ** 2 + ((c_ - cc) / (rd * (1.5 if c_ > cc else 1.15))) ** 2 <= 1
+                or (b_ > chin and abs(a_) < rw * 1.3 and back - 0.02 < c_ < front + 0.05))
+    # with mitts, the fingers (which decimate to spikes) go too, for gloved hands made below
+    for f, p in zip(body.data.polygons, faces): f.select = p == "head" or inside_head(f) or (mitts is not None and p == "hand")
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.delete(type='FACE'); bpy.ops.object.mode_set(mode='OBJECT')
+    if mitts is not None:
+        # a gloved hand: a flattened fist along the forearm with a thumb, closed round whatever it holds
+        for s in ("L", "R"):
+            w = hands[s]; d = (w - elbows[s]).normalized(); q = Vector((0, 0, 1)).rotation_difference(d)
+            g = sphere(tuple(w + d * 0.045), 1, mitts, seg=8, rings=6)
+            g.scale = (0.036, 0.03, 0.055); g.rotation_mode = 'QUATERNION'; g.rotation_quaternion = q
+            side = d.cross(Vector((0, 0, 1))).normalized() * (1 if s == "L" else -1)
+            t = sphere(tuple(w + d * 0.03 + side * 0.03 - Vector((0, 0.02, 0))), 1, mitts, seg=6, rings=4)
+            t.scale = (0.014, 0.014, 0.03); t.rotation_mode = 'QUATERNION'; t.rotation_quaternion = q
+            for o in (g, t): o.vertex_groups.new(name="head").add(list(range(len(o.data.vertices))), 1.0, 'REPLACE')
+    def frame(a_, b_, c_): return mid + fb["ax"] * a_ + fb["up"] * b_ + fb["fwd"] * c_
+    if head is not None:   # head=None: headgear hides the whole head (a capirote), so none is built
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=HEAD_SEGS, ring_count=HEAD_RINGS, radius=1)
+        h = bpy.context.object
+        for v in h.data.vertices:
+            x, y, z = v.co.x, -v.co.y, v.co.z                         # y forward
+            w = 1 - 0.3 * max(0.0, -z) ** 1.4                         # the jaw narrows to the chin
+            d = 1 - 0.18 * max(0.0, -z) ** 1.2 * max(0.0, -y)         # and the back of the jaw tucks in
+            yy = abs(y) ** 0.8 * (1 if y >= 0 else -1) if y > 0 else y   # a fuller, flatter face at the front
+            a_, c_ = x * rw * w, cc + yy * rd * d
+            v.co = frame(a_, bc + z * rh, c_)
+        bpy.ops.object.shade_smooth(); add(h, head)
+        # the neck: from under the jaw down into the collar
+        nb = chin + 0.15 * rh
+        bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=1, depth=1, end_fill_type='NOTHING')
+        n = bpy.context.object
+        for v in n.data.vertices:
+            zz = nb if v.co.z > 0 else neck_lo
+            v.co = frame(v.co.x * rw * 0.46, zz, cc - rd * 0.05 + (-v.co.y) * rd * 0.5)
+        bpy.ops.object.shade_smooth(); add(n, head)
+        for o in (h, n): o.vertex_groups.new(name="head").add(list(range(len(o.data.vertices))), 1.0, 'REPLACE')
     d = body.modifiers.new("d", "DECIMATE"); d.ratio = 800 / sum(len(p.vertices)-2 for p in body.data.polygons)
     bpy.context.view_layer.objects.active = body; bpy.ops.object.modifier_apply(modifier="d")
     bpy.ops.object.select_all(action='DESELECT'); body.select_set(True); bpy.context.view_layer.objects.active = body
@@ -251,18 +279,9 @@ def standard():
     box(tuple(L - Vector((0, 0, 0.27))), (0.07, 0.07, 0.1), "glow")
     box(tuple(L - Vector((0, 0, 0.21))), (0.09, 0.09, 0.02), "iron"); box(tuple(L - Vector((0, 0, 0.33))), (0.09, 0.09, 0.02), "iron")
 
-def pilgrim():
-    # Pilgrim (an original figure, not used by any unit): a tall pointed iron hood over the whole head (eye slit,
-    # riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud, a rope belt with a rosary, a
-    # tabard (seat colour) with a bone cross, rag-wrapped bare feet, a nail-studded club raised in the right hand and an
-    # iron cross held out in the left.
-    def pose(r):
-        human.reach(r, "R", P(-0.3, -0.02, 1.12), P(-0.3, -0.24, 1.3))
-        human.reach(r, "L", P(0.25, -0.16, 1.08), P(0.14, -0.36, 1.18))
-    hands, hp, top = human_body(pose, dress={"foot": "skin", "shin": "rags", "thigh": "robe", "torso": "robe"})
-    import random; rnd = random.Random(1916)
+def robe_and_tabard(rnd):
     # long robe with a torn hem
-    bpy.ops.mesh.primitive_cone_add(vertices=18, radius1=0.25, radius2=0.165, depth=0.86, end_fill_type='NOTHING', location=(0, 0, 0.55))
+    bpy.ops.mesh.primitive_cone_add(vertices=18, radius1=0.21, radius2=0.165, depth=0.86, end_fill_type='NOTHING', location=(0, 0, 0.55))
     o = bpy.context.object; o.scale = (1, 0.8, 1)
     for v in o.data.vertices:
         if v.co.z < 0: v.co.z += rnd.uniform(0.0, 0.1)
@@ -279,6 +298,80 @@ def pilgrim():
     me = bpy.data.meshes.new("tabard"); me.from_pydata(pts, [], [(0, 6, 5, 4, 3, 2, 1)])
     tb = bpy.data.objects.new("tabard", me); scn.collection.objects.link(tb); tb.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(tb, "accent")
     box((0, -0.19, 1.05), (0.045, 0.016, 0.34), "bone"); box((0, -0.186, 1.15), (0.17, 0.016, 0.045), "bone")
+
+def trench_pilgrim():
+    # Trench Pilgrim: the template infantry figure of docs/art-pipeline.md (2026-11-03). An original figure in the
+    # setting's genre (WWI trench kit over a medieval pilgrim's robe), not a copy of any official miniature or artwork.
+    # Body: a blank mannequin head, gloved hands, the long torn robe, rope belt, rosary and bone cross. Modules: Helmet
+    # (capirote with a prayer strip), Weapon (bolt-action rifle with fixed bayonet, at port arms), Chest
+    # (bandolier with pouches and a wax seal), Back (pack with a rolled blanket), Hip (satchel and canteen), Accent
+    # (the tabard, seat colour).
+    def pose(r):
+        human.aim(r, "spine03", P(0, -0.06, 1.4))
+        human.reach(r, "R", P(-0.24, 0.0, 1.06), P(-0.08, -0.24, 0.98))
+        human.reach(r, "L", P(0.25, -0.12, 1.12), P(0.1, -0.3, 1.25))
+    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "rags", "thigh": "robe", "torso": "robe"}, head=None, mitts="leather",
+                                shape="minmuscle-minweight")   # gaunt, under a capirote that hides the head
+    import random; rnd = random.Random(1914)
+    robe_and_tabard(rnd)
+    module("Helmet")
+    # the capirote (the owner's choice, 2026-11-03): a tall stiff cone of sackcloth over a cloth drape that hides the
+    # whole face and falls to the shoulders (no eye holes: the face stays blank) and a painted cross on the front; a
+    # seat-colour band round the foot of the cone, and a short shoulder mantle in the seat colour, so the side reads from
+    # the game camera above
+    c = Vector((hp.x, hp.y - 0.005, top.z))
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.09, radius2=0.0, depth=0.34, location=tuple(c + Vector((0, 0, 0.11))))
+    o = bpy.context.object; o.scale = (1, 1.15, 1); add(o, "hood")
+    bpy.ops.mesh.primitive_cone_add(vertices=14, radius1=0.13, radius2=0.095, depth=0.24, end_fill_type='NOTHING', location=tuple(c + Vector((0, 0, -0.18))))
+    o = bpy.context.object; o.scale = (1, 1.15, 1); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.008; add(o, "hood")
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.094, minor_radius=0.011, major_segments=12, minor_segments=4, location=tuple(c + Vector((0, 0, -0.055))))
+    bpy.context.object.scale = (1, 1.15, 1); add(bpy.context.object, "accent")
+    f = c + Vector((0, -0.128, -0.15))   # the painted cross on the drape, over where the face is
+    box(tuple(f), (0.022, 0.006, 0.12), "blood", rot=(-0.17, 0, 0)); box(tuple(f + Vector((0, 0.004, 0.02))), (0.08, 0.006, 0.022), "blood", rot=(-0.17, 0, 0))
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.21, radius2=0.11, depth=0.13, end_fill_type='NOTHING', location=(hp.x, hp.y - 0.01, 1.41))
+    m_ = bpy.context.object; m_.scale = (1, 0.82, 1); m_.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(m_, "accent")
+    # a prayer strip pinned to the side of the cone under a wax seal
+    sphere(tuple(c + Vector((0.082, -0.03, -0.02))), 0.018, "blood", (0.5, 1, 1), seg=6, rings=4)
+    box(tuple(c + Vector((0.098, -0.03, -0.09))), (0.006, 0.035, 0.11), "bone", rot=(0, 0.12, 0))
+    module("Chest")
+    # bandolier from the left shoulder to the right hip, with ammunition pouches and a wax seal with its parchment
+    skin([(0.15, -0.02, 1.42), (0.02, -0.16, 1.2), (-0.15, -0.12, 0.98)], [(0, 1), (1, 2)], [(0.035, 0.014)]*3, "leather", subdiv=0)
+    for i in range(4): box((0.1 - i*0.06, -0.165 + abs(i - 1.5)*0.01, 1.32 - i*0.07), (0.035, 0.025, 0.04), "leather")
+    sphere((0.08, -0.17, 1.4), 0.022, "blood", (1, 0.45, 1), seg=6, rings=4)
+    box((0.08, -0.172, 1.33), (0.035, 0.005, 0.11), "bone")
+    module("Back")
+    # a canvas pack between the shoulders with a blanket rolled across the top
+    box((0, 0.075, 1.18), (0.2, 0.09, 0.22), "cloth")
+    bar((-0.13, 0.075, 1.32), (0.13, 0.075, 1.32), 0.04, "rags", sides=8)
+    for x in (-0.08, 0.08): bar((x, 0.1, 1.42), (x, 0.1, 1.06), 0.012, "leather", sides=4)
+    module("Hip")
+    # a satchel on the right hip, a canteen on the left
+    box((-0.22, -0.02, 0.86), (0.07, 0.14, 0.12), "leather"); box((-0.25, -0.02, 0.9), (0.012, 0.15, 0.06), "leather")
+    bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.05, depth=0.03, location=(0.195, 0.02, 0.86), rotation=(0, math.pi/2, 0))
+    add(bpy.context.object, "metal"); bar((0.195, 0.02, 0.91), (0.195, 0.02, 0.94), 0.012, "brass", sides=4)
+    module("Weapon")
+    hr, hl = hands["R"] + Vector((0, -0.04, -0.02)), hands["L"] + Vector((0, -0.04, -0.02))
+    d = (hl - hr).normalized(); butt, muz = hr - d*0.24, hl + d*0.42
+    side = d.cross(Vector((0, -1, 0))).normalized()
+    bar(butt, hr + d*0.22, 0.028, "wood", sides=6); bar(hr + d*0.22, muz - d*0.1, 0.02, "wood", sides=6)
+    bar(hr + d*0.08, muz, 0.01, "metal", sides=5)
+    bar(hr + d*0.12, hr + d*0.12 + side*0.05 - Vector((0, 0.02, 0)), 0.008, "metal", sides=4)    # bolt handle
+    bar(hr + d*0.02, hr + d*0.14, 0.016, "metal", sides=4)                                       # magazine and trigger guard
+    bar(hr - d*0.18 + side*0.02, muz - d*0.12 + side*0.02, 0.004, "leather", sides=3)          # sling
+    bar(muz, muz + d*0.22, 0.006, "iron", sides=4)
+    module("Body")
+
+def pilgrim():
+    # Pilgrim (an original figure, not used by any unit): a tall pointed iron hood over the whole head (eye slit,
+    # riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud, a rope belt with a rosary, a
+    # tabard (seat colour) with a bone cross, rag-wrapped bare feet, a nail-studded club raised in the right hand and an
+    # iron cross held out in the left.
+    def pose(r):
+        human.reach(r, "R", P(-0.3, -0.02, 1.12), P(-0.3, -0.24, 1.3))
+        human.reach(r, "L", P(0.25, -0.16, 1.08), P(0.14, -0.36, 1.18))
+    hands, hp, top = human_body(pose, dress={"foot": "skin", "shin": "rags", "thigh": "robe", "torso": "robe"})
+    import random; rnd = random.Random(1916)
+    robe_and_tabard(rnd)
     # sackcloth hood over the shoulders, then the pointed iron hood
     c = Vector((hp.x, hp.y - 0.03, top.z))
     bpy.ops.mesh.primitive_cone_add(vertices=14, radius1=0.24, radius2=0.11, depth=0.2, end_fill_type='NOTHING', location=(c.x, c.y, 1.42))
@@ -314,7 +407,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o
@@ -325,55 +418,58 @@ def join(objs, name):
     o = bpy.context.object; o.name = name; o.data.name = name
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     return o
-B = join(body, "Body"); A = join(accent, "Accent")
-# decimate body to budget, triangulate
-bpy.ops.object.select_all(action='DESELECT'); B.select_set(True); bpy.context.view_layer.objects.active = B
-n = len(B.data.polygons)
-# count tris properly
 def tris(o): return sum(len(p.vertices)-2 for p in o.data.polygons)
-t = tris(B)
-r = 1400 / t
-while t > 1400:   # the head ("head" group) is kept as it is
+def only(o):
+    bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+OBJS = {name: join(parts, name) for name, parts in MODULES.items() if parts}
+B, A = OBJS["Body"], OBJS["Accent"]
+# the body's budget: 1,400 triangles alone, 1,000 when the equipment is in modules (docs/art-pipeline.md)
+BUDGET = 1400 if len(OBJS) == 2 else 1000
+only(B); t = tris(B); r = BUDGET / t
+while t > BUDGET:   # the head and hands ("head" group) are kept as they are
     d = B.modifiers.new("d","DECIMATE"); d.ratio = r; d.vertex_group = "head"; d.invert_vertex_group = True
-    bpy.ops.object.modifier_apply(modifier="d"); t = tris(B); r = 1400 / t * 0.98
-bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris()
-bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.02); bpy.ops.object.mode_set(mode='OBJECT')
-img = bpy.data.images.new(role, 128, 128)
-for m in B.data.materials:
-    tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; m.node_tree.nodes.active = tn
-scn.render.engine = 'CYCLES'; scn.cycles.device = 'CPU'; scn.render.bake.margin = 2
-scn.cycles.samples = 8; bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}); col = list(img.pixels)
-scn.cycles.samples = 32; bpy.ops.object.bake(type='AO'); ao = list(img.pixels)
-px = []
-for i in range(0, len(col), 4):
-    for c in range(3):
-        v = (col[i+c]*(0.55+0.45*ao[i+c])) ** (1/2.2); px.append((round(v*31)/31) ** 2.2)   # 15-bit colour
-    px.append(1.0)
-img.pixels = px; img.pack()
-m = bpy.data.materials.new(f"{role}Body"); m.use_nodes = True; b = m.node_tree.nodes["Principled BSDF"]
-b.inputs["Roughness"].default_value = 1.0
-tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; tn.interpolation = 'Closest'
-m.node_tree.links.new(tn.outputs["Color"], b.inputs["Base Color"])
-B.data.materials.clear(); B.data.materials.append(m)
+    bpy.ops.object.modifier_apply(modifier="d"); t = tris(B); r = BUDGET / t * 0.98
+scn.render.engine = 'CYCLES'; scn.cycles.device = 'CPU'; scn.render.bake.margin = 4   # a wider margin, so no tiny UV island samples an unbaked (black) texel
+for name, o in OBJS.items():
+    if name == "Accent":
+        continue
+    only(o)
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris()
+    bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.03); bpy.ops.object.mode_set(mode='OBJECT')
+    size = 128 if name == "Body" else 64   # one 128x128 texture for the body, 64x64 for each module
+    img = bpy.data.images.new(f"{role}-{name}", size, size)
+    for m in o.data.materials:
+        tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; m.node_tree.nodes.active = tn
+    scn.cycles.samples = 8; bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}); col = list(img.pixels)
+    scn.cycles.samples = 32; bpy.ops.object.bake(type='AO'); ao = list(img.pixels)
+    px = []
+    for i in range(0, len(col), 4):
+        for c in range(3):
+            v = (col[i+c]*(0.55+0.45*ao[i+c])) ** (1/2.2); px.append((round(v*31)/31) ** 2.2)   # 15-bit colour
+        px.append(1.0)
+    img.pixels = px; img.pack()
+    m = bpy.data.materials.new(f"{role}{name}"); m.use_nodes = True; b = m.node_tree.nodes["Principled BSDF"]
+    b.inputs["Roughness"].default_value = 1.0
+    tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; tn.interpolation = 'Closest'
+    m.node_tree.links.new(tn.outputs["Color"], b.inputs["Base Color"])
+    o.data.materials.clear(); o.data.materials.append(m)
 # Accent: one flat material, untextured
 while A.data.uv_layers: A.data.uv_layers.remove(A.data.uv_layers[0])
 A.data.materials.clear(); am = bpy.data.materials.new("Accent"); am.use_nodes = True; A.data.materials.append(am)
-bpy.ops.object.select_all(action='DESELECT'); A.select_set(True); bpy.context.view_layer.objects.active = A
-bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris(); bpy.ops.object.mode_set(mode='OBJECT')
+only(A); bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris(); bpy.ops.object.mode_set(mode='OBJECT')
 # scale to the game's 1.2 tall, feet at 0, centred
-allz = [ (o.matrix_world @ v.co) for o in (A, B) for v in o.data.vertices]
-h = max(p.z for p in allz); k = 1.2 / h
-for o in (A, B):
-    o.select_set(True)
-for o in (A,B): o.scale = (k,k,k)
-bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-low = min((o.matrix_world @ v.co).z for o in (A, B) for v in o.data.vertices)
-for o in (A, B):
+ALL = list(OBJS.values())
+low = min((o.matrix_world @ v.co).z for o in ALL for v in o.data.vertices)
+for o in ALL:
     for v in o.data.vertices: v.co.z -= low
-top = max((o.matrix_world @ v.co).z for o in (A, B) for v in o.data.vertices)
-for o in (A, B):
+top = max((o.matrix_world @ v.co).z for o in ALL for v in o.data.vertices)
+for o in ALL:
     for v in o.data.vertices: v.co *= 1.2 / top
-allp = [(o.matrix_world @ v.co) for o in (A, B) for v in o.data.vertices]
+allp = [(o.matrix_world @ v.co) for o in ALL for v in o.data.vertices]
 w = max(max(p.x for p in allp)-min(p.x for p in allp), max(p.y for p in allp)-min(p.y for p in allp))
-print(f"FIG {role} body_tris={tris(B)} accent_tris={tris(A)} height={max(p.z for p in allp):.3f} width={w:.3f}")
+print(f"FIG {role} " + " ".join(f"{n}={tris(o)}" for n, o in OBJS.items()) + f" total={sum(tris(o) for o in ALL)} height={max(p.z for p in allp):.3f} width={w:.3f}")
+bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=f"{outdir}/{role}.glb", export_format='GLB', export_yup=True)
+# the Blender source, for review or hand edits (docs/art-pipeline.md): saved only when asked
+if os.environ.get("FIG_BLEND"):
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(os.environ["FIG_BLEND"], f"{role}.blend"), compress=True)

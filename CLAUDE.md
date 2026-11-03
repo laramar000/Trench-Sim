@@ -243,3 +243,13 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-03: owner said "Merge the plans". m7-client (which holds m0-setup to m6-records, PRs #1-#11) took in
   docs-known-gaps, main (#13, #14: SessionStart hooks; .claude/settings.json now has both the dotnet permissions and
   the hooks) and claude/pensive-planck-ep84pj; essentials passed; main was fast-forwarded to it (no force-push).
+- 2026-11-03: art pipeline. `docs/art-pipeline.md` is the owner-approved standard (style, blank mannequin faces, size
+  classes A-F by base with triangle and texture budgets, modules as separate glTF nodes, workflow, checklist, all 55
+  units with bases). Template: Trench Pilgrim (`client/assets/units/trench-pilgrim.glb`, 1,842 triangles; tall
+  capirote with no head under it, gaunt MakeHuman minmuscle-minweight body, seat colour on mantle and capirote band),
+  catalog `unit:Trench Pilgrim`; source `tools/art/blend/trench-pilgrim.blend`; renders `tools/art/render_turnaround.py`.
+  Build: Python 3.13 (winget) with `bpy==5.1.2`, `python tools/art/make_figures.py --figure <name> <units> <makehuman>`
+  (FIG_BLEND=<folder> saves the .blend). The four older figures were not rebuilt (the shared head code changed).
+  Owner's rules for art: one model at a time, shown for approval before the next; ask before commit. Open: per-entry
+  figure height in the catalog (large bases, tall headgear), oval bases; licence warning given (TC community licence
+  excludes video games and AI art); the owner chose to go on.
