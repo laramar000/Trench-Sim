@@ -316,3 +316,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   blindfold on a blank face, cloak pinned at the neck (the back under it removed), seat-colour stole, webbing and
   pouches. Kneeling: `ww1_uniform(bands=False)` and plain booted feet (`boots()` fits standing feet only). Left: Trench
   Cleric, Combat Engineer, Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
+- 2026-11-04: Trench Cleric done (`units/trench-cleric.glb`, class B 32 mm, catalog height 1.65", 3,978 triangles, budget
+  4,000: the owner raised it), on the owner's references: tall flat-topped seat-colour cap over a blank mannequin face, olive
+  cuirass of lames front and back (`plate()` shrinkwrap, cut behind the sides), boxy pauldrons with seat-colour slabs and
+  plated sleeves, gilt shrine on the left shoulder, rope stole, belt pouches, ray-fitted chain fringe, long pale vestment with
+  prayer strips, open book (Weapon2 node), pistol, a great riveted cross on the back. Left: Combat Engineer, Mechanized
+  Heavy Infantry (40 mm), Combat Medic, Holy Warrior.

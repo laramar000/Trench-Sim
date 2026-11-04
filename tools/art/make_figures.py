@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker", "sanctified-giant", "yeoman", "shock-trooper", "lieutenant", "blind-marksman")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker", "sanctified-giant", "yeoman", "shock-trooper", "lieutenant", "blind-marksman", "trench-cleric")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -88,7 +88,9 @@ M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate":
           "greatcoat": spattered("greatcoat", "55603f", spots=0.22, scale=9),   # the Lieutenant's greatcoat (2026-11-03)
           "assault": spattered("assault", "4c4f47", spots=0.25, scale=9),   # the Shock Trooper's dark grey kit (2026-11-03)
           "gore": spattered("gore", "5a2a1e", spots=0.55, scale=12), "pale": spattered("pale", "d8ccb8", spots=0.4, scale=10),
-          "brute": spattered("brute", "c8a294", spots=0.45, scale=7), "skirt": spattered("skirt", "4e5642", spots=0.3, scale=8)})   # the Sanctified Giant (2026-11-03)   # the Castigator   # the War Prophet's anti-tank charge (2026-11-03)   # the Stigmatic Nun (2026-11-03)
+          "brute": spattered("brute", "c8a294", spots=0.45, scale=7), "skirt": spattered("skirt", "4e5642", spots=0.3, scale=8),
+          "vestment": spattered("vestment", "bdae86", blood="5a0f0c", mud="3a3026", spots=0.34, scale=7), "olive": mat("olive", "6e7a48", 0.3, 18),   # the Trench Cleric (2026-11-04)
+          "parchment": mat("parchment", "dccca2", 0.1, 20)})   # the Sanctified Giant (2026-11-03)   # the Castigator   # the War Prophet's anti-tank charge (2026-11-03)   # the Stigmatic Nun (2026-11-03)
 # Faceless heads (visual pass Stage 1, 2026-10-27): every figure wears a plain hood of matte canvas over a smooth,
 # featureless head (no eyes, nose or mouth); the figures are told apart by silhouette, kit and pose.
 FACE_SCALE = 1.12   # the plain head fills the space of the MakeHuman face
@@ -1046,6 +1048,203 @@ def blind_marksman():
     bp = B + d * 1.12
     for x in (-1, 1):                                                                                     # the folded bipod
         bar(bp, bp - d * 0.3 + sd_ * 0.035 * x - up_ * 0.025, 0.008, "metal", sides=4)
+    module("Body")
+
+def trench_cleric():
+    # Trench Cleric (2026-11-04, fifth Principality figure, class B, 32 mm): an original armoured field priest on the
+    # owner's reference images as cues, not a copy of the miniature, the art or any paint job. A tall flat-topped
+    # priest's cap in the seat colour over a blank mannequin face (no beard: faces stay blank); an olive steel cuirass
+    # of horizontal lames with squared pauldrons (their top lames in the seat colour), a mail fringe at the waist, a belt
+    # of pouches, a rope stole across the chest with a small iron cross and a gilt icon on the right shoulder; a long
+    # pale vestment to mid-shin, ragged at the hem, with prayer strips down the front; ankle boots. Standing, reading
+    # from an open book held up in the left hand, a heavy pistol hanging in the right, a great riveted wooden cross
+    # strapped across the back. Modules: Helmet (cap fittings), Chest (cuirass, belt, stole, icon), Back (cross), Hip
+    # (holster), Weapon (pistol), Weapon2 (book), Boots, Accent (cap, pauldron tops).
+    global BODY_BUDGET; BODY_BUDGET = 1150
+    def pose(r):
+        human.aim(r, "spine03", P(0, -0.03, 1.4))                                         # upright
+        human.aim(r, "upperleg01.L", P(0.12, -0.05, 0.5)); human.aim(r, "upperleg02.L", P(0.12, -0.05, 0.5))
+        human.aim(r, "lowerleg01.L", P(0.13, -0.05, 0.08)); human.aim(r, "lowerleg02.L", P(0.13, -0.05, 0.08))
+        human.aim(r, "foot.L", P(0.15, -0.21, -0.01))
+        human.aim(r, "upperleg01.R", P(-0.11, 0.03, 0.5)); human.aim(r, "upperleg02.R", P(-0.11, 0.03, 0.5))
+        human.aim(r, "lowerleg01.R", P(-0.12, 0.05, 0.08)); human.aim(r, "lowerleg02.R", P(-0.12, 0.05, 0.08))
+        human.aim(r, "foot.R", P(-0.15, -0.1, -0.02))
+        human.reach(r, "R", P(-0.24, -0.04, 1.1), P(-0.25, -0.24, 0.96))                 # the pistol hand hanging at the side
+        human.reach(r, "L", P(0.25, 0.0, 1.12), P(0.19, -0.3, 1.2))                      # the book held up in front
+    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "puttee", "thigh": "breeches", "torso": "greatcoat"}, head="mannequin",
+                                mitts="leather", shape="male-young-averagemuscle-averageweight")
+    import random, bmesh as _bm; rnd = random.Random(1917)
+    human_ = bpy.data.objects["human"]
+    def surf(x, z, front=True, out=0.012):   # a point on the body's front (or back) at (x, z), a little proud of it
+        d_ = 1 if front else -1
+        ok, loc, *_ = human_.ray_cast(Vector((x, -1.0 * d_, z)), Vector((0, d_, 0)))
+        return (loc if ok else Vector((x, -0.15 * d_, z))) + Vector((0, -out * d_, 0))
+    def obox(c, r_, u_, size, m):   # a box with its own axes (across, along; out = across x along)
+        o = box(tuple(c), size, m); o.rotation_mode = 'XYZ'
+        o.rotation_euler = Matrix((r_, u_, r_.cross(u_).normalized())).transposed().to_euler(); return o
+    boots()
+    # the long vestment from the waist to mid-shin, closed, ragged at the hem
+    vest = cloth_cone(0, 0.005, 1.0, 0.3, 0.17, 0.25, "vestment", sy=0.84, ragged=0.07, rnd=rnd, tris=230, thick=0.012, rows=10)
+    # the legs inside the closed vestment are never seen: removed (owner: hidden parts go up front)
+    bm = _bm.new(); bm.from_mesh(human_.data)
+    _bm.ops.delete(bm, geom=[f for f in bm.faces if 0.36 < (c := f.calc_center_median()).z < 0.95 and abs(c.x) < 0.17 and abs(c.y) < 0.16], context='FACES')
+    bm.to_mesh(human_.data); bm.free()
+    # prayer strips hanging down the front of the vestment
+    for x, z, h in ((-0.08, 0.62, 0.36), (0.0, 0.58, 0.4), (0.08, 0.62, 0.32)):
+        ok, at_, *_ = vest.ray_cast(Vector((x, -1, z)), Vector((0, 1, 0)))
+        if ok: box(tuple(at_ + Vector((0, -0.014, 0))), (0.055, 0.006, h), "pale")
+    module("Helmet")
+    # the cap: a tall drum a little wider at the top, flat-crowned, on a short visor and an iron band; the head under
+    # it trimmed away; a brass cross on the front
+    heads = [o for o in MODULES["Body"] if o.data.materials and o.data.materials[0].name == "mannequin" and len(o.data.vertices) > 40]
+    hd_ = max(heads, key=lambda o: max(v.co.z for v in o.data.vertices))
+    vs = [v.co for v in hd_.data.vertices]
+    lo = Vector((min(v.x for v in vs), min(v.y for v in vs), min(v.z for v in vs))); hi = Vector((max(v.x for v in vs), max(v.y for v in vs), max(v.z for v in vs)))
+    c0 = (lo + hi) / 2; rw, rd = (hi.x - lo.x) / 2 + 0.008, (hi.y - lo.y) / 2 + 0.008
+    zb = FACE_BOX["mid"].z + 0.045                                                       # the cap's rim, across the brow
+    bm = _bm.new(); bm.from_mesh(hd_.data)
+    _bm.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().z > zb + 0.015], context='FACES')
+    bm.to_mesh(hd_.data); bm.free()
+    bpy.ops.mesh.primitive_cone_add(vertices=14, radius1=1.0, radius2=1.1, depth=0.17, location=(c0.x, c0.y + 0.006, zb + 0.085))
+    o = bpy.context.object; o.scale = (rw, rd, 1); add(o, "accent")
+    bpy.ops.mesh.primitive_cylinder_add(vertices=14, radius=1.0, depth=0.024, end_fill_type='NOTHING', location=(c0.x, c0.y + 0.006, zb + 0.008))
+    o = bpy.context.object; o.scale = (rw + 0.007, rd + 0.007, 1); add(o, "iron")
+    box((c0.x, c0.y - rd - 0.03, zb - 0.002), (rw * 1.5, 0.06, 0.008), "leather", rot=(math.radians(14), 0, 0))   # the visor
+    cf = Vector((c0.x, c0.y + 0.006 - rd - 0.006, zb + 0.09))
+    box(tuple(cf), (0.014, 0.008, 0.09), "brass"); box(tuple(cf + Vector((0, 0, 0.018))), (0.055, 0.008, 0.014), "brass")
+    module("Chest")
+    # the cuirass: a breastplate over the chest and four overlapping lames below it, each fitted to the body by
+    # shrinkwrap (front and sides) and each lower one standing a little further out, so the steps read
+    def plate(z0, z1, off, wrap=-0.02, back=False):
+        bpy.ops.mesh.primitive_cylinder_add(vertices=14, radius=0.2, depth=z1 - z0, end_fill_type='NOTHING', location=(0, -0.01, (z0 + z1) / 2))
+        o = bpy.context.object
+        bm = _bm.new(); bm.from_mesh(o.data)
+        _bm.ops.delete(bm, geom=[v for v in bm.verts if (v.co.y < -wrap if back else v.co.y > wrap)], context='VERTS')
+        if z1 - z0 > 0.12: _bm.ops.subdivide_edges(bm, edges=[e for e in bm.edges if abs(e.verts[0].co.z - e.verts[1].co.z) > 0.01], cuts=1)
+        bm.to_mesh(o.data); bm.free()
+        sw = o.modifiers.new("fit", "SHRINKWRAP"); sw.target = human_; sw.wrap_method = 'PROJECT'
+        sw.use_project_x = sw.use_project_y = sw.use_project_z = False; sw.use_negative_direction = True; sw.use_positive_direction = True; sw.offset = off
+        bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier="fit")
+        bm = _bm.new(); bm.from_mesh(o.data)   # the wrap can slide edge points round to the back: nothing behind the sides
+        _bm.ops.delete(bm, geom=[v for v in bm.verts if (v.co.y < 0.0 if back else v.co.y > 0.0)], context='VERTS'); bm.to_mesh(o.data); bm.free()
+        o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(o, "olive")
+    plate(1.2, 1.42, 0.024, wrap=0.07)
+    plate(1.2, 1.42, 0.026, wrap=0.07, back=True)   # the back plate (owner: the back looked like green skin)
+    for k in range(4): plate(1.215 - 0.052 * (k + 1), 1.215 - 0.052 * k, 0.034 + 0.02 * k, back=True)   # and its lames
+    for k in range(4):   # lames: each lower one a little further out, so the steps read; the lowest stays above the belt
+        z1 = 1.215 - 0.052 * k
+        plate(z1 - 0.052, z1, 0.034 + 0.02 * k)
+    # shoulders (the owner's references): squared, boxy pauldrons: a flat slab over the shoulder in the seat colour, a
+    # vertical cap plate on the outside and a second lame stepped down the arm, rivets at the corners, then a plated
+    # sleeve with iron bands down the upper arm; a mail collar at the neck; a gilt shrine standing on the left pauldron
+    for x in (-1, 1):
+        ok, sh_, *_ = human_.ray_cast(Vector((0.19 * x, 0.0, 2.0)), Vector((0, 0, -1)))
+        if not ok: continue
+        el = Vector((0.25, 0.0, 1.12)) if x > 0 else Vector((-0.24, -0.04, 1.1)); ad = (el - sh_).normalized()
+        tl = math.radians(10)
+        box(tuple(sh_ + Vector((0.04 * x, 0, -0.005))), (0.14, 0.15, 0.085), "olive", rot=(0, x * tl, 0))          # the boxy pauldron
+        box(tuple(sh_ + Vector((0.042 * x, 0, 0.05))), (0.16, 0.17, 0.02), "accent", rot=(0, x * tl, 0))           # its slab, in the seat colour
+        box(tuple(sh_ + Vector((0.06 * x, 0, -0.068))), (0.11, 0.14, 0.03), "olive", rot=(0, x * math.radians(14), 0))   # the second lame down the arm
+        for cx in (-1, 1):
+            for cy in (-1, 1):
+                sphere(tuple(sh_ + Vector((0.042 * x + 0.065 * cx, 0.072 * cy, 0.062 - 0.0114 * cx * x))), 0.01, "brass", seg=5, rings=3)   # rivets
+        a0, a1 = sh_ + ad * 0.1, sh_ + ad * 0.26
+        bar(a0, a1, 0.05, "olive", sides=8)                                                              # the sleeve
+        for t_ in (0.1, 0.26): bar(sh_ + ad * (t_ - 0.01), sh_ + ad * (t_ + 0.01), 0.054, "iron", sides=8)   # its bands
+        if x > 0:
+            sc_ = sh_ + Vector((0.045, 0.04, 0.105)); box(tuple(sc_), (0.05, 0.014, 0.1), "gilt")           # the shrine's body
+            box(tuple(sc_ + Vector((-0.032, -0.006, -0.01))), (0.018, 0.01, 0.08), "gilt", rot=(0, 0, 0.0))   # a folded wing
+            box(tuple(sc_ + Vector((0.032, -0.006, -0.01))), (0.018, 0.01, 0.08), "gilt")
+            box(tuple(sc_ + Vector((0, -0.01, 0.0))), (0.03, 0.006, 0.07), "icon")
+    nz_ = NECK.z if hasattr(NECK, "z") else 1.5
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.125, radius2=0.075, depth=0.07, end_fill_type='NOTHING', location=(0, c0.y + 0.012, nz_ + 0.02))
+    o = bpy.context.object; o.scale = (1, 0.92, 1); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(o, "mail")   # the mail collar
+    # the chain fringe (owner: add one): a short skirt of mail over the front and hips, hung from under the belt, laid on
+    # the vestment (each ring point found by ray on it) with a scalloped hem
+    angs = [math.radians(-108 + 9 * i) for i in range(25)]
+    o0 = Vector((0, 0.005, 0)); rows_z = (1.0, 0.955, 0.915); fv, ff = [], []
+    for j, zz in enumerate(rows_z):
+        for i, a_ in enumerate(angs):
+            d_ = Vector((math.sin(a_), -math.cos(a_), 0)); ok_, hit_, *_ = vest.ray_cast(Vector((0, 0.005, zz)) + d_ * 1.0, -d_)
+            r_ = ((hit_ - Vector((0, 0.005, zz))).to_2d().length if ok_ else 0.19) + 0.026 + 0.004 * j
+            z2 = zz - (0.022 if (j == len(rows_z) - 1 and i % 2) else 0.0)
+            fv.append(tuple(Vector((r_ * d_.x, 0.005 + r_ * d_.y, z2))))
+    for j in range(len(rows_z) - 1):
+        for i in range(len(angs) - 1):
+            ff.append((j * len(angs) + i, j * len(angs) + i + 1, (j + 1) * len(angs) + i + 1, (j + 1) * len(angs) + i))
+    me = bpy.data.meshes.new("fringe"); me.from_pydata(fv, [], ff)
+    bm = _bm.new(); bm.from_mesh(me); _bm.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(me); bm.free()
+    for q in me.polygons: q.use_smooth = False
+    fo = bpy.data.objects.new("fringe", me); scn.collection.objects.link(fo)
+    fs = fo.modifiers.new("sol", "SOLIDIFY"); fs.thickness = 0.008; fs.offset = 1.0; add(fo, "mail")
+    # the belt round the waist on the body, the strap's own thickness kept, with five pouches and a buckle
+    fr_, bk_ = surf(0, 0.995), surf(0, 0.995, front=False); cy = (fr_.y + bk_.y) / 2
+    bpy.ops.mesh.primitive_torus_add(major_radius=1, minor_radius=0.02, major_segments=16, minor_segments=3, location=(0, cy, 0.995))
+    o = bpy.context.object
+    for v in o.data.vertices:
+        k = Vector((v.co.x, v.co.y, 0)); n = k.normalized()
+        ok, at_, *_ = human_.ray_cast(Vector((n.x * 0.3, cy + n.y * 0.3, 0.995)), -n)
+        r_ = ((at_ - Vector((0, cy, 0.995))).to_2d().length if ok else 0.16) + 0.03
+        v.co = Vector((n.x * r_, n.y * r_, v.co.z)) + (k - n)
+    add(o, "leather")
+    box(tuple(surf(0, 0.995, out=0.045)), (0.04, 0.012, 0.04), "brass")
+    for x in (-0.15, -0.085, 0.085, 0.15):
+        box(tuple(surf(x, 0.985, out=0.05)), (0.055, 0.04, 0.065), "leather")
+        box(tuple(surf(x, 1.01, out=0.072)), (0.058, 0.012, 0.025), "leather")            # the flap
+    # the rope stole from the right hip over the left shoulder, a small iron cross hanging on the chest
+    ok, sl_, *_ = human_.ray_cast(Vector((0.12, -0.01, 2.0)), Vector((0, 0, -1)))
+    sl_ = (sl_ if ok else Vector((0.12, -0.01, 1.45))) + Vector((0, 0, 0.018))
+    pts = [surf(-0.15, 1.03, out=0.05), surf(-0.05, 1.18, out=0.05), surf(0.06, 1.33, out=0.045), sl_]
+    for a_, b_ in zip(pts, pts[1:]): bar(a_, b_, 0.011, "rope", sides=4)
+    cc = surf(-0.01, 1.2, out=0.06)
+    box(tuple(cc), (0.016, 0.01, 0.075), "iron"); box(tuple(cc + Vector((0, 0, 0.014))), (0.05, 0.01, 0.016), "iron")
+    # a gilt icon hung on the front of the right pauldron
+    ic = surf(-0.17, 1.3, out=0.06)
+    box(tuple(ic), (0.055, 0.012, 0.075), "gilt"); box(tuple(ic + Vector((0, -0.007, 0))), (0.038, 0.004, 0.055), "icon")
+    module("Back")
+    # the great cross strapped across the back: two riveted planks, leaning with its head over the left shoulder,
+    # iron bands at the ends and leather straps over the shoulders
+    bc_ = surf(0.0, 1.2, front=False, out=0.07); t_ = math.radians(8)
+    def C(lx, lz, out=0.0):   # a point in the cross's own plane (lx across, lz along the upright), out = further back
+        return bc_ + Vector((lx * math.cos(t_) + lz * math.sin(t_), out, -lx * math.sin(t_) + lz * math.cos(t_)))
+    for (a_, b_), w in ((((0, -0.5), (0, 0.5)), 0.14), (((-0.42, 0.2), (0.42, 0.2)), 0.13)):
+        p0, p1 = C(*a_), C(*b_); mid = (p0 + p1) / 2; ax = (p1 - p0).normalized()
+        obox(mid, Vector((0, 1, 0)).cross(ax).normalized(), ax, (w, (p1 - p0).length, 0.055), "wood")
+        for e_ in (a_, b_):   # iron bands round each end, rivets on them
+            q_ = Vector(e_) - (Vector(b_) - Vector(a_)).normalized() * 0.055
+            obox(C(*q_), Vector((0, 1, 0)).cross(ax).normalized(), ax, (w + 0.014, 0.055, 0.07), "iron")
+            sphere(tuple(C(*q_, out=0.04)), 0.013, "brass", seg=5, rings=3)
+    for lz in (-0.38, -0.2, 0.06, 0.4):
+        sphere(tuple(C(0, lz, out=0.032)), 0.012, "iron", seg=5, rings=3)                  # rivets down the upright
+    for x in (-1, 1):   # straps from the cross over each shoulder
+        ok, s_, *_ = human_.ray_cast(Vector((x * 0.15, -0.01, 2.0)), Vector((0, 0, -1)))
+        s_ = (s_ if ok else Vector((x * 0.15, -0.01, 1.45))) + Vector((0, 0, 0.02))
+        bar(C(x * 0.06, 0.12, out=-0.025), s_, 0.012, "leather", sides=4)
+    module("Hip")
+    box((-0.215, -0.02, 0.92), (0.045, 0.1, 0.14), "leather")                              # the empty holster on the right hip
+    module("Weapon")
+    # a heavy pistol hanging in the right fist, the barrel along the forearm, the grip back through the fist
+    fr, d = FISTS["R"]; f_ = Vector((0, -1, 0)); f_ = (f_ - d * f_.dot(d)).normalized()
+    s0 = fr + f_ * 0.035
+    bar(s0 - d * 0.04, s0 + d * 0.16, 0.021, "metal", sides=4)                           # the slide and barrel
+    bar(s0 + d * 0.16, s0 + d * 0.21, 0.01, "metal", sides=5)                            # the muzzle
+    bar(s0 + d * 0.02 - f_ * 0.005, s0 + d * 0.08 - f_ * 0.005, 0.012, "metal", sides=4)  # the magazine ahead of the guard
+    bar(fr + f_ * 0.02, fr - f_ * 0.05, 0.017, "wood", sides=4)                          # the grip through the fist
+    module("Weapon2")
+    # the open book held up on the left hand, its pages tilted up towards the reader, a red ribbon hanging from it
+    fl, dl = FISTS["L"]
+    n_ = Vector((0.15, -0.55, 0.82)).normalized(); r_ = Vector((1, 0, 0)); r_ = (r_ - n_ * r_.dot(n_)).normalized(); u_ = n_.cross(r_).normalized()
+    bk = fl + n_ * 0.035 + Vector((0.02, -0.02, 0.0))
+    for s in (-1, 1):
+        rr = (r_ * math.cos(math.radians(12)) + n_ * math.sin(math.radians(12)) * 1).normalized() if s > 0 else (r_ * math.cos(math.radians(12)) - n_ * math.sin(math.radians(12))).normalized()
+        nn = u_.cross(rr).normalized() if s > 0 else rr.cross(u_).normalized()
+        if nn.dot(n_) < 0: nn = -nn
+        obox(bk + rr * 0.06 * s, rr, u_, (0.12, 0.17, 0.008), "leather")                 # the cover
+        obox(bk + rr * 0.056 * s + nn * 0.012, rr, u_, (0.108, 0.155, 0.016), "parchment")   # the pages
+        for k in range(4):   # lines of text
+            p_ = bk + rr * 0.056 * s + nn * 0.021 + u_ * (0.045 - 0.03 * k)
+            bar(p_ - rr * 0.035, p_ + rr * 0.035, 0.0035, "dark", sides=3)
+    bar(bk - u_ * 0.07 + n_ * 0.02, bk - u_ * 0.07 + n_ * 0.02 - Vector((0, 0, 0.12)), 0.005, "blood", sides=3)
     module("Body")
 
 def stigmatic_nun():
@@ -2040,7 +2239,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant, "blind-marksman": blind_marksman}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant, "blind-marksman": blind_marksman, "trench-cleric": trench_cleric}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o

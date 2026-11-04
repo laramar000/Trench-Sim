@@ -72,7 +72,9 @@ the Sanctified Giant, 5,200 triangles (class C), for its posed body, simulated c
 units may have more, 2026-11-03); the Yeoman, 2,400 triangles (class A), for its WWI gas mask (2026-11-03); the Shock Trooper, 2,700 triangles
 (class A), for the same mask and its iron plates (2026-11-03); the Lieutenant, 3,400 triangles (class B), for the
 sallet with its raised visor, the shield and the boots (2026-11-03); the Blind Marksman, 2,800 triangles
-(class B), kneeling with a long rifle (2026-11-03), drawn 1.25" tall since it kneels.
+(class B), kneeling with a long rifle (2026-11-03), drawn 1.25" tall since it kneels; the Trench Cleric, 4,000 triangles
+(class B), for the cuirass with its lames front and back, boxy pauldrons, chain fringe and the great cross (2026-11-04),
+drawn 1.65" tall for the cap and cross.
 A script figure sets these with `BODY_BUDGET` and `TEX_SIZES` (texture size by module name). `render_turnaround.py`
 takes the catalog height as an optional last argument, so a large figure is shown at its drawn size on its base.
 

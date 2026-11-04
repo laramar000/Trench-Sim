@@ -54,9 +54,10 @@ public class UnitFiguresTests
         Assert.Contains("Shock Trooper", known);
         Assert.Contains("Lieutenant", known);
         Assert.Contains("Blind Marksman", known);
+        Assert.Contains("Trench Cleric", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
         Assert.All(units, u => Assert.Contains(u, known));
-        Assert.Equal(15, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.Equal(16, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -72,7 +73,7 @@ public class UnitFiguresTests
     // The Yeoman 2,400, the owner's exception for its WWI gas mask (2026-11-03); the Shock Trooper
     // 2,700 for the same mask and its plate armour (2026-11-03); the Lieutenant 3,400 (class B, the owner's exception for
     // the sallet with its raised visor, the shield and boots, 2026-11-03); the Blind Marksman 2,800 (class B, kneeling,
-    // drawn 1.25" with the rifle upright above him, 2026-11-03).
+    // drawn 1.25" with the rifle upright above him, 2026-11-03); the Trench Cleric 4,000 (class B, the owner raised its budget for the cuirass, pauldrons, back plate, chain fringe and the great cross, 2026-11-04), drawn 1.65" with the cross and tall cap.
     public static TheoryData<string, int, int, float> Figures => new()
     {
         { "units/rifleman.glb", 1850, 128, 0.9f }, { "units/skirmisher.glb", 1850, 128, 0.9f }, { "units/shield.glb", 1850, 128, 0.9f },
@@ -82,6 +83,7 @@ public class UnitFiguresTests
         { "units/reliquary-walker.glb", 8000, 256, 1.1f }, { "units/sanctified-giant.glb", 5200, 256, 1.1f },
         { "units/yeoman.glb", 2400, 128, 0.9f }, { "units/shock-trooper.glb", 2700, 128, 0.9f },
         { "units/lieutenant.glb", 3400, 128, 0.9f }, { "units/blind-marksman.glb", 2800, 128, 0.9f },
+        { "units/trench-cleric.glb", 4000, 128, 0.9f },
     };
 
     [Theory]
