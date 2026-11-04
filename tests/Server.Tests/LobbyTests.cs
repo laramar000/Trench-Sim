@@ -66,6 +66,10 @@ public class LobbyTests
     [InlineData("ranged", 2)]
     [InlineData("melee", 3)]
     [InlineData("melee", 366)]
+    [InlineData("ranged-1v1", 4)]
+    [InlineData("ranged-3v3", 5)]
+    [InlineData("melee-1v1", 6)]
+    [InlineData("melee-2v2", 7)]
     public void AWholeMatchPlayedThroughTheServerReplaysToTheSameHashes(string scenario, int seed)
     {
         var harness = new Harness(seed);

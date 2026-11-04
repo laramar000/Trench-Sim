@@ -1,0 +1,70 @@
+{
+  "format": 1,
+  "id": "claim-no-mans-land",
+  "name": "Claim No Man's Land",
+  "notes": "Fixed layout for Scenario I (1.0.2 pp. 151-153). The book prints no table size, zone depth or terrain, so these are chosen (U32).",
+  "width": "36",
+  "height": "36",
+  "archetype": "no-mans-land",
+  "supports": ["claim-no-mans-land"],
+  "zones": [
+    {
+      "id": "west",
+      "rect": ["0", "0", "6", "36"]
+    },
+    {
+      "id": "east",
+      "rect": ["30", "0", "36", "36"]
+    }
+  ],
+  "objectives": ["obj-1", "obj-2", "obj-3", "obj-4", "obj-5"],
+  "terrain": [
+    {
+      "id": "obj-1",
+      "rect": ["10", "4", "14", "8"],
+      "profile": "cover"
+    },
+    {
+      "id": "obj-2",
+      "rect": ["10", "28", "14", "32"],
+      "profile": "cover"
+    },
+    {
+      "id": "obj-3",
+      "rect": ["22", "4", "26", "8"],
+      "profile": "cover"
+    },
+    {
+      "id": "obj-4",
+      "rect": ["22", "28", "26", "32"],
+      "profile": "cover"
+    },
+    {
+      "id": "obj-5",
+      "rect": ["16", "16", "20", "20"],
+      "profile": "cover"
+    },
+    {
+      "id": "wall-1",
+      "rect": ["14", "11", "20", "12"],
+      "profile": "wall"
+    },
+    {
+      "id": "wall-2",
+      "rect": ["16", "24", "22", "25"],
+      "profile": "wall"
+    },
+    {
+      "id": "rough-1",
+      "rect": ["7", "14", "11", "22"],
+      "profile": "low",
+      "kind": ["difficult"]
+    },
+    {
+      "id": "rough-2",
+      "rect": ["25", "14", "29", "22"],
+      "profile": "low",
+      "kind": ["difficult"]
+    }
+  ]
+}

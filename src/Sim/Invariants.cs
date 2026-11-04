@@ -27,7 +27,7 @@ public static class Invariants
             }
             if (m.Position is { } at)
             {
-                var body = new ModelBody(m.Id.Value, at, setup.ProfileOf(m.Id)!.BaseRadius);
+                var body = new ModelBody(m.Id.Value, at, setup.ProfileOf(m.Id)!.BaseRadius, ElevationAt(after, at));
                 if (field.Area.Bounds.Min.X > at.X || field.Area.Bounds.Max.X < at.X || field.Area.Bounds.Min.Y > at.Y || field.Area.Bounds.Max.Y < at.Y)
                 {
                     return $"{m.Id} is off the battlefield at {at}";
@@ -72,4 +72,8 @@ public static class Invariants
         }
         return null;
     }
+
+    // How high a base centred here stands (a tower's platform or the ground), as the rules measure it.
+    private static Length ElevationAt(MatchState state, Point2 at) =>
+        state.Setup?.Scenario is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero;
 }

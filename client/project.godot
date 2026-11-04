@@ -1,0 +1,14 @@
+; Trench Sim desktop client. Open this folder in the Godot 4 .NET editor (see docs/client.md and GODOT_VERSION).
+config_version=5
+
+[application]
+config/name="Trench Sim"
+run/main_scene="res://scenes/Main.tscn"
+config/features=PackedStringArray("4.7", "C#")
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=800
+
+[dotnet]
+project/assembly_name="Client"

@@ -38,6 +38,9 @@ public class SightAuditTests
     [Trait("Rule", "Known limitation (U16): fixed rays can miss a real sliver of a wider target")]
     public void AGapNarrowerThanTheRaySpacingCanBeMissedByTheDefaultSampler()
     {
+        // This tests the older flat sight class (LineOfSight with LatticeSampler, U16), which the rules no longer use
+        // since line-of-sight stage L2 (U77: shots, cover and previews go through HeightSight). The same limit in the
+        // live nine-point sight is pinned in SightLimitTests.
         var attacker = Body("a", "3", "12");
         var target = Body("t", "10", "12");
         var field = Field("24", Wall("south", "6", "6", "7", "12.2"), Wall("north", "6", "12.3", "7", "18"));

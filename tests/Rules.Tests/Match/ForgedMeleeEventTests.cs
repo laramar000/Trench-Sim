@@ -319,6 +319,6 @@ public class ForgedMeleeEventTests
         Assert.Equal(4, hashes.Distinct().Count());
         Assert.Contains("retreat=", StateHash.Canonical(declared));
         Assert.Contains("melee=1,meleeMod=0", StateHash.Canonical(declared));
-        Assert.Equal(4, StateHash.Version);
+        Assert.Equal(5, StateHash.Version);
     }
 }

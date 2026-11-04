@@ -41,8 +41,8 @@ Version 2 (M6) replaces version 1; the server speaks only version 2.
 
 | type | fields | meaning |
 |---|---|---|
-| `CreateMatch` | `scenario` | Creates a match of a named scenario (`ranged`, `melee`). The sender takes seat One. |
-| `JoinMatch` | `code` | Joins by match code. The sender takes seat Two. No message can choose a seat. |
+| `CreateMatch` | `scenario`, optional `map` | Creates a match of a named scenario (`ranged`, `melee`). The sender takes seat One. With `map` (trench-maps stage S5, left out when not given), the scenario's models play on that server map instead; a map the server lacks is refused `UnknownMap`, one not made for the scenario or not fitting it `MapDoesNotFit`. With `roster` (roster stage 5c, left out when not given, scenario `roster` only): the text of the sender's saved roster file. The server checks it itself with its own roster data (legal, and nothing the engine cannot play, else `RosterRefused` with the reason by name). Until a second player joins with a roster of their own, the match waits with a placeholder setup (Seat One's roster on both sides); when they join, the server replaces it with the real setup and sends Seat One a new `Welcome` with `replayFrom` 0, then seats Seat Two. Only the real match is recorded. |
+| `JoinMatch` | `code`, optional `roster` | Joins by match code. The sender takes seat Two. No message can choose a seat. With `roster` (roster stage 5c, left out when not given): the sender's saved roster, needed to join a match hosted with one and refused `RosterRefused` for a match hosted with the practice warbands. |
 | `SubmitCommand` | `commandId`, `seq`, `knownEvents`, `command` | A command for the sender's own seat. |
 | `Rejoin` | `code`, `seatToken`, `knownEvents`, `knownHash` | Takes a seat back after a lost connection. See Rejoining. |
 | `TokenSaved` | (none) | The client has saved the seat token from its last `Welcome`. See Seat tokens. |
@@ -87,6 +87,7 @@ Example:
 ## Values on the wire
 
 - **Objects:** an object is the parameters of its public constructor, read back through that constructor. A value the rules' own constructors refuse is refused on the wire as `InvalidValue`; for example, a point beyond ±200 inches or a die of 7.
+- **Optional init fields:** a public init property the constructor does not take is written after the parameters and is optional on reading. One of them, a terrain piece's `climb` (towers proposal, stage T1: a tower's height and ladders), is left out when null, so a battlefield without towers is written exactly as before and every existing record keeps its bytes. A client built before towers refuses a match that has one (an unknown field); clients and the server ship together, so the protocol version is unchanged.
 - **Lengths and coordinates:** whole thousandths of an inch.
 - **Ids:** model ids are strings.
 - **Enums:** by exact name. Numbers, other casing and comma lists are refused. A flags enum is an array of names.
@@ -175,3 +176,118 @@ Messages arriving during shutdown are refused with `ShuttingDown`.
 The server sends events in log order, one message each, to both players, through one ordered outbound queue per connection. Before sending, it applies each accepted event itself and checks the result against `Decide`'s state.
 
 `MatchMirror.Apply` requires each event to be the next one in order. It applies the event with `Reducer.Apply` and requires `StateHash.Compute` of the result to equal the server's `hash`. A gap or a mismatch throws, and the client must stop trusting its copy. `ClientSession` then drops the connection and reports the failure. A `MatchAborted` whose count or hash differs from the client's copy is treated the same way.
+
+## A model's own dice (roster stage R1)
+
+- `ModelProfile` has six optional numbers, each left out when zero, so every setup without them is written exactly as
+  before and the protocol version stays 2: `meleeDice`, `meleeWeaponDice`, `meleeWeaponInjuryDice`, `rangedDice`,
+  `rangedWeaponDice`, `rangedWeaponInjuryDice` (written after the constructor fields, in that order). Each is -6 to +6;
+  weapon fields need that weapon. A value out of range is an invalid value (interpretation U97).
+- Roster stage R2a: `meleeWeaponKeywords` and `rangedWeaponKeywords`, arrays of `WeaponKeywords` names (Critical,
+  IgnoreArmour, ArmourPiercing, Shotgun, Risky, Pistol, IgnoreCover, IgnoreLongRange, IgnoreElevatedPosition, and since
+  stage R2b Assault, Heavy, Reload), left out when empty; an unknown name is an invalid value (interpretation U98).
+- Roster stage R2b: `ActivationEnded` has a new reason, `Reload` (interpretation U99). Records without RELOAD weapons
+  never carry it, so they verify unchanged.
+- Roster stage R3 (interpretation U100), each left out when not used, so records without them keep their bytes:
+  `ModelProfile.meleeWeaponCleave` (up to 6), `block` (true), `imperviousArmour` (Armour to 0), `secondRangedWeapon` and
+  `secondMeleeWeapon` (objects: `range`, `injuryModifier`, `dice`, `injuryDice`, `keywords`, `alsoMelee`, `cleave`);
+  `Shoot.weapon`, `FightModel.weapon`, `FreeFight.weapon` (1 for the second weapon); `RangedAttackDeclared.weapon`,
+  `MeleeAttackDeclared.weapon`, `offHand`, `block`. A new refusal reason, `WrongWeapon`: a Fight with attacks still to
+  come must go on with the weapon the rules name.
+- Roster stage R4a (interpretation U101), each left out when not used: `ModelProfile.grenade` (an object like the second
+  weapons, with a range and never `alsoMelee`), `ModelProfile.negates` (`WeaponKeywords` of Shrapnel, Gas and Fire only;
+  anything else is an invalid value), `Shoot.weapon` 2 (the grenade), `RangedAttackDeclared.weapon` 2,
+  `InjuryRolled.extraMarkers` (0 to 3) and `MineExploded.negated` (true). The weapon keyword names gain `Shrapnel`, `Gas`
+  and `Fire`.
+- Roster stages R4b and R4c (interpretations U102, U103): `ModelProfile.rangedWeaponBlast` and each weapon's `blast` (1 to
+  6, left out when 0); the weapon keyword names gain `Scatter`. New events `BlastHit` (`attacker`, `target`, `hit`: the
+  target first), `AttackScattered` (`attacker`, `target`, `at`, `inches` 1 to 5, `hit`, possibly empty) and
+  `ScatterMissed` (`attacker`, `target`, `inches`); a new decision kind `ChooseScatterPoint` (the attacker's opponent) and
+  its answer, the command `ScatterAttack` (`seat`, `at`). A point it may not land at is refused as `NotACandidate`.
+- Roster stage R5a (U104, U105): the weapon keyword names gain `Deadly`; a DEADLY Injury Roll keeps 3 dice (no new
+  field). New command `ShootPoint` (`seat`, `attacker`, `at`, `weapon` left out when 0) and events `PointAttackDeclared`
+  (`attacker`, `at`, `longRange`, `weapon` left out when 0), `PointSuccessRolled` (`attacker`, `at`, `check`) and
+  `PointBlastHit` (`attacker`, `at`, `hit`, possibly empty). `AttackScattered.target` and `ScatterMissed.target` are null
+  for an attack aimed at a point. A point out of sight is refused as `NoLineOfSight`, out of range as `TargetOutOfRange`,
+  off the battlefield or with a weapon without BLAST as `NotACandidate`.
+- Roster stage R5b (U106): `ModelProfile.traits` (flags by name: `Fear`, `NegateFear`, `Tough`, `NegateHeavy`, `Leader`;
+  left out when none), `MeleeAttackDeclared.fear`, `InjuryRolled.tough` and `MineExploded.tough` (left out when false;
+  `tough` only on an Out of Action roll). A Morale Check's `check.netDice` is 1 while the warband has a LEADER on the
+  battlefield, neither Down nor Out of Action, else 0. The state hash adds `,traits=` to a profile and `,tough=spent` to a
+  model only when set, so older records keep their hashes.
+- Roster stage R5c (U107): `ModelProfile.injuryDiceTaken` (-6 to +6) and `meleeInjuryBonus` (0 to 3), left out when 0.
+  AMMUNITION travels as the gun's keywords and dice (no new field).
+- Roster stage R5d (U108): `ModelProfile.keepsGoingAfterRisky`, `fanfare` and `blendsIn` (left out when false) and
+  `climbDice` (0 to 6, left out when 0). A Dash roll's `check.netDice` gains +1 within 4" of a friendly `fanfare` model, a
+  climb roll's gains `climbDice`, a shot's penalty doubles for Cover on a `blendsIn` target, and after a failed Risky roll
+  of a `keepsGoingAfterRisky` model no `ActivationEnded` (riskyFailure) follows. The state hash adds `,keepsGoing=yes`,
+  `,climbDice=N`, `,fanfare=yes` and `,blendsIn=yes` to a profile only when set.
+- Roster stage R5e (U109): `ModelProfile.sinisterWhispers` and `wardedByBlood`, `InjuryRolled.warded` and
+  `MineExploded.warded`, all left out when false. A Ranged Attack's Success Roll has one more penalty die when its target
+  is within 3" of a `sinisterWhispers` model (or is one); a `warded` roll places one BLOOD MARKER fewer. The state hash
+  adds `,whispers=yes` and `,warded=yes` to a profile and `,ward=spent` to a model only when set.
+- Roster stage R5f (U110): `ModelProfile.hasCover` and `digsIn`, left out when false. A model's COVER keyword, when no
+  terrain gives cover, is named "COVER" in `RangedAttackDeclared.coverTerrainId`, `FriendlyTargetChosen.coverTerrainId`
+  and `MeleeAttackDeclared.defendedObstacleId`. The state hash adds `,cover=yes` and `,digsIn=yes` to a profile and
+  `,dugIn=x,y` to a model only when set.
+- Roster stage R5g (U112): `ModelProfile.burnsAtActivationEnd` and `burnsWhenTakenOut`, left out when false, and a new
+  event `BloodMarkersPlaced` (`source`, `targets`, `warded`): 1 BLOOD MARKER on each target, except the `warded` ones (a
+  Sacrificial Lamb keeps it off). It comes right after the `ActivationEnded` of a `burnsAtActivationEnd` model, or the
+  `InjuryRolled`/`MineExploded` that takes a `burnsWhenTakenOut` model Out of Action (after any `GloriousDeedCompleted`),
+  and only when an enemy model is within 1"; nothing else may come between. The state hash adds `,burnsAtEnd=yes` and
+  `,burnsWhenOut=yes` to a profile, and a `markersOwed` line only while markers are owed (never between commands).
+- Roster stage R5h (U113): `ModelProfile.treats` and `healingWaters`, left out when false; a new command `TreatModel`
+  (`seat`, `model`, `target`, `choice`: `RemoveMarker` or `StandUp`) and two events: `TreatDeclared` (`model`, `target`,
+  `choice`), followed by the opponent's `SpendMarkersOnSuccessRoll` decision when the model has BLOOD MARKERS, then
+  `TreatRolled` (`model`, `target`, `choice`, `check`, `treated`), and `ActivationEnded` (RiskyFailure) on a Failure
+  unless the model keeps going. The state hash adds `,treats=yes` and `,healingWaters=yes` to a profile, and `:standUp`
+  to a Treat roll in progress, only when set.
+- Roster stage R5i (U114): `ModelProfile.grindsToDust`, left out when false. A Grind to Dust ACTION is a `FightModel`
+  with `weapon` 3 (`ModelProfile.GrindWeapon`) and its `MeleeAttackDeclared` has `weapon` 3; the rest of the attack is a
+  normal Melee Attack. The state hash adds `,grinds=yes` to a profile only when set.
+- Roster stage R5j (U115): `ModelProfile.martyrdom`, left out when false; a new command `TriggerMartyrdom` (`seat`,
+  `model`) and event `MartyrdomTriggered` (`model`, `hit`: the models within 3" with the bearer last, `close`: the others
+  within 1"), followed by one `InjuryRolled` per hit model in that order (the bearer's own has 4 dice kept, 4D6 added
+  together), with the usual Blood Marker offers for enemies. The state hash adds `,martyrdom=yes` to a profile,
+  `,martyrdom=spent` to a model and `:martyr=...` to an Injury Roll in progress, only when set.
+- Roster stage R5k (U116): `ModelProfile.talismans` (0 to 2), left out when zero; a new decision kind `UseTalisman`
+  (asked of the active model's seat after a failed Risky roll that would end its activation, in place of
+  `ActivationEnded`), answered by the new commands `UseTalisman` (`seat`), giving the new event `TalismanUsed` (`model`),
+  or `DeclineTalisman` (`seat`), giving `ActivationEnded` (`RiskyFailure`). The state hash adds `,talismans=N` to a
+  profile and `,talismansUsed=N` to a model only when not zero. Trench-cli: `talisman` and `keep`.
+- Roster stage R6a (U117): `ModelProfile` flags `shotsIgnoreMarkers`, `expertMedic`, `finishesTheFallen`,
+  `extraChargeDie` and `inspiresFaithful`, each left out when false, and the traits `Principality`, `Cult` and `Demonic`;
+  `ChargeRolled.dropped` (Shock Charge's lower die), left out when zero. The state hash adds `,shotsIgnoreMarkers=yes`,
+  `,expertMedic=yes`, `,finishesTheFallen=yes`, `,extraChargeDie=yes` and `,inspires=yes` to a profile only when set.
+- Roster stage R6b (U118): `ModelProfile` flags `aims` and `fortifies`, each left out when false. New command
+  `TakeSelfAction` (`seat`, `model`, `action`: `Aim` or `Fortify`), giving `SelfActionDeclared` (`model`, `action`), an
+  optional Blood Marker offer, then `SelfActionRolled` (`model`, `action`, `check`). The state hash adds `,aims=yes` and
+  `,fortifies=yes` to a profile, `aiming` to the state and `:self=X` to a roll in progress only when set; a fortified
+  model reuses `dugIn`.
+- Roster stage R6c (U119): `ModelProfile` flags `agile`, `swiftDash`, `quickToRise`, `undeadFortitude`, `abioticLife`,
+  `stealthy`, `huntsTheTough`, `counterCharge` and `mementoMori`, each left out when false; `ModelStoodUp.quick` and
+  `InjuryRolled.spared`/`MineExploded.spared`, left out when false. The state hash adds each flag as `,name=yes` to a
+  profile and `counterCharging` to the state only when set; Memento Mori reuses `tough=spent`.
+- Roster stage R6d (U120): `ModelProfile` flags `tramples` and `horde`, left out when false; a Trample ACTION is a
+  `FightModel` and a `MeleeAttackDeclared` with `weapon` 4. The state hash adds `,tramples=yes` and `,horde=yes` to a
+  profile only when set.
+- Roster stage R6e (U121): `ModelProfile` flags `enforcesOrthodoxy` and `laysOnHands`, left out when false;
+  `TakeSelfAction` kinds `EnforcedOrthodoxy` and `LayingOnHands`, with `target` (Laying on of Hands only) on the
+  command and `SelfActionDeclared`, and `target`, `removed` and `stoodUp` on `SelfActionRolled`, each left out when null,
+  zero or empty. The state hash adds `,orthodoxy=yes` and `,laysOnHands=yes` to a profile only when set.
+
+## Rosters online (roster stage 5c)
+
+- Optional fields, each left out when not used, so every message without them is written exactly as before and the
+  protocol version stays 2: `CreateMatch.roster`, `JoinMatch.roster` and `Welcome.warbands`.
+- `Welcome.warbands`: in a match played with rosters sent online, the models' names in the warband content format
+  (both warbands, Seat One first). Names only; a client uses them only if every profile in them equals the setup's.
+- `RosterRefused` (new error code): a roster that cannot be read or played (the text says why, by name), a roster sent
+  with another scenario, a roster match joined without a roster, a practice match joined with one, or a server that has
+  no roster data. A refused join leaves the match waiting for another player.
+- The second `Welcome` Seat One gets when the match is set up answers no request. A client must not take it as the
+  answer to its next command: `Match.Client.ClientSession` keeps a second `Welcome` for the same code and seat out of
+  its answer queue (test `RosterSessionTests`; before this fix two `trench-cli --bot` players could stall).
+- Names a player gives (the roster's and its models') reach the opponent; the server refuses names over 60 characters
+  or with control characters.
+- Tests: `Server.Tests/RosterOnlineTests` (with `RosterSessionTests`, `RosterCliTests`), `Client.Tests/RosterHotSeatTests` (two controllers on the real server).

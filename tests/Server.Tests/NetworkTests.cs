@@ -1,6 +1,7 @@
 using System.Net.WebSockets;
 using System.Text;
 using Match.Cli;
+using Match.Client;
 using Match.Protocol;
 using Match.Server;
 using Rules.Core;
@@ -35,7 +36,8 @@ public sealed class NetworkTests : IAsyncLifetime
     }
 
     private static Task<MatchServer> Start(
-        int seed = 1, TimeSpan? joinTimeout = null, TimeSpan? keepAlive = null, int queueLimit = 4096, TimeSpan? sendTimeout = null) =>
+        int seed = 1, TimeSpan? joinTimeout = null, TimeSpan? keepAlive = null, int queueLimit = 4096, TimeSpan? sendTimeout = null,
+        TimeSpan? shutdownGrace = null) =>
         MatchServer.StartAsync(new MatchServerOptions
         {
             NewDice = () => new SeededDice(seed),
@@ -43,7 +45,7 @@ public sealed class NetworkTests : IAsyncLifetime
             KeepAlive = keepAlive ?? TimeSpan.FromSeconds(15),
             OutboundQueueLimit = queueLimit,
             SendTimeout = sendTimeout ?? TimeSpan.FromSeconds(10),
-            ShutdownGrace = TimeSpan.FromSeconds(3),
+            ShutdownGrace = shutdownGrace ?? TimeSpan.FromSeconds(3),
             // These are the M5 tests: a disconnect aborts at once, as M5 did. M6's pause is tested in ReconnectTests.
             RejoinWindow = TimeSpan.Zero,
         });
@@ -230,7 +232,9 @@ public sealed class NetworkTests : IAsyncLifetime
         var events = one.Mirror.Events;
         await one.SendRawAsync([0xC3, 0x28], WebSocketMessageType.Text, Token);
         await one.Completion.WaitAsync(Token);
-        Assert.Equal(WebSocketCloseStatus.InvalidPayloadData, one.CloseStatus);
+        // The WebSocket layer sends 1007 and drops the socket at once; the drop can overtake the close frame (runs 338 and
+        // 2026-10-25 saw no close status), so the connection failing is what is required, and any status given must be 1007.
+        Assert.True(one.CloseStatus is null or WebSocketCloseStatus.InvalidPayloadData, $"close status {one.CloseStatus}");
         await two.WaitForAsync(c => c.Aborted is not null, Token);
         Assert.Equal(new MatchAborted(AbortReason.Disconnected, Seat.One, events, two.Mirror.Hash), two.Aborted);
         Assert.Equal(events, _server.Lobby.LogOf(code)!.Count);
@@ -289,10 +293,11 @@ public sealed class NetworkTests : IAsyncLifetime
         Assert.Equal(ProtocolError.Stale.ToString(), stale.Code);
         Assert.Equal(log, stale.Events);
 
-        // The opponent's numbering is its own.
+        // The opponent's numbering is its own. It first catches up on the accepted command's events: sent with an older
+        // view, its command would be refused as stale, a protocol refusal (run 337 and 2026-10-20/22 failed that way).
+        await other.WaitForAsync(c => c.Mirror.Events == log, Token);
         Assert.Equal(RejectionKind.Rules, Assert.IsType<Rejected>(await other.SubmitAsync(new EndActivation(other.Seat!.Value), Token)).Kind);
         Assert.Equal(log, _server.Lobby.LogOf(code)!.Count);
-        await other.WaitForAsync(c => c.Mirror.Events == log, Token);
         AssertAgreement(code, one, two);
     }
 
@@ -383,7 +388,9 @@ public sealed class NetworkTests : IAsyncLifetime
         {
             "queue" => await Start(keepAlive: TimeSpan.Zero, queueLimit: 256, sendTimeout: off),
             "send-timeout" => await Start(keepAlive: TimeSpan.Zero, queueLimit: 1_000_000, sendTimeout: TimeSpan.FromSeconds(1)),
-            _ => await Start(keepAlive: TimeSpan.FromMilliseconds(250), sendTimeout: off),
+            // A ping every second, dropped after 2 s without a pong. At 250 ms (0.5 s to answer) a healthy client on a busy
+            // machine sometimes missed it and was dropped too (2026-10-17, 10-25, 10-27, run 342 and Windows at 17a9099).
+            _ => await Start(keepAlive: TimeSpan.FromSeconds(1), sendTimeout: off),
         };
 
         // Another match, which must carry on untouched.
@@ -421,6 +428,7 @@ public sealed class NetworkTests : IAsyncLifetime
         var watch = System.Diagnostics.Stopwatch.StartNew();
         var junk = Encoding.UTF8.GetBytes("x");
         var sent = 0;
+        var answered = 0;
         var stalledOpen = true;
         while (_server.Lobby.StatusOf(welcome.Code) != MatchStatus.Aborted)
         {
@@ -437,6 +445,14 @@ public sealed class NetworkTests : IAsyncLifetime
                         // The server dropped the socket under a send; wait for the Lobby to show the abort.
                         stalledOpen = false;
                     }
+                }
+                // The control client reads its answers as it goes, so it never has more than 64 unanswered: a player that
+                // reads is never dropped. (Sending 16 a tick without that, a busy machine let the server's queue of 256
+                // for the control client fill, and the control client was dropped: 2026-10-17 and 2026-10-25.)
+                while (sent - answered >= 64)
+                {
+                    Assert.Equal(ProtocolError.Malformed, ProtocolCode(await control.NextAnswerAsync(Token)));
+                    answered++;
                 }
                 await control.SendRawAsync(junk, cancellationToken: Token);
                 sent++;
@@ -476,7 +492,7 @@ public sealed class NetworkTests : IAsyncLifetime
         // The control client, which sent as much at the same pace but read its answers, is still connected and got an
         // answer for every message.
         Assert.False(control.IsClosed);
-        for (var i = 0; i < sent; i++)
+        for (var i = answered; i < sent; i++)
         {
             Assert.Equal(ProtocolError.Malformed, ProtocolCode(await control.NextAnswerAsync(Token)));
         }
@@ -487,7 +503,10 @@ public sealed class NetworkTests : IAsyncLifetime
     public async Task AConnectionThatNeverJoinsIsTimedOut()
     {
         await _server.DisposeAsync();
-        _server = await Start(joinTimeout: TimeSpan.FromMilliseconds(300));
+        // The server waits ShutdownGrace for the client's answer to its close, then drops the socket, and a dropped socket
+        // throws away what the client had not read yet. Run 348 (a busy machine; this test took 16 s) lost the JoinTimeout
+        // refusal that way, so the client here gets 30 s; the grace itself is not what this test checks.
+        _server = await Start(joinTimeout: TimeSpan.FromMilliseconds(300), shutdownGrace: TimeSpan.FromSeconds(30));
         var idle = await Connect();
         Assert.Equal(ProtocolError.JoinTimeout, ProtocolCode(await idle.NextAnswerAsync(Token)));
         await idle.Completion.WaitAsync(Token);

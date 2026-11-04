@@ -106,6 +106,15 @@ public static partial class TurnSequence
             case DecisionKind.ChooseDeploymentZone:
                 commands.AddRange(state.Setup!.ZoneIds.Select(z => new ChooseDeploymentZone(pending.Seat, z)));
                 break;
+            case DecisionKind.ChooseAttacker:
+                commands.Add(new ChooseAttacker(pending.Seat, Seat.One));
+                commands.Add(new ChooseAttacker(pending.Seat, Seat.Two));
+                break;
+            case DecisionKind.LayMines:
+                // One legal layout; any other legal one may be sent instead.
+                var suggested = SuggestedMines(state);
+                commands.Add(new LayMines(pending.Seat, suggested, [.. Enumerable.Range(0, Mines.Duds).Select(Mines.IdOf)]));
+                break;
             case DecisionKind.ChooseFirstActivation:
                 commands.Add(new ChooseFirstActivation(pending.Seat, Seat.One));
                 commands.Add(new ChooseFirstActivation(pending.Seat, Seat.Two));
@@ -120,6 +129,9 @@ public static partial class TurnSequence
                 break;
             case DecisionKind.FreeFight:
                 commands.AddRange(Board.FreeFighters(state, state.Retreat!).Select(m => new FreeFight(pending.Seat, m.Id)));
+                // Roster stage R3: a free attack with the second Melee Weapon, for a model that has one.
+                commands.AddRange(Board.FreeFighters(state, state.Retreat!).Where(m => state.Setup!.ProfileOf(m.Id)!.Weapons(AttackKind.Melee) == 2)
+                    .Select(m => new FreeFight(pending.Seat, m.Id) { Weapon = 1 }));
                 commands.Add(new DeclineFreeFights(pending.Seat));
                 break;
             case DecisionKind.ChooseFriendlyTarget:
@@ -127,14 +139,43 @@ public static partial class TurnSequence
                 var intended = Board.BodyOf(state, state.FindModel(state.InProgress.Target!.Value)!)!;
                 commands.AddRange(Board.FriendsNear(state, shooter, intended).Select(m => new ChooseFriendlyTarget(pending.Seat, m.Id)));
                 break;
+            case DecisionKind.ChooseScatterPoint:
+                // Roster stage R4c (U103): the eight compass points it may land at (every 45 degrees), else the first
+                // possible point; ScatterAttack accepts any other possible point too.
+                var points = Board.ScatterPoints(state, state.InProgress!);
+                var compass = points.Where(p => p.Degree % 45 == 0).ToList();
+                commands.AddRange((compass.Count > 0 ? compass : points.Take(1)).Select(p => new ScatterAttack(pending.Seat, p.At)));
+                break;
+            case DecisionKind.UseTalisman:
+                commands.Add(new UseTalisman(pending.Seat));
+                commands.Add(new DeclineTalisman(pending.Seat));
+                break;
+            case DecisionKind.CarryOnCharge:
+                commands.Add(new CarryOnCharge(pending.Seat));
+                commands.Add(new StopCharge(pending.Seat));
+                break;
             case DecisionKind.SpendMarkersOnSuccessRoll or DecisionKind.SpendMarkersOnInjuryRoll:
                 var available = MarkersAvailable(state, pending.Kind);
                 commands.AddRange(Enumerable.Range(0, available + 1).Select(n => new SpendMarkers(pending.Seat, n)));
+                if (BloodbathCost(state) is { } cost)
+                {
+                    commands.Add(new SpendMarkers(pending.Seat, cost) { Bloodbath = true });
+                }
                 break;
         }
     }
 
     // ---- validation: reasons a player can read; nothing here rolls dice or changes anything ----
+
+    // Read-only, for the client (proposal J, stage J2a, decision D1 approved by Jason on 2026-10-20): the very check
+    // Decide makes before anything happens, so a preview can ask the rules themselves whether a command would be refused
+    // and why. It rolls nothing and changes nothing; Decide's answer is the one that counts.
+    public static Rejection? Check(MatchState state, Command command)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(command);
+        return Validate(state, command);
+    }
 
     private static Rejection? Validate(MatchState state, Command command)
     {
@@ -163,7 +204,7 @@ public static partial class TurnSequence
         {
             return ValidateSpend(state, spend);
         }
-        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget)
+        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or CarryOnCharge or StopCharge)
         {
             return ValidateChoice(state, command);
         }
@@ -187,6 +228,10 @@ public static partial class TurnSequence
             {
                 return new(ReasonCode.InvalidChoice, "That is not one of the choices on offer.", RefTurn);
             }
+            if (command is LayMines mines)
+            {
+                return ValidateMines(state, mines);
+            }
             return command is ChooseDeploymentZone z && !state.Setup!.ZoneIds.Contains(z.ZoneId)
                 ? new(ReasonCode.UnknownZone, "That is not one of the scenario's deployment zones.", RefDeployment)
                 : null;
@@ -205,6 +250,10 @@ public static partial class TurnSequence
             MoveModel c => ValidateMove(state, c.Seat, c.Model, c.Path, ActionsTaken.Move),
             DashModel c => ValidateMove(state, c.Seat, c.Model, c.Path, ActionsTaken.Dash),
             Shoot c => ValidateShoot(state, c),
+            ShootPoint c => ValidateShootPoint(state, c),
+            TreatModel c => ValidateTreat(state, c),
+            TriggerMartyrdom c => ValidateTrigger(state, c),
+            TakeSelfAction c => ValidateSelfAction(state, c),
             ChargeModel c => ValidateCharge(state, c),
             RetreatModel c => ValidateRetreat(state, c),
             FightModel c => ValidateFight(state, c),
@@ -287,12 +336,13 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget;
+        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman or CarryOnCharge or StopCharge;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
     {
         ChooseFirstActivation c => !Enum.IsDefined(c.First),
+        ChooseAttacker c => !Enum.IsDefined(c.Attacker),
         ChooseMoraleOrder c => !Enum.IsDefined(c.First),
         ResolveFailedMorale c => !Enum.IsDefined(c.Choice),
         _ => false,
@@ -301,6 +351,8 @@ public static partial class TurnSequence
     private static DecisionKind? ExpectedDecision(Command command) => command switch
     {
         ChooseDeploymentZone => DecisionKind.ChooseDeploymentZone,
+        ChooseAttacker => DecisionKind.ChooseAttacker,
+        LayMines => DecisionKind.LayMines,
         ChooseFirstActivation => DecisionKind.ChooseFirstActivation,
         ChooseMoraleOrder => DecisionKind.ChooseMoraleOrder,
         ResolveFailedMorale => DecisionKind.FailedMorale,
@@ -310,6 +362,8 @@ public static partial class TurnSequence
     private static Seat SeatOf(Command command) => command switch
     {
         ChooseDeploymentZone c => c.Seat,
+        ChooseAttacker c => c.Seat,
+        LayMines c => c.Seat,
         ChooseFirstActivation c => c.Seat,
         ChooseMoraleOrder c => c.Seat,
         ResolveFailedMorale c => c.Seat,
@@ -322,6 +376,13 @@ public static partial class TurnSequence
     {
         switch (command)
         {
+            case StartMatch when Scenarios.TrenchWarfare.Is(run.State.Setup):
+                // Trench Warfare (p. 161, a one-off game): roll off, and the winner chooses who attacks.
+                var rolesRoll = RollOff(dice, RollOffPurpose.Roles);
+                run.Emit(rolesRoll);
+                run.Emit(new PhaseEntered(Phase.Deployment));
+                run.Emit(new DecisionRequested(DecisionKind.ChooseAttacker, rolesRoll.Winner));
+                break;
             case StartMatch:
                 var zoneRoll = RollOff(dice, RollOffPurpose.DeploymentZone);
                 run.Emit(zoneRoll);
@@ -330,6 +391,12 @@ public static partial class TurnSequence
                 break;
             case ChooseDeploymentZone c:
                 run.Emit(new DeploymentZoneChosen(c.Seat, c.ZoneId));
+                break;
+            case ChooseAttacker c:
+                run.Emit(new AttackerChosen(c.Seat, c.Attacker));
+                break;
+            case LayMines c:
+                run.Emit(new MinesLaid(c.Seat, [.. c.Markers.Select((at, i) => new MineMarker(Mines.IdOf(i), at))], c.Duds));
                 break;
             case DeployModel c:
                 run.Emit(new ModelDeployed(c.Seat, c.Model));
@@ -341,10 +408,10 @@ public static partial class TurnSequence
                 run.Emit(new ActivationStarted(c.Seat, c.Model));
                 if (run.State.Setup!.Scenario is not null && run.State.FindModel(c.Model)!.Status == ModelStatus.Down)
                 {
-                    run.Emit(new ModelStoodUp(c.Model));
+                    run.Emit(new ModelStoodUp(c.Model) { Quick = run.State.Setup.ProfileOf(c.Model)!.QuickToRise });
                 }
                 break;
-            case PlaceModel or MoveModel or DashModel or Shoot or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget:
+            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or CarryOnCharge or StopCharge:
                 ExecuteBoard(run, command);
                 break;
             case EndActivation:
@@ -373,14 +440,47 @@ public static partial class TurnSequence
             return false;
         }
 
+        if (s.MineStop is { } stop)
+        {
+            return AdvanceMine(run, s, stop, dice);
+        }
+
         if (s.InProgress is not null)
         {
             return AdvanceRoll(run, s, dice);
         }
 
+        if (Reducer.FreeAttackDue(s) is { } due)
+        {
+            return AdvanceFreeAttack(run, s, due);
+        }
+
         if (s.Retreat is { } retreat)
         {
             return AdvanceRetreat(run, s, retreat);
+        }
+
+        // Roster stage R4c (U103): a scattered attack's failed Risky roll ends the activation once the attack is over.
+        if (s.MustEndActivation && s.Phase == Phase.Activation && s.ActiveModel is { } risked)
+        {
+            EndForRisky(run, risked);
+            return true;
+        }
+
+        // RELOAD (roster stage R2b, p. 56): the attack's ACTION is done, so the activation ends.
+        if (s.ReloadEnds && s.Phase == Phase.Activation && s.ActiveModel is { } reloading)
+        {
+            run.Emit(new ActivationEnded(reloading, ActivationEndReason.Reload));
+            return true;
+        }
+
+        // Roster stage R4b (U102): a model its own blast took Down or Out of Action ends its activation (p. 49), as the
+        // reducer requires once its attack is over.
+        if (s.Phase == Phase.Activation && s.ActiveModel is { } hurt && s.FindModel(hurt) is { Status: not ModelStatus.Standing }
+            && (s.Actions != ActionsTaken.None || s.MovementHalved) && Board.ScenarioOf(s) is not null)
+        {
+            run.Emit(new ActivationEnded(hurt, ActivationEndReason.TakenDown));
+            return true;
         }
 
         switch (s.Phase)
@@ -405,6 +505,18 @@ public static partial class TurnSequence
 
     private static bool AdvanceDeployment(Run run, MatchState s, IDiceSource dice)
     {
+        if (s.DeploymentFirst is null && s.Attacker is { } defended && !s.MinesLaid)
+        {
+            // Trench Warfare: before any model is deployed the defender sets up the Mine Markers (p. 162).
+            run.Emit(new DecisionRequested(DecisionKind.LayMines, defended.Opponent()));
+            return true;
+        }
+        if (s.DeploymentFirst is null && s.Attacker is { } attacker)
+        {
+            // Trench Warfare: the attacker deploys first, then the players alternate (p. 162).
+            run.Emit(new DeploymentOrderSet(attacker));
+            return true;
+        }
         if (s.DeploymentFirst is null)
         {
             // More models deploys first; equal counts roll off (p. 152). Provisional rule R7: the roll-off winner starts.
@@ -463,11 +575,19 @@ public static partial class TurnSequence
     {
         if (s.TurnEnded)
         {
-            if (s.Turn >= s.Setup!.TurnLimit)
+            if (Reducer.LengthRollOwed(s))
+            {
+                // Trench Warfare (p. 162): the attacker's D6; on 1-2 the game ends now, on 3+ after Turn 5.
+                var die = Roll(dice);
+                run.Emit(new GameLengthRolled(s.Attacker!.Value, die,
+                    die <= Scenarios.TrenchWarfare.EndsOnOrBelow ? Scenarios.TrenchWarfare.LengthRollTurn : Scenarios.TrenchWarfare.TurnLimit));
+                return true;
+            }
+            if (s.Turn >= s.FinalTurn)
             {
                 // With a battlefield the Victory Points decide (p. 153); equal points are a draw (provisional, U40).
                 // Without one (the M2 setups) nothing scores and there is no winner.
-                run.Emit(s.Setup.Scenario is null
+                run.Emit(s.Setup!.Scenario is null
                     ? new MatchEnded(null, OutcomeReason.FinalTurnComplete)
                     : new MatchEnded(Reducer.WinnerByPoints(s), OutcomeReason.VictoryPoints));
             }
@@ -481,6 +601,12 @@ public static partial class TurnSequence
         var remaining = TurnRules.MoraleRemaining(s);
         if (remaining.Count == 0)
         {
+            // Trench Warfare (p. 163): score the trench sections.
+            if (Scenarios.TrenchWarfare.Is(s.Setup) && s.ScoredTurn < s.Turn)
+            {
+                run.Emit(new TrenchesScored(s.Turn, Board.TrenchResults(s)));
+                return true;
+            }
             // End-of-turn tasks (p. 50): in a scenario with Objectives, score them (p. 153).
             if (s.Setup!.Scenario is { ObjectiveIds.Length: > 0 } scenario && s.ScoredTurn < s.Turn)
             {
@@ -509,8 +635,9 @@ public static partial class TurnSequence
 
         var seat = remaining.Count == 2 ? s.MoraleFirst!.Value : remaining[0];
         var wasShaken = s.SeatFor(seat).Shaken;
-        // Provisional rule R3: a Morale Check is a plain Success Roll with no modifiers (pp. 21, 50).
-        var check = SuccessRoll.Roll(dice);
+        // Provisional rule R3: a Morale Check is a plain Success Roll (pp. 21, 50); the only modifier is LEADER's +1 DICE
+        // (p. 55, U106).
+        var check = SuccessRoll.Roll(dice, TurnRules.LeaderDice(s, seat));
         run.Emit(new MoraleCheckRolled(seat, check, TurnRules.DownOrOut(s, seat), TurnRules.WarbandSize(s, seat), wasShaken));
         if (check.Outcome != SuccessOutcome.Failure)
         {
@@ -563,6 +690,25 @@ public static partial class TurnSequence
         {
             State = Reducer.Apply(State, e);
             Events.Add(e);
+            // A Glorious Deed the event completed is announced at once, before anything else (U96); then (roster stage
+            // R5g, U112) the BLOOD MARKERS the event owes nearby enemies, in order.
+            while (!State.Deeds.Owed.IsEmpty || !State.MarkersOwed.IsDefaultOrEmpty)
+            {
+                GameEvent next;
+                if (!State.Deeds.Owed.IsEmpty)
+                {
+                    var deed = State.Deeds.Owed[0];
+                    next = new GloriousDeedCompleted(deed.Seat, deed.Deed, deed.Model);
+                }
+                else
+                {
+                    var owed = State.MarkersOwed[0];
+                    next = new BloodMarkersPlaced(owed.Source, owed.Targets,
+                        owed.Targets.Where(t => Reducer.Wards(State, State.FindModel(t)!, 1)).ToImmutableArray());
+                }
+                State = Reducer.Apply(State, next);
+                Events.Add(next);
+            }
         }
     }
 }

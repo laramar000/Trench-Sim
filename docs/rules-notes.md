@@ -40,7 +40,7 @@ Page images of the 1.0.2 PDF were supplied on 14 October 2026 and read directly.
 | 30 | Measure distances base edge to base edge; "within" means the nearest points are no further apart than the distance. A model can see a target if it can see any part of it (base, hands, feet and carried items do not count); sight is all-round; seeing only some of the target is partial line of sight. | Visually checked; used by M3 |
 | 31 | Model Placement: a base may not overlap Impassable terrain or another base, and more than half of it must be on the battlefield or in terrain. | Visually checked; used by M3 |
 | 35 | Move: the path may be no longer than Movement; a model cannot move within 1" of an enemy unless charging; one that starts within 1" of an enemy must stay within it or retreat; it cannot leave the battlefield; friendly models may be passed once fully cleared. | Visually checked; used by M3 |
-| 34 | Actions: once each per activation in any order; Move or Charge or Retreat (one); Dash alongside any; no Shoot with Charge or Fight (no ASSAULT). | Visually checked; used by M4 Slice B |
+| 34 | Actions: once each per activation in any order; Move or Charge or Retreat (one); Dash alongside any; no Shoot with Charge or Fight (unless ASSAULT, U99). | Visually checked; used by M4 Slice B |
 | 36-37 | Charging (declare, interposing models, Charge Bonus, charge moves) and Retreating (free Fight attacks, move unless Down/Out of Action, end more than 1" away). | Visually checked; used by M4 Slice B |
 | 42 | Ranged Attack sequence and the Shooting into Melee box (D6: 1-3 own model, 4-6 enemy; only randomisation in the game). | Visually checked; used by M4 Slice B |
 | 45 | Melee Attack sequence and modifiers (Defended Obstacle, Off-Hand, Diving Charge); Critical Success. | Visually checked; used by M4 Slice B |
@@ -48,7 +48,7 @@ Page images of the 1.0.2 PDF were supplied on 14 October 2026 and read directly.
 | 38 | Terrain types and Cover: cover needs a piece at least 1/2" high, at least as wide as the base, between the models and partially blocking sight; "in" terrain means more than half the base is within it. | Visually checked; used by M3 |
 | 39-40 | Terrain up to 1" high (and trench walls up to 3") count as Open for walking; climbing and jumping are separate rules. | Visually read; climbing and jumping deferred |
 | 46 | Injury Rolls use INJURY DICE and INJURY MODIFIERS. The maximum -INJURY MODIFIER cannot be more than -3 in total. A worked example gives 9 minus 1 = 8, Down. | Visually checked; matches the notes |
-| 47 | Bloodbath Roll: spend 6 Blood Markers (3 if the target is Down), roll 3D6, add +/- INJURY DICE and modifiers "in the same way", keep the 3 highest or lowest. DEADLY uses 4D6. | Visually checked; matches the notes; dice interaction still open (question 3) |
+| 47 | Bloodbath Roll: spend 6 Blood Markers (3 if the target is Down), roll 3D6, add +/- INJURY DICE and modifiers "in the same way", keep the 3 highest or lowest. DEADLY uses 4D6. | Visually checked; matches the notes; dice interaction ruled 2026-11-02 (question 3), built as U123 |
 | 54 | CRITICAL keyword: +2 INJURY DICE instead of +1 on a Critical Success. DEADLY: 3D6, pick the 3 highest or lowest, +/- INJURY DICE added normally. | Visually checked; treats +1 INJURY DICE as the base critical bonus (see wording discrepancy W1) |
 | 152 | Claim No Man's Land: five objectives, control rule by models on, in or within 1" of the objective, deployment by roll-off then alternating, Infiltrators deploy normally, lasts four Turns. | Visually checked; resolves the game length |
 | 153 | Immediate win if no enemy models remain or the enemy Warband flees; otherwise more Victory Points wins. 2 VPs per controlled Objective each Turn end, 1 VP per Glorious Deed at game end. Seven Glorious Deeds are listed. | Visually checked; resolves the victory conditions |
@@ -103,7 +103,7 @@ Code: `src/Rules.Core/Dice/InjuryRoll.cs`. Tests: `InjuryRollTests.cs`.
 - Results: 1 or less, no effect; 2 to 6, a minor hit and 1 Blood Marker; 7 or 8, the model goes Down and takes 1 Blood Marker, or 2 if it was already Down; 9 or more, the model is out of action. The "already Down" extra marker belongs to the Down result only; a minor hit on a model that is already Down still gives 1 Blood Marker.
 - Extra injury dice from a Critical Success, or from a melee attack on a Down model (pp. 18, 20, 48 and 49), are added by the attack that causes the roll (M4), not by the Injury Roll code. A Critical Success adds +1 INJURY DICE (confirmed; see "Rulebook wording discrepancies", W1).
 
-Not in M1: Bloodbath Rolls (p. 47, still not implemented) and spending Blood Markers (done in M4 Slice A); the effects of being Down (p. 49, M4).
+Not in M1: Bloodbath Rolls (p. 47, built later as U123) and spending Blood Markers (done in M4 Slice A); the effects of being Down (p. 49, M4).
 
 ### Turn sequence (M2)
 
@@ -122,13 +122,13 @@ Confirmed from the rulebook (1.0.2, in our words):
 
 Provisional rulings (our own; each marked in code and tests, to be confirmed or replaced):
 
-- R1. Initiative counts models that are not Down or out of action. The Core Rules (p. 14) word this differently; a `RulesProfile` setting selects the count and is part of the state hash.
-- R2. A roll-off tie is simply rolled again.
-- R3. A Morale Check is a plain Success Roll with no modifiers.
+- R1. Initiative counts models that are not Down or out of action. Confirmed by p. 32 (Down and Out of Action models are not counted); the Core Rules (p. 14) are shorthand. A `RulesProfile` setting selects the count and is part of the state hash.
+- R2. A roll-off tie is simply rolled again. Confirmed, p. 31.
+- R3. A Morale Check is a plain Success Roll with no modifiers, except those the book names: LEADER adds +1 DICE (p. 56). Nothing else is printed.
 - R4. There is no Pass command: a player with an unactivated model must activate one, and may end that activation without taking any action.
 - R5. When both warbands must check, the Initiative holder chooses who checks first (Option B, chosen by the project owner on 14 October 2026). Reasoning: the rulebook does not say, and the simultaneous-activities box on p. 32 gives that player the call when order matters, so we reasoned by analogy. This is a guess, not a printed rule; a `RulesProfile` setting offers "Initiative holder first" without asking. If the first-checking warband flees, the match ends before the other checks.
 - R6. Warband size for the half test is every model in the force, including those out of action.
-- R7. When both sides have the same number of models, a separate deployment-order roll-off (not the zone-choice roll-off) decides who deploys first, and its winner starts. The rulebook gives no tie-break for equal counts, so this is provisional.
+- R7. When both sides have the same number of models, a separate deployment-order roll-off (not the zone-choice roll-off) decides who deploys first, and its winner starts. Scenario I (p. 152) prints "roll-off if both players have the same number of models" for who deploys first; a second roll-off is the natural reading, so this is mostly confirmed.
 - R8. After the final Turn a match without a battlefield (the M2 setups) ends with no winner recorded. With a battlefield (M4) the Victory Points decide; see the M4 section.
 
 Not in M2: geometry and positions (deployment uses opaque zone ids), attacks, injuries, Bloodbath, scenario scoring, and the Godot client.
@@ -176,6 +176,10 @@ A saved match (M6) is replayed by `Reducer.Apply` alone, so the reducer refuses 
 - **The end of the match.** The reducer works out when the match is over: a warband has fled, a warband has no model left on the battlefield (during the Activation Phase, with a battlefield), or the final turn has ended. From then on the only event accepted is `MatchEnded` with that reason (and its usual winner checks); `MatchEnded` at any other point is refused. The events `Decide` emits before the formal end (the Injury Roll that takes the last model Out of Action, `WarbandFled`, the final `TurnEnded`) are unaffected.
 - **Compulsory follow-ups.** Where the rules leave no choice, only the event they require may come next:
   - a failed Risky roll by the active model (a failed Dash, or a Shaken warband's failed shot or Melee Attack) is followed by `ActivationEnded(RiskyFailure)`, and that reason is refused without such a roll (`MatchState.MustEndActivation`; a failed free attack ends nothing, U49);
+  - an attack with a RELOAD weapon by the active model in its own activation, once its ACTION is done, is followed by `ActivationEnded(Reload)`, and that reason is refused otherwise (`MatchState.ReloadEnds`, U99);
+  - a free attack's CLEAVE attacks follow it at once; a Fight's later attacks (CLEAVE, the Off-Hand weapon) must use the weapon next in turn, with the Off-Hand and BLOCK facts the rules give, and anything else ends them (`MatchState.AttacksLeft`, U100);
+  - an Injury Roll's extra BLOOD MARKERS are exactly the weapon's SHRAPNEL, GAS and FIRE the target does not NEGATE, and a mine's SHRAPNEL marker is left out exactly when the model has NEGATE SHRAPNEL (`InjuryRolled.ExtraMarkers`, `MineExploded.Negated`, U101);
+  - a BLAST attack that hit is followed by `BlastHit` listing exactly the models its blast hits, then each one's Injury Roll in that order; a SCATTER attack that missed is followed by the opponent's `ChooseScatterPoint` decision when it can land somewhere and by `ScatterMissed` when it cannot, and `AttackScattered` must name a possible point and exactly the models the blast there hits (U102, U103);
   - a Down model whose activation has just started stands up (`ModelStoodUp`, U30);
   - a model taken Down or Out of Action during its own Retreat ends its activation (`ActivationEnded(TakenDown)`);
   - a Shaken warband that passes its Morale Check recovers (`WarbandRecovered`); one that fails flees (`WarbandFled`, `SeatState.MustFlee`); an unshaken warband that fails is offered the choice (`DecisionRequested(FailedMorale)`);
@@ -226,9 +230,9 @@ Resolved by the project owner's ruling of 14 October 2026; see W1 above. It is k
 - **Confidence:** moderate that the readings are equivalent in play, based on automated text checks only.
 - **Status:** provisional (U31). M4 Slice A applies the penalty as -1 DICE on Success Rolls taken for a Down model, which matches both readings in every case found. In Slice A it never changes a roll, because a Down model stands up at the start of its activation, before it can take any roll. A person should still read pp. 20, 25, 41 and 49.
 
-### 3. Bloodbath Rolls and extra injury dice (not implemented in Slice A)
+### 3. Bloodbath Rolls and extra injury dice (built as U123)
 
-Bloodbath Rolls (p. 47) say to apply +/- INJURY DICE as for an Injury Roll, but keep the three highest or three lowest dice. The rulebook does not say outright that each extra die is added to the three-die roll; that is only implied. This is not implemented and should not be assumed. Visually checked on p. 47: it says INJURY DICE and modifiers apply "in the same way" with 3 dice kept, and the DEADLY entry on p. 54 says the same for its 3D6. How extra dice combine with the base three still has to be decided.
+Bloodbath Rolls (p. 47) say to apply +/- INJURY DICE as for an Injury Roll, but keep the three highest or three lowest dice. Ruling (2026-11-02, from the p. 47 text): roll 3D6, add each extra INJURY DIE to them, keep the 3 highest (or 3 lowest with net penalty dice), then apply INJURY MODIFIERS. A DEADLY Bloodbath Roll is 4D6, all four summed; extra dice on top of that keep the 4 best or worst (our reading, matching the DEADLY entry on p. 54). The spend is 6 Blood Markers, or 3 if the target is Down. Built 2026-11-03 (U123).
 
 ### 4. Morale Check modifiers and passing (provisional in M2 as R3 and R4)
 
@@ -266,4 +270,5 @@ Listed so nothing is dropped silently. Each moves into the table above when a mi
 | Battlekit (weapons, grenades, shields, equipment) | Battlekit, p. 68 | With content that uses them |
 | Terrain types and battlefield archetypes | Trench Crusade Terrain, p. 58 | After M8 (M3 uses box terrain only) |
 | Campaign rules | Campaign Rules, p. 87 | Out of scope until after M8 |
+| Scenario IV, Trench Warfare | Scenarios, pp. 161-163 | Built in trench-maps stage S6 without Mine Markers or Glorious Deeds (U88) |
 | Other scenarios | Scenarios, from p. 144 (end page not verified) | After M8 |

@@ -1,0 +1,145 @@
+{
+  "format": 1,
+  "id": "claim-no-mans-land-towers",
+  "name": "Claim No Man's Land with towers and trenches",
+  "notes": "Fixed layout for Scenario I (1.0.2 pp. 151-153). The book prints no table size, zone depth or terrain, so these are chosen (U32). Two 2\" towers with ladders on their west and east sides (towers proposal). 1\" deep trenches in both deployment zones, mirrored (trench-maps stage S3): to the south a section with a bend, to the north two straight sections joined end to end. A test layout, not a No Man's Land set-up: the towers stand 2.5\" from the objectives and the bent trenches 2.2\" from the rough ground, closer than p. 65's 3\", so it names no archetype (trench-maps stage S4).",
+  "width": "36",
+  "height": "36",
+  "supports": ["claim-no-mans-land"],
+  "zones": [
+    {
+      "id": "west",
+      "rect": ["0", "0", "6", "36"]
+    },
+    {
+      "id": "east",
+      "rect": ["30", "0", "36", "36"]
+    }
+  ],
+  "objectives": ["obj-1", "obj-2", "obj-3", "obj-4", "obj-5"],
+  "terrain": [
+    {
+      "id": "obj-1",
+      "rect": ["10", "4", "14", "8"],
+      "profile": "cover"
+    },
+    {
+      "id": "obj-2",
+      "rect": ["10", "28", "14", "32"],
+      "profile": "cover"
+    },
+    {
+      "id": "obj-3",
+      "rect": ["22", "4", "26", "8"],
+      "profile": "cover"
+    },
+    {
+      "id": "obj-4",
+      "rect": ["22", "28", "26", "32"],
+      "profile": "cover"
+    },
+    {
+      "id": "obj-5",
+      "rect": ["16", "16", "20", "20"],
+      "profile": "cover"
+    },
+    {
+      "id": "wall-1",
+      "rect": ["14", "11", "20", "12"],
+      "profile": "wall"
+    },
+    {
+      "id": "wall-2",
+      "rect": ["16", "24", "22", "25"],
+      "profile": "wall"
+    },
+    {
+      "id": "rough-1",
+      "rect": ["7", "14", "11", "22"],
+      "profile": "low",
+      "kind": ["difficult"]
+    },
+    {
+      "id": "rough-2",
+      "rect": ["25", "14", "29", "22"],
+      "profile": "low",
+      "kind": ["difficult"]
+    },
+    {
+      "id": "tower-s",
+      "rect": ["16.5", "5", "19.5", "8"],
+      "profile": "wall",
+      "surface": "high",
+      "walkable": true,
+      "climb": {
+        "height": "2",
+        "ladders": [
+          {
+            "id": "tower-s-west",
+            "at": ["16.5", "6.5"]
+          },
+          {
+            "id": "tower-s-east",
+            "at": ["19.5", "6.5"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "tower-n",
+      "rect": ["16.5", "28", "19.5", "31"],
+      "profile": "wall",
+      "surface": "high",
+      "walkable": true,
+      "climb": {
+        "height": "2",
+        "ladders": [
+          {
+            "id": "tower-n-west",
+            "at": ["16.5", "29.5"]
+          },
+          {
+            "id": "tower-n-east",
+            "at": ["19.5", "29.5"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "trench-sw",
+      "parts": [["1.5", "4", "4", "12"], ["4", "9.5", "6", "12"]],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-nw",
+      "rect": ["1.5", "24", "4", "30"],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-nw-2",
+      "rect": ["1.5", "30", "4", "34"],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-se",
+      "parts": [["32", "4", "34.5", "12"], ["30", "9.5", "32", "12"]],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-ne",
+      "rect": ["32", "24", "34.5", "30"],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-ne-2",
+      "rect": ["32", "30", "34.5", "34"],
+      "profile": "low",
+      "depth": "1"
+    }
+  ]
+}
