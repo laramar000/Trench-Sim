@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker", "sanctified-giant", "yeoman")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker", "sanctified-giant", "yeoman", "shock-trooper")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -84,6 +84,7 @@ M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate":
           "tunic": spattered("tunic", "6e6040", spots=0.22, scale=9), "breeches": mat("breeches", "625636", 0.3, 16),   # the Trench Pilgrim's WW1 kit (2026-11-03)
           "puttee": mat("puttee", "4a4630", 0.3, 30), "webbing": mat("webbing", "a49468", 0.25, 24),
           "maskcloth": mat("maskcloth", "5e5e48", 0.3, 30), "lens": mat("lens", "b8a878", 0.08, 8),   # the WWI gas mask (2026-11-03)
+          "assault": spattered("assault", "4c4f47", spots=0.25, scale=9),   # the Shock Trooper's dark grey kit (2026-11-03)
           "gore": spattered("gore", "5a2a1e", spots=0.55, scale=12), "pale": spattered("pale", "d8ccb8", spots=0.4, scale=10),
           "brute": spattered("brute", "c8a294", spots=0.45, scale=7), "skirt": spattered("skirt", "4e5642", spots=0.3, scale=8)})   # the Sanctified Giant (2026-11-03)   # the Castigator   # the War Prophet's anti-tank charge (2026-11-03)   # the Stigmatic Nun (2026-11-03)
 # Faceless heads (visual pass Stage 1, 2026-10-27): every figure wears a plain hood of matte canvas over a smooth,
@@ -422,7 +423,7 @@ def robe_and_tabard(rnd):
     cloth_panel([(-0.1, y0, 1.38), (0.1, y0, 1.38)], 0.9, "accent", extra=[robe], ragged=0.08, rnd=rnd, tris=16, thick=0.01)
     box((0, -0.19, 1.05), (0.045, 0.016, 0.34), "bone"); box((0, -0.186, 1.15), (0.17, 0.016, 0.045), "bone")
 
-def ww1_uniform():
+def ww1_uniform(tunic="tunic", band="webbing"):
     # The WWI service dress (the Trench Pilgrim, then the Principality, 2026-11-03), on a body dressed with the tunic,
     # breeches, puttee and boots materials: loose wool (breeches ballooning at the sides of the thigh, a tunic a size
     # too big), the tunic's skirt below the belt and a pale band at the top of each puttee. Returns surf(x, z, front,
@@ -437,7 +438,7 @@ def ww1_uniform():
         ok, loc, *_ = human_.ray_cast(Vector((x, -1.0 * d_, z)), Vector((0, d_, 0)))
         return (loc if ok else Vector((x, -0.15 * d_, z))) + Vector((0, -out * d_, 0))
     # the tunic's skirt below the belt, hanging over the breeches
-    cloth_cone(0, 0, 1.0, 0.82, 0.15, 0.165, "tunic", sy=0.8, tris=50, thick=0.01, rows=4)
+    cloth_cone(0, 0, 1.0, 0.82, 0.15, 0.165, tunic, sy=0.8, tris=50, thick=0.01, rows=4)
     # a pale band at the top of each puttee
     for x in (-0.1, 0.1):   # each band found on its own leg, wherever the pose put it
         f_, b_ = human_.ray_cast(Vector((x, -1, 0.42)), Vector((0, 1, 0))), human_.ray_cast(Vector((x, 1, 0.42)), Vector((0, -1, 0)))
@@ -446,7 +447,7 @@ def ww1_uniform():
         cx_ = (o_[1].x + i_[1].x) / 2 if o_[0] and i_[0] else x
         r_ = max(abs(o_[1].x - cx_) if o_[0] else 0.05, (b_[1].y - f_[1].y) / 2 if f_[0] and b_[0] else 0.05) + 0.006
         bpy.ops.mesh.primitive_torus_add(major_radius=r_, minor_radius=0.011, major_segments=8, minor_segments=3, location=(cx_, y_, 0.42))
-        add(bpy.context.object, "webbing")
+        add(bpy.context.object, band)
     return surf
 def ww1_webbing(surf):
     # belt webbing on the WWI uniform: belt, braces over the shoulders, four ammunition pouches, breast pocket flaps,
@@ -599,6 +600,81 @@ def yeoman():
     bar(hr + d * 0.1, hr + d * 0.1 + side * 0.05 + Vector((0, 0, 0.01)), 0.008, "metal", sides=4)   # bolt handle
     bar(hr, hr + d * 0.12 - Vector((0, 0, 0.03)), 0.016, "metal", sides=4)                           # magazine and trigger guard
     bar(muz, muz + d * 0.22, 0.006, "iron", sides=4)                                                  # bayonet
+    module("Body")
+
+def shock_trooper():
+    # Shock Trooper (2026-11-03, second Principality figure, class A, 25 mm): an original WWI assault trooper in the
+    # setting's genre, not a copy of any miniature or artwork, and unlike the Yeoman at a glance (owner: "more distinct"):
+    # dark grey assault kit, leather knee pads and tall boots instead of puttees; a deep steel helmet in the seat colour
+    # with a bolted iron brow plate; the shared WWI gas mask; iron lames on both shoulders and a chest plate of
+    # overlapping lames; a grenade bag at the hip; a big spiked two-handed trench hammer swung up overhead (Assault
+    # Drill, Shock Charge). Modules: Helmet (mask, brow plate), Chest (webbing, lames), Hip (grenade bag), Back
+    # (entrenching tool), Weapon (hammer), Accent (the helmet).
+    global BODY_BUDGET; BODY_BUDGET = 900
+    def pose(r):
+        human.aim(r, "spine03", P(0, -0.12, 1.4))                                        # leaning into the charge
+        human.aim(r, "upperleg01.L", P(0.11, -0.2, 0.52)); human.aim(r, "upperleg02.L", P(0.11, -0.2, 0.52))
+        human.aim(r, "lowerleg01.L", P(0.12, -0.18, 0.08)); human.aim(r, "lowerleg02.L", P(0.12, -0.18, 0.08))
+        human.aim(r, "foot.L", P(0.12, -0.34, -0.01))
+        human.aim(r, "upperleg01.R", P(-0.1, 0.1, 0.5)); human.aim(r, "upperleg02.R", P(-0.1, 0.1, 0.5))
+        human.aim(r, "lowerleg01.R", P(-0.11, 0.26, 0.13)); human.aim(r, "lowerleg02.R", P(-0.11, 0.26, 0.13))
+        human.aim(r, "foot.R", P(-0.11, 0.14, -0.02))                                     # pushing off the back foot
+        human.reach(r, "R", P(-0.33, 0.02, 1.28), P(-0.22, -0.1, 1.48))                  # wound up: the top hand by the right shoulder
+        human.reach(r, "L", P(0.16, -0.3, 1.2), P(-0.09, -0.38, 1.3))                   # the lower hand across the chest, under the mask
+    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "boots", "thigh": "assault", "torso": "assault"}, head="hood",
+                                mitts="leather", shape="male-young-averagemuscle-minweight")
+    import random; rnd = random.Random(1921)
+    surf = ww1_uniform(tunic="assault", band="leather")   # the band is the boot tops'
+    human_ = bpy.data.objects["human"]
+    for x in (-0.11, 0.11):   # leather knee pads, found on each posed knee
+        ok, k_, *_ = human_.ray_cast(Vector((x, -1.0, 0.5)), Vector((0, 1, 0)))
+        if ok: sphere(tuple(k_ + Vector((0, -0.012, 0))), 1, "leather", (0.055, 0.03, 0.065), seg=6, rings=4)
+    module("Helmet")
+    fb = FACE_BOX; centre = fb["mid"] - fb["fwd"] * 0.06 - fb["up"] * 0.02
+    ww1_gas_mask(fb, centre + fb["fwd"] * 0.012, fit=[o for o in MODULES["Body"] if o.data.materials and o.data.materials[0].name == "hood"])
+    hc = Vector((hp.x, hp.y - 0.022, top.z - 0.07))
+    # the deep helmet: a high dome coming low over the brow, a flared skirt over the ears and neck, in the seat colour
+    sphere(tuple(hc + Vector((0, 0.0, 0.03))), 0.122, "accent", (1, 1.1, 0.85), seg=10, rings=7)
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.15, radius2=0.12, depth=0.06, end_fill_type='NOTHING', location=tuple(hc + Vector((0, 0.012, -0.0))))
+    o = bpy.context.object; o.scale = (1, 1.1, 1); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.008; add(o, "accent")
+    bf = hc + Vector((0, -0.128, 0.05))   # the brow plate, bolted over the front of the helmet
+    box(tuple(bf), (0.15, 0.016, 0.075), "iron", rot=(math.radians(-25), 0, 0))
+    for x in (-0.085, 0.085): sphere(tuple(bf + Vector((x, 0.0, 0.0))), 0.014, "metal", seg=6, rings=4)   # its lugs
+    module("Chest")
+    ww1_webbing(surf)
+    for i, z in enumerate((1.2, 1.09)):   # the chest plate: overlapping lames below where the arm crosses, each a little wider
+        w = 0.1 + 0.015 * i
+        pts = [surf(x, z, out=0.034 + 0.006 * i) for x in (-w, -w / 2, 0, w / 2, w)]
+        for a_, b_ in zip(pts, pts[1:]):
+            mid = (a_ + b_) / 2; box(tuple(mid), ((b_ - a_).length + 0.01, 0.014, 0.12), "iron", rot=(0, 0, math.atan2(b_.y - a_.y, b_.x - a_.x)))
+    for x in (-1, 1):   # iron lames over each shoulder, down onto the upper arm
+        ok, sh_, nrm, _ = human_.ray_cast(Vector((0.7 * x, -0.03, 1.85)), Vector((-x, 0, -0.75)).normalized())   # down onto the shoulder
+        if not ok: continue
+        pl = sphere(tuple(sh_ + nrm * 0.022), 1, "iron", (0.07, 0.08, 0.022), seg=8, rings=5)   # a curved plate lying on it
+        pl.rotation_mode = 'QUATERNION'; pl.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(nrm)
+    module("Hip")
+    c_ = Vector((0.2, 0.0, 0.9))   # a sandbag of stick grenades, the handles out of the top
+    box(tuple(c_), (0.07, 0.09, 0.1), "cloth")
+    for k in (-0.02, 0.02):
+        bar(c_ + Vector((k * 0.6, k, 0.04)), c_ + Vector((k * 0.6, k, 0.13)), 0.007, "wood", sides=4)
+        sphere(tuple(c_ + Vector((k * 0.6, k, 0.13))), 0.009, "metal", seg=4, rings=3)
+    module("Back")
+    bar((0.06, 0.13, 1.1), (0.06, 0.13, 0.86), 0.012, "wood", sides=4); box((0.06, 0.14, 0.82), (0.07, 0.012, 0.08), "metal")   # entrenching tool
+    module("Weapon")
+    # the trench hammer swung up overhead: a long haft through both fists, a big iron head with spikes high behind
+    hr, hl = FISTS["R"][0], FISTS["L"][0]
+    u = (hr - hl).normalized(); top_ = hr + u * 0.36
+    bar(hl - u * 0.05, top_, 0.019, "wood", sides=6)   # the butt just past the lower fist, clear of the chest
+    side = u.cross(Vector((0, -1, 0))).normalized(); fwd_ = side.cross(u).normalized()
+    if fwd_.y > 0: fwd_ = -fwd_
+    box(tuple(top_), (0.13, 0.085, 0.085), "iron")
+    hd = bpy.context.object; hd.rotation_mode = 'QUATERNION'; hd.rotation_quaternion = Vector((1, 0, 0)).rotation_difference(fwd_)
+    bar(top_ + fwd_ * 0.065, top_ + fwd_ * 0.08, 0.05, "metal", sides=8)                              # the striking face
+    for d_ in (-fwd_, u, -u):
+        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.016, radius2=0.0, depth=0.07, location=tuple(top_ + d_ * 0.08))
+        o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(d_); add(o, "iron")   # spikes
+    for t in (0.1, 0.24):
+        bar(hl + u * (t - 0.012), hl + u * (t + 0.012), 0.023, "iron", sides=6)                         # iron bands
     module("Body")
 
 def stigmatic_nun():
@@ -1593,7 +1669,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o

@@ -297,3 +297,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   `ww1_gas_mask()` on the owner's WWI mask references (fogged blank lenses, chin drum, no hose), seat-colour steel
   helmet. The Castigator's mask is `gas_mask()` (shared, unchanged). Left: Lieutenant, Blind Marksman, Trench Cleric,
   Shock Trooper, Combat Engineer, Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
+- 2026-11-03: Shock Trooper done (`units/shock-trooper.glb`, class A, 2,698 triangles, budget 2,700). Owner wanted it
+  distinct from the Yeoman: dark grey `assault` kit, knee pads, tall boots, deep seat-colour helmet with an iron brow
+  plate, two-lame chest plate, shoulder plates, spiked trench hammer in a wind-up over the right shoulder.
+  `ww1_uniform(tunic=, band=)` takes materials now. Left: Lieutenant, Blind Marksman, Trench Cleric, Combat Engineer,
+  Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
