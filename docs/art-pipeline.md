@@ -23,6 +23,12 @@ oppressive, gothic. Every figure must read first as a silhouette, then by its eq
   completely, with every body face inside the head's column (so its baked shading cannot leave marks).
   Headgear that hides the whole head (the Trench Pilgrim's capirote) is built with no head under it (`head=None`),
   so nothing can show through.
+- **Cloth.** Robes, habits, hoods, mantles, capes, skirts, loincloths and tabards are simulated (2026-11-03, the owner:
+  hand-shaped cloth looked wrong): `cloth_cone` and `cloth_panel` lay the cloth out clear of the posed body, `drape()`
+  hangs it from its pinned edge under gravity with self-collision, smooths its inside, reduces it to its triangle
+  count and grows its thickness outward without a rim. A figure with no head drapes over a stand-in head.
+- **The Trench Pilgrim** (the owner, 2026-11-03) is a WWI trench soldier, not a robed pilgrim: wool tunic, webbing,
+  breeches, puttees, under a capirote whose base is an iron casing.
 - **Build.** Lean and gaunt rather than heavy: the pilgrims use MakeHuman's minimum-muscle, minimum-weight body
   (`shape="minmuscle-minweight"`); robes and capes stay close to the body. Bulk is for armoured and large units.
 - **Proportions.** Slightly heroic, not cartoonish: the plain head 12% larger than anatomical, gloved mitten hands,
@@ -61,7 +67,9 @@ oppressive, gothic. Every figure must read first as a silhouette, then by its eq
 | F oval | 30 x 60 mm | by the creature; length along the oval | 2,000 | 1,000 | 3,000 | body 256, modules 64 |
 
 Exceptions the owner allowed: the Castigator, 3,100 triangles (class B), for its detailed gas mask (2026-11-03); the Reliquary Walker,
-8,000 triangles (class E) with 256 px textures on its body and wheel, for a posed martyr bound to the wheel (2026-11-03).
+8,000 triangles (class E) with 256 px textures on its body and wheel, for a posed martyr bound to the wheel (2026-11-03);
+the Sanctified Giant, 5,200 triangles (class C), for its posed body, simulated cloth and chain cluster (the owner: larger
+units may have more, 2026-11-03).
 A script figure sets these with `BODY_BUDGET` and `TEX_SIZES` (texture size by module name). `render_turnaround.py`
 takes the catalog height as an optional last argument, so a large figure is shown at its drawn size on its base.
 

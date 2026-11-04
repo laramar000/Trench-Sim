@@ -282,3 +282,13 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   globals: `TEX_SIZES` (texture size by module; the Walker has 256 px body and Weapon2). `UnitFiguresTests` rows now give
   budget, largest texture and footprint width. `render_turnaround.py` takes an optional height. Left: Sanctified Giant
   (40 mm), references still to come from the owner.
+- 2026-11-03: seventh figure, Sanctified Giant (`units/sanctified-giant.glb`, class C 40 mm, catalog height 1.6", 5,043
+  triangles, budget 5,200: the owner allows larger units more). Owner's references were the Communicant: striding,
+  hunched brute, hood with a nailed iron cross (no face, no head), polearm with a chain/bell/skull cluster, skirt split
+  for the striding leg. The hood sits on the skeleton's neck joint (`NECK`, set by `human_body`).
+- 2026-11-03: cloth pass on every Pilgrim figure (the owner: "all of the cloth we've done looks terrible"): `drape()`
+  (Blender cloth sim, pinned edge, self-collision, inside-only smoothing, reduced, solidify outward without a rim),
+  `cloth_cone`, `cloth_panel`. Each figure stays within its budget (War Prophet body 1,150, Castigator body 1,000 to fit).
+- 2026-11-03: Trench Pilgrim rebuilt as a WWI trench soldier (owner's references): tunic, webbing, breeches,
+  puttees, iron capirote base; the robe, tabard and red mantle are gone (seat colour only on the capirote band).
+  The four older generic figures were not rebuilt. All Pilgrim figures are done.

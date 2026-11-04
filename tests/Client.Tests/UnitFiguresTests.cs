@@ -49,9 +49,10 @@ public class UnitFiguresTests
         Assert.Contains("War Prophet", known);
         Assert.Contains("Castigator", known);
         Assert.Contains("Reliquary Walker", known);
+        Assert.Contains("Sanctified Giant", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
         Assert.All(units, u => Assert.Contains(u, known));
-        Assert.Equal(10, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.Equal(11, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -62,14 +63,15 @@ public class UnitFiguresTests
     // Each figure with its triangle budget, by its size class (docs/art-pipeline.md section 3): 1,850 on a 25 mm base, 2,100
     // on a 32 mm base; the Castigator 3,100, an exception the owner allowed for its gas mask (2026-11-03). Then its largest
     // texture and its widest footprint at the file's 1.2 height: 0.9 fits a 25 mm base at 1.2"; the Reliquary Walker (8,000
-    // and 256 px, the owner's exception, 2026-11-03) is drawn 2.4" tall, so 1.1 is 2.2" on its 60 mm (2.36") base.
+    // and 256 px, the owner's exception, 2026-11-03) is drawn 2.4" tall, so 1.1 is 2.2" on its 60 mm (2.36") base; the
+    // Sanctified Giant (5,200, the owner allows larger units more) is drawn 1.6", so 1.1 is 1.47" on its 40 mm (1.57") base.
     public static TheoryData<string, int, int, float> Figures => new()
     {
         { "units/rifleman.glb", 1850, 128, 0.9f }, { "units/skirmisher.glb", 1850, 128, 0.9f }, { "units/shield.glb", 1850, 128, 0.9f },
         { "units/standard.glb", 1850, 128, 0.9f }, { "units/trench-pilgrim.glb", 1850, 128, 0.9f },
         { "units/stigmatic-nun.glb", 1850, 128, 0.9f }, { "units/ecclesiastic-prisoner.glb", 1850, 128, 0.9f },
         { "units/war-prophet.glb", 2100, 128, 0.9f }, { "units/castigator.glb", 3100, 128, 0.9f },
-        { "units/reliquary-walker.glb", 8000, 256, 1.1f },
+        { "units/reliquary-walker.glb", 8000, 256, 1.1f }, { "units/sanctified-giant.glb", 5200, 256, 1.1f },
     };
 
     [Theory]
