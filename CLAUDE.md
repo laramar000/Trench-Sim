@@ -292,3 +292,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-03: Trench Pilgrim rebuilt as a WWI trench soldier (owner's references): tunic, webbing, breeches,
   puttees, iron capirote base; the robe, tabard and red mantle are gone (seat colour only on the capirote band).
   The four older generic figures were not rebuilt. All Pilgrim figures are done.
+- 2026-11-03: Principality started (owner chose it next). First figure Yeoman (`units/yeoman.glb`, class A, 2,399
+  triangles, budget 2,400 for the gas mask): shared `ww1_uniform()`/`ww1_webbing()` (also used by the Trench Pilgrim),
+  `ww1_gas_mask()` on the owner's WWI mask references (fogged blank lenses, chin drum, no hose), seat-colour steel
+  helmet. The Castigator's mask is `gas_mask()` (shared, unchanged). Left: Lieutenant, Blind Marksman, Trench Cleric,
+  Shock Trooper, Combat Engineer, Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.

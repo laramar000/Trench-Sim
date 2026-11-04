@@ -69,7 +69,7 @@ oppressive, gothic. Every figure must read first as a silhouette, then by its eq
 Exceptions the owner allowed: the Castigator, 3,100 triangles (class B), for its detailed gas mask (2026-11-03); the Reliquary Walker,
 8,000 triangles (class E) with 256 px textures on its body and wheel, for a posed martyr bound to the wheel (2026-11-03);
 the Sanctified Giant, 5,200 triangles (class C), for its posed body, simulated cloth and chain cluster (the owner: larger
-units may have more, 2026-11-03).
+units may have more, 2026-11-03); the Yeoman, 2,400 triangles (class A), for its WWI gas mask (2026-11-03).
 A script figure sets these with `BODY_BUDGET` and `TEX_SIZES` (texture size by module name). `render_turnaround.py`
 takes the catalog height as an optional last argument, so a large figure is shown at its drawn size on its base.
 

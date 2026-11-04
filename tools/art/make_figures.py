@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker", "sanctified-giant")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker", "sanctified-giant", "yeoman")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -83,6 +83,7 @@ M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate":
           "hull": spattered("hull", "6e5e4c", blood="5a0f0c", mud="4a3a2a", spots=0.4, scale=6.0),   # the Reliquary Walker (2026-11-03)
           "tunic": spattered("tunic", "6e6040", spots=0.22, scale=9), "breeches": mat("breeches", "625636", 0.3, 16),   # the Trench Pilgrim's WW1 kit (2026-11-03)
           "puttee": mat("puttee", "4a4630", 0.3, 30), "webbing": mat("webbing", "a49468", 0.25, 24),
+          "maskcloth": mat("maskcloth", "5e5e48", 0.3, 30), "lens": mat("lens", "b8a878", 0.08, 8),   # the WWI gas mask (2026-11-03)
           "gore": spattered("gore", "5a2a1e", spots=0.55, scale=12), "pale": spattered("pale", "d8ccb8", spots=0.4, scale=10),
           "brute": spattered("brute", "c8a294", spots=0.45, scale=7), "skirt": spattered("skirt", "4e5642", spots=0.3, scale=8)})   # the Sanctified Giant (2026-11-03)   # the Castigator   # the War Prophet's anti-tank charge (2026-11-03)   # the Stigmatic Nun (2026-11-03)
 # Faceless heads (visual pass Stage 1, 2026-10-27): every figure wears a plain hood of matte canvas over a smooth,
@@ -421,6 +422,58 @@ def robe_and_tabard(rnd):
     cloth_panel([(-0.1, y0, 1.38), (0.1, y0, 1.38)], 0.9, "accent", extra=[robe], ragged=0.08, rnd=rnd, tris=16, thick=0.01)
     box((0, -0.19, 1.05), (0.045, 0.016, 0.34), "bone"); box((0, -0.186, 1.15), (0.17, 0.016, 0.045), "bone")
 
+def ww1_uniform():
+    # The WWI service dress (the Trench Pilgrim, then the Principality, 2026-11-03), on a body dressed with the tunic,
+    # breeches, puttee and boots materials: loose wool (breeches ballooning at the sides of the thigh, a tunic a size
+    # too big), the tunic's skirt below the belt and a pale band at the top of each puttee. Returns surf(x, z, front,
+    # out): a point on the body's front (or back) at (x, z), a little proud of it, for kit laid on the uniform.
+    human_ = bpy.data.objects["human"]
+    for v in human_.data.vertices:   # loose wool: breeches ballooning at the thigh, a tunic a size too big
+        z = v.co.z
+        if 0.45 < z < 0.86: v.co += v.normal * 0.03 * math.sin(math.pi * (z - 0.45) / 0.41) * abs(v.normal.x) ** 1.5   # out at the sides, low on the thigh
+        elif 0.98 <= z < 1.42: v.co += v.normal * 0.012
+    def surf(x, z, front=True, out=0.012):   # a point on the body's front (or back) at (x, z), a little proud of it
+        d_ = 1 if front else -1
+        ok, loc, *_ = human_.ray_cast(Vector((x, -1.0 * d_, z)), Vector((0, d_, 0)))
+        return (loc if ok else Vector((x, -0.15 * d_, z))) + Vector((0, -out * d_, 0))
+    # the tunic's skirt below the belt, hanging over the breeches
+    cloth_cone(0, 0, 1.0, 0.82, 0.15, 0.165, "tunic", sy=0.8, tris=50, thick=0.01, rows=4)
+    # a pale band at the top of each puttee
+    for x in (-0.1, 0.1):   # each band found on its own leg, wherever the pose put it
+        f_, b_ = human_.ray_cast(Vector((x, -1, 0.42)), Vector((0, 1, 0))), human_.ray_cast(Vector((x, 1, 0.42)), Vector((0, -1, 0)))
+        y_ = (f_[1].y + b_[1].y) / 2 if f_[0] and b_[0] else 0.01
+        o_, i_ = human_.ray_cast(Vector((x * 6, y_, 0.42)), Vector((-x / abs(x), 0, 0))), human_.ray_cast(Vector((0, y_, 0.42)), Vector((x / abs(x), 0, 0)))
+        cx_ = (o_[1].x + i_[1].x) / 2 if o_[0] and i_[0] else x
+        r_ = max(abs(o_[1].x - cx_) if o_[0] else 0.05, (b_[1].y - f_[1].y) / 2 if f_[0] and b_[0] else 0.05) + 0.006
+        bpy.ops.mesh.primitive_torus_add(major_radius=r_, minor_radius=0.011, major_segments=8, minor_segments=3, location=(cx_, y_, 0.42))
+        add(bpy.context.object, "webbing")
+    return surf
+def ww1_webbing(surf):
+    # belt webbing on the WWI uniform: belt, braces over the shoulders, four ammunition pouches, breast pocket flaps,
+    # buttons and a bayonet scabbard on the left hip
+    human_ = bpy.data.objects["human"]
+    fr_, bk_ = surf(0, 1.0), surf(0, 1.0, front=False)
+    ok, lx, *_ = human_.ray_cast(Vector((1, 0, 1.0)), Vector((-1, 0, 0)))
+    rx = (lx.x if ok else 0.17) + 0.026; ry = (bk_.y - fr_.y) / 2 + 0.014
+    bpy.ops.mesh.primitive_torus_add(major_radius=1, minor_radius=0.016, major_segments=12, minor_segments=3, location=(0, (fr_.y + bk_.y) / 2, 1.0))
+    o = bpy.context.object
+    for v in o.data.vertices:   # the ring stretched round the waist, the strap's own thickness kept
+        k = Vector((v.co.x, v.co.y, 0)); n = k.normalized(); v.co = Vector((n.x * rx, n.y * ry, v.co.z)) + (k - n)
+    add(o, "webbing")
+    for x in (-0.13, -0.065, 0.065, 0.13):
+        box(tuple(surf(x, 0.985, out=0.03)), (0.05, 0.035, 0.06), "webbing")
+    for x in (-0.09, 0.09):   # braces up the chest, over the shoulder and down the back
+        ok, sh_, *_ = human_.ray_cast(Vector((x * 1.25, -0.01, 2.0)), Vector((0, 0, -1)))
+        sh_ = (sh_ if ok else Vector((x * 1.25, -0.01, 1.45))) + Vector((0, 0, 0.014))
+        bar(surf(x, 1.01, out=0.02), surf(x * 1.1, 1.36, out=0.016), 0.011, "webbing", sides=4)
+        bar(surf(x * 1.1, 1.36, out=0.016), sh_, 0.011, "webbing", sides=4)
+        bar(sh_, surf(x * 1.1, 1.36, front=False, out=0.016), 0.011, "webbing", sides=4)
+        bar(surf(x * 1.1, 1.36, front=False, out=0.016), surf(x, 1.01, front=False, out=0.02), 0.011, "webbing", sides=4)
+        box(tuple(surf(x * 0.85, 1.29, out=0.01)), (0.07, 0.012, 0.028), "tunic")   # breast pocket flap
+    for z in (1.31, 1.21, 1.11):
+        box(tuple(surf(0, z, out=0.008)), (0.016, 0.01, 0.016), "brass")
+    bar(Vector((0.17, 0.05, 0.97)), Vector((0.19, 0.1, 0.68)), 0.016, "leather", sides=4)   # bayonet scabbard
+
 def trench_pilgrim():
     # Trench Pilgrim: the template infantry figure of docs/art-pipeline.md (2026-11-03). An original figure in the
     # setting's genre, not a copy of any official miniature or artwork. The owner's change (2026-11-03): a WWI trench
@@ -437,23 +490,8 @@ def trench_pilgrim():
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "puttee", "thigh": "breeches", "torso": "tunic"}, head=None, mitts="leather",
                                 shape="male-young-averagemuscle-minweight")   # lean, under a capirote that hides the head
     import random; rnd = random.Random(1914)
+    surf = ww1_uniform()
     human_ = bpy.data.objects["human"]
-    for v in human_.data.vertices:   # loose wool: breeches ballooning at the thigh, a tunic a size too big
-        z = v.co.z
-        if 0.45 < z < 0.86: v.co += v.normal * 0.03 * math.sin(math.pi * (z - 0.45) / 0.41) * abs(v.normal.x) ** 1.5   # out at the sides, low on the thigh
-        elif 0.98 <= z < 1.42: v.co += v.normal * 0.012
-    def surf(x, z, front=True, out=0.012):   # a point on the body's front (or back) at (x, z), a little proud of it
-        d_ = 1 if front else -1
-        ok, loc, *_ = human_.ray_cast(Vector((x, -1.0 * d_, z)), Vector((0, d_, 0)))
-        return (loc if ok else Vector((x, -0.15 * d_, z))) + Vector((0, -out * d_, 0))
-    # the tunic's skirt below the belt, hanging over the breeches
-    cloth_cone(0, 0, 1.0, 0.82, 0.15, 0.165, "tunic", sy=0.8, tris=50, thick=0.01, rows=4)
-    # a pale band at the top of each puttee
-    for x in (-0.1, 0.1):
-        ok, loc, *_ = human_.ray_cast(Vector((x * 6, 0.01, 0.42)), Vector((-x / abs(x), 0, 0)))
-        r_ = abs(loc.x - x) + 0.006 if ok else 0.05
-        bpy.ops.mesh.primitive_torus_add(major_radius=r_, minor_radius=0.011, major_segments=8, minor_segments=3, location=(x, 0.01, 0.42))
-        add(bpy.context.object, "webbing")
     module("Helmet")
     # the capirote (the owner's choice, 2026-11-03): a tall stiff cone of sackcloth over a cloth drape that hides the
     # whole face and falls to the shoulders (no eye holes: the face stays blank) and a painted cross on the front; a
@@ -482,29 +520,7 @@ def trench_pilgrim():
     s_ = (s_ if ok_ else c + Vector((0.11, -0.03, -0.12))) + Vector((0.012, 0, 0))
     box(tuple(s_), (0.006, 0.035, 0.11), "bone"); sphere(tuple(s_ + Vector((0.006, 0, 0.05))), 0.018, "blood", (0.5, 1, 1), seg=6, rings=4)
     module("Chest")
-    # belt webbing: the belt round the tunic at the waist, braces up the front and back to under the mantle, four
-    # ammunition pouches on the belt, a bayonet scabbard on the left hip; the tunic's breast pockets and buttons
-    fr_, bk_ = surf(0, 1.0), surf(0, 1.0, front=False)
-    ok, lx, *_ = human_.ray_cast(Vector((1, 0, 1.0)), Vector((-1, 0, 0)))
-    rx = (lx.x if ok else 0.17) + 0.026; ry = (bk_.y - fr_.y) / 2 + 0.014
-    bpy.ops.mesh.primitive_torus_add(major_radius=1, minor_radius=0.016, major_segments=12, minor_segments=3, location=(0, (fr_.y + bk_.y) / 2, 1.0))
-    o = bpy.context.object
-    for v in o.data.vertices:   # the ring stretched round the waist, the strap's own thickness kept
-        k = Vector((v.co.x, v.co.y, 0)); n = k.normalized(); v.co = Vector((n.x * rx, n.y * ry, v.co.z)) + (k - n)
-    add(o, "webbing")
-    for x in (-0.13, -0.065, 0.065, 0.13):
-        box(tuple(surf(x, 0.985, out=0.03)), (0.05, 0.035, 0.06), "webbing")
-    for x in (-0.09, 0.09):   # braces up the chest, over the shoulder and down the back
-        ok, sh_, *_ = human_.ray_cast(Vector((x * 1.25, -0.01, 2.0)), Vector((0, 0, -1)))
-        sh_ = (sh_ if ok else Vector((x * 1.25, -0.01, 1.45))) + Vector((0, 0, 0.014))
-        bar(surf(x, 1.01, out=0.02), surf(x * 1.1, 1.36, out=0.016), 0.011, "webbing", sides=4)
-        bar(surf(x * 1.1, 1.36, out=0.016), sh_, 0.011, "webbing", sides=4)
-        bar(sh_, surf(x * 1.1, 1.36, front=False, out=0.016), 0.011, "webbing", sides=4)
-        bar(surf(x * 1.1, 1.36, front=False, out=0.016), surf(x, 1.01, front=False, out=0.02), 0.011, "webbing", sides=4)
-        box(tuple(surf(x * 0.85, 1.29, out=0.01)), (0.07, 0.012, 0.028), "tunic")   # breast pocket flap
-    for z in (1.31, 1.21, 1.11):
-        box(tuple(surf(0, z, out=0.008)), (0.016, 0.01, 0.016), "brass")
-    bar(Vector((0.17, 0.05, 0.97)), Vector((0.19, 0.1, 0.68)), 0.016, "leather", sides=4)   # bayonet scabbard
+    ww1_webbing(surf)
     module("Back")
     # a canvas pack between the shoulders with a blanket rolled across the top
     box((0, 0.075, 1.18), (0.2, 0.09, 0.22), "cloth")
@@ -525,6 +541,64 @@ def trench_pilgrim():
     bar(hr + d*0.02, hr + d*0.14, 0.016, "metal", sides=4)                                       # magazine and trigger guard
     bar(hr - d*0.18 + side*0.02, muz - d*0.12 + side*0.02, 0.004, "leather", sides=3)          # sling
     bar(muz, muz + d*0.22, 0.006, "iron", sides=4)
+    module("Body")
+
+def yeoman():
+    # Yeoman (2026-11-03, first figure of the Principality, class A, 25 mm): an original WWI line infantryman in the
+    # setting's genre, on the owner's WWI uniform references, not a copy of any miniature or artwork. The shared
+    # service dress and webbing (ww1_uniform, ww1_webbing); a canvas gas hood over the whole head with two sealed iron
+    # eyepieces (no glass: nothing reads as an eye) and a short filter snout, its hose down to the respirator bag on the
+    # chest; a steel helmet painted in the seat colour; advancing, the rifle levelled at the hip with its bayonet fixed.
+    # Modules: Helmet (gas hood fittings), Chest (webbing, respirator bag), Back (pack, entrenching tool), Hip
+    # (haversack, water bottle), Weapon (rifle), Accent (the helmet).
+    global BODY_BUDGET; BODY_BUDGET = 960
+    def pose(r):
+        human.aim(r, "spine03", P(0, -0.1, 1.4))                                          # leaning into the advance
+        human.aim(r, "upperleg01.L", P(0.11, -0.14, 0.5)); human.aim(r, "upperleg02.L", P(0.11, -0.14, 0.5))
+        human.aim(r, "lowerleg01.L", P(0.12, -0.12, 0.08)); human.aim(r, "lowerleg02.L", P(0.12, -0.12, 0.08))
+        human.aim(r, "foot.L", P(0.12, -0.28, -0.01))
+        human.aim(r, "upperleg01.R", P(-0.1, 0.06, 0.5)); human.aim(r, "upperleg02.R", P(-0.1, 0.06, 0.5))
+        human.aim(r, "lowerleg01.R", P(-0.11, 0.16, 0.1)); human.aim(r, "lowerleg02.R", P(-0.11, 0.16, 0.1))
+        human.aim(r, "foot.R", P(-0.11, 0.02, -0.02))
+        human.reach(r, "R", P(-0.22, 0.06, 1.0), P(-0.12, -0.12, 0.93))                  # right fist on the grip at the hip
+        human.reach(r, "L", P(0.2, -0.2, 1.08), P(0.05, -0.42, 1.03))                    # left hand forward under the stock
+    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "puttee", "thigh": "breeches", "torso": "tunic"}, head="hood",
+                                mitts="leather", shape="male-young-averagemuscle-minweight")
+    import random; rnd = random.Random(1920)
+    surf = ww1_uniform()
+    module("Helmet")
+    # the WWI gas mask over the canvas hood (owner's references, 2026-11-03), set a little forward so the hood never
+    # shows through it; its spare drum carried in the tin on the chest
+    fb = FACE_BOX; centre = fb["mid"] - fb["fwd"] * 0.06 - fb["up"] * 0.02
+    ww1_gas_mask(fb, centre + fb["fwd"] * 0.012, fit=[o for o in MODULES["Body"] if o.data.materials and o.data.materials[0].name == "hood"])
+    bag = surf(0.05, 1.22, out=0.045)
+    # (the helmet below goes to the Accent node by its material)
+    # the steel helmet: a shallow dome with a wide flat brim, painted in the seat colour so the camera above sees it
+    hc = Vector((hp.x, hp.y - 0.012, top.z - 0.075))   # set down on the head, its dome over the crown and the mask's top
+    sphere(tuple(hc + Vector((0, 0.0, 0.03))), 0.125, "accent", (1, 1.08, 0.72), seg=10, rings=6)
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.165, radius2=0.12, depth=0.025, location=tuple(hc + Vector((0, 0, 0.03))))   # the brim, a shallow slope
+    bpy.context.object.scale = (1, 1.08, 1); add(bpy.context.object, "accent")
+    module("Chest")
+    ww1_webbing(surf)
+    box(tuple(bag), (0.11, 0.05, 0.09), "cloth")                                         # the respirator bag
+    module("Back")
+    box((0, 0.075, 1.18), (0.2, 0.09, 0.22), "cloth")                                    # pack, blanket roll on top
+    bar((-0.13, 0.075, 1.32), (0.13, 0.075, 1.32), 0.04, "rags", sides=8)
+    bar((0.06, 0.13, 1.1), (0.06, 0.13, 0.86), 0.012, "wood", sides=4); box((0.06, 0.14, 0.82), (0.07, 0.012, 0.08), "metal")   # entrenching tool
+    module("Hip")
+    box((-0.22, -0.02, 0.86), (0.07, 0.14, 0.12), "cloth"); box((-0.25, -0.02, 0.9), (0.012, 0.15, 0.06), "cloth")   # haversack
+    bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.05, depth=0.03, location=(0.195, 0.02, 0.86), rotation=(0, math.pi/2, 0))
+    add(bpy.context.object, "metal"); bar((0.195, 0.02, 0.91), (0.195, 0.02, 0.94), 0.012, "brass", sides=4)   # water bottle
+    module("Weapon")
+    # the rifle levelled at the hip: the butt back under the right forearm, the bayonet pointing ahead
+    hr, hl = FISTS["R"][0], FISTS["L"][0]
+    d = (hl - hr).normalized(); butt, muz = hr - d * 0.26, hl + d * 0.32
+    side = d.cross(Vector((0, 0, 1))).normalized()
+    bar(butt, hr + d * 0.2, 0.028, "wood", sides=6); bar(hr + d * 0.2, muz - d * 0.1, 0.02, "wood", sides=6)
+    bar(hr + d * 0.06, muz, 0.01, "metal", sides=5)
+    bar(hr + d * 0.1, hr + d * 0.1 + side * 0.05 + Vector((0, 0, 0.01)), 0.008, "metal", sides=4)   # bolt handle
+    bar(hr, hr + d * 0.12 - Vector((0, 0, 0.03)), 0.016, "metal", sides=4)                           # magazine and trigger guard
+    bar(muz, muz + d * 0.22, 0.006, "iron", sides=4)                                                  # bayonet
     module("Body")
 
 def stigmatic_nun():
@@ -847,38 +921,12 @@ def war_prophet():
     box(tuple(ch + Vector((0, -0.035, 0.0))), (0.012, 0.006, 0.05), "bone"); box(tuple(ch + Vector((0, -0.035, 0.01))), (0.04, 0.006, 0.012), "bone")
     module("Body")
 
-def castigator():
-    # Castigator (2026-11-03, fifth figure of docs/art-pipeline.md, class B, 32 mm): an original figure on the owner's
-    # reference cues, not a copy of the miniature, the art or any paint job. A tall flat-topped hat with an Orthodox cross
-    # over a dark hood, a gas mask of smooth dark rubber with a filter snout and a hose to the chest (no eye lenses:
-    # the face stays blank; no head under it), mail sleeves, a long dark robe and cape, gilded icon plaques on the chest, a tall wooden reliquary
-    # shield with a crucifix, severed hands and candles in the left hand, and a spiked flail raised in the right.
-    # Modules: Helmet (hat, hood, mask, respirator), Chest (icons, hose, belt), Back (cape), Weapon (flail), Weapon2
-    # (shield), Accent (the faction's shoulder mantle and the hat's top).
-    global BODY_BUDGET; BODY_BUDGET = 1000
-    def pose(r):
-        human.reach(r, "R", P(-0.3, -0.06, 1.3), P(-0.4, -0.18, 1.42))
-        human.reach(r, "L", P(0.25, -0.1, 1.06), P(0.17, -0.3, 1.1))
-    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "robe", "thigh": "robe", "torso": "mail"}, head=None,
-                                mitts="leather", shape="male-young-averagemuscle-averageweight")
-    import random; rnd = random.Random(1919)
-    # the long robe, its hem ragged
-    robe = cloth_cone(0, 0, 0.98, 0.1, 0.17, 0.24, "robe", sy=0.84, ragged=0.07, rnd=rnd, tris=120, thick=0.012)
-    # the pilgrims' shoulder mantle in the seat colour
-    cloth_cone(hp.x, hp.y - 0.01, 1.47, 1.35, 0.12, 0.255, "accent", sy=0.84, tris=40, thick=0.01)
-    module("Back")
-    # the cape: falling from the shoulders to the ground behind, open at the front
+def gas_mask(fb, centre, fit=()):
+    # The gas mask (the Castigator's, approved by the owner 2026-11-03; shared with the Principality). Built in the
+    # head's frame fb (FACE_BOX or one like it) round centre, about the middle of the head. Returns the snout, where a
+    # hose leaves it. fit: the head (and neck) objects to lay the harness straps on, where there is a head under it.
     import bmesh as _bm
-    cloth_cone(0, 0.03, 1.42, 0.095, 0.12, 0.28, "cloth", sy=0.82, keep=FRONT(80), ragged=0.08, rnd=rnd, tris=90, mono=False, thick=0.012,
-               extra=[robe], rows=10)
-    module("Helmet")
-    # the hood round the head, open at the front; the porcelain mask; the respirator; the tall hat and its cross
-    fb = FACE_BOX; crown = fb["mid"] + fb["up"] * 0.1 - fb["fwd"] * 0.05   # the top of the skull
-    c = crown
-    cloth_cone(c.x, c.y + 0.01, c.z - 0.005, c.z - 0.2, 0.1, 0.13, "cloth", sy=1.05, keep=FRONT(28), tris=40, thick=0.01,
-               stand=(fb["mid"] - fb["fwd"] * 0.09, 0.08))   # centred on the (absent) head
     rot = (0, 0, math.atan2(fb["fwd"].x, -fb["fwd"].y))
-    centre = fb["mid"] - fb["fwd"] * 0.06 - fb["up"] * 0.02
     # The gas mask (the owner raised this figure's budget for it, 2026-11-03). A rubber face piece cut to a face-shaped
     # oval, its lower half drawn forward into the snout; two round eyepieces sealed with plain iron caps (no glass, no
     # rivets: nothing that reads as an eye); a sealing rim; a large filter canister with screw rings, a crossed grille and air holes; an
@@ -930,6 +978,17 @@ def castigator():
     bar(valve, valve + fb["fwd"] * 0.018 - fb["up"] * 0.008, 0.014, "iron", sides=8)
     disc(valve + fb["fwd"] * 0.02 - fb["up"] * 0.009, 0.016, 0.005, "metal", n=8)
     # the head harness: a strap round the head at the eyepieces, one at the jaw, with buckles at the temples
+    if fit:   # the straps laid round the back of the head they hold on, from one side of the mask to the other
+        for u_ in (0.035, -0.06):
+            pts = []
+            for k in range(6):
+                t = math.pi * k / 5; o_ = fb["ax"] * math.cos(t) - fb["fwd"] * math.sin(t); far = centre + fb["up"] * u_ + o_ * 0.3
+                hits = [loc for ob in fit for ok, loc, *_ in [ob.ray_cast(far, -o_)] if ok]
+                if hits: pts.append(min(hits, key=lambda h_: (h_ - far).length) + o_ * 0.007)
+            for a_, b_ in zip(pts, pts[1:]): bar(a_, b_, 0.006, "leather", sides=4)
+            if u_ > 0 and len(pts) > 1:
+                for e_ in (pts[0], pts[-1]): box(tuple(e_), (0.008, 0.02, 0.016), "brass", rot=rot)   # buckles at the temples
+        return snout
     for u_ in (0.035, -0.06):
         bpy.ops.mesh.primitive_torus_add(major_radius=0.094, minor_radius=0.006, major_segments=10, minor_segments=3, location=tuple(centre + fb["up"] * u_))
         o = bpy.context.object; o.scale = (1, 1.12, 1)
@@ -939,6 +998,89 @@ def castigator():
         bm.to_mesh(o.data); bm.free(); add(o, "leather")
     for x in (-1, 1):
         box(tuple(centre + fb["ax"] * 0.093 * x + fb["up"] * 0.035), (0.008, 0.02, 0.016), "brass", rot=rot)
+    return snout
+def ww1_gas_mask(fb, centre, fit=()):
+    # A WWI face mask on the owner's references (2026-11-03: the Castigator's on the Yeoman "looks goofy"): a broad
+    # proofed-cloth face piece from brow to under the chin, drawn forward at the mouth; two big round eyepieces in thick
+    # metal rims with fogged, blank lenses (no pupils, nothing behind them); a squat filter drum screwed straight onto
+    # the chin, angled down, with a screw ring; elastic straps round the back of the head (fit: the head objects).
+    # Returns the drum's mouth.
+    import bmesh as _bm
+    rot = (0, 0, math.atan2(fb["fwd"].x, -fb["fwd"].y))
+    A, F, U = 0.09, 0.095, 0.13
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=14, ring_count=10, radius=1, location=tuple(centre))
+    mk = bpy.context.object; mk.scale = (A, F, U); mk.rotation_euler = rot
+    bpy.context.view_layer.update(); mw = mk.matrix_world
+    bm = _bm.new(); bm.from_mesh(mk.data)
+    def outside(f):
+        q = (mw @ f.calc_center_median()) - centre
+        return q.dot(fb["fwd"]) < -0.005 or (q.dot(fb["ax"]) / 0.086) ** 2 + ((q.dot(fb["up"]) + 0.015) / 0.122) ** 2 > 1
+    _bm.ops.delete(bm, geom=[f for f in bm.faces if outside(f)], context='FACES')
+    bm.to_mesh(mk.data); bm.free()
+    mk.data.transform(mk.matrix_world); mk.matrix_world = Matrix.Identity(4)
+    for v in mk.data.vertices:   # the cloth drawn forward to the drum at the mouth
+        q = v.co - centre; u_, a_ = q.dot(fb["up"]), q.dot(fb["ax"])
+        pull = max(0.0, (-0.02 - u_) / 0.08) * max(0.0, 1 - abs(a_) / 0.07)
+        v.co += fb["fwd"] * 0.035 * min(pull, 1.0) ** 0.6
+    mk.modifiers.new("sol", "SOLIDIFY").thickness = 0.006; bpy.ops.object.select_all(action='DESELECT'); mk.select_set(True)
+    bpy.context.view_layer.objects.active = mk; bpy.ops.object.shade_smooth(); add(mk, "maskcloth")
+    def on_mask(a_, u_, out=0.0):
+        k = 1 - (a_ / A) ** 2 - (u_ / U) ** 2
+        return centre + fb["ax"] * a_ + fb["up"] * u_ + fb["fwd"] * (F * max(k, 0.0) ** 0.5 + out)
+    def aim(o, axis): o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(axis)
+    for x in (-0.041, 0.041):   # the eyepieces: a thick rim standing proud, a fogged lens set back in it
+        ax_ = (fb["fwd"] + fb["ax"] * (0.3 if x > 0 else -0.3)).normalized(); e = on_mask(x, 0.032, 0.004)
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.031, minor_radius=0.008, major_segments=10, minor_segments=4, location=tuple(e + ax_ * 0.008))
+        aim(bpy.context.object, ax_); add(bpy.context.object, "metal")
+        bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.028, depth=0.004, location=tuple(e + ax_ * 0.004))
+        aim(bpy.context.object, ax_); add(bpy.context.object, "lens")
+    snout = on_mask(0.0, -0.075, 0.03); dn = (fb["fwd"] * 0.85 - fb["up"] * 0.5).normalized()
+    bar(snout - dn * 0.012, snout + dn * 0.016, 0.03, "metal", sides=10)                     # the threaded mount
+    bar(snout + dn * 0.016, snout + dn * 0.075, 0.041, "iron", sides=12)                      # the filter drum
+    bar(snout + dn * 0.022, snout + dn * 0.03, 0.045, "metal", sides=12)                     # its screw ring
+    bar(snout + dn * 0.075, snout + dn * 0.079, 0.037, "dark", sides=12)                      # the perforated face
+    if fit:   # elastic straps round the back of the head, from one side of the face piece to the other
+        for u_ in (0.04, -0.05):
+            pts = []
+            for k in range(6):
+                t = math.pi * k / 5; o_ = fb["ax"] * math.cos(t) - fb["fwd"] * math.sin(t); far = centre + fb["up"] * u_ + o_ * 0.3
+                hits = [loc for ob in fit for ok, loc, *_ in [ob.ray_cast(far, -o_)] if ok]
+                if hits: pts.append(min(hits, key=lambda h_: (h_ - far).length) + o_ * 0.007)
+            for a_, b_ in zip(pts, pts[1:]): bar(a_, b_, 0.007, "webbing", sides=4)
+    return snout + dn * 0.079
+def castigator():
+    # Castigator (2026-11-03, fifth figure of docs/art-pipeline.md, class B, 32 mm): an original figure on the owner's
+    # reference cues, not a copy of the miniature, the art or any paint job. A tall flat-topped hat with an Orthodox cross
+    # over a dark hood, a gas mask of smooth dark rubber with a filter snout and a hose to the chest (no eye lenses:
+    # the face stays blank; no head under it), mail sleeves, a long dark robe and cape, gilded icon plaques on the chest, a tall wooden reliquary
+    # shield with a crucifix, severed hands and candles in the left hand, and a spiked flail raised in the right.
+    # Modules: Helmet (hat, hood, mask, respirator), Chest (icons, hose, belt), Back (cape), Weapon (flail), Weapon2
+    # (shield), Accent (the faction's shoulder mantle and the hat's top).
+    global BODY_BUDGET; BODY_BUDGET = 1000
+    def pose(r):
+        human.reach(r, "R", P(-0.3, -0.06, 1.3), P(-0.4, -0.18, 1.42))
+        human.reach(r, "L", P(0.25, -0.1, 1.06), P(0.17, -0.3, 1.1))
+    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "robe", "thigh": "robe", "torso": "mail"}, head=None,
+                                mitts="leather", shape="male-young-averagemuscle-averageweight")
+    import random; rnd = random.Random(1919)
+    # the long robe, its hem ragged
+    robe = cloth_cone(0, 0, 0.98, 0.1, 0.17, 0.24, "robe", sy=0.84, ragged=0.07, rnd=rnd, tris=120, thick=0.012)
+    # the pilgrims' shoulder mantle in the seat colour
+    cloth_cone(hp.x, hp.y - 0.01, 1.47, 1.35, 0.12, 0.255, "accent", sy=0.84, tris=40, thick=0.01)
+    module("Back")
+    # the cape: falling from the shoulders to the ground behind, open at the front
+    import bmesh as _bm
+    cloth_cone(0, 0.03, 1.42, 0.095, 0.12, 0.28, "cloth", sy=0.82, keep=FRONT(80), ragged=0.08, rnd=rnd, tris=90, mono=False, thick=0.012,
+               extra=[robe], rows=10)
+    module("Helmet")
+    # the hood round the head, open at the front; the porcelain mask; the respirator; the tall hat and its cross
+    fb = FACE_BOX; crown = fb["mid"] + fb["up"] * 0.1 - fb["fwd"] * 0.05   # the top of the skull
+    c = crown
+    cloth_cone(c.x, c.y + 0.01, c.z - 0.005, c.z - 0.2, 0.1, 0.13, "cloth", sy=1.05, keep=FRONT(28), tris=40, thick=0.01,
+               stand=(fb["mid"] - fb["fwd"] * 0.09, 0.08))   # centred on the (absent) head
+    rot = (0, 0, math.atan2(fb["fwd"].x, -fb["fwd"].y))
+    centre = fb["mid"] - fb["fwd"] * 0.06 - fb["up"] * 0.02
+    snout = gas_mask(fb, centre)
     HOSE_START = snout   # where the ribbed hose leaves the mask (used in the chest module)
     ht = crown - Vector((0, 0, 0.03))   # the hat sits down over the crown
     bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.09, depth=0.25, location=tuple(ht + Vector((0, 0, 0.125))))
@@ -1451,7 +1593,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o

@@ -16,6 +16,7 @@
     "unit:Castigator": { "file": "units/castigator.glb", "height": 1.5 },
     "unit:Reliquary Walker": { "file": "units/reliquary-walker.glb", "height": 2.4 },
     "unit:Sanctified Giant": { "file": "units/sanctified-giant.glb", "height": 1.6 },
+    "unit:Yeoman": "units/yeoman.glb",
     "ground": "ground/mud.png",
     "terrain:Low": "terrain/rubble.png",
     "terrain:Cover": "terrain/burlap.png",
