@@ -312,6 +312,7 @@ Not checked yet: special conditions written in notes.
 - Roster rules stage R6e, Enforced Orthodoxy and Laying on of Hands (done 2026-11-02): both ACTIONS are played (U121).
   Tests: `HelpingActionTests`, `TraitWireTests.HelpingActionsRoundTripAndAreLeftOutWhenUnset`,
   `MatchReadinessTests.HelpingActionsArePlayed`, `ModelTraitDisplayTests.HelpingActionsAreExplained`.
+- Roster rules stage R7c, Hide ACTION (done 2026-11-04): a Night Commando beside cover hides and cannot be shot or charged (U130). Tests: `HideTests`.
 - Roster rules stages R7a and R7b, Hateful and Defuse Mine (done 2026-11-04): Hateful forces a model to charge the closest
   non-CULT, non-DEMONIC enemy it sees (U128); Defuse Mine gives a halted model a Risky roll to remove the Mine Marker (U129).
   Tests: `HatefulTests`, `DefuseMineTests`.

@@ -70,6 +70,7 @@ public enum ActionsTaken
     Trample = 2048, // roster stage R6d (U120): a Trample ACTION
     Orthodoxy = 4096, // roster stage R6e (U121): an Enforced Orthodoxy ACTION
     LayingOnHands = 8192, // roster stage R6e (U121): a Laying on of Hands ACTION
+    Hide = 16384, // roster stage R7c (U130): a Hide ACTION
 }
 
 public enum RollStage
@@ -108,6 +109,7 @@ public enum SelfActionKind
     Fortify,
     EnforcedOrthodoxy, // roster stage R6e (U121)
     LayingOnHands,     // roster stage R6e (U121): with a Target
+    Hide,              // roster stage R7c (U130)
 }
 
 public enum AttackKind

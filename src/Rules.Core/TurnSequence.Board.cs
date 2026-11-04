@@ -218,6 +218,10 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, $"A {c.Action} ACTION can be taken only once per activation.", RefActions);
         }
+        if (c.Action == SelfActionKind.Hide && Reducer.HideRefusal(state, actor!) is { } hide)
+        {
+            return new(ReasonCode.NoSuchAction, hide, RefSelfAction);
+        }
         // Roster stage R6e (U121): a Laying on of Hands is taken on a friend with a BLOOD MARKER; no other ACTION has a target.
         if (c.Action != SelfActionKind.LayingOnHands)
         {

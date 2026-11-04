@@ -91,6 +91,7 @@ public static class Words
     {
         SelfActionKind.Aim => "Aim",
         SelfActionKind.Fortify => "Fortify",
+        SelfActionKind.Hide => "Hide",
         SelfActionKind.EnforcedOrthodoxy => "Enforced Orthodoxy",
         _ => "Laying on of Hands",
     };
@@ -106,6 +107,7 @@ public static class Words
     {
         SelfActionKind.Aim => "AIMS",
         SelfActionKind.Fortify => "FORTIFIES",
+        SelfActionKind.Hide => "HIDES",
         SelfActionKind.EnforcedOrthodoxy => "ENFORCES ORTHODOXY",
         _ => "LAYS ON HANDS",
     };
@@ -114,6 +116,7 @@ public static class Words
     {
         SelfActionKind.Aim => ("AIMED", "AIM FAILED"),
         SelfActionKind.Fortify => ("FORTIFIED", "FORTIFY FAILED"),
+        SelfActionKind.Hide => ("HIDDEN", "HIDE FAILED"),
         SelfActionKind.EnforcedOrthodoxy => ("ORTHODOXY ENFORCED", "ORTHODOXY FAILED"),
         _ => ("HANDS LAID", "HANDS FAILED"),
     };
@@ -123,6 +126,7 @@ public static class Words
     {
         SelfActionKind.Aim => "its Ranged Attacks get +2 DICE this activation",
         SelfActionKind.Fortify => "it has COVER until it moves",
+        SelfActionKind.Hide => "it cannot be shot or charged until it acts or an enemy comes within 1.5\"",
         SelfActionKind.EnforcedOrthodoxy => rolled.StoodUp.IsEmpty ? "no Down friend within 8\" to stand up" : $"{string.Join(", ", rolled.StoodUp)} stand{(rolled.StoodUp.Length == 1 ? "s" : "")} up",
         _ => rolled.Removed == 0 ? $"{rolled.Target} has no BLOOD MARKER left to remove" : $"{rolled.Removed} BLOOD MARKER{(rolled.Removed == 1 ? "" : "S")} removed from {rolled.Target}",
     };

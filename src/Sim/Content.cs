@@ -80,6 +80,7 @@ public static class Content
                         SwiftDash = m.TryGetProperty("swiftDash", out var swiftDash) && swiftDash.GetBoolean(),
                         QuickToRise = m.TryGetProperty("quickToRise", out var quickToRise) && quickToRise.GetBoolean(),
                         Hateful = m.TryGetProperty("hateful", out var hateful) && hateful.GetBoolean(),
+                        Hides = m.TryGetProperty("hides", out var hides) && hides.GetBoolean(),
                         DefusesMines = m.TryGetProperty("defusesMines", out var defusesMines) && defusesMines.GetBoolean(),
                         UndeadFortitude = m.TryGetProperty("undeadFortitude", out var undeadFortitude) && undeadFortitude.GetBoolean(),
                         AbioticLife = m.TryGetProperty("abioticLife", out var abioticLife) && abioticLife.GetBoolean(),

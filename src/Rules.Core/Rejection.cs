@@ -57,6 +57,8 @@ public enum ReasonCode
     // Roster stage R5i: a Grind to Dust target that is not Down, or on a base larger than 32 mm
     TargetNotDown,
     TargetTooLarge,
+    // Roster stage R7c: a hidden model cannot be shot or charged
+    TargetHidden,
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.

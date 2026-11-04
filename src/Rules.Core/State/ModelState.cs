@@ -23,7 +23,10 @@ public sealed record ModelState(
     bool WardSpent = false,
     Point2? DugInAt = null,
     bool MartyrdomSpent = false,
-    int TalismansUsed = 0);
+    int TalismansUsed = 0,
+    bool Hidden = false);
+
+// Roster stage R7c (U130): Hidden, a Hide ACTION succeeded; it lasts until the model's next activation (or an enemy within 1.5").
 
 // Roster stage R5b (U106): ToughSpent, the model's TOUGH has already turned an Out of Action result into Down (p. 57).
 // Roster stage R5e (U109): WardSpent, its Sacrificial Lamb's blood has already kept off the first BLOOD MARKER.

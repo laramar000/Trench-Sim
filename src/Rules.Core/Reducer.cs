@@ -640,7 +640,7 @@ public static class Reducer
         Require(TurnRules.NextActivator(state) == e.Seat, "It is not that seat's turn to activate.");
         var model = state.FindModel(e.Model);
         Require(model is not null && model.Seat == e.Seat && TurnRules.CanActivate(model), "That model cannot activate.");
-        return TurnRules.WithModel(state, model! with { ActivatedThisTurn = true }) with
+        return TurnRules.WithModel(state, model! with { ActivatedThisTurn = true, Hidden = false }) with
         {
             ActiveModel = e.Model,
             LastActivator = e.Seat,
@@ -898,6 +898,7 @@ public static class Reducer
         Require(Enum.IsDefined(e.Action), "Unknown ACTION.");
         Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(SelfActionFlag(e.Action)), "That ACTION can be taken once per activation.");
         Require(HasSelfAction(state.Setup!.ProfileOf(e.Model)!, e.Action), "Only a model whose unit has it can take that ACTION.");
+        Require(e.Action != SelfActionKind.Hide || HideRefusal(state, model) is null, "A Hide ACTION is taken touching terrain at least 1/2\" high.");
         Require(e.Action == SelfActionKind.LayingOnHands
             ? e.Target is { } target && HandsRefusal(state, model, target) is null
             : e.Target is null, "A Laying on of Hands needs a friend within 6\" with a BLOOD MARKER; no other ACTION has a target.");
@@ -930,6 +931,8 @@ public static class Reducer
             case SelfActionKind.Fortify:
                 // COVER until it moves, as a dug-in Shovel's (Undig ends both).
                 return TurnRules.WithModel(next, model with { DugInAt = model.Position });
+            case SelfActionKind.Hide:
+                return TurnRules.WithModel(next, model with { Hidden = true });
             case SelfActionKind.EnforcedOrthodoxy:
                 return next with { Models = [.. next.Models.Select(m => stood.Contains(m.Id) ? m with { Status = ModelStatus.Standing } : m)] };
             default:
@@ -943,6 +946,7 @@ public static class Reducer
         SelfActionKind.Aim => ActionsTaken.Aim,
         SelfActionKind.Fortify => ActionsTaken.Fortify,
         SelfActionKind.EnforcedOrthodoxy => ActionsTaken.Orthodoxy,
+        SelfActionKind.Hide => ActionsTaken.Hide,
         _ => ActionsTaken.LayingOnHands,
     };
 
@@ -951,6 +955,7 @@ public static class Reducer
         SelfActionKind.Aim => profile.Aims,
         SelfActionKind.Fortify => profile.Fortifies,
         SelfActionKind.EnforcedOrthodoxy => profile.EnforcesOrthodoxy,
+        SelfActionKind.Hide => profile.Hides,
         _ => profile.LaysOnHands,
     };
 
@@ -960,6 +965,7 @@ public static class Reducer
     {
         SelfActionKind.Aim => AimDice,
         SelfActionKind.EnforcedOrthodoxy => 1,
+        SelfActionKind.Hide => 1,
         SelfActionKind.LayingOnHands => profile.HealingWaters ? 1 : 0,
         _ => 0,
     };
@@ -967,6 +973,21 @@ public static class Reducer
     // Every one of these ACTIONS is Risky but Laying on of Hands, a plain Success Roll (Risky for a Shaken warband, p. 50).
     internal static bool SelfActionRisky(MatchState state, ModelState model, SelfActionKind action) =>
         action != SelfActionKind.LayingOnHands || state.IsShaken(model.Seat);
+
+    // Roster stage R7c (U130): why a Hide ACTION is not possible here, or null: the model must touch terrain that is
+    // 1/2" high or more (a Cover or Wall piece).
+    internal static string? HideRefusal(MatchState state, ModelState model) =>
+        Board.BodyOf(state, model) is { } body && Board.ScenarioOf(state)?.Battlefield is { } field
+            && field.Terrain.Any(t => t.Profile != TerrainProfile.Low && t.Footprint.CircleTouches(body.Centre, body.Radius))
+            ? null
+            : "A Hide ACTION is taken touching terrain at least 1/2\" high.";
+
+    // Roster stage R7c (U130): the model is hidden now: a Hide succeeded, it has not acted since, and no enemy is within 1.5".
+    internal static bool IsHidden(MatchState state, ModelState model) =>
+        model.Hidden && Board.BodyOf(state, model) is { } body
+        && !Board.OnTable(state).Any(o => o.Seat != model.Seat && o.Status != ModelStatus.OutOfAction && Measure.IsWithin(body, Board.BodyOf(state, o)!, HiddenReach));
+
+    private static readonly Length HiddenReach = Length.FromThousandths(1500);
 
     // Roster stage R6e (U121): the Down friendly models on the battlefield within 8" of an Enforced Orthodoxy, in order.
     internal static ImmutableArray<ModelId> OrthodoxyStands(MatchState state, ModelState model) =>

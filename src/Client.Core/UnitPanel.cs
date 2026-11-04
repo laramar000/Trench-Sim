@@ -389,6 +389,10 @@ public static class UnitPanel
         {
             parts.Add("Fortify ACTION (V)");
         }
+        if (p.Hides)
+        {
+            parts.Add("Hide ACTION (G): beside cover, a Risky roll; then it cannot be shot or charged");
+        }
         // Roster stage R6e (U121).
         if (p.EnforcesOrthodoxy)
         {

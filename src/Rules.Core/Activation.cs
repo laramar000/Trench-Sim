@@ -77,6 +77,7 @@ public static class Activation
             {
                 attacks.Add(new TakeSelfAction(seat, active, SelfActionKind.Aim));
                 attacks.Add(new TakeSelfAction(seat, active, SelfActionKind.Fortify));
+                attacks.Add(new TakeSelfAction(seat, active, SelfActionKind.Hide));
                 attacks.Add(new TakeSelfAction(seat, active, SelfActionKind.EnforcedOrthodoxy));
             }
             // Roster stage R5i (U114): Piston Legs' Grind to Dust ACTION; roster stage R6d (U120): a Trample ACTION.

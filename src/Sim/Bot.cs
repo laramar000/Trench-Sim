@@ -163,6 +163,11 @@ public sealed class Bot(Random rng)
         {
             yield return new TakeSelfAction(seat, model.Id, SelfActionKind.Fortify);
         }
+        // Roster stage R7c (U130): a model with Hide hides first (the engine refuses it away from cover).
+        if (profile.Hides && !state.Actions.HasFlag(ActionsTaken.Hide))
+        {
+            yield return new TakeSelfAction(seat, model.Id, SelfActionKind.Hide);
+        }
         // Roster stage R6e (U121): Enforced Orthodoxy when a Down friend is within 8", Laying on of Hands on a friend with a
         // BLOOD MARKER (no random numbers).
         if (profile.EnforcesOrthodoxy && !state.Actions.HasFlag(ActionsTaken.Orthodoxy) && TurnSequence.OrthodoxyStands(state, model.Id).Count > 0)

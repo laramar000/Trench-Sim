@@ -198,6 +198,10 @@ internal static class Board
         {
             return Refuse(ReasonCode.TargetNotEnemy, "The target must be an enemy model.");
         }
+        if (Reducer.IsHidden(state, target))
+        {
+            return Refuse(ReasonCode.TargetHidden, "A hidden model cannot be targeted by Ranged Attacks.");
+        }
         var to = BodyOf(state, target);
         if (to is null || target.Status == ModelStatus.OutOfAction)
         {
@@ -442,6 +446,10 @@ internal static class Board
         if (target.Seat == charger.Seat)
         {
             return new(ReasonCode.TargetNotEnemy, "The target of a charge must be an enemy model.", RefCharge);
+        }
+        if (Reducer.IsHidden(state, target))
+        {
+            return new(ReasonCode.TargetHidden, "A hidden model cannot be charged.", RefCharge);
         }
         var to = BodyOf(state, target);
         if (to is null || target.Status == ModelStatus.OutOfAction)

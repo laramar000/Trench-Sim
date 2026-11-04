@@ -310,6 +310,8 @@ public sealed record ModelProfile
     // Frightening Speed (p. 138): its Movement is not halved when it stands up.
     public bool QuickToRise { get; init; }
     public bool Hateful { get; init; }
+    // Hide ACTION (Warbands p. 110; roster stage R7c, U130): a Risky Success Roll at +1 DICE while touching terrain at least 1/2" high; on a Success it cannot be targeted by Ranged Attacks or Charges until it acts or an enemy comes within 1.5".
+    public bool Hides { get; init; }
     // Defuse Mine (roster stage R7b, U129): a Risky roll when its move halts at a Mine Marker removes the marker.
     public bool DefusesMines { get; init; }
 
@@ -527,6 +529,7 @@ public sealed record ModelProfile
                 SwiftDash = SwiftDash,
                 QuickToRise = QuickToRise,
                 Hateful = Hateful,
+                Hides = Hides,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -587,6 +590,7 @@ public sealed record ModelProfile
                 SwiftDash = SwiftDash,
                 QuickToRise = QuickToRise,
                 Hateful = Hateful,
+                Hides = Hides,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -647,6 +651,7 @@ public sealed record ModelProfile
             SwiftDash = SwiftDash,
             QuickToRise = QuickToRise,
             Hateful = Hateful,
+            Hides = Hides,
             DefusesMines = DefusesMines,
             UndeadFortitude = UndeadFortitude,
             AbioticLife = AbioticLife,
