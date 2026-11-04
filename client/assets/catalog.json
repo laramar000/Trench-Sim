@@ -18,6 +18,7 @@
     "unit:Sanctified Giant": { "file": "units/sanctified-giant.glb", "height": 1.6 },
     "unit:Yeoman": "units/yeoman.glb",
     "unit:Shock Trooper": "units/shock-trooper.glb",
+    "unit:Lieutenant": { "file": "units/lieutenant.glb", "height": 1.5 },
     "ground": "ground/mud.png",
     "terrain:Low": "terrain/rubble.png",
     "terrain:Cover": "terrain/burlap.png",

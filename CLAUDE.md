@@ -302,3 +302,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   plate, two-lame chest plate, shoulder plates, spiked trench hammer in a wind-up over the right shoulder.
   `ww1_uniform(tunic=, band=)` takes materials now. Left: Lieutenant, Blind Marksman, Trench Cleric, Combat Engineer,
   Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
+- 2026-11-03: Lieutenant done (`units/lieutenant.glb`, class B 32 mm, catalog height 1.5", 3,395 triangles, budget 3,400),
+  on the owner's references: green greatcoat, breastplate with medals, Sam Browne, puttees, curved sword on the shoulder,
+  fist on hip, large oval shield with a patriarchal cross, blank mannequin face (no gas mask). New shared pieces:
+  `sallet(closed=)` (lofted round the head; closed = eye slit, head removed, for the Yeoman and later; open = visor
+  swung up resting on top, head shrunk), `boots()` (lofted laced boots in their own `Boots` node, centred on the leg,
+  body feet removed). Bake: faces covering no texel centre take their material's colour (no black blots). Owner: it is
+  fine to remove hidden body parts up front to stop clipping. Left: Blind Marksman, Trench Cleric, Combat Engineer,
+  Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.

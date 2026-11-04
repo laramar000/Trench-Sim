@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker", "sanctified-giant", "yeoman", "shock-trooper")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker", "sanctified-giant", "yeoman", "shock-trooper", "lieutenant")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -84,6 +84,7 @@ M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate":
           "tunic": spattered("tunic", "6e6040", spots=0.22, scale=9), "breeches": mat("breeches", "625636", 0.3, 16),   # the Trench Pilgrim's WW1 kit (2026-11-03)
           "puttee": mat("puttee", "4a4630", 0.3, 30), "webbing": mat("webbing", "a49468", 0.25, 24),
           "maskcloth": mat("maskcloth", "5e5e48", 0.3, 30), "lens": mat("lens", "b8a878", 0.08, 8),   # the WWI gas mask (2026-11-03)
+          "greatcoat": spattered("greatcoat", "55603f", spots=0.22, scale=9),   # the Lieutenant's greatcoat (2026-11-03)
           "assault": spattered("assault", "4c4f47", spots=0.25, scale=9),   # the Shock Trooper's dark grey kit (2026-11-03)
           "gore": spattered("gore", "5a2a1e", spots=0.55, scale=12), "pale": spattered("pale", "d8ccb8", spots=0.4, scale=10),
           "brute": spattered("brute", "c8a294", spots=0.45, scale=7), "skirt": spattered("skirt", "4e5642", spots=0.3, scale=8)})   # the Sanctified Giant (2026-11-03)   # the Castigator   # the War Prophet's anti-tank charge (2026-11-03)   # the Stigmatic Nun (2026-11-03)
@@ -449,6 +450,77 @@ def ww1_uniform(tunic="tunic", band="webbing"):
         bpy.ops.mesh.primitive_torus_add(major_radius=r_, minor_radius=0.011, major_segments=8, minor_segments=3, location=(cx_, y_, 0.42))
         add(bpy.context.object, band)
     return surf
+def boots(m="leather", top=0.15):
+    # Laced ankle boots over each posed foot (the Lieutenant, owner 2026-11-03: "add boots", then "add more detail"):
+    # one smooth boot lofted heel to toe along the foot's own direction (a shaft round the ankle, the instep sloping
+    # down to a rounded toe cap), on a welted sole with a heel block, laces across the instep and a seam round the toe
+    # cap; the shaft hugs the ankle. In their own node (Boots), out of the body's decimation.
+    import bmesh as _bm
+    hb = bpy.data.objects["human"]; prev = CUR; module("Boots")
+    # sections heel (u 0) to toe (u 1): (u, width, height above the sole); arcs over the foot
+    SEC = [(0.0, 0.66, top), (0.1, 0.88, top), (0.28, 0.94, top - 0.012), (0.42, 0.96, 0.08), (0.58, 0.96, 0.064),
+           (0.74, 0.92, 0.054), (0.88, 0.78, 0.045), (1.0, 0.36, 0.032)]   # owner: trim, not clown shoes
+    K, SOLE = 8, 0.02
+    for sx in (-1, 1):
+        fp = [v.co for v in hb.data.vertices if v.co.z < 0.05 and v.co.x * sx > 0.02]
+        if not fp: continue
+        heel = max(fp, key=lambda v: v.y); toe = min(fp, key=lambda v: v.y)
+        d = Vector((toe.x - heel.x, toe.y - heel.y, 0)); L = d.length * 0.92; d.normalize(); side = Vector((-d.y, d.x, 0))
+        H = Vector((heel.x, heel.y, 0)) - d * 0.004
+        W = max(abs((v - H).dot(side)) for v in fp) * 2 * 0.9
+        sh_ = H + d * (L * 0.16)
+        # the leg's own centre where it enters the boot: the boot is moved so its shaft sits square under it
+        g = Vector((sh_.x, sh_.y, top - 0.01)); hits = {}
+        for nm, dd in (("x+", Vector((1, 0, 0))), ("x-", Vector((-1, 0, 0))), ("y+", Vector((0, 1, 0))), ("y-", Vector((0, -1, 0)))):
+            ok_, at_, *_ = hb.ray_cast(g + dd * 0.12, -dd)
+            if ok_: hits[nm] = at_
+        if len(hits) == 4:
+            lc = Vector(((hits["x+"].x + hits["x-"].x) / 2, (hits["y+"].y + hits["y-"].y) / 2, 0))
+            H = H + (lc - Vector((sh_.x, sh_.y, 0))); sh_ = H + d * (L * 0.16)   # the ankle, found by rays at the shaft's top and below it: the shaft hugs it
+        rs = []
+        for z_ in (top - 0.03, top):
+            for dd in (side, -side, d, -d):
+                ok_, at_, *_ = hb.ray_cast(Vector((sh_.x, sh_.y, z_)) + dd * 0.1, -dd)
+                if ok_: rs.append(abs((at_ - Vector((sh_.x, sh_.y, z_))).dot(dd)))
+        ra = min(max(rs) if rs else W * 0.32, W * 0.36) + 0.008
+        sec = [(u, min(w, 2 * ra / W) if u < 0.3 else w, h) for u, w, h in SEC]
+        verts, faces = [], []
+        for u, w, h in sec:
+            c = H + d * (u * L); ex = 0.15 if u < 0.3 else 0.8   # the shaft's sides rise straight to its top
+            for k in range(K + 1):
+                a_ = math.pi * k / K
+                verts.append(tuple(c + side * (math.cos(a_) * W * w / 2) + Vector((0, 0, SOLE + (h - SOLE) * math.sin(a_) ** ex))))
+        for j in range(len(sec) - 1):
+            for k in range(K):
+                faces.append((j * (K + 1) + k, j * (K + 1) + k + 1, (j + 1) * (K + 1) + k + 1, (j + 1) * (K + 1) + k))
+        for j in (0, len(sec) - 1):   # close heel and toe
+            faces.append(tuple(j * (K + 1) + k for k in range(K + 1)))
+        me = bpy.data.meshes.new("boot"); me.from_pydata(verts, [], faces)
+        bm = _bm.new(); bm.from_mesh(me); _bm.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(me); bm.free()
+        for f in me.polygons: f.use_smooth = True
+        o = bpy.data.objects.new("boot", me); scn.collection.objects.link(o); add(o, m)
+        # the welted sole, a little proud of the upper all round, and a heel block
+        out = [H + d * (u * L) + side * (W * w / 2 + 0.003) for u, w, h in sec] + [H + d * (L + 0.003)] +               [H + d * (u * L) - side * (W * w / 2 + 0.003) for u, w, h in reversed(sec)] + [H - d * 0.003]
+        sm = bpy.data.meshes.new("sole"); sm.from_pydata([tuple(q + Vector((0, 0, SOLE))) for q in out], [], [list(range(len(out)))])
+        so = bpy.data.objects.new("sole", sm); scn.collection.objects.link(so); sl = so.modifiers.new("sol", "SOLIDIFY"); sl.thickness = SOLE; sl.offset = 1.0 if sm.polygons[0].normal.z < 0 else -1.0
+        add(so, "dark")
+        box(tuple(H + d * (L * 0.12) + Vector((0, 0, 0.006))), (W * 0.7, L * 0.22, 0.012), "dark", rot=(0, 0, math.atan2(d.y, d.x) + math.pi / 2))
+        def top_at(u, k):   # a point on the upper at section position u (interpolated) and arc step k
+            for (u0, w0, h0), (u1, w1, h1) in zip(sec, sec[1:]):
+                if u0 <= u <= u1:
+                    t = (u - u0) / (u1 - u0); w, h = w0 + (w1 - w0) * t, h0 + (h1 - h0) * t; break
+            a_ = math.pi * k
+            return H + d * (u * L) + side * (math.cos(a_) * W * w / 2) + Vector((0, 0, SOLE + (h - SOLE) * math.sin(a_) ** 0.8 + 0.004))
+        for u in (0.3, 0.38, 0.46):   # laces criss-crossed up the instep, eyelets at the ends
+            l_, r_ = top_at(u, 0.36), top_at(u + 0.06, 0.64)
+            bar(l_, r_, 0.004, "dark", sides=3); bar(top_at(u, 0.64), top_at(u + 0.06, 0.36), 0.004, "dark", sides=3)
+        seam = [top_at(0.76, k) for k in (0.05, 0.25, 0.5, 0.75, 0.95)]
+        for a2, b2 in zip(seam, seam[1:]): bar(a2, b2, 0.0035, "dark", sides=3)   # the toe cap's seam
+    # the body's own feet, hidden in the boots, would poke through them at the heel and toe: removed
+    bm = _bm.new(); bm.from_mesh(hb.data)
+    _bm.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().z < top - 0.01], context='FACES')
+    bm.to_mesh(hb.data); bm.free()
+    module(prev)
 def ww1_webbing(surf):
     # belt webbing on the WWI uniform: belt, braces over the shoulders, four ammunition pouches, breast pocket flaps,
     # buttons and a bayonet scabbard on the left hip
@@ -676,6 +748,190 @@ def shock_trooper():
     for t in (0.1, 0.24):
         bar(hl + u * (t - 0.012), hl + u * (t + 0.012), 0.023, "iron", sides=6)                         # iron bands
     module("Body")
+
+def lieutenant():
+    # Lieutenant (2026-11-03, third Principality figure, class B, 32 mm): an original WWI-crusader officer on the owner's
+    # reference images as cues, not a copy of the miniature, the art or any paint job. A long green greatcoat worn open
+    # with broad lapels over a steel breastplate with medals, a Sam Browne belt and cross strap, breeches, puttees and
+    # ankle boots; an open-faced sallet in the seat colour (owner's sallet references: not a WWI helmet) over a mail collar, a blank mannequin face (owner:
+    # no gas mask on this one);
+    # standing easy, the left fist on the hip, a curved sword resting on the right shoulder, a large oval shield with a
+    # patriarchal cross slung on the back (LEADER). Modules: Helmet (collar), Chest (breastplate, lapels, belt, medals), Back (shield), Hip (map
+    # case), Weapon (sword), Accent (the helm and the shield's rim).
+    global BODY_BUDGET; BODY_BUDGET = 960
+    def pose(r):
+        human.aim(r, "spine03", P(0, -0.03, 1.4))                                         # upright, chest out
+        human.aim(r, "upperleg01.L", P(0.13, -0.06, 0.5)); human.aim(r, "upperleg02.L", P(0.13, -0.06, 0.5))
+        human.aim(r, "lowerleg01.L", P(0.15, -0.06, 0.08)); human.aim(r, "lowerleg02.L", P(0.15, -0.06, 0.08))
+        human.aim(r, "foot.L", P(0.17, -0.22, -0.01))
+        human.aim(r, "upperleg01.R", P(-0.11, 0.03, 0.5)); human.aim(r, "upperleg02.R", P(-0.11, 0.03, 0.5))
+        human.aim(r, "lowerleg01.R", P(-0.12, 0.05, 0.08)); human.aim(r, "lowerleg02.R", P(-0.12, 0.05, 0.08))
+        human.aim(r, "foot.R", P(-0.15, -0.1, -0.02))
+        human.reach(r, "R", P(-0.33, -0.02, 1.02), P(-0.27, -0.14, 1.24))               # the sword hand up by the right shoulder
+        human.reach(r, "L", P(0.35, 0.06, 1.18), P(0.24, -0.02, 1.02))                   # the left fist on the hip
+    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "puttee", "thigh": "breeches", "torso": "greatcoat"}, head="mannequin",
+                                mitts="leather", shape="male-young-averagemuscle-averageweight")
+    surf = ww1_uniform(tunic="greatcoat")
+    boots()
+    human_ = bpy.data.objects["human"]
+    under = [o for o in MODULES["Body"] if o.data.materials and o.data.materials[0].name == "greatcoat" and o.name.startswith("cloth")]
+    # the greatcoat's long skirt, worn open at the front, hanging to mid-shin over the tunic skirt
+    coat = cloth_cone(0, 0.005, 0.99, 0.3, 0.18, 0.26, "greatcoat", sy=0.82, keep=FRONT(32), tris=130, thick=0.012, extra=under, rows=8)
+    module("Helmet")
+    c0 = sallet(closed=False)   # open: the face shows under the brow
+    # a mail collar round the neck under the helm, down onto the shoulders
+    nz = NECK.z if hasattr(NECK, "z") else c0.z - 0.16
+    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.095, radius2=0.064, depth=0.1, end_fill_type='NOTHING', location=(c0.x, c0.y + 0.012, nz + 0.02))
+    o = bpy.context.object; o.scale = (1, 0.9, 1); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(o, "mail")
+    module("Chest")
+    # the steel breastplate over the tunic, fitted to the chest by shrinkwrap (front half only)
+    bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.2, depth=0.34, end_fill_type='NOTHING', location=(0, -0.01, 1.22))
+    o = bpy.context.object
+    import bmesh as _bm
+    bm = _bm.new(); bm.from_mesh(o.data)
+    _bm.ops.delete(bm, geom=[v for v in bm.verts if v.co.y > 0.06], context='VERTS')
+    _bm.ops.subdivide_edges(bm, edges=[e for e in bm.edges if abs(e.verts[0].co.z - e.verts[1].co.z) > 0.01], cuts=1)
+    bm.to_mesh(o.data); bm.free()
+    sw = o.modifiers.new("fit", "SHRINKWRAP"); sw.target = human_; sw.wrap_method = 'PROJECT'
+    sw.use_project_x = sw.use_project_y = sw.use_project_z = False; sw.use_negative_direction = True; sw.use_positive_direction = True; sw.offset = 0.022
+    bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier="fit")
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(o, "iron")
+    # the coat's broad lapels, open on either side of the breastplate, from the collar to the belt
+    for x in (-1, 1):
+        a_, b_ = surf(0.13 * x, 1.4, out=0.05), surf(0.17 * x, 1.03, out=0.05)
+        mid = (a_ + b_) / 2; up_ = (a_ - b_).normalized()
+        box(tuple(mid), (0.07, 0.016, (a_ - b_).length), "greatcoat", rot=(math.atan2(up_.y, up_.z) * -1, -math.atan2(up_.x, up_.z), 0))
+    # medal ribbons and two medals on the left breast
+    for k, m in enumerate(("blood", "brass", "webbing")):
+        box(tuple(surf(0.075 + 0.025 * k, 1.31, out=0.05)), (0.022, 0.01, 0.014), m)
+    for k in (0, 1): sphere(tuple(surf(0.085 + 0.03 * k, 1.27, out=0.05)), 0.011, "brass", (1, 0.4, 1), seg=6, rings=3)
+    # the Sam Browne belt, each point found on the body round the waist, the strap's own thickness kept
+    fr_, bk_ = surf(0, 0.985), surf(0, 0.985, front=False); cy = (fr_.y + bk_.y) / 2
+    bpy.ops.mesh.primitive_torus_add(major_radius=1, minor_radius=0.018, major_segments=16, minor_segments=3, location=(0, cy, 0.985))
+    o = bpy.context.object
+    for v in o.data.vertices:
+        k = Vector((v.co.x, v.co.y, 0)); n = k.normalized()
+        ok, at_, *_ = human_.ray_cast(Vector((n.x * 0.25, cy + n.y * 0.25, 0.985)), -n)   # on the body (not the coat's open edges, nor the fist)
+        r_ = ((at_ - Vector((0, cy, 0.985))).to_2d().length if ok else 0.15) + 0.026     # clear of the coat over it
+        v.co = Vector((n.x * r_, n.y * r_, v.co.z)) + (k - n)
+    add(o, "leather")
+    box(tuple(surf(0, 0.985, out=0.035)), (0.045, 0.012, 0.04), "brass")                  # buckle
+    ok, sh_, *_ = human_.ray_cast(Vector((0.13, -0.01, 2.0)), Vector((0, 0, -1)))
+    sh_ = (sh_ if ok else Vector((0.13, -0.01, 1.45))) + Vector((0, 0, 0.016))
+    pts = [surf(-0.12, 1.01, out=0.04), surf(-0.03, 1.18, out=0.05), surf(0.07, 1.36, out=0.045), sh_]   # the cross strap over the left shoulder
+    for a_, b_ in zip(pts, pts[1:]): bar(a_, b_, 0.012, "leather", sides=4)
+    bk1 = surf(0.0, 1.2, front=False, out=0.02)
+    bar(sh_, bk1, 0.012, "leather", sides=4); bar(bk1, surf(-0.12, 1.01, front=False, out=0.035), 0.012, "leather", sides=4)
+    module("Back")
+    # a large oval shield slung on the back, curved round the body, in the seat colour with an iron rim and a brass
+    # patriarchal cross (two bars, the upper shorter) with ball ends
+    sc = surf(0.02, 1.18, front=False, out=0.1); t_ = 0.2   # leaning a little
+    def L(lx, lz, out=0.0):
+        x_, z_ = lx * math.cos(t_) - lz * math.sin(t_), lx * math.sin(t_) + lz * math.cos(t_)
+        return sc + Vector((x_, -1.2 * lx * lx + out, z_))
+    ring = [(0.17 * math.sin(2 * math.pi * k / 24), 0.3 * math.cos(2 * math.pi * k / 24)) for k in range(24)]
+    me = bpy.data.meshes.new("shield"); me.from_pydata([tuple(L(0, 0))] + [tuple(L(a_, b_)) for a_, b_ in ring], [], [(0, 1 + k, 1 + (k + 1) % 24) for k in range(24)])
+    sh = bpy.data.objects.new("shield", me); scn.collection.objects.link(sh); sh.modifiers.new("sol", "SOLIDIFY").thickness = 0.016; add(sh, "accent")
+    for k in range(0, 24, 2): bar(L(*ring[k], out=0.01), L(*ring[(k + 2) % 24], out=0.01), 0.011, "iron", sides=3)   # the rim
+    for a_, b_ in (((0, -0.24), (0, 0.24)), ((-0.07, 0.14), (0.07, 0.14)), ((-0.11, 0.03), (0.11, 0.03))):
+        bar(L(*a_, out=0.014), L(*b_, out=0.014), 0.012, "brass", sides=4)
+        for e_ in (a_, b_): sphere(tuple(L(*e_, out=0.014)), 0.017, "brass", seg=5, rings=3)
+    module("Hip")
+    box((-0.22, -0.01, 0.9), (0.04, 0.13, 0.1), "leather")                                # map case on the right hip
+    module("Weapon")
+    # the curved sword resting on the right shoulder: the grip through the right fist, the blade up and back
+    fr, d = FISTS["R"]; want = Vector((-0.04, 0.78, 0.6))
+    e = (want - d * want.dot(d)).normalized(); side = e.cross(Vector((1, 0, 0))).normalized()   # the edge faces forward
+    if side.y > 0: side = -side
+    base, L, w = fr + e * 0.055, 0.5, 0.036
+    def at(t, c): return base + e * t - side * (0.18 * (t / L) ** 2 * L * 0.25) + side * c   # the blade bowed back
+    outline = [at(0, w / 2), at(L * 0.45, w * 0.55), at(L * 0.85, w * 0.6), at(L, -w * 0.3), at(L * 0.85, -w * 0.4), at(L * 0.45, -w / 2), at(0, -w / 2)]
+    me = bpy.data.meshes.new("blade"); me.from_pydata([tuple(p_) for p_ in outline], [], [list(range(len(outline)))])
+    bl = bpy.data.objects.new("blade", me); scn.collection.objects.link(bl); bl.modifiers.new("sol", "SOLIDIFY").thickness = 0.007; add(bl, "metal")
+    gx = e.cross(side).normalized()
+    bar(base - gx * 0.045, base + gx * 0.045, 0.009, "brass", sides=4)                    # crossguard
+    bar(fr - e * 0.06, fr + e * 0.05, 0.012, "leather", sides=4)                          # grip
+    sphere(tuple(fr - e * 0.07), 0.016, "brass", seg=5, rings=3)                          # pommel
+    module("Body")
+def sallet(closed=False, m="accent", k=0.86):
+    # The sallet (the owner's references, 2026-11-03; Principality headgear), lofted round the figure's head: a tall
+    # egg-shaped skull rising to a ridge from brow to nape, a flat visor front, the eye slit straight across it at eye
+    # level, a raised band from the slit round each side to a pivot rivet, a stepped seam down the upper visor, the tail
+    # flaring out over the nape, and a brass flame (a little sword) on the right of the brow, in the seat colour.
+    # Closed: the face plate comes down to the chin and only the dark slit shows; the head under it is removed (the
+    # Yeoman and later figures). Open: the face plate is swung up on the side pivots to rest over the brow (owner) and
+    # the plain head, shrunk by k to fit, shows under it (the Lieutenant). Returns the head's centre, for a coif or straps.
+    import bmesh as _bm
+    heads = [o for o in MODULES["Body"] if o.data.materials and o.data.materials[0].name in ("mannequin", "hood") and len(o.data.vertices) > 40]
+    hd_ = max(heads, key=lambda o: max((o.matrix_world @ v.co).z for v in o.data.vertices))
+    vs = [hd_.matrix_world @ v.co for v in hd_.data.vertices]
+    lo = Vector((min(v.x for v in vs), min(v.y for v in vs), min(v.z for v in vs))); hi = Vector((max(v.x for v in vs), max(v.y for v in vs), max(v.z for v in vs)))
+    c0 = (lo + hi) / 2; sw, sd, sh = (hi.x - lo.x) / 2 * k, (hi.y - lo.y) / 2 * k, (hi.z - lo.z) / 2 * k
+    if closed:   # nothing shows under a closed helm
+        MODULES["Body"].remove(hd_); bpy.data.objects.remove(hd_)
+    else:        # the head shrunk to sit inside the helm
+        mi = hd_.matrix_world.inverted()
+        for v in hd_.data.vertices: v.co = mi @ (c0 + (hd_.matrix_world @ v.co - c0) * k)
+    W, F, B = sw + 0.016, sd + 0.018, sd + 0.022
+    zs = FACE_BOX["mid"].z + 0.004                     # the slit, at the eyes
+    top, bot = c0.z + sh + 0.024, c0.z - sh - 0.006
+    U, D = top - zs, zs - bot
+    # rings from the crown down: (height, width, front, back, squareness); the slit is the gap between rings 5 and 6
+    rings = [(zs + U * 0.94, 0.3, 0.5, 0.52, 2.0), (zs + U * 0.82, 0.62, 0.72, 0.74, 2.2), (zs + U * 0.62, 0.86, 0.9, 0.91, 2.4),
+             (zs + U * 0.36, 0.97, 0.98, 0.98, 2.6), (zs + U * 0.12, 1.0, 1.0, 1.0, 2.8), (zs + 0.008, 1.0, 1.0, 1.0, 3.0),
+             (zs - 0.008, 1.0, 1.0, 1.0, 3.0), (zs - D * 0.45, 1.0, 0.99, 1.04, 3.4), (zs - D * 0.8, 1.02, 0.98, 1.12, 3.6),
+             (bot, 1.05, 0.97, 1.24, 3.6)]
+    SEG = 18
+    def ring_pt(z, ws, fs, bs, n, a, j):
+        s, c = math.sin(a), math.cos(a)
+        x = W * ws * math.copysign(abs(s) ** (2 / n), s)
+        y = -(F * fs if c > 0 else B * bs) * math.copysign(abs(c) ** (2 / n), c)
+        if j >= 8: z -= 0.03 * max(0.0, -c) * (j - 7) / 2   # the tail drops lower at the back
+        return Vector((c0.x + x, c0.y + y, z))
+    verts = [tuple(ring_pt(*r, 2 * math.pi * i / SEG, j)) for j, r in enumerate(rings) for i in range(SEG)]
+    apex = len(verts); verts.append((c0.x, c0.y + 0.004, top))
+    faces, plate = [], []
+    for j in range(len(rings) - 1):
+        for i in range(SEG):
+            am = abs(math.remainder(2 * math.pi * (i + 0.5) / SEG, 2 * math.pi))
+            q = (j * SEG + i, j * SEG + (i + 1) % SEG, (j + 1) * SEG + (i + 1) % SEG, (j + 1) * SEG + i)
+            if not closed and ((j >= 6 and am < math.radians(64)) or (j == 5 and math.radians(58) <= am < math.radians(64))):
+                plate.append(q); continue                                         # open: the face plate, raised below
+            if j == 5 and am < math.radians(58): continue                        # the eye slit
+            faces.append((j * SEG + i, j * SEG + (i + 1) % SEG, (j + 1) * SEG + (i + 1) % SEG, (j + 1) * SEG + i))
+    faces += [(apex, (i + 1) % SEG, i) for i in range(SEG)]
+    me = bpy.data.meshes.new("sallet"); me.from_pydata(verts, [], faces)
+    bm = _bm.new(); bm.from_mesh(me); _bm.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(me); bm.free()
+    for p in me.polygons: p.use_smooth = True
+    sh_ = bpy.data.objects.new("sallet", me); scn.collection.objects.link(sh_)
+    def S(a, z, out=0.0):   # a point on the shell at angle a (0 the front) and height z, out from it
+        d = Vector((math.sin(a), -math.cos(a), 0)); o_ = Vector((c0.x, c0.y, z))
+        ok, at, *_ = sh_.ray_cast(o_ + d, -d)
+        return (at if ok else o_ + d * W) + d * out
+    sol = sh_.modifiers.new("sol", "SOLIDIFY"); sol.thickness = 0.007; sol.offset = -1.0
+    add(sh_, m)
+    if plate:   # open: the face plate swung up on the side pivots, resting over the brow
+        piv = Vector((c0.x, c0.y, zs + 0.004))
+        rot = Matrix.Translation(piv) @ Matrix.Rotation(math.radians(-99), 4, 'X') @ Matrix.Scale(1.02, 4) @ Matrix.Translation(-piv)
+        used = sorted({v for f in plate for v in f}); at_ = {v: n for n, v in enumerate(used)}
+        pm = bpy.data.meshes.new("visor"); pm.from_pydata([tuple(rot @ Vector(verts[v])) for v in used], [], [tuple(at_[v] for v in f) for f in plate])
+        bm = _bm.new(); bm.from_mesh(pm); _bm.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(pm); bm.free()
+        for f in pm.polygons: f.use_smooth = True
+        vo = bpy.data.objects.new("visor", pm); scn.collection.objects.link(vo)
+        vs_ = vo.modifiers.new("sol", "SOLIDIFY"); vs_.thickness = 0.007; vs_.offset = -1.0; add(vo, m)
+    if closed:   # dark behind the slit
+        bk = [S(a, zs, -0.014) for a in [math.radians(x) for x in range(-50, 51, 20)]]
+        for a_, b_ in zip(bk, bk[1:]): bar(a_, b_, 0.012, "dark", sides=4)
+    for x in (-1, 1):
+        bd = [S(x * math.radians(t), zs - 0.014, 0.003) for t in range(60, 141, 20)]
+        for a_, b_ in zip(bd, bd[1:]): bar(a_, b_, 0.009, m, sides=4)             # the band round the side
+        sphere(tuple(S(x * math.pi / 2, zs + 0.004, 0.006)), 0.011, m, seg=6, rings=4)   # the pivot rivet
+    sm = [S(math.radians(16) * (1 - t), zs + 0.012 + (U - 0.02) * t, 0.003) for t in (0, 0.25, 0.5, 0.75, 1.0)]
+    for a_, b_ in zip(sm, sm[1:]): bar(a_, b_, 0.006, m, sides=4)                  # the visor's stepped seam
+    f0, f1 = S(math.radians(-24), zs + 0.02, 0.006), S(math.radians(-22), zs + 0.085, 0.006)
+    bar(f0, f1, 0.008, "brass", sides=4)                                          # the brass flame, a small sword
+    bar(S(math.radians(-30), zs + 0.033, 0.007), S(math.radians(-17), zs + 0.033, 0.007), 0.004, "brass", sides=3)
+    return c0
 
 def stigmatic_nun():
     # Stigmatic Nun (2026-11-03, second figure of docs/art-pipeline.md, class A): an original figure on the owner's
@@ -1669,7 +1925,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o
@@ -1699,7 +1955,7 @@ for name, o in OBJS.items():
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris()
     bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.03); bpy.ops.object.mode_set(mode='OBJECT')
     size = (TEX_SIZES or {}).get(name, 128 if name == "Body" else 64)   # one 128x128 texture for the body, 64x64 for each module (larger classes more)
-    img = bpy.data.images.new(f"{role}-{name}", size, size)
+    img = bpy.data.images.new(f"{role}-{name}", size, size, alpha=True); img.generated_color = (0, 0, 0, 0)   # alpha 0 marks unbaked texels
     for m in o.data.materials:
         tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; m.node_tree.nodes.active = tn
     scn.cycles.samples = 8; bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}); col = list(img.pixels)
@@ -1709,6 +1965,35 @@ for name, o in OBJS.items():
         for c in range(3):
             v = (col[i+c]*(0.55+0.45*ao[i+c])) ** (1/2.2); px.append((round(v*31)/31) ** 2.2)   # 15-bit colour
         px.append(1.0)
+    # a face smaller than a texel in the UV map is never baked, or samples another island's bleed, and reads as a
+    # black blot (the Lieutenant's face, 2026-11-03): its texels, and any unbaked texel, take its material's own colour
+    uvl = o.data.uv_layers.active.data
+    def uvs(p): return [uvl[l].uv for l in p.loop_indices]
+    def texels(p):
+        us = uvs(p)
+        x0, x1 = int(min(u.x for u in us) * size), int(max(u.x for u in us) * size)
+        y0, y1 = int(min(u.y for u in us) * size), int(max(u.y for u in us) * size)
+        return [(min(y, size - 1) * size + min(x, size - 1)) for x in range(x0, x1 + 1) for y in range(y0, y1 + 1)]
+    def covers(p):   # does any texel centre fall inside the face (a thin sliver may have area and still cover none)
+        a, b, c = uvs(p)[:3]
+        d = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y)
+        if abs(d) < 1e-12: return False
+        for t in texels(p):
+            u = Vector((((t % size) + 0.5) / size, ((t // size) + 0.5) / size))
+            l1 = ((b.y - c.y) * (u.x - c.x) + (c.x - b.x) * (u.y - c.y)) / d; l2 = ((c.y - a.y) * (u.x - c.x) + (a.x - c.x) * (u.y - c.y)) / d
+            if l1 >= 0 and l2 >= 0 and l1 + l2 <= 1: return True
+        return False
+    for p in o.data.polygons:
+        tiny = not covers(p)
+        holes = texels(p) if tiny else [t for t in texels(p) if col[t * 4 + 3] < 0.5]
+        if not holes: continue
+        ramp = next((n for n in o.data.materials[p.material_index].node_tree.nodes if n.type == 'VALTORGB'), None)
+        if ramp is None: continue
+        e0, e1 = ramp.color_ramp.elements[0].color, ramp.color_ramp.elements[1].color
+        # the material's own colour, in the image's sRGB values (as the baked texels are), then cut to 15-bit like them
+        srgb = [((e0[c] + e1[c]) / 2) ** (1 / 2.2) for c in range(3)]
+        rgb = [(round(s ** (1 / 2.2) * 31) / 31) ** 2.2 for s in srgb]
+        for t in holes: px[t * 4:t * 4 + 3] = rgb
     img.pixels = px; img.pack()
     m = bpy.data.materials.new(f"{role}{name}"); m.use_nodes = True; b = m.node_tree.nodes["Principled BSDF"]
     b.inputs["Roughness"].default_value = 1.0
