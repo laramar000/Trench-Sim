@@ -53,9 +53,10 @@ public class UnitFiguresTests
         Assert.Contains("Yeoman", known);
         Assert.Contains("Shock Trooper", known);
         Assert.Contains("Lieutenant", known);
+        Assert.Contains("Blind Marksman", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
         Assert.All(units, u => Assert.Contains(u, known));
-        Assert.Equal(14, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.Equal(15, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -70,7 +71,8 @@ public class UnitFiguresTests
     // Sanctified Giant (5,200, the owner allows larger units more) is drawn 1.6", so 1.1 is 1.47" on its 40 mm (1.57") base.
     // The Yeoman 2,400, the owner's exception for its WWI gas mask (2026-11-03); the Shock Trooper
     // 2,700 for the same mask and its plate armour (2026-11-03); the Lieutenant 3,400 (class B, the owner's exception for
-    // the sallet with its raised visor, the shield and boots, 2026-11-03).
+    // the sallet with its raised visor, the shield and boots, 2026-11-03); the Blind Marksman 2,800 (class B, kneeling,
+    // drawn 1.25" with the rifle upright above him, 2026-11-03).
     public static TheoryData<string, int, int, float> Figures => new()
     {
         { "units/rifleman.glb", 1850, 128, 0.9f }, { "units/skirmisher.glb", 1850, 128, 0.9f }, { "units/shield.glb", 1850, 128, 0.9f },
@@ -79,7 +81,7 @@ public class UnitFiguresTests
         { "units/war-prophet.glb", 2100, 128, 0.9f }, { "units/castigator.glb", 3100, 128, 0.9f },
         { "units/reliquary-walker.glb", 8000, 256, 1.1f }, { "units/sanctified-giant.glb", 5200, 256, 1.1f },
         { "units/yeoman.glb", 2400, 128, 0.9f }, { "units/shock-trooper.glb", 2700, 128, 0.9f },
-        { "units/lieutenant.glb", 3400, 128, 0.9f },
+        { "units/lieutenant.glb", 3400, 128, 0.9f }, { "units/blind-marksman.glb", 2800, 128, 0.9f },
     };
 
     [Theory]

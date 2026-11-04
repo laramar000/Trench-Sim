@@ -14,7 +14,7 @@ Blender once per figure. The texture bake is not byte-for-byte repeatable, so a 
 slightly different texture pixels.
 """
 import os, subprocess, sys
-FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker", "sanctified-giant", "yeoman", "shock-trooper", "lieutenant")   # "pilgrim" is built with --figure until a unit uses it
+FIGURES = ("rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet", "castigator", "reliquary-walker", "sanctified-giant", "yeoman", "shock-trooper", "lieutenant", "blind-marksman")   # "pilgrim" is built with --figure until a unit uses it
 MAKEHUMAN = "a8bc2d54ff0ac92e78ff71431b1023eda42bf482"
 HERE = os.path.dirname(os.path.abspath(__file__))
 if len(sys.argv) < 4 or sys.argv[-4] != "--figure":
@@ -84,6 +84,7 @@ M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate":
           "tunic": spattered("tunic", "6e6040", spots=0.22, scale=9), "breeches": mat("breeches", "625636", 0.3, 16),   # the Trench Pilgrim's WW1 kit (2026-11-03)
           "puttee": mat("puttee", "4a4630", 0.3, 30), "webbing": mat("webbing", "a49468", 0.25, 24),
           "maskcloth": mat("maskcloth", "5e5e48", 0.3, 30), "lens": mat("lens", "b8a878", 0.08, 8),   # the WWI gas mask (2026-11-03)
+          "cloak": spattered("cloak", "46553a", spots=0.25, scale=8),   # the Blind Marksman's cloak (2026-11-03)
           "greatcoat": spattered("greatcoat", "55603f", spots=0.22, scale=9),   # the Lieutenant's greatcoat (2026-11-03)
           "assault": spattered("assault", "4c4f47", spots=0.25, scale=9),   # the Shock Trooper's dark grey kit (2026-11-03)
           "gore": spattered("gore", "5a2a1e", spots=0.55, scale=12), "pale": spattered("pale", "d8ccb8", spots=0.4, scale=10),
@@ -424,7 +425,7 @@ def robe_and_tabard(rnd):
     cloth_panel([(-0.1, y0, 1.38), (0.1, y0, 1.38)], 0.9, "accent", extra=[robe], ragged=0.08, rnd=rnd, tris=16, thick=0.01)
     box((0, -0.19, 1.05), (0.045, 0.016, 0.34), "bone"); box((0, -0.186, 1.15), (0.17, 0.016, 0.045), "bone")
 
-def ww1_uniform(tunic="tunic", band="webbing"):
+def ww1_uniform(tunic="tunic", band="webbing", bands=True):
     # The WWI service dress (the Trench Pilgrim, then the Principality, 2026-11-03), on a body dressed with the tunic,
     # breeches, puttee and boots materials: loose wool (breeches ballooning at the sides of the thigh, a tunic a size
     # too big), the tunic's skirt below the belt and a pale band at the top of each puttee. Returns surf(x, z, front,
@@ -440,8 +441,8 @@ def ww1_uniform(tunic="tunic", band="webbing"):
         return (loc if ok else Vector((x, -0.15 * d_, z))) + Vector((0, -out * d_, 0))
     # the tunic's skirt below the belt, hanging over the breeches
     cloth_cone(0, 0, 1.0, 0.82, 0.15, 0.165, tunic, sy=0.8, tris=50, thick=0.01, rows=4)
-    # a pale band at the top of each puttee
-    for x in (-0.1, 0.1):   # each band found on its own leg, wherever the pose put it
+    # a pale band at the top of each puttee (bands=False: a kneeling figure, whose shins are not upright)
+    for x in ((-0.1, 0.1) if bands else ()):   # each band found on its own leg, wherever the pose put it
         f_, b_ = human_.ray_cast(Vector((x, -1, 0.42)), Vector((0, 1, 0))), human_.ray_cast(Vector((x, 1, 0.42)), Vector((0, -1, 0)))
         y_ = (f_[1].y + b_[1].y) / 2 if f_[0] and b_[0] else 0.01
         o_, i_ = human_.ray_cast(Vector((x * 6, y_, 0.42)), Vector((-x / abs(x), 0, 0))), human_.ray_cast(Vector((0, y_, 0.42)), Vector((x / abs(x), 0, 0)))
@@ -932,6 +933,120 @@ def sallet(closed=False, m="accent", k=0.86):
     bar(f0, f1, 0.008, "brass", sides=4)                                          # the brass flame, a small sword
     bar(S(math.radians(-30), zs + 0.033, 0.007), S(math.radians(-17), zs + 0.033, 0.007), 0.004, "brass", sides=3)
     return c0
+
+def blind_marksman():
+    # Blind Marksman (2026-11-03, fourth Principality figure, class B, 32 mm): an original blind sniper-priest on the
+    # owner's reference cues, not a copy of the miniature, the art or any paint job. A deep hood and a long, full open
+    # green cloak; under the hood a blank mannequin face bound with a red blindfold;
+    # a priest's stole in the seat colour down the front; the WWI service dress with webbing and rows of ammunition
+    # pouches up the chest; crouched on one knee at rest, a very long rifle with a brass telescopic sight and a folded bipod held upright,
+    # its butt on the ground.
+    # Modules: Helmet (hood, blindfold), Back (cloak), Chest (webbing, pouches), Hip (canteen), Weapon (rifle),
+    # Accent (the stole).
+    global BODY_BUDGET; BODY_BUDGET = 960
+    def pose(r):   # crouched at rest on one knee (owner's sniper photos): right knee and shin on the ground, left foot
+        # planted with the knee up, the rifle held upright in front, its butt grounded
+        human.aim(r, "spine03", P(0, -0.08, 1.4))
+        human.aim(r, "upperleg01.R", P(-0.1, -0.06, 0.5)); human.aim(r, "upperleg02.R", P(-0.1, -0.06, 0.5))
+        human.aim(r, "lowerleg01.R", P(-0.11, 0.36, 0.52)); human.aim(r, "lowerleg02.R", P(-0.11, 0.36, 0.52))
+        human.aim(r, "foot.R", P(-0.11, 0.56, 0.48))
+        human.aim(r, "upperleg01.L", P(0.13, -0.42, 0.9)); human.aim(r, "upperleg02.L", P(0.13, -0.42, 0.9))
+        human.aim(r, "lowerleg01.L", P(0.14, -0.46, 0.48)); human.aim(r, "lowerleg02.L", P(0.14, -0.46, 0.48))
+        human.aim(r, "foot.L", P(0.14, -0.62, 0.46))
+        human.reach(r, "R", P(-0.28, -0.1, 1.12), P(-0.1, -0.27, 1.04))                    # right hand on the grip at the cheek
+        human.reach(r, "L", P(0.14, -0.24, 1.12), P(-0.14, -0.23, 1.25))                    # left elbow down, hand under the barrel
+    hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "puttee", "thigh": "breeches", "torso": "tunic"}, head="mannequin",
+                                mitts="leather", shape="male-young-averagemuscle-averageweight")
+    import random; rnd = random.Random(1923)
+    surf = ww1_uniform(bands=False)   # kneeling: no puttee bands, plain booted feet (boots() fits standing feet)
+    human_ = bpy.data.objects["human"]
+    module("Back")
+    # the long cloak from the shoulders to the shins, open wide at the front so the arms come out of it
+    skirt = [o for o in MODULES["Body"] if o.data.materials and o.data.materials[0].name == "tunic" and o.name.startswith("cloth")]
+    # pinned round the neck so it settles over the shoulders and arms and falls close round the body (owner: drape
+    # better, not longer)
+    cloak = cloth_cone(NECK.x, NECK.y + 0.03, NECK.z + 0.02, 0.56, 0.09, 0.3, "cloak", sy=0.9, keep=FRONT(42), ragged=0.05, rnd=rnd, tris=140, mono=False,
+                       thick=0.012, rows=12, frames=70, extra=skirt)   # over the tunic's skirt too
+    import bmesh as _bm
+    for o_ in [human_] + skirt:   # the back under the cloak never shows: removed, so it cannot poke through
+        bm = _bm.new(); bm.from_mesh(o_.data)
+        _bm.ops.delete(bm, geom=[f for f in bm.faces if f.normal.y > 0.35 and 0.75 < f.calc_center_median().z < 1.3 and f.calc_center_median().y > 0.0], context='FACES')
+        bm.to_mesh(o_.data); bm.free()
+    module("Helmet")
+    # the deep hood, lofted round the head: rounded over the skull, open round the face
+    # and flaring out onto the shoulders over the cloak
+    import bmesh as _bm
+    fb = FACE_BOX
+    heads = [o for o in MODULES["Body"] if o.data.materials and o.data.materials[0].name == "mannequin" and len(o.data.vertices) > 40]
+    hd_ = max(heads, key=lambda o: max((o.matrix_world @ v.co).z for v in o.data.vertices))
+    vs = [hd_.matrix_world @ v.co for v in hd_.data.vertices]
+    lo = Vector((min(v.x for v in vs), min(v.y for v in vs), min(v.z for v in vs))); hi = Vector((max(v.x for v in vs), max(v.y for v in vs), max(v.z for v in vs)))
+    c0 = (lo + hi) / 2; sw, sd, sh = (hi - lo) / 2
+    # rings: (height from the head's centre, half width, front depth, back depth, shift back)
+    R_ = [(sh + 0.035, sw * 0.62, sd * 0.6, sd * 0.66, 0.012), (sh * 0.7, sw + 0.02, sd + 0.02, sd + 0.03, 0.012),
+          (sh * 0.25, sw + 0.026, sd + 0.03, sd + 0.035, 0.0), (-sh * 0.3, sw + 0.03, sd + 0.034, sd + 0.04, 0.0),
+          (-sh * 0.8, sw + 0.036, sd + 0.04, sd + 0.05, 0.0), (-sh - 0.05, sw + 0.06, sd + 0.05, sd + 0.07, 0.006),
+          (-sh - 0.12, 0.19, sd + 0.07, sd + 0.1, 0.01)]
+    SEG = 16; verts = []
+    for z, w, f, bk, yb in R_:
+        for i in range(SEG):
+            a_ = 2 * math.pi * i / SEG; sn, cs = math.sin(a_), math.cos(a_)
+            verts.append((c0.x + w * sn, c0.y + yb - (f if cs > 0 else bk) * cs, c0.z + z))
+    apex = len(verts); verts.append((c0.x, c0.y + 0.012, c0.z + sh + 0.05))   # rounded over the crown (owner: no point)
+    faces = []
+    for j in range(len(R_) - 1):
+        for i in range(SEG):
+            am = abs(math.remainder(2 * math.pi * (i + 0.5) / SEG, 2 * math.pi))
+            if 1 <= j <= 4 and am < math.radians(52 if j < 4 else 40): continue        # the opening round the face
+            faces.append((j * SEG + i, j * SEG + (i + 1) % SEG, (j + 1) * SEG + (i + 1) % SEG, (j + 1) * SEG + i))
+    faces += [(apex, (i + 1) % SEG, i) for i in range(SEG)]
+    me = bpy.data.meshes.new("hood"); me.from_pydata(verts, [], faces)
+    bm = _bm.new(); bm.from_mesh(me); _bm.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(me); bm.free()
+    for p_ in me.polygons: p_.use_smooth = True
+    ho = bpy.data.objects.new("hood", me); scn.collection.objects.link(ho)
+    sl = ho.modifiers.new("sol", "SOLIDIFY"); sl.thickness = 0.01; sl.offset = -1.0; add(ho, "cloak")
+    # the red blindfold round the eyes, lying on the blank face
+    cb = fb["mid"] - fb["fwd"] * 0.06
+    band = []
+    for t in range(-96, 97, 12):
+        a = math.radians(t); dd = (fb["fwd"] * math.cos(a) + fb["ax"] * math.sin(a)).normalized()
+        ok_, at_, *_ = hd_.ray_cast(cb + dd * 0.3, -dd)
+        if ok_: band.append(at_)
+    for a_, b_ in zip(band, band[1:]): bar(a_, b_, 0.024, "blood", sides=8)   # owner: thicker
+    module("Body")
+    # the priest's stole in the seat colour, hanging from the neck down each side of the opening
+    for x in (-0.085, 0.085):
+        y0 = surf(x, 1.36, out=0.03).y
+        cloth_panel([(x - 0.04, y0, 1.38), (x + 0.04, y0, 1.38)], 0.4, "accent", extra=[], cols=1, rows=5, tris=None, bend=30.0)
+    module("Chest")
+    ww1_webbing(surf)
+    for z in (1.3, 1.22, 1.14):   # rows of ammunition pouches up the chest, inside the stole
+        for x in (-0.03, 0.03):
+            box(tuple(surf(x, z, out=0.025)), (0.045, 0.03, 0.06), "webbing")
+    module("Hip")
+    bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.05, depth=0.03, location=(0.195, 0.02, 0.86), rotation=(0, math.pi / 2, 0))
+    add(bpy.context.object, "metal"); bar((0.195, 0.02, 0.91), (0.195, 0.02, 0.94), 0.012, "brass", sides=4)   # water bottle
+    module("Weapon")
+    # the long rifle held upright in front (owner's sniper photos): the butt on the ground by the left knee, the long
+    # barrel leaning up past the right shoulder through both hands, a brass telescopic sight, a bipod folded by the muzzle
+    hr, hl = FISTS["R"][0], FISTS["L"][0]
+    B = Vector((0.03, -0.38, 0.0)); B.z = min(v.co.z for v in bpy.data.objects["human"].data.vertices) + 0.04   # on the ground
+    d = ((hr + hl) / 2 - B).normalized(); muz = B + d * 1.58   # owner: taller than him crouching
+    fw = Vector((0, -1, 0)); up_ = (fw - d * fw.dot(d)).normalized()          # the rifle's top faces ahead
+    sd_ = d.cross(up_).normalized()
+    g = B + d * ((hr - B).dot(d))                                              # the grip, at the right fist
+    bar(B, g + d * 0.04, 0.036, "wood", sides=6); bar(g + d * 0.04, g + d * 0.48, 0.024, "wood", sides=6)   # stock and fore-end
+    bar(g, muz, 0.014, "metal", sides=6); bar(muz - d * 0.1, muz, 0.022, "metal", sides=6)            # barrel and muzzle brake
+    s0, s1 = g + d * 0.06 + up_ * 0.05, g + d * 0.42 + up_ * 0.05
+    bar(s0, s1, 0.019, "brass", sides=8)                                                                  # the scope
+    for e_ in (s0, s1): bar(e_ - d * 0.014, e_ + d * 0.014, 0.028, "brass", sides=8)
+    for t in (0.12, 0.36): bar(g + d * t + up_ * 0.012, g + d * t + up_ * 0.035, 0.007, "metal", sides=4)
+    bar(g + d * 0.1, g + d * 0.1 + sd_ * 0.045, 0.007, "metal", sides=4)                                 # bolt handle
+    bar(g - d * 0.02, g + d * 0.08 - up_ * 0.04, 0.016, "metal", sides=4)                                # magazine
+    bp = B + d * 1.12
+    for x in (-1, 1):                                                                                     # the folded bipod
+        bar(bp, bp - d * 0.3 + sd_ * 0.035 * x - up_ * 0.025, 0.008, "metal", sides=4)
+    module("Body")
 
 def stigmatic_nun():
     # Stigmatic Nun (2026-11-03, second figure of docs/art-pipeline.md, class A): an original figure on the owner's
@@ -1925,7 +2040,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant, "blind-marksman": blind_marksman}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o

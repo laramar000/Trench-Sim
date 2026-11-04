@@ -310,3 +310,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   body feet removed). Bake: faces covering no texel centre take their material's colour (no black blots). Owner: it is
   fine to remove hidden body parts up front to stop clipping. Left: Blind Marksman, Trench Cleric, Combat Engineer,
   Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
+- 2026-11-03: Blind Marksman done (`units/blind-marksman.glb`, class B 32 mm, catalog height 1.25", 2,779 triangles,
+  budget 2,800), on the owner's sniper references: crouched on one knee at rest, a very long rifle held upright with
+  its butt grounded and the muzzle above the hood (brass scope, folded bipod), lofted deep hood (no point), red
+  blindfold on a blank face, cloak pinned at the neck (the back under it removed), seat-colour stole, webbing and
+  pouches. Kneeling: `ww1_uniform(bands=False)` and plain booted feet (`boots()` fits standing feet only). Left: Trench
+  Cleric, Combat Engineer, Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
