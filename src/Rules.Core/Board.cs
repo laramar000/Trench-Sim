@@ -469,6 +469,34 @@ internal static class Board
         return route.IsLegal ? null : new(ReasonCode.ChargeRouteBlocked, route.Text, route.RuleRef);
     }
 
+    // Hateful (Warbands p. 169; roster stage R7a, U128): a model that activates over 1" from every enemy, with a model that
+    // is neither CULT nor DEMONIC in sight within 12", must charge the closest one. Several at the same distance are all
+    // allowed. Empty when the model is not bound (or has already taken an ACTION this activation).
+    public static List<ModelState> HatefulTargets(MatchState state, ModelState model)
+    {
+        if (!state.Setup!.ProfileOf(model.Id)!.Hateful || state.Actions != ActionsTaken.None || model.Status != ModelStatus.Standing
+            || BodyOf(state, model) is not { } from || IsEngaged(state, model))
+        {
+            return [];
+        }
+        var scenario = ScenarioOf(state)!;
+        var seen = OnTable(state)
+            .Where(o => o.Seat != model.Seat && o.Status != ModelStatus.OutOfAction
+                && (state.Setup.ProfileOf(o.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0)
+            .Select(o => (Model: o, Body: BodyOf(state, o)!))
+            .Where(o => Measure.IsWithin(from, o.Body, ChargeRange) && Cover.Of(scenario.Battlefield, from, o.Body).Sight.Visibility != Visibility.None)
+            .ToList();
+        if (seen.Count == 0)
+        {
+            return [];
+        }
+        var nearest = seen.Min(o => Measure.Gap(from, o.Body).Thousandths);
+        // shortcut: a nearest enemy that cannot be charged at all (route blocked) frees the model rather than binding it to
+        // an impossible charge; upgrade if the rules say to charge the next closest.
+        return [.. seen.Where(o => Measure.Gap(from, o.Body).Thousandths == nearest && AssessCharge(state, model, o.Model) is null
+            && ActionLimits.MeleeExcluded(state, model.Id, ActionsTaken.Charge) is null).Select(o => o.Model)];
+    }
+
     // The models a charge at this height can meet: those at the charger's elevation (all of them without towers).
     private static List<Obstacle> ChargeObstaclesFor(MatchState state, ModelState charger, ModelBody from) =>
         ObstaclesFor(state, charger).Where(o => o.Body.Elevation == from.Elevation).ToList();

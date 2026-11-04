@@ -64,6 +64,7 @@ public static class EventText
         ShrineDeclined h => $"  {h.Carrier} does not deploy its Field Shrine.",
         MinesLaid l => $"{l.Seat} sets up {l.Markers.Length} Mine Markers; {Rules.Core.Geometry.Mines.Duds} of them are secret duds.",
         MineRevealed r => $"  {r.Model} halts by {r.Marker}: {(r.Live ? "a live mine" : "a dud")}.",
+        MineDefuseRolled d => $"  {d.Model} Defuse Mine roll {d.Check.Dice.Total}: {d.Check.Outcome}{(d.Defused ? $"; {d.Marker} is removed." : "; it could not.")}",
         MineExploded x => $"  {x.Marker} explodes under {x.Model}: Injury Roll {x.Injury.Total}: {x.Injury.Outcome}{(x.Tough ? " (TOUGH: Down instead)" : "")}{(x.Spared ? " (Memento Mori: No Effect instead)" : "")}{(x.Negated ? ", and its NEGATE SHRAPNEL stops the extra Blood Marker." : ", and SHRAPNEL adds a Blood Marker.")}{(x.Warded ? Warded : "")}",
         MoveResumed m => m.Path.IsEmpty ? $"  {m.Model} carries on." : $"  {m.Model} carries on to {m.Path[^1]}.",
         MatchEnded m => $"MATCH ENDED: {(m.Winner is { } w ? $"{w} wins" : "draw")} ({m.Reason}).",
@@ -126,6 +127,7 @@ public static class EventText
         AttackScattered s => new(Id(s.Attacker), "SCATTERS", $"{s.Inches}\" to {At(s.At)}: {(s.Hit.IsEmpty ? "hits nobody" : "hits " + string.Join(", ", s.Hit.Select(Id)))}"),
         ScatterMissed s => new(Id(s.Attacker), "MISSES", $"nowhere to scatter {s.Inches}\""),
         MineRevealed r => new(Id(r.Model), "HALTS", $"by {r.Marker}: {(r.Live ? "LIVE MINE" : "a dud")}"),
+        MineDefuseRolled d => new(Id(d.Model), "ROLLS", $"Defuse Mine {d.Check.Dice.Total}: {d.Check.Outcome}"),
         MineExploded x => x.Result switch
         {
             InjuryOutcome.OutOfAction => new(Id(x.Model), "BLOWN UP", $"by {x.Marker} (Out of Action)"),
@@ -152,6 +154,7 @@ public static class EventText
     {
         DashRolled d => Of(d.Check),
         TreatRolled t => Of(t.Check),
+        MineDefuseRolled d => Of(d.Check),
         SelfActionRolled s => Of(s.Check),
         SideClimbRolled c => Of(c.Check),
         RangedSuccessRolled r => Of(r.Check),
@@ -194,7 +197,7 @@ public static class EventText
         MatchCreated or RollOffResolved or DeploymentZoneChosen or DeploymentOrderSet or ModelDeployed or AttackerChosen or MinesLaid or ShrinePlaced or ShrineDeclined => EventKind.Setup,
         TurnStarted or TurnEnded or PhaseEntered or InitiativeDetermined or FirstActivationChosen or MoraleOrderSet => EventKind.Turn,
         ActivationStarted or ActivationEnded or TalismanUsed => EventKind.Activation,
-        ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved or MineRevealed or MoveResumed => EventKind.Movement,
+        ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved or MineRevealed or MineDefuseRolled or MoveResumed => EventKind.Movement,
         RangedAttackDeclared or ShootingTargetRolled or FriendlyTargetChosen or RangedSuccessRolled or BlastHit or AttackScattered or ScatterMissed
             or PointAttackDeclared or PointSuccessRolled or PointBlastHit => EventKind.Shooting,
         ChargeDeclared or ChargeRolled or ChargeMoved => EventKind.Charge,
@@ -232,6 +235,7 @@ public static class EventText
         RollOffResolved r => "Dice: " + string.Join("; ", r.Rounds.Select(x => $"Seat One {x.SeatOne}, Seat Two {x.SeatTwo}{(x.IsTie ? " (tie, rolled again)" : "")}")),
         DashRolled d => Faces(d.Check.Dice, d.Check.NetDice),
         TreatRolled t => Faces(t.Check.Dice, t.Check.NetDice),
+        MineDefuseRolled d => Faces(d.Check.Dice, d.Check.NetDice),
         SelfActionRolled s => Faces(s.Check.Dice, s.Check.NetDice),
         SideClimbRolled c => Faces(c.Check.Dice, c.Check.NetDice),
         RangedSuccessRolled r => Faces(r.Check.Dice, r.Check.NetDice),

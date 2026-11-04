@@ -186,7 +186,8 @@ public sealed record MineStop(
     int Index = 0,
     bool Revealed = false,
     bool Live = false,
-    bool EndsActivation = false)
+    bool EndsActivation = false,
+    bool DefuseTried = false)
 {
     public MineStopPoint Current => Stops[Index];
 }

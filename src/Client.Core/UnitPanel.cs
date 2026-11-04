@@ -404,6 +404,8 @@ public static class UnitPanel
             (p.Agile, "Agile: +1 DICE to Dash and climb rolls"),
             (p.SwiftDash, "+1 DICE to its Dash roll"),
             (p.QuickToRise, "Movement not halved when it stands up"),
+            (p.Hateful, "Hateful: must charge the closest non-CULT, non-DEMONIC enemy in sight within 12\" when it activates"),
+            (p.DefusesMines, "Defuse Mine: Risky roll to remove a Mine Marker it halts at"),
             (p.UndeadFortitude, "hit for -1 INJURY DICE unless FIRE"),
             (p.AbioticLife, "hit for -1 INJURY DICE by GAS"),
             (p.Stealthy, "-1 DICE to shots at it (Stealth Generator)"),

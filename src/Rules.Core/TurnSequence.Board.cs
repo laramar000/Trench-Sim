@@ -51,6 +51,41 @@ public static partial class TurnSequence
     }
 
     // The checks every action of the active model shares. Returns the model when all is well.
+    // Hateful (U128): until it has charged, a bound model takes no other ACTION and the activation does not end.
+    private static Rejection? HatefulRefusal(MatchState state, Command command)
+    {
+        if (state.Phase != Phase.Activation || state.ActiveModel is not { } active || state.InProgress is not null || state.Pending is not null
+            || state.Setup?.Scenario is null || state.FindModel(active) is not { } model)
+        {
+            return null;
+        }
+        var acts = command switch
+        {
+            MoveModel c => c.Model == active,
+            DashModel c => c.Model == active,
+            Shoot c => c.Attacker == active,
+            ShootPoint c => c.Attacker == active,
+            TreatModel c => c.Model == active,
+            TakeSelfAction c => c.Model == active,
+            TriggerMartyrdom c => c.Model == active,
+            RetreatModel c => c.Model == active,
+            FightModel c => c.Model == active,
+            EndActivation => true,
+            ChargeModel c => c.Model == active && Board.HatefulTargets(state, model) is { Count: > 0 } t && !t.Any(x => x.Id == c.Target),
+            _ => false,
+        };
+        if (!acts)
+        {
+            return null;
+        }
+        var targets = Board.HatefulTargets(state, model);
+        return targets.Count == 0
+            ? null
+            : new(ReasonCode.ActionExcluded, "A Hateful model must charge the closest enemy it sees that is not CULT or DEMONIC.", RefHateful);
+    }
+
+    private const string RefHateful = "Warbands p. 169";
+
     private static Rejection? ValidateActing(MatchState state, Seat seat, ModelId id, out ModelState? model)
     {
         model = null;
@@ -204,6 +239,10 @@ public static partial class TurnSequence
 
     public static bool SelfActionRisky(MatchState state, ModelId model, SelfActionKind action) =>
         state.FindModel(model) is { } m && Reducer.SelfActionRisky(state, m, action);
+
+    // Roster stage R7a (U128): the enemies a Hateful model must charge (the closest it sees), empty when it is free.
+    public static IReadOnlyList<ModelId> HatefulTargets(MatchState state, ModelId model) =>
+        state.Setup?.Scenario is not null && state.FindModel(model) is { } m ? [.. Board.HatefulTargets(state, m).Select(t => t.Id)] : [];
 
     public static IReadOnlyList<ModelId> OrthodoxyStands(MatchState state, ModelId model) =>
         state.FindModel(model) is { } m ? Reducer.OrthodoxyStands(state, m) : [];
@@ -995,6 +1034,11 @@ public static partial class TurnSequence
     private static bool AdvanceMine(Run run, MatchState s, MineStop stop, IDiceSource dice)
     {
         var model = s.FindModel(stop.Model)!;
+        if (!stop.Revealed && !stop.DefuseTried && s.Setup!.ProfileOf(model.Id)!.DefusesMines)
+        {
+            run.Emit(new MineDefuseRolled(model.Id, stop.Current.Marker, SuccessRoll.Roll(dice, 0, 0, risky: true)));
+            return true;
+        }
         if (!stop.Revealed)
         {
             if (!s.DudsKnown)

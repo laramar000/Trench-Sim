@@ -64,6 +64,26 @@ public sealed record MineRevealed : GameEvent
     public bool Live { get; }
 }
 
+// Defuse Mine (Warbands pp. 108, 146; roster stage R7b, U129): the halted model's Risky Success Roll to defuse the
+// Mine Marker it stands at. On a Success the marker is removed and the move carries on; on a Failure the marker is
+// revealed as usual (a live one detonates) and the Risky roll ends the activation.
+public sealed record MineDefuseRolled : GameEvent
+{
+    public MineDefuseRolled(ModelId model, string marker, SuccessRollResult check)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(marker);
+        ArgumentNullException.ThrowIfNull(check);
+        Model = model;
+        Marker = marker;
+        Check = check;
+    }
+
+    public ModelId Model { get; }
+    public string Marker { get; }
+    public SuccessRollResult Check { get; }
+    public bool Defused => Check.Outcome != Dice.SuccessOutcome.Failure;
+}
+
 // A live mine detonated: an Injury Roll with SHRAPNEL for the model (MINED, p. 56; SHRAPNEL, p. 57): no weapon
 // modifier, its armour as usual, no Blood Markers spent (there is no attacker), and 1 extra Blood Marker afterwards
 // whatever the result. Roster stage R4a (U101): a model with NEGATE SHRAPNEL gets no extra Blood Marker (Negated).

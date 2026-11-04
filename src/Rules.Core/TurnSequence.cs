@@ -255,6 +255,11 @@ public static partial class TurnSequence
             return new(ReasonCode.DecisionPending, $"A decision must be made first ({waiting.Kind}).", RefTurn);
         }
 
+        if (HatefulRefusal(state, command) is { } hateful)
+        {
+            return hateful;
+        }
+
         return command switch
         {
             DeployModel c when state.Setup!.Scenario is not null => new(ReasonCode.PositionRequired, "This scenario has a battlefield: set a model up with PlaceModel at a point.", RefDeployment),

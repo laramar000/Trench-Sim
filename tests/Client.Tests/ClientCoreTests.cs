@@ -71,6 +71,7 @@ public class ClientCoreTests
         // And its Mine Markers (p. 162).
         var markers = Enumerable.Range(0, Rules.Core.Geometry.Mines.Count).Select(i => new Rules.Core.Geometry.MineMarker(Rules.Core.Geometry.Mines.IdOf(i), Previews.PointAt(20, 1 + 2 * i))).ToList();
         seen.TryAdd(typeof(MinesLaid), new MinesLaid(Seat.Two, [.. markers], []));
+        seen.TryAdd(typeof(MineDefuseRolled), new MineDefuseRolled(new ModelId("a1"), "mine-3", Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(3), 0, 0, risky: true)));
         seen.TryAdd(typeof(MineRevealed), new MineRevealed("mine-3", new ModelId("a1"), live: true));
         seen.TryAdd(typeof(MineExploded), new MineExploded(new ModelId("a1"), "mine-3", Rules.Core.Dice.InjuryRoll.Roll(new SeededDice(2))));
         // No bot warband has a BLAST or SCATTER weapon (roster stages R4b, R4c).

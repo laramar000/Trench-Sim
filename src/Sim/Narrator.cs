@@ -62,6 +62,7 @@ public static class Narrator
         ShrineDeclined h => $"  {h.Carrier} does not deploy its Field Shrine.",
         MinesLaid l => $"{l.Seat} sets up {l.Markers.Length} Mine Markers; {Rules.Core.Geometry.Mines.Duds} of them are secret duds.",
         MineRevealed r => $"  {r.Model} halts by {r.Marker}: {(r.Live ? "a live mine" : "a dud")}.",
+        MineDefuseRolled d => $"  {d.Model} Defuse Mine roll {d.Check.Dice.Total}: {d.Check.Outcome}{(d.Defused ? $"; {d.Marker} is removed." : "; it could not.")}",
         MineExploded x => $"  {x.Marker} explodes under {x.Model}: Injury Roll {x.Injury.Total}: {x.Injury.Outcome}{(x.Tough ? " (TOUGH: Down instead)" : "")}{(x.Spared ? " (Memento Mori: No Effect instead)" : "")}{(x.Negated ? ", and its NEGATE SHRAPNEL stops the extra Blood Marker." : ", and SHRAPNEL adds a Blood Marker.")}",
         MoveResumed m => m.Path.IsEmpty ? $"  {m.Model} carries on." : $"  {m.Model} carries on to {m.Path[^1]}.",
         MatchEnded m => $"MATCH ENDED: {(m.Winner is { } w ? $"{w} wins" : "draw")} ({m.Reason}).",

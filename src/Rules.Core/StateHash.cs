@@ -117,7 +117,7 @@ public static class StateHash
         }
         if (state.MineStop is { } stop)
         {
-            Line(sb, "mineStop", $"{stop.Model.Value}:{Path(stop.Path)}:{string.Join(";", stop.Stops.Select(p => $"{p.Marker}@{Point(p.At)}#{p.Next}"))}:{stop.Index}:{Bool(stop.Revealed)}:{Bool(stop.Live)}:{Bool(stop.EndsActivation)}");
+            Line(sb, "mineStop", $"{stop.Model.Value}:{Path(stop.Path)}:{string.Join(";", stop.Stops.Select(p => $"{p.Marker}@{Point(p.At)}#{p.Next}"))}:{stop.Index}:{Bool(stop.Revealed)}:{Bool(stop.Live)}:{Bool(stop.EndsActivation)}{(stop.DefuseTried ? ":defuseTried" : "")}");
         }
 
         // Glorious Deeds (U96, hash version 5): written only once there is something to say.
@@ -272,6 +272,8 @@ public static class StateHash
             + (p.Agile ? ",agile=yes" : "")
             + (p.SwiftDash ? ",swiftDash=yes" : "")
             + (p.QuickToRise ? ",quickToRise=yes" : "")
+            + (p.Hateful ? ",hateful=yes" : "")
+            + (p.DefusesMines ? ",defuses=yes" : "")
             + (p.UndeadFortitude ? ",undeadFortitude=yes" : "")
             + (p.AbioticLife ? ",abioticLife=yes" : "")
             + (p.Stealthy ? ",stealthy=yes" : "")

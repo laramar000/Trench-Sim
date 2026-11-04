@@ -309,6 +309,9 @@ public sealed record ModelProfile
 
     // Frightening Speed (p. 138): its Movement is not halved when it stands up.
     public bool QuickToRise { get; init; }
+    public bool Hateful { get; init; }
+    // Defuse Mine (roster stage R7b, U129): a Risky roll when its move halts at a Mine Marker removes the marker.
+    public bool DefusesMines { get; init; }
 
     // Undead Fortitude (p. 134): -1 INJURY DICE to Injury Rolls against it, unless the attack has FIRE.
     public bool UndeadFortitude { get; init; }
@@ -523,6 +526,8 @@ public sealed record ModelProfile
                 Agile = Agile,
                 SwiftDash = SwiftDash,
                 QuickToRise = QuickToRise,
+                Hateful = Hateful,
+                DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
                 Stealthy = Stealthy,
@@ -581,6 +586,8 @@ public sealed record ModelProfile
                 Agile = Agile,
                 SwiftDash = SwiftDash,
                 QuickToRise = QuickToRise,
+                Hateful = Hateful,
+                DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
                 Stealthy = Stealthy,
@@ -639,6 +646,8 @@ public sealed record ModelProfile
             Agile = Agile,
             SwiftDash = SwiftDash,
             QuickToRise = QuickToRise,
+            Hateful = Hateful,
+            DefusesMines = DefusesMines,
             UndeadFortitude = UndeadFortitude,
             AbioticLife = AbioticLife,
             Stealthy = Stealthy,

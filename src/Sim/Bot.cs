@@ -138,6 +138,11 @@ public sealed class Bot(Random rng)
             }
         }
         var profile = state.Setup!.ProfileOf(model.Id)!;
+        // Roster stage R7a (U128): a Hateful model charges the closest enemy first.
+        foreach (var hated in TurnSequence.HatefulTargets(state, model.Id))
+        {
+            yield return new ChargeModel(seat, model.Id, hated);
+        }
         // Roster stage R5h (U113): a model with a Medi-kit treats itself or a friend first, when it can (no random
         // numbers are drawn here, so setups without one play as before).
         if (profile.Treats && !state.Actions.HasFlag(ActionsTaken.Treat))

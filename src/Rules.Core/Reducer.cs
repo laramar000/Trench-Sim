@@ -99,6 +99,7 @@ public static class Reducer
             ShrinePlaced x => OnShrinePlaced(state, x),
             ShrineDeclined x => OnShrineDeclined(state, x),
             MineRevealed x => OnMineRevealed(state, x),
+            MineDefuseRolled x => OnMineDefuseRolled(state, x),
             MineExploded x => OnMineExploded(state, x),
             MoveResumed x => OnMoveResumed(state, x),
             GloriousDeedCompleted x => OnDeedCompleted(state, x),
@@ -255,7 +256,7 @@ public static class Reducer
         if (state.MineStop is { } stop)
         {
             // A halted move: the marker is revealed, a live one detonates, then the model carries on (p. 162).
-            var next = !stop.Revealed ? e is MineRevealed : stop.Live ? e is MineExploded : e is MoveResumed;
+            var next = !stop.Revealed ? e is MineRevealed || (e is MineDefuseRolled && !stop.DefuseTried) : stop.Live ? e is MineExploded : e is MoveResumed;
             Require(next, "A move halted at a Mine Marker: the marker is revealed, a live mine detonates, and the model carries on.");
             return;
         }
@@ -1874,6 +1875,23 @@ public static class Reducer
         };
     }
 
+    private static MatchState OnMineDefuseRolled(MatchState state, MineDefuseRolled e)
+    {
+        Require(state.MineStop is { Revealed: false, DefuseTried: false } stop && stop.Model == e.Model && stop.Current.Marker == e.Marker && state.Pending is null
+            && state.Setup!.ProfileOf(e.Model)!.DefusesMines, "Only a model with Defuse Mine rolls to defuse the Mine Marker it halted at, once.");
+        Require(e.Check.Risky && e.Check.NetDice == 0, "Defusing a mine is a Risky Success Roll with no extra dice.");
+        if (!e.Defused)
+        {
+            var ends = RiskyEnds(state, e.Model);
+            return state with { MineStop = state.MineStop! with { DefuseTried = true, EndsActivation = state.MineStop.EndsActivation || ends }, MustEndActivation = state.MustEndActivation || ends };
+        }
+        return state with
+        {
+            Mines = [.. state.Mines.Where(m => m.Id != e.Marker)],
+            MineStop = state.MineStop! with { Revealed = true, Live = false },
+        };
+    }
+
     private static MatchState OnMineExploded(MatchState state, MineExploded e)
     {
         Require(state.MineStop is { Revealed: true, Live: true } stop && stop.Model == e.Model && stop.Current.Marker == e.Marker && state.Pending is null,
@@ -1907,7 +1925,7 @@ public static class Reducer
         var at = next?.At ?? halted.Path[^1];
         return TurnRules.WithModel(state, model with { Position = at }) with
         {
-            MineStop = next is null ? null : halted with { Index = halted.Index + 1, Revealed = false, Live = false },
+            MineStop = next is null ? null : halted with { Index = halted.Index + 1, Revealed = false, Live = false, DefuseTried = false },
             MustEndActivation = next is null && halted.EndsActivation,
         };
     }

@@ -312,6 +312,9 @@ Not checked yet: special conditions written in notes.
 - Roster rules stage R6e, Enforced Orthodoxy and Laying on of Hands (done 2026-11-02): both ACTIONS are played (U121).
   Tests: `HelpingActionTests`, `TraitWireTests.HelpingActionsRoundTripAndAreLeftOutWhenUnset`,
   `MatchReadinessTests.HelpingActionsArePlayed`, `ModelTraitDisplayTests.HelpingActionsAreExplained`.
+- Roster rules stages R7a and R7b, Hateful and Defuse Mine (done 2026-11-04): Hateful forces a model to charge the closest
+  non-CULT, non-DEMONIC enemy it sees (U128); Defuse Mine gives a halted model a Risky roll to remove the Mine Marker (U129).
+  Tests: `HatefulTests`, `DefuseMineTests`.
 - Roster rules stage R6f, upgrades in matches (done 2026-11-02): Legionnaire, Zealot Strength, Janissary Veteran, Fearsome,
   Rapid Assault, Blind Rage and Kavass are played (U122); the builder refuses both Legionnaire upgrades or Kavass with Light
   Skirmisher on one model, and more Legionnaires than plain Troopers. Tests: `UpgradeRuleTests`,
