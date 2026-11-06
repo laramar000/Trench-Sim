@@ -225,6 +225,15 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Essentials 2,243/0 (one transport test is flaky, passed on rerun). Later the same day: carry-on past contact (U126), 48" table
   sizes (U125) and Field Shrine stage 1 (U127) were built, 2,269/0 (see "Map size and battlefield dimensions" above). Open: Field Shrine
   stage 2 (attacks and blasts remove it) and stage 3 (client piece, click placement), the Scenario IV zone depth, and a Windows Godot run.
+- 2026-11-04, Jason: "2 5 and do the Court spells, infection and blessing markers, and moving other models" = a run of
+  stages, each pushed after the essentials (build + `dotnet test TrenchSim.sln`), no UI checks. Done: R7a Hateful (U128,
+  `Board.HatefulTargets`, `HatefulRefusal`; pushed 16590e5), R7b Defuse Mine (U129, `MineDefuseRolled`,
+  `MineStop.DefuseTried`; 16590e5), R7c Hide ACTION (U130, `SelfActionKind.Hide`, `ModelState.Hidden`,
+  `ReasonCode.TargetHidden`, client key G; 2b47ce7). Essentials 2,291/0. None of it run in Godot. Still to do in this
+  run, in this order: Bodyguard (a decision before the hit lands), oval bases (Plague Hound, Pit Locust; geometry,
+  riskiest, last of the small ones), moving other models (Puppet Master, Loudspeakers), BLESSING and INFECTION MARKERS,
+  Court spells. Adding a flag to `ModelProfile`: the plumbing lists are ModelProfile (3 copies), StateHash, Wire,
+  MatchReadiness (field list + ReadyModel + `PlayedAbilities`), ContentNames, Sim/Content, UnitPanel.
 - Next (not started, owner to choose): the survey's "later" group (Court spells, INFECTION/BLESSING MARKERS, Bodyguard,
   moving other models, Set/Defuse Mine, Hide, Hateful, multi-Fight models, Time Slip, deployment rules), oval bases
   (Plague Hound, Pit Locust), and a Windows Godot run to check the UI (log dice, keys I V Y Z, Trample on key 0).
