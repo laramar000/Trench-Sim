@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U117), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U131), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -232,14 +232,22 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   `ReasonCode.TargetHidden`, client key G; 2b47ce7). Essentials 2,291/0. None of it run in Godot. R7d Bodyguard done 2026-11-06 (U131:
   `DecisionKind.UseBodyguard`, `ChooseBodyguard`, `BodyguardAnswered`, `ModelTraits.Pilgrim`, `RollInProgress.GuardOwed`,
   `Board.Bodyguards`; asked after the hit and before the Blood Marker offer; CLI `guard B2` / `noguard`; client bar, not run in
-  Godot; essentials pass). Still to do in this
+  Godot; essentials pass; pushed a4d8170). Still to do in this
   run, in this order: oval bases (Plague Hound, Pit Locust; geometry,
   riskiest, last of the small ones), moving other models (Puppet Master, Loudspeakers), BLESSING and INFECTION MARKERS,
   Court spells. Adding a flag to `ModelProfile`: the plumbing lists are ModelProfile (3 copies), StateHash, Wire,
   MatchReadiness (field list + ReadyModel + `PlayedAbilities`), ContentNames, Sim/Content, UnitPanel.
-- Next (not started, owner to choose): the survey's "later" group (Court spells, INFECTION/BLESSING MARKERS, Bodyguard,
-  moving other models, Set/Defuse Mine, Hide, Hateful, multi-Fight models, Time Slip, deployment rules), oval bases
-  (Plague Hound, Pit Locust), and a Windows Godot run to check the UI (log dice, keys I V Y Z, Trample on key 0).
+- **To do (2026-11-06, nothing in progress; the owner picks the order, a new stage needs the owner's ask):**
+  1. Oval bases (Plague Hound, Pit Locust are refused in matches until then; geometry, the riskiest of the small ones).
+  2. Moving other models (Puppet Master, Loudspeakers).
+  3. BLESSING and INFECTION MARKERS.
+  4. Court spells.
+  5. Later group: multi-Fight models, Time Slip/Temporal Assassin, deployment rules, AMMUNITION with two possible guns.
+  6. Field Shrine stage 2 (attacks and blasts remove it) and stage 3 (client piece, click placement); benched by the owner.
+  7. Scenario IV zone depth and the camera check (map dimensions, `docs/map-dimensions.md`); no 48" map shipped.
+  8. Godot/Windows run for everything built since 17a9099/e917e6b: log dice, keys I V Y Z G H B K, Trample on key 0,
+     Bodyguard/Talisman bars, hot-seat UI check group. Windows essentials not run since d88ce8b.
+  9. October Rules Review 2026 changes (lists follow the 1.0.2 books); Martyrdom Dog and Awaited not played.
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):
   R6c numbers on existing hooks: Dash +1 DICE (Frightening Speed, Loping Dash, Mad Dash, Agile's Dash/Climb part),
   INJURY DICE against it (Corpulent -2, Artificial Life, Undead Fortitude unless FIRE, Abiotic Life vs GAS), Stealth
@@ -252,7 +260,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Hateful, multi-Fight models, Time Slip/Temporal Assassin, deployment rules. Not planned: campaign-only (Chattel,
   Resurrection, Law of Hell, Witch Battery limit). The engine has no Jump or Diving Charge.
 - Pushed before: R5a e2ad5d8 ... R5f a93a518, gaps f787535 (U111), R5g 6305404 (U112), R5h 28cf852 (U113),
-  R5i ed2f05f (U114), R5j 013355b (U115), R5k 61dd615 (U116).
+  R5i ed2f05f (U114), R5j 013355b (U115), R5k 61dd615 (U116), R7d a4d8170 (U131).
 - Decided: Urn of the Bitter Ashes protects any model within 3" (Jason card "1 Any model", U109).
 - Still refused by name in matches: AMMUNITION with two possible guns (no deployment choice yet), and every equipment
   piece not in `MatchReadiness.PlayedEquipment`. No Windows run since 17a9099/e917e6b.
