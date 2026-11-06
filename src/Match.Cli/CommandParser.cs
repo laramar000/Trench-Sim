@@ -52,6 +52,8 @@ public static class CommandParser
             "decline" => new DeclineFreeFights(seat),
             "friendly" => new ChooseFriendlyTarget(seat, Model(One(args))),
             "scatter" => new ScatterAttack(seat, Point(One(args))),
+            "guard" => new ChooseBodyguard(seat, Model(One(args))),
+            "noguard" => new ChooseBodyguard(seat, null),
             "talisman" => new UseTalisman(seat),
             "keep" => new DeclineTalisman(seat),
             "blast" => new ShootPoint(seat, Model(Arg(args, 0)), Point(Arg(args, 1))),

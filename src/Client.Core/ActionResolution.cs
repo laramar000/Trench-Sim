@@ -358,6 +358,12 @@ public sealed class ResolutionLog
                 action.Steps.Add($"Scatters {s.Inches}\" to {TablePoint.Of(s.At)}: {(s.Hit.IsEmpty ? "hits nobody" : "BLAST hits " + string.Join(", ", s.Hit.Select(Id)))}");
                 action.Outcome.Add(s.Hit.IsEmpty ? $"scatters {s.Inches}\", hits nobody" : $"scatters {s.Inches}\", BLAST hits {s.Hit.Length}");
                 break;
+            case BodyguardAnswered { Guard: { } guard } taken:
+                // Roster stage R7d (U131): the Injury Roll is the Bodyguard's.
+                action.Target = guard;
+                action.Steps.Add($"Bodyguard: {Id(guard)} takes the hit meant for {Id(taken.Target)}");
+                action.Outcome.Add($"{Id(guard)} takes the hit as Bodyguard");
+                break;
             case TalismanUsed:
                 // Roster stage R5k (U116).
                 action.Steps.Add("Uses a Talisman: the activation goes on");

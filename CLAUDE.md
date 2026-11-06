@@ -229,8 +229,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   stages, each pushed after the essentials (build + `dotnet test TrenchSim.sln`), no UI checks. Done: R7a Hateful (U128,
   `Board.HatefulTargets`, `HatefulRefusal`; pushed 16590e5), R7b Defuse Mine (U129, `MineDefuseRolled`,
   `MineStop.DefuseTried`; 16590e5), R7c Hide ACTION (U130, `SelfActionKind.Hide`, `ModelState.Hidden`,
-  `ReasonCode.TargetHidden`, client key G; 2b47ce7). Essentials 2,291/0. None of it run in Godot. Still to do in this
-  run, in this order: Bodyguard (a decision before the hit lands), oval bases (Plague Hound, Pit Locust; geometry,
+  `ReasonCode.TargetHidden`, client key G; 2b47ce7). Essentials 2,291/0. None of it run in Godot. R7d Bodyguard done 2026-11-06 (U131:
+  `DecisionKind.UseBodyguard`, `ChooseBodyguard`, `BodyguardAnswered`, `ModelTraits.Pilgrim`, `RollInProgress.GuardOwed`,
+  `Board.Bodyguards`; asked after the hit and before the Blood Marker offer; CLI `guard B2` / `noguard`; client bar, not run in
+  Godot; essentials pass). Still to do in this
+  run, in this order: oval bases (Plague Hound, Pit Locust; geometry,
   riskiest, last of the small ones), moving other models (Puppet Master, Loudspeakers), BLESSING and INFECTION MARKERS,
   Court spells. Adding a flag to `ModelProfile`: the plumbing lists are ModelProfile (3 copies), StateHash, Wire,
   MatchReadiness (field list + ReadyModel + `PlayedAbilities`), ContentNames, Sim/Content, UnitPanel.

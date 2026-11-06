@@ -45,6 +45,7 @@ public static class Words
         DecisionKind.LayMines => "set up the 12 Mine Markers and secretly pick 4 duds",
         DecisionKind.ChooseScatterPoint => "choose where the missed attack scatters to",
         DecisionKind.PlaceShrine => "deploy the Field Shrine in your zone, or decline",
+        DecisionKind.UseBodyguard => "let a Bodyguard beside the model take the hit, or keep it",
         DecisionKind.UseTalisman => "use a Talisman so the activation goes on, or let it end",
         _ => kind.ToString(),
     };

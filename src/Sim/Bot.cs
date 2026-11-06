@@ -55,6 +55,8 @@ public sealed class Bot(Random rng)
             // Trench Warfare: Mine Markers at random spots in the Mine Placement Area, 4 of them duds at random.
             DecisionKind.LayMines => RandomMines(state, pending.Seat).Concat(legal),
             // Roster stage R5k: a Talisman is there to be used.
+            // Roster stage R7d: a Bodyguard is there to take hits (the first one listed), unless it is the only way a model survives.
+            DecisionKind.UseBodyguard => legal.OrderBy(c => c is ChooseBodyguard { Guard: not null } ? 0 : 1),
             DecisionKind.UseTalisman => legal.OrderBy(c => c is UseTalisman ? 0 : 1),
             _ => legal.OrderBy(_ => rng.Next()),
         };

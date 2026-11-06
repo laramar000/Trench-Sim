@@ -27,4 +27,7 @@ public enum ModelTraits
     Principality = 32,
     Cult = 64,
     Demonic = 128,
+
+    // Roster stage R7d (U131): PILGRIM, the faction keyword Bodyguard looks for.
+    Pilgrim = 256,
 }

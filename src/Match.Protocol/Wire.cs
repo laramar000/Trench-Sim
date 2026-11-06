@@ -389,6 +389,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.QuickToRise)),
             (typeof(ModelProfile), nameof(ModelProfile.Hateful)),
             (typeof(ModelProfile), nameof(ModelProfile.Hides)),
+            (typeof(ModelProfile), nameof(ModelProfile.Bodyguard)),
             (typeof(ModelProfile), nameof(ModelProfile.DefusesMines)),
             (typeof(ModelProfile), nameof(ModelProfile.UndeadFortitude)),
             (typeof(ModelProfile), nameof(ModelProfile.AbioticLife)),

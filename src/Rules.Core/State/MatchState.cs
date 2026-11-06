@@ -18,6 +18,7 @@ public enum DecisionKind
     LayMines,                  // Trench Warfare: the defender sets up the Mine Markers and secretly picks the duds (p. 162)
     ChooseScatterPoint,        // a SCATTER attack missed: the attacker's opponent picks where it lands (p. 57, roster stage R4c)
     UseTalisman,               // a Risky roll failed: the model's player may use a Talisman so the activation goes on (roster stage R5k)
+    UseBodyguard,              // an attack hit a model with a friendly Bodyguard within 1": its player may move the hit onto the Bodyguard (roster stage R7d, U131)
     PlaceShrine,               // a model with a Field Shrine was just deployed: its player may also deploy the shrine (p. 82, U127)
 }
 
@@ -160,7 +161,8 @@ public sealed record RollInProgress(
     ImmutableArray<ModelId> MartyrClose = default,
     SelfActionKind SelfAction = SelfActionKind.Aim,
     bool Bloodbath = false,
-    bool CarryOn = false);
+    bool CarryOn = false,
+    bool GuardOwed = false);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.

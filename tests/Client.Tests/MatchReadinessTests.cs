@@ -279,7 +279,7 @@ public class MatchReadinessTests
 
         var capirote = Of("pilgrims", "trench-pilgrim", "iron-capirote").MatchCheck();
         Played(capirote, "Iron Capirote");
-        Assert.Equal((ModelTraits.NegateFear, WeaponKeywords.Shrapnel), (Loaded(capirote).Traits, Loaded(capirote).Negates));
+        Assert.Equal((ModelTraits.NegateFear | ModelTraits.Pilgrim, WeaponKeywords.Shrapnel), (Loaded(capirote).Traits, Loaded(capirote).Negates));
 
         var eyes = Of("cult", "corpse-guard", "compound-eyes-helmet").MatchCheck();
         Played(eyes, "Compound Eyes Helmet");
@@ -397,7 +397,7 @@ public class MatchReadinessTests
         Assert.Contains("\"injuryDiceTaken\": -1", smoked.ToContentJson("p", "P"), StringComparison.Ordinal);
 
         var pilgrim = Of("pilgrims", "trench-pilgrim", "zealots-draught").MatchCheck();
-        Assert.Equal((-1, ModelTraits.NegateFear), (Loaded(pilgrim).InjuryDiceTaken, Loaded(pilgrim).Traits));
+        Assert.Equal((-1, ModelTraits.NegateFear | ModelTraits.Pilgrim), (Loaded(pilgrim).InjuryDiceTaken, Loaded(pilgrim).Traits));
 
         var guard = Of("cult", "corpse-guard", "grovelling-devotee", "grovelling-devotee");
         Assert.DoesNotContain(guard.Check().Problems, p => p.Contains("Devotee", StringComparison.Ordinal));
@@ -738,6 +738,19 @@ public class MatchReadinessTests
         var plain = Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P");
         Assert.DoesNotContain("enforcesOrthodoxy", plain, StringComparison.Ordinal);
         Assert.DoesNotContain("laysOnHands", plain, StringComparison.Ordinal);
+    }
+
+    // Roster stage R7d (U131): Bodyguard is played, and the PILGRIM keyword it looks for is a played trait.
+    [Fact]
+    public void BodyguardIsPlayed()
+    {
+        var giant = Of("pilgrims", "sanctified-giant").MatchCheck();
+        Assert.DoesNotContain(giant.PlayedWithout, w => w.Contains("Bodyguard", StringComparison.Ordinal));
+        var profile = Loaded(giant);
+        Assert.True(profile.Bodyguard);
+        Assert.True(profile.Traits.HasFlag(ModelTraits.Pilgrim));
+        var plain = Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P");
+        Assert.DoesNotContain("bodyguard", plain, StringComparison.Ordinal);
     }
 
     // Roster stage R6f (U122): the upgrades the engine plays: Legionnaire, Zealot Strength (and a Trench Pilgrim's 32 mm

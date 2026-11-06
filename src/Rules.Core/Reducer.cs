@@ -110,6 +110,7 @@ public static class Reducer
             SelfActionRolled x => OnSelfActionRolled(state, x),
             MartyrdomTriggered x => OnMartyrdomTriggered(state, x),
             TalismanUsed x => OnTalismanUsed(state, x),
+            BodyguardAnswered x => OnBodyguardAnswered(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
@@ -341,6 +342,13 @@ public static class Reducer
             return;
         }
 
+        if (BodyguardOfferOwed(state) is { } guardOwed)
+        {
+            Require(e is DecisionRequested { Kind: DecisionKind.UseBodyguard } guardOffer && guardOffer.Seat == guardOwed.Seat,
+                "The player of the model that was hit must be asked about its Bodyguard first.");
+            return;
+        }
+
         if (MarkerOfferOwed(state) is { } owed)
         {
             Require(e is DecisionRequested offer && offer.Kind == owed.Kind && offer.Seat == owed.Seat,
@@ -371,6 +379,34 @@ public static class Reducer
             return scenario is null ? OutcomeReason.FinalTurnComplete : OutcomeReason.VictoryPoints;
         }
         return null;
+    }
+
+    // Roster stage R7d (U131): after a hit that was not a BLAST's and before its Injury Roll, the hit model's player is asked
+    // whether a Bodyguard beside it takes the hit. GuardOwed is set only when there is one to ask.
+    private static PendingDecision? BodyguardOfferOwed(MatchState state) =>
+        state.Pending is null && state.InProgress is { Stage: RollStage.InjuryRoll, GuardOwed: true, Target: { } hit }
+        && state.FindModel(hit) is { } hitModel && Board.Bodyguards(state, hitModel).Count > 0
+            ? new PendingDecision(DecisionKind.UseBodyguard, hitModel.Seat)
+            : null;
+
+    // Roster stage R7d (U131): the answer. The Bodyguard becomes the target, and the Injury Roll's dice are worked out for it.
+    private static MatchState OnBodyguardAnswered(MatchState state, BodyguardAnswered e)
+    {
+        Require(state.Pending is { Kind: DecisionKind.UseBodyguard } && state.InProgress is { Stage: RollStage.InjuryRoll, GuardOwed: true } p && p.Target == e.Target,
+            "No Bodyguard offer is waiting for that model.");
+        var progress = state.InProgress!;
+        if (e.Guard is not { } guard)
+        {
+            return state with { Pending = null, InProgress = progress with { GuardOwed = false } };
+        }
+        var offered = Board.Bodyguards(state, state.FindModel(e.Target)!);
+        Require(offered.Any(g => g.Id == guard), "That model cannot take the hit: it must be a standing friend within 1\" with Bodyguard and the same PILGRIM or CULT keyword.");
+        var guardModel = offered.First(g => g.Id == guard);
+        var profile = AttackProfile(state, progress);
+        var melee = progress.Kind == AttackKind.Melee;
+        var (bonus, penalty) = AttackDice.InjuryDice(profile, progress.Kind, progress.Critical, melee && guardModel.Status == ModelStatus.Down,
+            melee ? FinishDice(state, progress, guard) : progress.InjuryDiceLater, state.Setup!.ProfileOf(guard)!);
+        return state with { Pending = null, InProgress = progress with { Target = guard, GuardOwed = false, BonusDice = bonus, PenaltyDice = penalty } };
     }
 
     // Decide asks the opponent about Blood Markers whenever the model whose markers count has any and nobody has been
@@ -497,6 +533,9 @@ public static class Reducer
             case DecisionKind.UseTalisman:
                 Require(state.MustEndActivation && TalismanReady(state, state.ActiveModel) && state.FindModel(state.ActiveModel!.Value)!.Seat == e.Seat,
                     "Only the player of an active model with a Talisman left is asked, after its failed Risky roll.");
+                break;
+            case DecisionKind.UseBodyguard:
+                Require(BodyguardOfferOwed(state) is { } guardOffer && guardOffer.Seat == e.Seat, "Only the player of a model that was hit, with a Bodyguard beside it, is asked.");
                 break;
             case DecisionKind.ChooseFriendlyTarget:
                 Require(state.InProgress is { Stage: RollStage.TargetChoice } choosing
@@ -1313,7 +1352,7 @@ public static class Reducer
         var (bonus, penalty) = AttackDice.InjuryDice(profile, AttackKind.Ranged, critical, meleeOnDownTarget: false, progress.InjuryDiceLater, state.Setup!.ProfileOf(progress.Target!.Value)!);
         return state with
         {
-            InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = bonus, PenaltyDice = penalty, Critical = critical, MarkersAsked = false },
+            InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = bonus, PenaltyDice = penalty, Critical = critical, MarkersAsked = false, GuardOwed = !progress.FriendlyFire && GuardsFor(state, progress.Target!.Value) },
         };
     }
 
@@ -1724,9 +1763,13 @@ public static class Reducer
                 PenaltyDice = penalty,
                 Critical = critical,
                 MarkersAsked = false,
+                GuardOwed = GuardsFor(state, e.Target),
             },
         };
     }
+
+    // Roster stage R7d (U131): the hit model has a Bodyguard beside it, so its player is asked before the Injury Roll.
+    private static bool GuardsFor(MatchState state, ModelId hit) => Board.Bodyguards(state, state.FindModel(hit)!).Count > 0;
 
     private static MatchState OnShootingTargetRolled(MatchState state, ShootingTargetRolled e)
     {

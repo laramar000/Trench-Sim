@@ -477,6 +477,22 @@ internal static class Board
         return route.IsLegal ? null : new(ReasonCode.ChargeRouteBlocked, route.Text, route.RuleRef);
     }
 
+    // Bodyguard (core rulebook pp. 54, 136; roster stage R7d, U131): the Standing friends of the model that was hit, within 1"
+    // of it, that have Bodyguard and share its PILGRIM or CULT keyword. They may take the hit (never a BLAST's).
+    public static List<ModelState> Bodyguards(MatchState state, ModelState hit)
+    {
+        var faction = state.Setup!.ProfileOf(hit.Id)!.Traits & (ModelTraits.Pilgrim | ModelTraits.Cult);
+        if (faction == 0 || BodyOf(state, hit) is not { } body)
+        {
+            return [];
+        }
+        return [.. OnTable(state).Where(g => g.Id != hit.Id && g.Seat == hit.Seat && g.Status == ModelStatus.Standing
+            && state.Setup.ProfileOf(g.Id)!.Bodyguard && (state.Setup.ProfileOf(g.Id)!.Traits & faction) != 0
+            && BodyOf(state, g) is { } guard && Measure.IsWithin(body, guard, BodyguardReach))];
+    }
+
+    private static readonly Length BodyguardReach = Length.FromInches(1);
+
     // Hateful (Warbands p. 169; roster stage R7a, U128): a model that activates over 1" from every enemy, with a model that
     // is neither CULT nor DEMONIC in sight within 12", must charge the closest one. Several at the same distance are all
     // allowed. Empty when the model is not bound (or has already taken an ACTION this activation).

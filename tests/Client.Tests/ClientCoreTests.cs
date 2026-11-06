@@ -88,6 +88,8 @@ public class ClientCoreTests
         // Roster stage R5h: no bot model carries a Medi-kit.
         seen.TryAdd(typeof(TreatDeclared), new TreatDeclared(new ModelId("a1"), new ModelId("a2"), TreatChoice.StandUp));
         seen.TryAdd(typeof(TreatRolled), new TreatRolled(new ModelId("a1"), new ModelId("a2"), TreatChoice.RemoveMarker, Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(1), 1, 0, risky: true), false));
+        // Roster stage R7d: no bot model has a Bodyguard beside a friend that is hit.
+        seen.TryAdd(typeof(BodyguardAnswered), new BodyguardAnswered(new ModelId("b1"), new ModelId("b2")));
         // Roster stage R5j: no bot model carries a Martyrdom Device.
         seen.TryAdd(typeof(TalismanUsed), new TalismanUsed(new ModelId("a1")));
         seen.TryAdd(typeof(MartyrdomTriggered), new MartyrdomTriggered(new ModelId("a1"), [new ModelId("b1"), new ModelId("a1")], [new ModelId("b1")]));

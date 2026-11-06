@@ -94,6 +94,8 @@ public static class ActionHints
         ChooseFriendlyTarget t => $"The shot hits your own {names.Of(t.Victim)}",
         PlaceShrine => "Deploy the Field Shrine in your zone",
         DeclineShrine => "Do not deploy the Field Shrine",
+        ChooseBodyguard { Guard: { } g } => $"{names.Of(g)} takes the hit (Bodyguard)",
+        ChooseBodyguard => "Leave the hit on the model that was hit",
         UseTalisman => "Use a Talisman: the failed Risky roll does not end the activation",
         DeclineTalisman => "Keep the Talisman: the activation ends",
         ScatterAttack s => $"The missed attack lands {ScatterWords.Where(state, s.At)}: {ScatterWords.Hits(state, s.At, names.Of)}",

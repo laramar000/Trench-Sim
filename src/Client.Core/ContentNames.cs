@@ -235,6 +235,7 @@ public sealed class ContentNames
                         SwiftDash = m.TryGetProperty("swiftDash", out var swiftDash) && swiftDash.GetBoolean(),
                         QuickToRise = m.TryGetProperty("quickToRise", out var quickToRise) && quickToRise.GetBoolean(),
                         Hateful = m.TryGetProperty("hateful", out var hateful) && hateful.GetBoolean(),
+                        Bodyguard = m.TryGetProperty("bodyguard", out var bodyguard) && bodyguard.GetBoolean(),
                         Hides = m.TryGetProperty("hides", out var hides) && hides.GetBoolean(),
                         DefusesMines = m.TryGetProperty("defusesMines", out var defusesMines) && defusesMines.GetBoolean(),
                         UndeadFortitude = m.TryGetProperty("undeadFortitude", out var undeadFortitude) && undeadFortitude.GetBoolean(),

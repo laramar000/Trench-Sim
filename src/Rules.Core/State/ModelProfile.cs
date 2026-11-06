@@ -145,9 +145,9 @@ public sealed record ModelProfile
     // ---- Roster stage R5b (U106): model keywords ----
 
     private const ModelTraits AllTraits = ModelTraits.Fear | ModelTraits.NegateFear | ModelTraits.Tough | ModelTraits.NegateHeavy | ModelTraits.Leader
-        | ModelTraits.Principality | ModelTraits.Cult | ModelTraits.Demonic;
+        | ModelTraits.Principality | ModelTraits.Cult | ModelTraits.Demonic | ModelTraits.Pilgrim;
 
-    // FEAR, NEGATE FEAR, TOUGH, NEGATE HEAVY (STRONG) and LEADER; roster stage R6a: PRINCIPALITY, CULT and DEMONIC.
+    // FEAR, NEGATE FEAR, TOUGH, NEGATE HEAVY (STRONG) and LEADER; roster stage R6a: PRINCIPALITY, CULT and DEMONIC; roster stage R7d: PILGRIM.
     public ModelTraits Traits
     {
         get => _traits;
@@ -312,6 +312,9 @@ public sealed record ModelProfile
     public bool Hateful { get; init; }
     // Hide ACTION (Warbands p. 110; roster stage R7c, U130): a Risky Success Roll at +1 DICE while touching terrain at least 1/2" high; on a Success it cannot be targeted by Ranged Attacks or Charges until it acts or an enemy comes within 1.5".
     public bool Hides { get; init; }
+
+    // Bodyguard (core rulebook pp. 54, 136; roster stage R7d, U131): may take a hit meant for a friendly model within 1" that shares its PILGRIM or CULT keyword (not against BLAST).
+    public bool Bodyguard { get; init; }
     // Defuse Mine (roster stage R7b, U129): a Risky roll when its move halts at a Mine Marker removes the marker.
     public bool DefusesMines { get; init; }
 
@@ -530,6 +533,7 @@ public sealed record ModelProfile
                 QuickToRise = QuickToRise,
                 Hateful = Hateful,
                 Hides = Hides,
+                Bodyguard = Bodyguard,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -591,6 +595,7 @@ public sealed record ModelProfile
                 QuickToRise = QuickToRise,
                 Hateful = Hateful,
                 Hides = Hides,
+                Bodyguard = Bodyguard,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -652,6 +657,7 @@ public sealed record ModelProfile
             QuickToRise = QuickToRise,
             Hateful = Hateful,
             Hides = Hides,
+            Bodyguard = Bodyguard,
             DefusesMines = DefusesMines,
             UndeadFortitude = UndeadFortitude,
             AbioticLife = AbioticLife,

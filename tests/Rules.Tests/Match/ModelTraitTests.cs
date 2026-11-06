@@ -189,7 +189,7 @@ public class ModelTraitTests
     [Trait("Rule", "Profiles: traits are checked, hashed only when set, and kept by a profile's second-weapon copy")]
     public void TraitsAreCheckedAndHashed()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => Brawler with { Traits = (ModelTraits)256 });
+        Assert.Throws<ArgumentOutOfRangeException>(() => Brawler with { Traits = (ModelTraits)512 });
         var play = Duel(Brawler, Brawler);
         Assert.DoesNotContain("traits=", StateHash.Canonical(play.State), StringComparison.Ordinal);
         Assert.DoesNotContain("tough=", StateHash.Canonical(play.State), StringComparison.Ordinal);

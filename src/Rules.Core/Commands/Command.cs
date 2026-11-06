@@ -137,3 +137,7 @@ public sealed record TakeSelfAction(Seat Seat, ModelId Model, SelfActionKind Act
 {
     public ModelId? Target { get; init; }
 }
+
+// Roster stage R7d (U131): answers the UseBodyguard decision after an attack hit a model with a friendly Bodyguard within
+// 1": Guard takes the hit instead (its Injury Roll is made), or null leaves it on the model that was hit.
+public sealed record ChooseBodyguard(Seat Seat, ModelId? Guard) : Command;

@@ -157,6 +157,11 @@ public static partial class TurnSequence
                 var compass = points.Where(p => p.Degree % 45 == 0).ToList();
                 commands.AddRange((compass.Count > 0 ? compass : points.Take(1)).Select(p => new ScatterAttack(pending.Seat, p.At)));
                 break;
+            case DecisionKind.UseBodyguard:
+                var guards = state.InProgress is { Target: { } hit } && state.FindModel(hit) is { } hitModel ? Board.Bodyguards(state, hitModel) : [];
+                commands.AddRange(guards.Select(g => new ChooseBodyguard(pending.Seat, g.Id)));
+                commands.Add(new ChooseBodyguard(pending.Seat, null));
+                break;
             case DecisionKind.UseTalisman:
                 commands.Add(new UseTalisman(pending.Seat));
                 commands.Add(new DeclineTalisman(pending.Seat));
@@ -213,7 +218,7 @@ public static partial class TurnSequence
         {
             return ValidateSpend(state, spend);
         }
-        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman)
+        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard)
         {
             return ValidateChoice(state, command);
         }
@@ -354,7 +359,7 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or PlaceShrine or DeclineShrine or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman;
+        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or PlaceShrine or DeclineShrine or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman or ChooseBodyguard;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
@@ -438,7 +443,7 @@ public static partial class TurnSequence
                     run.Emit(new ModelStoodUp(c.Model) { Quick = run.State.Setup.ProfileOf(c.Model)!.QuickToRise });
                 }
                 break;
-            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman:
+            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard:
                 ExecuteBoard(run, command);
                 break;
             case EndActivation:

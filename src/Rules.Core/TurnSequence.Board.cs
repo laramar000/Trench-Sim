@@ -469,6 +469,27 @@ public static partial class TurnSequence
     // Roster stage R6a (U117): a Trench Cleric's aura gives this model NEGATE FEAR now.
     public static bool Inspired(MatchState state, ModelId model) => Board.Inspired(state, model);
 
+    // Roster stage R7d (U131): after a hit, the hit model's player is asked about a Bodyguard first (when one is beside it),
+    // then the attacker about the Blood Markers of whoever takes the hit.
+    private static void AskAfterHit(Run run, ModelState actor)
+    {
+        if (run.State.InProgress is { Stage: RollStage.InjuryRoll, GuardOwed: true, Target: { } hit } && run.State.FindModel(hit) is { } hitModel
+            && Board.Bodyguards(run.State, hitModel).Count > 0)
+        {
+            run.Emit(new DecisionRequested(DecisionKind.UseBodyguard, hitModel.Seat));
+            return;
+        }
+        AskMarkersAfterHit(run, actor);
+    }
+
+    private static void AskMarkersAfterHit(Run run, ModelState actor)
+    {
+        if (run.State.InProgress is { Stage: RollStage.InjuryRoll, FriendlyFire: false, Target: { } target } && run.State.FindModel(target)!.BloodMarkers > 0)
+        {
+            run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
+        }
+    }
+
     // A failed Risky roll ends the activation, unless the model has a Talisman left: then its player is asked first.
     private static void EndForRisky(Run run, ModelId model)
     {
@@ -503,6 +524,7 @@ public static partial class TurnSequence
             ScatterAttack c => (DecisionKind.ChooseScatterPoint, c.Seat),
             UseTalisman c => (DecisionKind.UseTalisman, c.Seat),
             DeclineTalisman c => (DecisionKind.UseTalisman, c.Seat),
+            ChooseBodyguard c => (DecisionKind.UseBodyguard, c.Seat),
             _ => throw new ArgumentException("Not a choice."),
         };
         if (state.Pending is not { } pending)
@@ -534,6 +556,10 @@ public static partial class TurnSequence
                 return Board.FriendsNear(state, shooter, intended).Any(m => m.Id == c.Victim)
                     ? null
                     : new(ReasonCode.NotACandidate, "The shot must be aimed at one of your own models within 1\" of the target.", Board.RefIntoMelee);
+            case ChooseBodyguard { Guard: { } guard }:
+                return state.InProgress is { Target: { } hit } && state.FindModel(hit) is { } hitModel && Board.Bodyguards(state, hitModel).Any(g => g.Id == guard)
+                    ? null
+                    : new(ReasonCode.NotACandidate, "That model cannot take the hit: it must be a standing friend within 1\" of the model hit, with Bodyguard and the same PILGRIM or CULT keyword.", "1.0.2 p. 54");
             case ScatterAttack c:
                 var scattering = state.InProgress!;
                 return Board.CanScatterTo(state, scattering, c.At)
@@ -682,6 +708,14 @@ public static partial class TurnSequence
             case UseTalisman:
                 run.Emit(new TalismanUsed(state.ActiveModel!.Value));
                 break;
+            case ChooseBodyguard c:
+            {
+                var attack = state.InProgress!;
+                run.Emit(new BodyguardAnswered(attack.Target!.Value, c.Guard));
+                // The Blood Markers of whoever takes the hit come next.
+                AskMarkersAfterHit(run, run.State.FindModel(attack.Actor)!);
+                break;
+            }
             case DeclineTalisman:
                 run.Emit(new ActivationEnded(state.ActiveModel!.Value, ActivationEndReason.RiskyFailure));
                 break;
@@ -847,10 +881,9 @@ public static partial class TurnSequence
                 {
                     EndForRisky(run, progress.Actor);
                 }
-                else if (check.Outcome != SuccessOutcome.Failure && run.State.InProgress is { Stage: RollStage.InjuryRoll }
-                    && !progress.FriendlyFire && run.State.FindModel(progress.Target!.Value)!.BloodMarkers > 0)
+                else if (check.Outcome != SuccessOutcome.Failure)
                 {
-                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
+                    AskAfterHit(run, actor);
                 }
                 return true;
             }
@@ -909,9 +942,9 @@ public static partial class TurnSequence
                         EndForRisky(run, progress.Actor);
                     }
                 }
-                else if (check.Outcome != SuccessOutcome.Failure && run.State.FindModel(progress.Target.Value)!.BloodMarkers > 0)
+                else if (check.Outcome != SuccessOutcome.Failure)
                 {
-                    run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
+                    AskAfterHit(run, actor);
                 }
                 return true;
             }
@@ -939,6 +972,12 @@ public static partial class TurnSequence
             case RollStage.InjuryRoll:
             {
                 var target = s.FindModel(progress.Target!.Value)!;
+                // Roster stage R7d (U131): a Bodyguard offer still owed comes before the Blood Markers.
+                if (progress.GuardOwed && Board.Bodyguards(s, target).Count > 0)
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.UseBodyguard, target.Seat));
+                    return true;
+                }
                 // A blast's later models (U102): the offer to spend their Blood Markers comes before each roll.
                 if (!progress.MarkersAsked && !progress.FriendlyFire && target.BloodMarkers > 0)
                 {
