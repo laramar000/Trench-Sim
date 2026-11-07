@@ -396,6 +396,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.Bodyguard)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Infection)),
             (typeof(CastSpell), nameof(CastSpell.TakeBlessing)),
+            (typeof(Rules.Core.Dice.SuccessRollResult), nameof(Rules.Core.Dice.SuccessRollResult.Charmed)),
             (typeof(SpellCast), nameof(SpellCast.TakeBlessing)),
             (typeof(ModelProfile), nameof(ModelProfile.Loudspeakers)),
             (typeof(ModelProfile), nameof(ModelProfile.PuppetMaster)),

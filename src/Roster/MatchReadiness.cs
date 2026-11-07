@@ -320,6 +320,7 @@ public static class MatchReadiness
         ["what-is-yours-is-mine"] = "WhatIsYoursIsMine",
         ["exquisite-pain"] = "ExquisitePain",
         ["coveted-position"] = "CovetedPosition",
+        ["charm-of-acedia"] = "CharmOfAcedia",
     };
 
     private const int ZealotBaseMm = 32;

@@ -565,6 +565,12 @@ internal static class Board
         {
             return min == max ? $"{Spells.Name(spell)} costs {min} marker{(min == 1 ? "" : "s")}." : $"{Spells.Name(spell)} costs {min} to {max} markers.";
         }
+        // Roster stage R13 (U138): Charm of Acedia needs no target, and the caster must not already be under one.
+        if (spell == SpellKind.CharmOfAcedia)
+        {
+            return target is not null || takeBlessing ? "Charm of Acedia has no target."
+                : state.CharmedModel == caster.Id ? "The caster is already under a Charm of Acedia." : null;
+        }
         int BloodAfter(ModelState m) => m.BloodMarkers - paid.GetValueOrDefault(m.Id);
         var scenario = ScenarioOf(state)!;
         var from = BodyOf(state, caster)!;

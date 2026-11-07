@@ -24,7 +24,11 @@ public sealed record SuccessRollResult
     public RollRecord Dice { get; }
     public int NetDice { get; }
     public bool Risky { get; }
-    public SuccessOutcome Outcome => SuccessRoll.Classify(Dice.Total);
+    // Roster stage R13 (U138): a Charm of Acedia made this roll a Success whatever the dice said (a Critical Success stays one).
+    // The outcome is still worked out from the dice and this flag, which the rules check against the state.
+    public bool Charmed { get; init; }
+
+    public SuccessOutcome Outcome => Charmed && SuccessRoll.Classify(Dice.Total) == SuccessOutcome.Failure ? SuccessOutcome.Success : SuccessRoll.Classify(Dice.Total);
 
     // A failed Risky roll ends the model's activation (or the ACTION, outside an activation).
     // Applying that is the turn sequence's job; this only reports it.

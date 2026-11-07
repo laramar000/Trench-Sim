@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U137), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U138), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -253,7 +253,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
      Magic before its Injury Rolls, Blessing of the Serpent Moon and Oracle Beast Cloak around an Injury Roll against it, Too Proud
      to Fall when taken Down, Shadow-walker before a Retreat, Left-Hand Path in a move); and a client payment picker.
   5. Later group: multi-Fight models, Time Slip/Temporal Assassin, deployment rules, AMMUNITION with two possible guns.
-     Done since: Puppet Master client (slash key, R9a) and Arise and be Healed! (R12, U137; engine and CLI). Still unfinished: the
+     Done since: Puppet Master client (slash key, R9a) and Arise and be Healed! (R12, U137; engine and CLI) and Charm of Acedia (R13, U138). Still unfinished: the
      other abilities that place or move INFECTION/BLESSING MARKERS (listed in U135), "counts as charging" for a Loudspeakers
      move into 1".
   6. Field Shrine stage 2 (attacks and blasts remove it: Shoot, FightModel and the blast sweep must accept a shrine as a target;

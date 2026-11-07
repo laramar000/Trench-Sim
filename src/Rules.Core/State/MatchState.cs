@@ -294,6 +294,9 @@ public sealed record MatchState
     // Roster stage R11 (U136): the spells the active model has cast this activation (each at most once).
     public SpellKind SpellsCast { get; init; }
 
+    // Roster stage R13 (U138): a model under a Charm of Acedia: the next Success Roll it makes is a Success.
+    public ModelId? CharmedModel { get; init; }
+
     // Roster stage R6c (U119): the active model's first ACTION was a Charge and it has Counter-Charge: +1 DICE to its Melee
     // Attacks for the rest of the activation. Hashed only when set.
     public bool CounterCharging { get; init; }

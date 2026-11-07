@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using Rules.Core;
 using Rules.Core.Commands;
+using Rules.Core.Dice;
 using Rules.Core.Events;
 using Rules.Core.Geometry;
 using Rules.Core.State;
@@ -13,7 +14,7 @@ namespace Rules.Tests.Match;
 // BLOOD MARKERS from models without CULT or DEMONIC, anywhere, no roll, each spell once per activation.
 public class SpellTests
 {
-    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition, Traits = ModelTraits.Demonic };
+    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia, Traits = ModelTraits.Demonic };
 
     // A1 (the Court caster, DEMONIC) at (10, 10), A2 at (2, 30), B1 (16, 10), B2 (30, 30), activated A1; B1 and B2 carry markers.
     private static BoardPlay Ready(int blood = 2, params TerrainBlock[] terrain)
@@ -140,5 +141,77 @@ public class SpellTests
         Assert.DoesNotContain("spells", StateHash.Canonical(plain.State), StringComparison.Ordinal);
         Assert.Contains("spells=", StateHash.Canonical(Ready().State), StringComparison.Ordinal);
         Assert.Throws<ArgumentOutOfRangeException>(() => Rifleman with { Spells = (SpellKind)64 });
+    }
+
+    private static CastSpell Charm(params (string, int)[] pays) => new(Seat.One, A(1), SpellKind.CharmOfAcedia, Pay(pays));
+
+    private static DashModel DashTo(string x) => new(Seat.One, A(1), Path(("" + x, "10")));
+
+    // Roster stage R13 (U138): Charm of Acedia (cost 1): the caster's next Success Roll is a Success.
+    [Fact]
+    [Trait("Rule", "Charm of Acedia p. 159: the first roll of its next ACTION is a Success")]
+    public void CharmOfAcediaMakesTheNextRollASuccess()
+    {
+        var play = Ready();
+        play.Do(Charm(("B2", 1)));
+        Assert.Equal(A(1), play.State.CharmedModel);
+        // A Dash roll of 1 + 1 fails by the dice, but the charm makes it a Success: the model moves and the activation goes on.
+        var events = play.Do(DashTo("13"), 1, 1).Events;
+        var rolled = events.OfType<DashRolled>().Single();
+        Assert.Equal((true, SuccessOutcome.Success, false), (rolled.Check.Charmed, rolled.Check.Outcome, rolled.Check.RiskyFailure));
+        Assert.DoesNotContain(events, e => e is ActivationEnded);
+        Assert.Equal(P("13", "10"), play.M(A(1)).Position);
+        Assert.Null(play.State.CharmedModel);
+        // The charm is spent: the next roll is the dice's.
+        var shot = play.Do(new Shoot(Seat.One, A(1), B(1)), 1, 1).Events.OfType<RangedSuccessRolled>().Single();
+        Assert.Equal((false, SuccessOutcome.Failure), (shot.Check.Charmed, shot.Check.Outcome));
+    }
+
+    [Fact]
+    public void ACharmWaitsForTheCastersRollAndKeepsAGoodOne()
+    {
+        var play = Ready();
+        play.Do(Charm(("B2", 1)));
+        play.Do(new EndActivation(Seat.One));
+        // Another model's roll does not use it up, and is not made a Success.
+        play.Do(new ActivateModel(Seat.Two, B(1)));
+        play.Do(new DashModel(Seat.Two, B(1), Path(("19", "10"))));   // the opponent may spend B1's markers
+        var theirs = play.Do(new SpendMarkers(Seat.One, 0), 1, 1).Events.OfType<DashRolled>().Single();
+        Assert.Equal((false, SuccessOutcome.Failure), (theirs.Check.Charmed, theirs.Check.Outcome));
+        Assert.Equal(A(1), play.State.CharmedModel);
+        // A good roll stays what it was (a Critical Success is not made worse); the charm is still used up.
+        var good = Ready();
+        good.Do(Charm(("B2", 1)));
+        var rolled = good.Do(DashTo("13"), 6, 6).Events.OfType<DashRolled>().Single();
+        Assert.Equal((true, SuccessOutcome.CriticalSuccess), (rolled.Check.Charmed, rolled.Check.Outcome));
+        Assert.Null(good.State.CharmedModel);
+    }
+
+    [Fact]
+    public void CharmOfAcediaIsCheckedAndForgedRollsAreRefused()
+    {
+        var play = Ready();
+        play.Refused(new CastSpell(Seat.One, A(1), SpellKind.CharmOfAcedia, Pay(("B2", 1))) { Target = B(1) }, ReasonCode.SpellRefused);   // no target
+        play.Refused(Charm(), ReasonCode.SpellRefused);                                                                                        // nothing paid
+        play.Do(Charm(("B2", 1)));
+        play.Refused(Charm(("B1", 1)), ReasonCode.SpellRefused);                                                                               // once per activation
+        // A roll the charm did not touch is refused while it is on, and a Charmed roll when it is not.
+        var natural = Ready().Do(DashTo("13"), 6, 6).Events.OfType<DashRolled>().Single();
+        var plainDeclared = Reducer.Apply(Ready().State, new DashDeclared(A(1), [P("13", "10")]));
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(plainDeclared, new DashRolled(A(1), natural.Check with { Charmed = true })));
+        var charmedPlay = Ready();
+        charmedPlay.Do(Charm(("B2", 1)));
+        var charmedDeclared = Reducer.Apply(charmedPlay.State, new DashDeclared(A(1), [P("13", "10")]));
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(charmedDeclared, new DashRolled(A(1), natural.Check)));
+        Reducer.Apply(charmedDeclared, new DashRolled(A(1), natural.Check with { Charmed = true }));
+    }
+
+    [Fact]
+    public void TheHashAndTheWireSeeTheCharm()
+    {
+        var play = Ready();
+        Assert.DoesNotContain("charmed", StateHash.Canonical(play.State), StringComparison.Ordinal);
+        play.Do(Charm(("B2", 1)));
+        Assert.Contains("charmed=A1", StateHash.Canonical(play.State), StringComparison.Ordinal);
     }
 }

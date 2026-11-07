@@ -19,6 +19,9 @@ public enum SpellKind
 
     // Coveted Position (cost 2): swap places with a model within 12" in sight that is over 1" from others.
     CovetedPosition = 4,
+
+    // Charm of Acedia (cost 1): the first roll of the caster's next ACTION is a Success (U138: its next Success Roll).
+    CharmOfAcedia = 8,
 }
 
 // Some of one model's BLOOD MARKERS spent on a spell.
@@ -26,7 +29,7 @@ public sealed record MarkerPayment(ModelId Model, int Count);
 
 public static class Spells
 {
-    public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition;
+    public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia;
 
     // The number of markers a spell may cost: from Min to Max.
     public static (int Min, int Max) Cost(SpellKind spell) => spell switch
@@ -34,6 +37,7 @@ public static class Spells
         SpellKind.WhatIsYoursIsMine => (1, 1),
         SpellKind.ExquisitePain => (1, 2),
         SpellKind.CovetedPosition => (2, 2),
+        SpellKind.CharmOfAcedia => (1, 1),
         _ => throw new ArgumentOutOfRangeException(nameof(spell), "One spell at a time."),
     };
 
@@ -42,6 +46,7 @@ public static class Spells
         SpellKind.WhatIsYoursIsMine => "What is Yours is Mine",
         SpellKind.ExquisitePain => "Exquisite Pain",
         SpellKind.CovetedPosition => "Coveted Position",
+        SpellKind.CharmOfAcedia => "Charm of Acedia",
         _ => spell.ToString(),
     };
 

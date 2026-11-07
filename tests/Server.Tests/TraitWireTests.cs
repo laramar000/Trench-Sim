@@ -460,6 +460,18 @@ public class TraitWireTests
     // Roster stage R11 (U136): a model's spells, the cast command and its event travel on the wire and back; without them nothing
     // new is written.
     [Fact]
+    public void ACharmedRollRoundTripsAndIsLeftOutWhenNot()
+    {
+        var plain = new Rules.Core.Dice.SuccessRollResult(new Rules.Core.Dice.RollRecord([1, 1], [1, 1]), 0, false);
+        var dash = new DashRolled(new ModelId("A1"), plain);
+        Assert.DoesNotContain("charmed", Encoded(dash), StringComparison.OrdinalIgnoreCase);
+        Assert.False(((DashRolled)RoundTrip(dash)).Check.Charmed);
+        var charmed = new DashRolled(new ModelId("A1"), plain with { Charmed = true });
+        Assert.Contains("charmed", Encoded(charmed), StringComparison.OrdinalIgnoreCase);
+        Assert.True(((DashRolled)RoundTrip(charmed)).Check.Charmed);
+    }
+
+    [Fact]
     public void SpellsRoundTripAndAreLeftOutWhenUnset()
     {
         var setup = Plain();

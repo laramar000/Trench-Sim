@@ -130,6 +130,8 @@ public static class DiceRolls
         var result = outcome switch
         {
             SuccessOutcome.CriticalSuccess => $"✓✓ CRITICAL {pass} {check.Dice.Total}",
+            // Roster stage R13 (U138): a Charm of Acedia made it a Success.
+            SuccessOutcome.Success when check.Charmed => $"✓ {pass} {check.Dice.Total} (Charm of Acedia)",
             SuccessOutcome.Success => $"✓ {pass} {check.Dice.Total}",
             _ => $"✗ {fail} {check.Dice.Total}",
         };

@@ -44,6 +44,12 @@ public static class Reducer
         Require(state.Phase != Phase.Ended, "The match has ended.");
         RequireFollowUp(state, e);
         state = ForgoAttacks(state, e);
+        // Roster stage R13 (U138): a roll is Charmed exactly when its roller is under a Charm of Acedia.
+        var charm = CharmedRoll(e);
+        if (charm is { } roll)
+        {
+            Require(roll.Check.Charmed == (state.CharmedModel == roll.Roller), "A Success Roll is a Charm of Acedia's exactly when its roller is under one.");
+        }
 
         var next = e switch
         {
@@ -120,9 +126,26 @@ public static class Reducer
         next = Undig(next, e);
         // Roster stage R5g (U112): BLOOD MARKERS this event owes the enemies near a Crown or Damned Pact bearer.
         next = Burns(state, e, next);
+        if (charm is { Check.Charmed: true })
+        {
+            next = next with { CharmedModel = null };
+        }
         // Glorious Deeds (U96): what the deeds need to know, and any deed this event completed.
         return e is GloriousDeedCompleted ? next : Deeds.Track(state, e, next);
     }
+
+    // Roster stage R13 (U138): the Success Rolls a Charm of Acedia can make a Success: those of an ACTION (not a Morale Check or a mine).
+    private static (ModelId Roller, SuccessRollResult Check)? CharmedRoll(GameEvent e) => e switch
+    {
+        DashRolled x => (x.Model, x.Check),
+        SideClimbRolled x => (x.Model, x.Check),
+        RangedSuccessRolled x => (x.Attacker, x.Check),
+        PointSuccessRolled x => (x.Attacker, x.Check),
+        MeleeSuccessRolled x => (x.Attacker, x.Check),
+        TreatRolled x => (x.Model, x.Check),
+        SelfActionRolled x => (x.Model, x.Check),
+        _ => null,
+    };
 
     // A move that leaves the spot counts even when it ends there again.
     private static MatchState Undig(MatchState state, GameEvent e)
@@ -624,6 +647,11 @@ public static class Reducer
             next = TurnRules.WithModel(next, payer with { BloodMarkers = payer.BloodMarkers - p.Count });
         }
         var total = e.Payment.Sum(p => p.Count);
+        // Roster stage R13 (U138): the caster's next Success Roll is a Success.
+        if (e.Spell == SpellKind.CharmOfAcedia)
+        {
+            return next with { CharmedModel = e.Model };
+        }
         var target = next.FindModel(e.Target!.Value)!;
         caster = next.FindModel(e.Model)!;
         switch (e.Spell)

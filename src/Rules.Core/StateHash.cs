@@ -84,6 +84,10 @@ public static class StateHash
         {
             Line(sb, "forcedOwed", $"{forcedOwed.Source.Value},{forcedOwed.Action},{forcedOwed.Target?.Value ?? "-"},{(forcedOwed.Toward is { } to ? $"{to.X.Thousandths}:{to.Y.Thousandths}" : "-")}");
         }
+        if (state.CharmedModel is { } charmed)
+        {
+            Line(sb, "charmed", charmed.Value);
+        }
         if (state.SpellsCast != SpellKind.None)
         {
             Line(sb, "spellsCast", (int)state.SpellsCast);
