@@ -88,6 +88,7 @@ public static class Content
                         Loudspeakers = m.TryGetProperty("loudspeakers", out var loudspeakers) && loudspeakers.GetBoolean(),
                         PuppetMaster = m.TryGetProperty("puppetMaster", out var puppetMaster) && puppetMaster.GetBoolean(),
                         Blesses = m.TryGetProperty("blesses", out var blesses) && blesses.GetBoolean(),
+                        Spells = SpellSet(m),
                         DefusesMines = m.TryGetProperty("defusesMines", out var defusesMines) && defusesMines.GetBoolean(),
                         UndeadFortitude = m.TryGetProperty("undeadFortitude", out var undeadFortitude) && undeadFortitude.GetBoolean(),
                         AbioticLife = m.TryGetProperty("abioticLife", out var abioticLife) && abioticLife.GetBoolean(),
@@ -138,6 +139,12 @@ public static class Content
         model.TryGetProperty("traits", out var value)
             ? value.EnumerateArray().Aggregate(ModelTraits.None, (all, t) => all | Trait(t.GetString()!))
             : ModelTraits.None;
+
+    // Roster stage R11 (U136): the Court spells the model knows (Rules.Core SpellKind names); none when not given.
+    private static SpellKind SpellSet(JsonElement model) =>
+        model.TryGetProperty("spells", out var value)
+            ? value.EnumerateArray().Aggregate(SpellKind.None, (all, t) => all | (Enum.TryParse<SpellKind>(t.GetString(), out var spell) && Spells.IsOne(spell) ? spell : throw new FormatException($"Unknown spell {t.GetString()}.")))
+            : SpellKind.None;
 
     private static ModelTraits Trait(string name) =>
         Enum.GetValues<ModelTraits>().FirstOrDefault(t => t != ModelTraits.None && t.ToString() == name) is var t && t != ModelTraits.None

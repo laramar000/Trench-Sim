@@ -61,6 +61,8 @@ public enum ReasonCode
     TargetHidden,
     // Roster stage R8d: turning an oval base is refused (a round base, the same axis, no room, or it would change who it is engaged with)
     BaseTurnIllegal,
+    // Roster stage R11: a spell cannot be cast (not known, cast already, wrong payment or target)
+    SpellRefused,
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.

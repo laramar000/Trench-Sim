@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U135), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U136), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -243,14 +243,15 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
      `Placement`, `OvalBaseTests`. R8b done (movement, retreat, charge planner; `Shapes.SweptNear`/`SweptBodyOverlapsRect`, `Movement.CoresNear`; ovals do not climb towers). R8c done (sight samples, cover width, blast, mines, trenches, platforms; `OvalSightTests`). R8d done (U133): `ModelProfile.BaseHalfSpan`/`BodyAt`, `ModelState.Axis`, `PlaceModel.Axis`, `TurnBase`/`BaseTurned`, `Board.TurnProblem`, readiness plays ovals, key W, board drawing (not run in Godot). Oval bases are finished.
   2. DONE (R9a, U134): moving other models: Loudspeakers (client key comma) and Puppet Master (engine + CLI; no client button yet): `ForcedMoves`, `ModelsMoved`, `MatchState.ForcedMovesOwed`.
   3. DONE (R10, U135): marker kinds as recoloured blood markers, INFECTION MARKERS weapons, +1 infection on activation, God is With Us! (engine, CLI, client full stop key). Not played: the other abilities that place/move these markers (listed in U135).
-  4. Court spells (NOT started, 2026-11-07, three prerequisites found): (a) a model cannot be given Goetic Powers yet: the
-     builder says "the count is not checked" and the 16 spells only appear as variant special-rule text, so a roster stage
-     must first let an ELITE model carry powers (roster format, validator, builder UI, readiness); (b) the payment is a new
-     decision (pay BLOOD MARKERS from any models without CULT or DEMONIC, anywhere; no Success Roll; the same spell at most
-     once per activation); (c) 16 bespoke effects: ACTIONS (Slavemaster, Burning Inferno, Coveted Position, What is Yours is
-     Mine, Call of the Flesh, Exquisite Pain, Light of the Fallen, Charm of Acedia, Uncaring Gluttony) and free ones cast
-     inside other rolls (Blessing of the Serpent Moon, Left-Hand Path, Oracle Beast Cloak, Shadow-walker, Blood Magic, Too Proud
-     to Fall, Black Heart).
+  4. Court spells, PART DONE (R11, U136): the roster side was already there (the 16 spells are upgrades and abilities, so my
+     first note that models could not carry them was wrong). Played: What is Yours is Mine, Exquisite Pain, Coveted Position
+     (`SpellKind`, `CastSpell`/`SpellCast`, `Board.SpellRefusal`, payment from non-CULT/DEMONIC models, `MatchState.SpellsCast`;
+     CLI `cast`; no client picker yet). Left, in a sensible order: ACTION spells Call of the Flesh (next enemy must close in),
+     Light of the Fallen (Injury Roll + push D6"), Charm of Acedia (a guaranteed first roll), Uncaring Gluttony (disable one
+     equipment piece), Burning Inferno (a BLAST attack whose radius is the markers paid), Slavemaster (needs the Chain Fiend's
+     sacrifice); the free spells cast inside other rolls need a decision at each hook (Black Heart before a Success Roll, Blood
+     Magic before its Injury Rolls, Blessing of the Serpent Moon and Oracle Beast Cloak around an Injury Roll against it, Too Proud
+     to Fall when taken Down, Shadow-walker before a Retreat, Left-Hand Path in a move); and a client payment picker.
   5. Later group: multi-Fight models, Time Slip/Temporal Assassin, deployment rules, AMMUNITION with two possible guns.
      Also unfinished from R9a/R10: a client button and direction picking for the Puppet Master (engine and CLI only), Arise and
      be Healed!, the other abilities that place or move INFECTION/BLESSING MARKERS (listed in U135), "counts as charging" for a

@@ -398,6 +398,10 @@ public static class UnitPanel
         {
             parts.Add("Loudspeakers ACTION (comma key): a Risky roll at +2 DICE; friends within 8\" move 3\" towards the nearest visible enemy");
         }
+        if (p.Spells != SpellKind.None)
+        {
+            parts.Add("Spells: " + string.Join(", ", Enum.GetValues<SpellKind>().Where(k => k != SpellKind.None && p.Spells.HasFlag(k)).Select(Spells.Name)) + " (cast with the CLI: cast)");
+        }
         if (p.Blesses)
         {
             parts.Add("God is With Us! ACTION: a Risky roll; on a Success 1 BLESSING MARKER on itself or a friend within 6\" (CLI: bless)");

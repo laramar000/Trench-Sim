@@ -336,6 +336,11 @@ public sealed record ModelProfile
 
     // God is With Us! ACTION (Warbands p. 29; roster stage R10, U135): a Risky roll; on a Success 1 BLESSING MARKER is placed on the model or a friend within 6".
     public bool Blesses { get; init; }
+
+    // The Court's spells the model knows (Warbands pp. 157-165; roster stage R11, U136).
+    public SpellKind Spells { get => _spells; init => _spells = (value & ~State.Spells.All) != 0 ? throw new ArgumentOutOfRangeException(nameof(Spells), "Unknown spells.") : value; }
+
+    private readonly SpellKind _spells;
     // Defuse Mine (roster stage R7b, U129): a Risky roll when its move halts at a Mine Marker removes the marker.
     public bool DefusesMines { get; init; }
 
@@ -559,6 +564,7 @@ public sealed record ModelProfile
                 Loudspeakers = Loudspeakers,
                 PuppetMaster = PuppetMaster,
                 Blesses = Blesses,
+                Spells = Spells,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -625,6 +631,7 @@ public sealed record ModelProfile
                 Loudspeakers = Loudspeakers,
                 PuppetMaster = PuppetMaster,
                 Blesses = Blesses,
+                Spells = Spells,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -691,6 +698,7 @@ public sealed record ModelProfile
             Loudspeakers = Loudspeakers,
             PuppetMaster = PuppetMaster,
             Blesses = Blesses,
+            Spells = Spells,
             DefusesMines = DefusesMines,
             UndeadFortitude = UndeadFortitude,
             AbioticLife = AbioticLife,

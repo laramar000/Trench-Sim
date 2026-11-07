@@ -128,6 +128,9 @@ public sealed record ReadyModel(
     public bool Loudspeakers { get; init; }
     public bool PuppetMaster { get; init; }
     public bool Blesses { get; init; }
+
+    // Roster stage R11 (U136): the Court spells the model knows, by the engine's names (Rules.Core SpellKind).
+    public IReadOnlyList<string> Spells { get; init; } = [];
     public bool Hides { get; init; }
     public bool DefusesMines { get; init; }
     public bool UndeadFortitude { get; init; }
@@ -204,7 +207,7 @@ public sealed record MatchReady(
                     {
                         w.WriteBoolean("rangedAlsoMelee", true);
                     }
-                    foreach (var (field, words) in new[] { ("rangedWeaponKeywords", m.RangedWeaponKeywords), ("meleeWeaponKeywords", m.MeleeWeaponKeywords), ("negates", m.Negates), ("traits", m.Traits) })
+                    foreach (var (field, words) in new[] { ("rangedWeaponKeywords", m.RangedWeaponKeywords), ("meleeWeaponKeywords", m.MeleeWeaponKeywords), ("negates", m.Negates), ("traits", m.Traits), ("spells", m.Spells) })
                     {
                         if (words.Count > 0)
                         {
@@ -310,6 +313,14 @@ public static class MatchReadiness
         ["kavass"] = new(MeleeTo: 0),
     };
 
+    // Roster stage R11 (U136): the spell upgrades the engine plays, by upgrade id, with the engine's spell name.
+    private static readonly Dictionary<string, string> SpellUpgrades = new(StringComparer.Ordinal)
+    {
+        ["what-is-yours-is-mine"] = "WhatIsYoursIsMine",
+        ["exquisite-pain"] = "ExquisitePain",
+        ["coveted-position"] = "CovetedPosition",
+    };
+
     private const int ZealotBaseMm = 32;
     public const int MaxRangeInches = 60;
     public const int MaxModifier = 3;
@@ -370,6 +381,7 @@ public static class MatchReadiness
             }
             var baseMm = entry.BaseWidthMm;
             var (upgradeDash, upgradeCounter) = (false, false);
+            var spells = new List<string>();
             foreach (var upgradeId in model.Upgrades)
             {
                 // Roster stage R5j (U115): the Martyrdom Device upgrade is played (its Trigger ACTION).
@@ -393,6 +405,11 @@ public static class MatchReadiness
                     {
                         baseMm = ZealotBaseMm;
                     }
+                }
+                // Roster stage R11 (U136): a Court spell bought as an upgrade is a spell the model knows.
+                else if (SpellUpgrades.TryGetValue(upgradeId, out var spellName) && entry.Upgrades.Any(u => u.Id == upgradeId))
+                {
+                    spells.Add(spellName);
                 }
                 else if (entry.Upgrades.FirstOrDefault(u => u.Id == upgradeId) is { } unplayedUpgrade)
                 {
@@ -639,6 +656,7 @@ public static class MatchReadiness
                 Loudspeakers = abilities.Contains(LoudspeakersName),
                 PuppetMaster = abilities.Contains(PuppetMasterName),
                 Blesses = abilities.Contains(GodIsWithUsName),
+                Spells = [.. spells.Distinct()],
                 Hides = abilities.Contains(HideAction),
                 DefusesMines = abilities.Contains(DefuseMineName),
                 UndeadFortitude = abilities.Contains(UndeadFortitude),

@@ -783,6 +783,37 @@ public class MatchReadinessTests
         Assert.DoesNotContain("blesses", plain, StringComparison.Ordinal);
     }
 
+    // Roster stage R11 (U136): the three Court spells bought as upgrades are known by the model; the others are still named.
+    [Fact]
+    public void CourtSpellsAreKnown()
+    {
+        ModelProfile Praetor(string variant, params string[] spells)
+        {
+            var builder = RosterBuilder.Shipped();
+            builder.ChooseFaction("court");
+            builder.ChooseVariant(variant);
+            builder.Select(builder.Add("praetor"));
+            foreach (var spell in spells)
+            {
+                builder.ToggleUpgrade(spell);
+            }
+            var ready = builder.MatchCheck();
+            Assert.Empty(ready.Refused);
+            return Loaded(ready);
+        }
+        var envy = Praetor("dedicated-to-envy", "coveted-position", "what-is-yours-is-mine");
+        Assert.Equal(SpellKind.CovetedPosition | SpellKind.WhatIsYoursIsMine, envy.Spells);
+        Assert.Equal(SpellKind.ExquisitePain, Praetor("dedicated-to-lust", "exquisite-pain").Spells);
+        // A spell the engine does not play yet is named, and gives nothing.
+        var greed = RosterBuilder.Shipped();
+        greed.ChooseFaction("court");
+        greed.ChooseVariant("dedicated-to-greed");
+        greed.Select(greed.Add("praetor"));
+        greed.ToggleUpgrade("black-heart");
+        Assert.Contains(greed.MatchCheck().PlayedWithout, w => w.Contains("Black Heart", StringComparison.Ordinal));
+        Assert.Equal(SpellKind.None, Loaded(greed.MatchCheck()).Spells);
+    }
+
     // Roster stage R6f (U122): the upgrades the engine plays: Legionnaire, Zealot Strength (and a Trench Pilgrim's 32 mm
     // base), Janissary Veteran, Fearsome and Kavass; the others are still named.
     [Fact]

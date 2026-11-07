@@ -347,6 +347,8 @@ public static class Wire
             (typeof(SelfActionDeclared), nameof(SelfActionDeclared.Target)),
             (typeof(SelfActionRolled), nameof(SelfActionRolled.Target)),
             (typeof(TakeSelfAction), nameof(TakeSelfAction.Direction)),
+            (typeof(CastSpell), nameof(CastSpell.Target)),
+            (typeof(SpellCast), nameof(SpellCast.Target)),
             (typeof(SelfActionDeclared), nameof(SelfActionDeclared.Direction)),
         ];
 
@@ -393,6 +395,8 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.Hides)),
             (typeof(ModelProfile), nameof(ModelProfile.Bodyguard)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Infection)),
+            (typeof(CastSpell), nameof(CastSpell.TakeBlessing)),
+            (typeof(SpellCast), nameof(SpellCast.TakeBlessing)),
             (typeof(ModelProfile), nameof(ModelProfile.Loudspeakers)),
             (typeof(ModelProfile), nameof(ModelProfile.PuppetMaster)),
             (typeof(ModelProfile), nameof(ModelProfile.Blesses)),
@@ -452,6 +456,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.ClimbDice)),
             (typeof(ModelProfile), nameof(ModelProfile.Talismans)),
             (typeof(ModelProfile), nameof(ModelProfile.BaseHalfSpan)),
+            (typeof(ModelProfile), nameof(ModelProfile.Spells)),
             (typeof(PlaceModel), nameof(PlaceModel.Axis)),
             (typeof(ModelsMoved), nameof(ModelsMoved.Die)),
             (typeof(SelfActionRolled), nameof(SelfActionRolled.Placed)),

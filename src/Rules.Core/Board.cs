@@ -518,6 +518,102 @@ internal static class Board
     public static readonly Length LoudspeakerDistance = Length.FromInches(3);
     public static readonly Length PuppetReach = Length.FromInches(12);
 
+    // ---- Roster stage R11 (U136): Goetic spells ----
+
+    public static readonly Length CovetedReach = Length.FromInches(12);
+
+    // Why this model cannot cast that spell now, with that payment and target, or null when it can. The payment is BLOOD
+    // MARKERS from models on the battlefield without CULT or DEMONIC, as many in all as the spell costs; the effects are worked
+    // out after it is taken, so a model may pay with the very markers a spell would move.
+    public static string? SpellRefusal(MatchState state, ModelState caster, SpellKind spell, ImmutableArray<MarkerPayment> payment, ModelId? target, bool takeBlessing)
+    {
+        if (!Spells.IsOne(spell))
+        {
+            return "That is not one spell.";
+        }
+        if ((state.Setup!.ProfileOf(caster.Id)!.Spells & spell) == 0)
+        {
+            return $"The model does not know {Spells.Name(spell)}.";
+        }
+        if ((state.SpellsCast & spell) != 0)
+        {
+            return $"{Spells.Name(spell)} can be cast once per activation.";
+        }
+        var (min, max) = Spells.Cost(spell);
+        var paid = new Dictionary<ModelId, int>();
+        foreach (var p in payment.IsDefault ? [] : payment)
+        {
+            if (p.Count <= 0 || !paid.TryAdd(p.Model, p.Count))
+            {
+                return "Each model pays once, with at least 1 marker.";
+            }
+            if (state.FindModel(p.Model) is not { Position: not null } payer)
+            {
+                return "A payer must be on the battlefield.";
+            }
+            if ((state.Setup.ProfileOf(payer.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) != 0)
+            {
+                return "Markers on a CULT or DEMONIC model cannot pay for a spell.";
+            }
+            if (p.Count > payer.BloodMarkers)
+            {
+                return "A model cannot pay more BLOOD MARKERS than it has.";
+            }
+        }
+        var total = paid.Values.Sum();
+        if (total < min || total > max)
+        {
+            return min == max ? $"{Spells.Name(spell)} costs {min} marker{(min == 1 ? "" : "s")}." : $"{Spells.Name(spell)} costs {min} to {max} markers.";
+        }
+        int BloodAfter(ModelState m) => m.BloodMarkers - paid.GetValueOrDefault(m.Id);
+        var scenario = ScenarioOf(state)!;
+        var from = BodyOf(state, caster)!;
+        ModelState? victim = target is { } t ? state.FindModel(t) : null;
+        if (victim is null || victim.Position is null || victim.Status == ModelStatus.OutOfAction || BodyOf(state, victim) is not { } to)
+        {
+            return $"{Spells.Name(spell)} needs a target model on the battlefield.";
+        }
+        if (Cover.Of(scenario.Battlefield, from, to).Sight.Visibility == Visibility.None && victim.Id != caster.Id)
+        {
+            return "The caster must be able to see the target.";
+        }
+        switch (spell)
+        {
+            case SpellKind.WhatIsYoursIsMine:
+                if (victim.Id == caster.Id)
+                {
+                    return "The markers are taken from another model.";
+                }
+                if (takeBlessing ? victim.BlessingMarkers == 0 : BloodAfter(victim) == 0)
+                {
+                    return $"The target has no {(takeBlessing ? "BLESSING" : "BLOOD")} MARKER to take.";
+                }
+                return (takeBlessing ? caster.BlessingMarkers : BloodAfter(caster)) >= BloodMarkers.Max ? "The caster has 6 of those markers already." : null;
+            case SpellKind.ExquisitePain:
+                return BloodAfter(victim) + total > BloodMarkers.Max ? "The target could not take that many BLOOD MARKERS (at most 6)." : null;
+            default:
+                // Coveted Position: another model within 12", more than 1" from every model but the caster, and both bases must fit where the other stood.
+                if (victim.Id == caster.Id || !Measure.IsWithin(from, to, CovetedReach))
+                {
+                    return "Coveted Position swaps places with another model within 12\".";
+                }
+                if (from.Elevation != Length.Zero || to.Elevation != Length.Zero)
+                {
+                    return "A model on a tower cannot swap places.";
+                }
+                if (OnTable(state).Any(o => o.Id != caster.Id && o.Id != victim.Id && Measure.IsWithin(to, BodyOf(state, o)!, EngagementRange)))
+                {
+                    return "The target must be more than 1\" from every other model.";
+                }
+                var others = AllBodies(state).Where(b => b.Id != caster.Id.Value && b.Id != victim.Id.Value).ToList();
+                var casterThere = state.Setup.ProfileOf(caster.Id)!.BodyAt(caster.Id.Value, to.Centre, caster.Axis);
+                var victimHere = state.Setup.ProfileOf(victim.Id)!.BodyAt(victim.Id.Value, from.Centre, victim.Axis);
+                return Placement.Check(scenario.Battlefield, casterThere, others.Append(victimHere), null).IsLegal
+                    && Placement.Check(scenario.Battlefield, victimHere, others.Append(casterThere), null).IsLegal
+                    ? null : "Both bases must fit where the other stood.";
+        }
+    }
+
     // Loudspeakers ACTION (Warbands p. 53): every Standing friend within 8" of the source (as they stand when it succeeds) moves
     // up to 3" in a straight line towards the nearest enemy it can see (a Hidden one cannot be charged, so it is not one), in
     // id order, each from where the ones before left things. A move into 1" of that enemy counts as a charge: it may end in

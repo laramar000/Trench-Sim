@@ -113,6 +113,7 @@ public static class Reducer
             BodyguardAnswered x => OnBodyguardAnswered(state, x),
             BaseTurned x => OnBaseTurned(state, x),
             ModelsMoved x => OnModelsMoved(state, x),
+            SpellCast x => OnSpellCast(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
@@ -610,6 +611,36 @@ public static class Reducer
         return TurnRules.WithModel(state, model! with { Deployed = true, Position = e.Position, DugInAt = dug, Axis = e.Axis }) with { LastDeployer = e.Seat };
     }
 
+    // Roster stage R11 (U136): a spell is cast between the active model's actions: the payment comes off first, then the effect.
+    private static MatchState OnSpellCast(MatchState state, SpellCast e)
+    {
+        var caster = Active(state, e.Model, "A spell");
+        Require(state.InProgress is null && state.Retreat is null && state.MineStop is null && !state.MustEndActivation && !state.ReloadEnds, "A spell is cast between actions, not while one is being resolved.");
+        Require(Board.SpellRefusal(state, caster, e.Spell, e.Payment, e.Target, e.TakeBlessing) is null, "That spell cannot be cast like that.");
+        var next = state with { SpellsCast = state.SpellsCast | e.Spell };
+        foreach (var p in e.Payment)
+        {
+            var payer = next.FindModel(p.Model)!;
+            next = TurnRules.WithModel(next, payer with { BloodMarkers = payer.BloodMarkers - p.Count });
+        }
+        var total = e.Payment.Sum(p => p.Count);
+        var target = next.FindModel(e.Target!.Value)!;
+        caster = next.FindModel(e.Model)!;
+        switch (e.Spell)
+        {
+            case SpellKind.WhatIsYoursIsMine:
+                next = TurnRules.WithModel(next, e.TakeBlessing ? target with { BlessingMarkers = target.BlessingMarkers - 1 } : target with { BloodMarkers = target.BloodMarkers - 1 });
+                caster = next.FindModel(e.Model)!;
+                return TurnRules.WithModel(next, e.TakeBlessing ? caster with { BlessingMarkers = caster.BlessingMarkers + 1 } : caster with { BloodMarkers = caster.BloodMarkers + 1 });
+            case SpellKind.ExquisitePain:
+                return TurnRules.WithModel(next, target with { BloodMarkers = target.BloodMarkers + total });
+            default:
+                var (here, there) = (caster.Position, target.Position);
+                next = TurnRules.WithModel(next, caster with { Position = there });
+                return TurnRules.WithModel(next, target with { Position = here });
+        }
+    }
+
     // Roster stage R9a (U134): the models a successful Loudspeakers or Puppet Master ACTION moved, each to where the rules put it.
     private static MatchState OnModelsMoved(MatchState state, ModelsMoved e)
     {
@@ -736,6 +767,7 @@ public static class Reducer
             Aiming = false,
             CounterCharging = false,
             MovementHalved = false,
+            SpellsCast = SpellKind.None,
         };
     }
 

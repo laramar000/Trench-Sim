@@ -84,6 +84,10 @@ public static class StateHash
         {
             Line(sb, "forcedOwed", $"{forcedOwed.Source.Value},{forcedOwed.Action},{forcedOwed.Target?.Value ?? "-"},{(forcedOwed.Toward is { } to ? $"{to.X.Thousandths}:{to.Y.Thousandths}" : "-")}");
         }
+        if (state.SpellsCast != SpellKind.None)
+        {
+            Line(sb, "spellsCast", (int)state.SpellsCast);
+        }
         if (state.Aiming)
         {
             Line(sb, "aiming", true);
@@ -283,6 +287,7 @@ public static class StateHash
             + (p.Loudspeakers ? ",loudspeakers=yes" : "")
             + (p.PuppetMaster ? ",puppetMaster=yes" : "")
             + (p.Blesses ? ",blesses=yes" : "")
+            + (p.Spells == SpellKind.None ? "" : $",spells={(int)p.Spells}")
             + (p.DefusesMines ? ",defuses=yes" : "")
             + (p.UndeadFortitude ? ",undeadFortitude=yes" : "")
             + (p.AbioticLife ? ",abioticLife=yes" : "")

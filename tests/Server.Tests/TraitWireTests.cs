@@ -445,4 +445,28 @@ public class TraitWireTests
         Assert.Equal(1, ((SelfActionRolled)RoundTrip(blessed)).Placed);
         Assert.DoesNotContain("placed", Encoded(blessed with { Placed = 0 }), StringComparison.OrdinalIgnoreCase);
     }
+
+    // Roster stage R11 (U136): a model's spells, the cast command and its event travel on the wire and back; without them nothing
+    // new is written.
+    [Fact]
+    public void SpellsRoundTripAndAreLeftOutWhenUnset()
+    {
+        var setup = Plain();
+        var first = setup.Models[0];
+        Assert.DoesNotContain("spells", Encoded(new MatchCreated(setup)), StringComparison.OrdinalIgnoreCase);
+        var knows = first.Profile! with { Spells = SpellKind.ExquisitePain | SpellKind.CovetedPosition };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = knows } : m), setup.Scenario));
+        Assert.Contains("\"spells\"", Encoded(created), StringComparison.Ordinal);
+        Assert.Equal(knows, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+
+        var pay = System.Collections.Immutable.ImmutableArray.Create(new MarkerPayment(new ModelId("B1"), 1), new MarkerPayment(new ModelId("B2"), 1));
+        var cast = new SpellCast(new ModelId("A1"), SpellKind.ExquisitePain, pay) { Target = new ModelId("B1") };
+        var back = (SpellCast)RoundTrip(cast);
+        Assert.Equal((SpellKind.ExquisitePain, new ModelId("B1"), 2), (back.Spell, back.Target, back.Payment.Length));
+        Assert.DoesNotContain("takeBlessing", Encoded(cast), StringComparison.OrdinalIgnoreCase);
+        Assert.True(((SpellCast)RoundTrip(cast with { TakeBlessing = true })).TakeBlessing);
+        var command = new SubmitCommand("c7", 7, 0, new Rules.Core.Commands.CastSpell(Seat.One, new ModelId("A1"), SpellKind.ExquisitePain, pay) { Target = new ModelId("B1") });
+        Assert.Contains("payment", Encoding.UTF8.GetString(Codec.Encode(command)), StringComparison.OrdinalIgnoreCase);
+    }
 }

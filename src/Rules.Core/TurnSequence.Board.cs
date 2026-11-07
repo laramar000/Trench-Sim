@@ -204,6 +204,20 @@ public static partial class TurnSequence
     public const string RefTreat = "1.0.2 p. 84";
 
     // Roster stage R6b (U118): an Aim or Fortify ACTION (Warbands pp. 28, 33, 85), once per activation each.
+    // Roster stage R11 (U136): casting a spell, between the active model's actions.
+    private static Rejection? ValidateSpell(MatchState state, CastSpell c)
+    {
+        if (ValidateActing(state, c.Seat, c.Model, out var caster) is { } rejection)
+        {
+            return rejection;
+        }
+        if (state.InProgress is not null || state.Retreat is not null || state.MineStop is not null || state.MustEndActivation || state.ReloadEnds)
+        {
+            return new(ReasonCode.ActionAlreadyTaken, "A spell is cast between actions, not while one is being resolved.", RefActions);
+        }
+        return Board.SpellRefusal(state, caster!, c.Spell, c.Payment, c.Target, c.TakeBlessing) is { } why ? new(ReasonCode.SpellRefused, why, RefActions) : null;
+    }
+
     // Roster stage R8d (U133): turning an oval base in place, free, by the activating model between its actions.
     private static Rejection? ValidateTurnBase(MatchState state, TurnBase c)
     {
@@ -755,6 +769,9 @@ public static partial class TurnSequence
                 break;
             case TurnBase c:
                 run.Emit(new BaseTurned(c.Model, c.Axis));
+                break;
+            case CastSpell c:
+                run.Emit(new SpellCast(c.Model, c.Spell, c.Payment) { Target = c.Target, TakeBlessing = c.TakeBlessing });
                 break;
             case ChooseBodyguard c:
             {

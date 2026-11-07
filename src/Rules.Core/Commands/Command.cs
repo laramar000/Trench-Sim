@@ -152,3 +152,13 @@ public sealed record ChooseBodyguard(Seat Seat, ModelId? Guard) : Command;
 
 // Roster stage R8d (U133): the active model's base is turned in place to lie along the other table axis. Free, not an ACTION.
 public sealed record TurnBase(Seat Seat, ModelId Model, BaseAxis Axis) : Command;
+
+// Roster stage R11 (U136): casts a spell the model knows (a "Cast Spell ACTION"), paying its cost in BLOOD MARKERS from models
+// without CULT or DEMONIC. Target is the model in sight a spell works on; TakeBlessing (What is Yours is Mine) takes a
+// BLESSING MARKER instead of a BLOOD MARKER.
+public sealed record CastSpell(Seat Seat, ModelId Model, SpellKind Spell, ImmutableArray<MarkerPayment> Payment) : Command
+{
+    public ModelId? Target { get; init; }
+
+    public bool TakeBlessing { get; init; }
+}

@@ -55,6 +55,7 @@ public static class EventText
         ObjectivesScored o => $"Turn {o.Turn} scoring: {string.Join(", ", o.Results.Where(r => r.Controller is not null).Select(r => $"{r.ObjectiveId} to {r.Controller}"))}{(o.Results.All(r => r.Controller is null) ? "nobody controls an Objective" : "")}.",
         AttackerChosen a => $"{a.Attacker} attacks; {a.Attacker.Opponent()} defends.",
         TrenchesScored t => $"Turn {t.Turn} trench scoring: {string.Join(", ", t.Results.Select(r => $"{r.TrenchId} defender +{r.DefenderPoints}, attacker +{r.AttackerPoints}"))}.",
+        SpellCast s => $"  {s.Model} casts {Spells.Name(s.Spell)}{(s.Target is { } t ? $" on {t}" : "")}{(s.TakeBlessing ? " (a BLESSING MARKER)" : "")}, paid with {string.Join(", ", s.Payment.Select(p => $"{p.Count} from {p.Model}"))}.",
         ModelsMoved m => m.Moves.IsEmpty ? $"  {m.Source}'s ACTION moves nobody." : $"  {m.Source}'s ACTION moves {string.Join(", ", m.Moves.Select(x => $"{x.Model} to {x.To}"))}{(m.Die > 0 ? $" (D6: {m.Die})" : "")}.",
         BaseTurned t => $"  {t.Model} turns its base to lie along {t.Axis}.",
         BodyguardAnswered { Guard: { } g } b => $"  {g} takes the hit meant for {b.Target} (Bodyguard).",
@@ -125,6 +126,7 @@ public static class EventText
         PointAttackDeclared p => new(Id(p.Attacker), p.Weapon == ModelProfile.GrenadeWeapon ? "THROWS AT" : "SHOOTS AT", At(p.At) + (p.LongRange ? " (long range)" : "")),
         PointSuccessRolled r => new(Id(r.Attacker), "ROLLS", $"{r.Check.Dice.Total} to hit {At(r.At)}: {r.Check.Outcome}"),
         MartyrdomTriggered m => new(Id(m.Model), "DETONATES", string.Join(", ", m.Hit.Select(Id))),
+        SpellCast s => new(Id(s.Model), "CASTS", Spells.Name(s.Spell) + (s.Target is { } t ? $" on {Id(t)}" : "")),
         ModelsMoved m => new(Id(m.Source), "MOVES", m.Moves.IsEmpty ? "nobody" : string.Join(", ", m.Moves.Select(x => Id(x.Model))) + (m.Die > 0 ? $" (D6: {m.Die})" : "")),
         BaseTurned t => new(Id(t.Model), "TURNS ITS BASE", $"to lie along {t.Axis}"),
         BodyguardAnswered { Guard: { } g } b => new(Id(g), "TAKES THE HIT", $"meant for {Id(b.Target)} (Bodyguard)"),
@@ -206,6 +208,7 @@ public static class EventText
         TurnStarted or TurnEnded or PhaseEntered or InitiativeDetermined or FirstActivationChosen or MoraleOrderSet => EventKind.Turn,
         ActivationStarted or ActivationEnded or TalismanUsed or BaseTurned => EventKind.Activation,
         ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved or MineRevealed or MineDefuseRolled or MoveResumed or ModelsMoved => EventKind.Movement,
+        SpellCast => EventKind.Status,
         RangedAttackDeclared or ShootingTargetRolled or FriendlyTargetChosen or RangedSuccessRolled or BlastHit or AttackScattered or ScatterMissed
             or PointAttackDeclared or PointSuccessRolled or PointBlastHit or BodyguardAnswered => EventKind.Shooting,
         ChargeDeclared or ChargeRolled or ChargeMoved => EventKind.Charge,

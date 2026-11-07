@@ -759,3 +759,12 @@ public sealed record ModelsMoved(ModelId Source, ImmutableArray<ForcedMove> Move
 {
     public int Die { get; init; }
 }
+
+// Roster stage R11 (U136): Model cast Spell, paid for by Payment; its effect on Target (and TakeBlessing) follows from the
+// positions and markers at that moment, so the event holds no result.
+public sealed record SpellCast(ModelId Model, SpellKind Spell, ImmutableArray<MarkerPayment> Payment) : GameEvent
+{
+    public ModelId? Target { get; init; }
+
+    public bool TakeBlessing { get; init; }
+}

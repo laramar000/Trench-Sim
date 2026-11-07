@@ -289,6 +289,9 @@ public sealed record MatchState
     // Roster stage R9a (U134): a Loudspeakers or Puppet Master ACTION succeeded; the forced moves it causes are the next event.
     public ForcedOwed? ForcedMovesOwed { get; init; }
 
+    // Roster stage R11 (U136): the spells the active model has cast this activation (each at most once).
+    public SpellKind SpellsCast { get; init; }
+
     // Roster stage R6c (U119): the active model's first ACTION was a Charge and it has Counter-Charge: +1 DICE to its Melee
     // Attacks for the rest of the activation. Hashed only when set.
     public bool CounterCharging { get; init; }
