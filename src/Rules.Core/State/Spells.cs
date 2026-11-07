@@ -28,6 +28,22 @@ public enum SpellKind
 
     // Blood Magic (cost 1): +1 INJURY DICE on the Injury Rolls of the caster's next attack (U139).
     BloodMagic = 32,
+
+    // Shadow-walker (cost 2): the caster's next Retreat this activation draws no free attacks (R15, U140).
+    ShadowWalker = 64,
+
+    // Call of the Flesh (cost 2, ACTION that ends the caster's activation): the next enemy to activate must first close in on the caster (R15, U140).
+    CallOfTheFlesh = 128,
+
+    // The rest are played in later stages (R16-R18); they are listed so the flags stay stable.
+    LightOfTheFallen = 256,
+    UncaringGluttony = 512,
+    BurningInferno = 1024,
+    Slavemaster = 2048,
+    LeftHandPath = 4096,
+    BlessingOfTheSerpentMoon = 8192,
+    OracleBeastCloak = 16384,
+    TooProudToFall = 32768,
 }
 
 // Some of one model's BLOOD MARKERS spent on a spell.
@@ -35,7 +51,8 @@ public sealed record MarkerPayment(ModelId Model, int Count);
 
 public static class Spells
 {
-    public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic;
+    public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic
+        | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh;
 
     // The number of markers a spell may cost: from Min to Max.
     public static (int Min, int Max) Cost(SpellKind spell) => spell switch
@@ -44,6 +61,7 @@ public static class Spells
         SpellKind.ExquisitePain => (1, 2),
         SpellKind.CovetedPosition => (2, 2),
         SpellKind.CharmOfAcedia or SpellKind.BlackHeart or SpellKind.BloodMagic => (1, 1),
+        SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh => (2, 2),
         _ => throw new ArgumentOutOfRangeException(nameof(spell), "One spell at a time."),
     };
 
@@ -55,6 +73,8 @@ public static class Spells
         SpellKind.CharmOfAcedia => "Charm of Acedia",
         SpellKind.BlackHeart => "Black Heart",
         SpellKind.BloodMagic => "Blood Magic",
+        SpellKind.ShadowWalker => "Shadow-walker",
+        SpellKind.CallOfTheFlesh => "Call of the Flesh",
         _ => spell.ToString(),
     };
 

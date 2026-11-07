@@ -14,13 +14,16 @@ namespace Rules.Tests.Match;
 // BLOOD MARKERS from models without CULT or DEMONIC, anywhere, no roll, each spell once per activation.
 public class SpellTests
 {
-    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic, Traits = ModelTraits.Demonic };
+    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh, Traits = ModelTraits.Demonic };
 
     // A1 (the Court caster, DEMONIC) at (10, 10), A2 at (2, 30), B1 (16, 10), B2 (30, 30), activated A1; B1 and B2 carry markers.
-    private static BoardPlay Ready(int blood = 2, params TerrainBlock[] terrain)
+    private static BoardPlay Ready(int blood = 2, params TerrainBlock[] terrain) => Ready(blood, Rifleman, terrain);
+
+    // The same set-up with the enemy (and A2) played by another profile, e.g. one that can fight.
+    private static BoardPlay Ready(int blood, ModelProfile others, TerrainBlock[] terrain)
     {
         var scenario = new Scenario(Field("36", terrain, [new DeploymentZone("west", F("0", "0", "6", "36")), new DeploymentZone("east", F("30", "0", "36", "36"))]), []);
-        var play = new BoardPlay(2, id => id == A(1) ? Court : Rifleman, scenario: scenario).ToActivation();
+        var play = new BoardPlay(2, id => id == A(1) ? Court : others, scenario: scenario).ToActivation();
         play.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30").Mark(B(1), blood).Mark(B(2), blood);
         play.Do(new ActivateModel(Seat.One, A(1)));
         return play;
@@ -140,7 +143,7 @@ public class SpellTests
         var plain = new BoardPlay(2).ToActivation();
         Assert.DoesNotContain("spells", StateHash.Canonical(plain.State), StringComparison.Ordinal);
         Assert.Contains("spells=", StateHash.Canonical(Ready().State), StringComparison.Ordinal);
-        Assert.Throws<ArgumentOutOfRangeException>(() => Rifleman with { Spells = (SpellKind)64 });
+        Assert.Throws<ArgumentOutOfRangeException>(() => Rifleman with { Spells = (SpellKind)(1 << 20) });
     }
 
     private static CastSpell Charm(params (string, int)[] pays) => new(Seat.One, A(1), SpellKind.CharmOfAcedia, Pay(pays));
@@ -246,6 +249,63 @@ public class SpellTests
         play.Do(Free(SpellKind.BlackHeart, ("B2", 1)));
         var declared = Reducer.Apply(play.State, new DashDeclared(A(1), [P("13", "10")]));
         Assert.Throws<InvalidEventException>(() => Reducer.Apply(declared, new DashRolled(A(1), natural.Check)));
+    }
+
+    // Roster stage R15 (U140): Shadow-walker (a Retreat with no free attacks) and Call of the Flesh (the next enemy must close in).
+    [Fact]
+    [Trait("Rule", "Shadow-walker p. 165: before it Retreats, enemies get no attack as it leaves")]
+    public void AShadowWalkerRetreatsWithoutFreeAttacks()
+    {
+        var control = Ready(2, MeleePlay.Brawler, []);
+        control.Put(B(1), "11", "10");
+        control.Do(new RetreatModel(Seat.One, A(1), Path(("6", "10"))));
+        Assert.Equal(DecisionKind.FreeFight, control.State.Pending!.Kind);
+
+        var play = Ready(2, MeleePlay.Brawler, []);
+        play.Put(B(1), "11", "10");
+        play.Refused(Free(SpellKind.ShadowWalker, ("B2", 1)), ReasonCode.SpellRefused);   // costs 2
+        play.Do(Free(SpellKind.ShadowWalker, ("B2", 2)));
+        Assert.Equal(A(1), play.State.ShadowWalking);
+        play.Refused(Free(SpellKind.ShadowWalker, ("B1", 2)), ReasonCode.SpellRefused);   // already in place
+        var events = play.Do(new RetreatModel(Seat.One, A(1), Path(("6", "10")))).Events;
+        Assert.Null(play.State.Pending);
+        Assert.Contains(events, e => e is RetreatResolved { Moved: true });
+        Assert.Equal(P("6", "10"), play.M(A(1)).Position);
+    }
+
+    [Fact]
+    public void AShadowWalkerNotUsedEndsWithTheActivationAndNeedsTheRetreatStillToCome()
+    {
+        var play = Ready();
+        play.Do(new MoveModel(Seat.One, A(1), Path(("9", "10"))));
+        play.Refused(Free(SpellKind.ShadowWalker, ("B2", 2)), ReasonCode.SpellRefused);   // it has moved already
+        var other = Ready();
+        other.Do(Free(SpellKind.ShadowWalker, ("B2", 2)));
+        other.Do(new EndActivation(Seat.One));
+        Assert.Null(other.State.ShadowWalking);
+    }
+
+    [Fact]
+    [Trait("Rule", "Call of the Flesh p. 163: the next enemy to Activate must first Move, Charge or Retreat as close as possible, and cannot attack the caster that Turn")]
+    public void CallOfTheFleshMakesTheNextEnemyCloseInAndSparesTheCaster()
+    {
+        var play = Ready();
+        var cast = play.Do(Free(SpellKind.CallOfTheFlesh, ("B2", 2)));
+        Assert.Contains(cast.Events, e => e is ActivationEnded { Model: var m } && m == A(1));
+        Assert.Equal((A(1), false), (play.State.CallTarget, play.State.CallActive));
+        Assert.Null(play.State.ActiveModel);
+        play.Do(new ActivateModel(Seat.Two, B(1)));
+        Assert.True(play.State.CallActive);
+        // Nothing but a move towards the caster first.
+        play.Refused(new DashModel(Seat.Two, B(1), Path(("20", "10"))), ReasonCode.ActionExcluded);
+        play.Refused(new Shoot(Seat.Two, B(1), A(1)), ReasonCode.ActionExcluded);
+        play.Refused(new MoveModel(Seat.Two, B(1), Path(("20", "10"))), ReasonCode.ActionExcluded);   // away from the caster
+        play.Do(new MoveModel(Seat.Two, B(1), Path(("13", "10"))));
+        // The caster is still safe from it; anything else is free.
+        play.Refused(new Shoot(Seat.Two, B(1), A(1)), ReasonCode.ActionExcluded);
+        play.Do(new EndActivation(Seat.Two));
+        Assert.Null(play.State.CallTarget);
+        Assert.False(play.State.CallActive);
     }
 
     [Fact]

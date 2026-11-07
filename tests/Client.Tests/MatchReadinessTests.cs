@@ -826,6 +826,13 @@ public class MatchReadinessTests
         wrath.ChooseVariant("dedicated-to-wrath");
         wrath.Select(wrath.Add("hell-knight"));
         Assert.Equal(SpellKind.BloodMagic, Loaded(wrath.MatchCheck()).Spells);
+        // Roster stage R15 (U140): Call of the Flesh is an upgrade, Shadow-walker the Shadow Hunter's own ability.
+        Assert.Equal(SpellKind.CallOfTheFlesh, Praetor("dedicated-to-lust", "call-of-the-flesh").Spells);
+        var hunter = RosterBuilder.Shipped();
+        hunter.ChooseFaction("court");
+        hunter.ChooseVariant("dedicated-to-wrath");
+        hunter.Select(hunter.Add("shadow-hunter"));
+        Assert.True(Loaded(hunter.MatchCheck()).Spells.HasFlag(SpellKind.ShadowWalker));
         // A spell the engine does not play yet is named, and gives nothing.
         var gluttony = RosterBuilder.Shipped();
         gluttony.ChooseFaction("court");

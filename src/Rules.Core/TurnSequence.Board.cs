@@ -90,6 +90,60 @@ public static partial class TurnSequence
 
     private const string RefHateful = "Warbands p. 169";
 
+    // Roster stage R15 (U140): a model called by a Call of the Flesh takes no other ACTION until it has moved, charged or retreated
+    // closer to the caster (or charged it); it never attacks the caster that turn. It may always end its activation.
+    private static Rejection? CalledRefusal(MatchState state, Command command)
+    {
+        if (!state.CallActive || state.CallTarget is not { } caster || state.ActiveModel is not { } active || state.InProgress is not null
+            || state.Pending is not null || state.Setup?.Scenario is null || state.FindModel(active) is not { } model || state.FindModel(caster) is not { } source)
+        {
+            return null;
+        }
+        const string why = "Call of the Flesh: the called model closes in on the caster first and cannot attack it this turn.";
+        var moved = (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) != 0;
+        switch (command)
+        {
+            case Shoot c when c.Attacker == active && c.Target == caster:
+            case FightModel f when f.Model == active && f.Target == caster:
+                return new(ReasonCode.ActionExcluded, why, RefCall);
+            case DashModel or Shoot or ShootPoint or TreatModel or TakeSelfAction or TriggerMartyrdom or FightModel or CastSpell when !moved && ActsFor(command, active):
+                return new(ReasonCode.ActionExcluded, why, RefCall);
+            case ChargeModel c when !moved && c.Model == active && c.Target != caster:
+                return new(ReasonCode.ActionExcluded, why, RefCall);
+            case MoveModel m when !moved && m.Model == active:
+                return EndsCloser(state, model, source, m.Path) ? null : new(ReasonCode.ActionExcluded, why, RefCall);
+            case RetreatModel r when !moved && r.Model == active:
+                return EndsCloser(state, model, source, r.Path) ? null : new(ReasonCode.ActionExcluded, why, RefCall);
+            default:
+                return null;
+        }
+    }
+
+    private static bool ActsFor(Command command, ModelId active) => command switch
+    {
+        DashModel c => c.Model == active,
+        Shoot c => c.Attacker == active,
+        ShootPoint c => c.Attacker == active,
+        TreatModel c => c.Model == active,
+        TakeSelfAction c => c.Model == active,
+        TriggerMartyrdom c => c.Model == active,
+        FightModel c => c.Model == active,
+        CastSpell c => c.Model == active,
+        _ => false,
+    };
+
+    private static bool EndsCloser(MatchState state, ModelState mover, ModelState caster, IReadOnlyList<Point2> path)
+    {
+        if (path.Count == 0 || Board.BodyOf(state, mover) is not { } from || Board.BodyOf(state, caster) is not { } to)
+        {
+            return false;
+        }
+        var end = state.Setup!.ProfileOf(mover.Id)!.BodyAt(mover.Id.Value, path[^1], mover.Axis);
+        return Measure.Gap(end, to) < Measure.Gap(from, to);
+    }
+
+    private const string RefCall = "Warbands p. 163";
+
     private static Rejection? ValidateActing(MatchState state, Seat seat, ModelId id, out ModelState? model)
     {
         model = null;
@@ -785,6 +839,11 @@ public static partial class TurnSequence
                 break;
             case CastSpell c:
                 run.Emit(new SpellCast(c.Model, c.Spell, c.Payment) { Target = c.Target, TakeBlessing = c.TakeBlessing });
+                // Roster stage R15 (U140): Call of the Flesh is an ACTION that ends the caster's activation.
+                if (c.Spell == SpellKind.CallOfTheFlesh)
+                {
+                    run.Emit(new ActivationEnded(c.Model, ActivationEndReason.Voluntary));
+                }
                 break;
             case ChooseBodyguard c:
             {

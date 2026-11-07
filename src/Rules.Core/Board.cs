@@ -577,6 +577,21 @@ internal static class Board
             return target is not null || takeBlessing ? $"{Spells.Name(spell)} has no target."
                 : (spell == SpellKind.BlackHeart ? state.BlackHeartModel : state.BloodMagicModel) == caster.Id ? $"The caster already has a {Spells.Name(spell)} in place." : null;
         }
+        // Roster stage R15 (U140): Shadow-walker and Call of the Flesh need no target.
+        if (spell is SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh)
+        {
+            if (target is not null || takeBlessing)
+            {
+                return $"{Spells.Name(spell)} has no target.";
+            }
+            if (spell == SpellKind.ShadowWalker)
+            {
+                return state.ShadowWalking == caster.Id ? "The caster already has a Shadow-walker in place."
+                    : (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) != 0 ? "Shadow-walker is cast before the caster's Retreat, which is one of Move, Charge or Retreat."
+                    : null;
+            }
+            return state.CallTarget is not null ? "A Call of the Flesh is already waiting for an enemy." : null;
+        }
         int BloodAfter(ModelState m) => m.BloodMarkers - paid.GetValueOrDefault(m.Id);
         var scenario = ScenarioOf(state)!;
         var from = BodyOf(state, caster)!;
@@ -775,6 +790,11 @@ internal static class Board
     {
         var retreater = state.FindModel(retreat.Model);
         if (retreater?.Position is null || retreater.Status == ModelStatus.OutOfAction)
+        {
+            return [];
+        }
+        // Roster stage R15 (U140): a Shadow-walker's Retreat draws no free attacks.
+        if (state.ShadowWalking == retreater.Id)
         {
             return [];
         }

@@ -302,6 +302,14 @@ public sealed record MatchState
 
     public ModelId? BloodMagicModel { get; init; }
 
+    // Roster stage R15 (U140): a Shadow-walker waiting on its caster's Retreat; and a Call of the Flesh: the caster the next enemy must
+    // close in on, and whether that enemy is activating now (the call is spent when its activation ends).
+    public ModelId? ShadowWalking { get; init; }
+
+    public ModelId? CallTarget { get; init; }
+
+    public bool CallActive { get; init; }
+
     // Roster stage R6c (U119): the active model's first ACTION was a Charge and it has Counter-Charge: +1 DICE to its Melee
     // Attacks for the rest of the activation. Hashed only when set.
     public bool CounterCharging { get; init; }

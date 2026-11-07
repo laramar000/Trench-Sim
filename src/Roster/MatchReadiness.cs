@@ -322,6 +322,7 @@ public static class MatchReadiness
         ["coveted-position"] = "CovetedPosition",
         ["charm-of-acedia"] = "CharmOfAcedia",
         ["black-heart"] = "BlackHeart",
+        ["call-of-the-flesh"] = "CallOfTheFlesh",
     };
 
     private const int ZealotBaseMm = 32;
@@ -389,6 +390,10 @@ public static class MatchReadiness
             if (abilities.Contains(BloodMagicName))
             {
                 spells.Add("BloodMagic");
+            }
+            if (abilities.Contains(ShadowWalkerName))
+            {
+                spells.Add("ShadowWalker");
             }
             foreach (var upgradeId in model.Upgrades)
             {
@@ -743,6 +748,7 @@ public static class MatchReadiness
     private const string LoudspeakersName = "Loudspeakers ACTION";
     private const string PuppetMasterName = "Puppet Master ACTION";
     private const string GodIsWithUsName = "God is With Us! ACTION";
+    private const string ShadowWalkerName = "Shadow-walker (Spell, cost 2)";
     private const string BloodMagicName = "Blood Magic (Spell, cost 1)";
     private const string AriseName = "Arise and be Healed! ACTION";
     private const string HideAction = "Hide ACTION";
@@ -797,7 +803,7 @@ public static class MatchReadiness
         AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
         Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
         TeethAndClaws, TeethAndClawsLion, FeebleFlailing, CrushingBlows, PoisonStingers, OverwhelmingHorde, TrampleAction,
-        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName,
+        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName, ShadowWalkerName,
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1

@@ -678,6 +678,15 @@ public static class Reducer
         {
             return next with { BloodMagicModel = e.Model };
         }
+        // Roster stage R15 (U140): Shadow-walker waits for the Retreat; Call of the Flesh waits for the next enemy to activate.
+        if (e.Spell == SpellKind.ShadowWalker)
+        {
+            return next with { ShadowWalking = e.Model };
+        }
+        if (e.Spell == SpellKind.CallOfTheFlesh)
+        {
+            return next with { CallTarget = e.Model, CallActive = false };
+        }
         var target = next.FindModel(e.Target!.Value)!;
         caster = next.FindModel(e.Model)!;
         switch (e.Spell)
@@ -822,6 +831,9 @@ public static class Reducer
             CounterCharging = false,
             MovementHalved = false,
             SpellsCast = SpellKind.None,
+            ShadowWalking = null,
+            // Roster stage R15 (U140): the next enemy to activate after a Call of the Flesh is the one called.
+            CallActive = state.CallActive || state.CallTarget is { } caller && state.FindModel(caller)?.Seat != e.Seat,
         };
     }
 
@@ -844,7 +856,7 @@ public static class Reducer
         {
             Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false, BlackHeartModel = null, BloodMagicModel = null };
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false, BlackHeartModel = null, BloodMagicModel = null, ShadowWalking = null, CallTarget = state.CallActive ? null : state.CallTarget, CallActive = false };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)

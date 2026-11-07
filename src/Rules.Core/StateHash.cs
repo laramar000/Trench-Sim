@@ -96,6 +96,14 @@ public static class StateHash
         {
             Line(sb, "bloodMagic", magic.Value);
         }
+        if (state.ShadowWalking is { } shadow)
+        {
+            Line(sb, "shadowWalking", shadow.Value);
+        }
+        if (state.CallTarget is { } called)
+        {
+            Line(sb, "called", $"{called.Value}:{Bool(state.CallActive)}");
+        }
         if (state.SpellsCast != SpellKind.None)
         {
             Line(sb, "spellsCast", (int)state.SpellsCast);
