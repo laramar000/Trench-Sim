@@ -113,6 +113,30 @@ public sealed record Footprint
         return false;
     }
 
+    // Roster stage R8a (U132): the same tests for a whole base, round or oval. A round base takes exactly the paths above.
+    internal AreaDecision MoreThanHalfInside(ModelBody body) =>
+        body.IsRound ? MoreThanHalfInside(body.Centre, body.Radius)
+        : IsSingle ? BaseArea.MoreThanHalfInside(body, Bounds) : BaseArea.MoreThanHalfInside(body, Parts);
+
+    internal bool Overlaps(ModelBody body) =>
+        body.IsRound ? CircleOverlaps(body.Centre, body.Radius) : Parts.Any(p => Shapes.BodyOverlapsRect(body, p));
+
+    internal bool Touches(ModelBody body) =>
+        body.IsRound ? CircleTouches(body.Centre, body.Radius) : Parts.Any(p => Shapes.BodyTouchesRect(body, p));
+
+    internal bool Within(ModelBody body, Length distance) =>
+        body.IsRound ? CircleWithin(body.Centre, body.Radius, distance)
+        : Parts.Any(p => Shapes.CoreGapSquaredToRect(body, p) <= (Int128)(body.Radius + distance).Thousandths * (body.Radius + distance).Thousandths);
+
+    internal bool Inside(ModelBody body)
+    {
+        if (body.IsRound)
+        {
+            return CircleInside(body.Centre, body.Radius);
+        }
+        return Shapes.BodyInsideRect(body, Bounds) && !_uncovered.Any(cell => Shapes.BodyOverlapsRect(body, cell));
+    }
+
     // The base touches or overlaps the footprint.
     internal bool CircleTouches(Point2 centre, Length radius)
     {

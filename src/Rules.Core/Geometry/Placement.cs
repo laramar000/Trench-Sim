@@ -28,7 +28,7 @@ public static class Placement
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(others);
 
-        var half = battlefield.Area.MoreThanHalfInside(body.Centre, body.Radius);
+        var half = battlefield.Area.MoreThanHalfInside(body);
         if (half != AreaDecision.MoreThanHalf)
         {
             return PlacementResult.Refuse(PlacementRefusal.OffBattlefield,
@@ -38,14 +38,14 @@ public static class Placement
                 "1.0.2 p. 31");
         }
 
-        var blocker = battlefield.Terrain.FirstOrDefault(t => !t.IsWalkable && t.Footprint.CircleOverlaps(body.Centre, body.Radius));
+        var blocker = battlefield.Terrain.FirstOrDefault(t => !t.IsWalkable && t.Footprint.Overlaps(body));
         if (blocker is not null)
         {
             return PlacementResult.Refuse(PlacementRefusal.InBlockingTerrain, "The base overlaps terrain that cannot be stood on.", "1.0.2 pp. 31, 38, 39", blocker.Id);
         }
 
         // Towers (stage T2): models are placed on the ground, and a tower is reached by a move (U68).
-        var tower = battlefield.Terrain.FirstOrDefault(t => t.IsTower && t.Footprint.CircleOverlaps(body.Centre, body.Radius));
+        var tower = battlefield.Terrain.FirstOrDefault(t => t.IsTower && t.Footprint.Overlaps(body));
         if (tower is not null)
         {
             return PlacementResult.Refuse(PlacementRefusal.InBlockingTerrain, "Models are placed on the ground: a tower is reached by moving up a ladder or a side.", "1.0.2 pp. 39-40", tower.Id);
@@ -64,7 +64,7 @@ public static class Placement
             {
                 return PlacementResult.Refuse(PlacementRefusal.UnknownZone, "That is not a deployment zone on this battlefield.", "1.0.2 p. 146", deploymentZoneId);
             }
-            if (!zone.Area.CircleInside(body.Centre, body.Radius))
+            if (!zone.Area.Inside(body))
             {
                 return PlacementResult.Refuse(PlacementRefusal.OutsideZone, "A deployed model must be wholly within its deployment zone.", "1.0.2 p. 146", deploymentZoneId);
             }

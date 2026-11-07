@@ -25,6 +25,27 @@ internal static class Shapes
         centre.X - radius >= rect.Min.X && centre.X + radius <= rect.Max.X
         && centre.Y - radius >= rect.Min.Y && centre.Y + radius <= rect.Max.Y;
 
+    // Roster stage R8a (U132): an oval base (a capsule along a table axis) against a rectangle. The capsule is every point
+    // within Radius of its core segment, which is a flat box, so the gap to the rectangle is exact on each axis.
+    public static Int128 CoreGapSquaredToRect(ModelBody body, Rect rect)
+    {
+        var (x0, x1, y0, y1) = body.CoreBox();
+        var dx = (Int128)Math.Max(0, Math.Max(rect.Min.X.Thousandths - x1, x0 - rect.Max.X.Thousandths));
+        var dy = (Int128)Math.Max(0, Math.Max(rect.Min.Y.Thousandths - y1, y0 - rect.Max.Y.Thousandths));
+        return dx * dx + dy * dy;
+    }
+
+    public static bool BodyOverlapsRect(ModelBody body, Rect rect) =>
+        CoreGapSquaredToRect(body, rect) < (Int128)body.Radius.Thousandths * body.Radius.Thousandths;
+
+    public static bool BodyTouchesRect(ModelBody body, Rect rect) =>
+        CoreGapSquaredToRect(body, rect) <= (Int128)body.Radius.Thousandths * body.Radius.Thousandths;
+
+    // A capsule touches all four sides of its bounding box, so it is inside a rectangle when the box is.
+    public static bool BodyInsideRect(ModelBody body, Rect rect) =>
+        body.Centre.X - body.ExtentX >= rect.Min.X && body.Centre.X + body.ExtentX <= rect.Max.X
+        && body.Centre.Y - body.ExtentY >= rect.Min.Y && body.Centre.Y + body.ExtentY <= rect.Max.Y;
+
     // Is the point within radius of the segment a-b (less than radius if strict, otherwise at most)?
     public static bool PointNearSegment(Point2 p, Point2 a, Point2 b, Length radius, bool strict)
     {
