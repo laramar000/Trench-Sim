@@ -72,6 +72,8 @@ public enum ActionsTaken
     Orthodoxy = 4096, // roster stage R6e (U121): an Enforced Orthodoxy ACTION
     LayingOnHands = 8192, // roster stage R6e (U121): a Laying on of Hands ACTION
     Hide = 16384, // roster stage R7c (U130): a Hide ACTION
+    Loudspeakers = 32768, // roster stage R9a (U134): a Loudspeakers ACTION
+    PuppetMaster = 65536, // roster stage R9a (U134): a Puppet Master ACTION
 }
 
 public enum RollStage
@@ -111,6 +113,8 @@ public enum SelfActionKind
     EnforcedOrthodoxy, // roster stage R6e (U121)
     LayingOnHands,     // roster stage R6e (U121): with a Target
     Hide,              // roster stage R7c (U130)
+    Loudspeakers,      // roster stage R9a (U134): friends within 8" move 3" towards the nearest visible enemy
+    PuppetMaster,      // roster stage R9a (U134): moves one other model D6" in a straight line; with a Target and a Direction
 }
 
 public enum AttackKind
@@ -162,7 +166,8 @@ public sealed record RollInProgress(
     SelfActionKind SelfAction = SelfActionKind.Aim,
     bool Bloodbath = false,
     bool CarryOn = false,
-    bool GuardOwed = false);
+    bool GuardOwed = false,
+    Point2? Toward = null);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.
@@ -279,6 +284,9 @@ public sealed record MatchState
     // activation. Hashed only when set.
     public bool Aiming { get; init; }
 
+    // Roster stage R9a (U134): a Loudspeakers or Puppet Master ACTION succeeded; the forced moves it causes are the next event.
+    public ForcedOwed? ForcedMovesOwed { get; init; }
+
     // Roster stage R6c (U119): the active model's first ACTION was a Charge and it has Counter-Charge: +1 DICE to its Melee
     // Attacks for the rest of the activation. Hashed only when set.
     public bool CounterCharging { get; init; }
@@ -300,3 +308,7 @@ public sealed record MatchState
     // Success Rolls for a Shaken warband are Risky (p. 50); M4 reads this when it rolls for a model.
     public bool IsShaken(Seat seat) => SeatFor(seat).Shaken;
 }
+
+// Roster stage R9a (U134): the ACTION whose forced moves (ModelsMoved) are owed, and for a Puppet Master its victim and the
+// point that gives the straight line's direction.
+public sealed record ForcedOwed(ModelId Source, SelfActionKind Action, ModelId? Target, Point2? Toward);

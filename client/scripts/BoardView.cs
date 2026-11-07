@@ -1200,6 +1200,8 @@ public partial class BoardView : SubViewportContainer
         Key.V => InteractionMode.Fortify,
         // Roster stage R7c: G hides.
         Key.G => InteractionMode.Hide,
+        // Roster stage R9a: U uses the Loudspeakers.
+        Key.U => InteractionMode.Loudspeakers,
         // Roster stage R6e: Y enforces orthodoxy, Z lays on hands.
         Key.Y => InteractionMode.Orthodoxy,
         Key.Z => InteractionMode.LayHands,
@@ -1452,7 +1454,7 @@ public partial class BoardView : SubViewportContainer
         {
             PlaceCombatMenu(actor!);
         }
-        _confirmBox.Visible = (Interaction.IsAttack(Interaction.Mode) || Interaction.Mode is InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Hide or InteractionMode.Orthodoxy or InteractionMode.LayHands) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
+        _confirmBox.Visible = (Interaction.IsAttack(Interaction.Mode) || Interaction.Mode is InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Hide or InteractionMode.Loudspeakers or InteractionMode.Orthodoxy or InteractionMode.LayHands) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
         if (_confirmBox.Visible)
         {
             _confirmButton.Text = Interaction.Mode switch
@@ -1464,6 +1466,7 @@ public partial class BoardView : SubViewportContainer
                 InteractionMode.Aim => "Confirm aim",
                 InteractionMode.Fortify => "Confirm fortify",
                 InteractionMode.Hide => "Confirm hide",
+                InteractionMode.Loudspeakers => "Confirm loudspeakers",
                 InteractionMode.Orthodoxy => "Confirm orthodoxy",
                 InteractionMode.LayHands => "Confirm laying on of hands",
                 _ => "Confirm charge",

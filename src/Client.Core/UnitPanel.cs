@@ -389,6 +389,14 @@ public static class UnitPanel
         {
             parts.Add("Fortify ACTION (V)");
         }
+        if (p.Loudspeakers)
+        {
+            parts.Add("Loudspeakers ACTION (U): a Risky roll at +2 DICE; friends within 8\" move 3\" towards the nearest visible enemy");
+        }
+        if (p.PuppetMaster)
+        {
+            parts.Add("Puppet Master ACTION: a Risky roll; moves one model in sight within 12\" D6\" in a straight line (CLI: puppet)");
+        }
         if (p.Hides)
         {
             parts.Add("Hide ACTION (G): beside cover, a Risky roll; then it cannot be shot or charged");

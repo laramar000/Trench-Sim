@@ -702,6 +702,9 @@ public sealed record TalismanUsed(ModelId Model) : GameEvent;
 public sealed record SelfActionDeclared(ModelId Model, SelfActionKind Action) : GameEvent
 {
     public ModelId? Target { get; init; }
+
+    // Roster stage R9a (U134): a Puppet Master ACTION's direction point, as on TakeSelfAction; left out when null.
+    public Point2? Direction { get; init; }
 }
 
 // The Aim or Fortify ACTION's Risky Success Roll; anything but a Failure carries it out.
@@ -737,3 +740,14 @@ public sealed record BodyguardAnswered(ModelId Target, ModelId? Guard) : GameEve
 
 // Roster stage R8d (U133): the active model turned its oval base in place to lie along Axis.
 public sealed record BaseTurned(ModelId Model, BaseAxis Axis) : GameEvent;
+
+// Roster stage R9a (U134): where a model ends up after a Loudspeakers or Puppet Master ACTION moved it: To is its new centre
+// (its old one when it could not move at all).
+public sealed record ForcedMove(ModelId Model, Point2 To);
+
+// Roster stage R9a (U134): the models a successful Loudspeakers ACTION (the friends within 8") or Puppet Master ACTION (the one
+// Target, moved Die inches) moved. Each destination is worked out by the rules from the positions at that moment.
+public sealed record ModelsMoved(ModelId Source, ImmutableArray<ForcedMove> Moves) : GameEvent
+{
+    public int Die { get; init; }
+}

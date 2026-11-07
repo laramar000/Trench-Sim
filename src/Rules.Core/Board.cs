@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Rules.Core.Dice;
+using Rules.Core.Events;
 using Rules.Core.Geometry;
 using Rules.Core.State;
 
@@ -510,6 +511,73 @@ internal static class Board
         var route = Charging.CheckRoute(ScenarioOf(state)!.Battlefield, from, to, ChargeObstaclesFor(state, charger, from));
         return route.IsLegal ? null : new(ReasonCode.ChargeRouteBlocked, route.Text, route.RuleRef);
     }
+
+    // ---- Roster stage R9a (U134): ACTIONS that move other models ----
+
+    public static readonly Length LoudspeakerReach = Length.FromInches(8);
+    public static readonly Length LoudspeakerDistance = Length.FromInches(3);
+    public static readonly Length PuppetReach = Length.FromInches(12);
+
+    // Loudspeakers ACTION (Warbands p. 53): every Standing friend within 8" of the source (as they stand when it succeeds) moves
+    // up to 3" in a straight line towards the nearest enemy it can see (a Hidden one cannot be charged, so it is not one), in
+    // id order, each from where the ones before left things. A move into 1" of that enemy counts as a charge: it may end in
+    // contact but never overlaps. Friends with nothing to move towards stay.
+    public static ImmutableArray<ForcedMove> LoudspeakerMoves(MatchState state, ModelState source)
+    {
+        var field = ScenarioOf(state)!.Battlefield;
+        var sourceBody = BodyOf(state, source)!;
+        var moves = ImmutableArray.CreateBuilder<ForcedMove>();
+        var current = state;
+        foreach (var friend in state.Models.Where(m => m.Seat == source.Seat && m.Id != source.Id && m.Status == ModelStatus.Standing && m.Position is not null)
+            .OrderBy(m => m.Id.Value, StringComparer.Ordinal))
+        {
+            if (!Measure.IsWithin(sourceBody, BodyOf(state, friend)!, LoudspeakerReach))
+            {
+                continue;
+            }
+            var now = current.FindModel(friend.Id)!;
+            var body = BodyOf(current, now)!;
+            var seen = OnTable(current)
+                .Where(e => e.Seat != now.Seat && e.Status != ModelStatus.OutOfAction && !e.Hidden)
+                .Select(e => BodyOf(current, e)!)
+                .Where(e => Cover.Of(field, body, e).Sight.Visibility != Visibility.None);
+            if (ForcedMoves.Nearest(body, seen) is not { } enemy)
+            {
+                continue;
+            }
+            var to = ForcedMoves.Stop(field, body, enemy.Centre, LoudspeakerDistance, [.. AllBodies(current, now.Id)], current.Mines);
+            moves.Add(new ForcedMove(now.Id, to));
+            if (to != body.Centre)
+            {
+                current = TurnRules.WithModel(current, now with { Position = to });
+            }
+        }
+        return moves.ToImmutable();
+    }
+
+    // Puppet Master ACTION (Warbands p. 109): why this model cannot be the one moved, or null: any other model on the table (a
+    // friend or a foe, Down too, not Out of Action) within 12" of the source that the source can see.
+    public static string? PuppetRefusal(MatchState state, ModelState source, ModelState target)
+    {
+        if (target.Id == source.Id)
+        {
+            return "The Puppet Master moves one other model.";
+        }
+        if (target.Position is null || target.Status == ModelStatus.OutOfAction || BodyOf(state, target) is not { } body)
+        {
+            return "That model is not on the battlefield.";
+        }
+        var from = BodyOf(state, source)!;
+        if (!Measure.IsWithin(from, body, PuppetReach))
+        {
+            return "The model must be within 12\" of the Puppet Master.";
+        }
+        return Cover.Of(ScenarioOf(state)!.Battlefield, from, body).Sight.Visibility == Visibility.None ? "The Puppet Master must be able to see the model." : null;
+    }
+
+    // Where the model ends after the D6" in a straight line towards a point.
+    public static ForcedMove PuppetMove(MatchState state, ModelState target, Point2 toward, int die) =>
+        new(target.Id, ForcedMoves.Stop(ScenarioOf(state)!.Battlefield, BodyOf(state, target)!, toward, Length.FromInches(die), [.. AllBodies(state, target.Id)], state.Mines));
 
     // Bodyguard (core rulebook pp. 54, 136; roster stage R7d, U131): the Standing friends of the model that was hit, within 1"
     // of it, that have Bodyguard and share its PILGRIM or CULT keyword. They may take the hit (never a BLAST's).

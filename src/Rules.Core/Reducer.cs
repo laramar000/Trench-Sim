@@ -112,6 +112,7 @@ public static class Reducer
             TalismanUsed x => OnTalismanUsed(state, x),
             BodyguardAnswered x => OnBodyguardAnswered(state, x),
             BaseTurned x => OnBaseTurned(state, x),
+            ModelsMoved x => OnModelsMoved(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
@@ -221,6 +222,11 @@ public static class Reducer
         if (!state.Deeds.Owed.IsEmpty)
         {
             Require(e is GloriousDeedCompleted, "A Glorious Deed was just completed; it is announced before anything else happens.");
+            return;
+        }
+        if (state.ForcedMovesOwed is { } forced)
+        {
+            Require(e is ModelsMoved moved && moved.Source == forced.Source, "A Loudspeakers or Puppet Master ACTION succeeded; the models it moves are moved before anything else happens.");
             return;
         }
         if (!state.MarkersOwed.IsDefaultOrEmpty)
@@ -604,6 +610,33 @@ public static class Reducer
         return TurnRules.WithModel(state, model! with { Deployed = true, Position = e.Position, DugInAt = dug, Axis = e.Axis }) with { LastDeployer = e.Seat };
     }
 
+    // Roster stage R9a (U134): the models a successful Loudspeakers or Puppet Master ACTION moved, each to where the rules put it.
+    private static MatchState OnModelsMoved(MatchState state, ModelsMoved e)
+    {
+        Require(state.ForcedMovesOwed is { } owed && owed.Source == e.Source, "No forced moves are owed.");
+        var owed2 = state.ForcedMovesOwed!;
+        var source = state.FindModel(e.Source)!;
+        if (owed2.Action == SelfActionKind.Loudspeakers)
+        {
+            Require(e.Die == 0 && e.Moves.SequenceEqual(Board.LoudspeakerMoves(state, source)), "A Loudspeakers ACTION moves exactly the friends the rules say, to where the rules put them.");
+        }
+        else
+        {
+            Require(e.Die is >= 1 and <= 6 && state.FindModel(owed2.Target!.Value) is { } victim && owed2.Toward is { } toward
+                && e.Moves.SequenceEqual([Board.PuppetMove(state, victim, toward, e.Die)]), "A Puppet Master ACTION moves its one model D6\" in a straight line, as far as the line is clear.");
+        }
+        var next = state with { ForcedMovesOwed = null };
+        foreach (var move in e.Moves)
+        {
+            var model = next.FindModel(move.Model)!;
+            if (model.Position != move.To)
+            {
+                next = TurnRules.WithModel(next, model with { Position = move.To });
+            }
+        }
+        return next;
+    }
+
     // Roster stage R8d (U133): the active model turns its oval base in place, a free pivot between its ACTIONS.
     private static MatchState OnBaseTurned(MatchState state, BaseTurned e)
     {
@@ -952,13 +985,18 @@ public static class Reducer
         Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(SelfActionFlag(e.Action)), "That ACTION can be taken once per activation.");
         Require(HasSelfAction(state.Setup!.ProfileOf(e.Model)!, e.Action), "Only a model whose unit has it can take that ACTION.");
         Require(e.Action != SelfActionKind.Hide || HideRefusal(state, model) is null, "A Hide ACTION is taken touching terrain at least 1/2\" high.");
-        Require(e.Action == SelfActionKind.LayingOnHands
-            ? e.Target is { } target && HandsRefusal(state, model, target) is null
-            : e.Target is null, "A Laying on of Hands needs a friend within 6\" with a BLOOD MARKER; no other ACTION has a target.");
+        Require(e.Action switch
+        {
+            SelfActionKind.LayingOnHands => e.Target is { } hands && HandsRefusal(state, model, hands) is null && e.Direction is null,
+            // Roster stage R9a (U134): a Puppet Master's victim is any other model in sight within 12", and the line it is moved along.
+            SelfActionKind.PuppetMaster => e.Target is { } victim && state.FindModel(victim) is { } moved && Board.PuppetRefusal(state, model, moved) is null
+                && e.Direction is { } direction && direction != moved.Position,
+            _ => e.Target is null && e.Direction is null,
+        }, "A Laying on of Hands needs a friend within 6\" with a BLOOD MARKER; a Puppet Master a model in sight within 12\" and a direction; no other ACTION has a target.");
         return state with
         {
             Actions = state.Actions | SelfActionFlag(e.Action),
-            InProgress = new RollInProgress(RollStage.SelfRoll, e.Model, Target: e.Target, BonusDice: SelfActionBonus(state.Setup!.ProfileOf(e.Model)!, e.Action), SelfAction: e.Action),
+            InProgress = new RollInProgress(RollStage.SelfRoll, e.Model, Target: e.Target, BonusDice: SelfActionBonus(state.Setup!.ProfileOf(e.Model)!, e.Action), SelfAction: e.Action) { Toward = e.Direction },
         };
     }
 
@@ -988,6 +1026,9 @@ public static class Reducer
                 return TurnRules.WithModel(next, model with { Hidden = true });
             case SelfActionKind.EnforcedOrthodoxy:
                 return next with { Models = [.. next.Models.Select(m => stood.Contains(m.Id) ? m with { Status = ModelStatus.Standing } : m)] };
+            // Roster stage R9a (U134): the forced moves are the next event.
+            case SelfActionKind.Loudspeakers or SelfActionKind.PuppetMaster:
+                return next with { ForcedMovesOwed = new ForcedOwed(e.Model, e.Action, e.Target, progress.Toward) };
             default:
                 var target = next.FindModel(e.Target!.Value)!;
                 return TurnRules.WithModel(next, target with { BloodMarkers = target.BloodMarkers - removed });
@@ -1000,6 +1041,8 @@ public static class Reducer
         SelfActionKind.Fortify => ActionsTaken.Fortify,
         SelfActionKind.EnforcedOrthodoxy => ActionsTaken.Orthodoxy,
         SelfActionKind.Hide => ActionsTaken.Hide,
+        SelfActionKind.Loudspeakers => ActionsTaken.Loudspeakers,
+        SelfActionKind.PuppetMaster => ActionsTaken.PuppetMaster,
         _ => ActionsTaken.LayingOnHands,
     };
 
@@ -1009,6 +1052,8 @@ public static class Reducer
         SelfActionKind.Fortify => profile.Fortifies,
         SelfActionKind.EnforcedOrthodoxy => profile.EnforcesOrthodoxy,
         SelfActionKind.Hide => profile.Hides,
+        SelfActionKind.Loudspeakers => profile.Loudspeakers,
+        SelfActionKind.PuppetMaster => profile.PuppetMaster,
         _ => profile.LaysOnHands,
     };
 
@@ -1019,6 +1064,7 @@ public static class Reducer
         SelfActionKind.Aim => AimDice,
         SelfActionKind.EnforcedOrthodoxy => 1,
         SelfActionKind.Hide => 1,
+        SelfActionKind.Loudspeakers => 2,
         SelfActionKind.LayingOnHands => profile.HealingWaters ? 1 : 0,
         _ => 0,
     };

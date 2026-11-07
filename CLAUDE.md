@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U133), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U134), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -241,7 +241,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   1. DONE: Oval bases (Plague Hound and Pit Locust are played). Owner chose (2026-11-07) the exact capsule with a
      player-chosen X/Y axis (U132). R8a done: `ModelBody.HalfSpan/Axis`, `Measure`, `Footprint` body tests, `BaseArea`,
      `Placement`, `OvalBaseTests`. R8b done (movement, retreat, charge planner; `Shapes.SweptNear`/`SweptBodyOverlapsRect`, `Movement.CoresNear`; ovals do not climb towers). R8c done (sight samples, cover width, blast, mines, trenches, platforms; `OvalSightTests`). R8d done (U133): `ModelProfile.BaseHalfSpan`/`BodyAt`, `ModelState.Axis`, `PlaceModel.Axis`, `TurnBase`/`BaseTurned`, `Board.TurnProblem`, readiness plays ovals, key W, board drawing (not run in Godot). Oval bases are finished.
-  2. Moving other models (Puppet Master, Loudspeakers).
+  2. DONE (R9a, U134): moving other models: Loudspeakers (client key U) and Puppet Master (engine + CLI; no client button yet): `ForcedMoves`, `ModelsMoved`, `MatchState.ForcedMovesOwed`.
   3. BLESSING and INFECTION MARKERS.
   4. Court spells.
   5. Later group: multi-Fight models, Time Slip/Temporal Assassin, deployment rules, AMMUNITION with two possible guns.

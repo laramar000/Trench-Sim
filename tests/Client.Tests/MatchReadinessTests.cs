@@ -753,6 +753,21 @@ public class MatchReadinessTests
         Assert.DoesNotContain("bodyguard", plain, StringComparison.Ordinal);
     }
 
+    // Roster stage R9a (U134): the Loudspeakers and Puppet Master ACTIONs are played by name.
+    [Fact]
+    public void ActionsThatMoveOtherModelsArePlayed()
+    {
+        var prophet = Of("pilgrims", "war-prophet", "trench-club").MatchCheck();
+        Assert.DoesNotContain(prophet.PlayedWithout, w => w.Contains("Loudspeakers", StringComparison.Ordinal));
+        Assert.True(Loaded(prophet).Loudspeakers);
+        var priest = Of("heretics", "heretic-priest", "trench-club").MatchCheck();
+        Assert.DoesNotContain(priest.PlayedWithout, w => w.Contains("Puppet Master", StringComparison.Ordinal));
+        Assert.True(Loaded(priest).PuppetMaster);
+        var plain = Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P");
+        Assert.DoesNotContain("loudspeakers", plain, StringComparison.Ordinal);
+        Assert.DoesNotContain("puppetMaster", plain, StringComparison.Ordinal);
+    }
+
     // Roster stage R6f (U122): the upgrades the engine plays: Legionnaire, Zealot Strength (and a Trench Pilgrim's 32 mm
     // base), Janissary Veteran, Fearsome and Kavass; the others are still named.
     [Fact]

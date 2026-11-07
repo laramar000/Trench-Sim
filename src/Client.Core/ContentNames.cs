@@ -239,6 +239,8 @@ public sealed class ContentNames
                         Hateful = m.TryGetProperty("hateful", out var hateful) && hateful.GetBoolean(),
                         Bodyguard = m.TryGetProperty("bodyguard", out var bodyguard) && bodyguard.GetBoolean(),
                         BaseHalfSpan = halfSpan,
+                        Loudspeakers = m.TryGetProperty("loudspeakers", out var loudspeakers) && loudspeakers.GetBoolean(),
+                        PuppetMaster = m.TryGetProperty("puppetMaster", out var puppetMaster) && puppetMaster.GetBoolean(),
                         Hides = m.TryGetProperty("hides", out var hides) && hides.GetBoolean(),
                         DefusesMines = m.TryGetProperty("defusesMines", out var defusesMines) && defusesMines.GetBoolean(),
                         UndeadFortitude = m.TryGetProperty("undeadFortitude", out var undeadFortitude) && undeadFortitude.GetBoolean(),

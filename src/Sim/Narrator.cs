@@ -53,6 +53,7 @@ public static class Narrator
         ObjectivesScored o => $"Turn {o.Turn} scoring: {string.Join(", ", o.Results.Where(r => r.Controller is not null).Select(r => $"{r.ObjectiveId} to {r.Controller}"))}{(o.Results.All(r => r.Controller is null) ? "nobody controls an Objective" : "")}.",
         AttackerChosen a => $"{a.Attacker} attacks; {a.Attacker.Opponent()} defends.",
         TrenchesScored t => $"Turn {t.Turn} trench scoring: {string.Join(", ", t.Results.Select(r => $"{r.TrenchId} defender +{r.DefenderPoints}, attacker +{r.AttackerPoints}"))}.",
+        ModelsMoved m => m.Moves.IsEmpty ? $"  {m.Source}'s ACTION moves nobody." : $"  {m.Source}'s ACTION moves {string.Join(", ", m.Moves.Select(x => $"{x.Model} to {x.To}"))}{(m.Die > 0 ? $" (D6: {m.Die})" : "")}.",
         BaseTurned t => $"  {t.Model} turns its base to lie along {t.Axis}.",
         BodyguardAnswered { Guard: { } g } b => $"  {g} takes the hit meant for {b.Target} (Bodyguard).",
         BodyguardAnswered b => $"  {b.Target} keeps the hit.",
@@ -78,6 +79,8 @@ public static class Narrator
         SelfActionKind.Aim => "Aim",
         SelfActionKind.Fortify => "Fortify",
         SelfActionKind.Hide => "Hide",
+        SelfActionKind.Loudspeakers => "Loudspeakers",
+        SelfActionKind.PuppetMaster => "Puppet Master",
         SelfActionKind.EnforcedOrthodoxy => "Enforced Orthodoxy",
         _ => "Laying on of Hands",
     };
@@ -87,6 +90,8 @@ public static class Narrator
         SelfActionKind.Aim => "its Ranged Attacks get +2 DICE this activation",
         SelfActionKind.Fortify => "it has COVER until it moves",
         SelfActionKind.Hide => "it cannot be shot or charged until it acts or an enemy comes within 1.5\"",
+        SelfActionKind.Loudspeakers => "its friends within 8\" move towards the enemy",
+        SelfActionKind.PuppetMaster => "a model is moved in a straight line",
         SelfActionKind.EnforcedOrthodoxy => rolled.StoodUp.IsEmpty ? "no Down friend within 8\" to stand up" : $"{string.Join(", ", rolled.StoodUp)} stand{(rolled.StoodUp.Length == 1 ? "s" : "")} up",
         _ => rolled.Removed == 0 ? $"{rolled.Target} has no BLOOD MARKER left to remove" : $"{rolled.Removed} BLOOD MARKER{(rolled.Removed == 1 ? "" : "S")} removed from {rolled.Target}",
     };

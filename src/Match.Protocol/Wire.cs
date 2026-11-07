@@ -346,6 +346,8 @@ public static class Wire
             (typeof(TakeSelfAction), nameof(TakeSelfAction.Target)),
             (typeof(SelfActionDeclared), nameof(SelfActionDeclared.Target)),
             (typeof(SelfActionRolled), nameof(SelfActionRolled.Target)),
+            (typeof(TakeSelfAction), nameof(TakeSelfAction.Direction)),
+            (typeof(SelfActionDeclared), nameof(SelfActionDeclared.Direction)),
         ];
 
         // Optional flags left out when false, for the same reason (every match before dual-purpose weapons).
@@ -390,6 +392,8 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.Hateful)),
             (typeof(ModelProfile), nameof(ModelProfile.Hides)),
             (typeof(ModelProfile), nameof(ModelProfile.Bodyguard)),
+            (typeof(ModelProfile), nameof(ModelProfile.Loudspeakers)),
+            (typeof(ModelProfile), nameof(ModelProfile.PuppetMaster)),
             (typeof(ModelProfile), nameof(ModelProfile.DefusesMines)),
             (typeof(ModelProfile), nameof(ModelProfile.UndeadFortitude)),
             (typeof(ModelProfile), nameof(ModelProfile.AbioticLife)),
@@ -447,6 +451,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.Talismans)),
             (typeof(ModelProfile), nameof(ModelProfile.BaseHalfSpan)),
             (typeof(PlaceModel), nameof(PlaceModel.Axis)),
+            (typeof(ModelsMoved), nameof(ModelsMoved.Die)),
             (typeof(ModelDeployed), nameof(ModelDeployed.Axis)),
             (typeof(ChargeRolled), nameof(ChargeRolled.Dropped)),
             (typeof(SelfActionRolled), nameof(SelfActionRolled.Removed)),

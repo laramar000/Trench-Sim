@@ -140,6 +140,10 @@ public sealed record DeclineTalisman(Seat Seat) : Command;
 public sealed record TakeSelfAction(Seat Seat, ModelId Model, SelfActionKind Action) : Command
 {
     public ModelId? Target { get; init; }
+
+    // Roster stage R9a (U134): a Puppet Master ACTION's Target is the model it moves (any other model in sight within 12") and
+    // Direction a point on the straight line it is moved along, from the target's centre through that point.
+    public Point2? Direction { get; init; }
 }
 
 // Roster stage R7d (U131): answers the UseBodyguard decision after an attack hit a model with a friendly Bodyguard within

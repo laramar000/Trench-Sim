@@ -54,7 +54,7 @@ public static class StateHash
         Line(sb, "movementHalved", state.MovementHalved);
         Line(sb, "scoredTurn", state.ScoredTurn);
         Line(sb, "inProgress", state.InProgress is { } r
-            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}{(r.InjuryDiceLater == 0 ? "" : $":injuryLater={r.InjuryDiceLater}")}{(r.Weapon == 0 ? "" : $":weapon={r.Weapon}")}{(r.OffHand ? ":offHand" : "")}{(r.Aimed is { } aimed ? $":aimed={aimed.Value}" : "")}{(r.BlastQueue.IsDefaultOrEmpty ? "" : $":blast={string.Join(";", r.BlastQueue.Select(q => q.Value))}")}{(r.ScatterInches == 0 ? "" : $":scatter={r.ScatterInches}")}{(r.BlastAt is { } landed ? $":at={landed.X.Thousandths},{landed.Y.Thousandths}" : "")}{(r.RiskyEnds ? ":riskyEnds" : "")}{(r.TreatStandUp ? ":standUp" : "")}{(r.Martyrdom ? $":martyr={string.Join(";", r.MartyrClose.Select(c => c.Value))}" : "")}{(r.Stage == RollStage.SelfRoll ? $":self={r.SelfAction}" : "")}{(r.Bloodbath ? ":bloodbath" : "")}{(r.CarryOn ? ":carryOn" : "")}{(r.GuardOwed ? ":guardOwed" : "")}"
+            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}{(r.InjuryDiceLater == 0 ? "" : $":injuryLater={r.InjuryDiceLater}")}{(r.Weapon == 0 ? "" : $":weapon={r.Weapon}")}{(r.OffHand ? ":offHand" : "")}{(r.Aimed is { } aimed ? $":aimed={aimed.Value}" : "")}{(r.BlastQueue.IsDefaultOrEmpty ? "" : $":blast={string.Join(";", r.BlastQueue.Select(q => q.Value))}")}{(r.ScatterInches == 0 ? "" : $":scatter={r.ScatterInches}")}{(r.BlastAt is { } landed ? $":at={landed.X.Thousandths},{landed.Y.Thousandths}" : "")}{(r.RiskyEnds ? ":riskyEnds" : "")}{(r.TreatStandUp ? ":standUp" : "")}{(r.Martyrdom ? $":martyr={string.Join(";", r.MartyrClose.Select(c => c.Value))}" : "")}{(r.Stage == RollStage.SelfRoll ? $":self={r.SelfAction}" : "")}{(r.Bloodbath ? ":bloodbath" : "")}{(r.CarryOn ? ":carryOn" : "")}{(r.GuardOwed ? ":guardOwed" : "")}{(r.Toward is { } toward ? $":toward={toward.X.Thousandths},{toward.Y.Thousandths}" : "")}"
             : null);
         Line(sb, "retreat", state.Retreat is { } t
             ? $"{t.Model.Value}:{Path(t.Path)}:{string.Join(";", t.Fought.Select(f => f.Value))}:{Bool(t.Closed)}"
@@ -80,6 +80,10 @@ public static class StateHash
             Line(sb, "chargedThisTurn", string.Join(";", state.ChargedThisTurn.Select(m => m.Value)));
         }
         // Roster stage R6b: only when set.
+        if (state.ForcedMovesOwed is { } forcedOwed)
+        {
+            Line(sb, "forcedOwed", $"{forcedOwed.Source.Value},{forcedOwed.Action},{forcedOwed.Target?.Value ?? "-"},{(forcedOwed.Toward is { } to ? $"{to.X.Thousandths}:{to.Y.Thousandths}" : "-")}");
+        }
         if (state.Aiming)
         {
             Line(sb, "aiming", true);
@@ -276,6 +280,8 @@ public static class StateHash
             + (p.Hides ? ",hides=yes" : "")
             + (p.IsOval ? $",halfSpan={p.BaseHalfSpan.Thousandths}" : "")
             + (p.Bodyguard ? ",bodyguard=yes" : "")
+            + (p.Loudspeakers ? ",loudspeakers=yes" : "")
+            + (p.PuppetMaster ? ",puppetMaster=yes" : "")
             + (p.DefusesMines ? ",defuses=yes" : "")
             + (p.UndeadFortitude ? ",undeadFortitude=yes" : "")
             + (p.AbioticLife ? ",abioticLife=yes" : "")

@@ -244,6 +244,23 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.NoSuchAction, hide, RefSelfAction);
         }
+        // Roster stage R9a (U134): a Puppet Master moves any other model in sight within 12", along a line it names.
+        if (c.Action == SelfActionKind.PuppetMaster)
+        {
+            if (c.Target is not { } puppet || state.FindModel(puppet) is not { } moved)
+            {
+                return new(ReasonCode.UnknownModel, "A Puppet Master ACTION needs the model to move.", RefSelfAction);
+            }
+            if (Board.PuppetRefusal(state, actor!, moved) is { } puppetWhy)
+            {
+                return new(ReasonCode.NotACandidate, puppetWhy, RefSelfAction);
+            }
+            return c.Direction is { } line && line != moved.Position ? null : new(ReasonCode.InvalidChoice, "A Puppet Master ACTION needs a direction: a point other than the model's own centre.", RefSelfAction);
+        }
+        if (c.Direction is not null)
+        {
+            return new(ReasonCode.InvalidChoice, $"A {c.Action} ACTION has no direction.", RefSelfAction);
+        }
         // Roster stage R6e (U121): a Laying on of Hands is taken on a friend with a BLOOD MARKER; no other ACTION has a target.
         if (c.Action != SelfActionKind.LayingOnHands)
         {
@@ -662,7 +679,7 @@ public static partial class TurnSequence
                 break;
             }
             case TakeSelfAction c:
-                run.Emit(new SelfActionDeclared(c.Model, c.Action) { Target = c.Target });
+                run.Emit(new SelfActionDeclared(c.Model, c.Action) { Target = c.Target, Direction = c.Direction });
                 if (run.State.FindModel(c.Model)!.BloodMarkers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
@@ -831,6 +848,16 @@ public static partial class TurnSequence
                     StoodUp = helped && progress.SelfAction == SelfActionKind.EnforcedOrthodoxy ? Reducer.OrthodoxyStands(s, actor) : [],
                     Removed = helped && progress.SelfAction == SelfActionKind.LayingOnHands ? Reducer.HandsRemove(s, progress.Target!.Value, roll) : 0,
                 });
+                // Roster stage R9a (U134): a Loudspeakers ACTION moves the friends near it; a Puppet Master ACTION rolls its D6 and moves its model.
+                if (helped && progress.SelfAction == SelfActionKind.Loudspeakers)
+                {
+                    run.Emit(new ModelsMoved(progress.Actor, Board.LoudspeakerMoves(run.State, run.State.FindModel(progress.Actor)!)));
+                }
+                else if (helped && progress.SelfAction == SelfActionKind.PuppetMaster)
+                {
+                    var die = Roll(dice);
+                    run.Emit(new ModelsMoved(progress.Actor, [Board.PuppetMove(run.State, run.State.FindModel(progress.Target!.Value)!, progress.Toward!.Value, die)]) { Die = die });
+                }
                 if (run.State.MustEndActivation)
                 {
                     EndForRisky(run, progress.Actor);

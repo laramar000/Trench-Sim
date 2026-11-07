@@ -38,6 +38,7 @@ public enum PreviewKind
     Aim,
     Fortify,
     Hide, // roster stage R7c (U130)
+    Loudspeakers, // roster stage R9a (U134)
 
     // Roster stage R6e (U121): an Enforced Orthodoxy (the model itself) or a Laying on of Hands (itself or a friend).
     Orthodoxy,
@@ -124,6 +125,7 @@ public sealed record Preview(
         PreviewKind.Aim => "Aim",
         PreviewKind.Fortify => "Fortify",
         PreviewKind.Hide => "Hide",
+        PreviewKind.Loudspeakers => "Loudspeakers",
         PreviewKind.Orthodoxy => "Enforce Orthodoxy",
         PreviewKind.LayHands => "Lay on Hands",
         _ => "Fight",
@@ -812,6 +814,8 @@ public static class Previews
     public const string AimFact = "Aim ACTION (Warbands p. 28): a Risky roll at +2 DICE; on a Success the model's Ranged Attacks get +2 DICE for the rest of this activation; a Failure ends the activation.";
     public const string FortifyFact = "Fortify ACTION (Warbands pp. 33, 85): a Risky roll; on a Success the model has COVER until it moves; a Failure ends the activation.";
 
+    public const string LoudspeakersFact = "Loudspeakers ACTION (Warbands p. 53): a Risky roll at +2 DICE; on a Success every friend within 8\" moves up to 3\" in a straight line towards the nearest enemy it can see (a move into 1\" counts as a charge, and never overlaps a base); a Failure ends the activation.";
+
     public const string HideFact = "Hide ACTION (Warbands p. 110): touching terrain at least 1/2\" high, a Risky roll at +1 DICE; on a Success the model cannot be targeted by Ranged Attacks or Charges until it acts or an enemy comes within 1.5\"; a Failure ends the activation.";
 
     // Roster stage R6e (U121).
@@ -823,6 +827,7 @@ public static class Previews
         SelfActionKind.Aim => PreviewKind.Aim,
         SelfActionKind.Fortify => PreviewKind.Fortify,
         SelfActionKind.Hide => PreviewKind.Hide,
+        SelfActionKind.Loudspeakers => PreviewKind.Loudspeakers,
         SelfActionKind.EnforcedOrthodoxy => PreviewKind.Orthodoxy,
         _ => PreviewKind.LayHands,
     };
@@ -832,6 +837,7 @@ public static class Previews
         PreviewKind.Aim => SelfActionKind.Aim,
         PreviewKind.Fortify => SelfActionKind.Fortify,
         PreviewKind.Hide => SelfActionKind.Hide,
+        PreviewKind.Loudspeakers => SelfActionKind.Loudspeakers,
         PreviewKind.Orthodoxy => SelfActionKind.EnforcedOrthodoxy,
         PreviewKind.LayHands => SelfActionKind.LayingOnHands,
         _ => null,
@@ -853,6 +859,7 @@ public static class Previews
                 SelfActionKind.Aim => AimFact,
                 SelfActionKind.Fortify => FortifyFact,
                 SelfActionKind.Hide => HideFact,
+                SelfActionKind.Loudspeakers => LoudspeakersFact,
                 SelfActionKind.EnforcedOrthodoxy => OrthodoxyFact,
                 _ => HandsFact,
             });
@@ -981,7 +988,7 @@ public static class Previews
                 }
                 return firstHands;
             }
-            case PreviewKind.Aim or PreviewKind.Fortify or PreviewKind.Hide or PreviewKind.Orthodoxy:
+            case PreviewKind.Aim or PreviewKind.Fortify or PreviewKind.Hide or PreviewKind.Loudspeakers or PreviewKind.Orthodoxy:
                 return SelfAction(state, seat, model, SelfActionOf(kind)!.Value).Refusal;
             case PreviewKind.Detonate:
                 return Detonate(state, seat, model).Refusal;

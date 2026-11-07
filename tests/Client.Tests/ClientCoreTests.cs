@@ -90,6 +90,8 @@ public class ClientCoreTests
         seen.TryAdd(typeof(TreatRolled), new TreatRolled(new ModelId("a1"), new ModelId("a2"), TreatChoice.RemoveMarker, Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(1), 1, 0, risky: true), false));
         // Roster stage R7d: no bot model has a Bodyguard beside a friend that is hit.
         seen.TryAdd(typeof(BodyguardAnswered), new BodyguardAnswered(new ModelId("b1"), new ModelId("b2")));
+        // Roster stage R9a: no bot model has Loudspeakers or a Puppet Master ACTION.
+        seen.TryAdd(typeof(ModelsMoved), new ModelsMoved(new ModelId("a1"), [new ForcedMove(new ModelId("b1"), Previews.PointAt(20, 8))]) { Die = 3 });
         // Roster stage R8d: no bot model has an oval base to turn.
         seen.TryAdd(typeof(BaseTurned), new BaseTurned(new ModelId("a1"), Rules.Core.Geometry.BaseAxis.X));
         // Roster stage R5j: no bot model carries a Martyrdom Device.

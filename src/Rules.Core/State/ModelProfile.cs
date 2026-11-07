@@ -327,6 +327,12 @@ public sealed record ModelProfile
 
     // Bodyguard (core rulebook pp. 54, 136; roster stage R7d, U131): may take a hit meant for a friendly model within 1" that shares its PILGRIM or CULT keyword (not against BLAST).
     public bool Bodyguard { get; init; }
+
+    // Loudspeakers ACTION (Warbands p. 53; roster stage R9a, U134): a Risky roll at +2 DICE; on a Success its friends within 8" move up to 3" towards the nearest enemy they can see.
+    public bool Loudspeakers { get; init; }
+
+    // Puppet Master ACTION (Warbands p. 109; roster stage R9a, U134): a Risky roll; on a Success one other model in sight within 12" is moved D6" in a straight line.
+    public bool PuppetMaster { get; init; }
     // Defuse Mine (roster stage R7b, U129): a Risky roll when its move halts at a Mine Marker removes the marker.
     public bool DefusesMines { get; init; }
 
@@ -547,6 +553,8 @@ public sealed record ModelProfile
                 Hides = Hides,
                 Bodyguard = Bodyguard,
                 BaseHalfSpan = BaseHalfSpan,
+                Loudspeakers = Loudspeakers,
+                PuppetMaster = PuppetMaster,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -610,6 +618,8 @@ public sealed record ModelProfile
                 Hides = Hides,
                 Bodyguard = Bodyguard,
                 BaseHalfSpan = BaseHalfSpan,
+                Loudspeakers = Loudspeakers,
+                PuppetMaster = PuppetMaster,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -673,6 +683,8 @@ public sealed record ModelProfile
             Hides = Hides,
             Bodyguard = Bodyguard,
             BaseHalfSpan = BaseHalfSpan,
+            Loudspeakers = Loudspeakers,
+            PuppetMaster = PuppetMaster,
             DefusesMines = DefusesMines,
             UndeadFortitude = UndeadFortitude,
             AbioticLife = AbioticLife,

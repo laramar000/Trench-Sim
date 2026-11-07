@@ -394,4 +394,31 @@ public class TraitWireTests
         Assert.Contains("axis", text, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("axis", Encoding.UTF8.GetString(Codec.Encode(new SubmitCommand("c2", 2, 0, new Rules.Core.Commands.PlaceModel(Seat.One, new ModelId("A1"), at)))), StringComparison.OrdinalIgnoreCase);
     }
+
+    // Roster stage R9a (U134): the two ACTIONs' flags, a Puppet Master's direction and the forced moves' event travel on the wire
+    // and back; a setup and commands without them write nothing new.
+    [Fact]
+    public void ForcedMoveActionsRoundTripAndAreLeftOutWhenUnset()
+    {
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { Loudspeakers = true, PuppetMaster = true };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        var text = Encoded(created);
+        Assert.Contains("\"loudspeakers\":true", text, StringComparison.Ordinal);
+        Assert.Contains("\"puppetMaster\":true", text, StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+
+        var at = new Rules.Core.Geometry.Point2(Rules.Core.Geometry.Length.FromThousandths(2000), Rules.Core.Geometry.Length.FromThousandths(3000));
+        var declared = new SelfActionDeclared(new ModelId("A1"), SelfActionKind.PuppetMaster) { Target = new ModelId("B1"), Direction = at };
+        Assert.Equal(at, ((SelfActionDeclared)RoundTrip(declared)).Direction);
+        Assert.DoesNotContain("direction", Encoded(new SelfActionDeclared(new ModelId("A1"), SelfActionKind.Aim)), StringComparison.OrdinalIgnoreCase);
+        var moved = new ModelsMoved(new ModelId("A1"), [new ForcedMove(new ModelId("B1"), at)]) { Die = 4 };
+        var back = (ModelsMoved)RoundTrip(moved);
+        Assert.Equal((4, new ForcedMove(new ModelId("B1"), at)), (back.Die, Assert.Single(back.Moves)));
+        Assert.DoesNotContain("die", Encoded(moved with { Die = 0 }), StringComparison.OrdinalIgnoreCase);
+        var command = new SubmitCommand("c9", 9, 0, new Rules.Core.Commands.TakeSelfAction(Seat.One, new ModelId("A1"), SelfActionKind.PuppetMaster) { Target = new ModelId("B1"), Direction = at });
+        Assert.Contains("direction", Encoding.UTF8.GetString(Codec.Encode(command)), StringComparison.OrdinalIgnoreCase);
+    }
 }
