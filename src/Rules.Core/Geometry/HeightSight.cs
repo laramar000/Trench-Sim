@@ -326,7 +326,11 @@ public static class HeightSight
         {
             return [target.Centre];
         }
-        var k = (Int128)RoundedDiv(target.Radius.Thousandths * SightHeights.SideThousandths, 1000);
+        // Roster stage R8c (U132): an oval seen from the side is wider across the line by the half span's part across it: the
+        // half-width is Radius + HalfSpan |c| / length, c the line's component along the other axis (a round base: Radius).
+        var k = target.IsRound
+            ? (Int128)RoundedDiv(target.Radius.Thousandths * SightHeights.SideThousandths, 1000)
+            : RoundedDiv((target.Radius.Thousandths * length + (Int128)target.HalfSpan.Thousandths * Int128.Abs(target.Axis == BaseAxis.X ? dy : dx)) * SightHeights.SideThousandths, 1000 * length);
         // Left of the direction (dx, dy) is (-dy, dx).
         var ox = (long)RoundedDiv(-dy * k, length);
         var oy = (long)RoundedDiv(dx * k, length);

@@ -261,6 +261,40 @@ public sealed record Footprint
         return extent * extent >= needed * needed * lineSquared;
     }
 
+    // Roster stage R8c (U132): is the footprint at least as wide, across the line from `from` to the target's centre, as the
+    // target's base is across that line? A round base is its diameter. An oval is 2 Radius plus twice the half span's part
+    // across the line, 2 S |c| / len with c the line's component along the other axis: extent >= 2 r len + 2 S |c| in the
+    // units of the cross product, compared exactly by squaring once the right side is known.
+    internal bool IsAtLeastAsWideAcross(Point2 from, Point2 to, ModelBody target)
+    {
+        if (target.IsRound)
+        {
+            return IsAtLeastAsWideAcross(from, to, target.Radius * 2);
+        }
+        Int128 dx = to.X.Thousandths - from.X.Thousandths;
+        Int128 dy = to.Y.Thousandths - from.Y.Thousandths;
+        var lineSquared = dx * dx + dy * dy;
+        if (lineSquared == 0)
+        {
+            return true;
+        }
+        Int128 lowest = Int128.MaxValue, highest = Int128.MinValue;
+        foreach (var corner in Parts.SelectMany(p => p.Corners()))
+        {
+            var across = -(Int128)corner.X.Thousandths * dy + (Int128)corner.Y.Thousandths * dx;
+            lowest = Int128.Min(lowest, across);
+            highest = Int128.Max(highest, across);
+        }
+        var across2 = (Int128)target.HalfSpan.Thousandths * 2 * Int128.Abs(target.Axis == BaseAxis.X ? dy : dx);
+        var rest = highest - lowest - across2;
+        if (rest < 0)
+        {
+            return false;
+        }
+        var width = (Int128)target.Radius.Thousandths * 2;
+        return rest * rest >= width * width * lineSquared;
+    }
+
     // Is the point strictly inside the footprint (not on its edge)? A point on a seam between parts is inside.
     internal bool ContainsInside(Point2 p) =>
         IsSingle

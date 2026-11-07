@@ -1017,7 +1017,7 @@ public static class Reducer
     // 1/2" high or more (a Cover or Wall piece).
     internal static string? HideRefusal(MatchState state, ModelState model) =>
         Board.BodyOf(state, model) is { } body && Board.ScenarioOf(state)?.Battlefield is { } field
-            && field.Terrain.Any(t => t.Profile != TerrainProfile.Low && t.Footprint.CircleTouches(body.Centre, body.Radius))
+            && field.Terrain.Any(t => t.Profile != TerrainProfile.Low && t.Footprint.Touches(body))
             ? null
             : "A Hide ACTION is taken touching terrain at least 1/2\" high.";
 

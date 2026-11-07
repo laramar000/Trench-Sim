@@ -43,8 +43,8 @@ public static class Cover
                 continue;
             }
             if (SightHeights.TopOf(terrain) < MinimumHeight
-                || !terrain.Footprint.CircleTouches(target.Centre, target.Radius)
-                || !terrain.Footprint.IsAtLeastAsWideAcross(attacker.Centre, target.Centre, target.Radius * 2))
+                || !terrain.Footprint.Touches(target)
+                || !terrain.Footprint.IsAtLeastAsWideAcross(attacker.Centre, target.Centre, target))
             {
                 continue;
             }

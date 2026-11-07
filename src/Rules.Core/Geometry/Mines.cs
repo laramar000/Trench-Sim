@@ -139,6 +139,14 @@ public static class Mines
     public static bool IsWithin(Point2 centre, Length radius, Point2 marker) =>
         ExactMath.Near(centre, marker, radius + MarkerRadius + TriggerRange, strict: false);
 
+    // Roster stage R8c (U132): the same for a whole base, round or oval, set down with its centre at a point: the marker is
+    // within the reach of the base's core. For a round base this is the old test.
+    public static bool IsWithin(ModelBody mover, Point2 at, Point2 marker)
+    {
+        var reach = (Int128)(mover.Radius + MarkerRadius + TriggerRange).Thousandths;
+        return Shapes.PointToCoreGapSquared(mover.At(at), marker) <= reach * reach;
+    }
+
     // The halts of a move along these waypoints from the mover's centre, in path order. Others are the other models on
     // the table (for where the mover could stand).
     public static ImmutableArray<MineStopPoint> Stops(
@@ -161,15 +169,15 @@ public static class Mines
         var entries = new List<(int Leg, ExactMath.Ratio T, MineMarker Marker)>();
         foreach (var marker in markers)
         {
-            var inside = IsWithin(points[0], mover.Radius, marker.At);
+            var inside = IsWithin(mover, points[0], marker.At);
             for (var leg = 1; leg < points.Count; leg++)
             {
-                if (!inside && Entry(points[leg - 1], points[leg], marker.At, reach) is { } t)
+                if (!inside && EntryOf(mover, points[leg - 1], points[leg], marker.At, reach) is { } t)
                 {
                     entries.Add((leg, t, marker));
                     break;
                 }
-                inside = IsWithin(points[leg], mover.Radius, marker.At);
+                inside = IsWithin(mover, points[leg], marker.At);
             }
         }
         entries.Sort((a, b) =>
@@ -190,7 +198,7 @@ public static class Mines
         var lastNext = 0;
         foreach (var (leg, t, marker) in entries)
         {
-            var (at, key, next) = StopFor(battlefield, mover.Radius, points, bodies, leg, t);
+            var (at, key, next) = StopFor(battlefield, mover, points, bodies, leg, t);
             if (Compare(key, last) < 0)
             {
                 (at, key, next) = (lastAt, last, lastNext);
@@ -242,20 +250,20 @@ public static class Mines
 
     // Where the halt for an entry on this leg is, as a point, its place on the path, and the next waypoint index.
     private static (Point2 At, (int Leg, ExactMath.Ratio T) Key, int Next) StopFor(
-        Battlefield battlefield, Length radius, List<Point2> points, List<ModelBody> others, int leg, ExactMath.Ratio t)
+        Battlefield battlefield, ModelBody mover, List<Point2> points, List<ModelBody> others, int leg, ExactMath.Ratio t)
     {
         var a = points[leg - 1];
         var b = points[leg];
         var level = Towers.ElevationAt(battlefield, a) == Towers.ElevationAt(battlefield, b);
         var at = PointAt(a, b, t);
-        if (level && CanStand(battlefield, radius, at, others))
+        if (level && CanStand(battlefield, mover, at, others))
         {
             // At the leg's start the remaining waypoints are the same as part-way along it.
             return (at, (leg, t), leg - 1);
         }
         for (var j = leg - 1; j > 0; j--)
         {
-            if (CanStand(battlefield, radius, points[j], others))
+            if (CanStand(battlefield, mover, points[j], others))
             {
                 return (points[j], (j, ExactMath.Ratio.Of(1, 1)), j);
             }
@@ -265,14 +273,14 @@ public static class Mines
 
     // Could the model's base rest here: more than half on the table, on no other base, clear of terrain it cannot cross,
     // and either wholly on a tower's platform or clear of every tower?
-    private static bool CanStand(Battlefield battlefield, Length radius, Point2 at, List<ModelBody> others)
+    private static bool CanStand(Battlefield battlefield, ModelBody mover, Point2 at, List<ModelBody> others)
     {
-        if (battlefield.Area.MoreThanHalfInside(at, radius) != AreaDecision.MoreThanHalf)
+        if (battlefield.Area.MoreThanHalfInside(mover.At(at)) != AreaDecision.MoreThanHalf)
         {
             return false;
         }
         var elevation = Towers.ElevationAt(battlefield, at);
-        var body = new ModelBody("mover", at, radius, elevation);
+        var body = mover.At(at).AtElevation(elevation);
         if (others.Any(o => Measure.Overlap(body, o)))
         {
             return false;
@@ -282,12 +290,12 @@ public static class Mines
             if (terrain.IsTower)
             {
                 var on = elevation > Length.Zero && terrain.Footprint.ContainsInside(at);
-                if (on ? !terrain.Footprint.CircleInside(at, radius) : terrain.Footprint.CircleOverlaps(at, radius))
+                if (on ? !terrain.Footprint.Inside(body) : terrain.Footprint.Overlaps(body))
                 {
                     return false;
                 }
             }
-            else if (!terrain.IsWalkable && terrain.Footprint.CircleOverlaps(at, radius))
+            else if (!terrain.IsWalkable && terrain.Footprint.Overlaps(body))
             {
                 return false;
             }
@@ -303,6 +311,44 @@ public static class Mines
         return new Point2(
             Length.FromThousandths(a.X.Thousandths + (long)(t.Num * dx / t.Den)),
             Length.FromThousandths(a.Y.Thousandths + (long)(t.Num * dy / t.Den)));
+    }
+
+    // Roster stage R8c (U132): the first fraction of the leg a-b at which the base, carried along it without turning, comes
+    // within `reach` (radius + marker + range) of the marker, starting outside. A round base: the centre reaching a disc, as
+    // before. An oval's reach is the union of a disc about each end of its core and the strip between them, so the entry is the
+    // earliest of those three, each exact and rounded down.
+    internal static ExactMath.Ratio? EntryOf(ModelBody mover, Point2 a, Point2 b, Point2 marker, Int128 reach)
+    {
+        if (mover.IsRound)
+        {
+            return Entry(a, b, marker, reach);
+        }
+        var (x0, x1, y0, y1) = mover.At(a).CoreBox();
+        Point2 P(long x, long y) => new(Length.FromThousandths(x), Length.FromThousandths(y));
+        var dx = b.X.Thousandths - a.X.Thousandths;
+        var dy = b.Y.Thousandths - a.Y.Thousandths;
+        ExactMath.Ratio? best = null;
+        void Offer(ExactMath.Ratio? t)
+        {
+            if (t is { } r && (best is not { } current || r.CompareTo(current) < 0))
+            {
+                best = r;
+            }
+        }
+        Offer(Entry(P(x0, y0), P(x0 + dx, y0 + dy), marker, reach));
+        Offer(Entry(P(x1, y1), P(x1 + dx, y1 + dy), marker, reach));
+        // The strip: the core's box grown by the reach across the core, crossed by the marker as the base moves (the marker's
+        // path relative to the base runs the other way).
+        var big = (long)reach;
+        var (sx0, sx1, sy0, sy1) = mover.Axis == BaseAxis.X ? (x0, x1, y0 - big, y1 + big) : (x0 - big, x1 + big, y0, y1);
+        var lo = ExactMath.Ratio.Of(0, 1);
+        var hi = ExactMath.Ratio.Of(1, 1);
+        if (ExactMath.Slab(marker.X.Thousandths, -dx, sx0, sx1, false, ref lo, ref hi)
+            && ExactMath.Slab(marker.Y.Thousandths, -dy, sy0, sy1, false, ref lo, ref hi) && lo.CompareTo(hi) <= 0)
+        {
+            Offer(lo);
+        }
+        return best;
     }
 
     // The first fraction of the leg a-b at which the centre comes within reach of c, starting from outside it, rounded

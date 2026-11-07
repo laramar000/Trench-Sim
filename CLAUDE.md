@@ -240,8 +240,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - **To do (2026-11-06, nothing in progress; the owner picks the order, a new stage needs the owner's ask):**
   1. Oval bases (Plague Hound, Pit Locust are refused in matches until done). Owner chose (2026-11-07) the exact capsule with a
      player-chosen X/Y axis (U132). R8a done: `ModelBody.HalfSpan/Axis`, `Measure`, `Footprint` body tests, `BaseArea`,
-     `Placement`, `OvalBaseTests`. R8b done (movement, retreat, charge planner; `Shapes.SweptNear`/`SweptBodyOverlapsRect`, `Movement.CoresNear`; ovals do not climb towers). Left: R8c Line of Sight, cover, blast,
-     mines, trenches, `Elevation`, `Board.BodyOf`; R8d profile `BaseHalfSpan`, per-model axis in `ModelState` + hash, a way to choose
+     `Placement`, `OvalBaseTests`. R8b done (movement, retreat, charge planner; `Shapes.SweptNear`/`SweptBodyOverlapsRect`, `Movement.CoresNear`; ovals do not climb towers). R8c done (sight samples, cover width, blast, mines, trenches, platforms; `OvalSightTests`). Left: R8d profile `BaseHalfSpan`, per-model axis in `ModelState` + hash, a way to choose
      it at deploy/move, MatchReadiness stops refusing, client drawing. Nothing in a match changes until R8d.
   2. Moving other models (Puppet Master, Loudspeakers).
   3. BLESSING and INFECTION MARKERS.

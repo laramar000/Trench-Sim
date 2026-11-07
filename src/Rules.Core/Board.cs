@@ -394,10 +394,8 @@ internal static class Board
     // Whether a point is within that distance of a base: its centre within the distance plus the radius. Exact.
     private static bool Reaches(ModelBody from, Point2 at, Length distance)
     {
-        var dx = (Int128)(at.X.Thousandths - from.Centre.X.Thousandths);
-        var dy = (Int128)(at.Y.Thousandths - from.Centre.Y.Thousandths);
         var reach = (Int128)(distance.Thousandths + from.Radius.Thousandths);
-        return dx * dx + dy * dy <= reach * reach;
+        return Shapes.PointToCoreGapSquared(from, at) <= reach * reach;
     }
 
     // The attacker's own models (on the table, Down ones included) within 1" of a target: the models a shot at that
@@ -749,8 +747,8 @@ internal static class Board
             {
                 continue;
             }
-            var isOn = piece.Footprint.MoreThanHalfInside(body.Centre, body.Radius) == AreaDecision.MoreThanHalf;
-            if (isOn || piece.Footprint.CircleWithin(body.Centre, body.Radius, EngagementRange))
+            var isOn = piece.Footprint.MoreThanHalfInside(body) == AreaDecision.MoreThanHalf;
+            if (isOn || piece.Footprint.Within(body, EngagementRange))
             {
                 near[(int)model.Seat]++;
             }

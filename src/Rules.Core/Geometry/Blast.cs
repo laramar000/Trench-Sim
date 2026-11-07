@@ -20,9 +20,9 @@ public static class Blast
         // The base is reached when the centre-to-centre distance d is at most r + s, with s the horizontal reach left
         // once the height is used up: s * s = R * R - v * v. Squared twice so no square root is taken.
         var s2 = big * big - (Int128)v * v;
-        var dx = (Int128)(other.Centre.X.Thousandths - centre.X.Thousandths);
-        var dy = (Int128)(other.Centre.Y.Thousandths - centre.Y.Thousandths);
-        var d2 = dx * dx + dy * dy;
+        // Roster stage R8c (U132): an oval base is reached through its core: d is the distance from the centre to the nearest
+        // point of the core, and the base reaches Radius beyond it. For a round base that is the centre distance.
+        var d2 = Shapes.PointToCoreGapSquared(other, centre);
         var r = (Int128)other.Radius.Thousandths;
         var left = d2 - r * r - s2; // d * d - r * r - s * s <= 2 * r * s
         return left <= 0 || left * left <= 4 * r * r * s2;

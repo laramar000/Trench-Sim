@@ -28,7 +28,7 @@ public static class Elevation
         ArgumentNullException.ThrowIfNull(body);
         foreach (var platform in battlefield.Terrain.Where(t => t.IsPlatform))
         {
-            if (platform.Footprint.MoreThanHalfInside(body.Centre, body.Radius) == AreaDecision.MoreThanHalf)
+            if (platform.Footprint.MoreThanHalfInside(body) == AreaDecision.MoreThanHalf)
             {
                 return new ModelPosition(ModelLevel.High, platform.Id);
             }

@@ -35,6 +35,15 @@ internal static class Shapes
         return dx * dx + dy * dy;
     }
 
+    // Roster stage R8c (U132): the squared distance from a point to the nearest point of a base's core (its centre, for a round base).
+    public static Int128 PointToCoreGapSquared(ModelBody body, Point2 p)
+    {
+        var (x0, x1, y0, y1) = body.CoreBox();
+        var dx = (Int128)Math.Max(0, Math.Max(x0 - p.X.Thousandths, p.X.Thousandths - x1));
+        var dy = (Int128)Math.Max(0, Math.Max(y0 - p.Y.Thousandths, p.Y.Thousandths - y1));
+        return dx * dx + dy * dy;
+    }
+
     public static bool BodyOverlapsRect(ModelBody body, Rect rect) =>
         CoreGapSquaredToRect(body, rect) < (Int128)body.Radius.Thousandths * body.Radius.Thousandths;
 

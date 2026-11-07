@@ -17,12 +17,12 @@ public static class Trenches
             return null;
         }
         var parts = battlefield.TrenchParts.Select(p => p.Part).ToList();
-        if (BaseArea.MoreThanHalfInside(body.Centre, body.Radius, parts) != AreaDecision.MoreThanHalf)
+        if (BaseArea.MoreThanHalfInside(body, parts) != AreaDecision.MoreThanHalf)
         {
             return null;
         }
         var trenches = battlefield.Terrain.Where(t => t.IsTrench).ToList();
         return trenches.FirstOrDefault(t => t.Footprint.Parts.Any(p => p.Contains(body.Centre)))
-            ?? trenches.First(t => t.Footprint.CircleOverlaps(body.Centre, body.Radius));
+            ?? trenches.First(t => t.Footprint.Overlaps(body));
     }
 }
