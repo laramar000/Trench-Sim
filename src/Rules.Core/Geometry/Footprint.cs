@@ -173,6 +173,10 @@ public sealed record Footprint
         return true;
     }
 
+    // Roster stage R8b (U132): the same for a whole base, round or oval, carried along the leg a-b without turning.
+    internal bool SweptBodyOverlaps(ModelBody mover, Point2 a, Point2 b) =>
+        mover.IsRound ? SweptCircleOverlaps(a, b, mover.Radius) : Parts.Any(p => Shapes.SweptBodyOverlapsRect(mover, a, b, p));
+
     // A base swept along the straight path a-b overlaps the footprint's inside.
     internal bool SweptCircleOverlaps(Point2 a, Point2 b, Length radius)
     {

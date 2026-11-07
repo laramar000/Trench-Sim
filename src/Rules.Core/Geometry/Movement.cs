@@ -105,7 +105,7 @@ public static class Movement
 
         foreach (var waypoint in waypoints)
         {
-            if (battlefield.Area.MoreThanHalfInside(waypoint, mover.Radius) != AreaDecision.MoreThanHalf)
+            if (battlefield.Area.MoreThanHalfInside(mover.At(waypoint)) != AreaDecision.MoreThanHalf)
             {
                 return Refuse(MoveRefusal.OffBattlefield, "A model cannot move off the battlefield; more than half its base must stay on it.", "1.0.2 pp. 31, 35", cost);
             }
@@ -120,14 +120,14 @@ public static class Movement
         {
             for (var i = 1; i < path.Count; i++)
             {
-                if (terrain.Footprint.SweptCircleOverlaps(path[i - 1], path[i], mover.Radius))
+                if (terrain.Footprint.SweptBodyOverlaps(mover, path[i - 1], path[i]))
                 {
                     return Refuse(MoveRefusal.CrossesBlockingTerrain, "The base would pass through terrain that cannot be crossed.", "1.0.2 pp. 31, 38, 39", cost, terrain.Id);
                 }
             }
         }
 
-        if (TowerRefusal(battlefield, mover.Radius, path, sideClimb, out var climbLeg) is { } tower)
+        if (TowerRefusal(battlefield, mover, path, sideClimb, out var climbLeg) is { } tower)
         {
             return tower with { Cost = cost };
         }
@@ -147,7 +147,7 @@ public static class Movement
             var hit = mover.Radius + enemy.Radius;
             foreach (var segment in segments.Where(g => g.Meets(enemy)))
             {
-                if (Shapes.PointNearSegment(enemy.Centre, segment.A, segment.B, hit, strict: true))
+                if (Shapes.SweptNear(mover, segment.A, segment.B, enemy, hit, strict: true))
                 {
                     return Refuse(MoveRefusal.CrossesEnemyBase, "A model cannot move through an enemy model's base.", "1.0.2 pp. 31, 35", cost, enemy.Id);
                 }
@@ -159,7 +159,7 @@ public static class Movement
         {
             foreach (var segment in segments.Where(g => g.Meets(piece)))
             {
-                if (Shapes.PointNearSegment(piece.Centre, segment.A, segment.B, mover.Radius + piece.Radius, strict: true))
+                if (Shapes.SweptNear(mover, segment.A, segment.B, piece, mover.Radius + piece.Radius, strict: true))
                 {
                     return Refuse(MoveRefusal.CrossesPiece, "A model cannot move through a Field Shrine.", "1.0.2 p. 82", cost, piece.Id);
                 }
@@ -178,7 +178,7 @@ public static class Movement
                 }
                 // The zone is a disc, which is convex, so staying within at every waypoint keeps the whole path within.
                 // A waypoint at another elevation is out of it (U70).
-                if (waypoints.Any(w => !ExactMath.Near(w, enemy.Centre, zone, strict: false) || ElevationOf(w) != enemy.Elevation))
+                if (waypoints.Any(w => !CoresNear(mover, w, enemy, zone, strict: false) || ElevationOf(w) != enemy.Elevation))
                 {
                     return Refuse(MoveRefusal.LeavesEnemyZone, "A model that starts within 1\" of an enemy must stay within 1\" of it throughout (or retreat).", "1.0.2 p. 35", cost, enemy.Id);
                 }
@@ -195,11 +195,11 @@ public static class Movement
                 {
                     // Once a charging model is within 1" of its target, other enemy models no longer interpose (p. 36);
                     // a leg that starts there is the tail of the charge. Their bases still cannot be crossed.
-                    if (target is not null && ExactMath.Near(segment.A, target.Centre, mover.Radius + target.Radius + Length.Inch, strict: false))
+                    if (target is not null && CoresNear(mover, segment.A, target, mover.Radius + target.Radius + Length.Inch, strict: false))
                     {
                         continue;
                     }
-                    if (Shapes.PointNearSegment(enemy.Centre, segment.A, segment.B, zone, strict: false))
+                    if (Shapes.SweptNear(mover, segment.A, segment.B, enemy, zone, strict: false))
                     {
                         return Refuse(MoveRefusal.EntersEnemyZone, "A model can only move within 1\" of an enemy by charging.", "1.0.2 pp. 35, 36", cost, enemy.Id);
                     }
@@ -212,7 +212,7 @@ public static class Movement
         var friends = sorted.Where(o => o.Relation == Relation.Friendly).Select(o => o.Body).ToList();
         foreach (var friend in friends)
         {
-            if (friend.Elevation == ElevationOf(end) && ExactMath.Near(end, friend.Centre, mover.Radius + friend.Radius, strict: true))
+            if (friend.Elevation == ElevationOf(end) && CoresNear(mover, end, friend, mover.Radius + friend.Radius, strict: true))
             {
                 return Refuse(MoveRefusal.EndsOnBase, "A model cannot finish its move overlapping another model's base.", "1.0.2 pp. 31, 35", cost, friend.Id);
             }
@@ -224,7 +224,7 @@ public static class Movement
             var stop = path[leg - 1];
             foreach (var friend in friends)
             {
-                if (friend.Elevation == ElevationOf(stop) && ExactMath.Near(stop, friend.Centre, mover.Radius + friend.Radius, strict: true))
+                if (friend.Elevation == ElevationOf(stop) && CoresNear(mover, stop, friend, mover.Radius + friend.Radius, strict: true))
                 {
                     return Refuse(MoveRefusal.SideClimbNotAllowed, SideClimbStopText, RefSideClimb, cost, friend.Id);
                 }
@@ -248,12 +248,28 @@ public static class Movement
     // platform; null when there is none (always null on a battlefield without towers).
     // With sideClimb, one leg straight up or down a side away from a ladder is allowed and its index in the path is given
     // back (U75, U76); without, such a leg is refused with its own reason.
-    private static MoveResult? TowerRefusal(Battlefield battlefield, Length radius, IReadOnlyList<Point2> path, bool sideClimb, out int? climbLeg)
+    private static MoveResult? TowerRefusal(Battlefield battlefield, ModelBody mover, IReadOnlyList<Point2> path, bool sideClimb, out int? climbLeg)
     {
         climbLeg = null;
+        var radius = mover.Radius;
         var towers = battlefield.Terrain.Where(t => t.IsTower).ToList();
         if (towers.Count == 0)
         {
+            return null;
+        }
+        if (!mover.IsRound)
+        {
+            // Roster stage R8b (U132): an oval base does not climb in this version: a tower is solid to it, and it cannot be
+            // on a platform.
+            for (var i = 1; i < path.Count; i++)
+            {
+                if (Towers.TowerAt(battlefield, path[i - 1]) is not null || Towers.TowerAt(battlefield, path[i]) is not null
+                    || towers.FirstOrDefault(t => t.Footprint.SweptBodyOverlaps(mover, path[i - 1], path[i])) is not null)
+                {
+                    var solid = towers.FirstOrDefault(t => t.Footprint.SweptBodyOverlaps(mover, path[i - 1], path[i])) ?? Towers.TowerAt(battlefield, path[i - 1]) ?? Towers.TowerAt(battlefield, path[i]);
+                    return Refuse(MoveRefusal.TowerNotByLadder, TowerNotByLadderText, RefTowers, Length.Zero, solid?.Id);
+                }
+            }
             return null;
         }
         for (var i = 1; i < path.Count; i++)
@@ -342,6 +358,15 @@ public static class Movement
             }
         }
         return segments;
+    }
+
+    // The mover's core, set down with its centre at a point, is within `reach` of the other's core (strict: less than).
+    // For round bases this is the distance between the centres.
+    internal static bool CoresNear(ModelBody mover, Point2 at, ModelBody other, Length reach, bool strict)
+    {
+        var gap = Measure.CoreGapSquared(mover.At(at), other);
+        var r2 = (Int128)reach.Thousandths * reach.Thousandths;
+        return strict ? gap < r2 : gap <= r2;
     }
 
     private static MoveResult Refuse(MoveRefusal reason, string text, string rule, Length cost, string? subject = null) =>

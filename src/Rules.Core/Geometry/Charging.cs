@@ -181,8 +181,10 @@ public static class Charging
             Length.FromThousandths(centre.Y.Thousandths + Scale(cornerRadius, cy)));
     }
 
-    // Contact point j (0 to 127) around a centre, in steps of 2.8125 degrees anticlockwise.
-    private static Point2 RingPoint(Point2 centre, long radius, int j)
+    // Contact point j (0 to 127) around a centre, in steps of 2.8125 degrees anticlockwise. Roster stage R8b (U132): with
+    // oval bases the ring is a rounded rectangle: each quarter circle is centred on a corner of the box (hx, hy) away from the
+    // centre (the two cores' half spans along each axis), and the straight edges join the quarters. Round bases: hx = hy = 0.
+    private static Point2 RingPoint(Point2 centre, long radius, int j, long hx = 0, long hy = 0)
     {
         var q = j / 32 % 4;
         var k = j % 32;
@@ -195,9 +197,16 @@ public static class Charging
             2 => (-c, -s),
             _ => (s, -c),
         };
+        var (ox, oy) = q switch
+        {
+            0 => (hx, hy),
+            1 => (-hx, hy),
+            2 => (-hx, -hy),
+            _ => (hx, -hy),
+        };
         return new Point2(
-            Length.FromThousandths(centre.X.Thousandths + Scale(radius, cx)),
-            Length.FromThousandths(centre.Y.Thousandths + Scale(radius, cy)));
+            Length.FromThousandths(centre.X.Thousandths + ox + Scale(radius, cx)),
+            Length.FromThousandths(centre.Y.Thousandths + oy + Scale(radius, cy)));
     }
 
     // radius * fraction / 1e9, rounded to the nearest thousandth (half away from zero).
@@ -259,6 +268,15 @@ public static class Charging
 
         public bool HasFriends => _friends.Count > 0;
 
+        // Roster stage R8b (U132): how far the two cores together reach from the centres along each axis (zero for round bases).
+        private long SpanX => (_mover.ExtentX - _mover.Radius).Thousandths + (_target.ExtentX - _target.Radius).Thousandths;
+        private long SpanY => (_mover.ExtentY - _mover.Radius).Thousandths + (_target.ExtentY - _target.Radius).Thousandths;
+
+        private Point2 Ring(long radius, int j) => RingPoint(_target.Centre, radius, j, SpanX, SpanY);
+
+        // The mover, set down at a point, is within `reach` of the other base's core (for round bases: centres within reach).
+        private bool Near(Point2 at, ModelBody other, Length reach, bool strict) => Movement.CoresNear(_mover, at, other, reach, strict);
+
         // ---- finding the route ----
 
         public Route? FindRoute(bool friendsBlock)
@@ -296,27 +314,27 @@ public static class Charging
             var previous = from;
             for (var i = 0; i < legs.Length; i++)
             {
-                var tail = ExactMath.Near(previous, _target.Centre, _zone, strict: false);
+                var tail = InZone(previous);
                 if (!LegFree(previous, legs[i], friendsBlock) || tail && !TailFree(previous, legs[i], friendsBlock))
                 {
                     return false;
                 }
                 previous = legs[i];
             }
-            return _field.Area.MoreThanHalfInside(legs[^1], _mover.Radius) == AreaDecision.MoreThanHalf;
+            return _field.Area.MoreThanHalfInside(_mover.At(legs[^1])) == AreaDecision.MoreThanHalf;
         }
 
         // Terrain that cannot be crossed (and, when asked, the bases of friendly models) along one leg.
         private bool LegFree(Point2 a, Point2 b, bool friendsBlock)
         {
             // On a platform both ends wholly on it keep the whole leg on it (a rectangle is convex).
-            if (_platform is not null && (!_platform.Footprint.CircleInside(a, _mover.Radius) || !_platform.Footprint.CircleInside(b, _mover.Radius)))
+            if (_platform is not null && (!_platform.Footprint.Inside(_mover.At(a)) || !_platform.Footprint.Inside(_mover.At(b))))
             {
                 return false;
             }
             foreach (var terrain in _blocking)
             {
-                if (terrain.Footprint.SweptCircleOverlaps(a, b, _mover.Radius))
+                if (terrain.Footprint.SweptBodyOverlaps(_mover, a, b))
                 {
                     return false;
                 }
@@ -325,7 +343,7 @@ public static class Charging
             {
                 foreach (var friend in _friends)
                 {
-                    if (Shapes.PointNearSegment(friend.Centre, a, b, _mover.Radius + friend.Radius, strict: true))
+                    if (Shapes.SweptNear(_mover, a, b, friend, _mover.Radius + friend.Radius, strict: true))
                     {
                         return false;
                     }
@@ -339,12 +357,12 @@ public static class Charging
         {
             foreach (var enemy in _otherEnemies)
             {
-                if (Shapes.PointNearSegment(enemy.Centre, a, b, _mover.Radius + enemy.Radius, strict: true))
+                if (Shapes.SweptNear(_mover, a, b, enemy, _mover.Radius + enemy.Radius, strict: true))
                 {
                     return false;
                 }
             }
-            return !Shapes.PointNearSegment(_target.Centre, a, b, _mover.Radius + _target.Radius, strict: true);
+            return !Shapes.SweptNear(_mover, a, b, _target, _mover.Radius + _target.Radius, strict: true);
         }
 
         // ---- the visibility graph ----
@@ -400,7 +418,7 @@ public static class Charging
             var bestNode = -1;
             var bestKey = -1;
             ImmutableArray<Point2> bestTail = default;
-            var contactRadius = (_mover.Radius + _target.Radius).Thousandths + 2;
+            var contactRadius = (_mover.Radius + _target.Radius).Thousandths + SpanX + SpanY + 2;
             var order = Enumerable.Range(0, count).Where(a => settled[a])
                 .Select(a => (Node: a, Bound: dist[a] + Int128.Max(0, ExactMath.FloorSqrt(ExactMath.DistanceSquared(nodes[a], _target.Centre) * (Int128)1_000_000) - (Int128)contactRadius * 1000)))
                 .OrderBy(x => x.Bound).ThenBy(x => x.Node).ToList();
@@ -466,7 +484,7 @@ public static class Charging
             }
             if (!from && !to)
             {
-                if (!LegFree(a, b, friendsBlock) || Shapes.PointNearSegment(_target.Centre, a, b, _zone, strict: false))
+                if (!LegFree(a, b, friendsBlock) || Shapes.SweptNear(_mover, a, b, _target, _zone, strict: false))
                 {
                     return false;
                 }
@@ -482,7 +500,7 @@ public static class Charging
             return true;
         }
 
-        private bool InZone(Point2 p) => ExactMath.Near(p, _target.Centre, _zone, strict: false);
+        private bool InZone(Point2 p) => Near(p, _target, _zone, strict: false);
 
         // Contact legs from a node: straight at the target if that is free (key -1), otherwise to each of the
         // contact points around it (key = the point's number).
@@ -498,7 +516,7 @@ public static class Charging
             var radius = (_mover.Radius + _target.Radius).Thousandths + 1;
             for (var j = 0; j < Contacts; j++)
             {
-                var legs = LegsTo(from, RingPoint(_target.Centre, radius, j));
+                var legs = LegsTo(from, Ring(radius, j));
                 if (GoalLegal(from, legs, friendsBlock))
                 {
                     yield return (j, legs);
@@ -509,7 +527,7 @@ public static class Charging
         // The legs from a node to a contact point, split where the model first comes within 1" of the target.
         private ImmutableArray<Point2> LegsTo(Point2 from, Point2 contact)
         {
-            if (ExactMath.Near(from, _target.Centre, _zone, strict: false))
+            if (InZone(from))
             {
                 return [contact];
             }
@@ -519,7 +537,7 @@ public static class Charging
             while (low < high)
             {
                 var mid = (low + high) / 2;
-                if (ExactMath.Near(leg.At(mid), _target.Centre, _zone, strict: false))
+                if (InZone(leg.At(mid)))
                 {
                     high = mid;
                 }
@@ -546,27 +564,46 @@ public static class Charging
             }
 
             var cornerRadius = CornerRadius(radius);
+            // Roster stage R8b (U132): an oval mover's core is carried along, so each shape is grown by the core's half span on
+            // each axis before its corners are rounded; for a round mover that is nothing.
+            var moverX = (_mover.ExtentX - _mover.Radius).Thousandths;
+            var moverY = (_mover.ExtentY - _mover.Radius).Thousandths;
+            // A quarter circle at each of the four corners of the box, from the straight edge out to the next one.
+            void OfferRounded(long minX, long minY, long maxX, long maxY, long rounding)
+            {
+                Point2 At(long x, long y) => new(Length.FromThousandths(x), Length.FromThousandths(y));
+                for (var j = 0; j <= 8; j++)
+                {
+                    Offer(Corner(At(maxX, maxY), rounding, j));
+                    Offer(Corner(At(minX, maxY), rounding, 8 + j));
+                    Offer(Corner(At(minX, minY), rounding, 16 + j));
+                    Offer(Corner(At(maxX, minY), rounding, 24 + j));
+                }
+            }
+
             // Every part's corners: the outline's outer corners are among them (trench-maps stage S2).
             foreach (var r in _blocking.SelectMany(t => t.Footprint.Parts))
             {
-                // Each corner of the rectangle swept by the base is a quarter circle, from the straight edge
-                // out to the next one.
-                for (var j = 0; j <= 8; j++)
-                {
-                    Offer(Corner(r.Max, cornerRadius, j));
-                    Offer(Corner(new Point2(r.Min.X, r.Max.Y), cornerRadius, 8 + j));
-                    Offer(Corner(r.Min, cornerRadius, 16 + j));
-                    Offer(Corner(new Point2(r.Max.X, r.Min.Y), cornerRadius, 24 + j));
-                }
+                OfferRounded(r.Min.X.Thousandths - moverX, r.Min.Y.Thousandths - moverY, r.Max.X.Thousandths + moverX, r.Max.Y.Thousandths + moverY, cornerRadius);
             }
             if (friendsBlock)
             {
                 foreach (var friend in _friends)
                 {
                     var around = CornerRadius((_mover.Radius + friend.Radius).Thousandths);
-                    for (var j = 0; j < Around; j++)
+                    var hx = moverX + (friend.ExtentX - friend.Radius).Thousandths;
+                    var hy = moverY + (friend.ExtentY - friend.Radius).Thousandths;
+                    if (hx == 0 && hy == 0)
                     {
-                        Offer(Corner(friend.Centre, around, j));
+                        for (var j = 0; j < Around; j++)
+                        {
+                            Offer(Corner(friend.Centre, around, j));
+                        }
+                    }
+                    else
+                    {
+                        var (cx, cy) = (friend.Centre.X.Thousandths, friend.Centre.Y.Thousandths);
+                        OfferRounded(cx - hx, cy - hy, cx + hx, cy + hy, around);
                     }
                 }
             }
@@ -588,21 +625,22 @@ public static class Charging
         // friends block) clear of friendly bases?
         private bool ValidWaypoint(Point2 p, bool friendsBlock)
         {
-            if (_field.Area.MoreThanHalfInside(p, _mover.Radius) != AreaDecision.MoreThanHalf
-                || ExactMath.Near(p, _target.Centre, _mover.Radius + _target.Radius, strict: true))
+            var body = _mover.At(p);
+            if (_field.Area.MoreThanHalfInside(body) != AreaDecision.MoreThanHalf
+                || Near(p, _target, _mover.Radius + _target.Radius, strict: true))
             {
                 return false;
             }
-            if (_blocking.Any(t => t.Footprint.CircleOverlaps(p, _mover.Radius))
-                || _platform is not null && !_platform.Footprint.CircleInside(p, _mover.Radius))
+            if (_blocking.Any(t => t.Footprint.Overlaps(body))
+                || _platform is not null && !_platform.Footprint.Inside(body))
             {
                 return false;
             }
-            if (InZone(p) && _otherEnemies.Any(e => ExactMath.Near(p, e.Centre, _mover.Radius + e.Radius, strict: true)))
+            if (InZone(p) && _otherEnemies.Any(e => Near(p, e, _mover.Radius + e.Radius, strict: true)))
             {
                 return false;
             }
-            return !friendsBlock || _friends.All(f => !ExactMath.Near(p, f.Centre, _mover.Radius + f.Radius, strict: true));
+            return !friendsBlock || _friends.All(f => !Near(p, f, _mover.Radius + f.Radius, strict: true));
         }
 
         // ---- following a route ----
@@ -685,11 +723,11 @@ public static class Charging
             }
             var end = plan.Path[^1];
             var radius = (_mover.Radius + _target.Radius).Thousandths + 1;
-            if (!ExactMath.Near(end, _target.Centre, Length.FromThousandths(radius + 2), strict: false) || NearOtherEnemy(end))
+            if (!Near(end, _target, Length.FromThousandths(radius + 2), strict: false) || NearOtherEnemy(end))
             {
                 return null;
             }
-            var ring = Enumerable.Range(0, Contacts).Select(j => RingPoint(_target.Centre, radius, j)).ToArray();
+            var ring = Enumerable.Range(0, Contacts).Select(j => Ring(radius, j)).ToArray();
             var start = 0;
             Int128 closest = Int128.MaxValue;
             for (var j = 0; j < Contacts; j++)
@@ -731,7 +769,7 @@ public static class Charging
         }
 
         private bool NearOtherEnemy(Point2 p) =>
-            _otherEnemies.Any(e => ExactMath.Near(p, e.Centre, _mover.Radius + e.Radius + Length.Inch, strict: false));
+            _otherEnemies.Any(e => Near(p, e, _mover.Radius + e.Radius + Length.Inch, strict: false));
 
         // The plan for a path, if it is legal against everything on the table (a base may not be ended on).
         public ChargePlan? Finish(ImmutableArray<Point2> path, Length reach)
@@ -741,7 +779,7 @@ public static class Charging
             {
                 return null;
             }
-            var reached = ExactMath.Near(path[^1], _target.Centre, _zone, strict: false);
+            var reached = InZone(path[^1]);
             return new ChargePlan(path, result.Cost, reached);
         }
 
@@ -868,12 +906,49 @@ public static class Charging
             var reach = mover.Radius + target.Radius;
 
             // Contact: step back from the nominal distance until the base no longer overlaps the target.
-            var contact = (long)(scaled / 1000) - reach.Thousandths;
-            while (contact > 0 && ExactMath.Near(probe.At(contact), target.Centre, reach, strict: true))
+            long contact;
+            if (mover.IsRound && target.IsRound)
             {
-                contact--;
+                contact = (long)(scaled / 1000) - reach.Thousandths;
+                while (contact > 0 && ExactMath.Near(probe.At(contact), target.Centre, reach, strict: true))
+                {
+                    contact--;
+                }
+                contact = Math.Max(contact, 0);
             }
-            contact = Math.Max(contact, 0);
+            else
+            {
+                // Roster stage R8b (U132): with an oval base the gap between the bases along the line is convex and the line
+                // ends on the target's centre, where the cores meet, so "overlapping" is false and then true: the last place
+                // it is false is the contact (the line's start, if it already overlaps).
+                var end = (long)(scaled / 1000);
+                bool Overlaps(long d) => Movement.CoresNear(mover, probe.At(d), target, reach, strict: true);
+                if (Overlaps(0))
+                {
+                    contact = 0;
+                }
+                else if (!Overlaps(end))
+                {
+                    contact = end;
+                }
+                else
+                {
+                    long lo = 0, hi = end;
+                    while (hi - lo > 1)
+                    {
+                        var mid = (lo + hi) / 2;
+                        if (Overlaps(mid))
+                        {
+                            hi = mid;
+                        }
+                        else
+                        {
+                            lo = mid;
+                        }
+                    }
+                    contact = lo;
+                }
+            }
 
             // Engagement: the first distance within 1" of the target, found by bisection (the distance to the
             // target only falls along the line).
@@ -882,7 +957,7 @@ public static class Charging
             while (low < high)
             {
                 var mid = (low + high) / 2;
-                if (ExactMath.Near(probe.At(mid), target.Centre, reach + Length.Inch, strict: false))
+                if (Movement.CoresNear(mover, probe.At(mid), target, reach + Length.Inch, strict: false))
                 {
                     high = mid;
                 }
