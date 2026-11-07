@@ -367,4 +367,31 @@ public class TraitWireTests
         Assert.DoesNotContain("tough", Encoded(mine), StringComparison.OrdinalIgnoreCase);
         Assert.True(((MineExploded)RoundTrip(mine with { Tough = true })).Tough);
     }
+
+    // Roster stage R8d (U132, U133): an oval base's half span, the axis chosen at set-up and a turn travel on the wire and back;
+    // round bases and axis Y write nothing new.
+    [Fact]
+    public void OvalBasesRoundTripAndAreLeftOutWhenRound()
+    {
+        var plain = Encoded(new MatchCreated(Plain()));
+        Assert.DoesNotContain("baseHalfSpan", plain, StringComparison.OrdinalIgnoreCase);
+        var setup = Plain();
+        var first = setup.Models[0];
+        var oval = first.Profile! with { BaseHalfSpan = Rules.Core.Geometry.Length.FromThousandths(591) };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = oval } : m), setup.Scenario));
+        Assert.Contains("\"baseHalfSpan\"", Encoded(created), StringComparison.Ordinal);
+        Assert.Equal(oval, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+        Assert.NotEqual(StateHash.Compute(Reducer.Apply(MatchState.None, created)), StateHash.Compute(Reducer.Apply(MatchState.None, new MatchCreated(Plain()))));
+
+        var at = new Rules.Core.Geometry.Point2(Rules.Core.Geometry.Length.FromThousandths(2000), Rules.Core.Geometry.Length.FromThousandths(3000));
+        var deployed = new ModelDeployed(Seat.One, new ModelId("A1"), at);
+        Assert.DoesNotContain("axis", Encoded(deployed), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(Rules.Core.Geometry.BaseAxis.X, ((ModelDeployed)RoundTrip(deployed with { Axis = Rules.Core.Geometry.BaseAxis.X })).Axis);
+        Assert.Equal(Rules.Core.Geometry.BaseAxis.X, ((BaseTurned)RoundTrip(new BaseTurned(new ModelId("A1"), Rules.Core.Geometry.BaseAxis.X))).Axis);
+        var place = new Rules.Core.Commands.PlaceModel(Seat.One, new ModelId("A1"), at) { Axis = Rules.Core.Geometry.BaseAxis.X };
+        var text = Encoding.UTF8.GetString(Codec.Encode(new SubmitCommand("c1", 1, 0, place)));
+        Assert.Contains("axis", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("axis", Encoding.UTF8.GetString(Codec.Encode(new SubmitCommand("c2", 2, 0, new Rules.Core.Commands.PlaceModel(Seat.One, new ModelId("A1"), at)))), StringComparison.OrdinalIgnoreCase);
+    }
 }

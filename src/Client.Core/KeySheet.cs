@@ -46,6 +46,7 @@ public static class KeySheet
             E("fix a waypoint", "Enter", "Shift+click"),
             E("undo the last waypoint", "Backspace"),
             E("towers: climb a side, not a ladder (a Risky roll); again: ladders", "K"),
+            E("oval base: turn it to the other axis (while placing, or free between the active model's actions)", "W"),
         ]),
         ("Targets (combat, shoot, fight)", [
             E("next and previous target", "N", "P"),

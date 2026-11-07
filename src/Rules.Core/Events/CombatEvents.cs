@@ -734,3 +734,6 @@ public sealed record SelfActionRolled : GameEvent
 // Roster stage R7d (U131): the player of Target, a model an attack hit, answers the Bodyguard offer: Guard (a friendly model
 // within 1" with Bodyguard) takes the hit instead and gets the Injury Roll, or null leaves it on Target.
 public sealed record BodyguardAnswered(ModelId Target, ModelId? Guard) : GameEvent;
+
+// Roster stage R8d (U133): the active model turned its oval base in place to lie along Axis.
+public sealed record BaseTurned(ModelId Model, BaseAxis Axis) : GameEvent;

@@ -10,7 +10,7 @@ public static class CommandParser
 {
     public const string Help = """
         zone <id>                 choose a deployment zone     attacker One|Two      Trench Warfare: who attacks
-        deploy <model>            deploy (no battlefield)      place <model> <x,y>   set up at a point
+        deploy <model>            deploy (no battlefield)      place <model> <x,y> [x|y] set up at a point
         first One|Two             choose who activates first   order One|Two         Morale order
         activate <model>          start an activation          end                   end the activation
         move <model> <x,y>...     move along waypoints         dash <model> <x,y>... dash
@@ -21,6 +21,7 @@ public static class CommandParser
         morale BecomeShaken|SoundRetreat                       answer a failed Morale Check
         scatter <x,y>             where a missed SCATTER attack lands
         blast <model> <x,y>       aim a BLAST weapon at a point
+        turn <model> x|y          turn an oval base to lie along that axis (free)
         """;
 
     public static Command Parse(string line, Seat seat)
@@ -35,7 +36,7 @@ public static class CommandParser
         {
             "zone" => new ChooseDeploymentZone(seat, One(args)),
             "deploy" => new DeployModel(seat, Model(One(args))),
-            "place" => new PlaceModel(seat, Model(Arg(args, 0)), Point(Arg(args, 1))),
+            "place" => new PlaceModel(seat, Model(Arg(args, 0)), Point(Arg(args, 1))) { Axis = args.Length > 2 ? Enum.Parse<BaseAxis>(args[2], ignoreCase: true) : BaseAxis.Y },
             "first" => new ChooseFirstActivation(seat, SeatName(One(args))),
             "attacker" => new ChooseAttacker(seat, SeatName(One(args))),
             "order" => new ChooseMoraleOrder(seat, SeatName(One(args))),
@@ -52,6 +53,7 @@ public static class CommandParser
             "decline" => new DeclineFreeFights(seat),
             "friendly" => new ChooseFriendlyTarget(seat, Model(One(args))),
             "scatter" => new ScatterAttack(seat, Point(One(args))),
+            "turn" => new TurnBase(seat, Model(Arg(args, 0)), Enum.Parse<BaseAxis>(Arg(args, 1), ignoreCase: true)),
             "guard" => new ChooseBodyguard(seat, Model(One(args))),
             "noguard" => new ChooseBodyguard(seat, null),
             "talisman" => new UseTalisman(seat),

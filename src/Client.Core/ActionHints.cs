@@ -94,6 +94,7 @@ public static class ActionHints
         ChooseFriendlyTarget t => $"The shot hits your own {names.Of(t.Victim)}",
         PlaceShrine => "Deploy the Field Shrine in your zone",
         DeclineShrine => "Do not deploy the Field Shrine",
+        TurnBase t => $"Turn the base to lie along {t.Axis}",
         ChooseBodyguard { Guard: { } g } => $"{names.Of(g)} takes the hit (Bodyguard)",
         ChooseBodyguard => "Leave the hit on the model that was hit",
         UseTalisman => "Use a Talisman: the failed Risky roll does not end the activation",

@@ -63,7 +63,7 @@ internal static class Board
     // The model's base if it stood at this point, at the elevation the battlefield gives that point.
     public static ModelBody? BodyAt(MatchState state, ModelState model, Point2 at) =>
         state.Setup!.ProfileOf(model.Id) is { } profile
-            ? new ModelBody(model.Id.Value, at, profile.BaseRadius, ScenarioOf(state) is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero)
+            ? profile.BodyAt(model.Id.Value, at, model.Axis, ScenarioOf(state) is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero)
             : null;
 
     // Every model that is on the table, Down ones included (a Down model still has a base, p. 36).
@@ -161,11 +161,47 @@ internal static class Board
             ? []
             : Mines.Stops(scenario.Battlefield, body, path, state.Mines, AllBodies(state, mover.Id));
 
-    public static PlacementResult CheckPlacement(MatchState state, Seat seat, ModelState model, Point2 at)
+    public static PlacementResult CheckPlacement(MatchState state, Seat seat, ModelState model, Point2 at, BaseAxis? axis = null)
     {
         var scenario = ScenarioOf(state)!;
-        var body = new ModelBody(model.Id.Value, at, state.Setup!.ProfileOf(model.Id)!.BaseRadius);
+        var body = state.Setup!.ProfileOf(model.Id)!.BodyAt(model.Id.Value, at, axis ?? model.Axis);
         return Placement.Check(scenario.Battlefield, body, AllBodies(state, model.Id), state.SeatFor(seat).ZoneId);
+    }
+
+    // Roster stage R8d (U133): why an oval model cannot turn its base to this axis where it stands, or null when it can: it must have
+    // an oval base and a different axis, the turned base must be a legal place to stand (the table, terrain, other bases), and the
+    // enemies within 1" of it must be the same ones as before (turning neither engages nor disengages it).
+    public static string? TurnProblem(MatchState state, ModelState model, BaseAxis axis)
+    {
+        var profile = state.Setup!.ProfileOf(model.Id)!;
+        if (!profile.IsOval)
+        {
+            return "A round base has no axis to turn.";
+        }
+        if (axis == model.Axis)
+        {
+            return "The base already lies along that axis.";
+        }
+        if (model.Position is not { } at || ScenarioOf(state) is not { } scenario)
+        {
+            return "The model is not on the battlefield.";
+        }
+        var before = BodyOf(state, model)!;
+        var after = before.WithAxis(axis);
+        var placement = Placement.Check(scenario.Battlefield, after, AllBodies(state, model.Id), null);
+        if (!placement.IsLegal)
+        {
+            return $"The base cannot turn there: {placement.Text}";
+        }
+        foreach (var enemy in OnTable(state).Where(o => o.Seat != model.Seat && o.Status != ModelStatus.OutOfAction))
+        {
+            var body = BodyOf(state, enemy)!;
+            if (Measure.IsWithin(before, body, EngagementRange) != Measure.IsWithin(after, body, EngagementRange))
+            {
+                return "Turning the base would change which enemy models it is within 1\" of.";
+            }
+        }
+        return null;
     }
 
     public static bool IsEngaged(MatchState state, ModelState model)

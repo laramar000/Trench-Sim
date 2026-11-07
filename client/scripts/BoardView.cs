@@ -1218,6 +1218,12 @@ public partial class BoardView : SubViewportContainer
             Sync();
             return true;
         }
+        // Roster stage R8d (U133): W turns the active oval model's base in place (free), between its actions.
+        if (key.Keycode == Key.W && Interaction.Mode == InteractionMode.None && Interaction.TurnBaseNow() is { } turn)
+        {
+            SendTurn(turn);
+            return true;
+        }
         if (key.Keycode == Key.A && Interaction.Mode == InteractionMode.None)
         {
             ActivateSelected();
@@ -1302,6 +1308,9 @@ public partial class BoardView : SubViewportContainer
             case Key.Backspace:
                 Interaction.RemovePoint();
                 return true;
+            case Key.W:
+                // Roster stage R8d (U133): while placing, W turns the oval base about to be set up to the other axis.
+                return Interaction.ToggleAxis();
             case Key.K:
                 // Towers proposal, stage T6: switch between ladders and climbing a tower's side (a Risky roll).
                 // Charge carry-on (U126): in Charge mode the same key switches the slide round the target after contact.
@@ -1322,6 +1331,12 @@ public partial class BoardView : SubViewportContainer
             default:
                 return false;
         }
+    }
+
+    private async void SendTurn(Rules.Core.Commands.TurnBase turn)
+    {
+        await Interaction.SendCommandAsync(turn, $"Turn the base to lie along {turn.Axis}");
+        Sync();
     }
 
     private async void SendScatter(Rules.Core.Commands.ScatterAttack landing)
@@ -1812,10 +1827,10 @@ public partial class BoardView : SubViewportContainer
             case PreviewKind.Place:
                 var at = preview.Path[0];
                 // Proposal G: what the placement would do is said in the panel beside the battlefield, not over it.
-                Ring(at.At, preview.Radius, colour);
+                Ring(at.At, preview.Radius, colour, halfSpan: preview.HalfSpan, axisX: preview.AxisX);
                 // Stage K4: a ghost of the model where a click puts it, red where the rules refuse, with their reason
                 // beside it (a small box on the screen, not a label on the table).
-                Ghost(at.At, preview.Model, preview.Radius, colour, tint: preview.Legal ? null : bad);
+                Ghost(at.At, preview.Model, preview.Radius, colour, tint: preview.Legal ? null : bad, halfSpan: preview.HalfSpan, axisX: preview.AxisX);
                 if (preview.Refusal is { } why)
                 {
                     _reasonAt = at.At;
@@ -2767,11 +2782,12 @@ public partial class BoardView : SubViewportContainer
     }
 
     // Where a base would stand.
-    private void Ring(TablePoint at, double radius, Color colour, float standing = 0)
+    private void Ring(TablePoint at, double radius, Color colour, float standing = 0, double halfSpan = 0, bool axisX = false)
     {
         _overlay.AddChild(new MeshInstance3D
         {
             Mesh = new TorusMesh { InnerRadius = (float)radius - 0.05f, OuterRadius = (float)radius + 0.1f },
+            Scale = OvalScale(radius, halfSpan, axisX),
             Position = new Vector3((float)at.X, standing + 0.08f, (float)at.Y),
             MaterialOverride = Paint(colour, noDepth: true),
         });
@@ -2809,12 +2825,13 @@ public partial class BoardView : SubViewportContainer
     public int Climbs { get; private set; }
 
     // A see-through copy of the model's base where the preview would put it, at the height it would stand at.
-    private void Ghost(TablePoint at, ModelId model, double radius, Color edge, float standing = 0, Color? tint = null)
+    private void Ghost(TablePoint at, ModelId model, double radius, Color edge, float standing = 0, Color? tint = null, double halfSpan = 0, bool axisX = false)
     {
         var seat = tint ?? (_scene?.Find(model) is { } shape ? ModelColour(shape) : edge);
         _overlay.AddChild(new MeshInstance3D
         {
             Mesh = new CylinderMesh { TopRadius = (float)radius, BottomRadius = (float)radius, Height = 1.2f, RadialSegments = 24 },
+            Scale = OvalScale(radius, halfSpan, axisX),
             Position = new Vector3((float)at.X, standing + 0.6f, (float)at.Y),
             MaterialOverride = Paint(new Color(seat.R, seat.G, seat.B, 0.35f)),
         });
@@ -3502,6 +3519,20 @@ public partial class BoardView : SubViewportContainer
     // (Godot renames a node whose name is still taken by one being freed, so the pairs are kept beside the bars.)
     public IReadOnlyList<string> MeleeLinksDrawn => [.. _meleeLinkNames.Where((_, i) => IsInstanceValid(_meleeLinks[i]))];
 
+    // Roster stage R8d (U133): an oval base is drawn as the circle stretched along its long axis to the capsule's length (decoration
+    // only: the rules measure the true capsule). A round base is unscaled. On the table X is Godot's x and table Y its z.
+    private static Vector3 OvalScale(double radius, double halfSpan, bool axisX)
+    {
+        if (halfSpan <= 0 || radius <= 0)
+        {
+            return Vector3.One;
+        }
+        var stretch = (float)((radius + halfSpan) / radius);
+        return axisX ? new Vector3(stretch, 1, 1) : new Vector3(1, 1, stretch);
+    }
+
+    private static Vector3 OvalScale(ModelShape model) => OvalScale(model.Radius, model.HalfSpan, model.AxisX);
+
     private void DrawModel(ModelShape model, bool choosable)
     {
         {
@@ -3550,6 +3581,7 @@ public partial class BoardView : SubViewportContainer
                 var body = new MeshInstance3D
                 {
                     Mesh = new CylinderMesh { TopRadius = (float)model.Radius, BottomRadius = (float)model.Radius, Height = tall, RadialSegments = 24 },
+                    Scale = OvalScale(model),
                     Position = new Vector3((float)model.X, standing + tall / 2, (float)model.Y),
                     MaterialOverride = Paint(colour),
                 };
@@ -3574,6 +3606,7 @@ public partial class BoardView : SubViewportContainer
                 var ring = new MeshInstance3D
                 {
                     Mesh = new TorusMesh { InnerRadius = (float)model.Radius + 0.1f, OuterRadius = (float)model.Radius + 0.35f },
+                    Scale = OvalScale(model),
                     Position = new Vector3((float)model.X, standing + 0.05f, (float)model.Y),
                     MaterialOverride = Paint(_highContrast ? Colors.Yellow : new Color(1f, 0.85f, 0.2f), noDepth: true),
                 };
@@ -3610,6 +3643,7 @@ public partial class BoardView : SubViewportContainer
         {
             Name = $"BaseRim{model.Id.Value}",
             Mesh = new CylinderMesh { TopRadius = r, BottomRadius = r, Height = 0.05f, RadialSegments = 16 },
+            Scale = OvalScale(model),
             Position = new Vector3((float)model.X, standing + 0.025f, (float)model.Y),
             MaterialOverride = Paint(new Color(0.10f, 0.10f, 0.11f)),
         });
@@ -3618,6 +3652,7 @@ public partial class BoardView : SubViewportContainer
         {
             Name = $"BaseEdge{model.Id.Value}",
             Mesh = new CylinderMesh { TopRadius = r - 0.03f, BottomRadius = r - 0.03f, Height = 0.055f, RadialSegments = 16 },
+            Scale = OvalScale(model),
             Position = new Vector3((float)model.X, standing + 0.0275f, (float)model.Y),
             MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(edge.R, edge.G, edge.B), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
         });
@@ -3626,6 +3661,7 @@ public partial class BoardView : SubViewportContainer
         {
             Name = $"BaseTop{model.Id.Value}",
             Mesh = new CylinderMesh { TopRadius = r - UnitPalette.RimWidth, BottomRadius = r - UnitPalette.RimWidth, Height = 0.06f, RadialSegments = 16 },
+            Scale = OvalScale(model),
             Position = new Vector3((float)model.X, standing + 0.03f, (float)model.Y),
             MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(top.R, top.G, top.B), Roughness = 1f },
         });
@@ -3687,6 +3723,7 @@ public partial class BoardView : SubViewportContainer
             var ring = new MeshInstance3D
             {
                 Mesh = new TorusMesh { InnerRadius = (float)model.Radius + 0.16f, OuterRadius = (float)model.Radius + 0.34f },
+                Scale = OvalScale(model),
                 MaterialOverride = Paint(_highContrast ? Colors.Yellow : new Color(1f, 0.95f, 0.6f, 0.95f), noDepth: true),
             };
             _viewport.AddChild(ring);
@@ -3764,6 +3801,7 @@ public partial class BoardView : SubViewportContainer
         if (Hovered is { } model)
         {
             _hoverRing.Mesh = new TorusMesh { InnerRadius = (float)model.Radius + 0.12f, OuterRadius = (float)model.Radius + 0.24f };
+            _hoverRing.Scale = OvalScale(model);
             _hoverRing.MaterialOverride = Paint(_highContrast ? Colors.White : new Color(1, 1, 1, 0.85f), noDepth: true);
         }
         Changed?.Invoke();
@@ -3774,6 +3812,7 @@ public partial class BoardView : SubViewportContainer
         _content.AddChild(new MeshInstance3D
         {
             Mesh = new TorusMesh { InnerRadius = (float)model.Radius + inner, OuterRadius = (float)model.Radius + outer },
+            Scale = OvalScale(model),
             Position = new Vector3((float)model.X, standing + 0.04f, (float)model.Y),
             MaterialOverride = Paint(colour, noDepth: true),
         });

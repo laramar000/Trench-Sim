@@ -84,6 +84,11 @@ public sealed record Preview(
     // p. 43); null for any other preview or a refused shot. It is the same value the "Long range" or "Short range" fact
     // and the dice were made from, so the battlefield's long-range line always agrees with the panel.
 
+    // Roster stage R8d (U133): for an oval model's Place preview, the base's half span in inches and whether it lies along X.
+    public double HalfSpan { get; init; }
+
+    public bool AxisX { get; init; }
+
     // For a Move, Dash or Retreat: inches used by the path (the rules' path cost), and inches of the allowance left after it.
     public double? Used => Kind is PreviewKind.Move or PreviewKind.Dash or PreviewKind.Retreat && Path.Count > 0 ? Path[^1].Inches : null;
 
@@ -163,17 +168,27 @@ public static class Previews
 
     // ---- placing a model during Deployment ----
 
-    public static Preview Place(MatchState state, Seat seat, ModelId model, Point2 at)
+    public static Preview Place(MatchState state, Seat seat, ModelId model, Point2 at, BaseAxis axis = BaseAxis.Y)
     {
         ArgumentNullException.ThrowIfNull(state);
-        var command = new PlaceModel(seat, model, at);
+        // Roster stage R8d (U133): an oval base is set up along the axis the player chose (a round base has none).
+        var oval = state.Setup?.ProfileOf(model) is { IsOval: true };
+        var command = new PlaceModel(seat, model, at) { Axis = oval ? axis : BaseAxis.Y };
         var radius = RadiusOf(state, model);
         var facts = new List<string> { $"At {TablePoint.Of(at)}." };
-        var refusal = Opening(state) ?? CheckPlace(state, seat, model, at, facts);
-        return new Preview(PreviewKind.Place, model, command, refusal, facts, [new PathMark(TablePoint.Of(at), 0)], radius, null, [], [], null);
+        if (oval)
+        {
+            facts.Add($"Base lies along {(axis == BaseAxis.X ? "X" : "Y")} (W turns it).");
+        }
+        var refusal = Opening(state) ?? CheckPlace(state, seat, model, at, facts, command.Axis);
+        return new Preview(PreviewKind.Place, model, command, refusal, facts, [new PathMark(TablePoint.Of(at), 0)], radius, null, [], [], null)
+        {
+            HalfSpan = oval ? TableRect.Inches(state.Setup!.ProfileOf(model)!.BaseHalfSpan) : 0,
+            AxisX = oval && axis == BaseAxis.X,
+        };
     }
 
-    private static Rejection? CheckPlace(MatchState state, Seat seat, ModelId id, Point2 at, List<string> facts)
+    private static Rejection? CheckPlace(MatchState state, Seat seat, ModelId id, Point2 at, List<string> facts, BaseAxis axis = BaseAxis.Y)
     {
         if (state.Setup!.Scenario is not { } scenario)
         {
@@ -205,7 +220,7 @@ public static class Previews
         {
             facts.Add($"Your deployment zone: {zone}.");
         }
-        var body = new ModelBody(id.Value, at, state.Setup.ProfileOf(id)!.BaseRadius);
+        var body = state.Setup.ProfileOf(id)!.BodyAt(id.Value, at, axis);
         var result = Placement.Check(scenario.Battlefield, body, Bodies(state, except: id), zone);
         return result.IsLegal ? null : new(ReasonCode.PlacementIllegal, result.Text, result.RuleRef);
     }
@@ -1258,7 +1273,7 @@ public static class Previews
     // At the elevation the battlefield gives the point (a tower's platform or the ground), as Board.BodyAt does.
     private static ModelBody? BodyAt(MatchState state, ModelState model, Point2 at) =>
         state.Setup!.ProfileOf(model.Id) is { } profile
-            ? new ModelBody(model.Id.Value, at, profile.BaseRadius, state.Setup.Scenario is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero)
+            ? profile.BodyAt(model.Id.Value, at, model.Axis, state.Setup.Scenario is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero)
             : null;
 
     private static List<ModelBody> Bodies(MatchState state, ModelId except) =>

@@ -24,7 +24,10 @@ public sealed record ModelState(
     Point2? DugInAt = null,
     bool MartyrdomSpent = false,
     int TalismansUsed = 0,
-    bool Hidden = false);
+    bool Hidden = false,
+    BaseAxis Axis = BaseAxis.Y);
+
+// Roster stage R8d (U132): Axis, which table axis an oval base's long side lies along (Y for every round base, and until the player turns it).
 
 // Roster stage R7c (U130): Hidden, a Hide ACTION succeeded; it lasts until the model's next activation (or an enemy within 1.5").
 

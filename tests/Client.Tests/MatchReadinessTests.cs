@@ -716,9 +716,9 @@ public class MatchReadinessTests
         Assert.Equal((true, -2), (amalgam.Tramples, amalgam.InjuryDiceTaken));
         Assert.True(Loaded(Of("sultanate", "brazen-bull").MatchCheck()).Tramples);
 
-        // Oval bases are still refused, whatever the ability.
-        Assert.Contains(Of("cult", "plague-hound").MatchCheck().Refused, r => r.Contains("oval base", StringComparison.Ordinal));
-        Assert.Contains(Of("court", "pit-locust").MatchCheck().Refused, r => r.Contains("oval base", StringComparison.Ordinal));
+        // Oval bases are played (roster stage R8d, U132): nothing is refused for the base.
+        Assert.DoesNotContain(Of("cult", "plague-hound").MatchCheck().Refused, r => r.Contains("oval base", StringComparison.Ordinal));
+        Assert.DoesNotContain(Of("court", "pit-locust").MatchCheck().Refused, r => r.Contains("oval base", StringComparison.Ordinal));
 
         var plain = Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P");
         Assert.DoesNotContain("tramples", plain, StringComparison.Ordinal);
@@ -849,14 +849,23 @@ public class MatchReadinessTests
         Assert.Contains(medic.Refused, r => r.Contains("Binoculars (the engine has no equipment yet)", StringComparison.Ordinal));
     }
 
+    // Roster stage R8d (U132): a 30x60 mm oval base is a capsule with a 15 mm radius and a 15 mm half span.
     [Fact]
-    public void AnOvalBaseIsRefused()
+    public void AnOvalBaseIsPlayed()
     {
         var builder = RosterBuilder.Shipped();
         builder.ChooseFaction("court");
         builder.Add("praetor");
         builder.Add("pit-locust");
-        Assert.Contains(builder.MatchCheck().Refused, r => r.Contains("30x60 mm oval base", StringComparison.Ordinal));
+        var ready = builder.MatchCheck();
+        Assert.DoesNotContain(ready.Refused, r => r.Contains("oval base", StringComparison.Ordinal));
+        var json = ready.ToContentJson("r8", "R8");
+        Assert.Contains("\"baseLengthMm\":60", json.Replace(" ", ""), StringComparison.Ordinal);
+        var locust = Sim.Content.Parse(json).Single().Models.Select(m => m.Profile).Single(p => p.IsOval);
+        Assert.Equal(Rules.Core.Geometry.Length.FromThousandths(Rules.Core.Geometry.Length.FromMillimetres(30).Thousandths / 2), locust.BaseRadius);
+        Assert.Equal(Rules.Core.Geometry.Length.FromThousandths((Rules.Core.Geometry.Length.FromMillimetres(60).Thousandths - Rules.Core.Geometry.Length.FromMillimetres(30).Thousandths) / 2), locust.BaseHalfSpan);
+        // A round-based roster writes no length at all.
+        Assert.DoesNotContain("baseLengthMm", Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P"), StringComparison.Ordinal);
     }
 
     [Fact]

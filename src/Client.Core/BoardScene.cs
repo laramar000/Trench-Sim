@@ -126,7 +126,21 @@ public sealed record ModelShape(
 
     // One line for the selected model: what it is, where (in inches) and on which level.
     public string Text => $"[{SeatLetter}] {Name}: {Words.Status(Status)}{(Active ? ", ACTIVE" : "")}, at ({BoardScene.Inch(X)}, {BoardScene.Inch(Y)}), " +
-        $"{Where}, base {BoardScene.Inch(Radius * 2)}.";
+        $"{Where}, base {BoardScene.Inch(Radius * 2)}{(HalfSpan > 0 ? $" x {BoardScene.Inch((Radius + HalfSpan) * 2)} (along {(AxisX ? "X" : "Y")})" : "")}.";
+
+    // Roster stage R8d (U133): an oval base's half span in inches (0 for a round base) and whether it lies along the table's X axis
+    // (otherwise Y). Display and picking only; the rules measure the capsule themselves.
+    public double HalfSpan { get; init; }
+
+    public bool AxisX { get; init; }
+
+    // Whether a point on the table is on the model's base (a round base: within Radius of the centre; an oval: of its core).
+    public bool Covers(double x, double y)
+    {
+        var dx = Math.Max(0, Math.Abs(x - X) - (AxisX ? HalfSpan : 0));
+        var dy = Math.Max(0, Math.Abs(y - Y) - (AxisX ? 0 : HalfSpan));
+        return dx * dx + dy * dy <= Radius * Radius;
+    }
 
     // Towers proposal, stage T4: the tower the model stands on, if any (its Standing is then the tower's height).
     public string? TowerId { get; init; }
@@ -211,7 +225,7 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
             {
                 continue;
             }
-            var body = new ModelBody(model.Id.Value, at, profile.BaseRadius);
+            var body = profile.BodyAt(model.Id.Value, at, model.Axis);
             var level = Elevation.Of(field, body);
             // On a tower: the tower's own height (towers proposal, stage T4); on another platform: its display height.
             var tower = Towers.TowerAt(field, at);
@@ -223,7 +237,7 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
             models.Add(new ModelShape(model.Id, names.Of(model.Id), model.Seat, Words.SeatLetter(model.Seat),
                 TableRect.Inches(body.Centre.X), TableRect.Inches(body.Centre.Y), TableRect.Inches(body.Radius),
                 level.Level == ModelLevel.High, standing, model.Status, state.ActiveModel == model.Id, model.Seat == you,
-                model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers) { TowerId = tower?.Id, Type = names.TypeOf(model.Id) });
+                model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers) { TowerId = tower?.Id, Type = names.TypeOf(model.Id), HalfSpan = TableRect.Inches(body.HalfSpan), AxisX = !body.IsRound && body.Axis == BaseAxis.X });
         }
         return new BoardScene(TableRect.Inches(field.Width), TableRect.Inches(field.Height), zones, terrain, models)
         {
@@ -249,7 +263,7 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
     // at height h only matches models standing at h. Nearest centre wins if bases are close. Display only: selecting a
     // model never decides anything.
     public ModelShape? ModelAt(double x, double y, double standing = 0) =>
-        Models.Where(m => Math.Abs(m.Standing - standing) < 0.001 && Sq(m.X - x) + Sq(m.Y - y) <= Sq(m.Radius))
+        Models.Where(m => Math.Abs(m.Standing - standing) < 0.001 && m.Covers(x, y))
             .OrderBy(m => Sq(m.X - x) + Sq(m.Y - y))
             .FirstOrDefault();
 

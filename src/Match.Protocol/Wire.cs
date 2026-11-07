@@ -445,6 +445,9 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.MeleeInjuryBonus)),
             (typeof(ModelProfile), nameof(ModelProfile.ClimbDice)),
             (typeof(ModelProfile), nameof(ModelProfile.Talismans)),
+            (typeof(ModelProfile), nameof(ModelProfile.BaseHalfSpan)),
+            (typeof(PlaceModel), nameof(PlaceModel.Axis)),
+            (typeof(ModelDeployed), nameof(ModelDeployed.Axis)),
             (typeof(ChargeRolled), nameof(ChargeRolled.Dropped)),
             (typeof(SelfActionRolled), nameof(SelfActionRolled.Removed)),
         ];
@@ -591,7 +594,7 @@ public static class Wire
                 {
                     continue;
                 }
-                if ((memberValue is 0 || memberValue is Enum flags && Convert.ToUInt64(flags, System.Globalization.CultureInfo.InvariantCulture) == 0)
+                if ((memberValue is 0 || memberValue is Length { } span && span == Length.Zero || memberValue is Enum flags && Convert.ToUInt64(flags, System.Globalization.CultureInfo.InvariantCulture) == 0)
                     && member.Parameter is null && OmitWhenZero.Contains((Type, member.Property.Name)))
                 {
                     continue;

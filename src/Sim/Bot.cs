@@ -310,8 +310,8 @@ public sealed class Bot(Random rng)
 
     private static Length Gap(MatchState state, ModelState a, ModelState b) =>
         Measure.Gap(
-            new ModelBody(a.Id.Value, a.Position!.Value, state.Setup!.ProfileOf(a.Id)!.BaseRadius, ElevationAt(state, a.Position!.Value)),
-            new ModelBody(b.Id.Value, b.Position!.Value, state.Setup.ProfileOf(b.Id)!.BaseRadius, ElevationAt(state, b.Position!.Value)));
+            state.Setup!.ProfileOf(a.Id)!.BodyAt(a.Id.Value, a.Position!.Value, a.Axis, ElevationAt(state, a.Position!.Value)),
+            state.Setup.ProfileOf(b.Id)!.BodyAt(b.Id.Value, b.Position!.Value, b.Axis, ElevationAt(state, b.Position!.Value)));
 
     // Retreat paths: the legal candidates that end farthest from the nearest enemy, best first.
     private IEnumerable<ImmutableArray<Point2>> RetreatPaths(MatchState state, ModelState model)
@@ -319,11 +319,11 @@ public sealed class Bot(Random rng)
         var scenario = state.Setup!.Scenario!;
         var profile = state.Setup.ProfileOf(model.Id)!;
         var allowance = state.MovementHalved ? Length.FromThousandths(profile.Movement.Thousandths / 2) : profile.Movement;
-        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius, ElevationAt(state, model.Position!.Value));
+        var body = profile.BodyAt(model.Id.Value, model.Position!.Value, model.Axis, ElevationAt(state, model.Position!.Value));
         var others = state.Models
             .Where(m => m.Id != model.Id && m.Position is not null)
             .Select(m => new Obstacle(
-                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius, ElevationAt(state, m.Position!.Value)),
+                state.Setup.ProfileOf(m.Id)!.BodyAt(m.Id.Value, m.Position!.Value, m.Axis, ElevationAt(state, m.Position!.Value)),
                 m.Seat == model.Seat ? Relation.Friendly : Relation.Enemy))
             .Concat(FieldShrines.Obstacles(state))
             .ToList();
@@ -381,11 +381,11 @@ public sealed class Bot(Random rng)
         var scenario = state.Setup!.Scenario!;
         var profile = state.Setup.ProfileOf(model.Id)!;
         var allowance = state.MovementHalved ? Length.FromThousandths(profile.Movement.Thousandths / 2) : profile.Movement;
-        var body = new ModelBody(model.Id.Value, model.Position!.Value, profile.BaseRadius, ElevationAt(state, model.Position!.Value));
+        var body = profile.BodyAt(model.Id.Value, model.Position!.Value, model.Axis, ElevationAt(state, model.Position!.Value));
         var others = state.Models
             .Where(m => m.Id != model.Id && m.Position is not null)
             .Select(m => new Obstacle(
-                new ModelBody(m.Id.Value, m.Position!.Value, state.Setup.ProfileOf(m.Id)!.BaseRadius, ElevationAt(state, m.Position!.Value)),
+                state.Setup.ProfileOf(m.Id)!.BodyAt(m.Id.Value, m.Position!.Value, m.Axis, ElevationAt(state, m.Position!.Value)),
                 m.Seat == model.Seat ? Relation.Friendly : Relation.Enemy))
             .Concat(FieldShrines.Obstacles(state))
             .ToList();

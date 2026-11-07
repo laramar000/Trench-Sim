@@ -33,6 +33,9 @@ public sealed record ReadyModel(
     bool HasMeleeWeapon,
     int MeleeInjuryModifier)
 {
+    // Roster stage R8d (U132): an oval base's length in mm (BaseMm is its width); 0 for a round base.
+    public int BaseLengthMm { get; init; }
+
     // Roster stage R1: the model's Ranged and Melee Characteristics and its weapons' DICE and INJURY DICE.
     public int RangedDice { get; init; }
     public int MeleeDice { get; init; }
@@ -183,6 +186,10 @@ public sealed record MatchReady(
                     w.WriteString("name", m.Name);
                     w.WriteString("movementInches", m.MovementInches.ToString(System.Globalization.CultureInfo.InvariantCulture));
                     w.WriteNumber("baseMm", m.BaseMm);
+                    if (m.BaseLengthMm > 0)
+                    {
+                        w.WriteNumber("baseLengthMm", m.BaseLengthMm);
+                    }
                     w.WriteString("rangeInches", m.RangeInches.ToString(System.Globalization.CultureInfo.InvariantCulture));
                     w.WriteNumber("weaponInjuryModifier", m.RangedInjuryModifier);
                     w.WriteNumber("armour", m.Armour);
@@ -326,11 +333,7 @@ public static class MatchReadiness
             var name = model.Name ?? entry.Name;
             var problems = refused.Count;
 
-            if (entry.BaseLengthMm is not null)
-            {
-                refused.Add($"{who}: its {entry.BaseWidthMm}x{entry.BaseLengthMm} mm oval base (the engine has round bases only)");
-            }
-            if (entry.BaseWidthMm > MaxBaseMm || entry.MovementInches > MaxMovementInches)
+            if (entry.BaseWidthMm > MaxBaseMm || entry.BaseLengthMm > MaxBaseMm || entry.MovementInches > MaxMovementInches)
             {
                 refused.Add($"{who}: its base or Movement is beyond what the engine allows");
             }
@@ -580,6 +583,7 @@ public static class MatchReadiness
                 ranged?.RangeInches ?? 0, Clamp(ranged?.InjuryModifier ?? 0), ranged?.AlsoMelee == true,
                 armour, melee is not null, Clamp(melee?.InjuryModifier ?? 0))
             {
+                BaseLengthMm = entry.BaseLengthMm ?? 0,
                 RangedDice = Dice(entry.Ranged is { } r ? r + rangedBonus : 0, who, "Ranged", without),
                 MeleeDice = Dice(entry.Melee is { } me ? me + meleeBonus : 0, who, "Melee", without),
                 RangedWeaponDice = Dice((ranged?.Dice ?? 0) + (ammoFirst?.Dice ?? 0), who, $"{ranged?.Name}'s DICE", without),

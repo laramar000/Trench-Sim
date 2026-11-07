@@ -111,6 +111,7 @@ public static class Reducer
             MartyrdomTriggered x => OnMartyrdomTriggered(state, x),
             TalismanUsed x => OnTalismanUsed(state, x),
             BodyguardAnswered x => OnBodyguardAnswered(state, x),
+            BaseTurned x => OnBaseTurned(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
@@ -595,11 +596,24 @@ public static class Reducer
         }
         else
         {
-            Require(e.Position is { } at && Board.CheckPlacement(state, e.Seat, model!, at).IsLegal, "A model must be set up at a legal point in its zone.");
+            Require(Enum.IsDefined(e.Axis) && (e.Axis == BaseAxis.Y || state.Setup!.ProfileOf(e.Model)!.IsOval), "Only an oval base has an axis to choose.");
+            Require(e.Position is { } at && Board.CheckPlacement(state, e.Seat, model!, at, e.Axis).IsLegal, "A model must be set up at a legal point in its zone.");
         }
         // Roster stage R5f (U110): a model with a Shovel set up on Open terrain is dug in there.
         var dug = e.Position is { } start && state.Setup!.ProfileOf(e.Model)!.DigsIn && Board.OnOpenTerrain(state, start) ? e.Position : null;
-        return TurnRules.WithModel(state, model! with { Deployed = true, Position = e.Position, DugInAt = dug }) with { LastDeployer = e.Seat };
+        return TurnRules.WithModel(state, model! with { Deployed = true, Position = e.Position, DugInAt = dug, Axis = e.Axis }) with { LastDeployer = e.Seat };
+    }
+
+    // Roster stage R8d (U133): the active model turns its oval base in place, a free pivot between its ACTIONS.
+    private static MatchState OnBaseTurned(MatchState state, BaseTurned e)
+    {
+        Require(Enum.IsDefined(e.Axis), "Unknown base axis.");
+        Require(state.Phase == Phase.Activation && state.ActiveModel == e.Model && state.Pending is null && state.InProgress is null
+            && state.Retreat is null && state.MineStop is null && !state.MustEndActivation && !state.ReloadEnds, "A base is turned by the activating model between its actions.");
+        var model = state.FindModel(e.Model)!;
+        Require(model.Status == ModelStatus.Standing, "A Down model cannot turn its base.");
+        Require(Board.TurnProblem(state, model, e.Axis) is null, "That base cannot be turned to that axis there.");
+        return TurnRules.WithModel(state, model with { Axis = e.Axis });
     }
 
     private static MatchState OnPhaseEntered(MatchState state, PhaseEntered e)

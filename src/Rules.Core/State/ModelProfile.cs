@@ -60,6 +60,18 @@ public sealed record ModelProfile
 
     public Length Movement { get; }
     public Length BaseRadius { get; }
+
+    // Roster stage R8d (U132): an oval base is BaseRadius (half its width) around a core that runs this far each way from the centre
+    // along the model's axis (ModelState.Axis). Zero for a round base. A 30x60 mm oval: BaseRadius 15 mm, BaseHalfSpan 15 mm.
+    public Length BaseHalfSpan { get => _baseHalfSpan; init => _baseHalfSpan = value < Length.Zero ? throw new ArgumentOutOfRangeException(nameof(BaseHalfSpan), "A base cannot have a negative span.") : value; }
+
+    private readonly Length _baseHalfSpan;
+
+    public bool IsOval => BaseHalfSpan > Length.Zero;
+
+    // The model's base set down at a point, turned to the axis, at the elevation.
+    public ModelBody BodyAt(string id, Point2 at, BaseAxis axis = BaseAxis.Y, Length elevation = default) =>
+        new(id, at, BaseRadius, elevation, BaseHalfSpan, axis);
     public Length RangedRange { get; }
     public int RangedInjuryModifier { get; }
     public int Armour { get; }
@@ -534,6 +546,7 @@ public sealed record ModelProfile
                 Hateful = Hateful,
                 Hides = Hides,
                 Bodyguard = Bodyguard,
+                BaseHalfSpan = BaseHalfSpan,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -596,6 +609,7 @@ public sealed record ModelProfile
                 Hateful = Hateful,
                 Hides = Hides,
                 Bodyguard = Bodyguard,
+                BaseHalfSpan = BaseHalfSpan,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -658,6 +672,7 @@ public sealed record ModelProfile
             Hateful = Hateful,
             Hides = Hides,
             Bodyguard = Bodyguard,
+            BaseHalfSpan = BaseHalfSpan,
             DefusesMines = DefusesMines,
             UndeadFortitude = UndeadFortitude,
             AbioticLife = AbioticLife,

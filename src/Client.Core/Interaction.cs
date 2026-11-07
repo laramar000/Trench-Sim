@@ -843,6 +843,37 @@ public sealed class Interaction
     // p. 39) instead of using a ladder. K switches it; a new action starts with ladders.
     public bool ClimbSides { get; private set; }
 
+    // Roster stage R8d (U133): the axis an oval model is set up along. W switches it while placing; the choice is for the model
+    // being placed (another model starts along Y). During an activation W turns the active oval model's base instead.
+    private (ModelId? Actor, BaseAxis Axis) _placeAxis;
+
+    public BaseAxis PlaceAxis => _placeAxis.Actor == Actor && Actor is not null ? _placeAxis.Axis : BaseAxis.Y;
+
+    private bool OvalToPlace => Mode == InteractionMode.Place && Actor is { } a && _state.Setup?.ProfileOf(a) is { IsOval: true };
+
+    // Switches the axis of the oval model about to be placed. False when the model has no axis or nothing is being placed.
+    public bool ToggleAxis()
+    {
+        if (!OvalToPlace)
+        {
+            return false;
+        }
+        _placeAxis = (Actor, PlaceAxis == BaseAxis.Y ? BaseAxis.X : BaseAxis.Y);
+        return true;
+    }
+
+    // The command that turns the active oval model's base to the other axis, if the rules would allow it now (idle between actions).
+    public TurnBase? TurnBaseNow()
+    {
+        if (Mode != InteractionMode.None || _seat is not { } seat || _state.ActiveModel is not { } active || _state.FindModel(active) is not { } model
+            || model.Seat != seat || _state.Setup?.ProfileOf(active) is not { IsOval: true })
+        {
+            return null;
+        }
+        var turn = new TurnBase(seat, active, model.Axis == BaseAxis.Y ? BaseAxis.X : BaseAxis.Y);
+        return TurnSequence.Check(_state, turn) is null ? turn : null;
+    }
+
     // Charge carry-on past contact (p. 37, U126): whether the next Charge asks to slide round its target after contact.
     // The player switches it before charging; a new action starts without it.
     public bool CarryOn { get; private set; }
@@ -1671,7 +1702,7 @@ public sealed class Interaction
         switch (Mode)
         {
             case InteractionMode.Place:
-                return Previews.Place(_state, seat, actor, Previews.PointAt(Cursor.X, Cursor.Y));
+                return Previews.Place(_state, seat, actor, Previews.PointAt(Cursor.X, Cursor.Y), PlaceAxis);
             case InteractionMode.Move or InteractionMode.Dash or InteractionMode.Retreat:
                 var points = PathPoints();
                 // Towers proposal, stage T4: a point on another level is reached by a ladder (Previews.Route).

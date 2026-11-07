@@ -164,7 +164,7 @@ public static class StateHash
                 $"deployed={Bool(m.Deployed)}",
                 $"activated={Bool(m.ActivatedThisTurn)}",
                 $"at={(m.Position is { } at ? Point(at) : "-")}",
-                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : "") + (m.TalismansUsed == 0 ? "" : $",talismansUsed={m.TalismansUsed}") + (m.Hidden ? ",hidden=yes" : ""));
+                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : "") + (m.TalismansUsed == 0 ? "" : $",talismansUsed={m.TalismansUsed}") + (m.Hidden ? ",hidden=yes" : "") + (m.Axis == BaseAxis.Y ? "" : ",axis=X"));
         }
         return sb.ToString();
     }
@@ -274,6 +274,7 @@ public static class StateHash
             + (p.QuickToRise ? ",quickToRise=yes" : "")
             + (p.Hateful ? ",hateful=yes" : "")
             + (p.Hides ? ",hides=yes" : "")
+            + (p.IsOval ? $",halfSpan={p.BaseHalfSpan.Thousandths}" : "")
             + (p.Bodyguard ? ",bodyguard=yes" : "")
             + (p.DefusesMines ? ",defuses=yes" : "")
             + (p.UndeadFortitude ? ",undeadFortitude=yes" : "")

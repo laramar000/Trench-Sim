@@ -59,6 +59,8 @@ public enum ReasonCode
     TargetTooLarge,
     // Roster stage R7c: a hidden model cannot be shot or charged
     TargetHidden,
+    // Roster stage R8d: turning an oval base is refused (a round base, the same axis, no room, or it would change who it is engaged with)
+    BaseTurnIllegal,
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.

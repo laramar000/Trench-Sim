@@ -47,7 +47,7 @@ public static class TargetSights
     // At the elevation the battlefield gives the point, as the rules' Board.BodyAt does.
     private static ModelBody? BodyAt(MatchState state, ModelState model, Point2 at) =>
         state.Setup!.ProfileOf(model.Id) is { } profile
-            ? new ModelBody(model.Id.Value, at, profile.BaseRadius, state.Setup.Scenario is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero)
+            ? profile.BodyAt(model.Id.Value, at, model.Axis, state.Setup.Scenario is { } scenario ? Towers.ElevationAt(scenario.Battlefield, at) : Length.Zero)
             : null;
 
     // What the icon says in words, for the panel and the UI check: "seen", "partly seen" or "hidden", and "in cover".

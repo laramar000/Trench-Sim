@@ -15,7 +15,11 @@ public sealed record DeploymentZoneChosen(Seat Seat, string ZoneId) : GameEvent;
 public sealed record DeploymentOrderSet(Seat First) : GameEvent;
 
 // Position is set exactly when the match has a battlefield (M4): the model's base is centred there.
-public sealed record ModelDeployed(Seat Seat, ModelId Model, Point2? Position = null) : GameEvent;
+public sealed record ModelDeployed(Seat Seat, ModelId Model, Point2? Position = null) : GameEvent
+{
+    // Roster stage R8d (U133): the axis an oval base was set up along (Y for a round base).
+    public BaseAxis Axis { get; init; }
+}
 
 public sealed record PhaseEntered(Phase Phase) : GameEvent;
 

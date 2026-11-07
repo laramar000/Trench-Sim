@@ -23,6 +23,8 @@ public static class Content
                 // A 25 mm base is 25 mm across, so the radius is half the diameter (rounded down to a thousandth, even).
                 var diameter = Length.FromMillimetres(m.GetProperty("baseMm").GetInt32());
                 var radius = Length.FromThousandths(diameter.Thousandths / 2);
+                // Roster stage R8d (U132): an oval base also gives its length; its core runs half of what the length has over the width each way.
+                var halfSpan = m.TryGetProperty("baseLengthMm", out var baseLength) ? Length.FromThousandths(Math.Max(0, Length.FromMillimetres(baseLength.GetInt32()).Thousandths - diameter.Thousandths) / 2) : Length.Zero;
                 models.Add(new ModelEntry(
                     m.GetProperty("name").GetString()!,
                     new ModelProfile(
@@ -82,6 +84,7 @@ public static class Content
                         Hateful = m.TryGetProperty("hateful", out var hateful) && hateful.GetBoolean(),
                         Hides = m.TryGetProperty("hides", out var hides) && hides.GetBoolean(),
                         Bodyguard = m.TryGetProperty("bodyguard", out var bodyguard) && bodyguard.GetBoolean(),
+                        BaseHalfSpan = halfSpan,
                         DefusesMines = m.TryGetProperty("defusesMines", out var defusesMines) && defusesMines.GetBoolean(),
                         UndeadFortitude = m.TryGetProperty("undeadFortitude", out var undeadFortitude) && undeadFortitude.GetBoolean(),
                         AbioticLife = m.TryGetProperty("abioticLife", out var abioticLife) && abioticLife.GetBoolean(),

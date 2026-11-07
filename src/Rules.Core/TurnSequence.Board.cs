@@ -46,7 +46,11 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ModelAlreadyDeployed, "That model is already deployed.", RefDeployment);
         }
-        var placement = Board.CheckPlacement(state, c.Seat, model, c.At);
+        if (!Enum.IsDefined(c.Axis) || c.Axis != BaseAxis.Y && !state.Setup!.ProfileOf(c.Model)!.IsOval)
+        {
+            return new(ReasonCode.InvalidChoice, "Only an oval base has an axis to choose.", RefDeployment);
+        }
+        var placement = Board.CheckPlacement(state, c.Seat, model, c.At, c.Axis);
         return placement.IsLegal ? null : new(ReasonCode.PlacementIllegal, placement.Text, placement.RuleRef);
     }
 
@@ -200,6 +204,24 @@ public static partial class TurnSequence
     public const string RefTreat = "1.0.2 p. 84";
 
     // Roster stage R6b (U118): an Aim or Fortify ACTION (Warbands pp. 28, 33, 85), once per activation each.
+    // Roster stage R8d (U133): turning an oval base in place, free, by the activating model between its actions.
+    private static Rejection? ValidateTurnBase(MatchState state, TurnBase c)
+    {
+        if (ValidateActing(state, c.Seat, c.Model, out var model) is { } rejection)
+        {
+            return rejection;
+        }
+        if (!Enum.IsDefined(c.Axis))
+        {
+            return new(ReasonCode.InvalidChoice, "That is not one of the choices on offer.", RefActions);
+        }
+        if (state.InProgress is not null || state.Retreat is not null || state.MineStop is not null || state.MustEndActivation || state.ReloadEnds)
+        {
+            return new(ReasonCode.ActionAlreadyTaken, "A base is turned between actions, not while one is being resolved.", RefActions);
+        }
+        return Board.TurnProblem(state, model!, c.Axis) is { } why ? new(ReasonCode.BaseTurnIllegal, why, RefActions) : null;
+    }
+
     private static Rejection? ValidateSelfAction(MatchState state, TakeSelfAction c)
     {
         if (ValidateActing(state, c.Seat, c.Model, out var actor) is { } rejection)
@@ -615,7 +637,7 @@ public static partial class TurnSequence
         switch (command)
         {
             case PlaceModel c:
-                run.Emit(new ModelDeployed(c.Seat, c.Model, c.At));
+                run.Emit(new ModelDeployed(c.Seat, c.Model, c.At) { Axis = c.Axis });
                 // Field Shrine (p. 82, U127): its player may deploy the shrine now, before the next model is set up.
                 if (state.Setup!.ProfileOf(c.Model) is { FieldShrine: true })
                 {
@@ -707,6 +729,9 @@ public static partial class TurnSequence
                 break;
             case UseTalisman:
                 run.Emit(new TalismanUsed(state.ActiveModel!.Value));
+                break;
+            case TurnBase c:
+                run.Emit(new BaseTurned(c.Model, c.Axis));
                 break;
             case ChooseBodyguard c:
             {

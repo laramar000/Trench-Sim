@@ -178,6 +178,8 @@ public sealed class ContentNames
             {
                 var diameter = Length.FromMillimetres(m.GetProperty("baseMm").GetInt32());
                 var radius = Length.FromThousandths(diameter.Thousandths / 2);
+                // Roster stage R8d (U132): an oval base also gives its length; its core runs half of what the length has over the width each way.
+                var halfSpan = m.TryGetProperty("baseLengthMm", out var baseLength) ? Length.FromThousandths(Math.Max(0, Length.FromMillimetres(baseLength.GetInt32()).Thousandths - diameter.Thousandths) / 2) : Length.Zero;
                 models.Add(new ContentModel(
                     m.GetProperty("name").GetString()!,
                     new ModelProfile(
@@ -236,6 +238,7 @@ public sealed class ContentNames
                         QuickToRise = m.TryGetProperty("quickToRise", out var quickToRise) && quickToRise.GetBoolean(),
                         Hateful = m.TryGetProperty("hateful", out var hateful) && hateful.GetBoolean(),
                         Bodyguard = m.TryGetProperty("bodyguard", out var bodyguard) && bodyguard.GetBoolean(),
+                        BaseHalfSpan = halfSpan,
                         Hides = m.TryGetProperty("hides", out var hides) && hides.GetBoolean(),
                         DefusesMines = m.TryGetProperty("defusesMines", out var defusesMines) && defusesMines.GetBoolean(),
                         UndeadFortitude = m.TryGetProperty("undeadFortitude", out var undeadFortitude) && undeadFortitude.GetBoolean(),

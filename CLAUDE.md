@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U132), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U133), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -238,10 +238,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Court spells. Adding a flag to `ModelProfile`: the plumbing lists are ModelProfile (3 copies), StateHash, Wire,
   MatchReadiness (field list + ReadyModel + `PlayedAbilities`), ContentNames, Sim/Content, UnitPanel.
 - **To do (2026-11-06, nothing in progress; the owner picks the order, a new stage needs the owner's ask):**
-  1. Oval bases (Plague Hound, Pit Locust are refused in matches until done). Owner chose (2026-11-07) the exact capsule with a
+  1. DONE: Oval bases (Plague Hound and Pit Locust are played). Owner chose (2026-11-07) the exact capsule with a
      player-chosen X/Y axis (U132). R8a done: `ModelBody.HalfSpan/Axis`, `Measure`, `Footprint` body tests, `BaseArea`,
-     `Placement`, `OvalBaseTests`. R8b done (movement, retreat, charge planner; `Shapes.SweptNear`/`SweptBodyOverlapsRect`, `Movement.CoresNear`; ovals do not climb towers). R8c done (sight samples, cover width, blast, mines, trenches, platforms; `OvalSightTests`). Left: R8d profile `BaseHalfSpan`, per-model axis in `ModelState` + hash, a way to choose
-     it at deploy/move, MatchReadiness stops refusing, client drawing. Nothing in a match changes until R8d.
+     `Placement`, `OvalBaseTests`. R8b done (movement, retreat, charge planner; `Shapes.SweptNear`/`SweptBodyOverlapsRect`, `Movement.CoresNear`; ovals do not climb towers). R8c done (sight samples, cover width, blast, mines, trenches, platforms; `OvalSightTests`). R8d done (U133): `ModelProfile.BaseHalfSpan`/`BodyAt`, `ModelState.Axis`, `PlaceModel.Axis`, `TurnBase`/`BaseTurned`, `Board.TurnProblem`, readiness plays ovals, key W, board drawing (not run in Godot). Oval bases are finished.
   2. Moving other models (Puppet Master, Loudspeakers).
   3. BLESSING and INFECTION MARKERS.
   4. Court spells.

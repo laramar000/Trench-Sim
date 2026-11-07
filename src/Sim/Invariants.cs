@@ -27,7 +27,7 @@ public static class Invariants
             }
             if (m.Position is { } at)
             {
-                var body = new ModelBody(m.Id.Value, at, setup.ProfileOf(m.Id)!.BaseRadius, ElevationAt(after, at));
+                var body = setup.ProfileOf(m.Id)!.BodyAt(m.Id.Value, at, m.Axis, ElevationAt(after, at));
                 if (field.Area.Bounds.Min.X > at.X || field.Area.Bounds.Max.X < at.X || field.Area.Bounds.Min.Y > at.Y || field.Area.Bounds.Max.Y < at.Y)
                 {
                     return $"{m.Id} is off the battlefield at {at}";

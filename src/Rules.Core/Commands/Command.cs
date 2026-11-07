@@ -46,7 +46,11 @@ public sealed record DeclineShrine(Seat Seat, ModelId Carrier) : Command;
 // ---- M4: commands that need a battlefield (a MatchSetup with a Scenario) ----
 
 // Sets a model up at a point inside its deployment zone (Scenario I, p. 152). Replaces DeployModel when there is a battlefield.
-public sealed record PlaceModel(Seat Seat, ModelId Model, Point2 At) : Command;
+public sealed record PlaceModel(Seat Seat, ModelId Model, Point2 At) : Command
+{
+    // Roster stage R8d (U133): which table axis an oval base lies along (Y for a round base, which has none).
+    public BaseAxis Axis { get; init; }
+}
 
 // A Move ACTION (p. 34): the active model's centre follows the waypoints in order. At most MaxWaypoints of them.
 public sealed record MoveModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command;
@@ -141,3 +145,6 @@ public sealed record TakeSelfAction(Seat Seat, ModelId Model, SelfActionKind Act
 // Roster stage R7d (U131): answers the UseBodyguard decision after an attack hit a model with a friendly Bodyguard within
 // 1": Guard takes the hit instead (its Injury Roll is made), or null leaves it on the model that was hit.
 public sealed record ChooseBodyguard(Seat Seat, ModelId? Guard) : Command;
+
+// Roster stage R8d (U133): the active model's base is turned in place to lie along the other table axis. Free, not an ACTION.
+public sealed record TurnBase(Seat Seat, ModelId Model, BaseAxis Axis) : Command;
