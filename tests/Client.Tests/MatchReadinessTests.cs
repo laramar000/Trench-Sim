@@ -833,6 +833,14 @@ public class MatchReadinessTests
         hunter.ChooseVariant("dedicated-to-wrath");
         hunter.Select(hunter.Add("shadow-hunter"));
         Assert.True(Loaded(hunter.MatchCheck()).Spells.HasFlag(SpellKind.ShadowWalker));
+        // Roster stage R16 (U141): the Shadow Hunter's Oracle Beast Cloak, the Sorcerer's Blessing of the Serpent Moon, Too Proud to Fall (an upgrade).
+        Assert.True(Loaded(hunter.MatchCheck()).Spells.HasFlag(SpellKind.OracleBeastCloak));
+        var sorcerer = RosterBuilder.Shipped();
+        sorcerer.ChooseFaction("court");
+        sorcerer.ChooseVariant("dedicated-to-wrath");
+        sorcerer.Select(sorcerer.Add("sorcerer"));
+        Assert.True(Loaded(sorcerer.MatchCheck()).Spells.HasFlag(SpellKind.BlessingOfTheSerpentMoon));
+        Assert.Equal(SpellKind.TooProudToFall, Praetor("dedicated-to-pride", "too-proud-to-fall").Spells);
         // A spell the engine does not play yet is named, and gives nothing.
         var gluttony = RosterBuilder.Shipped();
         gluttony.ChooseFaction("court");

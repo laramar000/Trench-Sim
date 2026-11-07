@@ -535,30 +535,20 @@ internal static class Board
         {
             return $"The model does not know {Spells.Name(spell)}.";
         }
+        var (min, max) = Spells.Cost(spell);
+        if (PaymentRefusal(state, payment, out var paid) is { } unpaid)
+        {
+            return unpaid;
+        }
+        // Roster stage R16 (U141): Blessing of the Serpent Moon, Oracle Beast Cloak and Too Proud to Fall are cast by a model that
+        // is not the one activating, in answer to an Injury Roll.
+        if (spell is SpellKind.BlessingOfTheSerpentMoon or SpellKind.OracleBeastCloak or SpellKind.TooProudToFall)
+        {
+            return ReactionRefusal(state, caster, spell, paid.Values.Sum(), target, takeBlessing);
+        }
         if ((state.SpellsCast & spell) != 0)
         {
             return $"{Spells.Name(spell)} can be cast once per activation.";
-        }
-        var (min, max) = Spells.Cost(spell);
-        var paid = new Dictionary<ModelId, int>();
-        foreach (var p in payment.IsDefault ? [] : payment)
-        {
-            if (p.Count <= 0 || !paid.TryAdd(p.Model, p.Count))
-            {
-                return "Each model pays once, with at least 1 marker.";
-            }
-            if (state.FindModel(p.Model) is not { Position: not null } payer)
-            {
-                return "A payer must be on the battlefield.";
-            }
-            if ((state.Setup.ProfileOf(payer.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) != 0)
-            {
-                return "Markers on a CULT or DEMONIC model cannot pay for a spell.";
-            }
-            if (p.Count > payer.BloodMarkers)
-            {
-                return "A model cannot pay more BLOOD MARKERS than it has.";
-            }
         }
         var total = paid.Values.Sum();
         if (total < min || total > max)
@@ -639,6 +629,114 @@ internal static class Board
                     && Placement.Check(scenario.Battlefield, victimHere, others.Append(casterThere), null).IsLegal
                     ? null : "Both bases must fit where the other stood.";
         }
+    }
+
+    // The BLOOD MARKERS a spell is paid with: each model pays once, with at least 1, from models on the battlefield without CULT or
+    // DEMONIC that have that many.
+    private static string? PaymentRefusal(MatchState state, ImmutableArray<MarkerPayment> payment, out Dictionary<ModelId, int> paid)
+    {
+        paid = [];
+        foreach (var p in payment.IsDefault ? [] : payment)
+        {
+            if (p.Count <= 0 || !paid.TryAdd(p.Model, p.Count))
+            {
+                return "Each model pays once, with at least 1 marker.";
+            }
+            if (state.FindModel(p.Model) is not { Position: not null } payer)
+            {
+                return "A payer must be on the battlefield.";
+            }
+            if ((state.Setup!.ProfileOf(payer.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) != 0)
+            {
+                return "Markers on a CULT or DEMONIC model cannot pay for a spell.";
+            }
+            if (p.Count > payer.BloodMarkers)
+            {
+                return "A model cannot pay more BLOOD MARKERS than it has.";
+            }
+        }
+        return null;
+    }
+
+    // ---- Roster stage R16 (U141): spells cast in answer to an Injury Roll ----
+
+    // The BLOOD MARKERS on the battlefield that can pay for a spell.
+    public static int Payable(MatchState state) =>
+        state.Models.Where(m => m.Position is not null && (state.Setup!.ProfileOf(m.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0).Sum(m => m.BloodMarkers);
+
+    private static bool Knows(MatchState state, ModelState model, SpellKind spell) => (state.Setup!.ProfileOf(model.Id)!.Spells & spell) != 0;
+
+    // Blessing of the Serpent Moon: a model on the battlefield that knows it, with at least 2 markers to pay.
+    public static bool BlessingAvailable(MatchState state, ModelState target) =>
+        target.Position is not null && target.Status != ModelStatus.OutOfAction && Knows(state, target, SpellKind.BlessingOfTheSerpentMoon) && Payable(state) >= 2;
+
+    // The spells the target's player may cast once this Injury Roll's result is known (before it is applied): Oracle Beast Cloak
+    // (cost 3, once per Turn) against any result but No Effect; Too Proud to Fall (cost 2) against a Down result.
+    public static SpellKind ReactionsFor(MatchState state, ModelState target, InjuryOutcome result)
+    {
+        if (target.Position is null || target.Status == ModelStatus.OutOfAction)
+        {
+            return SpellKind.None;
+        }
+        var payable = Payable(state);
+        var spells = SpellKind.None;
+        if (result != InjuryOutcome.NoEffect && !target.OracleUsed && payable >= 3 && Knows(state, target, SpellKind.OracleBeastCloak))
+        {
+            spells |= SpellKind.OracleBeastCloak;
+        }
+        if (result == InjuryOutcome.Down && payable >= 2 && Knows(state, target, SpellKind.TooProudToFall))
+        {
+            spells |= SpellKind.TooProudToFall;
+        }
+        return spells;
+    }
+
+    // The result an Injury Roll gives before any reaction: TOUGH's Down or Memento Mori's No Effect instead of Out of Action.
+    public static InjuryOutcome ResultOf(MatchState state, ModelState target, InjuryRollResult injury) =>
+        Reducer.MementoSaves(state, target, injury.Outcome) ? InjuryOutcome.NoEffect : Reducer.ToughSaves(state, target, injury.Outcome) ? InjuryOutcome.Down : injury.Outcome;
+
+    private static string? ReactionRefusal(MatchState state, ModelState caster, SpellKind spell, int total, ModelId? target, bool takeBlessing)
+    {
+        if (target is not null || takeBlessing)
+        {
+            return $"{Spells.Name(spell)} has no target.";
+        }
+        switch (state.Pending)
+        {
+            case { Kind: DecisionKind.UseBlessing } when spell == SpellKind.BlessingOfTheSerpentMoon:
+                return state.InProgress is { Stage: RollStage.InjuryRoll, Target: { } hit } && hit == caster.Id && BlessingAvailable(state, caster)
+                    ? total is 2 or 4 or 6 ? null : "Blessing of the Serpent Moon costs 2, 4 or 6 markers."
+                    : "Blessing of the Serpent Moon is cast before an Injury Roll for the caster.";
+            case { Kind: DecisionKind.UseInjuryReaction } when spell != SpellKind.BlessingOfTheSerpentMoon:
+                if (state.Held is not { } held || held.Target != caster.Id || (ReactionsFor(state, caster, ResultOf(state, caster, held.Injury)) & spell) == 0)
+                {
+                    return $"{Spells.Name(spell)} cannot answer this Injury Roll.";
+                }
+                var cost = spell == SpellKind.OracleBeastCloak ? 3 : 2;
+                return total == cost ? null : $"{Spells.Name(spell)} costs {cost} markers.";
+            default:
+                return $"{Spells.Name(spell)} is cast in answer to an Injury Roll for the caster, when its player is asked.";
+        }
+    }
+
+    // The cheapest way to pay a cost: from models without CULT or DEMONIC, in id order, most markers first; null when it cannot be paid.
+    public static ImmutableArray<MarkerPayment>? CheapestPayment(MatchState state, int cost)
+    {
+        var payers = state.Models.Where(m => m.Position is not null && m.BloodMarkers > 0 && (state.Setup!.ProfileOf(m.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0)
+            .OrderByDescending(m => m.BloodMarkers).ThenBy(m => m.Id.Value, StringComparer.Ordinal);
+        var left = cost;
+        var payment = ImmutableArray.CreateBuilder<MarkerPayment>();
+        foreach (var payer in payers)
+        {
+            var take = Math.Min(left, payer.BloodMarkers);
+            payment.Add(new MarkerPayment(payer.Id, take));
+            left -= take;
+            if (left == 0)
+            {
+                return payment.ToImmutable();
+            }
+        }
+        return null;
     }
 
     // Loudspeakers ACTION (Warbands p. 53): every Standing friend within 8" of the source (as they stand when it succeeds) moves

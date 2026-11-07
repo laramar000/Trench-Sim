@@ -54,7 +54,7 @@ public static class StateHash
         Line(sb, "movementHalved", state.MovementHalved);
         Line(sb, "scoredTurn", state.ScoredTurn);
         Line(sb, "inProgress", state.InProgress is { } r
-            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}{(r.InjuryDiceLater == 0 ? "" : $":injuryLater={r.InjuryDiceLater}")}{(r.Weapon == 0 ? "" : $":weapon={r.Weapon}")}{(r.OffHand ? ":offHand" : "")}{(r.Aimed is { } aimed ? $":aimed={aimed.Value}" : "")}{(r.BlastQueue.IsDefaultOrEmpty ? "" : $":blast={string.Join(";", r.BlastQueue.Select(q => q.Value))}")}{(r.ScatterInches == 0 ? "" : $":scatter={r.ScatterInches}")}{(r.BlastAt is { } landed ? $":at={landed.X.Thousandths},{landed.Y.Thousandths}" : "")}{(r.RiskyEnds ? ":riskyEnds" : "")}{(r.TreatStandUp ? ":standUp" : "")}{(r.Martyrdom ? $":martyr={string.Join(";", r.MartyrClose.Select(c => c.Value))}" : "")}{(r.Stage == RollStage.SelfRoll ? $":self={r.SelfAction}" : "")}{(r.Bloodbath ? ":bloodbath" : "")}{(r.CarryOn ? ":carryOn" : "")}{(r.GuardOwed ? ":guardOwed" : "")}{(r.Toward is { } toward ? $":toward={toward.X.Thousandths},{toward.Y.Thousandths}" : "")}"
+            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}{(r.InjuryDiceLater == 0 ? "" : $":injuryLater={r.InjuryDiceLater}")}{(r.Weapon == 0 ? "" : $":weapon={r.Weapon}")}{(r.OffHand ? ":offHand" : "")}{(r.Aimed is { } aimed ? $":aimed={aimed.Value}" : "")}{(r.BlastQueue.IsDefaultOrEmpty ? "" : $":blast={string.Join(";", r.BlastQueue.Select(q => q.Value))}")}{(r.ScatterInches == 0 ? "" : $":scatter={r.ScatterInches}")}{(r.BlastAt is { } landed ? $":at={landed.X.Thousandths},{landed.Y.Thousandths}" : "")}{(r.RiskyEnds ? ":riskyEnds" : "")}{(r.TreatStandUp ? ":standUp" : "")}{(r.Martyrdom ? $":martyr={string.Join(";", r.MartyrClose.Select(c => c.Value))}" : "")}{(r.Stage == RollStage.SelfRoll ? $":self={r.SelfAction}" : "")}{(r.Bloodbath ? ":bloodbath" : "")}{(r.CarryOn ? ":carryOn" : "")}{(r.GuardOwed ? ":guardOwed" : "")}{(r.Toward is { } toward ? $":toward={toward.X.Thousandths},{toward.Y.Thousandths}" : "")}{(r.BlessedFor is { } blessed ? $":blessed={blessed.Value}x{r.Blessing}" : "")}"
             : null);
         Line(sb, "retreat", state.Retreat is { } t
             ? $"{t.Model.Value}:{Path(t.Path)}:{string.Join(";", t.Fought.Select(f => f.Value))}:{Bool(t.Closed)}"
@@ -95,6 +95,10 @@ public static class StateHash
         if (state.BloodMagicModel is { } magic)
         {
             Line(sb, "bloodMagic", magic.Value);
+        }
+        if (state.Held is { } held)
+        {
+            Line(sb, "held", $"{held.Attacker.Value}>{held.Target.Value}:{held.Injury.Dice.Rolled.Count}:{string.Join("", held.Injury.Dice.Rolled)}:{held.Injury.NetDice}:{held.Injury.Modifier}:{Bool(held.Asked)}:{(int)state.HeldReaction}");
         }
         if (state.ShadowWalking is { } shadow)
         {
@@ -192,7 +196,7 @@ public static class StateHash
                 $"deployed={Bool(m.Deployed)}",
                 $"activated={Bool(m.ActivatedThisTurn)}",
                 $"at={(m.Position is { } at ? Point(at) : "-")}",
-                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : "") + (m.TalismansUsed == 0 ? "" : $",talismansUsed={m.TalismansUsed}") + (m.Hidden ? ",hidden=yes" : "") + (m.Axis == BaseAxis.Y ? "" : ",axis=X") + (m.InfectionMarkers == 0 ? "" : $",infection={m.InfectionMarkers}") + (m.BlessingMarkers == 0 ? "" : $",blessing={m.BlessingMarkers}"));
+                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : "") + (m.TalismansUsed == 0 ? "" : $",talismansUsed={m.TalismansUsed}") + (m.Hidden ? ",hidden=yes" : "") + (m.Axis == BaseAxis.Y ? "" : ",axis=X") + (m.InfectionMarkers == 0 ? "" : $",infection={m.InfectionMarkers}") + (m.BlessingMarkers == 0 ? "" : $",blessing={m.BlessingMarkers}") + (m.OracleUsed ? ",oracle=used" : ""));
         }
         return sb.ToString();
     }

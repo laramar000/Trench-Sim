@@ -120,6 +120,8 @@ public static class Reducer
             BaseTurned x => OnBaseTurned(state, x),
             ModelsMoved x => OnModelsMoved(state, x),
             SpellCast x => OnSpellCast(state, x),
+            InjuryRollMade x => OnInjuryRollMade(state, x),
+            ReactionDeclined x => OnReactionDeclined(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
@@ -401,8 +403,39 @@ public static class Reducer
         {
             Require(e is DecisionRequested offer && offer.Kind == owed.Kind && offer.Seat == owed.Seat,
                 "The opponent must be asked about Blood Markers before this roll.");
+            return;
+        }
+
+        if (BlessingOfferOwed(state) is { } blessingOwed)
+        {
+            Require(e is DecisionRequested { Kind: DecisionKind.UseBlessing } blessingOffer && blessingOffer.Seat == blessingOwed.Seat,
+                "The player of the model rolled for must be asked about Blessing of the Serpent Moon before the roll.");
+            return;
+        }
+
+        // Roster stage R16 (U141): a held Injury Roll is asked about, and then applied.
+        if (state.Held is { } held && state.Pending is null)
+        {
+            if (!held.Asked)
+            {
+                Require(e is DecisionRequested { Kind: DecisionKind.UseInjuryReaction } reactionOffer && state.FindModel(held.Target)!.Seat == reactionOffer.Seat,
+                    "The player of the model an Injury Roll was made for must be asked about a reaction.");
+            }
+            else
+            {
+                Require(e is InjuryRolled, "An answered held Injury Roll is applied next.");
+            }
         }
     }
+
+    // Roster stage R16 (U141): before an Injury Roll (and after the Bodyguard and Blood Marker offers), the player of a model that
+    // knows Blessing of the Serpent Moon is asked, once per model rolled for.
+    private static PendingDecision? BlessingOfferOwed(MatchState state) =>
+        state.Pending is null && state.Held is null && state.InProgress is { Stage: RollStage.InjuryRoll, Target: { } hit } progress
+        && BodyguardOfferOwed(state) is null && MarkerOfferOwed(state) is null
+        && progress.BlessedFor != hit && state.FindModel(hit) is { } hitModel && Board.BlessingAvailable(state, hitModel)
+            ? new PendingDecision(DecisionKind.UseBlessing, hitModel.Seat)
+            : null;
 
     // The match is over once a warband has fled, a warband has no model left on the battlefield, or the final turn
     // has ended. MatchEnded with this reason is then the only event that can follow.
@@ -585,6 +618,13 @@ public static class Reducer
             case DecisionKind.UseBodyguard:
                 Require(BodyguardOfferOwed(state) is { } guardOffer && guardOffer.Seat == e.Seat, "Only the player of a model that was hit, with a Bodyguard beside it, is asked.");
                 break;
+            case DecisionKind.UseBlessing:
+                Require(BlessingOfferOwed(state) is { } blessingOffer && blessingOffer.Seat == e.Seat, "Only the player of a model about to be rolled for, that knows Blessing of the Serpent Moon, is asked.");
+                break;
+            case DecisionKind.UseInjuryReaction:
+                Require(state.Held is { Asked: false } held && state.FindModel(held.Target) is { } held2 && held2.Seat == e.Seat, "Only the player of the model a held Injury Roll is for is asked.");
+                state = state with { Held = state.Held! with { Asked = true } };
+                break;
             case DecisionKind.ChooseFriendlyTarget:
                 Require(state.InProgress is { Stage: RollStage.TargetChoice } choosing
                     && state.FindModel(choosing.Actor) is { } chooser && chooser.Seat == e.Seat, "Only the shooter chooses which of its own models is shot.");
@@ -654,6 +694,10 @@ public static class Reducer
     // Roster stage R11 (U136): a spell is cast between the active model's actions: the payment comes off first, then the effect.
     private static MatchState OnSpellCast(MatchState state, SpellCast e)
     {
+        if (e.Spell is SpellKind.BlessingOfTheSerpentMoon or SpellKind.OracleBeastCloak or SpellKind.TooProudToFall)
+        {
+            return OnReactionCast(state, e);
+        }
         var caster = Active(state, e.Model, "A spell");
         Require(state.InProgress is null && state.Retreat is null && state.MineStop is null && !state.MustEndActivation && !state.ReloadEnds, "A spell is cast between actions, not while one is being resolved.");
         Require(Board.SpellRefusal(state, caster, e.Spell, e.Payment, e.Target, e.TakeBlessing) is null, "That spell cannot be cast like that.");
@@ -779,7 +823,7 @@ public static class Reducer
         {
             Turn = e.Turn,
             TurnEnded = false,
-            Models = state.Models.Select(m => m with { ActivatedThisTurn = false }).ToImmutableArray(),
+            Models = state.Models.Select(m => m with { ActivatedThisTurn = false, OracleUsed = false }).ToImmutableArray(),
             One = state.One with { MoraleChecked = false, MoraleOutcome = null },
             Two = state.Two with { MoraleChecked = false, MoraleOutcome = null },
             Phase = Phase.Initiative,
@@ -1663,35 +1707,97 @@ public static class Reducer
         };
     }
 
-    private static MatchState OnInjuryRolled(MatchState state, InjuryRolled e)
+    // Roster stage R16 (U141): -1 INJURY MODIFIER per 2 markers paid for a Blessing of the Serpent Moon, for the model it was cast for.
+    internal static int[] BlessingModifier(RollInProgress progress, ModelId target) =>
+        progress.BlessedFor == target && progress.Blessing > 0 ? [-progress.Blessing] : [];
+
+    // The checks every Injury Roll's dice must pass, whether it is applied at once or held for a reaction.
+    private static (RollInProgress Progress, ModelState Attacker, ModelState Target, ModelProfile Profile) RequireInjuryDice(MatchState state, ModelId attackerId, ModelId targetId, InjuryRollResult injury)
     {
-        Require(state.InProgress is { Stage: RollStage.InjuryRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No Injury Roll is waiting.");
+        Require(state.InProgress is { Stage: RollStage.InjuryRoll } p && p.Actor == attackerId && p.Target == targetId && state.Pending is null, "No Injury Roll is waiting.");
         var progress = state.InProgress!;
-        var attacker = state.FindModel(e.Attacker)!;
-        var target = state.FindModel(e.Target)!;
+        var attacker = state.FindModel(attackerId)!;
+        var target = state.FindModel(targetId)!;
         Require((target.Id != attacker.Id || progress.Aimed is not null || progress.BlastAt is not null || progress.Martyrdom) && (target.Seat == attacker.Seat) == progress.FriendlyFire,
             "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one or a blast hits it.");
         // Roster stage R5j (U115): a Martyrdom Device's bearer rolls 4D6 added together; every other roll keeps two or three.
         var profile = AttackProfile(state, progress);
         var deadly = (profile.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0;
+        Require(injury.AllFour == (progress.Martyrdom && target.Id == attacker.Id || progress.Bloodbath && deadly), "Only a Martyrdom Device's bearer, or a DEADLY Bloodbath Roll, rolls 4D6 added together.");
+        Require(injury.NetDice == progress.BonusDice + MagicDice(state, progress.Actor) - progress.PenaltyDice
+            && injury.Modifier == InjuryRoll.CombineModifiers([.. AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(targetId)!, progress.Kind), .. BlessingModifier(progress, targetId)])
+            && injury.TargetAlreadyDown == (target.Status == ModelStatus.Down), "The Injury Roll must match the dice, modifiers and state of the target.");
+        // Roster stage R5 (U104): a DEADLY weapon's Injury Rolls keep three dice, every other one two.
+        Require(injury.Deadly == (progress.Bloodbath ? !deadly : deadly), "A DEADLY weapon's Injury Roll is 3D6, any other is 2D6; a Bloodbath Roll is 3D6, or 4D6 with DEADLY.");
+        // Roster stage R16 (U141): the offer to cast Blessing of the Serpent Moon comes first, once per model rolled for.
+        Require(progress.BlessedFor == targetId || !Board.BlessingAvailable(state, target), "The player of the model rolled for must be asked about Blessing of the Serpent Moon first.");
+        return (progress, attacker, target, profile);
+    }
+
+    // Roster stage R16 (U141): the Injury Roll is made, and held while its target's player may answer it.
+    private static MatchState OnInjuryRollMade(MatchState state, InjuryRollMade e)
+    {
+        var (_, _, target, _) = RequireInjuryDice(state, e.Attacker, e.Target, e.Injury);
+        Require(state.Held is null && Board.ReactionsFor(state, target, Board.ResultOf(state, target, e.Injury)) != SpellKind.None,
+            "An Injury Roll is held only when its target's player may cast Oracle Beast Cloak or Too Proud to Fall against it.");
+        return state with { Held = new HeldInjury(e.Attacker, e.Target, e.Injury) };
+    }
+
+    private static MatchState OnReactionDeclined(MatchState state, ReactionDeclined e)
+    {
+        Require(state.Pending is { Kind: DecisionKind.UseBlessing or DecisionKind.UseInjuryReaction } p && p.Seat == e.Seat, "No such decision is waiting.");
+        if (state.Pending!.Kind == DecisionKind.UseBlessing)
+        {
+            return state with { Pending = null, InProgress = state.InProgress! with { BlessedFor = state.InProgress.Target, Blessing = 0 } };
+        }
+        return state with { Pending = null };
+    }
+
+    // Roster stage R16 (U141): a reaction spell, cast by the model an Injury Roll is for, in answer to the decision it was asked.
+    private static MatchState OnReactionCast(MatchState state, SpellCast e)
+    {
+        Require(Board.SpellRefusal(state, state.FindModel(e.Model)!, e.Spell, e.Payment, e.Target, e.TakeBlessing) is null && state.Pending is { } pending
+            && state.FindModel(e.Model) is { } caster && caster.Seat == pending.Seat, "That spell cannot be cast like that.");
+        var next = state;
+        foreach (var p in e.Payment)
+        {
+            var payer = next.FindModel(p.Model)!;
+            next = TurnRules.WithModel(next, payer with { BloodMarkers = payer.BloodMarkers - p.Count });
+        }
+        if (e.Spell == SpellKind.BlessingOfTheSerpentMoon)
+        {
+            return next with { Pending = null, InProgress = next.InProgress! with { BlessedFor = e.Model, Blessing = e.Payment.Sum(p => p.Count) / 2 } };
+        }
+        if (e.Spell == SpellKind.OracleBeastCloak)
+        {
+            next = TurnRules.WithModel(next, next.FindModel(e.Model)! with { OracleUsed = true });
+        }
+        return next with { Pending = null, HeldReaction = e.Spell };
+    }
+
+    private static MatchState OnInjuryRolled(MatchState state, InjuryRolled e)
+    {
+        var (progress, attacker, target, profile) = RequireInjuryDice(state, e.Attacker, e.Target, e.Injury);
+        // Roster stage R16 (U141): when the target's player may cast against the result, the roll was made (and held) first, and the
+        // result carries what was cast.
+        Require(state.Held is not null || Board.ReactionsFor(state, target, Board.ResultOf(state, target, e.Injury)) == SpellKind.None,
+            "An Injury Roll that its target's player may answer is made and held first, any other is applied at once.");
+        Require(state.Held is null || state.Held.Injury.Equals(e.Injury) && state.Held.Attacker == e.Attacker && state.Held.Target == e.Target && state.Held.Asked,
+            "The Injury Roll applied is the one that was held, once its target's player has answered.");
+        Require(e.Cloaked == (state.HeldReaction == SpellKind.OracleBeastCloak) && e.Upheld == (state.HeldReaction == SpellKind.TooProudToFall),
+            "An Injury Roll is Cloaked or Upheld only by the spell its target's player cast against it.");
         // Bloodbath Roll (p. 47, U124): the attacker spent the markers for it, and the event says so.
         Require(e.Bloodbath == progress.Bloodbath, "An Injury Roll is a Bloodbath Roll only if the attacker spent the Blood Markers for one.");
-        Require(e.Injury.AllFour == (progress.Martyrdom && target.Id == attacker.Id || progress.Bloodbath && deadly), "Only a Martyrdom Device's bearer, or a DEADLY Bloodbath Roll, rolls 4D6 added together.");
-        Require(e.Injury.NetDice == progress.BonusDice + MagicDice(state, progress.Actor) - progress.PenaltyDice
-            && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(e.Target)!, progress.Kind))
-            && e.Injury.TargetAlreadyDown == (target.Status == ModelStatus.Down), "The Injury Roll must match the dice, modifiers and state of the target.");
-        // Roster stage R5 (U104): a DEADLY weapon's Injury Rolls keep three dice, every other one two.
-        Require(e.Injury.Deadly == (progress.Bloodbath ? !deadly : deadly), "A DEADLY weapon's Injury Roll is 3D6, any other is 2D6; a Bloodbath Roll is 3D6, or 4D6 with DEADLY.");
 
         // Roster stage R4a: SHRAPNEL, GAS and FIRE put extra BLOOD MARKERS on the target (U101).
         Require(e.ExtraMarkers == AttackDice.ExtraMarkers(profile, progress.Kind, state.Setup!.ProfileOf(e.Target)!), "The extra BLOOD MARKERS must be the weapon's SHRAPNEL, GAS and FIRE.");
-        Require(e.Tough == ToughSaves(state, target, e.Injury.Outcome), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
-        Require(e.Spared == MementoSaves(state, target, e.Injury.Outcome), "Memento Mori turns the model's first Out of Action result into No Effect, and nothing else.");
+        Require(e.Tough == (!e.Cloaked && ToughSaves(state, target, e.Injury.Outcome)), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
+        Require(e.Spared == (!e.Cloaked && MementoSaves(state, target, e.Injury.Outcome)), "Memento Mori turns the model's first Out of Action result into No Effect, and nothing else.");
         Require(e.Infection == AttackDice.PlacesInfection(profile, progress.Kind), "An INFECTION MARKERS weapon places INFECTION MARKERS, any other BLOOD MARKERS.");
         Require(e.Warded == (!e.Infection && Wards(state, target, e.ResultMarkers + e.ExtraMarkers)), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
         // Roster stage R10 (U135): an INFECTION MARKERS weapon's markers are INFECTION MARKERS, up to 6 of them.
         var markers = e.Infection ? target.BloodMarkers : Math.Min(BloodMarkers.Max, target.BloodMarkers + e.PlacedMarkers);
-        var hurt = Hurt(target, e.Result, markers, e.Tough || e.Spared) with
+        var hurt = Hurt(target, e.Result, markers, e.Tough || e.Spared, e.Upheld) with
         {
             WardSpent = target.WardSpent || e.Warded,
             InfectionMarkers = e.Infection ? Math.Min(BloodMarkers.Max, target.InfectionMarkers + e.PlacedMarkers) : target.InfectionMarkers,
@@ -1699,12 +1805,12 @@ public static class Reducer
         // A blast's next model (U102), once this one is rolled for.
         if (!progress.BlastQueue.IsDefaultOrEmpty)
         {
-            var after = TurnRules.WithModel(state, hurt);
+            var after = TurnRules.WithModel(state, hurt) with { Held = null, HeldReaction = SpellKind.None };
             return after with { InProgress = NextBlastRoll(after, progress, progress.BlastQueue) };
         }
         // RELOAD: the attacker's activation ends now its ACTION is done (not after a free attack, which is not its own); a
         // scattered attack's failed Risky roll ends it instead (U103).
-        return AttackOver(TurnRules.WithModel(state, hurt), progress);
+        return AttackOver(TurnRules.WithModel(state, hurt) with { Held = null, HeldReaction = SpellKind.None }, progress);
     }
 
     // Roster stage R5b (U106): TOUGH turns the first Out of Action result a model suffers into a Down result (p. 57).
@@ -1777,9 +1883,11 @@ public static class Reducer
     private static readonly Length UrnReach = Length.FromInches(3);
 
     // The model after an Injury Roll's result, with its BLOOD MARKERS (and TOUGH or Memento Mori spent when it saved the model).
-    private static ModelState Hurt(ModelState model, InjuryOutcome result, int markers, bool tough) => result switch
+    private static ModelState Hurt(ModelState model, InjuryOutcome result, int markers, bool tough, bool upheld = false) => result switch
     {
         InjuryOutcome.OutOfAction => model with { Status = ModelStatus.OutOfAction, Position = null, BloodMarkers = markers },
+        // Roster stage R16 (U141): Too Proud to Fall keeps a model taken Down on its feet; the rest of the result stands.
+        InjuryOutcome.Down when upheld => model with { BloodMarkers = markers, ToughSpent = model.ToughSpent || tough },
         InjuryOutcome.Down => model with { Status = ModelStatus.Down, BloodMarkers = markers, ToughSpent = model.ToughSpent || tough },
         _ => model with { BloodMarkers = markers, ToughSpent = model.ToughSpent || tough },
     };

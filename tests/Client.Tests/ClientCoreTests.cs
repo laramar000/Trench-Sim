@@ -91,6 +91,8 @@ public class ClientCoreTests
         // Roster stage R7d: no bot model has a Bodyguard beside a friend that is hit.
         seen.TryAdd(typeof(BodyguardAnswered), new BodyguardAnswered(new ModelId("b1"), new ModelId("b2")));
         // Roster stage R11: no bot model knows a Court spell.
+        seen.TryAdd(typeof(InjuryRollMade), new InjuryRollMade(new ModelId("a1"), new ModelId("b1"), Rules.Core.Dice.InjuryRoll.Roll(new SeededDice(3))));
+        seen.TryAdd(typeof(ReactionDeclined), new ReactionDeclined(Seat.Two));
         seen.TryAdd(typeof(SpellCast), new SpellCast(new ModelId("a1"), SpellKind.ExquisitePain, [new MarkerPayment(new ModelId("b1"), 1)]) { Target = new ModelId("b2") });
         // Roster stage R9a: no bot model has Loudspeakers or a Puppet Master ACTION.
         seen.TryAdd(typeof(ModelsMoved), new ModelsMoved(new ModelId("a1"), [new ForcedMove(new ModelId("b1"), Previews.PointAt(20, 8))]) { Die = 3 });

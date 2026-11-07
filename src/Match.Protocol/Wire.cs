@@ -413,6 +413,8 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.Tramples)),
             (typeof(ModelStoodUp), nameof(ModelStoodUp.Quick)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Spared)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.Cloaked)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.Upheld)),
             (typeof(MineExploded), nameof(MineExploded.Spared)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Bloodbath)),
             (typeof(SpendMarkers), nameof(SpendMarkers.Bloodbath)),

@@ -261,6 +261,15 @@ public static partial class TurnSequence
     // Roster stage R11 (U136): casting a spell, between the active model's actions.
     private static Rejection? ValidateSpell(MatchState state, CastSpell c)
     {
+        // Roster stage R16 (U141): a reaction is cast by the model an Injury Roll is for, in answer to the decision it was asked.
+        if (state.Pending is { Kind: DecisionKind.UseBlessing or DecisionKind.UseInjuryReaction } asked)
+        {
+            if (asked.Seat != c.Seat || state.FindModel(c.Model) is not { } reacting || reacting.Seat != c.Seat)
+            {
+                return new(ReasonCode.NotYourTurn, "That decision belongs to the other player.", RefTurn);
+            }
+            return Board.SpellRefusal(state, reacting, c.Spell, c.Payment, c.Target, c.TakeBlessing) is { } no ? new(ReasonCode.SpellRefused, no, RefActions) : null;
+        }
         if (ValidateActing(state, c.Seat, c.Model, out var caster) is { } rejection)
         {
             return rejection;
@@ -650,6 +659,7 @@ public static partial class TurnSequence
             ScatterAttack c => (DecisionKind.ChooseScatterPoint, c.Seat),
             UseTalisman c => (DecisionKind.UseTalisman, c.Seat),
             DeclineTalisman c => (DecisionKind.UseTalisman, c.Seat),
+            DeclineReaction c => (state.Pending is { Kind: DecisionKind.UseBlessing } ? DecisionKind.UseBlessing : DecisionKind.UseInjuryReaction, c.Seat),
             ChooseBodyguard c => (DecisionKind.UseBodyguard, c.Seat),
             _ => throw new ArgumentException("Not a choice."),
         };
@@ -855,6 +865,9 @@ public static partial class TurnSequence
             }
             case DeclineTalisman:
                 run.Emit(new ActivationEnded(state.ActiveModel!.Value, ActivationEndReason.RiskyFailure));
+                break;
+            case DeclineReaction c:
+                run.Emit(new ReactionDeclined(c.Seat));
                 break;
             case ScatterAttack c:
             {
@@ -1124,6 +1137,44 @@ public static partial class TurnSequence
             case RollStage.InjuryRoll:
             {
                 var target = s.FindModel(progress.Target!.Value)!;
+                var weapon = Reducer.AttackProfile(s, progress);
+                var deadly = (weapon.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0;
+                InjuryRolled Build(InjuryRollResult roll)
+                {
+                    // Roster stage R16 (U141): what the target's player cast against a held roll.
+                    var cloaked = s.HeldReaction == SpellKind.OracleBeastCloak;
+                    var made = new InjuryRolled(actor.Id, target.Id, roll)
+                    {
+                        Bloodbath = progress.Bloodbath,
+                        ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup!.ProfileOf(target.Id)!),
+                        Tough = !cloaked && Reducer.ToughSaves(s, target, roll.Outcome),
+                        Spared = !cloaked && Reducer.MementoSaves(s, target, roll.Outcome),
+                        Infection = AttackDice.PlacesInfection(weapon, progress.Kind),
+                        Cloaked = cloaked,
+                        Upheld = s.HeldReaction == SpellKind.TooProudToFall,
+                    };
+                    return made with { Warded = !made.Infection && Reducer.Wards(s, target, made.ResultMarkers + made.ExtraMarkers) };
+                }
+                void Apply(InjuryRolled rolled)
+                {
+                    run.Emit(rolled);
+                    if (rolled.Result == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
+                    {
+                        run.Emit(new MatchEnded(target.Seat.Opponent(), OutcomeReason.AllEnemiesOutOfAction));
+                    }
+                    else if (progress.Martyrdom && target.Id == actor.Id && run.State.FindModel(actor.Id)!.Status != ModelStatus.Standing
+                        && run.State.ActiveModel == actor.Id)
+                    {
+                        // Roster stage R5j (U115): the bearer taken Down or Out of Action by its own device: its activation ends (p. 49).
+                        run.Emit(new ActivationEnded(actor.Id, ActivationEndReason.TakenDown));
+                    }
+                }
+                // Roster stage R16 (U141): the target's player has answered a held roll: it is applied now.
+                if (s.Held is { } held)
+                {
+                    Apply(Build(held.Injury));
+                    return true;
+                }
                 // Roster stage R7d (U131): a Bodyguard offer still owed comes before the Blood Markers.
                 if (progress.GuardOwed && Board.Bodyguards(s, target).Count > 0)
                 {
@@ -1136,33 +1187,25 @@ public static partial class TurnSequence
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
                     return true;
                 }
-                var weapon = Reducer.AttackProfile(s, progress);
-                var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup!.ProfileOf(target.Id)!, progress.Kind);
+                // Roster stage R16 (U141): Blessing of the Serpent Moon is cast before the roll.
+                if (progress.BlessedFor != target.Id && Board.BlessingAvailable(s, target))
+                {
+                    run.Emit(new DecisionRequested(DecisionKind.UseBlessing, target.Seat));
+                    return true;
+                }
+                var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup!.ProfileOf(target.Id)!, progress.Kind).Concat(Reducer.BlessingModifier(progress, target.Id));
                 // Roster stage R5j (U115): a Martyrdom Device's bearer rolls 4D6 added together.
                 // Roster stage R5j (U115) and Bloodbath Rolls (p. 47, U124): a Bloodbath Roll keeps 3 dice, 4 with DEADLY.
-                var deadly = (weapon.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0;
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice + Reducer.MagicDice(s, progress.Actor), progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down,
                     deadly: progress.Bloodbath ? !deadly : deadly, allFour: progress.Martyrdom && target.Id == actor.Id || progress.Bloodbath && deadly);
-                var rolled = new InjuryRolled(actor.Id, target.Id, injury)
+                // Roster stage R16 (U141): the target's player may answer a roll that Oracle Beast Cloak or Too Proud to Fall could change.
+                if (Board.ReactionsFor(s, target, Board.ResultOf(s, target, injury)) != SpellKind.None)
                 {
-                    Bloodbath = progress.Bloodbath,
-                    ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup.ProfileOf(target.Id)!),
-                    Tough = Reducer.ToughSaves(s, target, injury.Outcome),
-                    Spared = Reducer.MementoSaves(s, target, injury.Outcome),
-                    Infection = AttackDice.PlacesInfection(weapon, progress.Kind),
-                };
-                rolled = rolled with { Warded = !rolled.Infection && Reducer.Wards(s, target, rolled.ResultMarkers + rolled.ExtraMarkers) };
-                run.Emit(rolled);
-                if (rolled.Result == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
-                {
-                    run.Emit(new MatchEnded(target.Seat.Opponent(), OutcomeReason.AllEnemiesOutOfAction));
+                    run.Emit(new InjuryRollMade(actor.Id, target.Id, injury));
+                    run.Emit(new DecisionRequested(DecisionKind.UseInjuryReaction, target.Seat));
+                    return true;
                 }
-                else if (progress.Martyrdom && target.Id == actor.Id && run.State.FindModel(actor.Id)!.Status != ModelStatus.Standing
-                    && run.State.ActiveModel == actor.Id)
-                {
-                    // Roster stage R5j (U115): the bearer taken Down or Out of Action by its own device: its activation ends (p. 49).
-                    run.Emit(new ActivationEnded(actor.Id, ActivationEndReason.TakenDown));
-                }
+                Apply(Build(injury));
                 return true;
             }
             default:

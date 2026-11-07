@@ -20,6 +20,8 @@ public enum DecisionKind
     UseTalisman,               // a Risky roll failed: the model's player may use a Talisman so the activation goes on (roster stage R5k)
     UseBodyguard,              // an attack hit a model with a friendly Bodyguard within 1": its player may move the hit onto the Bodyguard (roster stage R7d, U131)
     PlaceShrine,               // a model with a Field Shrine was just deployed: its player may also deploy the shrine (p. 82, U127)
+    UseBlessing,               // before an Injury Roll for a model that knows Blessing of the Serpent Moon: its player may cast it (R16, U141)
+    UseInjuryReaction,         // an Injury Roll was made for a model that knows Oracle Beast Cloak or Too Proud to Fall: its player may cast one (R16, U141)
 }
 
 // A choice only one player can make. While one is pending, nothing else may happen.
@@ -171,7 +173,13 @@ public sealed record RollInProgress(
     bool Bloodbath = false,
     bool CarryOn = false,
     bool GuardOwed = false,
-    Point2? Toward = null);
+    Point2? Toward = null,
+    ModelId? BlessedFor = null,
+    int Blessing = 0);
+
+// Roster stage R16 (U141): an Injury Roll made but not yet applied, because its target's player may cast Oracle Beast Cloak or
+// Too Proud to Fall once they see it. Asked is true once that decision has been requested.
+public sealed record HeldInjury(ModelId Attacker, ModelId Target, InjuryRollResult Injury, bool Asked = false);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.
@@ -305,6 +313,11 @@ public sealed record MatchState
     // Roster stage R15 (U140): a Shadow-walker waiting on its caster's Retreat; and a Call of the Flesh: the caster the next enemy must
     // close in on, and whether that enemy is activating now (the call is spent when its activation ends).
     public ModelId? ShadowWalking { get; init; }
+
+    // Roster stage R16 (U141): the Injury Roll waiting for its target's reaction, and the spell cast against it.
+    public HeldInjury? Held { get; init; }
+
+    public SpellKind HeldReaction { get; init; }
 
     public ModelId? CallTarget { get; init; }
 

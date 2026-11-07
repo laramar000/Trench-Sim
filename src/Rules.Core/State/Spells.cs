@@ -52,7 +52,8 @@ public sealed record MarkerPayment(ModelId Model, int Count);
 public static class Spells
 {
     public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic
-        | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh;
+        | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh
+        | SpellKind.BlessingOfTheSerpentMoon | SpellKind.OracleBeastCloak | SpellKind.TooProudToFall;
 
     // The number of markers a spell may cost: from Min to Max.
     public static (int Min, int Max) Cost(SpellKind spell) => spell switch
@@ -61,7 +62,9 @@ public static class Spells
         SpellKind.ExquisitePain => (1, 2),
         SpellKind.CovetedPosition => (2, 2),
         SpellKind.CharmOfAcedia or SpellKind.BlackHeart or SpellKind.BloodMagic => (1, 1),
-        SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh => (2, 2),
+        SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh or SpellKind.TooProudToFall => (2, 2),
+        SpellKind.BlessingOfTheSerpentMoon => (2, 6),
+        SpellKind.OracleBeastCloak => (3, 3),
         _ => throw new ArgumentOutOfRangeException(nameof(spell), "One spell at a time."),
     };
 
@@ -75,6 +78,9 @@ public static class Spells
         SpellKind.BloodMagic => "Blood Magic",
         SpellKind.ShadowWalker => "Shadow-walker",
         SpellKind.CallOfTheFlesh => "Call of the Flesh",
+        SpellKind.BlessingOfTheSerpentMoon => "Blessing of the Serpent Moon",
+        SpellKind.OracleBeastCloak => "Oracle Beast Cloak",
+        SpellKind.TooProudToFall => "Too Proud to Fall",
         _ => spell.ToString(),
     };
 

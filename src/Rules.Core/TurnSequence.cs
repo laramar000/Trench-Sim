@@ -162,6 +162,26 @@ public static partial class TurnSequence
                 commands.AddRange(guards.Select(g => new ChooseBodyguard(pending.Seat, g.Id)));
                 commands.Add(new ChooseBodyguard(pending.Seat, null));
                 break;
+            case DecisionKind.UseBlessing or DecisionKind.UseInjuryReaction:
+                // Roster stage R16 (U141): decline, or each spell on offer paid the cheapest way.
+                var reacting = pending.Kind == DecisionKind.UseBlessing ? state.InProgress?.Target : state.Held?.Target;
+                if (reacting is { } reactor && state.FindModel(reactor) is { } reactorModel)
+                {
+                    var offered = pending.Kind == DecisionKind.UseBlessing
+                        ? [(SpellKind.BlessingOfTheSerpentMoon, 2), (SpellKind.BlessingOfTheSerpentMoon, 4), (SpellKind.BlessingOfTheSerpentMoon, 6)]
+                        : new[] { SpellKind.OracleBeastCloak, SpellKind.TooProudToFall }
+                            .Where(sp => (Board.ReactionsFor(state, reactorModel, Board.ResultOf(state, reactorModel, state.Held!.Injury)) & sp) != 0)
+                            .Select(sp => (sp, sp == SpellKind.OracleBeastCloak ? 3 : 2)).ToArray();
+                    foreach (var (spell, cost) in offered)
+                    {
+                        if (Board.CheapestPayment(state, cost) is { } payment)
+                        {
+                            commands.Add(new CastSpell(pending.Seat, reactor, spell, payment));
+                        }
+                    }
+                }
+                commands.Add(new DeclineReaction(pending.Seat));
+                break;
             case DecisionKind.UseTalisman:
                 commands.Add(new UseTalisman(pending.Seat));
                 commands.Add(new DeclineTalisman(pending.Seat));
@@ -218,7 +238,12 @@ public static partial class TurnSequence
         {
             return ValidateSpend(state, spend);
         }
-        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard)
+        // Roster stage R16 (U141): a reaction spell answers the decision it was asked.
+        if (command is CastSpell && state.Pending is { Kind: DecisionKind.UseBlessing or DecisionKind.UseInjuryReaction })
+        {
+            return ValidateSpell(state, (CastSpell)command);
+        }
+        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard or DeclineReaction)
         {
             return ValidateChoice(state, command);
         }
@@ -366,7 +391,7 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or PlaceShrine or DeclineShrine or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell;
+        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or PlaceShrine or DeclineShrine or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell or DeclineReaction;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
@@ -450,7 +475,7 @@ public static partial class TurnSequence
                     run.Emit(new ModelStoodUp(c.Model) { Quick = run.State.Setup.ProfileOf(c.Model)!.QuickToRise });
                 }
                 break;
-            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell:
+            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell or DeclineReaction:
                 ExecuteBoard(run, command);
                 break;
             case EndActivation:

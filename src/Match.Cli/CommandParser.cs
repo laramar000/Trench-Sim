@@ -23,7 +23,8 @@ public static class CommandParser
         blast <model> <x,y>       aim a BLAST weapon at a point
         turn <model> x|y          turn an oval base to lie along that axis (free)
         bless <model> <target>    God is With Us! ACTION       arise <model> <target>   Arise and be Healed! ACTION
-        cast <model> <spell> <target> [blessing] <payer:n,...>   cast a Court spell (WhatIsYoursIsMine, ExquisitePain, CovetedPosition, CharmOfAcedia, BlackHeart, BloodMagic, ShadowWalker, CallOfTheFlesh)
+        cast <model> <spell> <target> [blessing] <payer:n,...>   cast a Court spell (WhatIsYoursIsMine, ExquisitePain, CovetedPosition, CharmOfAcedia, BlackHeart, BloodMagic, ShadowWalker, CallOfTheFlesh, BlessingOfTheSerpentMoon, OracleBeastCloak, TooProudToFall)
+        noreact                   cast nothing at a Blessing or reaction offer (cast it with: cast <target model> <spell> <payer:n,...>)
         loud <model>              Loudspeakers ACTION         puppet <model> <target> <x,y>   Puppet Master ACTION
         """;
 
@@ -56,7 +57,7 @@ public static class CommandParser
             "decline" => new DeclineFreeFights(seat),
             "friendly" => new ChooseFriendlyTarget(seat, Model(One(args))),
             "scatter" => new ScatterAttack(seat, Point(One(args))),
-            // cast <model> <spell> [target] [blessing] <payer:n,payer:n...>, e.g. cast B1 ExquisitePain A2 C1:1,C2:1 (no target for CharmOfAcedia, BlackHeart, BloodMagic, ShadowWalker, CallOfTheFlesh)
+            // cast <model> <spell> [target] [blessing] <payer:n,payer:n...>, e.g. cast B1 ExquisitePain A2 C1:1,C2:1 (no target for CharmOfAcedia, BlackHeart, BloodMagic, ShadowWalker, CallOfTheFlesh, BlessingOfTheSerpentMoon, OracleBeastCloak, TooProudToFall)
             "cast" => new CastSpell(seat, Model(Arg(args, 0)), Enum.Parse<SpellKind>(Arg(args, 1), ignoreCase: true), [.. Arg(args, args.Length - 1).Split(',').Select(p => p.Split(':')).Select(p => new MarkerPayment(Model(p[0]), int.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture)))])
             {
                 Target = args.Length >= 4 ? Model(args[2]) : null,
@@ -71,6 +72,7 @@ public static class CommandParser
             "noguard" => new ChooseBodyguard(seat, null),
             "talisman" => new UseTalisman(seat),
             "keep" => new DeclineTalisman(seat),
+            "noreact" => new DeclineReaction(seat),
             "blast" => new ShootPoint(seat, Model(Arg(args, 0)), Point(Arg(args, 1))),
             "morale" => new ResolveFailedMorale(seat, Enum.Parse<MoraleFailureChoice>(One(args))),
             _ => throw new FormatException($"Unknown command '{words[0]}'. Type 'help'."),

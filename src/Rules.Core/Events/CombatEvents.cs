@@ -247,9 +247,16 @@ public sealed record InjuryRolled : GameEvent
 
     // The result the model takes, and the BLOOD MARKERS it gives (TOUGH's Down or Memento Mori's No Effect instead of
     // Out of Action).
-    public InjuryOutcome Result => Spared ? InjuryOutcome.NoEffect : Tough ? InjuryOutcome.Down : Injury.Outcome;
+    public InjuryOutcome Result => Cloaked || Spared ? InjuryOutcome.NoEffect : Tough ? InjuryOutcome.Down : Injury.Outcome;
 
     public int ResultMarkers => InjuryRoll.BloodMarkersFor(Result, Injury.TargetAlreadyDown);
+
+    // Roster stage R16 (U141): the target's player cast Oracle Beast Cloak: the result became No Effect; left out when false.
+    public bool Cloaked { get; init; }
+
+    // Roster stage R16 (U141): the target's player cast Too Proud to Fall: a Down result leaves the model standing (its markers are
+    // still placed); left out when false.
+    public bool Upheld { get; init; }
 
     // Roster stage R5e (U109): the Sacrificial Lamb's blood kept off the first BLOOD MARKER placed on the model; left out
     // when false.
@@ -773,3 +780,10 @@ public sealed record SpellCast(ModelId Model, SpellKind Spell, ImmutableArray<Ma
 
     public bool TakeBlessing { get; init; }
 }
+
+// Roster stage R16 (U141): an Injury Roll was made for Target but its result is not applied yet: its player may cast Oracle
+// Beast Cloak or Too Proud to Fall first. The InjuryRolled that follows carries the same roll.
+public sealed record InjuryRollMade(ModelId Attacker, ModelId Target, InjuryRollResult Injury) : GameEvent;
+
+// Roster stage R16 (U141): Seat cast nothing at a UseBlessing or UseInjuryReaction decision.
+public sealed record ReactionDeclined(Seat Seat) : GameEvent;

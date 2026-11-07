@@ -53,6 +53,8 @@ public static class Narrator
         ObjectivesScored o => $"Turn {o.Turn} scoring: {string.Join(", ", o.Results.Where(r => r.Controller is not null).Select(r => $"{r.ObjectiveId} to {r.Controller}"))}{(o.Results.All(r => r.Controller is null) ? "nobody controls an Objective" : "")}.",
         AttackerChosen a => $"{a.Attacker} attacks; {a.Attacker.Opponent()} defends.",
         TrenchesScored t => $"Turn {t.Turn} trench scoring: {string.Join(", ", t.Results.Select(r => $"{r.TrenchId} defender +{r.DefenderPoints}, attacker +{r.AttackerPoints}"))}.",
+        InjuryRollMade m => $"  Injury Roll on {m.Target}: {m.Injury.Total} ({m.Injury.NetDice:+0;-0;0} injury dice): {m.Injury.Outcome}, held while {m.Target}'s player may answer it.",
+        ReactionDeclined d => $"  {d.Seat} casts nothing.",
         SpellCast s => $"  {s.Model} casts {Spells.Name(s.Spell)}{(s.Target is { } t ? $" on {t}" : "")}{(s.TakeBlessing ? " (a BLESSING MARKER)" : "")}, paid with {string.Join(", ", s.Payment.Select(p => $"{p.Count} from {p.Model}"))}.",
         ModelsMoved m => m.Moves.IsEmpty ? $"  {m.Source}'s ACTION moves nobody." : $"  {m.Source}'s ACTION moves {string.Join(", ", m.Moves.Select(x => $"{x.Model} to {x.To}"))}{(m.Die > 0 ? $" (D6: {m.Die})" : "")}.",
         BaseTurned t => $"  {t.Model} turns its base to lie along {t.Axis}.",

@@ -162,3 +162,7 @@ public sealed record CastSpell(Seat Seat, ModelId Model, SpellKind Spell, Immuta
 
     public bool TakeBlessing { get; init; }
 }
+
+// Roster stage R16 (U141): answers UseBlessing or UseInjuryReaction by casting nothing. (Casting is a CastSpell by the model the
+// Injury Roll is for.)
+public sealed record DeclineReaction(Seat Seat) : Command;
