@@ -43,6 +43,7 @@ public enum PreviewKind
     // Roster stage R6e (U121): an Enforced Orthodoxy (the model itself) or a Laying on of Hands (itself or a friend).
     Orthodoxy,
     LayHands,
+    Bless, // roster stage R10 (U135)
 }
 
 // A point on the table, in inches.
@@ -128,6 +129,7 @@ public sealed record Preview(
         PreviewKind.Loudspeakers => "Loudspeakers",
         PreviewKind.Orthodoxy => "Enforce Orthodoxy",
         PreviewKind.LayHands => "Lay on Hands",
+        PreviewKind.Bless => "God is With Us!",
         _ => "Fight",
     };
 
@@ -820,6 +822,7 @@ public static class Previews
 
     // Roster stage R6e (U121).
     public const string OrthodoxyFact = "Enforced Orthodoxy ACTION (Warbands p. 55): a Risky roll at +1 DICE; on a Success every Down friend within 8\" stands up; a Failure ends the activation.";
+    public const string BlessFact = "God is With Us! ACTION (Warbands p. 29): a Risky roll; on a Success 1 Blessing Marker is placed on the model or the friend within 6\" chosen; a Failure ends the activation.";
     public const string HandsFact = "Laying on of Hands ACTION (Warbands p. 53): a Success Roll; on a Success 1 Blood Marker comes off, 3 on a Critical.";
 
     public static PreviewKind KindOf(SelfActionKind action) => action switch
@@ -829,6 +832,7 @@ public static class Previews
         SelfActionKind.Hide => PreviewKind.Hide,
         SelfActionKind.Loudspeakers => PreviewKind.Loudspeakers,
         SelfActionKind.EnforcedOrthodoxy => PreviewKind.Orthodoxy,
+        SelfActionKind.GodIsWithUs => PreviewKind.Bless,
         _ => PreviewKind.LayHands,
     };
 
@@ -840,6 +844,7 @@ public static class Previews
         PreviewKind.Loudspeakers => SelfActionKind.Loudspeakers,
         PreviewKind.Orthodoxy => SelfActionKind.EnforcedOrthodoxy,
         PreviewKind.LayHands => SelfActionKind.LayingOnHands,
+        PreviewKind.Bless => SelfActionKind.GodIsWithUs,
         _ => null,
     };
 
@@ -848,7 +853,7 @@ public static class Previews
     public static Preview SelfAction(MatchState state, Seat seat, ModelId model, SelfActionKind action, ModelId? target = null)
     {
         ArgumentNullException.ThrowIfNull(state);
-        var on = action == SelfActionKind.LayingOnHands ? target ?? model : (ModelId?)null;
+        var on = action is SelfActionKind.LayingOnHands or SelfActionKind.GodIsWithUs ? target ?? model : (ModelId?)null;
         var command = new TakeSelfAction(seat, model, action) { Target = on };
         var refusal = Opening(state) ?? Acting(state, seat, model, out _) ?? TurnSequence.Check(state, command);
         var facts = new List<string>();
@@ -861,6 +866,7 @@ public static class Previews
                 SelfActionKind.Hide => HideFact,
                 SelfActionKind.Loudspeakers => LoudspeakersFact,
                 SelfActionKind.EnforcedOrthodoxy => OrthodoxyFact,
+                SelfActionKind.GodIsWithUs => BlessFact,
                 _ => HandsFact,
             });
             if (action == SelfActionKind.EnforcedOrthodoxy)
@@ -987,6 +993,24 @@ public static class Previews
                     firstHands ??= refusal;
                 }
                 return firstHands;
+            }
+            case PreviewKind.Bless:
+            {
+                // Roster stage R10: open when the rules would take it on the model itself or some friend.
+                Rejection? firstBless = null;
+                foreach (var friend in state.Models.Where(m => m.Seat == acting!.Seat && m.Position is not null && m.Status != ModelStatus.OutOfAction))
+                {
+                    if (SelfAction(state, seat, model, SelfActionKind.GodIsWithUs, friend.Id).Refusal is not { } refusal)
+                    {
+                        return null;
+                    }
+                    if (refusal.Code is ReasonCode.NoSuchAction or ReasonCode.ActionAlreadyTaken)
+                    {
+                        return refusal;
+                    }
+                    firstBless ??= refusal;
+                }
+                return firstBless;
             }
             case PreviewKind.Aim or PreviewKind.Fortify or PreviewKind.Hide or PreviewKind.Loudspeakers or PreviewKind.Orthodoxy:
                 return SelfAction(state, seat, model, SelfActionOf(kind)!.Value).Refusal;

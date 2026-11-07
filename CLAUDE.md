@@ -242,14 +242,29 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
      player-chosen X/Y axis (U132). R8a done: `ModelBody.HalfSpan/Axis`, `Measure`, `Footprint` body tests, `BaseArea`,
      `Placement`, `OvalBaseTests`. R8b done (movement, retreat, charge planner; `Shapes.SweptNear`/`SweptBodyOverlapsRect`, `Movement.CoresNear`; ovals do not climb towers). R8c done (sight samples, cover width, blast, mines, trenches, platforms; `OvalSightTests`). R8d done (U133): `ModelProfile.BaseHalfSpan`/`BodyAt`, `ModelState.Axis`, `PlaceModel.Axis`, `TurnBase`/`BaseTurned`, `Board.TurnProblem`, readiness plays ovals, key W, board drawing (not run in Godot). Oval bases are finished.
   2. DONE (R9a, U134): moving other models: Loudspeakers (client key comma) and Puppet Master (engine + CLI; no client button yet): `ForcedMoves`, `ModelsMoved`, `MatchState.ForcedMovesOwed`.
-  3. DONE (R10, U135): marker kinds as recoloured blood markers, INFECTION MARKERS weapons, +1 infection on activation, God is With Us! (engine + CLI). Not played: the other abilities that place/move these markers (listed in U135).
-  4. Court spells.
+  3. DONE (R10, U135): marker kinds as recoloured blood markers, INFECTION MARKERS weapons, +1 infection on activation, God is With Us! (engine, CLI, client full stop key). Not played: the other abilities that place/move these markers (listed in U135).
+  4. Court spells (NOT started, 2026-11-07, three prerequisites found): (a) a model cannot be given Goetic Powers yet: the
+     builder says "the count is not checked" and the 16 spells only appear as variant special-rule text, so a roster stage
+     must first let an ELITE model carry powers (roster format, validator, builder UI, readiness); (b) the payment is a new
+     decision (pay BLOOD MARKERS from any models without CULT or DEMONIC, anywhere; no Success Roll; the same spell at most
+     once per activation); (c) 16 bespoke effects: ACTIONS (Slavemaster, Burning Inferno, Coveted Position, What is Yours is
+     Mine, Call of the Flesh, Exquisite Pain, Light of the Fallen, Charm of Acedia, Uncaring Gluttony) and free ones cast
+     inside other rolls (Blessing of the Serpent Moon, Left-Hand Path, Oracle Beast Cloak, Shadow-walker, Blood Magic, Too Proud
+     to Fall, Black Heart).
   5. Later group: multi-Fight models, Time Slip/Temporal Assassin, deployment rules, AMMUNITION with two possible guns.
-  6. Field Shrine stage 2 (attacks and blasts remove it) and stage 3 (client piece, click placement); benched by the owner.
-  7. Scenario IV zone depth and the camera check (map dimensions, `docs/map-dimensions.md`); no 48" map shipped.
-  8. Godot/Windows run for everything built since 17a9099/e917e6b: log dice, keys I V Y Z G H B K, Trample on key 0,
-     Bodyguard/Talisman bars, hot-seat UI check group. Windows essentials not run since d88ce8b.
-  9. October Rules Review 2026 changes (lists follow the 1.0.2 books); Martyrdom Dog and Awaited not played.
+     Also unfinished from R9a/R10: a client button and direction picking for the Puppet Master (engine and CLI only), Arise and
+     be Healed!, the other abilities that place or move INFECTION/BLESSING MARKERS (listed in U135), "counts as charging" for a
+     Loudspeakers move into 1".
+  6. Field Shrine stage 2 (attacks and blasts remove it: Shoot, FightModel and the blast sweep must accept a shrine as a target;
+     design in `docs/design-carry-on-and-field-shrine.md` section B) and stage 3 (client piece, click placement, roster); benched.
+  7. Scenario IV zone depth and the camera check (map dimensions, `docs/map-dimensions.md`): needs the book's value, which is
+     not in the repo; no 48" map shipped.
+  8. Godot/Windows run for everything built since 17a9099/e917e6b: log dice, keys I V Y Z G H B K W comma full-stop, Trample on
+     key 0, Bodyguard/Talisman bars, oval drawing, marker drops, hot-seat UI check group. Windows essentials not run since
+     d88ce8b. Godot is not installed in the cloud container (`which godot` is empty): this needs the owner's PC. Key G (Hide)
+     is also the scenario toggle in `Main._UnhandledInput`: check which wins when the board has the keyboard.
+  9. October Rules Review 2026 changes (lists follow the 1.0.2 books): the text is not in the repo; Martyrdom Dog and Awaited
+     not played.
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):
   R6c numbers on existing hooks: Dash +1 DICE (Frightening Speed, Loping Dash, Mad Dash, Agile's Dash/Climb part),
   INJURY DICE against it (Corpulent -2, Artificial Life, Undead Fortitude unless FIRE, Abiotic Life vs GAS), Stealth

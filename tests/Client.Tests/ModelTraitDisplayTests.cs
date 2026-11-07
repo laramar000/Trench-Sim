@@ -651,6 +651,39 @@ public class ModelTraitDisplayTests
         Assert.Equal("Enforced Orthodoxy, Laying on of Hands", Words.Actions(ActionsTaken.Orthodoxy | ActionsTaken.LayingOnHands));
     }
 
+    // Roster stage R10 (U135): God is With Us! is on the action bar of a model that has it, previewed on itself and a friend, and
+    // its result is worded.
+    [Fact]
+    public void GodIsWithUsIsOnTheBarAndPreviewed()
+    {
+        var offered = 0;
+        var warbands = Content.Load(Content.DefaultPath()).Select(w => w with
+        {
+            Models = w.Models.Select(m => m with { Profile = m.Profile with { Blesses = true } }).ToList(),
+        }).ToList();
+        var state = MatchState.None;
+        foreach (var e in Runner.Run(1, warbands).Log)
+        {
+            state = Reducer.Apply(state, e);
+            if (e is ActivationStarted started && state.FindModel(started.Model) is { } model)
+            {
+                var preview = Previews.Target(state, model.Seat, PreviewKind.Bless, model.Id, model.Id);
+                Assert.True(preview.Legal, preview.Refusal?.Text);
+                Assert.Equal(new Rules.Core.Commands.TakeSelfAction(model.Seat, model.Id, SelfActionKind.GodIsWithUs) { Target = model.Id }, preview.Command);
+                Assert.Contains(Previews.BlessFact, preview.Facts);
+                var interaction = new Interaction();
+                interaction.Update(state, model.Seat);
+                Assert.Contains(InteractionMode.Bless, interaction.BarOffered);
+                offered++;
+                break;
+            }
+        }
+        Assert.Equal(1, offered);
+        var rolled = new SelfActionRolled(new ModelId("a1"), SelfActionKind.GodIsWithUs, Rules.Core.Dice.SuccessRoll.Roll(new SeededDice(1), 0, 0, risky: true)) { Target = new ModelId("a2"), Placed = 1 };
+        Assert.Equal(EventText.Describe(rolled), Narrator.Describe(rolled));
+        Assert.Contains("1 BLESSING MARKER on a2", Words.SelfActionResult(rolled), StringComparison.Ordinal);
+    }
+
     // Roster stage R6b (U118): Aim and Fortify are on the action bar, previewed, logged and broken down; an aimed shot's
     // breakdown names the Aim's +2 DICE.
     [Fact]
