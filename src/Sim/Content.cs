@@ -88,6 +88,7 @@ public static class Content
                         Loudspeakers = m.TryGetProperty("loudspeakers", out var loudspeakers) && loudspeakers.GetBoolean(),
                         PuppetMaster = m.TryGetProperty("puppetMaster", out var puppetMaster) && puppetMaster.GetBoolean(),
                         Blesses = m.TryGetProperty("blesses", out var blesses) && blesses.GetBoolean(),
+                        Heals = m.TryGetProperty("heals", out var heals) && heals.GetBoolean(),
                         Spells = SpellSet(m),
                         DefusesMines = m.TryGetProperty("defusesMines", out var defusesMines) && defusesMines.GetBoolean(),
                         UndeadFortitude = m.TryGetProperty("undeadFortitude", out var undeadFortitude) && undeadFortitude.GetBoolean(),

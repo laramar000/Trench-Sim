@@ -444,6 +444,17 @@ public class TraitWireTests
         var blessed = new SelfActionRolled(a, SelfActionKind.GodIsWithUs, check) { Target = b, Placed = 1 };
         Assert.Equal(1, ((SelfActionRolled)RoundTrip(blessed)).Placed);
         Assert.DoesNotContain("placed", Encoded(blessed with { Placed = 0 }), StringComparison.OrdinalIgnoreCase);
+
+        // Roster stage R12 (U137): Arise and be Healed!'s flag and its D3.
+        var heals = first.Profile! with { Heals = true };
+        var healer = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = heals } : m), setup.Scenario));
+        Assert.Contains("\"heals\":true", Encoded(healer), StringComparison.Ordinal);
+        Assert.Equal(heals, ((MatchCreated)RoundTrip(healer)).Setup.Models[0].Profile);
+        var risen = new SelfActionRolled(a, SelfActionKind.AriseAndBeHealed, check) { Target = b, Die = 2, Removed = 2 };
+        var risenBack = (SelfActionRolled)RoundTrip(risen);
+        Assert.Equal((2, 2), (risenBack.Die, risenBack.Removed));
+        Assert.DoesNotContain("die", Encoded(risen with { Die = 0 }), StringComparison.OrdinalIgnoreCase);
     }
 
     // Roster stage R11 (U136): a model's spells, the cast command and its event travel on the wire and back; without them nothing

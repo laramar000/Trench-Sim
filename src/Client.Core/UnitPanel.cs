@@ -402,6 +402,10 @@ public static class UnitPanel
         {
             parts.Add("Spells: " + string.Join(", ", Enum.GetValues<SpellKind>().Where(k => k != SpellKind.None && p.Spells.HasFlag(k)).Select(Spells.Name)) + " (cast with the CLI: cast)");
         }
+        if (p.Heals)
+        {
+            parts.Add("Arise and be Healed! ACTION: a Risky roll; on a Success itself or a friend within 3\" stands up free and loses up to D3 BLOOD and/or INFECTION MARKERS (CLI: arise)");
+        }
         if (p.Blesses)
         {
             parts.Add("God is With Us! ACTION: a Risky roll; on a Success 1 BLESSING MARKER on itself or a friend within 6\" (CLI: bless)");

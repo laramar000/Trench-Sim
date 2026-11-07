@@ -275,6 +275,12 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.InvalidChoice, $"A {c.Action} ACTION has no direction.", RefSelfAction);
         }
+        // Roster stage R12 (U137): an Arise and be Healed! is taken on the model itself or a friend within 3".
+        if (c.Action == SelfActionKind.AriseAndBeHealed)
+        {
+            return c.Target is not { } healing ? new(ReasonCode.UnknownModel, "An Arise and be Healed! ACTION needs a target.", RefSelfAction)
+                : Reducer.AriseRefusal(state, actor!, healing) is { } ariseWhy ? new(ReasonCode.NotACandidate, ariseWhy, RefSelfAction) : null;
+        }
         // Roster stage R10 (U135): a God is With Us! is taken on the model itself or a friend within 6".
         if (c.Action == SelfActionKind.GodIsWithUs)
         {
@@ -561,6 +567,9 @@ public static partial class TurnSequence
             run.Emit(new ActivationEnded(model, ActivationEndReason.RiskyFailure));
         }
     }
+
+    // Roster stage R9a (U134): where a Puppet Master's D6" move of that model, in a straight line towards a point, would end now.
+    public static Point2 PuppetStop(MatchState state, ModelId target, Point2 toward, int die) => Board.PuppetMove(state, state.FindModel(target)!, toward, die).To;
 
     // Roster stage R5e (U109): a Ranged Attack at this model now would have the Urn of the Bitter Ashes' -1 DICE.
     public static bool Whispers(MatchState state, ModelId target) => state.FindModel(target) is { } m && Reducer.Whispers(state, m);
@@ -865,11 +874,15 @@ public static partial class TurnSequence
                 // friends within 8", Laying on of Hands removes 1 BLOOD MARKER (3 on a Critical).
                 var roll = SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: Reducer.SelfActionRisky(s, actor, progress.SelfAction));
                 var helped = roll.Outcome != SuccessOutcome.Failure;
+                // Roster stage R12 (U137): an Arise and be Healed! that succeeds rolls a D3 (a D6 halved, rounded up).
+                var arise = helped && progress.SelfAction == SelfActionKind.AriseAndBeHealed ? (Roll(dice) + 1) / 2 : 0;
+                var risen = arise > 0 ? s.FindModel(progress.Target!.Value)! : null;
                 run.Emit(new SelfActionRolled(progress.Actor, progress.SelfAction, roll)
                 {
                     Target = progress.Target,
-                    StoodUp = helped && progress.SelfAction == SelfActionKind.EnforcedOrthodoxy ? Reducer.OrthodoxyStands(s, actor) : [],
-                    Removed = helped && progress.SelfAction == SelfActionKind.LayingOnHands ? Reducer.HandsRemove(s, progress.Target!.Value, roll) : 0,
+                    Die = arise,
+                    StoodUp = helped && progress.SelfAction == SelfActionKind.EnforcedOrthodoxy ? Reducer.OrthodoxyStands(s, actor) : risen is { Status: ModelStatus.Down } ? [risen.Id] : [],
+                    Removed = helped && progress.SelfAction == SelfActionKind.LayingOnHands ? Reducer.HandsRemove(s, progress.Target!.Value, roll) : risen is not null ? Math.Min(arise, risen.BloodMarkers + risen.InfectionMarkers) : 0,
                     Placed = helped && progress.SelfAction == SelfActionKind.GodIsWithUs && s.FindModel(progress.Target!.Value)!.BlessingMarkers < BloodMarkers.Max ? 1 : 0,
                 });
                 // Roster stage R9a (U134): a Loudspeakers ACTION moves the friends near it; a Puppet Master ACTION rolls its D6 and moves its model.

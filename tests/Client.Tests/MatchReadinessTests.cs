@@ -783,6 +783,21 @@ public class MatchReadinessTests
         Assert.DoesNotContain("blesses", plain, StringComparison.Ordinal);
     }
 
+    // Roster stage R12 (U137): the Arise and be Healed! ACTION of the Trench Cleric in the Principality's variants is played.
+    [Fact]
+    public void AriseAndBeHealedIsPlayed()
+    {
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseFaction("principality");
+        builder.ChooseVariant("pontifical-task-force");
+        builder.Select(builder.Add("trench-cleric"));
+        var ready = builder.MatchCheck();
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("Arise and be Healed", StringComparison.Ordinal));
+        var cleric = Loaded(ready);
+        Assert.True(cleric.Heals && cleric.Blesses);
+        Assert.DoesNotContain("heals", Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P"), StringComparison.Ordinal);
+    }
+
     // Roster stage R11 (U136): the three Court spells bought as upgrades are known by the model; the others are still named.
     [Fact]
     public void CourtSpellsAreKnown()

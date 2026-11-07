@@ -96,6 +96,7 @@ public static class Words
         SelfActionKind.Loudspeakers => "Loudspeakers",
         SelfActionKind.PuppetMaster => "Puppet Master",
         SelfActionKind.GodIsWithUs => "God is With Us!",
+        SelfActionKind.AriseAndBeHealed => "Arise and be Healed!",
         SelfActionKind.EnforcedOrthodoxy => "Enforced Orthodoxy",
         _ => "Laying on of Hands",
     };
@@ -115,6 +116,7 @@ public static class Words
         SelfActionKind.Loudspeakers => "USES THE LOUDSPEAKERS",
         SelfActionKind.PuppetMaster => "PULLS THE STRINGS",
         SelfActionKind.GodIsWithUs => "CALLS ON GOD",
+        SelfActionKind.AriseAndBeHealed => "CALLS FOR HEALING",
         SelfActionKind.EnforcedOrthodoxy => "ENFORCES ORTHODOXY",
         _ => "LAYS ON HANDS",
     };
@@ -127,6 +129,7 @@ public static class Words
         SelfActionKind.Loudspeakers => ("LOUDSPEAKERS BLARE", "LOUDSPEAKERS FAILED"),
         SelfActionKind.PuppetMaster => ("STRINGS PULLED", "PUPPET MASTER FAILED"),
         SelfActionKind.GodIsWithUs => ("BLESSED", "BLESSING FAILED"),
+        SelfActionKind.AriseAndBeHealed => ("HEALED", "HEALING FAILED"),
         SelfActionKind.EnforcedOrthodoxy => ("ORTHODOXY ENFORCED", "ORTHODOXY FAILED"),
         _ => ("HANDS LAID", "HANDS FAILED"),
     };
@@ -140,6 +143,7 @@ public static class Words
         SelfActionKind.Loudspeakers => "its friends within 8\" move towards the enemy",
         SelfActionKind.PuppetMaster => "a model is moved in a straight line",
         SelfActionKind.GodIsWithUs => rolled.Placed == 0 ? $"{rolled.Target} has no room for another BLESSING MARKER" : $"1 BLESSING MARKER on {rolled.Target}",
+        SelfActionKind.AriseAndBeHealed => $"{rolled.Target}{(rolled.StoodUp.IsEmpty ? "" : " stands up")}{(rolled.StoodUp.IsEmpty || rolled.Removed == 0 ? "" : " and")}{(rolled.Removed == 0 ? (rolled.StoodUp.IsEmpty ? " has nothing to lose (D3 " + rolled.Die + ")" : "") : $" loses {rolled.Removed} marker{(rolled.Removed == 1 ? "" : "s")} (D3 {rolled.Die})")}",
         SelfActionKind.EnforcedOrthodoxy => rolled.StoodUp.IsEmpty ? "no Down friend within 8\" to stand up" : $"{string.Join(", ", rolled.StoodUp)} stand{(rolled.StoodUp.Length == 1 ? "s" : "")} up",
         _ => rolled.Removed == 0 ? $"{rolled.Target} has no BLOOD MARKER left to remove" : $"{rolled.Removed} BLOOD MARKER{(rolled.Removed == 1 ? "" : "S")} removed from {rolled.Target}",
     };

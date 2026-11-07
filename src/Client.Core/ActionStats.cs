@@ -41,6 +41,7 @@ public static class ActionStats
             InteractionMode.Orthodoxy => owned.EnforcesOrthodoxy ? "Enforced Orthodoxy: Risky roll at +1 DICE, then every Down friend within 8\" stands up" : "Enforced Orthodoxy: not one of its abilities",
             InteractionMode.LayHands => owned.LaysOnHands ? $"Laying on of Hands: itself or a friend within 6\", Success Roll{(owned.HealingWaters ? " +1 DICE (Holy Water)" : "")}, -1 Blood Marker (-3 on a Critical)" : "Laying on of Hands: not one of its abilities",
             InteractionMode.Bless => owned.Blesses ? "God is With Us!: Risky roll; on a Success 1 Blessing Marker on itself or a friend within 6\"" : "God is With Us!: not one of its abilities",
+            InteractionMode.Puppet => owned.PuppetMaster ? "Puppet Master: Risky roll; on a Success a D6 moves one model in sight within 12\" in a straight line" : "Puppet Master: not one of its abilities",
             InteractionMode.Treat => owned.Treats ? $"Treat: itself or a friend within 1\", Risky roll{(owned.HealingWaters ? " +1 DICE (Holy Water)" : "")}" : "Treat: no Medi-kit",
             _ => null,
         };

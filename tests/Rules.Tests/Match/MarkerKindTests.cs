@@ -133,4 +133,51 @@ public class MarkerKindTests
         play.State = play.State with { Models = [.. play.State.Models.Select(m => m.Id == B(1) ? m with { InfectionMarkers = 0, BlessingMarkers = 1 } : m)] };
         Assert.Contains("blessing=1", StateHash.Canonical(play.State), StringComparison.Ordinal);
     }
+
+    private static TakeSelfAction Arise(string target) => new(Seat.One, A(1), SelfActionKind.AriseAndBeHealed) { Target = new ModelId(target) };
+
+    // Roster stage R12 (U137): Arise and be Healed! (Warbands p. 35).
+    [Fact]
+    [Trait("Rule", "Arise and be Healed! p. 35: a Risky roll; on a Success itself or a friend within 3\" stands up free and loses up to D3 BLOOD and/or INFECTION MARKERS")]
+    public void AriseAndBeHealedStandsAModelUpAndTakesMarkersOff()
+    {
+        var play = Duel(Rifleman with { Heals = true });
+        play.Put(A(2), "12", "10");
+        play.SetStatus(A(2), ModelStatus.Down);
+        play.State = play.State with { Models = [.. play.State.Models.Select(m => m.Id == A(2) ? m with { BloodMarkers = 1, InfectionMarkers = 3 } : m)] };
+        // Risky roll 6+6, then the D6: 5 is a D3 of 3.
+        var rolled = play.Do(Arise("A2"), 6, 6, 5).Events.OfType<SelfActionRolled>().Single();
+        Assert.Equal((3, 3, A(2)), (rolled.Die, rolled.Removed, rolled.StoodUp.Single()));
+        // Blood first, then infection: 1 blood and 2 infection come off.
+        Assert.Equal((ModelStatus.Standing, 0, 1), (play.M(A(2)).Status, play.M(A(2)).BloodMarkers, play.M(A(2)).InfectionMarkers));
+        play.Refused(Arise("A1"), ReasonCode.ActionAlreadyTaken);
+    }
+
+    [Fact]
+    public void AriseAndBeHealedChecksItsTargetAndRoll()
+    {
+        var play = Duel(Rifleman with { Heals = true });
+        play.Refused(Arise("A1"), ReasonCode.NotACandidate);          // standing, no markers: nothing to do
+        play.Refused(Arise("B1"), ReasonCode.NotACandidate);          // an enemy
+        play.Refused(Arise("A2"), ReasonCode.NotACandidate);          // too far
+        Duel(Rifleman).Refused(Arise("A1"), ReasonCode.NoSuchAction);
+        // On a friend: a D6 of 1 or 2 is a D3 of 1; a failure does nothing and ends the activation.
+        var self = Duel(Rifleman with { Heals = true });
+        self.Put(A(2), "12", "10").Mark(A(2), 2);
+        Assert.Equal(1, self.Do(Arise("A2"), 6, 6, 2).Events.OfType<SelfActionRolled>().Single().Removed);
+        Assert.Equal(1, self.M(A(2)).BloodMarkers);
+        var failed = Duel(Rifleman with { Heals = true });
+        failed.Put(A(2), "12", "10").Mark(A(2), 2);
+        var events = failed.Do(Arise("A2"), 1, 1).Events;
+        Assert.Equal(2, failed.M(A(2)).BloodMarkers);
+        Assert.Contains(events, e => e is ActivationEnded { Reason: ActivationEndReason.RiskyFailure });
+        // A forged result is refused: a die that is not a D3, or a different number of markers.
+        var ready = Duel(Rifleman with { Heals = true });
+        ready.Put(A(2), "12", "10").Mark(A(2), 2);
+        var declared = Reducer.Apply(ready.State, new SelfActionDeclared(A(1), SelfActionKind.AriseAndBeHealed) { Target = A(2) });
+        var check = Rules.Core.Dice.SuccessRoll.Roll(new FixedDice(6, 6), 0, 0, risky: true);
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(declared, new SelfActionRolled(A(1), SelfActionKind.AriseAndBeHealed, check) { Target = A(2), Die = 0 }));
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(declared, new SelfActionRolled(A(1), SelfActionKind.AriseAndBeHealed, check) { Target = A(2), Die = 2, Removed = 1 }));
+        Reducer.Apply(declared, new SelfActionRolled(A(1), SelfActionKind.AriseAndBeHealed, check) { Target = A(2), Die = 2, Removed = 2 });
+    }
 }

@@ -75,6 +75,7 @@ public enum ActionsTaken
     Loudspeakers = 32768, // roster stage R9a (U134): a Loudspeakers ACTION
     PuppetMaster = 65536, // roster stage R9a (U134): a Puppet Master ACTION
     Blessing = 131072, // roster stage R10 (U135): a God is With Us! ACTION
+    Arise = 262144, // roster stage R12 (U137): an Arise and be Healed! ACTION
 }
 
 public enum RollStage
@@ -117,6 +118,7 @@ public enum SelfActionKind
     Loudspeakers,      // roster stage R9a (U134): friends within 8" move 3" towards the nearest visible enemy
     PuppetMaster,      // roster stage R9a (U134): moves one other model D6" in a straight line; with a Target and a Direction
     GodIsWithUs,       // roster stage R10 (U135): places 1 BLESSING MARKER on itself or a friend within 6" (its Target)
+    AriseAndBeHealed,  // roster stage R12 (U137): stands a model up free and takes up to D3 BLOOD and INFECTION MARKERS off it (its Target)
 }
 
 public enum AttackKind

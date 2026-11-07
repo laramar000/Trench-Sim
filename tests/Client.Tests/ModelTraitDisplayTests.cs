@@ -684,6 +684,56 @@ public class ModelTraitDisplayTests
         Assert.Contains("1 BLESSING MARKER on a2", Words.SelfActionResult(rolled), StringComparison.Ordinal);
     }
 
+    // Roster stage R9a (U134): a Puppet Master is on the action bar, picks a model and a direction, and previews where a 6 would end.
+    [Fact]
+    public void ThePuppetMasterPicksAModelAndADirection()
+    {
+        var warbands = Content.Load(Content.DefaultPath()).Select(w => w with
+        {
+            Models = w.Models.Select(m => m with { Profile = m.Profile with { PuppetMaster = true } }).ToList(),
+        }).ToList();
+        var state = MatchState.None;
+        foreach (var e in Runner.Run(1, warbands).Log)
+        {
+            state = Reducer.Apply(state, e);
+            if (e is not ActivationStarted started)
+            {
+                continue;
+            }
+            var actor = state.FindModel(started.Model)!;
+            var victim = state.Models.First(m => m.Id != actor.Id && m.Position is not null);
+            var (ax, ay) = (actor.Position!.Value.X.Thousandths, actor.Position.Value.Y.Thousandths);
+            Preview? legal = null;
+            foreach (var (dx, dy) in new[] { (3000, 0), (-3000, 0), (0, 3000), (0, -3000), (2000, 2000), (-2000, -2000) })
+            {
+                var at = new Rules.Core.Geometry.Point2(Rules.Core.Geometry.Length.FromThousandths(ax + dx), Rules.Core.Geometry.Length.FromThousandths(ay + dy));
+                var moved = state with { Models = [.. state.Models.Select(m => m.Id == victim.Id ? m with { Position = at } : m)] };
+                var toward = new Rules.Core.Geometry.Point2(Rules.Core.Geometry.Length.FromThousandths(ax + dx * 2), Rules.Core.Geometry.Length.FromThousandths(ay + dy * 2));
+                var preview = Previews.Puppet(moved, actor.Seat, actor.Id, victim.Id, toward);
+                if (preview.Legal)
+                {
+                    Assert.Equal(new Rules.Core.Commands.TakeSelfAction(actor.Seat, actor.Id, SelfActionKind.PuppetMaster) { Target = victim.Id, Direction = toward }, preview.Command);
+                    Assert.Contains(Previews.PuppetFact, preview.Facts);
+                    Assert.Contains(preview.Facts, f => f.Contains("with a 6 it would end at", StringComparison.Ordinal));
+                    var interaction = new Interaction();
+                    interaction.Update(moved, actor.Seat);
+                    Assert.Contains(InteractionMode.Puppet, interaction.BarOffered);
+                    Assert.True(interaction.Start(InteractionMode.Puppet));
+                    Assert.True(interaction.UsesCursor && interaction.IsTarget);
+                    interaction.SetTarget(victim.Id);
+                    Assert.NotNull(interaction.Preview);
+                    Assert.Equal(PreviewKind.Puppet, interaction.Preview!.Kind);
+                    Assert.Equal(victim.Id, ((Rules.Core.Commands.TakeSelfAction)interaction.Preview.Command).Target);
+                    legal = preview;
+                    break;
+                }
+            }
+            Assert.NotNull(legal);
+            return;
+        }
+        Assert.Fail("no activation started");
+    }
+
     // Roster stage R6b (U118): Aim and Fortify are on the action bar, previewed, logged and broken down; an aimed shot's
     // breakdown names the Aim's +2 DICE.
     [Fact]

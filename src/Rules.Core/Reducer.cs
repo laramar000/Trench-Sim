@@ -1024,6 +1024,8 @@ public static class Reducer
             SelfActionKind.LayingOnHands => e.Target is { } hands && HandsRefusal(state, model, hands) is null && e.Direction is null,
             // Roster stage R10 (U135): a God is With Us! is taken on the model itself or a friend within 6".
             SelfActionKind.GodIsWithUs => e.Target is { } blessed && BlessRefusal(state, model, blessed) is null && e.Direction is null,
+            // Roster stage R12 (U137): an Arise and be Healed! is taken on the model itself or a friend within 3".
+            SelfActionKind.AriseAndBeHealed => e.Target is { } healed && AriseRefusal(state, model, healed) is null && e.Direction is null,
             // Roster stage R9a (U134): a Puppet Master's victim is any other model in sight within 12", and the line it is moved along.
             SelfActionKind.PuppetMaster => e.Target is { } victim && state.FindModel(victim) is { } moved && Board.PuppetRefusal(state, model, moved) is null
                 && e.Direction is { } direction && direction != moved.Position,
@@ -1043,8 +1045,13 @@ public static class Reducer
         var model = state.FindModel(e.Model)!;
         Require(e.Check.Risky == SelfActionRisky(state, model, e.Action) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
             "The ACTION's Success Roll is Risky (Laying on of Hands only for a Shaken warband), with the spent markers as penalty dice.");
-        var stood = e.Succeeded && e.Action == SelfActionKind.EnforcedOrthodoxy ? OrthodoxyStands(state, model) : [];
-        var removed = e.Succeeded && e.Action == SelfActionKind.LayingOnHands ? HandsRemove(state, e.Target!.Value, e.Check) : 0;
+        var arising = e.Succeeded && e.Action == SelfActionKind.AriseAndBeHealed;
+        Require(arising ? e.Die is >= 1 and <= 3 : e.Die == 0, "An Arise and be Healed! ACTION that succeeds rolls a D3; nothing else does.");
+        var healed = arising ? state.FindModel(e.Target!.Value)! : null;
+        var stood = e.Succeeded && e.Action == SelfActionKind.EnforcedOrthodoxy ? OrthodoxyStands(state, model)
+            : healed is { Status: ModelStatus.Down } ? [healed.Id] : [];
+        var removed = e.Succeeded && e.Action == SelfActionKind.LayingOnHands ? HandsRemove(state, e.Target!.Value, e.Check)
+            : healed is not null ? Math.Min(e.Die, healed.BloodMarkers + healed.InfectionMarkers) : 0;
         var placed = e.Succeeded && e.Action == SelfActionKind.GodIsWithUs && state.FindModel(e.Target!.Value)!.BlessingMarkers < BloodMarkers.Max ? 1 : 0;
         Require(e.StoodUp.SequenceEqual(stood) && e.Removed == removed && e.Placed == placed, "The ACTION's result must be what the rules give.");
         var next = state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure && RiskyEnds(state, e.Model) };
@@ -1066,6 +1073,16 @@ public static class Reducer
             // Roster stage R9a (U134): the forced moves are the next event.
             case SelfActionKind.Loudspeakers or SelfActionKind.PuppetMaster:
                 return next with { ForcedMovesOwed = new ForcedOwed(e.Model, e.Action, e.Target, progress.Toward) };
+            // Roster stage R12 (U137): the model stands up free; up to D3 BLOOD MARKERS come off, then INFECTION MARKERS.
+            case SelfActionKind.AriseAndBeHealed:
+                var risen = next.FindModel(e.Target!.Value)!;
+                var blood = Math.Min(e.Removed, risen.BloodMarkers);
+                return TurnRules.WithModel(next, risen with
+                {
+                    Status = risen.Status == ModelStatus.Down ? ModelStatus.Standing : risen.Status,
+                    BloodMarkers = risen.BloodMarkers - blood,
+                    InfectionMarkers = risen.InfectionMarkers - (e.Removed - blood),
+                });
             // Roster stage R10 (U135): 1 BLESSING MARKER, up to 6.
             case SelfActionKind.GodIsWithUs:
                 var blessed = next.FindModel(e.Target!.Value)!;
@@ -1085,6 +1102,7 @@ public static class Reducer
         SelfActionKind.Loudspeakers => ActionsTaken.Loudspeakers,
         SelfActionKind.PuppetMaster => ActionsTaken.PuppetMaster,
         SelfActionKind.GodIsWithUs => ActionsTaken.Blessing,
+        SelfActionKind.AriseAndBeHealed => ActionsTaken.Arise,
         _ => ActionsTaken.LayingOnHands,
     };
 
@@ -1097,6 +1115,7 @@ public static class Reducer
         SelfActionKind.Loudspeakers => profile.Loudspeakers,
         SelfActionKind.PuppetMaster => profile.PuppetMaster,
         SelfActionKind.GodIsWithUs => profile.Blesses,
+        SelfActionKind.AriseAndBeHealed => profile.Heals,
         _ => profile.LaysOnHands,
     };
 
@@ -1155,6 +1174,24 @@ public static class Reducer
     }
 
     private static readonly Length HandsReach = Length.FromInches(6);
+
+    private static readonly Length AriseReach = Length.FromInches(3);
+
+    // Roster stage R12 (U137): why an Arise and be Healed! on that target is not possible now, or null: the model itself or a
+    // friend on the battlefield within 3" that is Down or has a BLOOD or INFECTION MARKER to lose.
+    internal static string? AriseRefusal(MatchState state, ModelState healer, ModelId targetId)
+    {
+        var target = state.FindModel(targetId);
+        if (target is null || target.Seat != healer.Seat || target.Position is null || target.Status == ModelStatus.OutOfAction)
+        {
+            return "An Arise and be Healed! ACTION is taken on the model itself or a friendly model on the battlefield.";
+        }
+        if (target.Id != healer.Id && !(Board.BodyOf(state, healer) is { } from && Board.BodyOf(state, target) is { } to && Measure.IsWithin(from, to, AriseReach)))
+        {
+            return "An Arise and be Healed! ACTION is taken on the model itself or a friendly model within 3\".";
+        }
+        return target.Status != ModelStatus.Down && target.BloodMarkers + target.InfectionMarkers == 0 ? "That model is not Down and has no BLOOD or INFECTION MARKER to lose." : null;
+    }
 
     // Roster stage R10 (U135): why a God is With Us! on that target is not possible now, or null: the model itself or a friend on
     // the battlefield within 6", with room for another BLESSING MARKER (at most 6).

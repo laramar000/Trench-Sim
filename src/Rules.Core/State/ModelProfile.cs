@@ -337,6 +337,9 @@ public sealed record ModelProfile
     // God is With Us! ACTION (Warbands p. 29; roster stage R10, U135): a Risky roll; on a Success 1 BLESSING MARKER is placed on the model or a friend within 6".
     public bool Blesses { get; init; }
 
+    // Arise and be Healed! ACTION (Warbands p. 35; roster stage R12, U137): a Risky roll; on a Success the model or a friend within 3" stands up free and loses up to D3 BLOOD and/or INFECTION MARKERS.
+    public bool Heals { get; init; }
+
     // The Court's spells the model knows (Warbands pp. 157-165; roster stage R11, U136).
     public SpellKind Spells { get => _spells; init => _spells = (value & ~State.Spells.All) != 0 ? throw new ArgumentOutOfRangeException(nameof(Spells), "Unknown spells.") : value; }
 
@@ -564,6 +567,7 @@ public sealed record ModelProfile
                 Loudspeakers = Loudspeakers,
                 PuppetMaster = PuppetMaster,
                 Blesses = Blesses,
+                Heals = Heals,
                 Spells = Spells,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
@@ -631,6 +635,7 @@ public sealed record ModelProfile
                 Loudspeakers = Loudspeakers,
                 PuppetMaster = PuppetMaster,
                 Blesses = Blesses,
+                Heals = Heals,
                 Spells = Spells,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
@@ -698,6 +703,7 @@ public sealed record ModelProfile
             Loudspeakers = Loudspeakers,
             PuppetMaster = PuppetMaster,
             Blesses = Blesses,
+            Heals = Heals,
             Spells = Spells,
             DefusesMines = DefusesMines,
             UndeadFortitude = UndeadFortitude,

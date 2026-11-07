@@ -44,6 +44,7 @@ public enum PreviewKind
     Orthodoxy,
     LayHands,
     Bless, // roster stage R10 (U135)
+    Puppet, // roster stage R9a (U134)
 }
 
 // A point on the table, in inches.
@@ -130,6 +131,7 @@ public sealed record Preview(
         PreviewKind.Orthodoxy => "Enforce Orthodoxy",
         PreviewKind.LayHands => "Lay on Hands",
         PreviewKind.Bless => "God is With Us!",
+        PreviewKind.Puppet => "Puppet Master",
         _ => "Fight",
     };
 
@@ -891,6 +893,24 @@ public static class Previews
         return new Preview(KindOf(action), model, command, refusal, facts, from, RadiusOf(state, model), on ?? model, [], [], null);
     }
 
+    public const string PuppetFact = "Puppet Master ACTION (Warbands p. 109): a Risky roll; on a Success a D6 moves the model that many inches in a straight line towards the cursor, as far as the line is clear; a Failure ends the activation.";
+
+    // Roster stage R9a (U134): a Puppet Master ACTION on a target, moved in a straight line from its centre towards a point.
+    public static Preview Puppet(MatchState state, Seat seat, ModelId model, ModelId target, Point2 toward)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var command = new TakeSelfAction(seat, model, SelfActionKind.PuppetMaster) { Target = target, Direction = toward };
+        var refusal = Opening(state) ?? Acting(state, seat, model, out _) ?? TurnSequence.Check(state, command);
+        var facts = new List<string>();
+        if (refusal is null && state.FindModel(target) is { } victim)
+        {
+            facts.Add(PuppetFact);
+            facts.Add($"Towards {TablePoint.Of(toward)}: with a 6 it would end at {TablePoint.Of(TurnSequence.PuppetStop(state, victim.Id, toward, 6))}.");
+        }
+        var from = state.FindModel(target) is { } m && BodyOf(state, m) is { } b ? [new PathMark(TablePoint.Of(b.Centre), 0)] : Array.Empty<PathMark>();
+        return new Preview(PreviewKind.Puppet, model, command, refusal, facts, from, RadiusOf(state, target), target, [], [], null);
+    }
+
     public static Preview Treat(MatchState state, Seat seat, ModelId model, ModelId target)
     {
         ArgumentNullException.ThrowIfNull(state);
@@ -994,6 +1014,11 @@ public static class Previews
                 }
                 return firstHands;
             }
+            case PreviewKind.Puppet:
+                // Roster stage R9a (U134): offered when the model has the ACTION and has not taken it (the target is chosen next).
+                return state.Setup!.ProfileOf(model)!.PuppetMaster
+                    ? state.Actions.HasFlag(ActionsTaken.PuppetMaster) ? new(ReasonCode.ActionAlreadyTaken, "A Puppet Master ACTION can be taken once per activation.", RefAttack) : null
+                    : new(ReasonCode.NoSuchAction, "Only a model whose unit has the Puppet Master ACTION can take it.", RefAttack);
             case PreviewKind.Bless:
             {
                 // Roster stage R10: open when the rules would take it on the model itself or some friend.

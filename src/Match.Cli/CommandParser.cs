@@ -22,7 +22,7 @@ public static class CommandParser
         scatter <x,y>             where a missed SCATTER attack lands
         blast <model> <x,y>       aim a BLAST weapon at a point
         turn <model> x|y          turn an oval base to lie along that axis (free)
-        bless <model> <target>    God is With Us! ACTION
+        bless <model> <target>    God is With Us! ACTION       arise <model> <target>   Arise and be Healed! ACTION
         cast <model> <spell> <target> [blessing] <payer:n,...>   cast a Court spell (WhatIsYoursIsMine, ExquisitePain, CovetedPosition)
         loud <model>              Loudspeakers ACTION         puppet <model> <target> <x,y>   Puppet Master ACTION
         """;
@@ -62,6 +62,7 @@ public static class CommandParser
                 Target = Model(Arg(args, 2)),
                 TakeBlessing = args.Skip(3).Any(a => a.Equals("blessing", StringComparison.OrdinalIgnoreCase)),
             },
+            "arise" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.AriseAndBeHealed) { Target = Model(Arg(args, 1)) },
             "bless" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.GodIsWithUs) { Target = Model(Arg(args, 1)) },
             "loud" => new TakeSelfAction(seat, Model(One(args)), SelfActionKind.Loudspeakers),
             "puppet" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.PuppetMaster) { Target = Model(Arg(args, 1)), Direction = Point(Arg(args, 2)) },

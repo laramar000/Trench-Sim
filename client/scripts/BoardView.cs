@@ -1207,6 +1207,8 @@ public partial class BoardView : SubViewportContainer
         Key.Z => InteractionMode.LayHands,
         // Roster stage R10: the full stop casts God is With Us!
         Key.Period => InteractionMode.Bless,
+        // Roster stage R9a: the slash moves a model as the Puppet Master.
+        Key.Slash => InteractionMode.Puppet,
         _ => null,
     };
 
@@ -1456,7 +1458,7 @@ public partial class BoardView : SubViewportContainer
         {
             PlaceCombatMenu(actor!);
         }
-        _confirmBox.Visible = (Interaction.IsAttack(Interaction.Mode) || Interaction.Mode is InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Hide or InteractionMode.Loudspeakers or InteractionMode.Orthodoxy or InteractionMode.LayHands or InteractionMode.Bless) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
+        _confirmBox.Visible = (Interaction.IsAttack(Interaction.Mode) || Interaction.Mode is InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Hide or InteractionMode.Loudspeakers or InteractionMode.Orthodoxy or InteractionMode.LayHands or InteractionMode.Bless or InteractionMode.Puppet) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
         if (_confirmBox.Visible)
         {
             _confirmButton.Text = Interaction.Mode switch
@@ -1472,6 +1474,7 @@ public partial class BoardView : SubViewportContainer
                 InteractionMode.Orthodoxy => "Confirm orthodoxy",
                 InteractionMode.LayHands => "Confirm laying on of hands",
                 InteractionMode.Bless => "Confirm blessing",
+                InteractionMode.Puppet => "Confirm puppet move",
                 _ => "Confirm charge",
             };
             _confirmBox.ResetSize();

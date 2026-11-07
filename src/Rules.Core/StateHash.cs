@@ -287,6 +287,7 @@ public static class StateHash
             + (p.Loudspeakers ? ",loudspeakers=yes" : "")
             + (p.PuppetMaster ? ",puppetMaster=yes" : "")
             + (p.Blesses ? ",blesses=yes" : "")
+            + (p.Heals ? ",heals=yes" : "")
             + (p.Spells == SpellKind.None ? "" : $",spells={(int)p.Spells}")
             + (p.DefusesMines ? ",defuses=yes" : "")
             + (p.UndeadFortitude ? ",undeadFortitude=yes" : "")

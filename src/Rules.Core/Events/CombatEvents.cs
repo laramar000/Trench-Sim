@@ -740,6 +740,11 @@ public sealed record SelfActionRolled : GameEvent
     public int Placed { get => _placed; init => _placed = value is 0 or 1 ? value : throw new ArgumentOutOfRangeException(nameof(Placed), "A God is With Us! ACTION places 0 or 1 BLESSING MARKER."); }
 
     private readonly int _placed;
+
+    // Roster stage R12 (U137): an Arise and be Healed! ACTION's D3 (1 to 3); the markers it took off follow from it (Removed); 0 otherwise.
+    public int Die { get => _die; init => _die = value is >= 0 and <= 3 ? value : throw new ArgumentOutOfRangeException(nameof(Die), "A D3 is 1 to 3."); }
+
+    private readonly int _die;
 }
 
 // Roster stage R7d (U131): the player of Target, a model an attack hit, answers the Bodyguard offer: Guard (a friendly model
