@@ -297,6 +297,11 @@ public sealed record MatchState
     // Roster stage R13 (U138): a model under a Charm of Acedia: the next Success Roll it makes is a Success.
     public ModelId? CharmedModel { get; init; }
 
+    // Roster stage R14 (U139): who has a Black Heart waiting for their next Success Roll, and who a Blood Magic until the activation ends.
+    public ModelId? BlackHeartModel { get; init; }
+
+    public ModelId? BloodMagicModel { get; init; }
+
     // Roster stage R6c (U119): the active model's first ACTION was a Charge and it has Counter-Charge: +1 DICE to its Melee
     // Attacks for the rest of the activation. Hashed only when set.
     public bool CounterCharging { get; init; }

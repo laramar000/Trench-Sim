@@ -14,7 +14,7 @@ namespace Rules.Tests.Match;
 // BLOOD MARKERS from models without CULT or DEMONIC, anywhere, no roll, each spell once per activation.
 public class SpellTests
 {
-    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia, Traits = ModelTraits.Demonic };
+    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic, Traits = ModelTraits.Demonic };
 
     // A1 (the Court caster, DEMONIC) at (10, 10), A2 at (2, 30), B1 (16, 10), B2 (30, 30), activated A1; B1 and B2 carry markers.
     private static BoardPlay Ready(int blood = 2, params TerrainBlock[] terrain)
@@ -185,6 +185,67 @@ public class SpellTests
         var rolled = good.Do(DashTo("13"), 6, 6).Events.OfType<DashRolled>().Single();
         Assert.Equal((true, SuccessOutcome.CriticalSuccess), (rolled.Check.Charmed, rolled.Check.Outcome));
         Assert.Null(good.State.CharmedModel);
+    }
+
+    // Roster stage R14 (U139): Black Heart (+1 DICE on the next Success Roll) and Blood Magic (+1 INJURY DICE for one attack).
+    private static CastSpell Free(SpellKind spell, params (string, int)[] pays) => new(Seat.One, A(1), spell, Pay(pays));
+
+    [Fact]
+    [Trait("Rule", "Black Heart p. 160: cast before a Success or Risky roll, +1 DICE")]
+    public void BlackHeartAddsADieToTheNextSuccessRollAndIsUsedUp()
+    {
+        var play = Ready();
+        play.Refused(Free(SpellKind.BlackHeart), ReasonCode.SpellRefused);                                                                // nothing paid
+        play.Refused(new CastSpell(Seat.One, A(1), SpellKind.BlackHeart, Pay(("B2", 1))) { Target = B(1) }, ReasonCode.SpellRefused);   // no target
+        play.Do(Free(SpellKind.BlackHeart, ("B2", 1)));
+        Assert.Equal(A(1), play.State.BlackHeartModel);
+        play.Refused(Free(SpellKind.BlackHeart, ("B1", 1)), ReasonCode.SpellRefused);                                                    // already in place
+        var rolled = play.Do(DashTo("13"), 6, 5, 4).Events.OfType<DashRolled>().Single();
+        Assert.Equal(1, rolled.Check.NetDice);
+        Assert.Null(play.State.BlackHeartModel);
+        // Used up: the next roll is back to plain dice.
+        var plain = play.Do(new Shoot(Seat.One, A(1), B(1)), 1, 1).Events.OfType<RangedSuccessRolled>().Single();
+        Assert.Equal(0, plain.Check.NetDice);
+    }
+
+    [Fact]
+    public void ABlackHeartNotUsedEndsWithTheActivation()
+    {
+        var play = Ready();
+        play.Do(Free(SpellKind.BlackHeart, ("B2", 1)));
+        play.Do(new EndActivation(Seat.One));
+        Assert.Null(play.State.BlackHeartModel);
+    }
+
+    [Fact]
+    [Trait("Rule", "Blood Magic p. 166: free, cast before its Injury Rolls, +1 INJURY DICE to all of them for that attack")]
+    public void BloodMagicAddsAnInjuryDieForOneAttack()
+    {
+        var play = Ready();
+        play.Mark(B(1), 0);
+        play.Do(Free(SpellKind.BloodMagic, ("B2", 1)));
+        Assert.Equal(A(1), play.State.BloodMagicModel);
+        // A Dash does not spend it.
+        play.Do(DashTo("11"), 6, 6);
+        Assert.Equal(A(1), play.State.BloodMagicModel);
+        var injury = play.Do(new Shoot(Seat.One, A(1), B(1)), 6, 6, 3, 3, 3, 3).Events.OfType<InjuryRolled>().Single();
+        // The same shot without the spell rolls one die fewer.
+        var control = Ready();
+        control.Mark(B(1), 0);
+        control.Do(DashTo("11"), 6, 6);
+        var plain = control.Do(new Shoot(Seat.One, A(1), B(1)), 6, 6, 3, 3, 3).Events.OfType<InjuryRolled>().Single();
+        Assert.Equal(plain.Injury.NetDice + 1, injury.Injury.NetDice);
+        Assert.Null(play.State.BloodMagicModel);
+    }
+
+    [Fact]
+    public void ForgedFreeSpellDiceAreRefused()
+    {
+        var play = Ready();
+        var natural = Ready().Do(DashTo("13"), 1, 1).Events.OfType<DashRolled>().Single();
+        play.Do(Free(SpellKind.BlackHeart, ("B2", 1)));
+        var declared = Reducer.Apply(play.State, new DashDeclared(A(1), [P("13", "10")]));
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(declared, new DashRolled(A(1), natural.Check)));
     }
 
     [Fact]

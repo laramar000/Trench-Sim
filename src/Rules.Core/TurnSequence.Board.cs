@@ -862,7 +862,7 @@ public static partial class TurnSequence
             case RollStage.DashRoll:
             {
                 // A Dash is always a Risky Success Roll (p. 34); spent markers are penalty dice.
-                var check = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true));
+                var check = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice + Reducer.HeartDice(s, progress.Actor), progress.PenaltyDice, risky: true));
                 run.Emit(new DashRolled(progress.Actor, check));
                 // Roster stage R5d (U108): unless the model keeps going after a failed Risky roll.
                 if (run.State.MustEndActivation)
@@ -876,7 +876,7 @@ public static partial class TurnSequence
                 // Roster stage R6b (U118): an Aim or Fortify ACTION is a Risky Success Roll; spent markers are penalty dice.
                 // Roster stage R6e (U121): Laying on of Hands only for a Shaken warband; Enforced Orthodoxy stands up the Down
                 // friends within 8", Laying on of Hands removes 1 BLOOD MARKER (3 on a Critical).
-                var roll = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: Reducer.SelfActionRisky(s, actor, progress.SelfAction)));
+                var roll = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice + Reducer.HeartDice(s, progress.Actor), progress.PenaltyDice, risky: Reducer.SelfActionRisky(s, actor, progress.SelfAction)));
                 var helped = roll.Outcome != SuccessOutcome.Failure;
                 // Roster stage R12 (U137): an Arise and be Healed! that succeeds rolls a D3 (a D6 halved, rounded up).
                 var arise = helped && progress.SelfAction == SelfActionKind.AriseAndBeHealed ? (Roll(dice) + 1) / 2 : 0;
@@ -908,7 +908,7 @@ public static partial class TurnSequence
             case RollStage.TreatRoll:
             {
                 // Roster stage R5h (U113): a Treat is a Risky Success Roll (p. 84); spent markers are penalty dice.
-                var check = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true));
+                var check = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice + Reducer.HeartDice(s, progress.Actor), progress.PenaltyDice, risky: true));
                 var choice = progress.TreatStandUp ? TreatChoice.StandUp : TreatChoice.RemoveMarker;
                 var treated = check.Outcome != SuccessOutcome.Failure && Reducer.TreatRefusal(s, actor, progress.Target!.Value, choice) is null;
                 run.Emit(new TreatRolled(progress.Actor, progress.Target!.Value, choice, check, treated));
@@ -934,7 +934,7 @@ public static partial class TurnSequence
             case RollStage.ClimbRoll:
             {
                 // Climbing a sheer surface is always a Risky Success Roll (p. 39); spent markers are penalty dice.
-                var check = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, risky: true));
+                var check = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice + Reducer.HeartDice(s, progress.Actor), progress.PenaltyDice, risky: true));
                 run.Emit(new SideClimbRolled(progress.Actor, check));
                 if (run.State.MustEndActivation && run.State.InProgress is null)
                 {
@@ -964,7 +964,7 @@ public static partial class TurnSequence
             {
                 // A Shaken warband's Success Rolls are Risky (p. 50).
                 // RISKY weapons too (roster stage R2, p. 55).
-                var check = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice,
+                var check = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice + Reducer.HeartDice(s, progress.Actor), progress.PenaltyDice,
                     risky: AttackDice.Risky(s.Setup!.ProfileOf(actor.Id)!.Using(AttackKind.Ranged, progress.Weapon), AttackKind.Ranged, s.IsShaken(actor.Seat))));
                 run.Emit(progress.Target is { } shotAt
                     ? new RangedSuccessRolled(progress.Actor, shotAt, check)
@@ -1024,7 +1024,7 @@ public static partial class TurnSequence
             }
             case RollStage.FightRoll:
             {
-                var check = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice,
+                var check = Charmed(s, progress.Actor, SuccessRoll.Roll(dice, progress.BonusDice + Reducer.HeartDice(s, progress.Actor), progress.PenaltyDice,
                     risky: AttackDice.Risky(s.Setup!.ProfileOf(actor.Id)!.Using(AttackKind.Melee, progress.Weapon), AttackKind.Melee, s.IsShaken(actor.Seat))));
                 run.Emit(new MeleeSuccessRolled(progress.Actor, progress.Target!.Value, check));
                 if (check.RiskyFailure)
@@ -1082,7 +1082,7 @@ public static partial class TurnSequence
                 // Roster stage R5j (U115): a Martyrdom Device's bearer rolls 4D6 added together.
                 // Roster stage R5j (U115) and Bloodbath Rolls (p. 47, U124): a Bloodbath Roll keeps 3 dice, 4 with DEADLY.
                 var deadly = (weapon.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0;
-                var injury = InjuryRoll.Roll(dice, progress.BonusDice, progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down,
+                var injury = InjuryRoll.Roll(dice, progress.BonusDice + Reducer.MagicDice(s, progress.Actor), progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down,
                     deadly: progress.Bloodbath ? !deadly : deadly, allFour: progress.Martyrdom && target.Id == actor.Id || progress.Bloodbath && deadly);
                 var rolled = new InjuryRolled(actor.Id, target.Id, injury)
                 {

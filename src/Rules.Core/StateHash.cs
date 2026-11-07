@@ -88,6 +88,14 @@ public static class StateHash
         {
             Line(sb, "charmed", charmed.Value);
         }
+        if (state.BlackHeartModel is { } heart)
+        {
+            Line(sb, "blackHeart", heart.Value);
+        }
+        if (state.BloodMagicModel is { } magic)
+        {
+            Line(sb, "bloodMagic", magic.Value);
+        }
         if (state.SpellsCast != SpellKind.None)
         {
             Line(sb, "spellsCast", (int)state.SpellsCast);

@@ -130,9 +130,26 @@ public static class Reducer
         {
             next = next with { CharmedModel = null };
         }
+        // Roster stage R14 (U139): a Blood Magic helps one attack: it is spent when that attack's rolls are all done.
+        if (state.BloodMagicModel is { } caster && state.InProgress is { Actor: var rolling, Stage: RollStage.ShotRoll or RollStage.InjuryRoll or RollStage.TargetRoll or RollStage.TargetChoice or RollStage.FightRoll or RollStage.Blast or RollStage.Scatter }
+            && rolling == caster && next.InProgress is null)
+        {
+            next = next with { BloodMagicModel = null };
+        }
+        // Roster stage R14 (U139): a Black Heart is used up by its caster's next Success Roll.
+        if (charm is { } heart && state.BlackHeartModel == heart.Roller)
+        {
+            next = next with { BlackHeartModel = null };
+        }
         // Glorious Deeds (U96): what the deeds need to know, and any deed this event completed.
         return e is GloriousDeedCompleted ? next : Deeds.Track(state, e, next);
     }
+
+    // Roster stage R14 (U139): Black Heart adds 1 DICE to its caster's next Success Roll; Blood Magic adds 1 INJURY DICE to the
+    // Injury Rolls of its caster's next attack (cleared with the activation if unused).
+    public static int HeartDice(MatchState state, ModelId roller) => state.BlackHeartModel == roller ? 1 : 0;
+
+    public static int MagicDice(MatchState state, ModelId attacker) => state.BloodMagicModel == attacker ? 1 : 0;
 
     // Roster stage R13 (U138): the Success Rolls a Charm of Acedia can make a Success: those of an ACTION (not a Morale Check or a mine).
     private static (ModelId Roller, SuccessRollResult Check)? CharmedRoll(GameEvent e) => e switch
@@ -652,6 +669,15 @@ public static class Reducer
         {
             return next with { CharmedModel = e.Model };
         }
+        // Roster stage R14 (U139): Black Heart and Blood Magic are free spells with no target, cast ahead of the roll they help.
+        if (e.Spell == SpellKind.BlackHeart)
+        {
+            return next with { BlackHeartModel = e.Model };
+        }
+        if (e.Spell == SpellKind.BloodMagic)
+        {
+            return next with { BloodMagicModel = e.Model };
+        }
         var target = next.FindModel(e.Target!.Value)!;
         caster = next.FindModel(e.Model)!;
         switch (e.Spell)
@@ -818,7 +844,7 @@ public static class Reducer
         {
             Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false };
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false, BlackHeartModel = null, BloodMagicModel = null };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -975,7 +1001,7 @@ public static class Reducer
     {
         Require(state.InProgress is { Stage: RollStage.DashRoll } p && p.Actor == e.Model && state.Pending is null, "No Dash roll is waiting.");
         var progress = state.InProgress!;
-        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice, "A Dash is a Risky Success Roll with the spent markers as penalty dice.");
+        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice + HeartDice(state, progress.Actor) - progress.PenaltyDice, "A Dash is a Risky Success Roll with the spent markers as penalty dice.");
         return state with
         {
             InProgress = e.Check.Outcome == SuccessOutcome.Failure ? null : progress with { Stage = RollStage.DashMove },
@@ -1004,7 +1030,7 @@ public static class Reducer
         Require(state.InProgress is { Stage: RollStage.TreatRoll } p && p.Actor == e.Model && p.Target == e.Target && state.Pending is null
             && p.TreatStandUp == (e.Choice == TreatChoice.StandUp), "No such Treat roll is waiting.");
         var progress = state.InProgress!;
-        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice, "A Treat is a Risky Success Roll with the spent markers as penalty dice.");
+        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice + HeartDice(state, progress.Actor) - progress.PenaltyDice, "A Treat is a Risky Success Roll with the spent markers as penalty dice.");
         var failed = e.Check.Outcome == SuccessOutcome.Failure;
         var target = state.FindModel(e.Target)!;
         // The opponent may have spent the model's own last marker; then there is nothing left to remove.
@@ -1071,7 +1097,7 @@ public static class Reducer
         Require(state.InProgress is { Stage: RollStage.SelfRoll } p && p.Actor == e.Model && p.SelfAction == e.Action && p.Target == e.Target && state.Pending is null, "No such ACTION roll is waiting.");
         var progress = state.InProgress!;
         var model = state.FindModel(e.Model)!;
-        Require(e.Check.Risky == SelfActionRisky(state, model, e.Action) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
+        Require(e.Check.Risky == SelfActionRisky(state, model, e.Action) && e.Check.NetDice == progress.BonusDice + HeartDice(state, progress.Actor) - progress.PenaltyDice,
             "The ACTION's Success Roll is Risky (Laying on of Hands only for a Shaken warband), with the spent markers as penalty dice.");
         var arising = e.Succeeded && e.Action == SelfActionKind.AriseAndBeHealed;
         Require(arising ? e.Die is >= 1 and <= 3 : e.Die == 0, "An Arise and be Healed! ACTION that succeeds rolls a D3; nothing else does.");
@@ -1289,7 +1315,7 @@ public static class Reducer
     {
         Require(state.InProgress is { Stage: RollStage.ClimbRoll } p && p.Actor == e.Model && state.Pending is null, "No climb roll is waiting.");
         var progress = state.InProgress!;
-        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice, "A climb is a Risky Success Roll with the spent markers as penalty dice.");
+        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice + HeartDice(state, progress.Actor) - progress.PenaltyDice, "A climb is a Risky Success Roll with the spent markers as penalty dice.");
         if (e.Check.Outcome != SuccessOutcome.Failure)
         {
             return state with { InProgress = progress with { Stage = RollStage.ClimbMove } };
@@ -1501,7 +1527,7 @@ public static class Reducer
         var progress = state.InProgress!;
         var attacker = state.FindModel(progress.Actor)!;
         var profile = AttackProfile(state, progress);
-        Require(check.Risky == AttackDice.Risky(profile, AttackKind.Ranged, state.IsShaken(attacker.Seat)) && check.NetDice == progress.BonusDice - progress.PenaltyDice,
+        Require(check.Risky == AttackDice.Risky(profile, AttackKind.Ranged, state.IsShaken(attacker.Seat)) && check.NetDice == progress.BonusDice + HeartDice(state, progress.Actor) - progress.PenaltyDice,
             "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
         if (check.Outcome == SuccessOutcome.Failure && profile.RangedWeaponBlast > 0 && (profile.RangedWeaponKeywords & WeaponKeywords.Scatter) != 0)
         {
@@ -1639,7 +1665,7 @@ public static class Reducer
         // Bloodbath Roll (p. 47, U124): the attacker spent the markers for it, and the event says so.
         Require(e.Bloodbath == progress.Bloodbath, "An Injury Roll is a Bloodbath Roll only if the attacker spent the Blood Markers for one.");
         Require(e.Injury.AllFour == (progress.Martyrdom && target.Id == attacker.Id || progress.Bloodbath && deadly), "Only a Martyrdom Device's bearer, or a DEADLY Bloodbath Roll, rolls 4D6 added together.");
-        Require(e.Injury.NetDice == progress.BonusDice - progress.PenaltyDice
+        Require(e.Injury.NetDice == progress.BonusDice + MagicDice(state, progress.Actor) - progress.PenaltyDice
             && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(e.Target)!, progress.Kind))
             && e.Injury.TargetAlreadyDown == (target.Status == ModelStatus.Down), "The Injury Roll must match the dice, modifiers and state of the target.");
         // Roster stage R5 (U104): a DEADLY weapon's Injury Rolls keep three dice, every other one two.
@@ -1928,7 +1954,7 @@ public static class Reducer
         var progress = state.InProgress!;
         var attacker = state.FindModel(e.Attacker)!;
         var fighter = AttackProfile(state, progress);
-        Require(e.Check.Risky == AttackDice.Risky(fighter, AttackKind.Melee, state.IsShaken(attacker.Seat)) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
+        Require(e.Check.Risky == AttackDice.Risky(fighter, AttackKind.Melee, state.IsShaken(attacker.Seat)) && e.Check.NetDice == progress.BonusDice + HeartDice(state, progress.Actor) - progress.PenaltyDice,
             "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
         if (e.Check.Outcome == SuccessOutcome.Failure)
         {

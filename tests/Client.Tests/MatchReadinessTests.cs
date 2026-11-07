@@ -819,14 +819,21 @@ public class MatchReadinessTests
         var envy = Praetor("dedicated-to-envy", "coveted-position", "what-is-yours-is-mine");
         Assert.Equal(SpellKind.CovetedPosition | SpellKind.WhatIsYoursIsMine, envy.Spells);
         Assert.Equal(SpellKind.ExquisitePain, Praetor("dedicated-to-lust", "exquisite-pain").Spells);
+        // Roster stage R14 (U139): Black Heart is an upgrade, Blood Magic the Hell Knight's own ability.
+        Assert.Equal(SpellKind.BlackHeart, Praetor("dedicated-to-greed", "black-heart").Spells);
+        var wrath = RosterBuilder.Shipped();
+        wrath.ChooseFaction("court");
+        wrath.ChooseVariant("dedicated-to-wrath");
+        wrath.Select(wrath.Add("hell-knight"));
+        Assert.Equal(SpellKind.BloodMagic, Loaded(wrath.MatchCheck()).Spells);
         // A spell the engine does not play yet is named, and gives nothing.
-        var greed = RosterBuilder.Shipped();
-        greed.ChooseFaction("court");
-        greed.ChooseVariant("dedicated-to-greed");
-        greed.Select(greed.Add("praetor"));
-        greed.ToggleUpgrade("black-heart");
-        Assert.Contains(greed.MatchCheck().PlayedWithout, w => w.Contains("Black Heart", StringComparison.Ordinal));
-        Assert.Equal(SpellKind.None, Loaded(greed.MatchCheck()).Spells);
+        var gluttony = RosterBuilder.Shipped();
+        gluttony.ChooseFaction("court");
+        gluttony.ChooseVariant("dedicated-to-gluttony");
+        gluttony.Select(gluttony.Add("praetor"));
+        gluttony.ToggleUpgrade("uncaring-gluttony");
+        Assert.Contains(gluttony.MatchCheck().PlayedWithout, w => w.Contains("Uncaring Gluttony", StringComparison.Ordinal));
+        Assert.Equal(SpellKind.None, Loaded(gluttony.MatchCheck()).Spells);
     }
 
     // Roster stage R6f (U122): the upgrades the engine plays: Legionnaire, Zealot Strength (and a Trench Pilgrim's 32 mm

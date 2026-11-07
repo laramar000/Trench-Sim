@@ -321,6 +321,7 @@ public static class MatchReadiness
         ["exquisite-pain"] = "ExquisitePain",
         ["coveted-position"] = "CovetedPosition",
         ["charm-of-acedia"] = "CharmOfAcedia",
+        ["black-heart"] = "BlackHeart",
     };
 
     private const int ZealotBaseMm = 32;
@@ -384,6 +385,11 @@ public static class MatchReadiness
             var baseMm = entry.BaseWidthMm;
             var (upgradeDash, upgradeCounter) = (false, false);
             var spells = new List<string>();
+            // Roster stage R14 (U139): Blood Magic is an ability, not an upgrade.
+            if (abilities.Contains(BloodMagicName))
+            {
+                spells.Add("BloodMagic");
+            }
             foreach (var upgradeId in model.Upgrades)
             {
                 // Roster stage R5j (U115): the Martyrdom Device upgrade is played (its Trigger ACTION).
@@ -737,6 +743,7 @@ public static class MatchReadiness
     private const string LoudspeakersName = "Loudspeakers ACTION";
     private const string PuppetMasterName = "Puppet Master ACTION";
     private const string GodIsWithUsName = "God is With Us! ACTION";
+    private const string BloodMagicName = "Blood Magic (Spell, cost 1)";
     private const string AriseName = "Arise and be Healed! ACTION";
     private const string HideAction = "Hide ACTION";
     private const string DefuseMineName = "Defuse Mine";
@@ -790,7 +797,7 @@ public static class MatchReadiness
         AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
         Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
         TeethAndClaws, TeethAndClawsLion, FeebleFlailing, CrushingBlows, PoisonStingers, OverwhelmingHorde, TrampleAction,
-        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction,
+        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName,
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1

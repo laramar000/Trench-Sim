@@ -571,6 +571,12 @@ internal static class Board
             return target is not null || takeBlessing ? "Charm of Acedia has no target."
                 : state.CharmedModel == caster.Id ? "The caster is already under a Charm of Acedia." : null;
         }
+        // Roster stage R14 (U139): Black Heart and Blood Magic need no target and must not already be waiting on the caster.
+        if (spell is SpellKind.BlackHeart or SpellKind.BloodMagic)
+        {
+            return target is not null || takeBlessing ? $"{Spells.Name(spell)} has no target."
+                : (spell == SpellKind.BlackHeart ? state.BlackHeartModel : state.BloodMagicModel) == caster.Id ? $"The caster already has a {Spells.Name(spell)} in place." : null;
+        }
         int BloodAfter(ModelState m) => m.BloodMarkers - paid.GetValueOrDefault(m.Id);
         var scenario = ScenarioOf(state)!;
         var from = BodyOf(state, caster)!;

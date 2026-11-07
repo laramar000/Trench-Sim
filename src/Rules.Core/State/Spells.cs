@@ -22,6 +22,12 @@ public enum SpellKind
 
     // Charm of Acedia (cost 1): the first roll of the caster's next ACTION is a Success (U138: its next Success Roll).
     CharmOfAcedia = 8,
+
+    // Black Heart (cost 1): +1 DICE on the caster's next Success Roll (U139: cast ahead of it, between actions).
+    BlackHeart = 16,
+
+    // Blood Magic (cost 1): +1 INJURY DICE on the Injury Rolls of the caster's next attack (U139).
+    BloodMagic = 32,
 }
 
 // Some of one model's BLOOD MARKERS spent on a spell.
@@ -29,7 +35,7 @@ public sealed record MarkerPayment(ModelId Model, int Count);
 
 public static class Spells
 {
-    public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia;
+    public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic;
 
     // The number of markers a spell may cost: from Min to Max.
     public static (int Min, int Max) Cost(SpellKind spell) => spell switch
@@ -37,7 +43,7 @@ public static class Spells
         SpellKind.WhatIsYoursIsMine => (1, 1),
         SpellKind.ExquisitePain => (1, 2),
         SpellKind.CovetedPosition => (2, 2),
-        SpellKind.CharmOfAcedia => (1, 1),
+        SpellKind.CharmOfAcedia or SpellKind.BlackHeart or SpellKind.BloodMagic => (1, 1),
         _ => throw new ArgumentOutOfRangeException(nameof(spell), "One spell at a time."),
     };
 
@@ -47,6 +53,8 @@ public static class Spells
         SpellKind.ExquisitePain => "Exquisite Pain",
         SpellKind.CovetedPosition => "Coveted Position",
         SpellKind.CharmOfAcedia => "Charm of Acedia",
+        SpellKind.BlackHeart => "Black Heart",
+        SpellKind.BloodMagic => "Blood Magic",
         _ => spell.ToString(),
     };
 
