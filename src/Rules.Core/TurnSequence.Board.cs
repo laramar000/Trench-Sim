@@ -261,6 +261,12 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.InvalidChoice, $"A {c.Action} ACTION has no direction.", RefSelfAction);
         }
+        // Roster stage R10 (U135): a God is With Us! is taken on the model itself or a friend within 6".
+        if (c.Action == SelfActionKind.GodIsWithUs)
+        {
+            return c.Target is not { } blessing ? new(ReasonCode.UnknownModel, "A God is With Us! ACTION needs a target.", RefSelfAction)
+                : Reducer.BlessRefusal(state, actor!, blessing) is { } blessWhy ? new(ReasonCode.NotACandidate, blessWhy, RefSelfAction) : null;
+        }
         // Roster stage R6e (U121): a Laying on of Hands is taken on a friend with a BLOOD MARKER; no other ACTION has a target.
         if (c.Action != SelfActionKind.LayingOnHands)
         {
@@ -523,7 +529,7 @@ public static partial class TurnSequence
 
     private static void AskMarkersAfterHit(Run run, ModelState actor)
     {
-        if (run.State.InProgress is { Stage: RollStage.InjuryRoll, FriendlyFire: false, Target: { } target } && run.State.FindModel(target)!.BloodMarkers > 0)
+        if (run.State.InProgress is { Stage: RollStage.InjuryRoll, FriendlyFire: false, Target: { } target } && run.State.FindModel(target)!.Markers > 0)
         {
             run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
         }
@@ -617,7 +623,7 @@ public static partial class TurnSequence
             return 0;
         }
         var holder = kind == DecisionKind.SpendMarkersOnSuccessRoll ? progress.Actor : progress.Target;
-        return holder is { } id ? state.FindModel(id)?.BloodMarkers ?? 0 : 0;
+        return holder is { } id ? state.FindModel(id)?.Markers ?? 0 : 0;
     }
 
     private static Rejection? ValidateSpend(MatchState state, SpendMarkers c)
@@ -680,21 +686,21 @@ public static partial class TurnSequence
             }
             case TakeSelfAction c:
                 run.Emit(new SelfActionDeclared(c.Model, c.Action) { Target = c.Target, Direction = c.Direction });
-                if (run.State.FindModel(c.Model)!.BloodMarkers > 0)
+                if (run.State.FindModel(c.Model)!.Markers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
                 }
                 break;
             case TreatModel c:
                 run.Emit(new TreatDeclared(c.Model, c.Target, c.Choice));
-                if (run.State.FindModel(c.Model)!.BloodMarkers > 0)
+                if (run.State.FindModel(c.Model)!.Markers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
                 }
                 break;
             case DashModel c:
                 run.Emit(new DashDeclared(c.Model, c.Path));
-                if (run.State.FindModel(c.Model)!.BloodMarkers > 0)
+                if (run.State.FindModel(c.Model)!.Markers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
                 }
@@ -713,7 +719,7 @@ public static partial class TurnSequence
                     AttackDice.ShotPenalty(facts.LongRange, facts.InCover))
                 { IntoMelee = facts.IntoMelee, Elevated = facts.Elevated, Weapon = c.Weapon });
                 // A shot into melee asks about markers only once the D6 has settled who is shot (p. 42).
-                if (attacker.BloodMarkers > 0 && !facts.IntoMelee && !Reducer.ShotsIgnoreMarkers(state, attacker.Id))
+                if (attacker.Markers > 0 && !facts.IntoMelee && !Reducer.ShotsIgnoreMarkers(state, attacker.Id))
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
                 }
@@ -723,7 +729,7 @@ public static partial class TurnSequence
                 var aiming = state.FindModel(c.Attacker)!;
                 var point = Board.AssessPoint(state, aiming, c.At, c.Weapon);
                 run.Emit(new PointAttackDeclared(c.Attacker, c.At, point.LongRange) { Weapon = c.Weapon });
-                if (aiming.BloodMarkers > 0 && !Reducer.ShotsIgnoreMarkers(state, aiming.Id))
+                if (aiming.Markers > 0 && !Reducer.ShotsIgnoreMarkers(state, aiming.Id))
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
                 }
@@ -772,7 +778,7 @@ public static partial class TurnSequence
                 var shooter = state.FindModel(state.InProgress!.Actor)!;
                 var forced = Board.ForcedShotFacts(state, shooter, state.FindModel(c.Victim)!, state.InProgress.Weapon);
                 run.Emit(new FriendlyTargetChosen(shooter.Id, c.Victim, forced.LongRange, forced.InCover, forced.CoverTerrainId) { Elevated = forced.Elevated });
-                if (shooter.BloodMarkers > 0 && !Reducer.ShotsIgnoreMarkers(state, shooter.Id))
+                if (shooter.Markers > 0 && !Reducer.ShotsIgnoreMarkers(state, shooter.Id))
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, shooter.Seat.Opponent()));
                 }
@@ -802,7 +808,7 @@ public static partial class TurnSequence
             Block = Board.Blocks(state, attacker.Id, target.Id),
             Fear = Board.Fears(state, attacker.Id, target.Id),
         });
-        if (attacker.BloodMarkers > 0)
+        if (attacker.Markers > 0)
         {
             run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, attacker.Seat.Opponent()));
         }
@@ -847,6 +853,7 @@ public static partial class TurnSequence
                     Target = progress.Target,
                     StoodUp = helped && progress.SelfAction == SelfActionKind.EnforcedOrthodoxy ? Reducer.OrthodoxyStands(s, actor) : [],
                     Removed = helped && progress.SelfAction == SelfActionKind.LayingOnHands ? Reducer.HandsRemove(s, progress.Target!.Value, roll) : 0,
+                    Placed = helped && progress.SelfAction == SelfActionKind.GodIsWithUs && s.FindModel(progress.Target!.Value)!.BlessingMarkers < BloodMarkers.Max ? 1 : 0,
                 });
                 // Roster stage R9a (U134): a Loudspeakers ACTION moves the friends near it; a Puppet Master ACTION rolls its D6 and moves its model.
                 if (helped && progress.SelfAction == SelfActionKind.Loudspeakers)
@@ -975,7 +982,7 @@ public static partial class TurnSequence
                 {
                     run.Emit(new DecisionRequested(DecisionKind.ChooseFriendlyTarget, actor.Seat));
                 }
-                else if (actor.BloodMarkers > 0 && !Reducer.ShotsIgnoreMarkers(s, actor.Id))
+                else if (actor.Markers > 0 && !Reducer.ShotsIgnoreMarkers(s, actor.Id))
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, actor.Seat.Opponent()));
                 }
@@ -1031,7 +1038,7 @@ public static partial class TurnSequence
                     return true;
                 }
                 // A blast's later models (U102): the offer to spend their Blood Markers comes before each roll.
-                if (!progress.MarkersAsked && !progress.FriendlyFire && target.BloodMarkers > 0)
+                if (!progress.MarkersAsked && !progress.FriendlyFire && target.Markers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat));
                     return true;
@@ -1049,8 +1056,9 @@ public static partial class TurnSequence
                     ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup.ProfileOf(target.Id)!),
                     Tough = Reducer.ToughSaves(s, target, injury.Outcome),
                     Spared = Reducer.MementoSaves(s, target, injury.Outcome),
+                    Infection = AttackDice.PlacesInfection(weapon, progress.Kind),
                 };
-                rolled = rolled with { Warded = Reducer.Wards(s, target, rolled.ResultMarkers + rolled.ExtraMarkers) };
+                rolled = rolled with { Warded = !rolled.Infection && Reducer.Wards(s, target, rolled.ResultMarkers + rolled.ExtraMarkers) };
                 run.Emit(rolled);
                 if (rolled.Result == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
                 {
@@ -1182,7 +1190,7 @@ public static partial class TurnSequence
     {
         run.Emit(new SideClimbDeclared(model, kind, path));
         var climber = run.State.FindModel(model)!;
-        if (climber.BloodMarkers > 0)
+        if (climber.Markers > 0)
         {
             run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, climber.Seat.Opponent()));
         }

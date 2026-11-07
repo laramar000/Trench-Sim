@@ -38,7 +38,7 @@ public static class UnitNotes
             RangedSuccessRolled r => [Hit(r.Attacker, r.Check)],
             PointSuccessRolled r => [Hit(r.Attacker, r.Check)],
             MeleeSuccessRolled m => [Hit(m.Attacker, m.Check)],
-            InjuryRolled i => [Injury(i.Target, i.Result, i.PlacedMarkers, i.Tough, i.Spared)],
+            InjuryRolled i => [Injury(i.Target, i.Result, i.PlacedMarkers, i.Tough, i.Spared, i.Infection)],
             MarkersSpent { Count: > 0, Purpose: MarkerSpendPurpose.Bloodbath } m => [new(m.Model, $"BLOODBATH: {m.Count} BLOOD SPENT", NoteTone.Info)],
             MarkersSpent { Count: > 0 } m => [new(m.Model, $"{m.Count} BLOOD SPENT", NoteTone.Info)],
             ChargeRolled c => [new(c.Model, $"CHARGE +{c.Die}\"", NoteTone.Info)],
@@ -64,9 +64,9 @@ public static class UnitNotes
     // Roster stage R4a: placed counts the BLOOD MARKERS SHRAPNEL, GAS and FIRE add, even on No Effect.
     // Roster stage R5b: TOUGH turns the first Out of Action into Down (U106).
     // Roster stage R5e: placed, the BLOOD MARKERS placed (a Sacrificial Lamb keeps the first off, U109).
-    private static UnitNote Injury(ModelId target, InjuryOutcome outcome, int placed, bool tough, bool spared)
+    private static UnitNote Injury(ModelId target, InjuryOutcome outcome, int placed, bool tough, bool spared, bool infection = false)
     {
-        var blood = placed > 0 ? $" +{placed} BLOOD" : "";
+        var blood = placed > 0 ? $" +{placed} {(infection ? "INFECTION" : "BLOOD")}" : "";
         return outcome switch
         {
             InjuryOutcome.Down when tough => new(target, "TOUGH: DOWN" + blood, NoteTone.Damage),

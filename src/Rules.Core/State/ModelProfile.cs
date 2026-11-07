@@ -145,7 +145,7 @@ public sealed record ModelProfile
         | WeaponKeywords.Shotgun | WeaponKeywords.Risky | WeaponKeywords.Pistol | WeaponKeywords.IgnoreCover
         | WeaponKeywords.IgnoreLongRange | WeaponKeywords.IgnoreElevatedPosition | WeaponKeywords.Assault | WeaponKeywords.Heavy
         | WeaponKeywords.Reload | WeaponKeywords.Block | WeaponKeywords.Shrapnel | WeaponKeywords.Gas | WeaponKeywords.Fire
-        | WeaponKeywords.Scatter | WeaponKeywords.Deadly;
+        | WeaponKeywords.Scatter | WeaponKeywords.Deadly | WeaponKeywords.InfectionMarkers;
 
     // Roster stage R4a: the keywords that put an extra BLOOD MARKER on the target, which NEGATE can turn away.
     public const WeaponKeywords MarkerKeywords = WeaponKeywords.Shrapnel | WeaponKeywords.Gas | WeaponKeywords.Fire;
@@ -333,6 +333,9 @@ public sealed record ModelProfile
 
     // Puppet Master ACTION (Warbands p. 109; roster stage R9a, U134): a Risky roll; on a Success one other model in sight within 12" is moved D6" in a straight line.
     public bool PuppetMaster { get; init; }
+
+    // God is With Us! ACTION (Warbands p. 29; roster stage R10, U135): a Risky roll; on a Success 1 BLESSING MARKER is placed on the model or a friend within 6".
+    public bool Blesses { get; init; }
     // Defuse Mine (roster stage R7b, U129): a Risky roll when its move halts at a Mine Marker removes the marker.
     public bool DefusesMines { get; init; }
 
@@ -555,6 +558,7 @@ public sealed record ModelProfile
                 BaseHalfSpan = BaseHalfSpan,
                 Loudspeakers = Loudspeakers,
                 PuppetMaster = PuppetMaster,
+                Blesses = Blesses,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -620,6 +624,7 @@ public sealed record ModelProfile
                 BaseHalfSpan = BaseHalfSpan,
                 Loudspeakers = Loudspeakers,
                 PuppetMaster = PuppetMaster,
+                Blesses = Blesses,
                 DefusesMines = DefusesMines,
                 UndeadFortitude = UndeadFortitude,
                 AbioticLife = AbioticLife,
@@ -685,6 +690,7 @@ public sealed record ModelProfile
             BaseHalfSpan = BaseHalfSpan,
             Loudspeakers = Loudspeakers,
             PuppetMaster = PuppetMaster,
+            Blesses = Blesses,
             DefusesMines = DefusesMines,
             UndeadFortitude = UndeadFortitude,
             AbioticLife = AbioticLife,

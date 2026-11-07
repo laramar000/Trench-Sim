@@ -87,6 +87,7 @@ public static class Content
                         BaseHalfSpan = halfSpan,
                         Loudspeakers = m.TryGetProperty("loudspeakers", out var loudspeakers) && loudspeakers.GetBoolean(),
                         PuppetMaster = m.TryGetProperty("puppetMaster", out var puppetMaster) && puppetMaster.GetBoolean(),
+                        Blesses = m.TryGetProperty("blesses", out var blesses) && blesses.GetBoolean(),
                         DefusesMines = m.TryGetProperty("defusesMines", out var defusesMines) && defusesMines.GetBoolean(),
                         UndeadFortitude = m.TryGetProperty("undeadFortitude", out var undeadFortitude) && undeadFortitude.GetBoolean(),
                         AbioticLife = m.TryGetProperty("abioticLife", out var abioticLife) && abioticLife.GetBoolean(),

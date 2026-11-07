@@ -431,7 +431,7 @@ public static class Reducer
             return new PendingDecision(DecisionKind.SpendMarkersOnSuccessRoll, actor.Seat.Opponent());
         }
         if (progress.Stage == RollStage.InjuryRoll && !progress.FriendlyFire && progress.Target is { } target
-            && state.FindModel(target) is { BloodMarkers: > 0 })
+            && state.FindModel(target) is { Markers: > 0 })
         {
             return new PendingDecision(DecisionKind.SpendMarkersOnInjuryRoll, actor.Seat);
         }
@@ -504,7 +504,7 @@ public static class Reducer
             case DecisionKind.SpendMarkersOnSuccessRoll:
                 var rolling = state.InProgress;
                 Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll or RollStage.SelfRoll, MarkersAsked: false }
-                    && state.FindModel(rolling.Actor) is { BloodMarkers: > 0 } holder
+                    && state.FindModel(rolling.Actor) is { Markers: > 0 } holder
                     && holder.Seat.Opponent() == e.Seat, "Only the rolling model's opponent may spend its markers, once, before a Success Roll.");
                 Require(!(rolling!.Stage == RollStage.ShotRoll && ShotsIgnoreMarkers(state, rolling.Actor)), "No BLOOD MARKERS are spent on the Ranged Attacks of a model with Absolute Faith.");
                 state = state with { InProgress = rolling! with { MarkersAsked = true } };
@@ -514,7 +514,7 @@ public static class Reducer
                 // U52: nobody spends a friendly model's markers on a forced shot's Injury Roll.
                 Require(injuring is { Stage: RollStage.InjuryRoll, MarkersAsked: false, FriendlyFire: false, Target: { } victim }
                     && state.FindModel(injuring.Actor) is { } shooter && shooter.Seat == e.Seat
-                    && state.FindModel(victim) is { BloodMarkers: > 0 }, "Only the attacker may spend the target's markers, once, before an Injury Roll.");
+                    && state.FindModel(victim) is { Markers: > 0 }, "Only the attacker may spend the target's markers, once, before an Injury Roll.");
                 state = state with { InProgress = injuring! with { MarkersAsked = true } };
                 break;
             case DecisionKind.ChooseScatterPoint:
@@ -726,7 +726,9 @@ public static class Reducer
         Require(TurnRules.NextActivator(state) == e.Seat, "It is not that seat's turn to activate.");
         var model = state.FindModel(e.Model);
         Require(model is not null && model.Seat == e.Seat && TurnRules.CanActivate(model), "That model cannot activate.");
-        return TurnRules.WithModel(state, model! with { ActivatedThisTurn = true, Hidden = false }) with
+        // Roster stage R10 (U135): a model with any INFECTION MARKER gains 1 more when it activates (Infection Markers, p. 128).
+        var spread = model!.InfectionMarkers > 0 ? Math.Min(BloodMarkers.Max, model.InfectionMarkers + 1) : 0;
+        return TurnRules.WithModel(state, model with { ActivatedThisTurn = true, Hidden = false, InfectionMarkers = spread }) with
         {
             ActiveModel = e.Model,
             LastActivator = e.Seat,
@@ -988,6 +990,8 @@ public static class Reducer
         Require(e.Action switch
         {
             SelfActionKind.LayingOnHands => e.Target is { } hands && HandsRefusal(state, model, hands) is null && e.Direction is null,
+            // Roster stage R10 (U135): a God is With Us! is taken on the model itself or a friend within 6".
+            SelfActionKind.GodIsWithUs => e.Target is { } blessed && BlessRefusal(state, model, blessed) is null && e.Direction is null,
             // Roster stage R9a (U134): a Puppet Master's victim is any other model in sight within 12", and the line it is moved along.
             SelfActionKind.PuppetMaster => e.Target is { } victim && state.FindModel(victim) is { } moved && Board.PuppetRefusal(state, model, moved) is null
                 && e.Direction is { } direction && direction != moved.Position,
@@ -1009,7 +1013,8 @@ public static class Reducer
             "The ACTION's Success Roll is Risky (Laying on of Hands only for a Shaken warband), with the spent markers as penalty dice.");
         var stood = e.Succeeded && e.Action == SelfActionKind.EnforcedOrthodoxy ? OrthodoxyStands(state, model) : [];
         var removed = e.Succeeded && e.Action == SelfActionKind.LayingOnHands ? HandsRemove(state, e.Target!.Value, e.Check) : 0;
-        Require(e.StoodUp.SequenceEqual(stood) && e.Removed == removed, "The ACTION's result must be what the rules give.");
+        var placed = e.Succeeded && e.Action == SelfActionKind.GodIsWithUs && state.FindModel(e.Target!.Value)!.BlessingMarkers < BloodMarkers.Max ? 1 : 0;
+        Require(e.StoodUp.SequenceEqual(stood) && e.Removed == removed && e.Placed == placed, "The ACTION's result must be what the rules give.");
         var next = state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure && RiskyEnds(state, e.Model) };
         if (!e.Succeeded)
         {
@@ -1029,6 +1034,10 @@ public static class Reducer
             // Roster stage R9a (U134): the forced moves are the next event.
             case SelfActionKind.Loudspeakers or SelfActionKind.PuppetMaster:
                 return next with { ForcedMovesOwed = new ForcedOwed(e.Model, e.Action, e.Target, progress.Toward) };
+            // Roster stage R10 (U135): 1 BLESSING MARKER, up to 6.
+            case SelfActionKind.GodIsWithUs:
+                var blessed = next.FindModel(e.Target!.Value)!;
+                return TurnRules.WithModel(next, blessed with { BlessingMarkers = blessed.BlessingMarkers + placed });
             default:
                 var target = next.FindModel(e.Target!.Value)!;
                 return TurnRules.WithModel(next, target with { BloodMarkers = target.BloodMarkers - removed });
@@ -1043,6 +1052,7 @@ public static class Reducer
         SelfActionKind.Hide => ActionsTaken.Hide,
         SelfActionKind.Loudspeakers => ActionsTaken.Loudspeakers,
         SelfActionKind.PuppetMaster => ActionsTaken.PuppetMaster,
+        SelfActionKind.GodIsWithUs => ActionsTaken.Blessing,
         _ => ActionsTaken.LayingOnHands,
     };
 
@@ -1054,6 +1064,7 @@ public static class Reducer
         SelfActionKind.Hide => profile.Hides,
         SelfActionKind.Loudspeakers => profile.Loudspeakers,
         SelfActionKind.PuppetMaster => profile.PuppetMaster,
+        SelfActionKind.GodIsWithUs => profile.Blesses,
         _ => profile.LaysOnHands,
     };
 
@@ -1112,6 +1123,22 @@ public static class Reducer
     }
 
     private static readonly Length HandsReach = Length.FromInches(6);
+
+    // Roster stage R10 (U135): why a God is With Us! on that target is not possible now, or null: the model itself or a friend on
+    // the battlefield within 6", with room for another BLESSING MARKER (at most 6).
+    internal static string? BlessRefusal(MatchState state, ModelState blesser, ModelId targetId)
+    {
+        var target = state.FindModel(targetId);
+        if (target is null || target.Seat != blesser.Seat || target.Position is null || target.Status == ModelStatus.OutOfAction)
+        {
+            return "A God is With Us! ACTION is taken on the model itself or a friendly model on the battlefield.";
+        }
+        if (target.Id != blesser.Id && !(Board.BodyOf(state, blesser) is { } from && Board.BodyOf(state, target) is { } to && Measure.IsWithin(from, to, HandsReach)))
+        {
+            return "A God is With Us! ACTION is taken on the model itself or a friendly model within 6\".";
+        }
+        return target.BlessingMarkers >= BloodMarkers.Max ? "That model has 6 BLESSING MARKERS already." : null;
+    }
 
     // A successful Laying on of Hands removes 1 BLOOD MARKER, 3 on a Critical Success, at most what the target has left.
     internal static int HandsRemove(MatchState state, ModelId target, SuccessRollResult check) =>
@@ -1267,7 +1294,7 @@ public static class Reducer
     {
         Require(state.Pending is { } pending && pending.Seat == e.Spender && state.InProgress is { } progress, "No marker decision is pending for that seat.");
         var holder = state.FindModel(e.Model);
-        Require(holder is not null && e.Count <= holder.BloodMarkers, "A model cannot spend more markers than it has.");
+        Require(holder is not null && e.Count <= holder.Markers, "A model cannot spend more markers than it has.");
         var rolling = state.InProgress!;
         MatchState next;
         if (state.Pending!.Kind == DecisionKind.SpendMarkersOnSuccessRoll)
@@ -1294,7 +1321,7 @@ public static class Reducer
         {
             throw new InvalidEventException("No marker decision is pending.");
         }
-        return TurnRules.WithModel(next, holder! with { BloodMarkers = holder.BloodMarkers - e.Count }) with { Pending = null };
+        return TurnRules.WithModel(next, holder!.WithoutMarkers(e.Count)) with { Pending = null };
     }
 
     // The Blood Markers a Bloodbath Roll costs: 6, or 3 if the target is Down (p. 47).
@@ -1525,9 +1552,15 @@ public static class Reducer
         Require(e.ExtraMarkers == AttackDice.ExtraMarkers(profile, progress.Kind, state.Setup!.ProfileOf(e.Target)!), "The extra BLOOD MARKERS must be the weapon's SHRAPNEL, GAS and FIRE.");
         Require(e.Tough == ToughSaves(state, target, e.Injury.Outcome), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
         Require(e.Spared == MementoSaves(state, target, e.Injury.Outcome), "Memento Mori turns the model's first Out of Action result into No Effect, and nothing else.");
-        Require(e.Warded == Wards(state, target, e.ResultMarkers + e.ExtraMarkers), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
-        var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.PlacedMarkers);
-        var hurt = Hurt(target, e.Result, markers, e.Tough || e.Spared) with { WardSpent = target.WardSpent || e.Warded };
+        Require(e.Infection == AttackDice.PlacesInfection(profile, progress.Kind), "An INFECTION MARKERS weapon places INFECTION MARKERS, any other BLOOD MARKERS.");
+        Require(e.Warded == (!e.Infection && Wards(state, target, e.ResultMarkers + e.ExtraMarkers)), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
+        // Roster stage R10 (U135): an INFECTION MARKERS weapon's markers are INFECTION MARKERS, up to 6 of them.
+        var markers = e.Infection ? target.BloodMarkers : Math.Min(BloodMarkers.Max, target.BloodMarkers + e.PlacedMarkers);
+        var hurt = Hurt(target, e.Result, markers, e.Tough || e.Spared) with
+        {
+            WardSpent = target.WardSpent || e.Warded,
+            InfectionMarkers = e.Infection ? Math.Min(BloodMarkers.Max, target.InfectionMarkers + e.PlacedMarkers) : target.InfectionMarkers,
+        };
         // A blast's next model (U102), once this one is rolled for.
         if (!progress.BlastQueue.IsDefaultOrEmpty)
         {

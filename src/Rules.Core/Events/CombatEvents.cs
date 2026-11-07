@@ -260,6 +260,9 @@ public sealed record InjuryRolled : GameEvent
     public bool Bloodbath { get; init; }
 
     // The BLOOD MARKERS placed on the target: the result's and the weapon's, less the one the Lamb's blood kept off.
+    // Roster stage R10 (U135): the markers were INFECTION MARKERS (the weapon has INFECTION MARKERS); left out when false.
+    public bool Infection { get; init; }
+
     public int PlacedMarkers => ResultMarkers + ExtraMarkers - (Warded ? 1 : 0);
 }
 
@@ -732,6 +735,11 @@ public sealed record SelfActionRolled : GameEvent
     private readonly int _removed;
 
     public ImmutableArray<ModelId> StoodUp { get; init; } = [];
+
+    // Roster stage R10 (U135): a God is With Us! ACTION's BLESSING MARKER placed on the Target (1, or 0 when it had 6 already or failed).
+    public int Placed { get => _placed; init => _placed = value is 0 or 1 ? value : throw new ArgumentOutOfRangeException(nameof(Placed), "A God is With Us! ACTION places 0 or 1 BLESSING MARKER."); }
+
+    private readonly int _placed;
 }
 
 // Roster stage R7d (U131): the player of Target, a model an attack hit, answers the Bodyguard offer: Guard (a friendly model

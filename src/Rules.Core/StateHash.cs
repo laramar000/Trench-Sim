@@ -168,7 +168,7 @@ public static class StateHash
                 $"deployed={Bool(m.Deployed)}",
                 $"activated={Bool(m.ActivatedThisTurn)}",
                 $"at={(m.Position is { } at ? Point(at) : "-")}",
-                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : "") + (m.TalismansUsed == 0 ? "" : $",talismansUsed={m.TalismansUsed}") + (m.Hidden ? ",hidden=yes" : "") + (m.Axis == BaseAxis.Y ? "" : ",axis=X"));
+                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : "") + (m.TalismansUsed == 0 ? "" : $",talismansUsed={m.TalismansUsed}") + (m.Hidden ? ",hidden=yes" : "") + (m.Axis == BaseAxis.Y ? "" : ",axis=X") + (m.InfectionMarkers == 0 ? "" : $",infection={m.InfectionMarkers}") + (m.BlessingMarkers == 0 ? "" : $",blessing={m.BlessingMarkers}"));
         }
         return sb.ToString();
     }
@@ -282,6 +282,7 @@ public static class StateHash
             + (p.Bodyguard ? ",bodyguard=yes" : "")
             + (p.Loudspeakers ? ",loudspeakers=yes" : "")
             + (p.PuppetMaster ? ",puppetMaster=yes" : "")
+            + (p.Blesses ? ",blesses=yes" : "")
             + (p.DefusesMines ? ",defuses=yes" : "")
             + (p.UndeadFortitude ? ",undeadFortitude=yes" : "")
             + (p.AbioticLife ? ",abioticLife=yes" : "")

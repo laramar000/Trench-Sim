@@ -260,9 +260,14 @@ public static class UnitPanel
     // Markers" (the server's state).
     private static string StatusLine(MatchState state, ModelShape unit)
     {
-        var markers = state.FindModel(unit.Id)?.BloodMarkers ?? 0;
+        var found = state.FindModel(unit.Id);
+        var markers = found?.BloodMarkers ?? 0;
+        // Roster stage R10 (U135): INFECTION and BLESSING MARKERS are listed after the blood.
+        var others = (found?.InfectionMarkers ?? 0, found?.BlessingMarkers ?? 0);
         return $"{Words.Seat(unit.Seat)} [{unit.SeatLetter}]{(unit.Yours ? " (yours)" : "")} · {(unit.Status == ModelStatus.Down ? $"{ModelShape.DownMark} " : "")}{Words.Status(unit.Status)}" +
-            (markers > 0 ? $" · {ModelShape.MarkerMark}{markers} Blood Marker{(markers == 1 ? "" : "s")}" : "");
+            (markers > 0 ? $" · {ModelShape.MarkerMark}{markers} Blood Marker{(markers == 1 ? "" : "s")}" : "") +
+            (others.Item1 > 0 ? $" · {ModelShape.MarkerMark}{others.Item1} Infection Marker{(others.Item1 == 1 ? "" : "s")}" : "") +
+            (others.Item2 > 0 ? $" · {ModelShape.MarkerMark}{others.Item2} Blessing Marker{(others.Item2 == 1 ? "" : "s")}" : "");
     }
 
     // QoL H3: the unit's values as the rules hold them (its profile in the match setup): "Move 6.0" · Range 24.0" ·
@@ -391,7 +396,11 @@ public static class UnitPanel
         }
         if (p.Loudspeakers)
         {
-            parts.Add("Loudspeakers ACTION (U): a Risky roll at +2 DICE; friends within 8\" move 3\" towards the nearest visible enemy");
+            parts.Add("Loudspeakers ACTION (comma key): a Risky roll at +2 DICE; friends within 8\" move 3\" towards the nearest visible enemy");
+        }
+        if (p.Blesses)
+        {
+            parts.Add("God is With Us! ACTION: a Risky roll; on a Success 1 BLESSING MARKER on itself or a friend within 6\" (CLI: bless)");
         }
         if (p.PuppetMaster)
         {

@@ -1200,8 +1200,8 @@ public partial class BoardView : SubViewportContainer
         Key.V => InteractionMode.Fortify,
         // Roster stage R7c: G hides.
         Key.G => InteractionMode.Hide,
-        // Roster stage R9a: U uses the Loudspeakers.
-        Key.U => InteractionMode.Loudspeakers,
+        // Roster stage R9a: the comma uses the Loudspeakers (every letter key is taken, and U opens the unit card).
+        Key.Comma => InteractionMode.Loudspeakers,
         // Roster stage R6e: Y enforces orthodoxy, Z lays on hands.
         Key.Y => InteractionMode.Orthodoxy,
         Key.Z => InteractionMode.LayHands,
@@ -2087,7 +2087,7 @@ public partial class BoardView : SubViewportContainer
     // with the battlefield's models (rebuilt whenever the state changes), and moved with the label when labels are spread.
     private void BloodRow(ModelShape model)
     {
-        if (BloodDrops.Row(model.BloodMarkers) is not { } row)
+        if (BloodDrops.Row(model.BloodMarkers, model.InfectionMarkers, model.BlessingMarkers) is not { } row)
         {
             return;
         }
@@ -2097,7 +2097,7 @@ public partial class BoardView : SubViewportContainer
         var at = new Vector3((float)model.X, LabelHeight(model), (float)model.Y);
         var blood = new Color(0.80f, 0.10f, 0.08f);
         var offset = new Vector2(0, -(19 * _textScale + 6) / scale);
-        var sprite = Icon(IconTexture($"Blood{Math.Min(model.BloodMarkers, Rules.Core.State.BloodMarkers.Max)}", row, gold: false, blood), at, pixel,
+        var sprite = Icon(IconTexture($"Blood{Math.Min(model.BloodMarkers, Rules.Core.State.BloodMarkers.Max)}-{model.InfectionMarkers}-{model.BlessingMarkers}", row, gold: false, blood), at, pixel,
             offset, dim: model.Activated && !model.Active);
         sprite.Name = $"Blood{model.Id.Value}";
         _content.AddChild(sprite);
@@ -2113,7 +2113,8 @@ public partial class BoardView : SubViewportContainer
             return Vector2.Zero;
         }
         var screen = LabelScale(label) * (Size.Y / Math.Max(1, _viewport.Size.Y));
-        return new Vector2(BloodDrops.Width * BloodScale * _textScale, BloodDrops.Height * BloodScale * _textScale + 6) * screen;
+        var width = _bloodRows[model].Sprite.Texture?.GetWidth() ?? BloodDrops.Width;
+        return new Vector2(width * BloodScale * _textScale, BloodDrops.Height * BloodScale * _textScale + 6) * screen;
     }
 
     // How many screen pixels each pixel of the drop row is drawn (times the text scale).
@@ -2194,6 +2195,9 @@ public partial class BoardView : SubViewportContainer
                 image.SetPixel(x, y, rows[y][x] switch
                 {
                     '#' => light,
+                    // Roster stage R10 (U135): an INFECTION MARKER's drop is green, a BLESSING MARKER's bright blue.
+                    'g' => _highContrast ? Colors.White : new Color(0.25f, 0.85f, 0.25f),
+                    'b' => _highContrast ? Colors.White : new Color(0.25f, 0.70f, 1.0f),
                     'X' => dark,
                     // A faint pale outline (an empty blood drop), seen on dark ground as on light.
                     'o' => _highContrast ? new Color(1, 1, 1, 0.55f) : new Color(0.85f, 0.80f, 0.69f, 0.55f),

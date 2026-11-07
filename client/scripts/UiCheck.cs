@@ -4059,13 +4059,13 @@ public partial class UiCheck : Node
                 continue;
             }
             _bloodLabelsChecked++;
-            if (shape.BloodMarkers > 0)
+            if (shape.AllMarkers > 0)
             {
                 _bloodLabelsWithMarkers++;
             }
             // Visual pass Stage 3: the count is drawn as drops under the label (none at 0), no longer as text in it.
             var drops = board.BloodDropsDrawn.TryGetValue(shape.Id, out var n) ? n : 0;
-            if (drops != Math.Min(shape.BloodMarkers, BloodDrops.Max) || label.Contains(ModelShape.MarkerMark, StringComparison.Ordinal))
+            if (drops != Math.Min(shape.BloodMarkers, BloodDrops.Max) + Math.Min(shape.InfectionMarkers, BloodDrops.Max) + Math.Min(shape.BlessingMarkers, BloodDrops.Max) || label.Contains(ModelShape.MarkerMark, StringComparison.Ordinal))
             {
                 _bloodLabelProblems.Add($"{label} has {shape.BloodMarkers}, {drops} drops drawn");
             }

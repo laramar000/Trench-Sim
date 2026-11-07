@@ -22,6 +22,7 @@ public static class CommandParser
         scatter <x,y>             where a missed SCATTER attack lands
         blast <model> <x,y>       aim a BLAST weapon at a point
         turn <model> x|y          turn an oval base to lie along that axis (free)
+        bless <model> <target>    God is With Us! ACTION
         loud <model>              Loudspeakers ACTION         puppet <model> <target> <x,y>   Puppet Master ACTION
         """;
 
@@ -54,6 +55,7 @@ public static class CommandParser
             "decline" => new DeclineFreeFights(seat),
             "friendly" => new ChooseFriendlyTarget(seat, Model(One(args))),
             "scatter" => new ScatterAttack(seat, Point(One(args))),
+            "bless" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.GodIsWithUs) { Target = Model(Arg(args, 1)) },
             "loud" => new TakeSelfAction(seat, Model(One(args)), SelfActionKind.Loudspeakers),
             "puppet" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.PuppetMaster) { Target = Model(Arg(args, 1)), Direction = Point(Arg(args, 2)) },
             "turn" => new TurnBase(seat, Model(Arg(args, 0)), Enum.Parse<BaseAxis>(Arg(args, 1), ignoreCase: true)),

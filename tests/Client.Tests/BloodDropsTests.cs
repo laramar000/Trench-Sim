@@ -37,4 +37,21 @@ public class BloodDropsTests
             Assert.All(line, c => Assert.Contains(c, "#Xo."));
         }
     }
+
+    // Roster stage R10 (U135): INFECTION and BLESSING MARKERS are drops of their own colour in the same row.
+    [Fact]
+    public void InfectionAndBlessingMarkersAreDropsOfTheirOwnKind()
+    {
+        var row = BloodDrops.Row(1, 2, 1)!;
+        Assert.Equal(4, BloodDrops.Filled(row));
+        // One blood, two infection, one blessing, in that order; the row is the usual six drops wide.
+        var centres = Enumerable.Range(0, 6).Select(d => row[3][d * (BloodDrops.DropWidth + BloodDrops.Gap) + 2]).ToArray();
+        Assert.Equal(['#', 'g', 'g', 'b', 'o', 'o'], centres);
+        Assert.All(row, line => Assert.Equal(BloodDrops.Width, line.Length));
+        // Blood alone is exactly the row it always was; several kinds can need more room.
+        Assert.Equal(BloodDrops.Row(3), BloodDrops.Row(3, 0, 0));
+        Assert.Equal(BloodDrops.WidthOf(12), BloodDrops.Row(6, 6, 0)![0].Length);
+        Assert.Equal(18, BloodDrops.Filled(BloodDrops.Row(6, 6, 6)!));
+        Assert.Null(BloodDrops.Row(0, 0, 0));
+    }
 }

@@ -768,6 +768,21 @@ public class MatchReadinessTests
         Assert.DoesNotContain("puppetMaster", plain, StringComparison.Ordinal);
     }
 
+    // Roster stage R10 (U135): INFECTION MARKERS weapons and the God is With Us! ACTION are played.
+    [Fact]
+    public void InfectionWeaponsAndTheBlessingActionArePlayed()
+    {
+        var knight = Of("cult", "plague-knight", "plague-blade").MatchCheck();
+        Assert.DoesNotContain(knight.Refused, r => r.Contains("INFECTION", StringComparison.Ordinal));
+        Assert.DoesNotContain(knight.PlayedWithout, w => w.Contains("INFECTION MARKERS", StringComparison.Ordinal));
+        Assert.True(Loaded(knight).MeleeWeaponKeywords.HasFlag(Rules.Core.State.WeaponKeywords.InfectionMarkers));
+        var cleric = Of("principality", "trench-cleric", "pistol").MatchCheck();
+        Assert.DoesNotContain(cleric.PlayedWithout, w => w.Contains("God is With Us", StringComparison.Ordinal));
+        Assert.True(Loaded(cleric).Blesses);
+        var plain = Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P");
+        Assert.DoesNotContain("blesses", plain, StringComparison.Ordinal);
+    }
+
     // Roster stage R6f (U122): the upgrades the engine plays: Legionnaire, Zealot Strength (and a Trench Pilgrim's 32 mm
     // base), Janissary Veteran, Fearsome and Kavass; the others are still named.
     [Fact]

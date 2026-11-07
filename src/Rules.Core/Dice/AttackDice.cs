@@ -76,6 +76,9 @@ public static class AttackDice
     public static int TakenDice(ModelProfile target, WeaponKeywords attack) =>
         target.InjuryDiceTaken - (target.UndeadFortitude && !attack.HasFlag(WeaponKeywords.Fire) ? 1 : 0) - (target.AbioticLife && attack.HasFlag(WeaponKeywords.Gas) ? 1 : 0);
 
+    // Roster stage R10 (U135): an attack with an INFECTION MARKERS weapon places INFECTION MARKERS instead of BLOOD MARKERS.
+    public static bool PlacesInfection(ModelProfile attacker, AttackKind kind) => attacker.AttackKeywords(kind).HasFlag(WeaponKeywords.InfectionMarkers);
+
     // Roster stage R6c (U119): Mubarizun, +1 INJURY DICE against a TOUGH target.
     public static int HuntDice(ModelProfile attacker, ModelProfile target) => attacker.HuntsTheTough && target.Traits.HasFlag(ModelTraits.Tough) ? 1 : 0;
 

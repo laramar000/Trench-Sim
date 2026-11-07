@@ -421,4 +421,28 @@ public class TraitWireTests
         var command = new SubmitCommand("c9", 9, 0, new Rules.Core.Commands.TakeSelfAction(Seat.One, new ModelId("A1"), SelfActionKind.PuppetMaster) { Target = new ModelId("B1"), Direction = at });
         Assert.Contains("direction", Encoding.UTF8.GetString(Codec.Encode(command)), StringComparison.OrdinalIgnoreCase);
     }
+
+    // Roster stage R10 (U135): the INFECTION MARKERS keyword, the Blesses flag and the events' flags travel on the wire and back;
+    // everything without them writes nothing new.
+    [Fact]
+    public void MarkerKindsRoundTripAndAreLeftOutWhenUnset()
+    {
+        var setup = Plain();
+        var first = setup.Models[0];
+        var kitted = first.Profile! with { Blesses = true, RangedWeaponKeywords = WeaponKeywords.InfectionMarkers };
+        var created = new MatchCreated(new MatchSetup(setup.RulesVersion, setup.ScenarioId, setup.TurnLimit, setup.Profile, setup.ZoneIds,
+            setup.Models.Select(m => m.Id == first.Id ? m with { Profile = kitted } : m), setup.Scenario));
+        Assert.Contains("\"blesses\":true", Encoded(created), StringComparison.Ordinal);
+        Assert.Equal(kitted, ((MatchCreated)RoundTrip(created)).Setup.Models[0].Profile);
+
+        var (a, b) = (new ModelId("A1"), new ModelId("B1"));
+        var roll = Enumerable.Range(1, 100).Select(seed => InjuryRoll.Roll(new SeededDice(seed))).First(r => r.Outcome == InjuryOutcome.MinorHit);
+        var plain = new InjuryRolled(a, b, roll);
+        Assert.DoesNotContain("infection", Encoded(plain), StringComparison.OrdinalIgnoreCase);
+        Assert.True(((InjuryRolled)RoundTrip(plain with { Infection = true })).Infection);
+        var check = SuccessRoll.Roll(new SeededDice(3), 0, 0, risky: true);
+        var blessed = new SelfActionRolled(a, SelfActionKind.GodIsWithUs, check) { Target = b, Placed = 1 };
+        Assert.Equal(1, ((SelfActionRolled)RoundTrip(blessed)).Placed);
+        Assert.DoesNotContain("placed", Encoded(blessed with { Placed = 0 }), StringComparison.OrdinalIgnoreCase);
+    }
 }

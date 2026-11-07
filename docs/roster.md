@@ -312,6 +312,7 @@ Not checked yet: special conditions written in notes.
 - Roster rules stage R6e, Enforced Orthodoxy and Laying on of Hands (done 2026-11-02): both ACTIONS are played (U121).
   Tests: `HelpingActionTests`, `TraitWireTests.HelpingActionsRoundTripAndAreLeftOutWhenUnset`,
   `MatchReadinessTests.HelpingActionsArePlayed`, `ModelTraitDisplayTests.HelpingActionsAreExplained`.
+- Roster rules stage R10, INFECTION and BLESSING MARKERS (done 2026-11-07): marker kinds, INFECTION MARKERS weapons, the God is With Us! ACTION (U135). Tests: `MarkerKindTests`, `BloodDropsTests`, `MatchReadinessTests.InfectionWeaponsAndTheBlessingActionArePlayed`, `TraitWireTests.MarkerKindsRoundTripAndAreLeftOutWhenUnset`.
 - Roster rules stage R9a, moving other models (done 2026-11-07): the Pontiff's Loudspeakers and the Heretic Priest's Puppet Master ACTIONS are played (U134). Tests: `ForcedMoveTests`, `MatchReadinessTests.ActionsThatMoveOtherModelsArePlayed`, `TraitWireTests.ForcedMoveActionsRoundTripAndAreLeftOutWhenUnset`.
 - Roster rules stage R8, oval bases (done 2026-11-07): Plague Hound and Pit Locust are played as exact capsules with a player-chosen axis (U132, U133). Tests: `OvalBaseTests`, `OvalMovementTests`, `OvalChargeTests`, `OvalSightTests`, `OvalPlayTests`, `MatchReadinessTests.AnOvalBaseIsPlayed`.
 - Roster rules stage R7d, Bodyguard (done 2026-11-06): a Sanctified Giant (Pilgrims) or the Cult's Bodyguard unit may take a hit meant for a

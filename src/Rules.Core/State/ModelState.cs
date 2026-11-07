@@ -25,7 +25,24 @@ public sealed record ModelState(
     bool MartyrdomSpent = false,
     int TalismansUsed = 0,
     bool Hidden = false,
-    BaseAxis Axis = BaseAxis.Y);
+    BaseAxis Axis = BaseAxis.Y,
+    int InfectionMarkers = 0,
+    int BlessingMarkers = 0)
+{
+    // Roster stage R10 (U135): INFECTION and BLESSING MARKERS are BLOOD MARKERS in another colour: up to 6 of each, and for
+    // spending (an opponent's -DICE on a Success Roll, +INJURY DICE on an Injury Roll) every kind counts. Spending takes Blood
+    // first, then Infection, then Blessing. Rules that remove BLOOD MARKERS (Treat, Laying on of Hands) remove only those.
+    public int Markers => BloodMarkers + InfectionMarkers + BlessingMarkers;
+
+    // The model after `count` of its markers were spent, in that order.
+    public ModelState WithoutMarkers(int count)
+    {
+        var blood = Math.Min(count, BloodMarkers);
+        var infection = Math.Min(count - blood, InfectionMarkers);
+        var blessing = count - blood - infection;
+        return this with { BloodMarkers = BloodMarkers - blood, InfectionMarkers = InfectionMarkers - infection, BlessingMarkers = BlessingMarkers - blessing };
+    }
+}
 
 // Roster stage R8d (U132): Axis, which table axis an oval base's long side lies along (Y for every round base, and until the player turns it).
 

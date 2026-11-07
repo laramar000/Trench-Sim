@@ -57,4 +57,7 @@ public enum WeaponKeywords
 
     // DEADLY: its Injury Rolls are 3D6, all three added, keeping the 3 highest or lowest with INJURY DICE (p. 54, U104).
     Deadly = 131072,
+
+    // Roster stage R10 (U135): INFECTION MARKERS: the markers the weapon's attacks place are INFECTION MARKERS, not BLOOD MARKERS.
+    InfectionMarkers = 262144,
 }

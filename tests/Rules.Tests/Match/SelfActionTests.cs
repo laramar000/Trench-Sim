@@ -106,7 +106,7 @@ public class SelfActionTests
         Ready(Rifleman).Refused(Aim, ReasonCode.NoSuchAction);
         Ready(Marksman).Refused(Fortify, ReasonCode.NoSuchAction);
         Ready(Engineer).Refused(Aim, ReasonCode.NoSuchAction);
-        Ready(Marksman).Refused(Aim with { Action = (SelfActionKind)7 }, ReasonCode.InvalidChoice);
+        Ready(Marksman).Refused(Aim with { Action = (SelfActionKind)99 }, ReasonCode.InvalidChoice);
     }
 
     [Fact]

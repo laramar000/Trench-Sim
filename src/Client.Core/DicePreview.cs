@@ -140,6 +140,7 @@ public sealed record DicePreview(
         Add(WeaponKeywords.Shrapnel, "SHRAPNEL: +1 BLOOD MARKER on the target after the Injury Roll");
         Add(WeaponKeywords.Gas, "GAS: +1 BLOOD MARKER on the target after the Injury Roll");
         Add(WeaponKeywords.Fire, "FIRE: +1 BLOOD MARKER on the target after the Injury Roll");
+        Add(WeaponKeywords.InfectionMarkers, "INFECTION MARKERS: the markers this weapon places are INFECTION MARKERS, not BLOOD MARKERS");
         Add(WeaponKeywords.Deadly, "DEADLY: the Injury Roll is 3D6 (INJURY DICE keep the 3 highest or lowest)");
         if (kind == AttackKind.Ranged)
         {
