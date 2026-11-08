@@ -873,7 +873,7 @@ public class MatchReadinessTests
         hunter.Select(hunter.Add("shadow-hunter"));
         Assert.True(Loaded(hunter.MatchCheck()).Spells.HasFlag(SpellKind.ShadowWalker));
         // Roster stage R16 (U141): the Shadow Hunter's Oracle Beast Cloak, the Sorcerer's Blessing of the Serpent Moon, Too Proud to Fall (an upgrade).
-        Assert.True(Loaded(hunter.MatchCheck()).Spells.HasFlag(SpellKind.OracleBeastCloak));
+        Assert.True(Loaded(hunter.MatchCheck()).Spells.HasFlag(SpellKind.OracleBeastCloak) && Loaded(hunter.MatchCheck()).Spells.HasFlag(SpellKind.LeftHandPath));
         var sorcerer = RosterBuilder.Shipped();
         sorcerer.ChooseFaction("court");
         sorcerer.ChooseVariant("dedicated-to-wrath");

@@ -439,6 +439,14 @@ public static class Wire
         [
             (typeof(SelfActionRolled), nameof(SelfActionRolled.StoodUp)),
             (typeof(CastSpell), nameof(CastSpell.Targets)),
+            (typeof(MoveModel), nameof(MoveModel.Jumps)),
+            (typeof(MoveModel), nameof(MoveModel.Payment)),
+            (typeof(DashModel), nameof(DashModel.Jumps)),
+            (typeof(DashModel), nameof(DashModel.Payment)),
+            (typeof(ModelMoved), nameof(ModelMoved.Jumps)),
+            (typeof(ModelMoved), nameof(ModelMoved.Payment)),
+            (typeof(DashDeclared), nameof(DashDeclared.Jumps)),
+            (typeof(DashDeclared), nameof(DashDeclared.Payment)),
             (typeof(SpellCast), nameof(SpellCast.Targets)),
         ];
 

@@ -43,6 +43,11 @@ public sealed record ModelMoved : GameEvent
     public MoveKind Kind { get; }
     public ImmutableArray<Point2> Path { get; }
     public Length Cost { get; }
+
+    // October 2026 Review (U152): Left-Hand Path. The path's points the model is redeployed at, and the SIN MARKERS paid; left off the wire when empty.
+    public ImmutableArray<int> Jumps { get; init; } = [];
+
+    public ImmutableArray<MarkerPayment> Payment { get; init; } = [];
 }
 
 // A Dash was chosen: the Risky Success Roll comes next, the move only if it succeeds.
@@ -60,6 +65,11 @@ public sealed record DashDeclared : GameEvent
 
     public ModelId Model { get; }
     public ImmutableArray<Point2> Path { get; }
+
+    // October 2026 Review (U152): Left-Hand Path. The path's points the model is redeployed at, and the SIN MARKERS paid; left off the wire when empty.
+    public ImmutableArray<int> Jumps { get; init; } = [];
+
+    public ImmutableArray<MarkerPayment> Payment { get; init; } = [];
 }
 
 public sealed record DashRolled : GameEvent

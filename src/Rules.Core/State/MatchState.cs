@@ -178,7 +178,9 @@ public sealed record RollInProgress(
     Point2? Toward = null,
     ModelId? BlessedFor = null,
     int Blessing = 0,
-    SpellKind Spell = SpellKind.None);
+    SpellKind Spell = SpellKind.None,
+    ImmutableArray<int> DashJumps = default,
+    ImmutableArray<MarkerPayment> DashPayment = default);
 
 // Roster stage R16 (U141): an Injury Roll made but not yet applied, because its target's player may cast Oracle Beast Cloak or
 // Too Proud to Fall once they see it. Asked is true once that decision has been requested.

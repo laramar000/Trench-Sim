@@ -488,6 +488,22 @@ public class TraitWireTests
     }
 
     [Fact]
+    public void LeftHandPathJumpsRoundTripAndAreLeftOutWhenEmpty()
+    {
+        var path = System.Collections.Immutable.ImmutableArray.Create(new Rules.Core.Geometry.Point2(Rules.Core.Geometry.Length.Parse("1"), Rules.Core.Geometry.Length.Parse("2")));
+        var pay = System.Collections.Immutable.ImmutableArray.Create(new MarkerPayment(new ModelId("A2"), 2));
+        var plain = new ModelMoved(new ModelId("A1"), MoveKind.Move, path, Rules.Core.Geometry.Length.Parse("1"));
+        Assert.DoesNotContain("jumps", Encoded(plain), StringComparison.OrdinalIgnoreCase);
+        var jumped = plain with { Jumps = [0], Payment = pay };
+        Assert.Contains("jumps", Encoded(jumped), StringComparison.OrdinalIgnoreCase);
+        var back = (ModelMoved)RoundTrip(jumped);
+        Assert.True(back.Jumps.SequenceEqual([0]) && back.Payment.Single().Count == 2);
+        var command = new Rules.Core.Commands.MoveModel(Seat.One, new ModelId("A1"), path) { Jumps = [0], Payment = pay };
+        Assert.Contains("jumps", Encoding.UTF8.GetString(Codec.Encode(new SubmitCommand("c11", 11, 0, command))), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("jumps", Encoding.UTF8.GetString(Codec.Encode(new SubmitCommand("c12", 12, 0, new Rules.Core.Commands.MoveModel(Seat.One, new ModelId("A1"), path)))), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ACharmedRollRoundTripsAndIsLeftOutWhenNot()
     {
         var plain = new Rules.Core.Dice.SuccessRollResult(new Rules.Core.Dice.RollRecord([1, 1], [1, 1]), 0, false);

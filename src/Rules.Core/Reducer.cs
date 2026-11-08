@@ -1097,11 +1097,11 @@ public static class Reducer
         var model = Active(state, e.Model, "A Dash");
         Require(state.InProgress is null && !state.Actions.HasFlag(ActionsTaken.Dash), "A Dash can be taken once per activation.");
         Require(ActionLimits.MoveExcluded(state, e.Model) is null, ActionLimits.HeavyText);
-        Require(Board.CheckMove(state, model, e.Path).IsLegal, "A Dash must follow a legal path.");
+        Require(Board.JumpProblem(state, model, e.Path, e.Jumps, e.Payment) is null && Board.CheckMove(state, model, e.Path, e.Jumps).IsLegal, "A Dash must follow a legal path.");
         return state with
         {
             Actions = state.Actions | ActionsTaken.Dash,
-            InProgress = new RollInProgress(RollStage.DashRoll, e.Model, BonusDice: DashDice(state, model), DashPath: e.Path),
+            InProgress = new RollInProgress(RollStage.DashRoll, e.Model, BonusDice: DashDice(state, model), DashPath: e.Path) { DashJumps = e.Jumps, DashPayment = e.Payment },
         };
     }
 
@@ -1508,12 +1508,22 @@ public static class Reducer
         }
         else
         {
-            Require(state.InProgress is { Stage: RollStage.DashMove } p && p.Actor == e.Model && p.DashPath.SequenceEqual(e.Path), "A Dash moves only after its roll succeeded, along the declared path.");
+            Require(state.InProgress is { Stage: RollStage.DashMove } p && p.Actor == e.Model && p.DashPath.SequenceEqual(e.Path)
+                && (p.DashJumps.IsDefault ? [] : p.DashJumps).SequenceEqual(e.Jumps) && (p.DashPayment.IsDefault ? [] : p.DashPayment).SequenceEqual(e.Payment),
+                "A Dash moves only after its roll succeeded, along the declared path.");
         }
-        var check = Board.CheckMove(state, model, e.Path);
+        Require(Board.JumpProblem(state, model, e.Path, e.Jumps, e.Payment) is null, "The Left-Hand Path jumps must be known, in order and paid for.");
+        var check = Board.CheckMove(state, model, e.Path, e.Jumps);
         Require(check.IsLegal && check.Cost == e.Cost, "The move must follow a legal path at the recorded cost.");
         Require(check.SideClimb is null, "A move that climbs a tower's side needs its Risky Success Roll first.");
-        var after = TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
+        var paying = state;
+        foreach (var p in e.Payment)
+        {
+            var payer = paying.FindModel(p.Model)!;
+            paying = TurnRules.WithModel(paying, payer with { SinMarkers = payer.SinMarkers - p.Count });
+        }
+        model = paying.FindModel(e.Model)!;
+        var after = TurnRules.WithModel(paying, model with { Position = e.Path[^1] }) with
         {
             Actions = e.Kind == MoveKind.Move ? state.Actions | ActionsTaken.Move : state.Actions,
             InProgress = null,

@@ -417,6 +417,10 @@ public static class MatchReadiness
             {
                 spells.Add("ShadowWalker");
             }
+            if (abilities.Contains(HandPathName))
+            {
+                spells.Add("LeftHandPath");
+            }
             if (abilities.Contains(InfernoName))
             {
                 spells.Add("BurningInferno");
@@ -789,6 +793,7 @@ public static class MatchReadiness
     private const string LoudspeakersName = "Loudspeakers ACTION";
     private const string PuppetMasterName = "Puppet Master ACTION";
     private const string GodIsWithUsName = "God is With Us! ACTION";
+    private const string HandPathName = "Left-Hand Path (Spell, cost 2)";
     private const string InfernoName = "Burning Inferno (Spell, cost 1-3)";
     private const string BlessingName = "Blessing of the Serpent Moon (Spell, cost 2/4/6)";
     private const string OracleName = "Oracle Beast Cloak (Spell, cost 3)";
@@ -848,7 +853,7 @@ public static class MatchReadiness
         AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
         Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
         TeethAndClaws, TeethAndClawsLion, FeebleFlailing, CrushingBlows, PoisonStingers, OverwhelmingHorde, TrampleAction,
-        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName, BeaconName, InfernoName, ShadowWalkerName, BlessingName, OracleName,
+        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName, BeaconName, InfernoName, HandPathName, ShadowWalkerName, BlessingName, OracleName,
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1

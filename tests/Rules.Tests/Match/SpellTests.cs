@@ -14,7 +14,7 @@ namespace Rules.Tests.Match;
 // BLOOD MARKERS from models without CULT or DEMONIC, anywhere, no roll, each spell once per activation.
 public class SpellTests
 {
-    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony | SpellKind.BurningInferno, CastsInferno = true, Traits = ModelTraits.Demonic };
+    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony | SpellKind.BurningInferno | SpellKind.LeftHandPath, CastsInferno = true, Traits = ModelTraits.Demonic };
 
     // A1 (the Court caster, DEMONIC, 2 SIN MARKERS) at (10, 10), A2 (DEMONIC, 3 SIN MARKERS) at (2, 30), B1 (16, 10), B2 (30, 30), activated A1;
     // B1 and B2 carry BLOOD MARKERS.
@@ -521,6 +521,58 @@ public class SpellTests
         Assert.Equal(-2, Hit(1).Injury.Modifier);   // plain armour
         Assert.Equal(-1, Hit(2).Injury.Modifier);   // ARMOUR PIERCING
         Assert.Equal(0, Hit(3).Injury.Modifier);    // IGNORE ARMOUR for the model it was aimed at
+    }
+
+    // October 2026 Review (U152): Left-Hand Path, redeployed in contact with a terrain piece within 24" in the middle of a Move or Dash.
+    [Fact]
+    [Trait("Rule", "Left-Hand Path: when taking a Move or Dash ACTION, interrupt the move to redeploy in contact with a terrain piece within 24\" and more than 1\" from enemies, then carry on")]
+    public void LeftHandPathRedeploysAModelInTheMiddleOfAMove()
+    {
+        var play = Ready(2, Wall("w", "13", "5", "14", "15"));
+        play.Put(B(1), "25", "10");
+        MoveModel Hop(int pay, params int[] jumps) => new(Seat.One, A(1), Path(("11", "10"), ("14.5", "10"), ("18", "10"))) { Jumps = [.. jumps], Payment = Pay(("A2", pay)) };
+        play.Refused(new MoveModel(Seat.One, A(1), Path(("11", "10"), ("18", "10"))), ReasonCode.MoveIllegal);      // the wall is in the way
+        play.Refused(Hop(1, 1), ReasonCode.MoveIllegal);                                                          // 2 SIN MARKERS a jump
+        play.Refused(Hop(2, 5), ReasonCode.MoveIllegal);                                                          // no such point
+        play.Refused(new MoveModel(Seat.One, A(1), Path(("11", "10"), ("20", "10"), ("18", "10"))) { Jumps = [1], Payment = Pay(("A2", 2)) }, ReasonCode.MoveIllegal);   // touches no terrain
+        play.Refused(new MoveModel(Seat.One, A(1), Path(("11", "10"), ("14.5", "10"), ("25", "10"))) { Jumps = [1], Payment = Pay(("A2", 2)) }, ReasonCode.MoveIllegal);   // too far for what is left
+        play.Do(Hop(2, 1));
+        Assert.Equal(P("18", "10"), play.M(A(1)).Position);
+        Assert.Equal(1, play.M(A(2)).SinMarkers);
+        Assert.True(play.State.Actions.HasFlag(ActionsTaken.Move));
+    }
+
+    [Fact]
+    public void LeftHandPathNeedsTheSpellAndRoomAwayFromEnemies()
+    {
+        // A model that does not know it.
+        var plain = new BoardPlay(2, id => id == A(2) ? Rifleman with { Traits = ModelTraits.Demonic } : Rifleman,
+            scenario: new Scenario(Field("36", [Wall("w", "13", "5", "14", "15")], [new DeploymentZone("west", F("0", "0", "6", "36")), new DeploymentZone("east", F("30", "0", "36", "36"))]), [])).ToActivation();
+        plain.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "25", "10").Put(B(2), "30", "30").Sin(A(2), 3);
+        plain.Do(new ActivateModel(Seat.One, A(1)));
+        plain.Refused(new MoveModel(Seat.One, A(1), Path(("11", "10"), ("14.5", "10"), ("18", "10"))) { Jumps = [1], Payment = Pay(("A2", 2)) }, ReasonCode.MoveIllegal);
+
+        // An enemy within 1" of the landing place.
+        var crowded = Ready(2, Wall("w", "13", "5", "14", "15"));
+        crowded.Put(B(1), "15.5", "10");
+        crowded.Refused(new MoveModel(Seat.One, A(1), Path(("11", "10"), ("14.5", "10"), ("14.5", "12"))) { Jumps = [1], Payment = Pay(("A2", 2)) }, ReasonCode.MoveIllegal);
+    }
+
+    [Fact]
+    public void LeftHandPathWorksInADashAfterItsRoll()
+    {
+        var play = Ready(2, Wall("w", "13", "5", "14", "15"));
+        play.Put(B(1), "25", "10");
+        var dash = new DashModel(Seat.One, A(1), Path(("11", "10"), ("14.5", "10"), ("18", "10"))) { Jumps = [1], Payment = Pay(("A2", 2)) };
+        var events = play.Do(dash, 6, 6).Events;
+        var moved = events.OfType<ModelMoved>().Single();
+        Assert.Equal((MoveKind.Dash, 1), (moved.Kind, moved.Jumps.Single()));
+        Assert.Equal(P("18", "10"), play.M(A(1)).Position);
+        Assert.Equal(1, play.M(A(2)).SinMarkers);
+        // A forged move without the payment is refused.
+        var again = Ready(2, Wall("w", "13", "5", "14", "15"));
+        again.Put(B(1), "25", "10");
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(again.State, new ModelMoved(A(1), MoveKind.Move, moved.Path, moved.Cost) { Jumps = moved.Jumps }));
     }
 
     [Fact]

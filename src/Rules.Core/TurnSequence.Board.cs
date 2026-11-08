@@ -209,7 +209,7 @@ public static partial class TurnSequence
         return null;
     }
 
-    private static Rejection? ValidateMove(MatchState state, Seat seat, ModelId id, ImmutableArray<Point2> path, ActionsTaken action)
+    private static Rejection? ValidateMove(MatchState state, Seat seat, ModelId id, ImmutableArray<Point2> path, ActionsTaken action, ImmutableArray<int> jumps = default, ImmutableArray<MarkerPayment> payment = default)
     {
         if (ValidateActing(state, seat, id, out var model) is { } rejection)
         {
@@ -231,7 +231,12 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.TooManyWaypoints, $"A move has at most {ModelMoved.MaxWaypoints} waypoints.", Board.RefMove);
         }
-        var result = Board.CheckMove(state, model!, path.IsDefault ? [] : path);
+        var jumping = jumps.IsDefault ? [] : jumps;
+        if (Board.JumpProblem(state, model!, path.IsDefault ? [] : path, jumping, payment) is { } cannot)
+        {
+            return new(ReasonCode.MoveIllegal, cannot, "Rules Review October 2026 p. 12");
+        }
+        var result = Board.CheckMove(state, model!, path.IsDefault ? [] : path, jumping);
         return result.IsLegal ? null : new(ReasonCode.MoveIllegal, result.Text, result.RuleRef);
     }
 
@@ -847,14 +852,14 @@ public static partial class TurnSequence
                 }
                 break;
             case MoveModel c:
-                var move = Board.CheckMove(state, state.FindModel(c.Model)!, c.Path);
+                var move = Board.CheckMove(state, state.FindModel(c.Model)!, c.Path, c.Jumps);
                 if (move.SideClimb is not null)
                 {
                     DeclareClimb(run, c.Model, MoveKind.Move, c.Path);
                 }
                 else
                 {
-                    run.Emit(new ModelMoved(c.Model, MoveKind.Move, c.Path, move.Cost));
+                    run.Emit(new ModelMoved(c.Model, MoveKind.Move, c.Path, move.Cost) { Jumps = c.Jumps, Payment = c.Payment });
                 }
                 break;
             case TriggerMartyrdom c:
@@ -878,7 +883,7 @@ public static partial class TurnSequence
                 }
                 break;
             case DashModel c:
-                run.Emit(new DashDeclared(c.Model, c.Path));
+                run.Emit(new DashDeclared(c.Model, c.Path) { Jumps = c.Jumps, Payment = c.Payment });
                 if (run.State.FindModel(c.Model)!.Markers > 0)
                 {
                     run.Emit(new DecisionRequested(DecisionKind.SpendMarkersOnSuccessRoll, c.Seat.Opponent()));
@@ -1086,14 +1091,14 @@ public static partial class TurnSequence
             }
             case RollStage.DashMove:
             {
-                var dash = Board.CheckMove(s, actor, progress.DashPath);
+                var dash = Board.CheckMove(s, actor, progress.DashPath, progress.DashJumps.IsDefault ? [] : progress.DashJumps);
                 if (dash.SideClimb is not null)
                 {
                     DeclareClimb(run, progress.Actor, MoveKind.Dash, progress.DashPath);
                 }
                 else
                 {
-                    run.Emit(new ModelMoved(progress.Actor, MoveKind.Dash, progress.DashPath, dash.Cost));
+                    run.Emit(new ModelMoved(progress.Actor, MoveKind.Dash, progress.DashPath, dash.Cost) { Jumps = progress.DashJumps.IsDefault ? [] : progress.DashJumps, Payment = progress.DashPayment.IsDefault ? [] : progress.DashPayment });
                 }
                 return true;
             }

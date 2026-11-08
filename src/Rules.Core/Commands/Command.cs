@@ -53,10 +53,24 @@ public sealed record PlaceModel(Seat Seat, ModelId Model, Point2 At) : Command
 }
 
 // A Move ACTION (p. 34): the active model's centre follows the waypoints in order. At most MaxWaypoints of them.
-public sealed record MoveModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command;
+public sealed record MoveModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command
+{
+    // October 2026 Review (U152): Left-Hand Path. The indexes of the path's points the model is redeployed at instead of walking to them, and the
+    // SIN MARKERS (2 for each) that pay for it; both left off the wire when empty.
+    public ImmutableArray<int> Jumps { get; init; } = [];
+
+    public ImmutableArray<MarkerPayment> Payment { get; init; } = [];
+}
 
 // A Dash ACTION: a Risky Success Roll first, then a move like an ordinary Move (p. 34).
-public sealed record DashModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command;
+public sealed record DashModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command
+{
+    // October 2026 Review (U152): Left-Hand Path. The indexes of the path's points the model is redeployed at instead of walking to them, and the
+    // SIN MARKERS (2 for each) that pay for it; both left off the wire when empty.
+    public ImmutableArray<int> Jumps { get; init; } = [];
+
+    public ImmutableArray<MarkerPayment> Payment { get; init; } = [];
+}
 
 // A Shoot ACTION: a Ranged Attack by the active model against one enemy model (pp. 42-44).
 public sealed record Shoot(Seat Seat, ModelId Attacker, ModelId Target) : Command

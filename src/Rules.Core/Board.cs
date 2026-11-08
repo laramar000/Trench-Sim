@@ -144,6 +144,123 @@ internal static class Board
         return Movement.CheckPath(scenario.Battlefield, BodyOf(state, mover)!, path, Allowance(state, mover), others, sideClimb: true);
     }
 
+    // ---- October 2026 Review (U152): Left-Hand Path ----
+
+    public static readonly Length HandPathReach = Length.FromInches(24);
+
+    // Why a move with these jumps cannot be paid for or made, apart from its geometry (CheckMove), or null.
+    public static string? JumpProblem(MatchState state, ModelState mover, IReadOnlyList<Point2> path, IReadOnlyList<int> jumps, ImmutableArray<MarkerPayment> payment)
+    {
+        if (jumps.Count == 0)
+        {
+            return payment.IsDefaultOrEmpty ? null : "Nothing is paid for a move with no jump.";
+        }
+        if ((state.Setup!.ProfileOf(mover.Id)!.Spells & SpellKind.LeftHandPath) == 0)
+        {
+            return "The model does not know Left-Hand Path.";
+        }
+        if (!state.Mines.IsEmpty)
+        {
+            return "Left-Hand Path is not played with Mine Markers on the table.";
+        }
+        if (jumps.Any(j => j < 0 || j >= path.Count) || jumps.Distinct().Count() != jumps.Count || !jumps.SequenceEqual(jumps.Order()))
+        {
+            return "The jumps name different points of the path, in order.";
+        }
+        if (PaymentRefusal(state, mover.Seat, payment, out var paid) is { } unpaid)
+        {
+            return unpaid;
+        }
+        return paid.Values.Sum() == 2 * jumps.Count ? null : "Each Left-Hand Path costs 2 SIN MARKERS.";
+    }
+
+    // A move whose path has points the model is redeployed at (Left-Hand Path): the walks between them are checked as ordinary moves
+    // from where the model then stands, within what is left of its Movement; each redeployment must be more than 1" from every enemy,
+    // a legal place for the base, and in contact with a terrain piece within 24" of where the model was.
+    public static MoveResult CheckMove(MatchState state, ModelState mover, IReadOnlyList<Point2> path, IReadOnlyList<int> jumps)
+    {
+        if (jumps.Count == 0)
+        {
+            return CheckMove(state, mover, path);
+        }
+        var scenario = ScenarioOf(state)!;
+        var others = OnTable(state)
+            .Where(m => m.Id != mover.Id)
+            .Select(m => new Obstacle(BodyOf(state, m)!, m.Seat == mover.Seat ? Relation.Friendly : Relation.Enemy))
+            .Concat(ShrineObstacles(state))
+            .ToList();
+        var body = BodyOf(state, mover)!;
+        var left = Allowance(state, mover);
+        var spent = Length.Zero;
+        var walk = new List<Point2>();
+        MoveResult? Walk()
+        {
+            if (walk.Count == 0)
+            {
+                return null;
+            }
+            var result = Movement.CheckPath(scenario.Battlefield, body, walk, left - spent, others);
+            if (!result.IsLegal)
+            {
+                return result;
+            }
+            spent += result.Cost;
+            body = body.At(walk[^1]);
+            walk.Clear();
+            return null;
+        }
+        for (var i = 0; i < path.Count; i++)
+        {
+            if (!jumps.Contains(i))
+            {
+                walk.Add(path[i]);
+                continue;
+            }
+            if (Walk() is { } refused)
+            {
+                return refused;
+            }
+            if (JumpPlacementProblem(state, mover, scenario, body, path[i]) is { } why)
+            {
+                return new MoveResult(false, MoveRefusal.EndsOnBase, why, "Rules Review October 2026 p. 12", spent, null);
+            }
+            body = body.At(path[i]);
+        }
+        return Walk() ?? new MoveResult(true, null, "The move is legal.", "1.0.2 p. 35", spent, null);
+    }
+
+    private static string? JumpPlacementProblem(MatchState state, ModelState mover, Scenario scenario, ModelBody from, Point2 to)
+    {
+        var landing = from.At(to);
+        if (!Placement.Check(scenario.Battlefield, landing, AllBodies(state, mover.Id), null).IsLegal)
+        {
+            return "The model cannot be redeployed there: the base does not fit.";
+        }
+        if (OnTable(state).Any(o => o.Seat != mover.Seat && Measure.IsWithin(landing, BodyOf(state, o)!, EngagementRange)))
+        {
+            return "The model must be redeployed more than 1\" from every enemy model.";
+        }
+        var reach = HandPathReach.Thousandths + from.Radius.Thousandths + from.HalfSpan.Thousandths;
+        var touch = landing.Radius.Thousandths + landing.HalfSpan.Thousandths + 1;
+        return scenario.Battlefield.Terrain.Any(t => Within(t.Footprint, from.Centre, reach) && Within(t.Footprint, to, touch))
+            ? null : "The model is redeployed in contact with a terrain piece within 24\" of where it was.";
+    }
+
+    // Whether a point is within `distance` (thousandths) of any part of the footprint.
+    private static bool Within(Footprint footprint, Point2 at, long distance)
+    {
+        foreach (var part in footprint.Parts)
+        {
+            Int128 dx = Math.Max(Math.Max(part.Min.X.Thousandths - at.X.Thousandths, at.X.Thousandths - part.Max.X.Thousandths), 0);
+            Int128 dy = Math.Max(Math.Max(part.Min.Y.Thousandths - at.Y.Thousandths, at.Y.Thousandths - part.Max.Y.Thousandths), 0);
+            if (dx * dx + dy * dy <= (Int128)distance * distance)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Trench Warfare: the Mine Placement Area, the 12" of No Man's Land next to the defender's zone (p. 161, U93). Null
     // before the roles are chosen or when the zones do not face each other.
     public static Rect? MinePlacementArea(MatchState state)
