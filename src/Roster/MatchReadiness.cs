@@ -300,7 +300,7 @@ public static class MatchReadiness
     // Roster stage R6f (U122): what an upgrade the engine plays gives, beside its keywords (STRONG, FEAR): Ranged or Melee
     // DICE, a Melee Characteristic set to a number (Kavass: +0 instead of -1), +1 DICE to the Dash roll, Counter-Charge,
     // and a base that changes for one entry (a Trench Pilgrim with Zealot Strength has a 32 mm base).
-    private sealed record PlayedUpgrade(int RangedDice = 0, int MeleeDice = 0, int? MeleeTo = null, bool Dash = false, bool CounterCharge = false, string? BaseFor = null);
+    private sealed record PlayedUpgrade(int RangedDice = 0, int MeleeDice = 0, int? MeleeTo = null, bool Dash = false, bool CounterCharge = false, string? BaseFor = null, bool Hunts = false);
 
     private static readonly Dictionary<string, PlayedUpgrade> PlayedUpgrades = new(StringComparer.Ordinal)
     {
@@ -312,6 +312,10 @@ public static class MatchReadiness
         ["rapid-assault"] = new(Dash: true),
         ["blind-rage"] = new(Dash: true),
         ["kavass"] = new(MeleeTo: 0),
+        // October 2026 Rules Review (U143): the Court's Goetic Abilities bought as upgrades.
+        ["infernal-challenge"] = new(Hunts: true),
+        ["corpse-candles"] = new(),
+        ["auxilia-sorcerer"] = new(),
     };
 
     // Roster stage R11 (U136): the spell upgrades the engine plays, by upgrade id, with the engine's spell name.
@@ -385,7 +389,7 @@ public static class MatchReadiness
                 without.Add($"{who}: its abilities ({string.Join(", ", skipped)})");
             }
             var baseMm = entry.BaseWidthMm;
-            var (upgradeDash, upgradeCounter) = (false, false);
+            var (upgradeDash, upgradeCounter, upgradeHunts) = (false, false, false);
             var spells = new List<string>();
             // Roster stage R14 (U139): Blood Magic is an ability, not an upgrade.
             if (abilities.Contains(BloodMagicName))
@@ -423,6 +427,7 @@ public static class MatchReadiness
                     meleeBonus += played.MeleeDice;
                     upgradeDash |= played.Dash;
                     upgradeCounter |= played.CounterCharge;
+                    upgradeHunts |= played.Hunts;
                     if (played.BaseFor == entry.Id)
                     {
                         baseMm = ZealotBaseMm;
@@ -685,7 +690,7 @@ public static class MatchReadiness
                 UndeadFortitude = abilities.Contains(UndeadFortitude),
                 AbioticLife = abilities.Contains(AbioticLife),
                 Stealthy = abilities.Contains(StealthGenerator),
-                HuntsTheTough = abilities.Contains(Mubarizun),
+                HuntsTheTough = upgradeHunts || abilities.Contains(Mubarizun),
                 CounterCharge = upgradeCounter || abilities.Contains(CounterCharge),
                 MementoMori = abilities.Contains(MementoMori),
                 Tramples = abilities.Contains(TrampleAction),

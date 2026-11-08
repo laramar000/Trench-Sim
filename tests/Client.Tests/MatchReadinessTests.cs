@@ -841,6 +841,17 @@ public class MatchReadinessTests
         sorcerer.Select(sorcerer.Add("sorcerer"));
         Assert.True(Loaded(sorcerer.MatchCheck()).Spells.HasFlag(SpellKind.BlessingOfTheSerpentMoon));
         Assert.Equal(SpellKind.TooProudToFall, Praetor("dedicated-to-pride", "too-proud-to-fall").Spells);
+        // October 2026 Rules Review (U143): Infernal Challenge (+1 INJURY DICE against TOUGH), Corpse Candles (FEAR) and Auxilia Sorcerer (LEADER).
+        var knight = RosterBuilder.Shipped();
+        knight.ChooseFaction("court");
+        knight.ChooseVariant("dedicated-to-wrath");
+        knight.Select(knight.Add("hell-knight"));
+        knight.ToggleUpgrade("infernal-challenge");
+        knight.ToggleUpgrade("corpse-candles");
+        var challenged = knight.MatchCheck();
+        Assert.Empty(challenged.Refused);
+        Assert.True(Loaded(challenged).HuntsTheTough);
+        Assert.True(Loaded(challenged).Traits.HasFlag(ModelTraits.Fear));
         // A spell the engine does not play yet is named, and gives nothing.
         var gluttony = RosterBuilder.Shipped();
         gluttony.ChooseFaction("court");

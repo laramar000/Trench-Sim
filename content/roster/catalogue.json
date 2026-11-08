@@ -3828,13 +3828,13 @@
    "category": "melee",
    "hands": 2,
    "rule": {
-    "summary": "Injury Rolls use 1D6 (Bloodbath 2D6) with modifiers picking the single highest or lowest die, and the BLOOD MARKERS caused are doubled.",
-    "page": 153
+    "summary": "Injury Rolls use 1D6 (single highest or lowest die with modifiers) and double the BLOOD MARKERS caused; Torture ACTION: a Melee Attack on a non-DEMONIC friend within 1\" that takes it Down for 1 SIN MARKER.",
+    "page": 7
    },
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 153
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 7
    },
    "status": "verified",
    "naming": "keep",
@@ -4306,6 +4306,110 @@
     "book": "Warbands of Trench Crusade",
     "version": "1.0.2",
     "page": 186
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "fiendbound-gatling-gun",
+   "name": "Fiendbound Gatling Gun",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 24,
+   "keywords": [
+    {
+     "id": "HEAVY"
+    },
+    {
+     "id": "SHRAPNEL"
+    }
+   ],
+   "rule": {
+    "summary": "Excruciate: a STRONG model, or one in contact with a friend, may fire it with AUTOMATIC 2 and RELOAD.",
+    "page": 5
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 5
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "iron-maiden-flail",
+   "name": "Iron Maiden Flail",
+   "category": "melee",
+   "hands": 2,
+   "dice": 1,
+   "keywords": [
+    {
+     "id": "CUMBERSOME"
+    },
+    {
+     "id": "HEAVY"
+    }
+   ],
+   "rule": {
+    "summary": "Crushed Inside: a Wretched sealed inside at the start of each game gives it IGNORE ARMOUR and 1 SIN MARKER on a Success.",
+    "page": 5
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 5
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "jaws-of-iron",
+   "name": "Jaws of Iron",
+   "category": "grenade",
+   "rangeInches": 6,
+   "injuryDice": -1,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    },
+    {
+     "id": "IGNORE",
+     "value": "LONG RANGE"
+    }
+   ],
+   "rule": {
+    "summary": "Snap Shut: after a Success with it, the thrower adds +1 DICE to its Melee Attacks on the same target that Activation.",
+    "page": 5
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 5
+   },
+   "status": "verified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "sin-vessel",
+   "name": "Sin Vessel",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "rule": {
+    "summary": "Break Vessel ACTION, once per game: place 2 SIN MARKERS next to the model.",
+    "page": 4
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 4
    },
    "status": "verified",
    "naming": "rename",

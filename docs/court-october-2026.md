@@ -25,7 +25,8 @@ the progress; the reasoning for each rule is in `docs/interpretations.md` (U142 
 | C1 | `ModelState.SinMarkers`; spells paid in SIN MARKERS from friendly DEMONIC models; Exquisite Pain 1-3; Charm of Acedia lasts the Activation | done (U142) |
 | C2 | SIN sources: Mortal Suffering and Perversion of God's Laws (decisions), Beacon of Corruption, Chthonic Vessel (Break Vessel ACTION) | open |
 | C3 | Spells per the Review text: What is Yours is Mine, Call of the Flesh, Light of Samael, Slavemaster, Burning Inferno, Left-Hand Path, Uncaring Gluttony, Raining Blood, then the variant spells | open |
-| C4 | Court roster data (`content/roster/factions/court.json`) to the Review: models, costs, abilities, Armoury and Battlekit | open |
+| C4a | Base Court list in `court.json` and `catalogue.json` to the Review: models, costs, abilities, Armoury, new kit (U143) | done |
+| C4b | The rest of the Review's base text: Hunter, Pit Locust and Wretched details, mercenary Goetic Warlock / Sin Eater lines, every model's engine effects | open |
 | C5 | The seven variants' special rules and Battlekit, one variant at a time | open |
 | C6 | Client: SIN MARKER display (board drops, unit card), spell picker | open |
 

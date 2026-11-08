@@ -12,9 +12,14 @@
    "page": 147
   },
   {
+   "name": "SIN MARKERS",
+   "summary": "Spell fuel, up to 6 on a model (a D6 beside it). Mortal Suffering: when a friendly DEMONIC model would place a BLOOD MARKER next to an enemy, place a SIN MARKER next to a friendly model instead. Perversion of God's Laws: when a friendly DEMONIC model would get a BLOOD MARKER, the opponent may instead remove one of its SIN MARKERS.",
+   "page": 2
+  },
+  {
    "name": "Goetic Powers",
-   "summary": "ELITE models can have Goetic Powers (abilities and spells), as many as their entry says. Spells are paid for in SIN MARKERS taken from friendly DEMONIC models, anywhere (October 2026 Rules Review); no Success Roll; the same spell at most once per Activation.",
-   "page": 147
+   "summary": "ELITE models can have Goetic Powers (abilities and spells), as many as their entry says; each costs 1 Glory when learned in the Quartermaster Step. Spells are paid for in SIN MARKERS taken from friendly DEMONIC models anywhere (in sight or not); no Success Roll; the same spell at most once per Activation. A spell that needs a Cast Spell ACTION can be cast once per Activation each, as often as the model has ACTIONS.",
+   "page": 3
   }
  ],
  "models": [
@@ -69,24 +74,51 @@
       "amount": 10,
       "currency": "ducats"
      },
-     "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+     "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+    },
+    {
+     "id": "black-heart",
+     "name": "Black Heart (Spell, cost 1)",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 2,
+     "note": "cast before its Success or Risky roll: +1 DICE"
+    },
+    {
+     "id": "raining-blood",
+     "name": "Raining Blood (Spell, cost 1-3)",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 3,
+     "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
     }
    ],
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 162
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 8
    },
    "status": "verified",
    "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
-   "naming": "keep"
+   "naming": "keep",
+   "abilities": [
+    {
+     "name": "Beacon of Corruption",
+     "summary": "When it Activates, place 1 SIN MARKER next to it.",
+     "page": 8
+    }
+   ]
   },
   {
    "id": "sorcerer",
    "name": "Sorcerer",
    "max": 1,
    "cost": {
-    "amount": 75,
+    "amount": 85,
     "currency": "ducats"
    },
    "movementInches": 6,
@@ -117,22 +149,48 @@
    "kitAccess": "armoury",
    "upgrades": [
     {
-     "id": "burning-inferno",
-     "name": "Burning Inferno (Spell, cost 1-3)",
-     "cost": {
-      "amount": 15,
-      "currency": "ducats"
-     },
-     "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
-    },
-    {
      "id": "slavemaster",
      "name": "Slavemaster (Spell, cost 1)",
      "cost": {
       "amount": 10,
       "currency": "ducats"
      },
-     "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+     "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+    },
+    {
+     "id": "black-heart",
+     "name": "Black Heart (Spell, cost 1)",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 2,
+     "note": "cast before its Success or Risky roll: +1 DICE"
+    },
+    {
+     "id": "raining-blood",
+     "name": "Raining Blood (Spell, cost 1-3)",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 3,
+     "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+    },
+    {
+     "id": "auxilia-sorcerer",
+     "name": "Auxilia Sorcerer (Ability)",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 1,
+     "keywords": [
+      {
+       "id": "LEADER"
+      }
+     ],
+     "note": "the Sorcerer has the LEADER keyword"
     }
    ],
    "abilities": [
@@ -140,6 +198,11 @@
      "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
      "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
      "page": 163
+    },
+    {
+     "name": "Burning Inferno (Spell, cost 1-3)",
+     "summary": "Cast Spell ACTION: a 36\" Ranged Attack; 1 SIN MARKER paid = BLAST 1\", 2 = ARMOUR PIERCING and BLAST 2\", 3 = ARMOUR PIERCING and BLAST 3\" (all FIRE, SCATTER), and a Success at 3 (or a scatter onto a base) gives the model hit IGNORE ARMOUR.",
+     "page": 9
     }
    ],
    "kitRules": {
@@ -149,9 +212,9 @@
     ]
    },
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 163
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 9
    },
    "status": "verified",
    "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
@@ -262,7 +325,50 @@
       "amount": 10,
       "currency": "ducats"
      },
-     "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+     "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+    },
+    {
+     "id": "black-heart",
+     "name": "Black Heart (Spell, cost 1)",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 2,
+     "note": "cast before its Success or Risky roll: +1 DICE"
+    },
+    {
+     "id": "raining-blood",
+     "name": "Raining Blood (Spell, cost 1-3)",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 3,
+     "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+    },
+    {
+     "id": "infernal-challenge",
+     "name": "Infernal Challenge (Ability)",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "note": "+1 INJURY DICE for its Melee Attacks against a TOUGH model. Hell Knights only"
+    },
+    {
+     "id": "corpse-candles",
+     "name": "Corpse Candles (Ability)",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "keywords": [
+      {
+       "id": "FEAR"
+      }
+     ],
+     "note": "the Hell Knight has the FEAR keyword"
     }
    ],
    "abilities": [
@@ -278,9 +384,9 @@
     ]
    },
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 166
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 10
    },
    "status": "verified",
    "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
@@ -312,6 +418,11 @@
      "name": "Law of Hell",
      "summary": "If it takes an enemy ELITE model Out of Action it goes free: removed from the game and the roster.",
      "page": 167
+    },
+    {
+     "name": "Goaded Forth",
+     "summary": "+1 DICE to the Risky roll of its Dash ACTION with a friendly Chain Fiend within 8\" and in sight.",
+     "page": 11
     }
    ],
    "kitRules": {
@@ -319,9 +430,9 @@
     "mustHaveWeapon": true
    },
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 167
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 11
    },
    "status": "verified",
    "note": "There must be more DEMONIC models than Wretched (not checked by the builder).",
@@ -356,6 +467,9 @@
     },
     {
      "id": "FLYING"
+    },
+    {
+     "id": "LIMITED POTENTIAL"
     }
    ],
    "kitAccess": "armoury",
@@ -384,9 +498,9 @@
     ]
    },
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 168
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 11
    },
    "status": "verified",
    "naming": "keep"
@@ -395,7 +509,7 @@
    "id": "chain-fiend",
    "name": "Chain Fiend",
    "cost": {
-    "amount": 30,
+    "amount": 35,
     "currency": "ducats"
    },
    "movementInches": 6,
@@ -417,23 +531,18 @@
    "kitAccess": "armoury",
    "abilities": [
     {
-     "name": "Hateful",
-     "summary": "Activating over 1\" from enemies with a non-CULT, non-DEMONIC enemy in sight within 12\", it must charge the closest one (standing up first).",
-     "page": 169
-    },
-    {
-     "name": "Torturer",
-     "summary": "May attack a non-DEMONIC friend instead, and then cannot attack again that Activation.",
-     "page": 169
+     "name": "Glory Lost",
+     "summary": "+1 DICE to its Melee Attacks while there are 3 or more SIN MARKERS next to friendly Chain Fiends on the battlefield.",
+     "page": 12
     }
    ],
    "kitRules": {
     "note": "A Chain Fiend can have only 1 Ranged Weapon, costing 30 ducats or less (not checked by the builder)."
    },
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 169
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 12
    },
    "status": "verified",
    "naming": "rename"
@@ -473,6 +582,17 @@
     },
     {
      "id": "TOUGH"
+    },
+    {
+     "id": "NEGATE",
+     "value": "CUMBERSOME"
+    },
+    {
+     "id": "NEGATE",
+     "value": "DIFFICULT TERRAIN"
+    },
+    {
+     "id": "LIMITED POTENTIAL"
     }
    ],
    "kitAccess": "armoury",
@@ -483,9 +603,19 @@
      "page": 170
     },
     {
-     "name": "Demonic Aura",
-     "summary": "One aura set by the warband's Deadly Sin (see the sin's list).",
-     "page": 170
+     "name": "Aura of Sin",
+     "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
+     "page": 12
+    },
+    {
+     "name": "Relentless",
+     "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
+     "page": 12
+    },
+    {
+     "name": "Totemic",
+     "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
+     "page": 12
     }
    ],
    "kitRules": {
@@ -505,9 +635,9 @@
     "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
    },
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 170
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 12
    },
    "status": "verified",
    "naming": "rename"
@@ -753,7 +883,7 @@
   {
    "kit": "serpent-assault-gun",
    "cost": {
-    "amount": 50,
+    "amount": 45,
     "currency": "ducats"
    },
    "limit": 2,
@@ -807,7 +937,7 @@
   {
    "kit": "forked-abyssal-sword",
    "cost": {
-    "amount": 50,
+    "amount": 35,
     "currency": "ducats"
    },
    "limit": 1,
@@ -835,10 +965,15 @@
   {
    "kit": "torture-instrument",
    "cost": {
-    "amount": 8,
+    "amount": 10,
     "currency": "ducats"
    },
-   "status": "verified"
+   "status": "verified",
+   "only": [
+    {
+     "keyword": "DEMONIC"
+    }
+   ]
   },
   {
    "kit": "trench-club",
@@ -867,7 +1002,7 @@
   {
    "kit": "incendiary-grenades",
    "cost": {
-    "amount": 15,
+    "amount": 10,
     "currency": "ducats"
    },
    "limit": 2,
@@ -1193,6 +1328,73 @@
    "group": "dog-training",
    "needsKit": "trench-dog",
    "status": "verified"
+  },
+  {
+   "kit": "fiendbound-gatling-gun",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "status": "verified"
+  },
+  {
+   "kit": "iron-maiden-flail",
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "limit": 2,
+   "only": [
+    {
+     "model": "hell-knight"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "jaws-of-iron",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "model": "chain-fiend"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sin-vessel",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "tormentor-chain",
+   "cost": {
+    "amount": 3,
+    "currency": "glory"
+   },
+   "limit": 2,
+   "only": [
+    {
+     "model": "hell-knight"
+    },
+    {
+     "model": "fallen-saint"
+    }
+   ],
+   "status": "verified"
   }
  ],
  "variants": [
@@ -1251,15 +1453,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "blind-rage",
        "name": "Blind Rage (Ability)",
        "cost": {
@@ -1288,23 +1481,59 @@
        },
        "maxPerWarband": 1,
        "note": "-1 INJURY DICE to Injury Rolls against it"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
       }
      ],
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 162
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 8
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
-     "naming": "keep"
+     "naming": "keep",
+     "abilities": [
+      {
+       "name": "Beacon of Corruption",
+       "summary": "When it Activates, place 1 SIN MARKER next to it.",
+       "page": 8
+      }
+     ]
     },
     {
      "id": "sorcerer",
      "name": "Sorcerer",
      "max": 1,
      "cost": {
-      "amount": 75,
+      "amount": 85,
       "currency": "ducats"
      },
      "movementInches": 6,
@@ -1335,24 +1564,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "burning-inferno",
-       "name": "Burning Inferno (Spell, cost 1-3)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
-      },
-      {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "blind-rage",
        "name": "Blind Rage (Ability)",
        "cost": {
@@ -1381,6 +1592,50 @@
        },
        "maxPerWarband": 1,
        "note": "-1 INJURY DICE to Injury Rolls against it"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "auxilia-sorcerer",
+       "name": "Auxilia Sorcerer (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "LEADER"
+        }
+       ],
+       "note": "the Sorcerer has the LEADER keyword"
       }
      ],
      "abilities": [
@@ -1388,6 +1643,11 @@
        "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
        "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
        "page": 163
+      },
+      {
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "summary": "Cast Spell ACTION: a 36\" Ranged Attack; 1 SIN MARKER paid = BLAST 1\", 2 = ARMOUR PIERCING and BLAST 2\", 3 = ARMOUR PIERCING and BLAST 3\" (all FIRE, SCATTER), and a Success at 3 (or a scatter onto a base) gives the model hit IGNORE ARMOUR.",
+       "page": 9
       }
      ],
      "kitRules": {
@@ -1397,9 +1657,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 163
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 9
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
@@ -1441,15 +1701,6 @@
      ],
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "blind-rage",
        "name": "Blind Rage (Ability)",
        "cost": {
@@ -1478,6 +1729,58 @@
        },
        "maxPerWarband": 1,
        "note": "-1 INJURY DICE to Injury Rolls against it"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "infernal-challenge",
+       "name": "Infernal Challenge (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "+1 INJURY DICE for its Melee Attacks against a TOUGH model. Hell Knights only"
+      },
+      {
+       "id": "corpse-candles",
+       "name": "Corpse Candles (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "keywords": [
+        {
+         "id": "FEAR"
+        }
+       ],
+       "note": "the Hell Knight has the FEAR keyword"
       }
      ],
      "abilities": [
@@ -1493,9 +1796,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 166
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 10
      },
      "status": "verified",
      "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
@@ -1536,6 +1839,17 @@
       },
       {
        "id": "TOUGH"
+      },
+      {
+       "id": "NEGATE",
+       "value": "CUMBERSOME"
+      },
+      {
+       "id": "NEGATE",
+       "value": "DIFFICULT TERRAIN"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
       }
      ],
      "kitAccess": "armoury",
@@ -1549,6 +1863,21 @@
        "name": "Aura of Wrath",
        "summary": "+1 DICE to Melee Attacks and Dash Risky rolls for friends within 8\" (itself included).",
        "page": 170
+      },
+      {
+       "name": "Aura of Sin",
+       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
+       "page": 12
+      },
+      {
+       "name": "Relentless",
+       "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
+       "page": 12
+      },
+      {
+       "name": "Totemic",
+       "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
+       "page": 12
       }
      ],
      "kitRules": {
@@ -1568,9 +1897,9 @@
       "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 170
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
      },
      "status": "verified",
      "naming": "rename"
@@ -1666,15 +1995,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "coveted-position",
        "name": "Coveted Position (Spell, cost 2)",
        "cost": {
@@ -1700,23 +2020,59 @@
         "currency": "ducats"
        },
        "note": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
       }
      ],
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 162
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 8
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
-     "naming": "keep"
+     "naming": "keep",
+     "abilities": [
+      {
+       "name": "Beacon of Corruption",
+       "summary": "When it Activates, place 1 SIN MARKER next to it.",
+       "page": 8
+      }
+     ]
     },
     {
      "id": "sorcerer",
      "name": "Sorcerer",
      "max": 1,
      "cost": {
-      "amount": 75,
+      "amount": 85,
       "currency": "ducats"
      },
      "movementInches": 6,
@@ -1747,24 +2103,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "burning-inferno",
-       "name": "Burning Inferno (Spell, cost 1-3)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
-      },
-      {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "coveted-position",
        "name": "Coveted Position (Spell, cost 2)",
        "cost": {
@@ -1790,6 +2128,50 @@
         "currency": "ducats"
        },
        "note": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "auxilia-sorcerer",
+       "name": "Auxilia Sorcerer (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "LEADER"
+        }
+       ],
+       "note": "the Sorcerer has the LEADER keyword"
       }
      ],
      "abilities": [
@@ -1797,6 +2179,11 @@
        "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
        "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
        "page": 163
+      },
+      {
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "summary": "Cast Spell ACTION: a 36\" Ranged Attack; 1 SIN MARKER paid = BLAST 1\", 2 = ARMOUR PIERCING and BLAST 2\", 3 = ARMOUR PIERCING and BLAST 3\" (all FIRE, SCATTER), and a Success at 3 (or a scatter onto a base) gives the model hit IGNORE ARMOUR.",
+       "page": 9
       }
      ],
      "kitRules": {
@@ -1806,9 +2193,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 163
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 9
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
@@ -1850,15 +2237,6 @@
      ],
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "what-is-yours-is-mine",
        "name": "What is Yours is Mine (Spell, cost 1)",
        "cost": {
@@ -1866,6 +2244,58 @@
         "currency": "ducats"
        },
        "note": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "infernal-challenge",
+       "name": "Infernal Challenge (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "+1 INJURY DICE for its Melee Attacks against a TOUGH model. Hell Knights only"
+      },
+      {
+       "id": "corpse-candles",
+       "name": "Corpse Candles (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "keywords": [
+        {
+         "id": "FEAR"
+        }
+       ],
+       "note": "the Hell Knight has the FEAR keyword"
       }
      ],
      "abilities": [
@@ -1881,9 +2311,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 166
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 10
      },
      "status": "verified",
      "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
@@ -1924,6 +2354,17 @@
       },
       {
        "id": "TOUGH"
+      },
+      {
+       "id": "NEGATE",
+       "value": "CUMBERSOME"
+      },
+      {
+       "id": "NEGATE",
+       "value": "DIFFICULT TERRAIN"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
       }
      ],
      "kitAccess": "armoury",
@@ -1937,6 +2378,21 @@
        "name": "Aura of Envy",
        "summary": "Enemies within 12\" cannot charge its warband's models that are within 1\" of their own warband's models.",
        "page": 170
+      },
+      {
+       "name": "Aura of Sin",
+       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
+       "page": 12
+      },
+      {
+       "name": "Relentless",
+       "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
+       "page": 12
+      },
+      {
+       "name": "Totemic",
+       "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
+       "page": 12
       }
      ],
      "kitRules": {
@@ -1956,9 +2412,9 @@
       "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 170
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
      },
      "status": "verified",
      "naming": "rename"
@@ -3722,15 +4178,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "call-of-the-flesh",
        "name": "Call of the Flesh (Spell, cost 2)",
        "cost": {
@@ -3756,23 +4203,59 @@
         "currency": "ducats"
        },
        "note": "before deployment place 3 BLOOD MARKERS on one non-DEMONIC friend. Praetors & Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
       }
      ],
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 162
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 8
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
-     "naming": "keep"
+     "naming": "keep",
+     "abilities": [
+      {
+       "name": "Beacon of Corruption",
+       "summary": "When it Activates, place 1 SIN MARKER next to it.",
+       "page": 8
+      }
+     ]
     },
     {
      "id": "sorcerer",
      "name": "Sorcerer",
      "max": 1,
      "cost": {
-      "amount": 75,
+      "amount": 85,
       "currency": "ducats"
      },
      "movementInches": 6,
@@ -3803,24 +4286,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "burning-inferno",
-       "name": "Burning Inferno (Spell, cost 1-3)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
-      },
-      {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "call-of-the-flesh",
        "name": "Call of the Flesh (Spell, cost 2)",
        "cost": {
@@ -3846,6 +4311,50 @@
         "currency": "ducats"
        },
        "note": "before deployment place 3 BLOOD MARKERS on one non-DEMONIC friend. Praetors & Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "auxilia-sorcerer",
+       "name": "Auxilia Sorcerer (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "LEADER"
+        }
+       ],
+       "note": "the Sorcerer has the LEADER keyword"
       }
      ],
      "abilities": [
@@ -3853,6 +4362,11 @@
        "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
        "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
        "page": 163
+      },
+      {
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "summary": "Cast Spell ACTION: a 36\" Ranged Attack; 1 SIN MARKER paid = BLAST 1\", 2 = ARMOUR PIERCING and BLAST 2\", 3 = ARMOUR PIERCING and BLAST 3\" (all FIRE, SCATTER), and a Success at 3 (or a scatter onto a base) gives the model hit IGNORE ARMOUR.",
+       "page": 9
       }
      ],
      "kitRules": {
@@ -3862,9 +4376,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 163
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 9
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
@@ -3906,15 +4420,6 @@
      ],
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "exquisite-pain",
        "name": "Exquisite Pain (Spell, cost 1-2)",
        "cost": {
@@ -3922,6 +4427,58 @@
         "currency": "ducats"
        },
        "note": "Cast Spell ACTION: the markers paid go onto a model in sight"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "infernal-challenge",
+       "name": "Infernal Challenge (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "+1 INJURY DICE for its Melee Attacks against a TOUGH model. Hell Knights only"
+      },
+      {
+       "id": "corpse-candles",
+       "name": "Corpse Candles (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "keywords": [
+        {
+         "id": "FEAR"
+        }
+       ],
+       "note": "the Hell Knight has the FEAR keyword"
       }
      ],
      "abilities": [
@@ -3937,9 +4494,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 166
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 10
      },
      "status": "verified",
      "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
@@ -3980,6 +4537,17 @@
       },
       {
        "id": "TOUGH"
+      },
+      {
+       "id": "NEGATE",
+       "value": "CUMBERSOME"
+      },
+      {
+       "id": "NEGATE",
+       "value": "DIFFICULT TERRAIN"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
       }
      ],
      "kitAccess": "armoury",
@@ -3993,6 +4561,21 @@
        "name": "Aura of Lust",
        "summary": "Enemy armour without IMPERVIOUS within 4\" can lose any of its keywords or rules (except base size).",
        "page": 170
+      },
+      {
+       "name": "Aura of Sin",
+       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
+       "page": 12
+      },
+      {
+       "name": "Relentless",
+       "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
+       "page": 12
+      },
+      {
+       "name": "Totemic",
+       "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
+       "page": 12
       }
      ],
      "kitRules": {
@@ -4012,9 +4595,9 @@
       "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 170
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
      },
      "status": "verified",
      "naming": "rename"
@@ -4105,15 +4688,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "light-of-samael",
        "name": "Light of the Fallen (Spell, cost 2)",
        "cost": {
@@ -4139,23 +4713,59 @@
         "currency": "ducats"
        },
        "note": "cast when taken Down: it stays standing (other effects still apply). Praetors & Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
       }
      ],
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 162
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 8
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
-     "naming": "keep"
+     "naming": "keep",
+     "abilities": [
+      {
+       "name": "Beacon of Corruption",
+       "summary": "When it Activates, place 1 SIN MARKER next to it.",
+       "page": 8
+      }
+     ]
     },
     {
      "id": "sorcerer",
      "name": "Sorcerer",
      "max": 1,
      "cost": {
-      "amount": 75,
+      "amount": 85,
       "currency": "ducats"
      },
      "movementInches": 6,
@@ -4186,24 +4796,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "burning-inferno",
-       "name": "Burning Inferno (Spell, cost 1-3)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
-      },
-      {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "light-of-samael",
        "name": "Light of the Fallen (Spell, cost 2)",
        "cost": {
@@ -4229,6 +4821,50 @@
         "currency": "ducats"
        },
        "note": "cast when taken Down: it stays standing (other effects still apply). Praetors & Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "auxilia-sorcerer",
+       "name": "Auxilia Sorcerer (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "LEADER"
+        }
+       ],
+       "note": "the Sorcerer has the LEADER keyword"
       }
      ],
      "abilities": [
@@ -4236,6 +4872,11 @@
        "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
        "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
        "page": 163
+      },
+      {
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "summary": "Cast Spell ACTION: a 36\" Ranged Attack; 1 SIN MARKER paid = BLAST 1\", 2 = ARMOUR PIERCING and BLAST 2\", 3 = ARMOUR PIERCING and BLAST 3\" (all FIRE, SCATTER), and a Success at 3 (or a scatter onto a base) gives the model hit IGNORE ARMOUR.",
+       "page": 9
       }
      ],
      "kitRules": {
@@ -4245,9 +4886,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 163
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 9
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
@@ -4289,15 +4930,6 @@
      ],
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "proud-defiance",
        "name": "Proud Defiance (Ability)",
        "cost": {
@@ -4305,6 +4937,58 @@
         "currency": "ducats"
        },
        "note": "no Morale Checks while it is on the battlefield"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "infernal-challenge",
+       "name": "Infernal Challenge (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "+1 INJURY DICE for its Melee Attacks against a TOUGH model. Hell Knights only"
+      },
+      {
+       "id": "corpse-candles",
+       "name": "Corpse Candles (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "keywords": [
+        {
+         "id": "FEAR"
+        }
+       ],
+       "note": "the Hell Knight has the FEAR keyword"
       }
      ],
      "abilities": [
@@ -4320,9 +5004,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 166
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 10
      },
      "status": "verified",
      "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
@@ -4363,6 +5047,17 @@
       },
       {
        "id": "TOUGH"
+      },
+      {
+       "id": "NEGATE",
+       "value": "CUMBERSOME"
+      },
+      {
+       "id": "NEGATE",
+       "value": "DIFFICULT TERRAIN"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
       }
      ],
      "kitAccess": "armoury",
@@ -4376,6 +5071,21 @@
        "name": "Aura of Pride",
        "summary": "At the end of its Activation each enemy within 8\" gets 1 BLOOD MARKER.",
        "page": 171
+      },
+      {
+       "name": "Aura of Sin",
+       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
+       "page": 12
+      },
+      {
+       "name": "Relentless",
+       "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
+       "page": 12
+      },
+      {
+       "name": "Totemic",
+       "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
+       "page": 12
       }
      ],
      "kitRules": {
@@ -4395,9 +5105,9 @@
       "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 170
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
      },
      "status": "verified",
      "naming": "rename"
@@ -4488,15 +5198,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "charm-of-acedia",
        "name": "Charm of Acedia (Spell, cost 1)",
        "cost": {
@@ -4524,23 +5225,59 @@
        },
        "maxPerWarband": 2,
        "note": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
       }
      ],
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 162
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 8
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
-     "naming": "keep"
+     "naming": "keep",
+     "abilities": [
+      {
+       "name": "Beacon of Corruption",
+       "summary": "When it Activates, place 1 SIN MARKER next to it.",
+       "page": 8
+      }
+     ]
     },
     {
      "id": "sorcerer",
      "name": "Sorcerer",
      "max": 1,
      "cost": {
-      "amount": 75,
+      "amount": 85,
       "currency": "ducats"
      },
      "movementInches": 6,
@@ -4571,24 +5308,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "burning-inferno",
-       "name": "Burning Inferno (Spell, cost 1-3)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
-      },
-      {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "charm-of-acedia",
        "name": "Charm of Acedia (Spell, cost 1)",
        "cost": {
@@ -4616,6 +5335,50 @@
        },
        "maxPerWarband": 2,
        "note": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "auxilia-sorcerer",
+       "name": "Auxilia Sorcerer (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "LEADER"
+        }
+       ],
+       "note": "the Sorcerer has the LEADER keyword"
       }
      ],
      "abilities": [
@@ -4623,6 +5386,11 @@
        "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
        "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
        "page": 163
+      },
+      {
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "summary": "Cast Spell ACTION: a 36\" Ranged Attack; 1 SIN MARKER paid = BLAST 1\", 2 = ARMOUR PIERCING and BLAST 2\", 3 = ARMOUR PIERCING and BLAST 3\" (all FIRE, SCATTER), and a Success at 3 (or a scatter onto a base) gives the model hit IGNORE ARMOUR.",
+       "page": 9
       }
      ],
      "kitRules": {
@@ -4632,9 +5400,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 163
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 9
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
@@ -4676,15 +5444,6 @@
      ],
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "charm-of-acedia",
        "name": "Charm of Acedia (Spell, cost 1)",
        "cost": {
@@ -4712,6 +5471,58 @@
        },
        "maxPerWarband": 2,
        "note": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "infernal-challenge",
+       "name": "Infernal Challenge (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "+1 INJURY DICE for its Melee Attacks against a TOUGH model. Hell Knights only"
+      },
+      {
+       "id": "corpse-candles",
+       "name": "Corpse Candles (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "keywords": [
+        {
+         "id": "FEAR"
+        }
+       ],
+       "note": "the Hell Knight has the FEAR keyword"
       }
      ],
      "abilities": [
@@ -4727,9 +5538,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 166
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 10
      },
      "status": "verified",
      "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
@@ -4770,6 +5581,17 @@
       },
       {
        "id": "TOUGH"
+      },
+      {
+       "id": "NEGATE",
+       "value": "CUMBERSOME"
+      },
+      {
+       "id": "NEGATE",
+       "value": "DIFFICULT TERRAIN"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
       }
      ],
      "kitAccess": "armoury",
@@ -4783,6 +5605,21 @@
        "name": "Aura of Sloth",
        "summary": "Enemies within 8\" treat Minor Hit results as Down.",
        "page": 171
+      },
+      {
+       "name": "Aura of Sin",
+       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
+       "page": 12
+      },
+      {
+       "name": "Relentless",
+       "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
+       "page": 12
+      },
+      {
+       "name": "Totemic",
+       "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
+       "page": 12
       }
      ],
      "kitRules": {
@@ -4802,9 +5639,9 @@
       "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 170
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
      },
      "status": "verified",
      "naming": "rename"
@@ -4895,15 +5732,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "belly-of-the-beast",
        "name": "Belly of the Beast (Ability)",
        "cost": {
@@ -4931,23 +5759,59 @@
        },
        "maxPerWarband": 1,
        "note": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
       }
      ],
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 162
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 8
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
-     "naming": "keep"
+     "naming": "keep",
+     "abilities": [
+      {
+       "name": "Beacon of Corruption",
+       "summary": "When it Activates, place 1 SIN MARKER next to it.",
+       "page": 8
+      }
+     ]
     },
     {
      "id": "sorcerer",
      "name": "Sorcerer",
      "max": 1,
      "cost": {
-      "amount": 75,
+      "amount": 85,
       "currency": "ducats"
      },
      "movementInches": 6,
@@ -4978,24 +5842,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "burning-inferno",
-       "name": "Burning Inferno (Spell, cost 1-3)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
-      },
-      {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "belly-of-the-beast",
        "name": "Belly of the Beast (Ability)",
        "cost": {
@@ -5023,6 +5869,50 @@
        },
        "maxPerWarband": 1,
        "note": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "auxilia-sorcerer",
+       "name": "Auxilia Sorcerer (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "LEADER"
+        }
+       ],
+       "note": "the Sorcerer has the LEADER keyword"
       }
      ],
      "abilities": [
@@ -5030,6 +5920,11 @@
        "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
        "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
        "page": 163
+      },
+      {
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "summary": "Cast Spell ACTION: a 36\" Ranged Attack; 1 SIN MARKER paid = BLAST 1\", 2 = ARMOUR PIERCING and BLAST 2\", 3 = ARMOUR PIERCING and BLAST 3\" (all FIRE, SCATTER), and a Success at 3 (or a scatter onto a base) gives the model hit IGNORE ARMOUR.",
+       "page": 9
       }
      ],
      "kitRules": {
@@ -5039,9 +5934,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 163
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 9
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
@@ -5083,15 +5978,6 @@
      ],
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
        "id": "belly-of-the-beast",
        "name": "Belly of the Beast (Ability)",
        "cost": {
@@ -5109,6 +5995,58 @@
        },
        "maxPerWarband": 1,
        "note": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "infernal-challenge",
+       "name": "Infernal Challenge (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "+1 INJURY DICE for its Melee Attacks against a TOUGH model. Hell Knights only"
+      },
+      {
+       "id": "corpse-candles",
+       "name": "Corpse Candles (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "keywords": [
+        {
+         "id": "FEAR"
+        }
+       ],
+       "note": "the Hell Knight has the FEAR keyword"
       }
      ],
      "abilities": [
@@ -5124,9 +6062,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 166
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 10
      },
      "status": "verified",
      "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
@@ -5167,6 +6105,17 @@
       },
       {
        "id": "TOUGH"
+      },
+      {
+       "id": "NEGATE",
+       "value": "CUMBERSOME"
+      },
+      {
+       "id": "NEGATE",
+       "value": "DIFFICULT TERRAIN"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
       }
      ],
      "kitAccess": "armoury",
@@ -5180,6 +6129,21 @@
        "name": "Aura of Gluttony",
        "summary": "-1 DICE to rolls for enemies within 8\" that are not CULT or ARTIFICIAL.",
        "page": 171
+      },
+      {
+       "name": "Aura of Sin",
+       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
+       "page": 12
+      },
+      {
+       "name": "Relentless",
+       "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
+       "page": 12
+      },
+      {
+       "name": "Totemic",
+       "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
+       "page": 12
       }
      ],
      "kitRules": {
@@ -5199,9 +6163,9 @@
       "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 170
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
      },
      "status": "verified",
      "naming": "rename"
@@ -5292,25 +6256,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
-       "id": "black-heart",
-       "name": "Black Heart (Spell, cost 1)",
-       "cost": {
-        "amount": 5,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 2,
-       "note": "cast before its Success or Risky roll: +1 DICE"
-      },
-      {
        "id": "body-of-gold",
        "name": "Body of Gold (Ability)",
        "cost": {
@@ -5334,23 +6279,59 @@
        },
        "maxPerWarband": 1,
        "note": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
       }
      ],
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 162
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 8
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
-     "naming": "keep"
+     "naming": "keep",
+     "abilities": [
+      {
+       "name": "Beacon of Corruption",
+       "summary": "When it Activates, place 1 SIN MARKER next to it.",
+       "page": 8
+      }
+     ]
     },
     {
      "id": "sorcerer",
      "name": "Sorcerer",
      "max": 1,
      "cost": {
-      "amount": 75,
+      "amount": 85,
       "currency": "ducats"
      },
      "movementInches": 6,
@@ -5381,34 +6362,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "burning-inferno",
-       "name": "Burning Inferno (Spell, cost 1-3)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
-      },
-      {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
-       "id": "black-heart",
-       "name": "Black Heart (Spell, cost 1)",
-       "cost": {
-        "amount": 5,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 2,
-       "note": "cast before its Success or Risky roll: +1 DICE"
-      },
-      {
        "id": "body-of-gold",
        "name": "Body of Gold (Ability)",
        "cost": {
@@ -5432,6 +6385,50 @@
        },
        "maxPerWarband": 1,
        "note": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "auxilia-sorcerer",
+       "name": "Auxilia Sorcerer (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "LEADER"
+        }
+       ],
+       "note": "the Sorcerer has the LEADER keyword"
       }
      ],
      "abilities": [
@@ -5439,6 +6436,11 @@
        "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
        "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
        "page": 163
+      },
+      {
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "summary": "Cast Spell ACTION: a 36\" Ranged Attack; 1 SIN MARKER paid = BLAST 1\", 2 = ARMOUR PIERCING and BLAST 2\", 3 = ARMOUR PIERCING and BLAST 3\" (all FIRE, SCATTER), and a Success at 3 (or a scatter onto a base) gives the model hit IGNORE ARMOUR.",
+       "page": 9
       }
      ],
      "kitRules": {
@@ -5448,9 +6450,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 163
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 9
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
@@ -5492,25 +6494,6 @@
      ],
      "upgrades": [
       {
-       "id": "slavemaster",
-       "name": "Slavemaster (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
-      },
-      {
-       "id": "black-heart",
-       "name": "Black Heart (Spell, cost 1)",
-       "cost": {
-        "amount": 5,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 2,
-       "note": "cast before its Success or Risky roll: +1 DICE"
-      },
-      {
        "id": "body-of-gold",
        "name": "Body of Gold (Ability)",
        "cost": {
@@ -5534,6 +6517,58 @@
        },
        "maxPerWarband": 1,
        "note": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a friendly Chain Fiend within 18\" is commanded to Fight, Move, Shoot or Sacrifice itself"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "raining-blood",
+       "name": "Raining Blood (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "infernal-challenge",
+       "name": "Infernal Challenge (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "+1 INJURY DICE for its Melee Attacks against a TOUGH model. Hell Knights only"
+      },
+      {
+       "id": "corpse-candles",
+       "name": "Corpse Candles (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "keywords": [
+        {
+         "id": "FEAR"
+        }
+       ],
+       "note": "the Hell Knight has the FEAR keyword"
       }
      ],
      "abilities": [
@@ -5549,9 +6584,9 @@
       ]
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 166
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 10
      },
      "status": "verified",
      "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
@@ -5592,6 +6627,17 @@
       },
       {
        "id": "TOUGH"
+      },
+      {
+       "id": "NEGATE",
+       "value": "CUMBERSOME"
+      },
+      {
+       "id": "NEGATE",
+       "value": "DIFFICULT TERRAIN"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
       }
      ],
      "kitAccess": "armoury",
@@ -5605,6 +6651,21 @@
        "name": "Aura of Greed",
        "summary": "Enemies within 12\" that Charge must charge it if they can reach it simply.",
        "page": 171
+      },
+      {
+       "name": "Aura of Sin",
+       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
+       "page": 12
+      },
+      {
+       "name": "Relentless",
+       "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
+       "page": 12
+      },
+      {
+       "name": "Totemic",
+       "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
+       "page": 12
       }
      ],
      "kitRules": {
@@ -5624,9 +6685,9 @@
       "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
      },
      "source": {
-      "book": "Warbands of Trench Crusade",
-      "version": "1.0.2",
-      "page": 170
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
      },
      "status": "verified",
      "naming": "rename"
@@ -5664,9 +6725,9 @@
   }
  ],
  "source": {
-  "book": "Warbands of Trench Crusade",
-  "version": "1.0.2",
-  "page": 146
+  "book": "Rules Review October 2026",
+  "version": "2026-10",
+  "page": 2
  },
  "status": "verified",
  "naming": "rename",

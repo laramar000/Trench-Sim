@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U142), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U143), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -262,7 +262,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
      d88ce8b. Godot is not installed in the cloud container (`which godot` is empty): this needs the owner's PC. Key G (Hide)
      is also the scenario toggle in `Main._UnhandledInput`: check which wins when the board has the keyboard.
   9. October Rules Review 2026: the owner chose (2026-11-08) to move the Court to it; the Review PDF was attached to the session, not
-     committed. Plan and stages C1-C6 in `docs/court-october-2026.md`; C1 (SIN MARKERS, spell payment) done, C2-C6 open. Until then
+     committed. Plan and stages C1-C6 in `docs/court-october-2026.md`; C1 (SIN MARKERS, spell payment) and C4a (base Court list data, U143) done, C2-C3, C4b, C5-C6 open. Until then
      the remaining spells (Slavemaster, Burning Inferno, Left-Hand Path, Uncaring Gluttony, Light of Samael, Raining Blood...) wait for C3.
      Martyrdom Dog and Awaited not played.
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):

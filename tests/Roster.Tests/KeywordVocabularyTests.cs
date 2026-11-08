@@ -9,7 +9,7 @@ public class KeywordVocabularyTests
     {
         var loaded = KeywordVocabulary.Load(KeywordVocabulary.DefaultPath());
         Assert.Empty(loaded.Problems);
-        Assert.Equal(56, loaded.Value!.All.Count);
+        Assert.Equal(57, loaded.Value!.All.Count);
         Assert.Equal(KeywordValue.Number, loaded.Value.Find("AUTOMATIC")!.Value);
         Assert.Equal(KeywordValue.Inches, loaded.Value.Find("BLAST")!.Value);
         Assert.Equal(KeywordValue.Text, loaded.Value.Find("NEGATE")!.Value);

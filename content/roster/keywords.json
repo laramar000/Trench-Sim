@@ -44,6 +44,7 @@
     { "id": "INFILTRATOR", "kind": "effect", "value": "none", "page": 56 },
     { "id": "MINED", "kind": "effect", "value": "none", "page": 56 },
     { "id": "LEADER", "kind": "effect", "value": "none", "page": 56 },
+    { "id": "LIMITED POTENTIAL", "kind": "effect", "value": "none", "page": 56 },
     { "id": "PRINCIPALITY", "kind": "tag", "value": "none", "page": 56 },
     { "id": "NEGATE", "kind": "effect", "value": "text", "page": 56 },
     { "id": "PILGRIM", "kind": "tag", "value": "none", "page": 56 },
