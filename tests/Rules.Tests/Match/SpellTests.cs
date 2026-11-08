@@ -14,7 +14,7 @@ namespace Rules.Tests.Match;
 // BLOOD MARKERS from models without CULT or DEMONIC, anywhere, no roll, each spell once per activation.
 public class SpellTests
 {
-    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen | SpellKind.RainingBlood, Traits = ModelTraits.Demonic };
+    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony, Traits = ModelTraits.Demonic };
 
     // A1 (the Court caster, DEMONIC, 2 SIN MARKERS) at (10, 10), A2 (DEMONIC, 3 SIN MARKERS) at (2, 30), B1 (16, 10), B2 (30, 30), activated A1;
     // B1 and B2 carry BLOOD MARKERS.
@@ -382,6 +382,40 @@ public class SpellTests
         var capped = Ready(6);
         capped.Do(Rain(1, "B1"));
         Assert.Equal(6, capped.M(B(1)).BloodMarkers);
+    }
+
+    // October 2026 Review (U148): Uncaring Gluttony, one piece of an enemy's Equipment unusable for the rest of the game.
+    [Fact]
+    [Trait("Rule", "Uncaring Gluttony: pick an enemy model that has not Activated this Turn and one of its pieces of Equipment: unusable for the rest of the game")]
+    public void UncaringGluttonyMakesAPieceOfEquipmentUnusable()
+    {
+        var play = Ready(2, Rifleman with { Treats = true, DigsIn = true }, []);
+        CastSpell Chew(string target, EquipmentPiece piece, params (string, int)[] pays) => new(Seat.One, A(1), SpellKind.UncaringGluttony, Pay(pays)) { Target = new ModelId(target), Piece = piece };
+        play.Refused(Chew("B1", EquipmentPiece.PontiffsCrucifix, ("A2", 2)), ReasonCode.SpellRefused);   // it has none
+        play.Refused(Chew("B1", EquipmentPiece.None, ("A2", 2)), ReasonCode.SpellRefused);               // no piece named
+        play.Refused(Chew("A2", EquipmentPiece.MediKit, ("A2", 2)), ReasonCode.SpellRefused);            // a friend
+        play.Refused(Chew("B1", EquipmentPiece.MediKit, ("A2", 1)), ReasonCode.SpellRefused);            // costs 2
+        play.Do(Chew("B1", EquipmentPiece.MediKit, ("A2", 2)));
+        Assert.False(play.State.Setup!.ProfileOf(B(1))!.Treats);
+        Assert.True(play.State.Setup.ProfileOf(B(1))!.DigsIn);          // the other piece still works
+        Assert.True(play.State.Setup.ProfileOf(B(2))!.Treats);          // and so does everyone else's
+        Assert.NotEqual(0, play.M(B(1)).ChewedKit);
+        play.Do(new EndActivation(Seat.One));
+        play.Do(new ActivateModel(Seat.Two, B(1)));
+        play.Refused(new TreatModel(Seat.Two, B(1), B(2), TreatChoice.RemoveMarker), ReasonCode.NoSuchAction);
+        Assert.Contains("chewed=", StateHash.Canonical(play.State), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UncaringGluttonyNeedsAModelThatHasNotActivatedAndAPieceNotUsedUp()
+    {
+        var spent = Ready(2, Rifleman with { Martyrdom = true }, []);
+        spent.State = spent.State with { Models = [.. spent.State.Models.Select(m => m.Id == B(1) ? m with { MartyrdomSpent = true } : m)] };
+        spent.Refused(new CastSpell(Seat.One, A(1), SpellKind.UncaringGluttony, Pay(("A2", 2))) { Target = B(1), Piece = EquipmentPiece.MartyrdomDevice }, ReasonCode.SpellRefused);
+
+        var active = Ready(2, Rifleman with { Treats = true }, []);
+        active.State = active.State with { Models = [.. active.State.Models.Select(m => m.Id == B(1) ? m with { ActivatedThisTurn = true } : m)] };
+        active.Refused(new CastSpell(Seat.One, A(1), SpellKind.UncaringGluttony, Pay(("A2", 2))) { Target = B(1), Piece = EquipmentPiece.MediKit }, ReasonCode.SpellRefused);
     }
 
     [Fact]

@@ -56,7 +56,7 @@ public static class Spells
 {
     public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic
         | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh
-        | SpellKind.BlessingOfTheSerpentMoon | SpellKind.OracleBeastCloak | SpellKind.TooProudToFall | SpellKind.LightOfTheFallen | SpellKind.RainingBlood;
+        | SpellKind.BlessingOfTheSerpentMoon | SpellKind.OracleBeastCloak | SpellKind.TooProudToFall | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony;
 
     // The number of markers a spell may cost: from Min to Max.
     public static (int Min, int Max) Cost(SpellKind spell) => spell switch
@@ -65,7 +65,7 @@ public static class Spells
         SpellKind.ExquisitePain or SpellKind.RainingBlood => (1, 3),
         SpellKind.CovetedPosition => (2, 2),
         SpellKind.CharmOfAcedia or SpellKind.BlackHeart or SpellKind.BloodMagic => (1, 1),
-        SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh or SpellKind.TooProudToFall or SpellKind.LightOfTheFallen => (2, 2),
+        SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh or SpellKind.TooProudToFall or SpellKind.LightOfTheFallen or SpellKind.UncaringGluttony => (2, 2),
         SpellKind.BlessingOfTheSerpentMoon => (2, 6),
         SpellKind.OracleBeastCloak => (3, 3),
         _ => throw new ArgumentOutOfRangeException(nameof(spell), "One spell at a time."),
@@ -86,6 +86,7 @@ public static class Spells
         SpellKind.TooProudToFall => "Too Proud to Fall",
         SpellKind.LightOfTheFallen => "Light of the Fallen",
         SpellKind.RainingBlood => "Raining Blood",
+        SpellKind.UncaringGluttony => "Uncaring Gluttony",
         _ => spell.ToString(),
     };
 

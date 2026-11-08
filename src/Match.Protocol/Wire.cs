@@ -442,6 +442,8 @@ public static class Wire
         private static readonly HashSet<(Type, string)> OmitWhenZero =
         [
             (typeof(InjuryRolled), nameof(InjuryRolled.Converted)),
+            (typeof(CastSpell), nameof(CastSpell.Piece)),
+            (typeof(SpellCast), nameof(SpellCast.Piece)),
             (typeof(InjuryRolled), nameof(InjuryRolled.Stripped)),
             (typeof(ModelProfile), nameof(ModelProfile.RangedDice)),
             (typeof(ModelProfile), nameof(ModelProfile.MeleeDice)),

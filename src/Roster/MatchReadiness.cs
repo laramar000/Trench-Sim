@@ -338,6 +338,7 @@ public static class MatchReadiness
         ["too-proud-to-fall"] = "TooProudToFall",
         ["light-of-samael"] = "LightOfTheFallen",
         ["raining-blood"] = "RainingBlood",
+        ["uncaring-gluttony"] = "UncaringGluttony",
     };
 
     private const int ZealotBaseMm = 32;

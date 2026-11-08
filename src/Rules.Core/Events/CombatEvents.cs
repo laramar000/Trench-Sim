@@ -793,6 +793,9 @@ public sealed record SpellCast(ModelId Model, SpellKind Spell, ImmutableArray<Ma
 
     // October 2026 Review (U147): Raining Blood's targets, one enemy model per SIN MARKER paid; left off the wire when empty.
     public ImmutableArray<ModelId> Targets { get; init; } = [];
+
+    // October 2026 Review (U148): the piece of Equipment an Uncaring Gluttony makes unusable; left off the wire when None.
+    public EquipmentPiece Piece { get; init; }
 }
 
 // October 2026 Review (U144): Model broke its Sin Vessel: 2 SIN MARKERS (at most 6) next to it. Once per game.

@@ -711,7 +711,7 @@ public static class Reducer
         }
         var caster = Active(state, e.Model, "A spell");
         Require(state.InProgress is null && state.Retreat is null && state.MineStop is null && !state.MustEndActivation && !state.ReloadEnds, "A spell is cast between actions, not while one is being resolved.");
-        Require(Board.SpellRefusal(state, caster, e.Spell, e.Payment, e.Target, e.TakeBlessing, e.Targets) is null, "That spell cannot be cast like that.");
+        Require(Board.SpellRefusal(state, caster, e.Spell, e.Payment, e.Target, e.TakeBlessing, e.Targets, e.Piece) is null, "That spell cannot be cast like that.");
         var next = state with { SpellsCast = state.SpellsCast | e.Spell };
         foreach (var p in e.Payment)
         {
@@ -741,6 +741,14 @@ public static class Reducer
         if (e.Spell == SpellKind.CallOfTheFlesh)
         {
             return next with { CallTarget = e.Model, CallActive = false };
+        }
+        // October 2026 Review (U148): Uncaring Gluttony: the piece of Equipment is unusable for the rest of the game.
+        if (e.Spell == SpellKind.UncaringGluttony)
+        {
+            var chewed = next.FindModel(e.Target!.Value)!;
+            var changed = Equipment.Without(next.Setup!.ProfileOf(chewed.Id)!, e.Piece);
+            next = next with { Setup = next.Setup.WithProfile(chewed.Id, changed) };
+            return TurnRules.WithModel(next, chewed with { ChewedKit = chewed.ChewedKit | (1 << (int)e.Piece) });
         }
         // October 2026 Review (U147): Raining Blood puts 1 BLOOD MARKER (at most 6) on each model it names.
         if (e.Spell == SpellKind.RainingBlood)

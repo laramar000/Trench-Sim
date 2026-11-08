@@ -81,4 +81,8 @@ public sealed record MatchSetup
     public Scenario? Scenario { get; }
 
     public ModelProfile? ProfileOf(ModelId id) => Models.FirstOrDefault(m => m.Id == id)?.Profile;
+
+    // The setup with one model's profile replaced (October 2026 Review, U148: an Uncaring Gluttony makes a piece of Equipment unusable).
+    public MatchSetup WithProfile(ModelId id, ModelProfile profile) =>
+        new(RulesVersion, ScenarioId, TurnLimit, Profile, ZoneIds, Models.Select(m => m.Id == id ? m with { Profile = profile } : m), Scenario);
 }

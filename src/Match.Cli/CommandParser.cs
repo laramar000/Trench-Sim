@@ -65,6 +65,7 @@ public static class CommandParser
                 Target = args.Length >= 4 && !args[1].Equals("RainingBlood", StringComparison.OrdinalIgnoreCase) ? Model(args[2]) : null,
                 Targets = args.Length >= 4 && args[1].Equals("RainingBlood", StringComparison.OrdinalIgnoreCase) ? [.. args[2].Split(',').Select(Model)] : [],
                 TakeBlessing = args.Skip(3).Any(a => a.Equals("blessing", StringComparison.OrdinalIgnoreCase)),
+                Piece = args.Length >= 5 && Enum.TryParse<EquipmentPiece>(args[3], ignoreCase: true, out var piece) ? piece : EquipmentPiece.None,
             },
             "arise" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.AriseAndBeHealed) { Target = Model(Arg(args, 1)) },
             "bless" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.GodIsWithUs) { Target = Model(Arg(args, 1)) },

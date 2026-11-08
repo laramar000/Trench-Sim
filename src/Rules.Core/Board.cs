@@ -525,7 +525,7 @@ internal static class Board
     // Why this model cannot cast that spell now, with that payment and target, or null when it can. The payment is BLOOD
     // MARKERS from models on the battlefield without CULT or DEMONIC, as many in all as the spell costs; the effects are worked
     // out after it is taken, so a model may pay with the very markers a spell would move.
-    public static string? SpellRefusal(MatchState state, ModelState caster, SpellKind spell, ImmutableArray<MarkerPayment> payment, ModelId? target, bool takeBlessing, ImmutableArray<ModelId> targets = default)
+    public static string? SpellRefusal(MatchState state, ModelState caster, SpellKind spell, ImmutableArray<MarkerPayment> payment, ModelId? target, bool takeBlessing, ImmutableArray<ModelId> targets = default, EquipmentPiece piece = EquipmentPiece.None)
     {
         if (!Spells.IsOne(spell))
         {
@@ -566,6 +566,21 @@ internal static class Board
         {
             return target is not null || takeBlessing ? $"{Spells.Name(spell)} has no target."
                 : (spell == SpellKind.BlackHeart ? state.BlackHeartModel : state.BloodMagicModel) == caster.Id ? $"The caster already has a {Spells.Name(spell)} in place." : null;
+        }
+        // October 2026 Review (U148): Uncaring Gluttony picks an enemy model that has not Activated this Turn, anywhere, and one piece of its
+        // Equipment that still works.
+        if (spell == SpellKind.UncaringGluttony)
+        {
+            if (takeBlessing || !(targets.IsDefault || targets.IsEmpty))
+            {
+                return "Uncaring Gluttony has one target.";
+            }
+            if (target is not { } victimId || state.FindModel(victimId) is not { Position: not null } chosen || chosen.Seat == caster.Seat || chosen.Status == ModelStatus.OutOfAction || chosen.ActivatedThisTurn)
+            {
+                return "Uncaring Gluttony needs an enemy model on the battlefield that has not Activated this Turn.";
+            }
+            return piece != EquipmentPiece.None && Equipment.Has(state.Setup!.ProfileOf(chosen.Id)!, piece) && !EquipmentSpent(chosen, state.Setup.ProfileOf(chosen.Id)!, piece)
+                ? null : "The model has no such piece of Equipment still to be used.";
         }
         // October 2026 Review (U147): Raining Blood names one enemy model within 18" per SIN MARKER paid, in sight or not.
         if (spell == SpellKind.RainingBlood)
@@ -764,6 +779,16 @@ internal static class Board
     }
 
     public static readonly Length RainReach = Length.FromInches(18);
+
+    // A consumable or once-only piece that has already been used cannot be picked (the Review: "used in this game").
+    public static bool EquipmentSpent(ModelState model, ModelProfile profile, EquipmentPiece piece) => piece switch
+    {
+        EquipmentPiece.MartyrdomDevice => model.MartyrdomSpent,
+        EquipmentPiece.Talisman => model.TalismansUsed >= profile.Talismans,
+        EquipmentPiece.SinVessel => model.VesselBroken,
+        EquipmentPiece.SacrificialLamb => model.WardSpent,
+        _ => false,
+    };
 
     // ---- October 2026 Review (U146): Light of the Fallen ----
 

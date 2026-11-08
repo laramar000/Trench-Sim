@@ -30,7 +30,8 @@ public sealed record ModelState(
     int BlessingMarkers = 0,
     bool OracleUsed = false,
     int SinMarkers = 0,
-    bool VesselBroken = false)
+    bool VesselBroken = false,
+    int ChewedKit = 0)
 {
     // Roster stage R10 (U135): INFECTION and BLESSING MARKERS are BLOOD MARKERS in another colour: up to 6 of each, and for
     // spending (an opponent's -DICE on a Success Roll, +INJURY DICE on an Injury Roll) every kind counts. Spending takes Blood

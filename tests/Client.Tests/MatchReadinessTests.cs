@@ -893,14 +893,15 @@ public class MatchReadinessTests
         Assert.Empty(challenged.Refused);
         Assert.True(Loaded(challenged).HuntsTheTough);
         Assert.True(Loaded(challenged).Traits.HasFlag(ModelTraits.Fear));
+        Assert.Equal(SpellKind.UncaringGluttony, Praetor("dedicated-to-gluttony", "uncaring-gluttony").Spells);
         // A spell the engine does not play yet is named, and gives nothing.
-        var gluttony = RosterBuilder.Shipped();
-        gluttony.ChooseFaction("court");
-        gluttony.ChooseVariant("dedicated-to-gluttony");
-        gluttony.Select(gluttony.Add("praetor"));
-        gluttony.ToggleUpgrade("uncaring-gluttony");
-        Assert.Contains(gluttony.MatchCheck().PlayedWithout, w => w.Contains("Uncaring Gluttony", StringComparison.Ordinal));
-        Assert.Equal(SpellKind.None, Loaded(gluttony.MatchCheck()).Spells);
+        var slave = RosterBuilder.Shipped();
+        slave.ChooseFaction("court");
+        slave.ChooseVariant("dedicated-to-gluttony");
+        slave.Select(slave.Add("praetor"));
+        slave.ToggleUpgrade("slavemaster");
+        Assert.Contains(slave.MatchCheck().PlayedWithout, w => w.Contains("Slavemaster", StringComparison.Ordinal));
+        Assert.Equal(SpellKind.None, Loaded(slave.MatchCheck()).Spells);
     }
 
     // Roster stage R6f (U122): the upgrades the engine plays: Legionnaire, Zealot Strength (and a Trench Pilgrim's 32 mm

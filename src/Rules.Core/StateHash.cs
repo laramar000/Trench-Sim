@@ -196,7 +196,7 @@ public static class StateHash
                 $"deployed={Bool(m.Deployed)}",
                 $"activated={Bool(m.ActivatedThisTurn)}",
                 $"at={(m.Position is { } at ? Point(at) : "-")}",
-                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : "") + (m.TalismansUsed == 0 ? "" : $",talismansUsed={m.TalismansUsed}") + (m.Hidden ? ",hidden=yes" : "") + (m.Axis == BaseAxis.Y ? "" : ",axis=X") + (m.InfectionMarkers == 0 ? "" : $",infection={m.InfectionMarkers}") + (m.BlessingMarkers == 0 ? "" : $",blessing={m.BlessingMarkers}") + (m.OracleUsed ? ",oracle=used" : "") + (m.SinMarkers == 0 ? "" : $",sin={m.SinMarkers}") + (m.VesselBroken ? ",vessel=broken" : ""));
+                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : "") + (m.TalismansUsed == 0 ? "" : $",talismansUsed={m.TalismansUsed}") + (m.Hidden ? ",hidden=yes" : "") + (m.Axis == BaseAxis.Y ? "" : ",axis=X") + (m.InfectionMarkers == 0 ? "" : $",infection={m.InfectionMarkers}") + (m.BlessingMarkers == 0 ? "" : $",blessing={m.BlessingMarkers}") + (m.OracleUsed ? ",oracle=used" : "") + (m.SinMarkers == 0 ? "" : $",sin={m.SinMarkers}") + (m.VesselBroken ? ",vessel=broken" : "") + (m.ChewedKit == 0 ? "" : $",chewed={m.ChewedKit}"));
         }
         return sb.ToString();
     }
