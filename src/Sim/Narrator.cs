@@ -53,6 +53,7 @@ public static class Narrator
         ObjectivesScored o => $"Turn {o.Turn} scoring: {string.Join(", ", o.Results.Where(r => r.Controller is not null).Select(r => $"{r.ObjectiveId} to {r.Controller}"))}{(o.Results.All(r => r.Controller is null) ? "nobody controls an Objective" : "")}.",
         AttackerChosen a => $"{a.Attacker} attacks; {a.Attacker.Opponent()} defends.",
         TrenchesScored t => $"Turn {t.Turn} trench scoring: {string.Join(", ", t.Results.Select(r => $"{r.TrenchId} defender +{r.DefenderPoints}, attacker +{r.AttackerPoints}"))}.",
+        MarkersConverted c => $"  {c.Seat} changes {c.Converted + c.Stripped} BLOOD MARKER(S): {c.Converted} become SIN MARKERS next to {c.To?.Value ?? "-"}, {c.Stripped} of the target's SIN MARKERS are removed instead.",
         VesselBroken v => $"  {v.Model} breaks its Sin Vessel: 2 SIN MARKERS.",
         InjuryRollMade m => $"  Injury Roll on {m.Target}: {m.Injury.Total} ({m.Injury.NetDice:+0;-0;0} injury dice): {m.Injury.Outcome}, held while {m.Target}'s player may answer it.",
         ReactionDeclined d => $"  {d.Seat} casts nothing.",

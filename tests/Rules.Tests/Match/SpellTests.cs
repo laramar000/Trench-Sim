@@ -14,7 +14,7 @@ namespace Rules.Tests.Match;
 // BLOOD MARKERS from models without CULT or DEMONIC, anywhere, no roll, each spell once per activation.
 public class SpellTests
 {
-    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh, Traits = ModelTraits.Demonic };
+    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen, Traits = ModelTraits.Demonic };
 
     // A1 (the Court caster, DEMONIC, 2 SIN MARKERS) at (10, 10), A2 (DEMONIC, 3 SIN MARKERS) at (2, 30), B1 (16, 10), B2 (30, 30), activated A1;
     // B1 and B2 carry BLOOD MARKERS.
@@ -305,6 +305,60 @@ public class SpellTests
         play.Do(new EndActivation(Seat.Two));
         Assert.Null(play.State.CallTarget);
         Assert.False(play.State.CallActive);
+    }
+
+    // October 2026 Review (U146): Light of the Fallen, an Injury Roll for an enemy within 24" in sight, then a D6" push straight away.
+    [Fact]
+    [Trait("Rule", "Light of the Fallen: an Injury Roll for an enemy within 24\" in sight; a survivor on a base of 40mm or smaller is driven D6\" directly away")]
+    public void LightOfTheFallenInjuresAndDrivesBackAnEnemy()
+    {
+        var play = Ready();
+        play.Mark(B(1), 0);
+        play.Refused(Cast(SpellKind.LightOfTheFallen, "A2", ("A2", 2)), ReasonCode.SpellRefused);   // a friend
+        play.Refused(Cast(SpellKind.LightOfTheFallen, "B1", ("A2", 1)), ReasonCode.SpellRefused);   // costs 2
+        play.Refused(Cast(SpellKind.LightOfTheFallen, "B1"), ReasonCode.SpellRefused);              // nothing paid
+        // 3 + 3 = 6 is a Minor Hit: B1 survives and is driven 4" along the line from A1 (10, 10) through it: to (20, 10).
+        var events = play.Do(Cast(SpellKind.LightOfTheFallen, "B1", ("A2", 2)), 3, 3, 4).Events;
+        var injury = events.OfType<InjuryRolled>().Single();
+        Assert.Equal(InjuryOutcome.MinorHit, injury.Result);
+        var moved = events.OfType<ModelsMoved>().Single();
+        Assert.Equal(4, moved.Die);
+        Assert.Equal(P("20", "10"), play.M(B(1)).Position);
+        Assert.Equal(1, play.M(A(2)).SinMarkers);
+        Assert.Null(play.State.InProgress);
+        Assert.Null(play.State.ForcedMovesOwed);
+        play.Refused(Cast(SpellKind.LightOfTheFallen, "B1", ("A2", 1), ("A1", 1)), ReasonCode.SpellRefused);   // once per activation
+    }
+
+    [Fact]
+    public void LightOfTheFallenDoesNotPushAKilledTargetOrABigBase()
+    {
+        var killed = Ready();
+        killed.Mark(B(1), 0);
+        var events = killed.Do(Cast(SpellKind.LightOfTheFallen, "B1", ("A2", 2)), 6, 6).Events;
+        Assert.DoesNotContain(events, e => e is ModelsMoved);
+        Assert.Equal(ModelStatus.OutOfAction, killed.M(B(1)).Status);
+
+        var big = new BoardPlay(2, id => id == A(1) ? Court : id == A(2) ? Rifleman with { Traits = ModelTraits.Demonic } : id == B(1) ? new ModelProfile(L("6"), L("1"), L("18")) : Rifleman,
+            scenario: new Scenario(Field("36", [], [new DeploymentZone("west", F("0", "0", "6", "36")), new DeploymentZone("east", F("30", "0", "36", "36"))]), [])).ToActivation();
+        big.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30").Sin(A(2), 2);
+        big.Do(new ActivateModel(Seat.One, A(1)));
+        var bigEvents = big.Do(Cast(SpellKind.LightOfTheFallen, "B1", ("A2", 2)), 3, 3).Events;
+        Assert.DoesNotContain(bigEvents, e => e is ModelsMoved);
+        Assert.Equal(P("16", "10"), big.M(B(1)).Position);
+    }
+
+    // A Down target is driven back too.
+    [Fact]
+    public void LightOfTheFallenDrivesBackADownTarget()
+    {
+        var play = Ready();
+        play.Mark(B(1), 0);
+        // 4 + 3 = 7 is Down: still driven, even Down.
+        var events = play.Do(Cast(SpellKind.LightOfTheFallen, "B1", ("A2", 2)), 4, 3, 2).Events;
+        Assert.Equal(ModelStatus.Down, play.M(B(1)).Status);
+        Assert.Contains(events, e => e is ModelsMoved);
+        Assert.Equal(P("18", "10"), play.M(B(1)).Position);
     }
 
     [Fact]

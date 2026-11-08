@@ -24,6 +24,7 @@ public static class CommandParser
         turn <model> x|y          turn an oval base to lie along that axis (free)
         bless <model> <target>    God is With Us! ACTION       arise <model> <target>   Arise and be Healed! ACTION
         cast <model> <spell> <target> [blessing] <payer:n,...>   cast a Court spell (WhatIsYoursIsMine, ExquisitePain, CovetedPosition, CharmOfAcedia, BlackHeart, BloodMagic, ShadowWalker, CallOfTheFlesh, BlessingOfTheSerpentMoon, OracleBeastCloak, TooProudToFall)
+        convert <n> <model>       Mortal Suffering: n BLOOD MARKERS become SIN MARKERS next to model   strip <n>   Perversion: remove n of the target's SIN MARKERS instead   noconvert   change nothing
         vessel <model>            Break Vessel ACTION (Sin Vessel, once per game)
         noreact                   cast nothing at a Blessing or reaction offer (cast it with: cast <target model> <spell> <payer:n,...>)
         loud <model>              Loudspeakers ACTION         puppet <model> <target> <x,y>   Puppet Master ACTION
@@ -74,6 +75,9 @@ public static class CommandParser
             "talisman" => new UseTalisman(seat),
             "keep" => new DeclineTalisman(seat),
             "noreact" => new DeclineReaction(seat),
+            "convert" => new ConvertMarkers(seat, int.Parse(Arg(args, 0), System.Globalization.CultureInfo.InvariantCulture), Model(Arg(args, 1)), 0),
+            "strip" => new ConvertMarkers(seat, 0, null, int.Parse(Arg(args, 0), System.Globalization.CultureInfo.InvariantCulture)),
+            "noconvert" => new ConvertMarkers(seat, 0, null, 0),
             "vessel" => new BreakVessel(seat, Model(One(args))),
             "blast" => new ShootPoint(seat, Model(Arg(args, 0)), Point(Arg(args, 1))),
             "morale" => new ResolveFailedMorale(seat, Enum.Parse<MoraleFailureChoice>(One(args))),

@@ -332,6 +332,8 @@ public static class Wire
         // exactly as before. Reading already treats an init property as optional.
         private static readonly HashSet<(Type, string)> OmitWhenNull =
         [
+            (typeof(InjuryRolled), nameof(InjuryRolled.ConvertedTo)),
+            (typeof(MarkersConverted), nameof(MarkersConverted.To)),
             (typeof(TerrainBlock), nameof(TerrainBlock.Climb)),
             (typeof(TerrainBlock), nameof(TerrainBlock.Depth)),
             (typeof(CreateMatch), nameof(CreateMatch.Map)),
@@ -409,6 +411,8 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.HuntsTheTough)),
             (typeof(ModelProfile), nameof(ModelProfile.CounterCharge)),
             (typeof(ModelProfile), nameof(ModelProfile.MementoMori)),
+            (typeof(ModelProfile), nameof(ModelProfile.Perverse)),
+            (typeof(ModelProfile), nameof(ModelProfile.MortalSuffering)),
             (typeof(ModelProfile), nameof(ModelProfile.SinVessel)),
             (typeof(ModelProfile), nameof(ModelProfile.SinBeacon)),
             (typeof(ModelProfile), nameof(ModelProfile.Horde)),
@@ -435,6 +439,8 @@ public static class Wire
 
         private static readonly HashSet<(Type, string)> OmitWhenZero =
         [
+            (typeof(InjuryRolled), nameof(InjuryRolled.Converted)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.Stripped)),
             (typeof(ModelProfile), nameof(ModelProfile.RangedDice)),
             (typeof(ModelProfile), nameof(ModelProfile.MeleeDice)),
             (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponDice)),

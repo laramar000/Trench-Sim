@@ -21,6 +21,7 @@ public enum DecisionKind
     UseBodyguard,              // an attack hit a model with a friendly Bodyguard within 1": its player may move the hit onto the Bodyguard (roster stage R7d, U131)
     PlaceShrine,               // a model with a Field Shrine was just deployed: its player may also deploy the shrine (p. 82, U127)
     UseBlessing,               // before an Injury Roll for a model that knows Blessing of the Serpent Moon: its player may cast it (R16, U141)
+    ConvertMarkers,            // an Injury Roll would place BLOOD MARKERS: its attacker's player may turn some into SIN MARKERS (Mortal Suffering) or strip the target's SIN MARKERS instead (Perversion), October 2026 Review U145
     UseInjuryReaction,         // an Injury Roll was made for a model that knows Oracle Beast Cloak or Too Proud to Fall: its player may cast one (R16, U141)
 }
 
@@ -176,11 +177,21 @@ public sealed record RollInProgress(
     bool GuardOwed = false,
     Point2? Toward = null,
     ModelId? BlessedFor = null,
-    int Blessing = 0);
+    int Blessing = 0,
+    SpellKind Spell = SpellKind.None);
 
 // Roster stage R16 (U141): an Injury Roll made but not yet applied, because its target's player may cast Oracle Beast Cloak or
 // Too Proud to Fall once they see it. Asked is true once that decision has been requested.
-public sealed record HeldInjury(ModelId Attacker, ModelId Target, InjuryRollResult Injury, bool Asked = false);
+public enum HeldStage
+{
+    ReactionOwed,  // the target's player is to be asked about Oracle Beast Cloak / Too Proud to Fall
+    ReactionAsked, // that decision is pending
+    ConvertOwed,   // the attacker's player is to be asked about Mortal Suffering / Perversion of God's Laws (October 2026 Review, U145)
+    ConvertAsked,  // that decision is pending
+    Ready,         // answered: the Injury Roll is applied next
+}
+
+public sealed record HeldInjury(ModelId Attacker, ModelId Target, InjuryRollResult Injury, HeldStage Stage = HeldStage.ReactionOwed, int Converted = 0, ModelId? ConvertedTo = null, int Stripped = 0);
 
 // A Retreat that is part-way through: the opponent's free attacks come before the move (p. 37). Fought lists the
 // models that have attacked; Closed means the opponent declined the rest.

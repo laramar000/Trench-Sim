@@ -815,6 +815,28 @@ public class MatchReadinessTests
         Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("Beacon", StringComparison.Ordinal) || w.Contains("Vessel", StringComparison.Ordinal));
     }
 
+    // October 2026 Rules Review (U145): Perversion of God's Laws is every Court warband's; Mortal Suffering only the plain list's.
+    [Fact]
+    public void CourtMarkerRulesFollowTheVariant()
+    {
+        ModelProfile Praetor(string? variant)
+        {
+            var builder = RosterBuilder.Shipped();
+            builder.ChooseFaction("court");
+            if (variant is not null)
+            {
+                builder.ChooseVariant(variant);
+            }
+            builder.Select(builder.Add("praetor"));
+            return Loaded(builder.MatchCheck());
+        }
+        var plain = Praetor(null);
+        Assert.True(plain.MortalSuffering && plain.Perverse);
+        var wrath = Praetor("dedicated-to-wrath");
+        Assert.False(wrath.MortalSuffering);
+        Assert.True(wrath.Perverse);
+    }
+
     // Roster stage R11 (U136): the three Court spells bought as upgrades are known by the model; the others are still named.
     [Fact]
     public void CourtSpellsAreKnown()
@@ -858,6 +880,7 @@ public class MatchReadinessTests
         sorcerer.Select(sorcerer.Add("sorcerer"));
         Assert.True(Loaded(sorcerer.MatchCheck()).Spells.HasFlag(SpellKind.BlessingOfTheSerpentMoon));
         Assert.Equal(SpellKind.TooProudToFall, Praetor("dedicated-to-pride", "too-proud-to-fall").Spells);
+        Assert.Equal(SpellKind.LightOfTheFallen, Praetor("dedicated-to-pride", "light-of-samael").Spells);
         // October 2026 Rules Review (U143): Infernal Challenge (+1 INJURY DICE against TOUGH), Corpse Candles (FEAR) and Auxilia Sorcerer (LEADER).
         var knight = RosterBuilder.Shipped();
         knight.ChooseFaction("court");

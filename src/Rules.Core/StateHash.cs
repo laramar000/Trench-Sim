@@ -54,7 +54,7 @@ public static class StateHash
         Line(sb, "movementHalved", state.MovementHalved);
         Line(sb, "scoredTurn", state.ScoredTurn);
         Line(sb, "inProgress", state.InProgress is { } r
-            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}{(r.InjuryDiceLater == 0 ? "" : $":injuryLater={r.InjuryDiceLater}")}{(r.Weapon == 0 ? "" : $":weapon={r.Weapon}")}{(r.OffHand ? ":offHand" : "")}{(r.Aimed is { } aimed ? $":aimed={aimed.Value}" : "")}{(r.BlastQueue.IsDefaultOrEmpty ? "" : $":blast={string.Join(";", r.BlastQueue.Select(q => q.Value))}")}{(r.ScatterInches == 0 ? "" : $":scatter={r.ScatterInches}")}{(r.BlastAt is { } landed ? $":at={landed.X.Thousandths},{landed.Y.Thousandths}" : "")}{(r.RiskyEnds ? ":riskyEnds" : "")}{(r.TreatStandUp ? ":standUp" : "")}{(r.Martyrdom ? $":martyr={string.Join(";", r.MartyrClose.Select(c => c.Value))}" : "")}{(r.Stage == RollStage.SelfRoll ? $":self={r.SelfAction}" : "")}{(r.Bloodbath ? ":bloodbath" : "")}{(r.CarryOn ? ":carryOn" : "")}{(r.GuardOwed ? ":guardOwed" : "")}{(r.Toward is { } toward ? $":toward={toward.X.Thousandths},{toward.Y.Thousandths}" : "")}{(r.BlessedFor is { } blessed ? $":blessed={blessed.Value}x{r.Blessing}" : "")}"
+            ? $"{r.Stage}:{r.Actor.Value}:{r.Target?.Value ?? "-"}:{r.BonusDice}:{r.PenaltyDice}:{Bool(r.Critical)}:{Bool(r.MarkersAsked)}:{r.Kind}:{Bool(r.FreeFight)}:{Bool(r.FriendlyFire)}:{r.ChargeDie}:{(r.DashPath.IsDefaultOrEmpty ? "-" : Path(r.DashPath))}{(r.ClimbAction == ActionsTaken.None ? "" : $":climb={(int)r.ClimbAction}")}{(r.InjuryDiceLater == 0 ? "" : $":injuryLater={r.InjuryDiceLater}")}{(r.Weapon == 0 ? "" : $":weapon={r.Weapon}")}{(r.OffHand ? ":offHand" : "")}{(r.Aimed is { } aimed ? $":aimed={aimed.Value}" : "")}{(r.BlastQueue.IsDefaultOrEmpty ? "" : $":blast={string.Join(";", r.BlastQueue.Select(q => q.Value))}")}{(r.ScatterInches == 0 ? "" : $":scatter={r.ScatterInches}")}{(r.BlastAt is { } landed ? $":at={landed.X.Thousandths},{landed.Y.Thousandths}" : "")}{(r.RiskyEnds ? ":riskyEnds" : "")}{(r.TreatStandUp ? ":standUp" : "")}{(r.Martyrdom ? $":martyr={string.Join(";", r.MartyrClose.Select(c => c.Value))}" : "")}{(r.Stage == RollStage.SelfRoll ? $":self={r.SelfAction}" : "")}{(r.Bloodbath ? ":bloodbath" : "")}{(r.CarryOn ? ":carryOn" : "")}{(r.GuardOwed ? ":guardOwed" : "")}{(r.Toward is { } toward ? $":toward={toward.X.Thousandths},{toward.Y.Thousandths}" : "")}{(r.BlessedFor is { } blessed ? $":blessed={blessed.Value}x{r.Blessing}" : "")}{(r.Spell == SpellKind.None ? "" : $":spell={(int)r.Spell}")}"
             : null);
         Line(sb, "retreat", state.Retreat is { } t
             ? $"{t.Model.Value}:{Path(t.Path)}:{string.Join(";", t.Fought.Select(f => f.Value))}:{Bool(t.Closed)}"
@@ -98,7 +98,7 @@ public static class StateHash
         }
         if (state.Held is { } held)
         {
-            Line(sb, "held", $"{held.Attacker.Value}>{held.Target.Value}:{held.Injury.Dice.Rolled.Count}:{string.Join("", held.Injury.Dice.Rolled)}:{held.Injury.NetDice}:{held.Injury.Modifier}:{Bool(held.Asked)}:{(int)state.HeldReaction}");
+            Line(sb, "held", $"{held.Attacker.Value}>{held.Target.Value}:{held.Injury.Dice.Rolled.Count}:{string.Join("", held.Injury.Dice.Rolled)}:{held.Injury.NetDice}:{held.Injury.Modifier}:{(int)held.Stage}:{held.Converted}:{held.ConvertedTo?.Value ?? "-"}:{held.Stripped}:{(int)state.HeldReaction}");
         }
         if (state.ShadowWalking is { } shadow)
         {
@@ -320,6 +320,8 @@ public static class StateHash
             + (p.HuntsTheTough ? ",huntsTheTough=yes" : "")
             + (p.CounterCharge ? ",counterCharge=yes" : "")
             + (p.MementoMori ? ",mementoMori=yes" : "")
+            + (p.Perverse ? ",perverse=yes" : "")
+            + (p.MortalSuffering ? ",mortalSuffering=yes" : "")
             + (p.SinVessel ? ",sinVessel=yes" : "")
             + (p.SinBeacon ? ",sinBeacon=yes" : "")
             // Roster stage R6d: Trample and Overwhelming Horde, only when present.

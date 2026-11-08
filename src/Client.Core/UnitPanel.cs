@@ -442,6 +442,8 @@ public static class UnitPanel
             (p.HuntsTheTough, "+1 INJURY DICE against TOUGH"),
             (p.CounterCharge, "Counter-Charge: +1 DICE in melee after charging first"),
             (p.MementoMori, "first Out of Action counts as No Effect"),
+            (p.Perverse, "Perversion of God's Laws: its enemies may remove its SIN MARKERS instead of placing BLOOD MARKERS"),
+            (p.MortalSuffering, "Mortal Suffering: its BLOOD MARKERS on enemies may become SIN MARKERS on a friend"),
             (p.SinVessel, "carries a Sin Vessel (Break Vessel ACTION: 2 SIN MARKERS, once per game)"),
             (p.SinBeacon, "places 1 SIN MARKER on itself when it activates"),
         })

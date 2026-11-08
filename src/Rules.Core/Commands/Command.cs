@@ -169,3 +169,8 @@ public sealed record BreakVessel(Seat Seat, ModelId Model) : Command;
 // Roster stage R16 (U141): answers UseBlessing or UseInjuryReaction by casting nothing. (Casting is a CastSpell by the model the
 // Injury Roll is for.)
 public sealed record DeclineReaction(Seat Seat) : Command;
+
+// October 2026 Review (U145): answers ConvertMarkers: turn Converted of the BLOOD MARKERS the Injury Roll would place into SIN MARKERS next
+// to the friendly DEMONIC model To (Mortal Suffering) and keep Stripped off in exchange for removing as many SIN MARKERS from the target
+// (Perversion of God's Laws). All 0 changes nothing.
+public sealed record ConvertMarkers(Seat Seat, int Converted, ModelId? To, int Stripped) : Command;

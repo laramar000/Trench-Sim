@@ -678,6 +678,7 @@ public static partial class TurnSequence
             UseTalisman c => (DecisionKind.UseTalisman, c.Seat),
             DeclineTalisman c => (DecisionKind.UseTalisman, c.Seat),
             DeclineReaction c => (state.Pending is { Kind: DecisionKind.UseBlessing } ? DecisionKind.UseBlessing : DecisionKind.UseInjuryReaction, c.Seat),
+            ConvertMarkers c => (DecisionKind.ConvertMarkers, c.Seat),
             ChooseBodyguard c => (DecisionKind.UseBodyguard, c.Seat),
             _ => throw new ArgumentException("Not a choice."),
         };
@@ -714,6 +715,8 @@ public static partial class TurnSequence
                 return state.InProgress is { Target: { } hit } && state.FindModel(hit) is { } hitModel && Board.Bodyguards(state, hitModel).Any(g => g.Id == guard)
                     ? null
                     : new(ReasonCode.NotACandidate, "That model cannot take the hit: it must be a standing friend within 1\" of the model hit, with Bodyguard and the same PILGRIM or CULT keyword.", "1.0.2 p. 54");
+            case ConvertMarkers c:
+                return ValidateConvert(state, c);
             case ScatterAttack c:
                 var scattering = state.InProgress!;
                 return Board.CanScatterTo(state, scattering, c.At)
@@ -722,6 +725,32 @@ public static partial class TurnSequence
             default:
                 return null;
         }
+    }
+
+    // October 2026 Review (U145): what the attacker's player may do with the BLOOD MARKERS of a held Injury Roll.
+    private static Rejection? ValidateConvert(MatchState state, ConvertMarkers c)
+    {
+        var held = state.Held!;
+        var roll = Reducer.InjuryEvent(state, state.InProgress!, state.FindModel(held.Attacker)!, state.FindModel(held.Target)!, held.Injury, state.HeldReaction);
+        var attacker = state.Setup!.ProfileOf(held.Attacker)!;
+        var target = state.Setup.ProfileOf(held.Target)!;
+        const string rule = "Rules Review October 2026 p. 2";
+        if (c.Converted < 0 || c.Stripped < 0 || c.Converted + c.Stripped > roll.BloodPlaced)
+        {
+            return new(ReasonCode.InvalidChoice, $"At most {roll.BloodPlaced} BLOOD MARKER(S) can be changed.", rule);
+        }
+        if (c.Converted > 0 && (!attacker.MortalSuffering || (attacker.Traits & ModelTraits.Demonic) == 0 || c.To is not { } to
+            || !Board.SinHomes(state, c.Seat).Any(m => m.Id == to && m.SinMarkers + c.Converted <= BloodMarkers.Max)))
+        {
+            return new(ReasonCode.InvalidChoice, "Mortal Suffering puts the SIN MARKERS next to a friendly DEMONIC model, up to 6 on it.", rule);
+        }
+        if (c.Converted == 0 && c.To is not null)
+        {
+            return new(ReasonCode.InvalidChoice, "No SIN MARKER is placed, so no model is named.", rule);
+        }
+        return c.Stripped > 0 && (!target.Perverse || (target.Traits & ModelTraits.Demonic) == 0 || c.Stripped > state.FindModel(held.Target)!.SinMarkers)
+            ? new(ReasonCode.InvalidChoice, "Perversion of God's Laws removes SIN MARKERS the DEMONIC target has.", rule)
+            : null;
     }
 
     private static int MarkersAvailable(MatchState state, DecisionKind kind)
@@ -889,6 +918,9 @@ public static partial class TurnSequence
                 break;
             case DeclineReaction c:
                 run.Emit(new ReactionDeclined(c.Seat));
+                break;
+            case ConvertMarkers c:
+                run.Emit(new MarkersConverted(c.Seat, c.Converted, c.To, c.Stripped));
                 break;
             case ScatterAttack c:
             {
@@ -1160,25 +1192,16 @@ public static partial class TurnSequence
                 var target = s.FindModel(progress.Target!.Value)!;
                 var weapon = Reducer.AttackProfile(s, progress);
                 var deadly = (weapon.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0;
-                InjuryRolled Build(InjuryRollResult roll)
-                {
-                    // Roster stage R16 (U141): what the target's player cast against a held roll.
-                    var cloaked = s.HeldReaction == SpellKind.OracleBeastCloak;
-                    var made = new InjuryRolled(actor.Id, target.Id, roll)
-                    {
-                        Bloodbath = progress.Bloodbath,
-                        ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, s.Setup!.ProfileOf(target.Id)!),
-                        Tough = !cloaked && Reducer.ToughSaves(s, target, roll.Outcome),
-                        Spared = !cloaked && Reducer.MementoSaves(s, target, roll.Outcome),
-                        Infection = AttackDice.PlacesInfection(weapon, progress.Kind),
-                        Cloaked = cloaked,
-                        Upheld = s.HeldReaction == SpellKind.TooProudToFall,
-                    };
-                    return made with { Warded = !made.Infection && Reducer.Wards(s, target, made.ResultMarkers + made.ExtraMarkers) };
-                }
+                InjuryRolled Build(InjuryRollResult roll) => Reducer.InjuryEvent(s, progress, actor, target, roll, s.HeldReaction);
                 void Apply(InjuryRolled rolled)
                 {
                     run.Emit(rolled);
+                    // October 2026 Review (U146): Light of the Fallen's push, once the survivor is known: a D6 and the forced move.
+                    if (run.State.ForcedMovesOwed is { } owed && owed.Source == actor.Id && progress.Spell == SpellKind.LightOfTheFallen)
+                    {
+                        var push = Roll(dice);
+                        run.Emit(new ModelsMoved(actor.Id, [Board.PuppetMove(run.State, run.State.FindModel(owed.Target!.Value)!, owed.Toward!.Value, push)]) { Die = push });
+                    }
                     if (rolled.Result == InjuryOutcome.OutOfAction && !Reducer.HasModelOnBattlefield(run.State, target.Seat))
                     {
                         run.Emit(new MatchEnded(target.Seat.Opponent(), OutcomeReason.AllEnemiesOutOfAction));
@@ -1193,7 +1216,13 @@ public static partial class TurnSequence
                 // Roster stage R16 (U141): the target's player has answered a held roll: it is applied now.
                 if (s.Held is { } held)
                 {
-                    Apply(Build(held.Injury));
+                    // October 2026 Review (U145): the attacker's player may change the BLOOD MARKERS first.
+                    if (held.Stage == HeldStage.ConvertOwed)
+                    {
+                        run.Emit(new DecisionRequested(DecisionKind.ConvertMarkers, actor.Seat));
+                        return true;
+                    }
+                    Apply(Build(held.Injury) with { Converted = held.Converted, ConvertedTo = held.ConvertedTo, Stripped = held.Stripped });
                     return true;
                 }
                 // Roster stage R7d (U131): a Bodyguard offer still owed comes before the Blood Markers.
@@ -1224,6 +1253,13 @@ public static partial class TurnSequence
                 {
                     run.Emit(new InjuryRollMade(actor.Id, target.Id, injury));
                     run.Emit(new DecisionRequested(DecisionKind.UseInjuryReaction, target.Seat));
+                    return true;
+                }
+                // October 2026 Review (U145): or the attacker's player may change the BLOOD MARKERS it places.
+                if (Board.ConversionPossible(s, actor.Id, target.Id, Build(injury)))
+                {
+                    run.Emit(new InjuryRollMade(actor.Id, target.Id, injury));
+                    run.Emit(new DecisionRequested(DecisionKind.ConvertMarkers, actor.Seat));
                     return true;
                 }
                 Apply(Build(injury));

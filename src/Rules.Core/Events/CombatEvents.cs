@@ -251,6 +251,17 @@ public sealed record InjuryRolled : GameEvent
 
     public int ResultMarkers => InjuryRoll.BloodMarkersFor(Result, Injury.TargetAlreadyDown);
 
+    // October 2026 Review (U145): of the BLOOD MARKERS this roll would place on the enemy target, Converted became SIN MARKERS next to the
+    // friendly model ConvertedTo (Mortal Suffering) and Stripped were kept off in exchange for removing as many SIN MARKERS from the target
+    // (Perversion of God's Laws); left out when 0.
+    public int Converted { get; init; }
+
+    public ModelId? ConvertedTo { get; init; }
+
+    public int Stripped { get; init; }
+
+    public int BloodPlaced => PlacedMarkers - Converted - Stripped;
+
     // Roster stage R16 (U141): the target's player cast Oracle Beast Cloak: the result became No Effect; left out when false.
     public bool Cloaked { get; init; }
 
@@ -787,6 +798,10 @@ public sealed record VesselBroken(ModelId Model) : GameEvent;
 // Roster stage R16 (U141): an Injury Roll was made for Target but its result is not applied yet: its player may cast Oracle
 // Beast Cloak or Too Proud to Fall first. The InjuryRolled that follows carries the same roll.
 public sealed record InjuryRollMade(ModelId Attacker, ModelId Target, InjuryRollResult Injury) : GameEvent;
+
+// October 2026 Review (U145): the attacker's player answered the ConvertMarkers decision: Converted markers become SIN MARKERS next to To,
+// Stripped are kept off the target in exchange for removing as many of its SIN MARKERS (all 0: nothing was changed).
+public sealed record MarkersConverted(Seat Seat, int Converted, ModelId? To, int Stripped) : GameEvent;
 
 // Roster stage R16 (U141): Seat cast nothing at a UseBlessing or UseInjuryReaction decision.
 public sealed record ReactionDeclined(Seat Seat) : GameEvent;

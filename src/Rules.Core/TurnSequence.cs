@@ -182,6 +182,30 @@ public static partial class TurnSequence
                 }
                 commands.Add(new DeclineReaction(pending.Seat));
                 break;
+            case DecisionKind.ConvertMarkers:
+                // October 2026 Review (U145): change nothing, or all of them one way.
+                if (state.Held is { } converting)
+                {
+                    var roll = Reducer.InjuryEvent(state, state.InProgress!, state.FindModel(converting.Attacker)!, state.FindModel(converting.Target)!, converting.Injury, state.HeldReaction);
+                    var (a, t) = (state.Setup!.ProfileOf(converting.Attacker)!, state.Setup.ProfileOf(converting.Target)!);
+                    if (a.MortalSuffering && (a.Traits & ModelTraits.Demonic) != 0)
+                    {
+                        foreach (var home in Board.SinHomes(state, pending.Seat))
+                        {
+                            var n = Math.Min(roll.BloodPlaced, BloodMarkers.Max - home.SinMarkers);
+                            if (n > 0)
+                            {
+                                commands.Add(new ConvertMarkers(pending.Seat, n, home.Id, 0));
+                            }
+                        }
+                    }
+                    if (t.Perverse && (t.Traits & ModelTraits.Demonic) != 0 && state.FindModel(converting.Target)!.SinMarkers is > 0 and var sin)
+                    {
+                        commands.Add(new ConvertMarkers(pending.Seat, 0, null, Math.Min(roll.BloodPlaced, sin)));
+                    }
+                }
+                commands.Add(new ConvertMarkers(pending.Seat, 0, null, 0));
+                break;
             case DecisionKind.UseTalisman:
                 commands.Add(new UseTalisman(pending.Seat));
                 commands.Add(new DeclineTalisman(pending.Seat));
@@ -243,7 +267,7 @@ public static partial class TurnSequence
         {
             return ValidateSpell(state, (CastSpell)command);
         }
-        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard or DeclineReaction)
+        if (command is FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard or DeclineReaction or ConvertMarkers)
         {
             return ValidateChoice(state, command);
         }
@@ -392,7 +416,7 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or PlaceShrine or DeclineShrine or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell or DeclineReaction or BreakVessel;
+        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or PlaceShrine or DeclineShrine or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell or DeclineReaction or BreakVessel or ConvertMarkers;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
@@ -476,7 +500,7 @@ public static partial class TurnSequence
                     run.Emit(new ModelStoodUp(c.Model) { Quick = run.State.Setup.ProfileOf(c.Model)!.QuickToRise });
                 }
                 break;
-            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell or DeclineReaction or BreakVessel:
+            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell or DeclineReaction or BreakVessel or ConvertMarkers:
                 ExecuteBoard(run, command);
                 break;
             case EndActivation:

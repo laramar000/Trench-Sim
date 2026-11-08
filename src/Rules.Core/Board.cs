@@ -596,6 +596,9 @@ internal static class Board
         }
         switch (spell)
         {
+            case SpellKind.LightOfTheFallen:
+                // October 2026 Review (U146): an enemy within 24" in sight.
+                return victim.Seat == caster.Seat || !Measure.IsWithin(from, to, LightReach) ? "Light of the Fallen strikes an enemy model within 24\"." : null;
             case SpellKind.WhatIsYoursIsMine:
                 if (victim.Id == caster.Id)
                 {
@@ -717,6 +720,46 @@ internal static class Board
             default:
                 return $"{Spells.Name(spell)} is cast in answer to an Injury Roll for the caster, when its player is asked.";
         }
+    }
+
+    // ---- October 2026 Review (U145): Mortal Suffering and Perversion of God's Laws ----
+
+    // The friendly DEMONIC models a Mortal Suffering SIN MARKER can go next to (fewer than 6 already), in id order.
+    public static List<ModelState> SinHomes(MatchState state, Seat seat) =>
+        [.. state.Models.Where(m => m.Seat == seat && m.Position is not null && m.Status != ModelStatus.OutOfAction && m.SinMarkers < BloodMarkers.Max
+            && (state.Setup!.ProfileOf(m.Id)!.Traits & ModelTraits.Demonic) != 0).OrderBy(m => m.Id.Value, StringComparer.Ordinal)];
+
+    // Whether the attacker's player may be asked about this Injury Roll's BLOOD MARKERS: the roll would place some on an enemy, and either the
+    // attacker is a DEMONIC model with Mortal Suffering (with a home for a SIN MARKER) or the target is a DEMONIC model with Perversion of God's
+    // Laws and SIN MARKERS to lose.
+    public static bool ConversionPossible(MatchState state, ModelId attackerId, ModelId targetId, InjuryRolled roll)
+    {
+        if (roll.Infection || roll.BloodPlaced <= 0 || state.FindModel(attackerId) is not { } attacker || state.FindModel(targetId) is not { } target || attacker.Seat == target.Seat)
+        {
+            return false;
+        }
+        var (a, t) = (state.Setup!.ProfileOf(attackerId)!, state.Setup.ProfileOf(targetId)!);
+        var suffers = a.MortalSuffering && (a.Traits & ModelTraits.Demonic) != 0 && SinHomes(state, attacker.Seat).Count > 0;
+        var perverse = t.Perverse && (t.Traits & ModelTraits.Demonic) != 0 && target.SinMarkers > 0;
+        return suffers || perverse;
+    }
+
+    // ---- October 2026 Review (U146): Light of the Fallen ----
+
+    public static readonly Length LightReach = Length.FromInches(24);
+    private static readonly Length LightBaseRadius = Length.FromThousandths(Length.FromMillimetres(40).Thousandths / 2);
+
+    // The point a model driven away from the caster is aimed at (the line from the caster through it), or null when it is not driven: on a
+    // base over 40mm, or with no position.
+    public static Point2? LightPushes(MatchState state, ModelState caster, ModelState target)
+    {
+        var profile = state.Setup!.ProfileOf(target.Id)!;
+        if (target.Position is not { } at || caster.Position is not { } from || profile.BaseRadius + profile.BaseHalfSpan > LightBaseRadius)
+        {
+            return null;
+        }
+        var (dx, dy) = (at.X.Thousandths - from.X.Thousandths, at.Y.Thousandths - from.Y.Thousandths);
+        return dx == 0 && dy == 0 ? null : new Point2(Length.FromThousandths(at.X.Thousandths + dx), Length.FromThousandths(at.Y.Thousandths + dy));
     }
 
     // The cheapest way to pay a cost: from friendly DEMONIC models, most SIN MARKERS first, then in id order; null when it cannot be paid.

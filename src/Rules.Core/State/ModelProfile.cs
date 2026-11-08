@@ -366,7 +366,13 @@ public sealed record ModelProfile
     // Memento Mori (p. 53): its first Out of Action result counts as No Effect (it is never TOUGH).
     public bool MementoMori { get; init; }
 
-    // October 2026 Review (U144): a Sin Vessel (the Review's Chthonic Vessel): the Break Vessel ACTION, once per game.
+    // October 2026 Review (U145): Perversion of God's Laws, every Court warband's rule for its DEMONIC models.
+    public bool Perverse { get; init; }
+
+    // October 2026 Review (U145): Mortal Suffering, the plain Court warband's rule for its DEMONIC models.
+    public bool MortalSuffering { get; init; }
+
+    // October 2026 Review (U144): a Sin Vessel: the Break Vessel ACTION, once per game.
     public bool SinVessel { get; init; }
 
     // October 2026 Review (U144): Beacon of Corruption, 1 SIN MARKER next to the model each time it Activates.
@@ -582,6 +588,8 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                Perverse = Perverse,
+                MortalSuffering = MortalSuffering,
                 SinVessel = SinVessel,
                 SinBeacon = SinBeacon,
             };
@@ -652,6 +660,8 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                Perverse = Perverse,
+                MortalSuffering = MortalSuffering,
                 SinVessel = SinVessel,
                 SinBeacon = SinBeacon,
             };
@@ -722,6 +732,8 @@ public sealed record ModelProfile
             HuntsTheTough = HuntsTheTough,
             CounterCharge = CounterCharge,
             MementoMori = MementoMori,
+            Perverse = Perverse,
+            MortalSuffering = MortalSuffering,
             SinVessel = SinVessel,
             SinBeacon = SinBeacon,
         };

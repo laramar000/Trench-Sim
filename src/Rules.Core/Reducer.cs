@@ -123,6 +123,7 @@ public static class Reducer
             VesselBroken x => OnVesselBroken(state, x),
             InjuryRollMade x => OnInjuryRollMade(state, x),
             ReactionDeclined x => OnReactionDeclined(state, x),
+            MarkersConverted x => OnMarkersConverted(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
@@ -221,7 +222,7 @@ public static class Reducer
 
     // The weapon an attack in progress is made with (roster stage R3). A Martyrdom Device's detonation (U115) has no
     // weapon: no injury modifier or keywords of its own.
-    internal static ModelProfile AttackProfile(MatchState state, RollInProgress progress) => progress.Martyrdom
+    internal static ModelProfile AttackProfile(MatchState state, RollInProgress progress) => progress.Martyrdom || progress.Spell != SpellKind.None
         ? new ModelProfile(state.Setup!.ProfileOf(progress.Actor)!.Movement, state.Setup.ProfileOf(progress.Actor)!.BaseRadius, Length.Zero)
         : state.Setup!.ProfileOf(progress.Actor)!.Using(progress.Kind, progress.Weapon);
 
@@ -417,14 +418,19 @@ public static class Reducer
         // Roster stage R16 (U141): a held Injury Roll is asked about, and then applied.
         if (state.Held is { } held && state.Pending is null)
         {
-            if (!held.Asked)
+            switch (held.Stage)
             {
-                Require(e is DecisionRequested { Kind: DecisionKind.UseInjuryReaction } reactionOffer && state.FindModel(held.Target)!.Seat == reactionOffer.Seat,
-                    "The player of the model an Injury Roll was made for must be asked about a reaction.");
-            }
-            else
-            {
-                Require(e is InjuryRolled, "An answered held Injury Roll is applied next.");
+                case HeldStage.ReactionOwed:
+                    Require(e is DecisionRequested { Kind: DecisionKind.UseInjuryReaction } reactionOffer && state.FindModel(held.Target)!.Seat == reactionOffer.Seat,
+                        "The player of the model an Injury Roll was made for must be asked about a reaction.");
+                    break;
+                case HeldStage.ConvertOwed:
+                    Require(e is DecisionRequested { Kind: DecisionKind.ConvertMarkers } convertOffer && state.FindModel(held.Attacker)!.Seat == convertOffer.Seat,
+                        "The player of the attacker must be asked about the BLOOD MARKERS of a held Injury Roll.");
+                    break;
+                default:
+                    Require(e is InjuryRolled, "An answered held Injury Roll is applied next.");
+                    break;
             }
         }
     }
@@ -623,8 +629,12 @@ public static class Reducer
                 Require(BlessingOfferOwed(state) is { } blessingOffer && blessingOffer.Seat == e.Seat, "Only the player of a model about to be rolled for, that knows Blessing of the Serpent Moon, is asked.");
                 break;
             case DecisionKind.UseInjuryReaction:
-                Require(state.Held is { Asked: false } held && state.FindModel(held.Target) is { } held2 && held2.Seat == e.Seat, "Only the player of the model a held Injury Roll is for is asked.");
-                state = state with { Held = state.Held! with { Asked = true } };
+                Require(state.Held is { Stage: HeldStage.ReactionOwed } held && state.FindModel(held.Target) is { } held2 && held2.Seat == e.Seat, "Only the player of the model a held Injury Roll is for is asked.");
+                state = state with { Held = state.Held! with { Stage = HeldStage.ReactionAsked } };
+                break;
+            case DecisionKind.ConvertMarkers:
+                Require(state.Held is { Stage: HeldStage.ConvertOwed } owed && state.FindModel(owed.Attacker) is { } owedAttacker && owedAttacker.Seat == e.Seat, "Only the player of the attacker is asked about the BLOOD MARKERS of a held Injury Roll.");
+                state = state with { Held = state.Held! with { Stage = HeldStage.ConvertAsked } };
                 break;
             case DecisionKind.ChooseFriendlyTarget:
                 Require(state.InProgress is { Stage: RollStage.TargetChoice } choosing
@@ -734,6 +744,12 @@ public static class Reducer
         }
         var target = next.FindModel(e.Target!.Value)!;
         caster = next.FindModel(e.Model)!;
+        // October 2026 Review (U146): Light of the Fallen is an Injury Roll for the enemy hit, with no weapon of its own.
+        if (e.Spell == SpellKind.LightOfTheFallen)
+        {
+            var (more, fewer) = AttackDice.With(0, 0, AttackDice.TakenDice(next.Setup!.ProfileOf(target.Id)!, WeaponKeywords.None));
+            return next with { InProgress = new RollInProgress(RollStage.InjuryRoll, caster.Id, target.Id, more, fewer) { Spell = e.Spell } };
+        }
         switch (e.Spell)
         {
             case SpellKind.WhatIsYoursIsMine:
@@ -1746,13 +1762,68 @@ public static class Reducer
         return (progress, attacker, target, profile);
     }
 
+    // The Injury Roll event for a roll, as the rules work it out: TOUGH and Memento Mori unless cloaked, what the weapon adds, the Lamb's ward.
+    // Roster stage R16 (U141): `reaction` is what the target's player cast against it.
+    internal static InjuryRolled InjuryEvent(MatchState state, RollInProgress progress, ModelState attacker, ModelState target, InjuryRollResult roll, SpellKind reaction)
+    {
+        var weapon = AttackProfile(state, progress);
+        var cloaked = reaction == SpellKind.OracleBeastCloak;
+        var made = new InjuryRolled(attacker.Id, target.Id, roll)
+        {
+            Bloodbath = progress.Bloodbath,
+            ExtraMarkers = AttackDice.ExtraMarkers(weapon, progress.Kind, state.Setup!.ProfileOf(target.Id)!),
+            Tough = !cloaked && ToughSaves(state, target, roll.Outcome),
+            Spared = !cloaked && MementoSaves(state, target, roll.Outcome),
+            Infection = AttackDice.PlacesInfection(weapon, progress.Kind),
+            Cloaked = cloaked,
+            Upheld = reaction == SpellKind.TooProudToFall,
+        };
+        return made with { Warded = !made.Infection && Wards(state, target, made.ResultMarkers + made.ExtraMarkers) };
+    }
+
+    // The stage a held roll reaches once its target's player has answered: the attacker's player is asked about the BLOOD MARKERS, or it is ready.
+    private static HeldInjury AfterReaction(MatchState state, HeldInjury held, SpellKind reaction)
+    {
+        var progress = state.InProgress!;
+        var roll = InjuryEvent(state, progress, state.FindModel(held.Attacker)!, state.FindModel(held.Target)!, held.Injury, reaction);
+        return held with { Stage = Board.ConversionPossible(state, held.Attacker, held.Target, roll) ? HeldStage.ConvertOwed : HeldStage.Ready };
+    }
+
+    // October 2026 Review (U145): the attacker's player answers the ConvertMarkers decision.
+    private static MatchState OnMarkersConverted(MatchState state, MarkersConverted e)
+    {
+        Require(state.Pending is { Kind: DecisionKind.ConvertMarkers } p && p.Seat == e.Seat && state.Held is { Stage: HeldStage.ConvertAsked } held, "No such decision is waiting.");
+        var held2 = state.Held!;
+        var roll = InjuryEvent(state, state.InProgress!, state.FindModel(held2.Attacker)!, state.FindModel(held2.Target)!, held2.Injury, state.HeldReaction);
+        var attacker = state.Setup!.ProfileOf(held2.Attacker)!;
+        var target = state.FindModel(held2.Target)!;
+        Require(e.Converted >= 0 && e.Stripped >= 0 && e.Converted + e.Stripped <= roll.BloodPlaced, "At most the BLOOD MARKERS the roll would place can be changed.");
+        if (e.Converted > 0)
+        {
+            Require(attacker.MortalSuffering && (attacker.Traits & ModelTraits.Demonic) != 0 && e.To is { } to && Board.SinHomes(state, e.Seat).Any(m => m.Id == to && m.SinMarkers + e.Converted <= BloodMarkers.Max),
+                "Mortal Suffering turns BLOOD MARKERS into SIN MARKERS next to a friendly DEMONIC model, up to 6 on it.");
+        }
+        else
+        {
+            Require(e.To is null, "Nothing is converted, so there is no model for the SIN MARKERS.");
+        }
+        if (e.Stripped > 0)
+        {
+            Require(state.Setup.ProfileOf(held2.Target)!.Perverse && (state.Setup.ProfileOf(held2.Target)!.Traits & ModelTraits.Demonic) != 0 && e.Stripped <= target.SinMarkers,
+                "Perversion of God's Laws removes SIN MARKERS the DEMONIC target has.");
+        }
+        return state with { Pending = null, Held = held2 with { Stage = HeldStage.Ready, Converted = e.Converted, ConvertedTo = e.To, Stripped = e.Stripped } };
+    }
+
     // Roster stage R16 (U141): the Injury Roll is made, and held while its target's player may answer it.
     private static MatchState OnInjuryRollMade(MatchState state, InjuryRollMade e)
     {
-        var (_, _, target, _) = RequireInjuryDice(state, e.Attacker, e.Target, e.Injury);
-        Require(state.Held is null && Board.ReactionsFor(state, target, Board.ResultOf(state, target, e.Injury)) != SpellKind.None,
-            "An Injury Roll is held only when its target's player may cast Oracle Beast Cloak or Too Proud to Fall against it.");
-        return state with { Held = new HeldInjury(e.Attacker, e.Target, e.Injury) };
+        var (progress, attacker, target, _) = RequireInjuryDice(state, e.Attacker, e.Target, e.Injury);
+        var reactions = Board.ReactionsFor(state, target, Board.ResultOf(state, target, e.Injury)) != SpellKind.None;
+        var convert = Board.ConversionPossible(state, e.Attacker, e.Target, InjuryEvent(state, progress, attacker, target, e.Injury, SpellKind.None));
+        Require(state.Held is null && (reactions || convert),
+            "An Injury Roll is held only when its target's player may cast Oracle Beast Cloak or Too Proud to Fall against it, or its attacker's player may change the BLOOD MARKERS it places.");
+        return state with { Held = new HeldInjury(e.Attacker, e.Target, e.Injury, reactions ? HeldStage.ReactionOwed : HeldStage.ConvertOwed) };
     }
 
     private static MatchState OnReactionDeclined(MatchState state, ReactionDeclined e)
@@ -1762,7 +1833,7 @@ public static class Reducer
         {
             return state with { Pending = null, InProgress = state.InProgress! with { BlessedFor = state.InProgress.Target, Blessing = 0 } };
         }
-        return state with { Pending = null };
+        return state with { Pending = null, Held = AfterReaction(state, state.Held!, SpellKind.None) };
     }
 
     // Roster stage R16 (U141): a reaction spell, cast by the model an Injury Roll is for, in answer to the decision it was asked.
@@ -1784,7 +1855,7 @@ public static class Reducer
         {
             next = TurnRules.WithModel(next, next.FindModel(e.Model)! with { OracleUsed = true });
         }
-        return next with { Pending = null, HeldReaction = e.Spell };
+        return next with { Pending = null, HeldReaction = e.Spell, Held = AfterReaction(next, next.Held!, e.Spell) };
     }
 
     private static MatchState OnInjuryRolled(MatchState state, InjuryRolled e)
@@ -1792,10 +1863,13 @@ public static class Reducer
         var (progress, attacker, target, profile) = RequireInjuryDice(state, e.Attacker, e.Target, e.Injury);
         // Roster stage R16 (U141): when the target's player may cast against the result, the roll was made (and held) first, and the
         // result carries what was cast.
-        Require(state.Held is not null || Board.ReactionsFor(state, target, Board.ResultOf(state, target, e.Injury)) == SpellKind.None,
-            "An Injury Roll that its target's player may answer is made and held first, any other is applied at once.");
-        Require(state.Held is null || state.Held.Injury.Equals(e.Injury) && state.Held.Attacker == e.Attacker && state.Held.Target == e.Target && state.Held.Asked,
-            "The Injury Roll applied is the one that was held, once its target's player has answered.");
+        Require(state.Held is not null || Board.ReactionsFor(state, target, Board.ResultOf(state, target, e.Injury)) == SpellKind.None
+            && !Board.ConversionPossible(state, e.Attacker, e.Target, e with { Converted = 0, ConvertedTo = null, Stripped = 0 }),
+            "An Injury Roll that either player may answer is made and held first, any other is applied at once.");
+        Require(state.Held is null || state.Held.Injury.Equals(e.Injury) && state.Held.Attacker == e.Attacker && state.Held.Target == e.Target && state.Held.Stage == HeldStage.Ready
+            && state.Held.Converted == e.Converted && state.Held.ConvertedTo == e.ConvertedTo && state.Held.Stripped == e.Stripped,
+            "The Injury Roll applied is the one that was held, once both players have answered.");
+        Require(state.Held is not null || (e.Converted == 0 && e.ConvertedTo is null && e.Stripped == 0), "BLOOD MARKERS are changed only on a held Injury Roll.");
         Require(e.Cloaked == (state.HeldReaction == SpellKind.OracleBeastCloak) && e.Upheld == (state.HeldReaction == SpellKind.TooProudToFall),
             "An Injury Roll is Cloaked or Upheld only by the spell its target's player cast against it.");
         // Bloodbath Roll (p. 47, U124): the attacker spent the markers for it, and the event says so.
@@ -1808,12 +1882,17 @@ public static class Reducer
         Require(e.Infection == AttackDice.PlacesInfection(profile, progress.Kind), "An INFECTION MARKERS weapon places INFECTION MARKERS, any other BLOOD MARKERS.");
         Require(e.Warded == (!e.Infection && Wards(state, target, e.ResultMarkers + e.ExtraMarkers)), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
         // Roster stage R10 (U135): an INFECTION MARKERS weapon's markers are INFECTION MARKERS, up to 6 of them.
-        var markers = e.Infection ? target.BloodMarkers : Math.Min(BloodMarkers.Max, target.BloodMarkers + e.PlacedMarkers);
+        var markers = e.Infection ? target.BloodMarkers : Math.Min(BloodMarkers.Max, target.BloodMarkers + e.BloodPlaced);
         var hurt = Hurt(target, e.Result, markers, e.Tough || e.Spared, e.Upheld) with
         {
             WardSpent = target.WardSpent || e.Warded,
             InfectionMarkers = e.Infection ? Math.Min(BloodMarkers.Max, target.InfectionMarkers + e.PlacedMarkers) : target.InfectionMarkers,
+            SinMarkers = target.SinMarkers - e.Stripped,
         };
+        if (e.ConvertedTo is { } home)
+        {
+            state = TurnRules.WithModel(state, state.FindModel(home)! with { SinMarkers = state.FindModel(home)!.SinMarkers + e.Converted });
+        }
         // A blast's next model (U102), once this one is rolled for.
         if (!progress.BlastQueue.IsDefaultOrEmpty)
         {
@@ -1822,7 +1901,13 @@ public static class Reducer
         }
         // RELOAD: the attacker's activation ends now its ACTION is done (not after a free attack, which is not its own); a
         // scattered attack's failed Risky roll ends it instead (U103).
-        return AttackOver(TurnRules.WithModel(state, hurt) with { Held = null, HeldReaction = SpellKind.None }, progress);
+        var done = AttackOver(TurnRules.WithModel(state, hurt) with { Held = null, HeldReaction = SpellKind.None }, progress);
+        // October 2026 Review (U146): Light of the Fallen drives a surviving target on a base of 40mm or smaller D6" straight away from the caster.
+        if (progress.Spell == SpellKind.LightOfTheFallen && hurt.Status != ModelStatus.OutOfAction && Board.LightPushes(state, attacker, hurt) is { } away)
+        {
+            done = done with { ForcedMovesOwed = new ForcedOwed(attacker.Id, SelfActionKind.PuppetMaster, target.Id, away) };
+        }
+        return done;
     }
 
     // Roster stage R5b (U106): TOUGH turns the first Out of Action result a model suffers into a Down result (p. 57).
