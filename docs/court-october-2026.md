@@ -35,7 +35,8 @@ the progress; the reasoning for each rule is in `docs/interpretations.md` (U142 
 | C3 | The variant warbands' own spells (with C5) | open |
 | C4a | Base Court list in `court.json` and `catalogue.json` to the Review: models, costs, abilities, Armoury, new kit (U143) | done |
 | C4b | The rest of the Review's base text: Hunter, Pit Locust and Wretched details, mercenary Goetic Warlock / Sin Eater lines, every model's engine effects | open |
-| C5 | The seven variants' special rules and Battlekit, one variant at a time | open |
+| C5 | The seven variants' recruitment, special rules, Goetic Powers, Armoury and new kit as data (U155) | done |
+| C5b | The variants' special rules and new kit played by the engine, one by one | open |
 | C6 | Client: SIN MARKER display (board drops, unit card), spell picker | open |
 
 Until C2 and C4 are done the engine cannot give a Court model SIN MARKERS in a real match; only tests do.

@@ -314,6 +314,7 @@ Not checked yet: special conditions written in notes.
   `MatchReadinessTests.HelpingActionsArePlayed`, `ModelTraitDisplayTests.HelpingActionsAreExplained`.
 - Roster rules stage R12, Arise and be Healed! (done 2026-11-07, U137). Tests: `MarkerKindTests.AriseAnd*`, `MatchReadinessTests.AriseAndBeHealedIsPlayed`.
 - Roster rules stage R13, Charm of Acedia (done 2026-11-07, U138). Tests: `SpellTests.CharmOfAcedia*`.
+- Court data, stage C5 (done 2026-11-08, U155): the seven variants as the October 2026 Review has them, as data.
 - Court data, stage C4a (done 2026-11-08, U143): base list moved to the October 2026 Rules Review. Tests: `MatchReadinessTests.CourtSpellsAreKnown`, the Roster tests.
 - Roster rules stage R16, Blessing of the Serpent Moon, Oracle Beast Cloak and Too Proud to Fall (done 2026-11-07, U141). Tests: `ReactionSpellTests`.
 - Roster rules stage R15, Shadow-walker and Call of the Flesh (done 2026-11-07, U140). Tests: `SpellTests.AShadowWalker*`, `SpellTests.CallOfTheFlesh*`.

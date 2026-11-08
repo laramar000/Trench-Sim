@@ -1405,7 +1405,9 @@
     "praetor",
     "sorcerer",
     "hell-knight",
-    "fallen-saint"
+    "fallen-saint",
+    "pit-locust",
+    "chain-fiend"
    ],
    "addModels": [
     {
@@ -1453,36 +1455,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "blind-rage",
-       "name": "Blind Rage (Ability)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 3,
-       "note": "+1 DICE to the Risky roll for a Dash ACTION"
-      },
-      {
-       "id": "charge-of-hatred",
-       "name": "Charge of Hatred (Ability)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 3,
-       "note": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy"
-      },
-      {
-       "id": "lesser-mark-of-cain",
-       "name": "Lesser Mark of Cain (Ability)",
-       "cost": {
-        "amount": 20,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "-1 INJURY DICE to Injury Rolls against it"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -1510,6 +1482,36 @@
        },
        "maxPerWarband": 3,
        "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "blind-rage",
+       "name": "Blind Rage (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "+1 DICE to the Risky roll of its Dash ACTION"
+      },
+      {
+       "id": "charge-of-hatred",
+       "name": "Charge of Hatred (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy"
+      },
+      {
+       "id": "undo-creation",
+       "name": "Undo Creation (Spell, cost 3)",
+       "cost": {
+        "amount": 30,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Cast Spell ACTION: a terrain piece within 12\" in sight, up to 8\" by 8\", gains DANGEROUS TERRAIN (FIRE) for the game"
       }
      ],
      "source": {
@@ -1564,36 +1566,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "blind-rage",
-       "name": "Blind Rage (Ability)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 3,
-       "note": "+1 DICE to the Risky roll for a Dash ACTION"
-      },
-      {
-       "id": "charge-of-hatred",
-       "name": "Charge of Hatred (Ability)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 3,
-       "note": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy"
-      },
-      {
-       "id": "lesser-mark-of-cain",
-       "name": "Lesser Mark of Cain (Ability)",
-       "cost": {
-        "amount": 20,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "-1 INJURY DICE to Injury Rolls against it"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -1636,6 +1608,36 @@
         }
        ],
        "note": "the Sorcerer has the LEADER keyword"
+      },
+      {
+       "id": "blind-rage",
+       "name": "Blind Rage (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "+1 DICE to the Risky roll of its Dash ACTION"
+      },
+      {
+       "id": "charge-of-hatred",
+       "name": "Charge of Hatred (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy"
+      },
+      {
+       "id": "undo-creation",
+       "name": "Undo Creation (Spell, cost 3)",
+       "cost": {
+        "amount": 30,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Cast Spell ACTION: a terrain piece within 12\" in sight, up to 8\" by 8\", gains DANGEROUS TERRAIN (FIRE) for the game"
       }
      ],
      "abilities": [
@@ -1701,36 +1703,6 @@
      ],
      "upgrades": [
       {
-       "id": "blind-rage",
-       "name": "Blind Rage (Ability)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 3,
-       "note": "+1 DICE to the Risky roll for a Dash ACTION"
-      },
-      {
-       "id": "charge-of-hatred",
-       "name": "Charge of Hatred (Ability)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 3,
-       "note": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy"
-      },
-      {
-       "id": "lesser-mark-of-cain",
-       "name": "Lesser Mark of Cain (Ability)",
-       "cost": {
-        "amount": 20,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "-1 INJURY DICE to Injury Rolls against it"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -1781,6 +1753,36 @@
         }
        ],
        "note": "the Hell Knight has the FEAR keyword"
+      },
+      {
+       "id": "blind-rage",
+       "name": "Blind Rage (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "+1 DICE to the Risky roll of its Dash ACTION"
+      },
+      {
+       "id": "charge-of-hatred",
+       "name": "Charge of Hatred (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy"
+      },
+      {
+       "id": "undo-creation",
+       "name": "Undo Creation (Spell, cost 3)",
+       "cost": {
+        "amount": 30,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Cast Spell ACTION: a terrain piece within 12\" in sight, up to 8\" by 8\", gains DANGEROUS TERRAIN (FIRE) for the game"
       }
      ],
      "abilities": [
@@ -1860,16 +1862,6 @@
        "page": 170
       },
       {
-       "name": "Aura of Wrath",
-       "summary": "+1 DICE to Melee Attacks and Dash Risky rolls for friends within 8\" (itself included).",
-       "page": 170
-      },
-      {
-       "name": "Aura of Sin",
-       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
-       "page": 12
-      },
-      {
        "name": "Relentless",
        "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
        "page": 12
@@ -1878,6 +1870,11 @@
        "name": "Totemic",
        "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
        "page": 12
+      },
+      {
+       "name": "Seething Heat",
+       "summary": "Friends within 8\" (itself too) get +1 DICE to Melee Attacks and to the Risky roll of a Dash ACTION.",
+       "page": 29
       }
      ],
      "kitRules": {
@@ -1902,43 +1899,240 @@
       "page": 12
      },
      "status": "verified",
+     "naming": "rename",
+     "upgrades": []
+    },
+    {
+     "id": "pit-locust",
+     "name": "Pit Locust",
+     "max": 5,
+     "cost": {
+      "amount": 90,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      30,
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Hellfire Spit ACTION",
+       "summary": "With 2 or more SIN MARKERS next to it, a Ranged Attack of Range 4\" with ASSAULT and FIRE (+10 ducats).",
+       "page": 29
+      },
+      {
+       "name": "Poison Stingers",
+       "summary": "May make Melee Attacks without a weapon, with CLEAVE 2 and FIRE (instead of SHRAPNEL).",
+       "page": 29
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "melee",
+       "grenade",
+       "shield",
+       "armour"
+      ],
+      "onlyKit": [
+       {
+        "category": "equipment",
+        "kit": [
+         "crown-of-hellfire"
+        ]
+       }
+      ]
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 11
+     },
+     "status": "verified",
+     "naming": "keep",
+     "upgrades": [
+      {
+       "id": "hellfire-spit",
+       "name": "Hellfire Spit (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "the Pit Locust can make the Hellfire Spit ACTION"
+      }
+     ]
+    },
+    {
+     "id": "chain-fiend",
+     "name": "Chain Fiend",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "NEGATE",
+       "value": "DIFFICULT TERRAIN"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Glory Lost",
+       "summary": "+1 DICE to its Melee Attacks while there are 3 or more SIN MARKERS next to friendly Chain Fiends on the battlefield.",
+       "page": 12
+      },
+      {
+       "name": "Wrathful",
+       "summary": "On Activation, if over 1\" from enemies and an enemy is in sight within 12\", its first ACTION must be a Charge at the closest enemy. Unless it wears a Restraining Muzzle.",
+       "page": 29
+      }
+     ],
+     "kitRules": {
+      "note": "A Chain Fiend can have only 1 Ranged Weapon, costing 30 ducats or less (not checked by the builder)."
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
+     },
+     "status": "verified",
      "naming": "rename"
     }
    ],
    "specialRules": [
     {
-     "name": "Dedicated to Wrath",
-     "summary": "The warband is dedicated to Wrath: its ELITE models can also take the Wrath Goetic Powers, and a Fallen Saint has the Aura of Wrath.",
-     "page": 147
-    },
-    {
-     "name": "Blind Rage (Ability)",
-     "summary": "+1 DICE to the Risky roll for a Dash ACTION.",
-     "page": 155
-    },
-    {
-     "name": "Charge of Hatred (Ability)",
-     "summary": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy.",
-     "page": 155
-    },
-    {
-     "name": "Lesser Mark of Cain (Ability)",
-     "summary": "-1 INJURY DICE to Injury Rolls against it.",
-     "page": 155
-    },
-    {
-     "name": "Praetor of Wrath",
-     "summary": "A Praetor dedicated to Wrath can have only 1 Goetic Power (not checked by the builder).",
-     "page": 162
+     "name": "Exterminans Omnium",
+     "summary": "No Mortal Suffering. When an Injury Roll for an enemy is caused by a FIRE attack made by a friendly DEMONIC model, place 1 SIN MARKER next to the attacker.",
+     "page": 29
     }
    ],
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 155
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 28
    },
    "status": "verified",
-   "naming": "keep"
+   "naming": "keep",
+   "removeArmoury": [
+    "fiendbound-gatling-gun",
+    "serpent-assault-gun"
+   ],
+   "addArmoury": [
+    {
+     "kit": "heavy-flamethrower",
+     "cost": {
+      "amount": 55,
+      "currency": "ducats"
+     },
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "ruin-mace",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "hellfire-ember",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "lesser-murder-mark",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "locust-gait",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "hell-knight"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "spear-of-ruin",
+     "cost": {
+      "amount": 6,
+      "currency": "glory"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    }
+   ]
   },
   {
    "id": "dedicated-to-envy",
@@ -1947,7 +2141,9 @@
     "praetor",
     "sorcerer",
     "hell-knight",
-    "fallen-saint"
+    "fallen-saint",
+    "wretched",
+    "chain-fiend"
    ],
    "addModels": [
     {
@@ -1995,15 +2191,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "coveted-position",
-       "name": "Coveted Position (Spell, cost 2)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: swap places with a model within 12\" in sight that is over 1\" from others. Praetors & Sorcerers only"
-      },
-      {
        "id": "envious-eyes",
        "name": "Envious Eyes (Ability)",
        "cost": {
@@ -2011,15 +2198,6 @@
         "currency": "ducats"
        },
        "note": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (listed in the armoury as from those factions). Praetors & Sorcerers only"
-      },
-      {
-       "id": "what-is-yours-is-mine",
-       "name": "What is Yours is Mine (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself"
       },
       {
        "id": "slavemaster",
@@ -2049,6 +2227,35 @@
        },
        "maxPerWarband": 3,
        "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "what-is-yours-is-mine",
+       "name": "What is Yours is Mine (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: move that many BLOOD, BLESSING or SIN MARKERS from a model in sight to itself"
+      },
+      {
+       "id": "meat-shield",
+       "name": "Meat Shield (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "when hit by a Ranged or Melee Attack within 1\" of a friendly Wretched, the Wretched takes the hit instead (not BLAST)"
+      },
+      {
+       "id": "coveted-position",
+       "name": "Coveted Position (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "Cast Spell ACTION: swap places with a model within 12\" in sight that is over 1\" from others"
       }
      ],
      "source": {
@@ -2103,15 +2310,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "coveted-position",
-       "name": "Coveted Position (Spell, cost 2)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: swap places with a model within 12\" in sight that is over 1\" from others. Praetors & Sorcerers only"
-      },
-      {
        "id": "envious-eyes",
        "name": "Envious Eyes (Ability)",
        "cost": {
@@ -2119,15 +2317,6 @@
         "currency": "ducats"
        },
        "note": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (listed in the armoury as from those factions). Praetors & Sorcerers only"
-      },
-      {
-       "id": "what-is-yours-is-mine",
-       "name": "What is Yours is Mine (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself"
       },
       {
        "id": "slavemaster",
@@ -2172,6 +2361,35 @@
         }
        ],
        "note": "the Sorcerer has the LEADER keyword"
+      },
+      {
+       "id": "what-is-yours-is-mine",
+       "name": "What is Yours is Mine (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: move that many BLOOD, BLESSING or SIN MARKERS from a model in sight to itself"
+      },
+      {
+       "id": "meat-shield",
+       "name": "Meat Shield (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "when hit by a Ranged or Melee Attack within 1\" of a friendly Wretched, the Wretched takes the hit instead (not BLAST)"
+      },
+      {
+       "id": "coveted-position",
+       "name": "Coveted Position (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "Cast Spell ACTION: swap places with a model within 12\" in sight that is over 1\" from others"
       }
      ],
      "abilities": [
@@ -2204,7 +2422,7 @@
     {
      "id": "hell-knight",
      "name": "Hell Knight",
-     "max": 3,
+     "max": 5,
      "cost": {
       "amount": 100,
       "currency": "ducats"
@@ -2236,15 +2454,6 @@
       "infernal-iron-armour"
      ],
      "upgrades": [
-      {
-       "id": "what-is-yours-is-mine",
-       "name": "What is Yours is Mine (Spell, cost 1)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself"
-      },
       {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
@@ -2296,6 +2505,35 @@
         }
        ],
        "note": "the Hell Knight has the FEAR keyword"
+      },
+      {
+       "id": "what-is-yours-is-mine",
+       "name": "What is Yours is Mine (Spell, cost 1-3)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: move that many BLOOD, BLESSING or SIN MARKERS from a model in sight to itself"
+      },
+      {
+       "id": "meat-shield",
+       "name": "Meat Shield (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "when hit by a Ranged or Melee Attack within 1\" of a friendly Wretched, the Wretched takes the hit instead (not BLAST)"
+      },
+      {
+       "id": "coveted-position",
+       "name": "Coveted Position (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "Cast Spell ACTION: swap places with a model within 12\" in sight that is over 1\" from others"
       }
      ],
      "abilities": [
@@ -2317,12 +2555,13 @@
      },
      "status": "verified",
      "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
-     "naming": "keep"
+     "naming": "keep",
+     "min": 2
     },
     {
      "id": "fallen-saint",
      "name": "Fallen Saint",
-     "max": 1,
+     "max": 2,
      "cost": {
       "amount": 140,
       "currency": "ducats"
@@ -2375,16 +2614,6 @@
        "page": 170
       },
       {
-       "name": "Aura of Envy",
-       "summary": "Enemies within 12\" cannot charge its warband's models that are within 1\" of their own warband's models.",
-       "page": 170
-      },
-      {
-       "name": "Aura of Sin",
-       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
-       "page": 12
-      },
-      {
        "name": "Relentless",
        "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
        "page": 12
@@ -2393,6 +2622,11 @@
        "name": "Totemic",
        "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
        "page": 12
+      },
+      {
+       "name": "Maw of Comparison",
+       "summary": "Enemies within 6\" cannot charge models within 1\" of another friend, do not treat them as interposing, and trigger no free strikes from them.",
+       "page": 24
       }
      ],
      "kitRules": {
@@ -2417,35 +2651,124 @@
       "page": 12
      },
      "status": "verified",
+     "naming": "rename",
+     "upgrades": []
+    },
+    {
+     "id": "wretched",
+     "name": "Wretched",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": -1,
+     "melee": -1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Law of Hell",
+       "summary": "If it takes an enemy ELITE model Out of Action it goes free: removed from the game and the roster.",
+       "page": 167
+      },
+      {
+       "name": "Goaded Forth",
+       "summary": "+1 DICE to the Risky roll of its Dash ACTION with a friendly Chain Fiend within 8\" and in sight.",
+       "page": 11
+      }
+     ],
+     "kitRules": {
+      "maxCostDucats": 10,
+      "mustHaveWeapon": true
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 11
+     },
+     "status": "verified",
+     "note": "There must be more DEMONIC models than Wretched (not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "chain-fiend",
+     "name": "Chain Fiend",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Glory Lost",
+       "summary": "+1 DICE to its Melee Attacks while there are 3 or more SIN MARKERS next to friendly Chain Fiends on the battlefield.",
+       "page": 12
+      },
+      {
+       "name": "Envious",
+       "summary": "Its Dash must end as close as possible to an enemy it saw at the start; it cannot move within 1\" of enemies except as normal; BLOOD MARKERS cannot be spent for -DICE on its Melee Attacks while another friendly Chain Fiend is within 1\". Unless it wears a Restraining Muzzle.",
+       "page": 23
+      }
+     ],
+     "kitRules": {
+      "note": "A Chain Fiend can have only 1 Ranged Weapon, costing 30 ducats or less (not checked by the builder)."
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
+     },
+     "status": "verified",
      "naming": "rename"
     }
    ],
    "specialRules": [
     {
-     "name": "Dedicated to Envy",
-     "summary": "The warband is dedicated to Envy: its ELITE models can also take the Envy Goetic Powers, and a Fallen Saint has the Aura of Envy.",
-     "page": 147
+     "name": "Envious Eyes",
+     "summary": "At creation add 2 different pieces of ducat-priced Battlekit from the Armouries of New Antioch, Trench Pilgrims, Iron Sultanate or Heretic Legions; they keep their stipulations and cannot be sold or reallocated.",
+     "page": 23
     },
     {
-     "name": "Coveted Position (Spell, cost 2)",
-     "summary": "Cast Spell ACTION: swap places with a model within 12\" in sight that is over 1\" from others. Praetors & Sorcerers only.",
-     "page": 156
+     "name": "Potestas Negata",
+     "summary": "No Mortal Suffering. When a friendly model takes an enemy Down or Out of Action, place 1 SIN MARKER next to every other friendly DEMONIC model within 6\" of it.",
+     "page": 23
     },
     {
-     "name": "Envious Eyes (Ability)",
-     "summary": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (listed in the armoury as from those factions). Praetors & Sorcerers only.",
-     "page": 156
-    },
-    {
-     "name": "What is Yours is Mine (Spell, cost 1)",
-     "summary": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself.",
-     "page": 156
+     "name": "Hell Knights",
+     "summary": "2 to 5 Hell Knights; at the start of each Turn 1 SIN MARKER goes next to the Hell Knight with the fewest (the Petty Noble Glorious Deed is added when 2 or more are fielded).",
+     "page": 23
     }
    ],
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 156
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 23
    },
    "status": "verified",
    "naming": "keep",
@@ -4120,6 +4443,79 @@
      "group": "envious-eyes",
      "limit": 2,
      "status": "verified"
+    },
+    {
+     "kit": "mimic-knife",
+     "cost": {
+      "amount": 12,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "mirror-pavise",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "model": "hell-knight"
+      }
+     ],
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sacrificial-brand",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "usurpers-wire",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "hell-knight"
+      },
+      {
+       "model": "fallen-saint"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "vassals-pledge",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "model": "hell-knight"
+      }
+     ],
+     "status": "verified"
     }
    ]
   },
@@ -4130,7 +4526,10 @@
     "praetor",
     "sorcerer",
     "hell-knight",
-    "fallen-saint"
+    "fallen-saint",
+    "chain-fiend",
+    "pit-locust",
+    "wretched"
    ],
    "addModels": [
     {
@@ -4178,33 +4577,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "call-of-the-flesh",
-       "name": "Call of the Flesh (Spell, cost 2)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION (ends its Activation): the next enemy to Activate must first Move, Charge or Retreat as close to it as possible, and cannot attack it that Turn. Praetors & Sorcerers only"
-      },
-      {
-       "id": "exquisite-pain",
-       "name": "Exquisite Pain (Spell, cost 1-2)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: the markers paid go onto a model in sight"
-      },
-      {
-       "id": "forbidden-pleasures",
-       "name": "Forbidden Pleasures (Ability)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "before deployment place 3 BLOOD MARKERS on one non-DEMONIC friend. Praetors & Sorcerers only"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -4232,6 +4604,34 @@
        },
        "maxPerWarband": 3,
        "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "exquisite-pain",
+       "name": "Exquisite Pain (Spell, cost 1-3)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: BLOOD MARKERS equal to the SIN MARKERS paid go next to a model in sight"
+      },
+      {
+       "id": "call-of-the-flesh",
+       "name": "Call of the Flesh (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION (ends its Activation): the next enemy to Activate must close in on it. Praetors & Sorcerers only"
+      },
+      {
+       "id": "forbidden-pleasures",
+       "name": "Forbidden Pleasures (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "at the start of each game, 3 BLOOD and 3 SIN MARKERS go next to each non-DEMONIC friend it names. Praetors & Sorcerers only"
       }
      ],
      "source": {
@@ -4286,33 +4686,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "call-of-the-flesh",
-       "name": "Call of the Flesh (Spell, cost 2)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION (ends its Activation): the next enemy to Activate must first Move, Charge or Retreat as close to it as possible, and cannot attack it that Turn. Praetors & Sorcerers only"
-      },
-      {
-       "id": "exquisite-pain",
-       "name": "Exquisite Pain (Spell, cost 1-2)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: the markers paid go onto a model in sight"
-      },
-      {
-       "id": "forbidden-pleasures",
-       "name": "Forbidden Pleasures (Ability)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "before deployment place 3 BLOOD MARKERS on one non-DEMONIC friend. Praetors & Sorcerers only"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -4355,6 +4728,34 @@
         }
        ],
        "note": "the Sorcerer has the LEADER keyword"
+      },
+      {
+       "id": "exquisite-pain",
+       "name": "Exquisite Pain (Spell, cost 1-3)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: BLOOD MARKERS equal to the SIN MARKERS paid go next to a model in sight"
+      },
+      {
+       "id": "call-of-the-flesh",
+       "name": "Call of the Flesh (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION (ends its Activation): the next enemy to Activate must close in on it. Praetors & Sorcerers only"
+      },
+      {
+       "id": "forbidden-pleasures",
+       "name": "Forbidden Pleasures (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "at the start of each game, 3 BLOOD and 3 SIN MARKERS go next to each non-DEMONIC friend it names. Praetors & Sorcerers only"
       }
      ],
      "abilities": [
@@ -4420,15 +4821,6 @@
      ],
      "upgrades": [
       {
-       "id": "exquisite-pain",
-       "name": "Exquisite Pain (Spell, cost 1-2)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: the markers paid go onto a model in sight"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -4479,6 +4871,16 @@
         }
        ],
        "note": "the Hell Knight has the FEAR keyword"
+      },
+      {
+       "id": "exquisite-pain",
+       "name": "Exquisite Pain (Spell, cost 1-3)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION: BLOOD MARKERS equal to the SIN MARKERS paid go next to a model in sight"
       }
      ],
      "abilities": [
@@ -4510,11 +4912,11 @@
       "amount": 140,
       "currency": "ducats"
      },
-     "movementInches": 6,
-     "movementType": "infantry",
+     "movementInches": 8,
+     "movementType": "flying",
      "ranged": null,
      "melee": 3,
-     "armour": -3,
+     "armour": -2,
      "baseMm": [
       60
      ],
@@ -4548,6 +4950,9 @@
       },
       {
        "id": "LIMITED POTENTIAL"
+      },
+      {
+       "id": "FLYING"
       }
      ],
      "kitAccess": "armoury",
@@ -4558,16 +4963,6 @@
        "page": 170
       },
       {
-       "name": "Aura of Lust",
-       "summary": "Enemy armour without IMPERVIOUS within 4\" can lose any of its keywords or rules (except base size).",
-       "page": 170
-      },
-      {
-       "name": "Aura of Sin",
-       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
-       "page": 12
-      },
-      {
        "name": "Relentless",
        "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
        "page": 12
@@ -4576,6 +4971,11 @@
        "name": "Totemic",
        "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
        "page": 12
+      },
+      {
+       "name": "Penetrating Gaze",
+       "summary": "Enemies within 4\" cannot add -INJURY MODIFIERS to Injury Rolls for them, unless from IMPERVIOUS kit or an IMPERVIOUS model.",
+       "page": 20
       }
      ],
      "kitRules": {
@@ -4600,38 +5000,303 @@
       "page": 12
      },
      "status": "verified",
+     "naming": "rename",
+     "upgrades": []
+    },
+    {
+     "id": "chain-fiend",
+     "name": "Chain Fiend",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Glory Lost",
+       "summary": "+1 DICE to its Melee Attacks while there are 3 or more SIN MARKERS next to friendly Chain Fiends on the battlefield.",
+       "page": 12
+      },
+      {
+       "name": "Lustful",
+       "summary": "Cannot have Armour or Shields; enemies get -1 DICE to Success Rolls when more friendly Chain Fiends than enemies are within 1\" of them. Unless it wears a Restraining Muzzle.",
+       "page": 20
+      }
+     ],
+     "kitRules": {
+      "note": "A Chain Fiend can have only 1 Ranged Weapon, costing 30 ducats or less (not checked by the builder)."
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
+     },
+     "status": "verified",
      "naming": "rename"
+    },
+    {
+     "id": "pit-locust",
+     "name": "Pit Locust",
+     "max": 3,
+     "cost": {
+      "amount": 90,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      30,
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Poison Stingers",
+       "summary": "May make Melee Attacks without a weapon, with CLEAVE 2 and SHRAPNEL.",
+       "page": 168
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "melee",
+       "grenade",
+       "shield",
+       "armour"
+      ],
+      "onlyKit": [
+       {
+        "category": "equipment",
+        "kit": [
+         "crown-of-hellfire"
+        ]
+       }
+      ]
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 11
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "wretched",
+     "name": "Wretched",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": -1,
+     "melee": -1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Law of Hell",
+       "summary": "If it takes an enemy ELITE model Out of Action it goes free: removed from the game and the roster.",
+       "page": 167
+      },
+      {
+       "name": "Goaded Forth",
+       "summary": "+1 DICE to the Risky roll of its Dash ACTION with a friendly Chain Fiend within 8\" and in sight.",
+       "page": 11
+      },
+      {
+       "name": "Mutual Satisfaction",
+       "summary": "May take a Wrack with Pain ACTION within 1\" of an Altar of Torment without DEMONIC; +2 DICE on a Torture ACTION with a Torture Instrument, and BLOOD MARKERS beside it cannot be spent against that roll.",
+       "page": 20
+      }
+     ],
+     "kitRules": {
+      "maxCostDucats": 10,
+      "mustHaveWeapon": true
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 11
+     },
+     "status": "verified",
+     "note": "There must be more DEMONIC models than Wretched (not checked by the builder).",
+     "naming": "keep"
     }
    ],
    "specialRules": [
     {
-     "name": "Dedicated to Lust",
-     "summary": "The warband is dedicated to Lust: its ELITE models can also take the Lust Goetic Powers, and a Fallen Saint has the Aura of Lust.",
-     "page": 147
+     "name": "Vetiti Voluptas",
+     "summary": "No Mortal Suffering; SIN MARKERS on friendly models may fuel Goetic Spells even without DEMONIC. When an ACTION would place 2 or more BLOOD MARKERS next to another friend, place only 1 and 1 SIN MARKER next to the model taking the ACTION.",
+     "page": 21
     },
     {
-     "name": "Call of the Flesh (Spell, cost 2)",
-     "summary": "Cast Spell ACTION (ends its Activation): the next enemy to Activate must first Move, Charge or Retreat as close to it as possible, and cannot attack it that Turn. Praetors & Sorcerers only.",
-     "page": 157
-    },
-    {
-     "name": "Exquisite Pain (Spell, cost 1-2)",
-     "summary": "Cast Spell ACTION: the markers paid go onto a model in sight.",
-     "page": 157
-    },
-    {
-     "name": "Forbidden Pleasures (Ability)",
-     "summary": "before deployment place 3 BLOOD MARKERS on one non-DEMONIC friend. Praetors & Sorcerers only.",
-     "page": 157
+     "name": "Wretched",
+     "summary": "The Wretched need not be outnumbered by DEMONIC models.",
+     "page": 19
     }
    ],
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 157
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 19
    },
    "status": "verified",
-   "naming": "keep"
+   "naming": "keep",
+   "removeArmoury": [
+    "flamethrower",
+    "forked-abyssal-sword",
+    "heavy-flamethrower"
+   ],
+   "addArmoury": [
+    {
+     "kit": "horn-of-delights",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "lance-of-lechery",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "hell-knight"
+      },
+      {
+       "model": "fallen-saint"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "scourge-of-delight",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "limit": 3,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "spoils-of-desire",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "wretched"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "fate-dice",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "torture-instrument",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "status": "verified"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "iron-maiden-flail",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "limit": 2,
+     "status": "verified"
+    }
+   ]
   },
   {
    "id": "dedicated-to-pride",
@@ -4640,7 +5305,10 @@
     "praetor",
     "sorcerer",
     "hell-knight",
-    "fallen-saint"
+    "fallen-saint",
+    "chain-fiend",
+    "pit-locust",
+    "shadow-hunter"
    ],
    "addModels": [
     {
@@ -4688,33 +5356,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "light-of-samael",
-       "name": "Light of the Fallen (Spell, cost 2)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: Injury Roll for an enemy within 24\" in sight; a 32mm or smaller target is driven back D6\". Praetors & Sorcerers only"
-      },
-      {
-       "id": "proud-defiance",
-       "name": "Proud Defiance (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "no Morale Checks while it is on the battlefield"
-      },
-      {
-       "id": "too-proud-to-fall",
-       "name": "Too Proud to Fall (Spell, cost 2)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "cast when taken Down: it stays standing (other effects still apply). Praetors & Sorcerers only"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -4742,6 +5383,42 @@
        },
        "maxPerWarband": 3,
        "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "proud-defiance",
+       "name": "Proud Defiance (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "never takes Morale Checks while it is on the battlefield"
+      },
+      {
+       "id": "wounded-pride",
+       "name": "Wounded Pride (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "after a non-ELITE model's attack puts BLOOD MARKERS on it, the attacker gets as many"
+      },
+      {
+       "id": "light-of-samael",
+       "name": "Light of the Fallen (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: an Injury Roll for an enemy within 24\" in sight; a survivor on a 40mm or smaller base is driven D6\" away. Praetors & Sorcerers only"
+      },
+      {
+       "id": "too-proud-to-fall",
+       "name": "Too Proud to Fall (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "cast when taken Down: it stays standing (other effects still apply). Praetors & Sorcerers only"
       }
      ],
      "source": {
@@ -4757,6 +5434,11 @@
        "name": "Beacon of Corruption",
        "summary": "When it Activates, place 1 SIN MARKER next to it.",
        "page": 8
+      },
+      {
+       "name": "Superior",
+       "summary": "When it Activates within 18\" of any Wretched model (friend or foe) in its sight, place 1 SIN MARKER next to it.",
+       "page": 12
       }
      ]
     },
@@ -4795,33 +5477,6 @@
      ],
      "kitAccess": "armoury",
      "upgrades": [
-      {
-       "id": "light-of-samael",
-       "name": "Light of the Fallen (Spell, cost 2)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: Injury Roll for an enemy within 24\" in sight; a 32mm or smaller target is driven back D6\". Praetors & Sorcerers only"
-      },
-      {
-       "id": "proud-defiance",
-       "name": "Proud Defiance (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "no Morale Checks while it is on the battlefield"
-      },
-      {
-       "id": "too-proud-to-fall",
-       "name": "Too Proud to Fall (Spell, cost 2)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "note": "cast when taken Down: it stays standing (other effects still apply). Praetors & Sorcerers only"
-      },
       {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
@@ -4865,6 +5520,42 @@
         }
        ],
        "note": "the Sorcerer has the LEADER keyword"
+      },
+      {
+       "id": "proud-defiance",
+       "name": "Proud Defiance (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "never takes Morale Checks while it is on the battlefield"
+      },
+      {
+       "id": "wounded-pride",
+       "name": "Wounded Pride (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "after a non-ELITE model's attack puts BLOOD MARKERS on it, the attacker gets as many"
+      },
+      {
+       "id": "light-of-samael",
+       "name": "Light of the Fallen (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: an Injury Roll for an enemy within 24\" in sight; a survivor on a 40mm or smaller base is driven D6\" away. Praetors & Sorcerers only"
+      },
+      {
+       "id": "too-proud-to-fall",
+       "name": "Too Proud to Fall (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "cast when taken Down: it stays standing (other effects still apply). Praetors & Sorcerers only"
       }
      ],
      "abilities": [
@@ -4877,6 +5568,11 @@
        "name": "Burning Inferno (Spell, cost 1-3)",
        "summary": "Cast Spell ACTION: a 36\" Ranged Attack; 1 SIN MARKER paid = BLAST 1\", 2 = ARMOUR PIERCING and BLAST 2\", 3 = ARMOUR PIERCING and BLAST 3\" (all FIRE, SCATTER), and a Success at 3 (or a scatter onto a base) gives the model hit IGNORE ARMOUR.",
        "page": 9
+      },
+      {
+       "name": "Superior",
+       "summary": "When it Activates within 18\" of any Wretched model (friend or foe) in its sight, place 1 SIN MARKER next to it.",
+       "page": 12
       }
      ],
      "kitRules": {
@@ -4930,15 +5626,6 @@
      ],
      "upgrades": [
       {
-       "id": "proud-defiance",
-       "name": "Proud Defiance (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "no Morale Checks while it is on the battlefield"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -4989,6 +5676,24 @@
         }
        ],
        "note": "the Hell Knight has the FEAR keyword"
+      },
+      {
+       "id": "proud-defiance",
+       "name": "Proud Defiance (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "never takes Morale Checks while it is on the battlefield"
+      },
+      {
+       "id": "wounded-pride",
+       "name": "Wounded Pride (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "after a non-ELITE model's attack puts BLOOD MARKERS on it, the attacker gets as many"
       }
      ],
      "abilities": [
@@ -5068,16 +5773,6 @@
        "page": 170
       },
       {
-       "name": "Aura of Pride",
-       "summary": "At the end of its Activation each enemy within 8\" gets 1 BLOOD MARKER.",
-       "page": 171
-      },
-      {
-       "name": "Aura of Sin",
-       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
-       "page": 12
-      },
-      {
        "name": "Relentless",
        "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
        "page": 12
@@ -5086,6 +5781,11 @@
        "name": "Totemic",
        "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
        "page": 12
+      },
+      {
+       "name": "Oppressive Brilliance",
+       "summary": "At the end of its Activation place 1 BLOOD MARKER next to each enemy within 8\".",
+       "page": 13
       }
      ],
      "kitRules": {
@@ -5093,16 +5793,81 @@
        "ranged",
        "grenade",
        "shield",
-       "armour",
-       "equipment",
        "special"
+      ],
+      "onlyKit": [
+       {
+        "category": "equipment",
+        "kit": [
+         "troop-flag",
+         "radiant-halo"
+        ]
+       },
+       {
+        "category": "armour",
+        "kit": [
+         "cloak-of-the-fallen-star"
+        ]
+       }
       ],
       "arms": {
        "count": 3,
        "twoHandedArms": 1,
        "maxTwoHanded": 1
       },
-      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed. It may have a Troop Flag, a Radiant Halo and the Cloak of the Fallen Star."
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
+     },
+     "status": "verified",
+     "naming": "rename",
+     "upgrades": []
+    },
+    {
+     "id": "chain-fiend",
+     "name": "Chain Fiend",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "NEGATE",
+       "value": "FEAR"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Glory Lost",
+       "summary": "+1 DICE to its Melee Attacks while there are 3 or more SIN MARKERS next to friendly Chain Fiends on the battlefield.",
+       "page": 12
+      },
+      {
+       "name": "Prideful",
+       "summary": "Cannot voluntarily retreat; has NEGATE FEAR unless it wears a Restraining Muzzle.",
+       "page": 13
+      }
+     ],
+     "kitRules": {
+      "note": "A Chain Fiend can have only 1 Ranged Weapon, costing 30 ducats or less (not checked by the builder)."
      },
      "source": {
       "book": "Rules Review October 2026",
@@ -5111,37 +5876,263 @@
      },
      "status": "verified",
      "naming": "rename"
+    },
+    {
+     "id": "pit-locust",
+     "name": "Pit Locust",
+     "max": 3,
+     "cost": {
+      "amount": 90,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      30,
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Poison Stingers",
+       "summary": "May make Melee Attacks without a weapon, with CLEAVE 2 and SHRAPNEL.",
+       "page": 168
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "melee",
+       "grenade",
+       "shield",
+       "armour"
+      ],
+      "onlyKit": [
+       {
+        "category": "equipment",
+        "kit": [
+         "crown-of-hellfire"
+        ]
+       }
+      ]
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 11
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "shadow-hunter",
+     "name": "Shadow Hunter",
+     "max": 1,
+     "cost": {
+      "amount": 110,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 2,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "INFILTRATOR"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "bow-of-lethe"
+     ],
+     "abilities": [
+      {
+       "name": "Left-Hand Path (Spell, cost 2)",
+       "summary": "Moving into terrain it may vanish and reappear touching another terrain piece over 1\" from enemies (closer to the target if charging).",
+       "page": 165
+      },
+      {
+       "name": "Oracle Beast Cloak (Spell, cost 3)",
+       "summary": "Once per Turn after an Injury Roll for it: the result becomes No Effect.",
+       "page": 165
+      },
+      {
+       "name": "Shadow-walker (Spell, cost 2)",
+       "summary": "Before it Retreats: enemies get no attack as it leaves.",
+       "page": 165
+      }
+     ],
+     "kitRules": {
+      "note": "A Shadow Hunter cannot have 2-Handed Weapons (not checked by the builder)."
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 164
+     },
+     "status": "verified",
+     "note": "Always has its Bow of Lethe (no cost) and its three Goetic Powers.",
+     "naming": "rename"
     }
    ],
    "specialRules": [
     {
-     "name": "Dedicated to Pride",
-     "summary": "The warband is dedicated to Pride: its ELITE models can also take the Pride Goetic Powers, and a Fallen Saint has the Aura of Pride.",
-     "page": 147
+     "name": "Burning Shame",
+     "summary": "When a model of the warband makes a retreat move, the opponent may place 1 BLESSING MARKER next to any model of their warband.",
+     "page": 13
     },
     {
-     "name": "Light of the Fallen (Spell, cost 2)",
-     "summary": "Cast Spell ACTION: Injury Roll for an enemy within 24\" in sight; a 32mm or smaller target is driven back D6\". Praetors & Sorcerers only.",
-     "page": 158
+     "name": "Non Pavebo",
+     "summary": "No Mortal Suffering. Whenever a friendly ELITE model Activates in Open terrain, not in contact with a terrain piece at least 1/2\" high and as wide as its base that would give it COVER, place 2 SIN MARKERS next to it.",
+     "page": 13
     },
     {
-     "name": "Proud Defiance (Ability)",
-     "summary": "no Morale Checks while it is on the battlefield.",
-     "page": 158
-    },
-    {
-     "name": "Too Proud to Fall (Spell, cost 2)",
-     "summary": "cast when taken Down: it stays standing (other effects still apply). Praetors & Sorcerers only.",
-     "page": 158
+     "name": "Proud Standard",
+     "summary": "While a model with a Troop Flag is neither Down nor Out of Action, the roll for a Critical Success is 1 lower for friendly attacks. One Troop Flag must be bought at recruitment.",
+     "page": 13
     }
    ],
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 158
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 12
    },
    "status": "verified",
-   "naming": "keep"
+   "naming": "keep",
+   "addArmoury": [
+    {
+     "kit": "dawnbearer-rifle",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "cloak-of-the-fallen-star",
+     "cost": {
+      "amount": 3,
+      "currency": "glory"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      },
+      {
+       "model": "fallen-saint"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "radiant-halo",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "only": [
+      {
+       "model": "hell-knight"
+      },
+      {
+       "model": "fallen-saint"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "rose-petals",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "only": [
+      {
+       "model": "wretched"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "troop-flag",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      },
+      {
+       "model": "fallen-saint"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "laurel-crown",
+     "cost": {
+      "amount": 3,
+      "currency": "glory"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "model": "praetor"
+      },
+      {
+       "model": "sorcerer"
+      }
+     ],
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    }
+   ]
   },
   {
    "id": "dedicated-to-sloth",
@@ -5150,7 +6141,9 @@
     "praetor",
     "sorcerer",
     "hell-knight",
-    "fallen-saint"
+    "fallen-saint",
+    "chain-fiend",
+    "shadow-hunter"
    ],
    "addModels": [
     {
@@ -5198,35 +6191,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "charm-of-acedia",
-       "name": "Charm of Acedia (Spell, cost 1)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: the first roll of its next ACTION is a Success"
-      },
-      {
-       "id": "daemonium-meridianum",
-       "name": "Daemonium Meridianum (Ability)",
-       "cost": {
-        "amount": 20,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "Open or Dangerous ground within 6\" is Difficult terrain for enemies"
-      },
-      {
-       "id": "morphean-mind",
-       "name": "Morphean Mind (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 2,
-       "note": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -5254,6 +6218,35 @@
        },
        "maxPerWarband": 3,
        "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "charm-of-acedia",
+       "name": "Charm of Acedia (Spell, cost 1)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: the next Success Roll or Risky Success Roll this Activation is an automatic Success"
+      },
+      {
+       "id": "daemonium-meridianum",
+       "name": "Daemonium Meridianum (Ability)",
+       "cost": {
+        "amount": 20,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Open or Dangerous terrain within 6\" is Difficult for enemies"
+      },
+      {
+       "id": "entropys-arrow",
+       "name": "Entropy's Arrow (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION, the first of the Activation: it ends the Activation and the model may Activate again after all others have"
       }
      ],
      "source": {
@@ -5308,35 +6301,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "charm-of-acedia",
-       "name": "Charm of Acedia (Spell, cost 1)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: the first roll of its next ACTION is a Success"
-      },
-      {
-       "id": "daemonium-meridianum",
-       "name": "Daemonium Meridianum (Ability)",
-       "cost": {
-        "amount": 20,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "Open or Dangerous ground within 6\" is Difficult terrain for enemies"
-      },
-      {
-       "id": "morphean-mind",
-       "name": "Morphean Mind (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 2,
-       "note": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -5379,6 +6343,35 @@
         }
        ],
        "note": "the Sorcerer has the LEADER keyword"
+      },
+      {
+       "id": "charm-of-acedia",
+       "name": "Charm of Acedia (Spell, cost 1)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: the next Success Roll or Risky Success Roll this Activation is an automatic Success"
+      },
+      {
+       "id": "daemonium-meridianum",
+       "name": "Daemonium Meridianum (Ability)",
+       "cost": {
+        "amount": 20,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Open or Dangerous terrain within 6\" is Difficult for enemies"
+      },
+      {
+       "id": "entropys-arrow",
+       "name": "Entropy's Arrow (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION, the first of the Activation: it ends the Activation and the model may Activate again after all others have"
       }
      ],
      "abilities": [
@@ -5406,7 +6399,8 @@
      },
      "status": "verified",
      "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
-     "naming": "keep"
+     "naming": "keep",
+     "min": 1
     },
     {
      "id": "hell-knight",
@@ -5443,35 +6437,6 @@
       "infernal-iron-armour"
      ],
      "upgrades": [
-      {
-       "id": "charm-of-acedia",
-       "name": "Charm of Acedia (Spell, cost 1)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "note": "Cast Spell ACTION: the first roll of its next ACTION is a Success"
-      },
-      {
-       "id": "daemonium-meridianum",
-       "name": "Daemonium Meridianum (Ability)",
-       "cost": {
-        "amount": 20,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "Open or Dangerous ground within 6\" is Difficult terrain for enemies"
-      },
-      {
-       "id": "morphean-mind",
-       "name": "Morphean Mind (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 2,
-       "note": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls"
-      },
       {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
@@ -5523,6 +6488,44 @@
         }
        ],
        "note": "the Hell Knight has the FEAR keyword"
+      },
+      {
+       "id": "charm-of-acedia",
+       "name": "Charm of Acedia (Spell, cost 1)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: the next Success Roll or Risky Success Roll this Activation is an automatic Success"
+      },
+      {
+       "id": "daemonium-meridianum",
+       "name": "Daemonium Meridianum (Ability)",
+       "cost": {
+        "amount": 20,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Open or Dangerous terrain within 6\" is Difficult for enemies"
+      },
+      {
+       "id": "entropys-arrow",
+       "name": "Entropy's Arrow (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "Cast Spell ACTION, the first of the Activation: it ends the Activation and the model may Activate again after all others have"
+      },
+      {
+       "id": "dispassionate-gaze",
+       "name": "Dispassionate Gaze (Spell, cost 1)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: 1 BLOOD MARKER on an enemy within 12\" in sight (2 if it has Activated). Hell Knights only"
       }
      ],
      "abilities": [
@@ -5602,16 +6605,6 @@
        "page": 170
       },
       {
-       "name": "Aura of Sloth",
-       "summary": "Enemies within 8\" treat Minor Hit results as Down.",
-       "page": 171
-      },
-      {
-       "name": "Aura of Sin",
-       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
-       "page": 12
-      },
-      {
        "name": "Relentless",
        "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
        "page": 12
@@ -5620,6 +6613,11 @@
        "name": "Totemic",
        "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
        "page": 12
+      },
+      {
+       "name": "Soporific Smog",
+       "summary": "Enemies within 8\" treat Minor Hit results as Down (including those that normally treat Down as a Minor Hit).",
+       "page": 30
       }
      ],
      "kitRules": {
@@ -5644,29 +6642,135 @@
       "page": 12
      },
      "status": "verified",
+     "naming": "rename",
+     "upgrades": []
+    },
+    {
+     "id": "chain-fiend",
+     "name": "Chain Fiend",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Glory Lost",
+       "summary": "+1 DICE to its Melee Attacks while there are 3 or more SIN MARKERS next to friendly Chain Fiends on the battlefield.",
+       "page": 12
+      },
+      {
+       "name": "Slothful",
+       "summary": "Cannot take more than 2 ACTIONS in an Activation; +1 DICE to its Melee and Ranged Attacks against a target that has Activated this Turn. Unless it wears a Restraining Muzzle.",
+       "page": 30
+      }
+     ],
+     "kitRules": {
+      "note": "A Chain Fiend can have only 1 Ranged Weapon, costing 30 ducats or less (not checked by the builder)."
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
+     },
+     "status": "verified",
+     "naming": "rename"
+    },
+    {
+     "id": "shadow-hunter",
+     "name": "Shadow Hunter",
+     "max": 1,
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 2,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "INFILTRATOR"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "bow-of-lethe"
+     ],
+     "abilities": [
+      {
+       "name": "Left-Hand Path (Spell, cost 2)",
+       "summary": "Moving into terrain it may vanish and reappear touching another terrain piece over 1\" from enemies (closer to the target if charging).",
+       "page": 165
+      },
+      {
+       "name": "Oracle Beast Cloak (Spell, cost 3)",
+       "summary": "Once per Turn after an Injury Roll for it: the result becomes No Effect.",
+       "page": 165
+      },
+      {
+       "name": "Shadow-walker (Spell, cost 2)",
+       "summary": "Before it Retreats: enemies get no attack as it leaves.",
+       "page": 165
+      }
+     ],
+     "kitRules": {
+      "note": "A Shadow Hunter cannot have 2-Handed Weapons (not checked by the builder)."
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 164
+     },
+     "status": "verified",
+     "note": "Always has its Bow of Lethe (no cost) and its three Goetic Powers.",
      "naming": "rename"
     }
    ],
    "specialRules": [
     {
-     "name": "Dedicated to Sloth",
-     "summary": "The warband is dedicated to Sloth: its ELITE models can also take the Sloth Goetic Powers, and a Fallen Saint has the Aura of Sloth.",
-     "page": 147
+     "name": "Taedium Operandi",
+     "summary": "No Mortal Suffering. Once per Activation, when a friendly DEMONIC model would make a Success Roll, make it a Risky Success Roll and place 2 SIN MARKERS next to it.",
+     "page": 31
     },
     {
-     "name": "Charm of Acedia (Spell, cost 1)",
-     "summary": "Cast Spell ACTION: the first roll of its next ACTION is a Success.",
-     "page": 159
+     "name": "Morphean Mind",
+     "summary": "In the Initiative Phase the player with Initiative may give it to the opponent, who then names a model that cannot be the first it Activates.",
+     "page": 31
     },
     {
-     "name": "Daemonium Meridianum (Ability)",
-     "summary": "Open or Dangerous ground within 6\" is Difficult terrain for enemies.",
-     "page": 159
-    },
-    {
-     "name": "Morphean Mind (Ability)",
-     "summary": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls.",
-     "page": 159
+     "name": "Recruitment",
+     "summary": "0-1 Praetor, exactly 1 Sorcerer; Hell Knights are Witch Knights (one more Goetic Power, Ranged +1 DICE); a Hunter costs 5 Glory; every HEAVY piece of Battlekit also has CUMBERSOME.",
+     "page": 30
     }
    ],
    "source": {
@@ -5675,7 +6779,64 @@
     "page": 159
    },
    "status": "verified",
-   "naming": "keep"
+   "naming": "keep",
+   "addArmoury": [
+    {
+     "kit": "slothful-matchlock",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "status": "verified"
+    },
+    {
+     "kit": "lotus-flower",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "mourning-shroud",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "sorcerer"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "hangmans-rope",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    }
+   ]
   },
   {
    "id": "dedicated-to-gluttony",
@@ -5684,7 +6845,9 @@
     "praetor",
     "sorcerer",
     "hell-knight",
-    "fallen-saint"
+    "fallen-saint",
+    "pit-locust",
+    "chain-fiend"
    ],
    "addModels": [
     {
@@ -5732,35 +6895,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "belly-of-the-beast",
-       "name": "Belly of the Beast (Ability)",
-       "cost": {
-        "amount": 5,
-        "currency": "ducats"
-       },
-       "note": "a Melee Attack that places BLOOD MARKERS on it gives the attacker 1 BLOOD MARKER"
-      },
-      {
-       "id": "eater-of-the-flesh",
-       "name": "Eater of the Flesh (Ability)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "after its Melee Attack remove 1 BLOOD MARKER from itself per marker placed on the target (not CULT or DEMONIC targets). Praetors & Sorcerers only"
-      },
-      {
-       "id": "uncaring-gluttony",
-       "name": "Uncaring Gluttony (Spell, cost 2)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -5788,6 +6922,35 @@
        },
        "maxPerWarband": 3,
        "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "belly-of-the-beast",
+       "name": "Belly of the Beast (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "after a Melee Attack on it places BLOOD MARKERS, the attacker gets 1"
+      },
+      {
+       "id": "uncaring-gluttony",
+       "name": "Uncaring Gluttony (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Cast Spell ACTION: an enemy model that has not Activated loses one piece of Equipment for the game"
+      },
+      {
+       "id": "eater-of-the-flesh",
+       "name": "Eater of the Flesh (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "after its Melee Attack puts BLOOD MARKERS on a non-DEMONIC target, remove as many from itself (3 if it takes the target Out of Action)"
       }
      ],
      "source": {
@@ -5842,35 +7005,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "belly-of-the-beast",
-       "name": "Belly of the Beast (Ability)",
-       "cost": {
-        "amount": 5,
-        "currency": "ducats"
-       },
-       "note": "a Melee Attack that places BLOOD MARKERS on it gives the attacker 1 BLOOD MARKER"
-      },
-      {
-       "id": "eater-of-the-flesh",
-       "name": "Eater of the Flesh (Ability)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "after its Melee Attack remove 1 BLOOD MARKER from itself per marker placed on the target (not CULT or DEMONIC targets). Praetors & Sorcerers only"
-      },
-      {
-       "id": "uncaring-gluttony",
-       "name": "Uncaring Gluttony (Spell, cost 2)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -5913,6 +7047,35 @@
         }
        ],
        "note": "the Sorcerer has the LEADER keyword"
+      },
+      {
+       "id": "belly-of-the-beast",
+       "name": "Belly of the Beast (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "after a Melee Attack on it places BLOOD MARKERS, the attacker gets 1"
+      },
+      {
+       "id": "uncaring-gluttony",
+       "name": "Uncaring Gluttony (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Cast Spell ACTION: an enemy model that has not Activated loses one piece of Equipment for the game"
+      },
+      {
+       "id": "eater-of-the-flesh",
+       "name": "Eater of the Flesh (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "after its Melee Attack puts BLOOD MARKERS on a non-DEMONIC target, remove as many from itself (3 if it takes the target Out of Action)"
       }
      ],
      "abilities": [
@@ -5978,25 +7141,6 @@
      ],
      "upgrades": [
       {
-       "id": "belly-of-the-beast",
-       "name": "Belly of the Beast (Ability)",
-       "cost": {
-        "amount": 5,
-        "currency": "ducats"
-       },
-       "note": "a Melee Attack that places BLOOD MARKERS on it gives the attacker 1 BLOOD MARKER"
-      },
-      {
-       "id": "uncaring-gluttony",
-       "name": "Uncaring Gluttony (Spell, cost 2)",
-       "cost": {
-        "amount": 10,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -6047,6 +7191,35 @@
         }
        ],
        "note": "the Hell Knight has the FEAR keyword"
+      },
+      {
+       "id": "belly-of-the-beast",
+       "name": "Belly of the Beast (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "after a Melee Attack on it places BLOOD MARKERS, the attacker gets 1"
+      },
+      {
+       "id": "uncaring-gluttony",
+       "name": "Uncaring Gluttony (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Cast Spell ACTION: an enemy model that has not Activated loses one piece of Equipment for the game"
+      },
+      {
+       "id": "eater-of-the-flesh",
+       "name": "Eater of the Flesh (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "after its Melee Attack puts BLOOD MARKERS on a non-DEMONIC target, remove as many from itself (3 if it takes the target Out of Action)"
       }
      ],
      "abilities": [
@@ -6126,16 +7299,6 @@
        "page": 170
       },
       {
-       "name": "Aura of Gluttony",
-       "summary": "-1 DICE to rolls for enemies within 8\" that are not CULT or ARTIFICIAL.",
-       "page": 171
-      },
-      {
-       "name": "Aura of Sin",
-       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
-       "page": 12
-      },
-      {
        "name": "Relentless",
        "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
        "page": 12
@@ -6144,6 +7307,11 @@
        "name": "Totemic",
        "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
        "page": 12
+      },
+      {
+       "name": "Leeching Presence",
+       "summary": "-1 DICE to Success Rolls of enemies in contact with the same terrain piece (up to 8\" by 8\") as the saint.",
+       "page": 27
       }
      ],
      "kitRules": {
@@ -6168,38 +7336,243 @@
       "page": 12
      },
      "status": "verified",
+     "naming": "rename",
+     "upgrades": []
+    },
+    {
+     "id": "pit-locust",
+     "name": "Pit Locust",
+     "max": 4,
+     "cost": {
+      "amount": 90,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      30,
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LIMITED POTENTIAL"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Poison Stingers",
+       "summary": "May make Melee Attacks without a weapon, with CLEAVE 2 and SHRAPNEL.",
+       "page": 168
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "melee",
+       "grenade",
+       "shield",
+       "armour"
+      ],
+      "onlyKit": [
+       {
+        "category": "equipment",
+        "kit": [
+         "crown-of-hellfire"
+        ]
+       }
+      ]
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 11
+     },
+     "status": "verified",
+     "naming": "keep",
+     "upgrades": [
+      {
+       "id": "eater-of-the-flesh",
+       "name": "Eater of the Flesh (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "after its Melee Attack puts BLOOD MARKERS on a non-DEMONIC target, remove as many from itself (3 if it takes the target Out of Action)"
+      }
+     ]
+    },
+    {
+     "id": "chain-fiend",
+     "name": "Chain Fiend",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Glory Lost",
+       "summary": "+1 DICE to its Melee Attacks while there are 3 or more SIN MARKERS next to friendly Chain Fiends on the battlefield.",
+       "page": 12
+      },
+      {
+       "name": "Gluttonous",
+       "summary": "Cannot take a Retreat ACTION while an enemy within 1\" has BLOOD MARKERS; +1 INJURY DICE on its Melee Attacks against a Down target or one on a smaller base. Unless it wears a Restraining Muzzle.",
+       "page": 27
+      }
+     ],
+     "kitRules": {
+      "note": "A Chain Fiend can have only 1 Ranged Weapon, costing 30 ducats or less (not checked by the builder)."
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
+     },
+     "status": "verified",
      "naming": "rename"
     }
    ],
    "specialRules": [
     {
-     "name": "Dedicated to Gluttony",
-     "summary": "The warband is dedicated to Gluttony: its ELITE models can also take the Gluttony Goetic Powers, and a Fallen Saint has the Aura of Gluttony.",
-     "page": 147
+     "name": "Conspicuous Consumption",
+     "summary": "At the start of the first Turn place 2 SIN MARKERS next to the model with the highest total ducat cost.",
+     "page": 27
     },
     {
-     "name": "Belly of the Beast (Ability)",
-     "summary": "a Melee Attack that places BLOOD MARKERS on it gives the attacker 1 BLOOD MARKER.",
-     "page": 160
+     "name": "Omnia Devoranda",
+     "summary": "No Mortal Suffering. When a friendly DEMONIC model takes another model Down, place 1 SIN MARKER next to it; the first time each Activation a DEMONIC friend attacks a Down model, 1 SIN MARKER.",
+     "page": 27
     },
     {
-     "name": "Eater of the Flesh (Ability)",
-     "summary": "after its Melee Attack remove 1 BLOOD MARKER from itself per marker placed on the target (not CULT or DEMONIC targets). Praetors & Sorcerers only.",
-     "page": 160
+     "name": "Overindulgence",
+     "summary": "When you spend BLOOD MARKERS next to enemies you must spend the most you can.",
+     "page": 27
     },
     {
-     "name": "Uncaring Gluttony (Spell, cost 2)",
-     "summary": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game.",
-     "page": 160
+     "name": "Starving Masses, Indolent Elites",
+     "summary": "Non-ELITE models get +1 DICE to the Risky roll of a Dash; ELITE models have BLOCK and a Charge Bonus of D3 instead of D6. No CONSUMABLE Battlekit. Up to 3 Hell Knights or Sin Devourers (mercenary at 140 ducats, a Court ELITE LIMITED POTENTIAL model with 1 Goetic Power and INNATE kit) in any mix.",
+     "page": 27
     }
    ],
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 160
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 25
    },
    "status": "verified",
-   "naming": "keep"
+   "naming": "keep",
+   "removeArmoury": [
+    "incendiary-ammunition",
+    "sin-vessel",
+    "unholy-trinket"
+   ],
+   "addArmoury": [
+    {
+     "kit": "butchers-cleaver",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "toothed-helm",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "gaudy-crown",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "LEADER"
+      }
+     ],
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "gaudy-finery",
+     "cost": {
+      "amount": 45,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "platter-of-delights",
+     "cost": {
+      "amount": 8,
+      "currency": "glory"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    }
+   ]
   },
   {
    "id": "dedicated-to-greed",
@@ -6208,7 +7581,8 @@
     "praetor",
     "sorcerer",
     "hell-knight",
-    "fallen-saint"
+    "fallen-saint",
+    "chain-fiend"
    ],
    "addModels": [
     {
@@ -6256,31 +7630,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "body-of-gold",
-       "name": "Body of Gold (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "keywords": [
-        {
-         "id": "GOLEM"
-        }
-       ],
-       "note": "GOLEM; it loses TOUGH and cannot gain it"
-      },
-      {
-       "id": "greedy-hearts",
-       "name": "Greedy Hearts (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -6308,6 +7657,25 @@
        },
        "maxPerWarband": 3,
        "note": "Cast Spell ACTION: 1 BLOOD MARKER on each of as many enemy models within 18\" as SIN MARKERS paid (no Line of Sight)"
+      },
+      {
+       "id": "body-of-gold",
+       "name": "Body of Gold (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "has the GOLEM keyword; loses TOUGH and cannot gain it. ELITE only, Limit 1"
+      },
+      {
+       "id": "greedy-hearts",
+       "name": "Greedy Hearts (Spell, cost 1)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: move up to 6 BLOOD, BLESSING, INFECTION or SIN MARKERS above the Weregild Threshold from models within 3\" to itself"
       }
      ],
      "source": {
@@ -6362,31 +7730,6 @@
      "kitAccess": "armoury",
      "upgrades": [
       {
-       "id": "body-of-gold",
-       "name": "Body of Gold (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "keywords": [
-        {
-         "id": "GOLEM"
-        }
-       ],
-       "note": "GOLEM; it loses TOUGH and cannot gain it"
-      },
-      {
-       "id": "greedy-hearts",
-       "name": "Greedy Hearts (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -6429,6 +7772,35 @@
         }
        ],
        "note": "the Sorcerer has the LEADER keyword"
+      },
+      {
+       "id": "body-of-gold",
+       "name": "Body of Gold (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "has the GOLEM keyword; loses TOUGH and cannot gain it. ELITE only, Limit 1"
+      },
+      {
+       "id": "greedy-hearts",
+       "name": "Greedy Hearts (Spell, cost 1)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: move up to 6 BLOOD, BLESSING, INFECTION or SIN MARKERS above the Weregild Threshold from models within 3\" to itself"
+      },
+      {
+       "id": "fools-bounty",
+       "name": "Fool's Bounty (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Cast Spell ACTION: an 8\" FLAMETHROWER and SHRAPNEL Ranged Attack; the target may fill its pockets for Strongbox ducats and be attacked again. Sorcerers only"
       }
      ],
      "abilities": [
@@ -6494,31 +7866,6 @@
      ],
      "upgrades": [
       {
-       "id": "body-of-gold",
-       "name": "Body of Gold (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "keywords": [
-        {
-         "id": "GOLEM"
-        }
-       ],
-       "note": "GOLEM; it loses TOUGH and cannot gain it"
-      },
-      {
-       "id": "greedy-hearts",
-       "name": "Greedy Hearts (Ability)",
-       "cost": {
-        "amount": 15,
-        "currency": "ducats"
-       },
-       "maxPerWarband": 1,
-       "note": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more"
-      },
-      {
        "id": "slavemaster",
        "name": "Slavemaster (Spell, cost 1)",
        "cost": {
@@ -6569,6 +7916,25 @@
         }
        ],
        "note": "the Hell Knight has the FEAR keyword"
+      },
+      {
+       "id": "body-of-gold",
+       "name": "Body of Gold (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "has the GOLEM keyword; loses TOUGH and cannot gain it. ELITE only, Limit 1"
+      },
+      {
+       "id": "greedy-hearts",
+       "name": "Greedy Hearts (Spell, cost 1)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: move up to 6 BLOOD, BLESSING, INFECTION or SIN MARKERS above the Weregild Threshold from models within 3\" to itself"
       }
      ],
      "abilities": [
@@ -6648,16 +8014,6 @@
        "page": 170
       },
       {
-       "name": "Aura of Greed",
-       "summary": "Enemies within 12\" that Charge must charge it if they can reach it simply.",
-       "page": 171
-      },
-      {
-       "name": "Aura of Sin",
-       "summary": "Enemy models within 6\" do not count as friendly for other enemy models' abilities, ACTIONS or special rules (not Ranged Attacks).",
-       "page": 12
-      },
-      {
        "name": "Relentless",
        "summary": "Its Movement is not halved when it stands up at the start of an Activation.",
        "page": 12
@@ -6666,6 +8022,11 @@
        "name": "Totemic",
        "summary": "When a friendly DEMONIC model Activates within 1\" of it, place 1 SIN MARKER next to that model first.",
        "page": 12
+      },
+      {
+       "name": "Amass Wealth",
+       "summary": "Enemies within 8\" count the Weregild Threshold as half; place 1 BLESSING MARKER next to a friend with 3 or more markers that Activates within 8\".",
+       "page": 16
       }
      ],
      "kitRules": {
@@ -6690,38 +8051,150 @@
       "page": 12
      },
      "status": "verified",
+     "naming": "rename",
+     "upgrades": []
+    },
+    {
+     "id": "chain-fiend",
+     "name": "Chain Fiend",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Glory Lost",
+       "summary": "+1 DICE to its Melee Attacks while there are 3 or more SIN MARKERS next to friendly Chain Fiends on the battlefield.",
+       "page": 12
+      },
+      {
+       "name": "Greedy",
+       "summary": "-1 DICE to its attacks while within 3\" of another friendly model; its Melee Attacks have ARMOUR PIERCING against models worth the Weregild Value or more. Unless it wears a Restraining Muzzle.",
+       "page": 16
+      }
+     ],
+     "kitRules": {
+      "note": "A Chain Fiend can have only 1 Ranged Weapon, costing 30 ducats or less (not checked by the builder)."
+     },
+     "source": {
+      "book": "Rules Review October 2026",
+      "version": "2026-10",
+      "page": 12
+     },
+     "status": "verified",
      "naming": "rename"
     }
    ],
    "specialRules": [
     {
-     "name": "Dedicated to Greed",
-     "summary": "The warband is dedicated to Greed: its ELITE models can also take the Greed Goetic Powers, and a Fallen Saint has the Aura of Greed.",
-     "page": 147
+     "name": "Miser's Audit",
+     "summary": "No Mortal Suffering. The warband has a Weregild Threshold (100 ducats on Turn 1, 80 on Turn 2, 60 on Turn 3, 40 from Turn 4). When a BLOOD MARKER would be placed on an enemy worth the Threshold or more by a friendly DEMONIC model that Activated, place 1 SIN MARKER next to that friend instead.",
+     "page": 15
     },
     {
-     "name": "Black Heart (Spell, cost 1)",
-     "summary": "cast before its Success or Risky roll: +1 DICE.",
-     "page": 161
+     "name": "Trade Network",
+     "summary": "Sell 1 piece of ducat-priced Battlekit at full price in each Quartermaster Step.",
+     "page": 15
     },
     {
-     "name": "Body of Gold (Ability)",
-     "summary": "GOLEM; it loses TOUGH and cannot gain it.",
-     "page": 161
+     "name": "The Prince of Greed",
+     "summary": "May choose the Counting-House as its Patron.",
+     "page": 15
     },
     {
-     "name": "Greedy Hearts (Ability)",
-     "summary": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more.",
-     "page": 161
+     "name": "Recruitment",
+     "summary": "Praetor, Sorcerer, Hell Knights and Chain Fiends must carry at least 50 ducats of Battlekit; up to 2 Goetic Warlocks, the first costing 100 ducats, as Court ELITE LIMITED POTENTIAL models (not checked by the builder).",
+     "page": 15
     }
    ],
    "source": {
-    "book": "Warbands of Trench Crusade",
-    "version": "1.0.2",
-    "page": 161
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 15
    },
    "status": "verified",
-   "naming": "keep"
+   "naming": "keep",
+   "addArmoury": [
+    {
+     "kit": "ducat-gun",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "gilded-maul",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "abacus-bones",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "wretched"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "stolen-keepsakes",
+     "cost": {
+      "amount": 12,
+      "currency": "ducats"
+     },
+     "limit": 4,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "debtors-pact",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    }
+   ]
   }
  ],
  "source": {

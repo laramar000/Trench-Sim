@@ -4414,6 +4414,752 @@
    "status": "verified",
    "naming": "rename",
    "cost": null
+  },
+  {
+   "id": "dawnbearer-rifle",
+   "name": "Dawnbearer Rifle",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 48,
+   "keywords": [
+    {
+     "id": "CRITICAL"
+    }
+   ],
+   "rule": {
+    "summary": "+3 DICE against a target standing at least 2\" higher; a Success makes a target near a ledge or door fall.",
+    "page": 13
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 13
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "cloak-of-the-fallen-star",
+   "name": "Cloak of the Fallen Star",
+   "category": "armour",
+   "injuryModifier": -3,
+   "rule": {
+    "summary": "Its wearer cannot be made to take a forced move; it replaces any other Armour and cannot be lost.",
+    "page": 14
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 14
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "radiant-halo",
+   "name": "Radiant Halo",
+   "category": "equipment",
+   "rule": {
+    "summary": "-1 DICE to the Success Roll of attacks that target its bearer.",
+    "page": 14
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 14
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "laurel-crown",
+   "name": "Laurel Crown",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "SHRAPNEL"
+    }
+   ],
+   "rule": {
+    "summary": "Once during its Activation, if it sees an enemy at least 2\" below it, place 1 BLESSING MARKER next to it; NEGATE SHRAPNEL.",
+    "page": 15
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 15
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "rose-petals",
+   "name": "Rose Petals",
+   "category": "equipment",
+   "rule": {
+    "summary": "When a friendly DEMONIC model within 3\" of the bearer is hit by a BLAST attack, its player may move the blast's target D6\" in a direction of their choice.",
+    "page": 15
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 15
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "ducat-gun",
+   "name": "Ducat Gun",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 12,
+   "dice": 1,
+   "keywords": [
+    {
+     "id": "AUTOMATIC",
+     "value": 2
+    },
+    {
+     "id": "SHOTGUN"
+    },
+    {
+     "id": "SHRAPNEL"
+    }
+   ],
+   "rule": {
+    "summary": "With 2 Ranged Attacks in one Shoot ACTION, both Successes put 1 BLESSING MARKER next to the model.",
+    "page": 17
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 17
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "gilded-maul",
+   "name": "Gilded Maul",
+   "category": "melee",
+   "hands": 2,
+   "injuryModifier": 1,
+   "keywords": [
+    {
+     "id": "CUMBERSOME"
+    },
+    {
+     "id": "HEAVY"
+    }
+   ],
+   "rule": {
+    "summary": "+1 INJURY DICE against enemies worth less than the attacker; a hit on a non-ELITE model on a base of 32mm or less that is not taken Out of Action allows a second attack.",
+    "page": 17
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 17
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "abacus-bones",
+   "name": "Abacus Bones",
+   "category": "equipment",
+   "rule": {
+    "summary": "+1 DICE to attacks against models at or above the Weregild Threshold made by friends within 1\" of the bearer.",
+    "page": 18
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 18
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "stolen-keepsakes",
+   "name": "Stolen Keepsakes",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "injuryModifier": -1,
+   "rule": {
+    "summary": "-1 INJURY MODIFIER; Injury Rolls from IGNORE ARMOUR weapons ignore it.",
+    "page": 18
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 18
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "debtors-pact",
+   "name": "Debtor's Pact",
+   "category": "special",
+   "campaignOnly": true,
+   "rule": {
+    "summary": "Campaign: doubles Experience Points and may turn a Trauma result into Full Recovery at the price of a Skill.",
+    "page": 17
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 17
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "horn-of-delights",
+   "name": "Horn of Delights",
+   "category": "equipment",
+   "rule": {
+    "summary": "A friend taking a Dash may spend 1 SIN MARKER for +1 DICE; Down enemies within 4\" must roll to stand up.",
+    "page": 22
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 22
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "lance-of-lechery",
+   "name": "Lance of Lechery",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 18,
+   "dice": 1,
+   "alsoMelee": true,
+   "keywords": [
+    {
+     "id": "CUMBERSOME"
+    },
+    {
+     "id": "IGNORE",
+     "value": "LONG RANGE"
+    }
+   ],
+   "rule": {
+    "summary": "A Success lets the attacker drag its target up to D6\" towards it; a Critical Success takes Down every enemy within 2\" of the target.",
+    "page": 22
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 22
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "scourge-of-delight",
+   "name": "Scourge of Delight",
+   "category": "melee",
+   "hands": 1,
+   "injuryModifier": 1,
+   "keywords": [
+    {
+     "id": "SHRAPNEL"
+    },
+    {
+     "id": "RISKY"
+    }
+   ],
+   "rule": {
+    "summary": "On a Success the target's player may add IGNORE ARMOUR (a Minor Hit then counts as No Effect), or else 1 SIN MARKER goes next to the attacker.",
+    "page": 22
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 22
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "spoils-of-desire",
+   "name": "Spoils of Desire",
+   "category": "equipment",
+   "rule": {
+    "summary": "Place 1 BLOOD MARKER next to an enemy that Activates within 1\" of any models with this kit.",
+    "page": 22
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 22
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "fate-dice",
+   "name": "Fate Dice",
+   "category": "special",
+   "campaignOnly": true,
+   "rule": {
+    "summary": "Once per game a Tempt Fate ACTION on an enemy within 6\": the opponent bets on 2D6 (below 7, exactly 7, above 7) and the result moves SIN, BLESSING MARKERS or takes a model Down.",
+    "page": 23
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 23
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "mimic-knife",
+   "name": "Mimic Knife",
+   "category": "melee",
+   "hands": 1,
+   "injuryModifier": 1,
+   "keywords": [
+    {
+     "id": "RISKY"
+    }
+   ],
+   "rule": {
+    "summary": "A Melee Attack with it gains one Keyword from a Melee Weapon the target carries.",
+    "page": 26
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 26
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "mirror-pavise",
+   "name": "Mirror Pavise",
+   "category": "shield",
+   "injuryModifier": -1,
+   "rule": {
+    "summary": "A Mocking Reflection ACTION takes an ACTION from the Warband Entry of an enemy model within 1\".",
+    "page": 27
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 27
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "sacrificial-brand",
+   "name": "Sacrificial Brand",
+   "category": "equipment",
+   "rule": {
+    "summary": "Infanticide ACTION: take a friendly Wretched within 1\" Out of Action; the next spell cast this Activation costs no SIN MARKERS (variable costs are paid at their maximum).",
+    "page": 26
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 26
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "usurpers-wire",
+   "name": "Usurper's Wire",
+   "category": "equipment",
+   "rule": {
+    "summary": "De-Coronate ACTION, once per game: a Melee Attack with +2 INJURY DICE against an ELITE or equal-or-larger-based target; if it takes it Out of Action, 2 SIN MARKERS.",
+    "page": 27
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 27
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "vassals-pledge",
+   "name": "Vassal's Pledge",
+   "category": "special",
+   "campaignOnly": true,
+   "rule": {
+    "summary": "A Hell Knight pledged to a lord gains Beacon of Corruption or Burning Inferno; its base grows to 50mm and it flies (Movement 6\"/Flying).",
+    "page": 26
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 26
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "butchers-cleaver",
+   "name": "Butcher's Cleaver",
+   "category": "melee",
+   "hands": 2,
+   "dice": 0,
+   "injuryDice": 1,
+   "keywords": [
+    {
+     "id": "CLEAVE",
+     "value": 2
+    },
+    {
+     "id": "CRITICAL"
+    },
+    {
+     "id": "CUMBERSOME"
+    },
+    {
+     "id": "HEAVY"
+    }
+   ],
+   "rule": {
+    "summary": "A brutal blade.",
+    "page": 29
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 29
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "toothed-helm",
+   "name": "Toothed Helm",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "NEGATE",
+     "value": "SHRAPNEL"
+    }
+   ],
+   "rule": {
+    "summary": "NEGATE SHRAPNEL; REGENERATE 3 while within 1\" of an enemy.",
+    "page": 30
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 30
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "gaudy-crown",
+   "name": "Gaudy Crown",
+   "category": "equipment",
+   "rule": {
+    "summary": "While on a terrain piece up to 8\" by 8\", enemies treat it as Difficult and friends as Open terrain.",
+    "page": 30
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 30
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "gaudy-finery",
+   "name": "Gaudy Finery",
+   "category": "equipment",
+   "rule": {
+    "summary": "Counts as the highest-cost model for Conspicuous Consumption; -1 DICE to Ranged Attacks on friends within 3\".",
+    "page": 31
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 31
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "platter-of-delights",
+   "name": "Platter of Delights",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "HELD"
+    },
+    {
+     "id": "REGENERATE",
+     "value": 6
+    }
+   ],
+   "campaignOnly": true,
+   "rule": {
+    "summary": "REGENERATE 6, HELD; enemies within 8\" take Risky rolls and are pulled 3\" towards it when its bearer Activates.",
+    "page": 30
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 30
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "ruin-mace",
+   "name": "Ruin Mace",
+   "category": "melee",
+   "hands": 2,
+   "injuryModifier": 1,
+   "keywords": [
+    {
+     "id": "HEAVY"
+    }
+   ],
+   "rule": {
+    "summary": "After a first Melee Attack with it each Activation, later Melee Attacks on the same target have ARMOUR PIERCING.",
+    "page": 32
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 32
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "hellfire-ember",
+   "name": "Hellfire Ember",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "FIRE"
+    }
+   ],
+   "rule": {
+    "summary": "Its bearer's Melee Attacks have FIRE.",
+    "page": 32
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 32
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "lesser-murder-mark",
+   "name": "Lesser Murder Mark",
+   "category": "equipment",
+   "rule": {
+    "summary": "-1 INJURY DICE against its bearer.",
+    "page": 32
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 32
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "locust-gait",
+   "name": "Locust Gait",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "FLYING"
+    }
+   ],
+   "rule": {
+    "summary": "Flying 6\" Movement for its Hell Knight.",
+    "page": 32
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 32
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "spear-of-ruin",
+   "name": "Spear of Ruin",
+   "category": "melee",
+   "hands": 2,
+   "injuryDice": 2,
+   "keywords": [
+    {
+     "id": "BLOCK"
+    },
+    {
+     "id": "CUMBERSOME"
+    },
+    {
+     "id": "FIRE"
+    }
+   ],
+   "campaignOnly": true,
+   "rule": {
+    "summary": "Rend the World ACTION: a 12\" line; SIN MARKERS spent become dice that put BLOOD MARKERS on every model the line touches.",
+    "page": 33
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 33
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "slothful-matchlock",
+   "name": "Slothful Matchlock",
+   "category": "ranged",
+   "hands": 1,
+   "rangeInches": 12,
+   "alsoMelee": true,
+   "keywords": [
+    {
+     "id": "PISTOL"
+    }
+   ],
+   "rule": {
+    "summary": "+1 INJURY MODIFIER against a target that has Activated this Turn.",
+    "page": 35
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 35
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "lotus-flower",
+   "name": "Lotus Flower",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "rule": {
+    "summary": "CONSUMABLE: with a Charge ACTION the charged enemy moves itself towards the bearer instead of the charger moving.",
+    "page": 35
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 35
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "mourning-shroud",
+   "name": "Mourning Shroud",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "rule": {
+    "summary": "TOUGH; cannot Dash; may take a second Cast Spell ACTION for the same spell (paying again) once per Activation.",
+    "page": 36
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 36
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
+  },
+  {
+   "id": "hangmans-rope",
+   "name": "Hangman's Rope",
+   "category": "equipment",
+   "keywords": [
+    {
+     "id": "CONSUMABLE"
+    }
+   ],
+   "campaignOnly": true,
+   "rule": {
+    "summary": "CONSUMABLE: unsummon the model at any time between ACTIONS: taken Out of Action, then a Full Recovery.",
+    "page": 36
+   },
+   "source": {
+    "book": "Rules Review October 2026",
+    "version": "2026-10",
+    "page": 36
+   },
+   "status": "verified",
+   "naming": "rename",
+   "cost": null
   }
  ]
 }

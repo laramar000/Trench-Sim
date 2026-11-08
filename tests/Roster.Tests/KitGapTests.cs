@@ -170,9 +170,9 @@ public class KitGapTests
     [Fact]
     public void EnviousEyesNeedsThePower()
     {
-        Legal(Check("court", "dedicated-to-envy", 0, M("praetor", ["shotgun@pilgrims"], "envious-eyes")));
-        Refused(Check("court", "dedicated-to-envy", 0, M("praetor", ["shotgun@pilgrims"])), "needs Envious Eyes");
-        Refused(Check("court", "dedicated-to-envy", 0, M("praetor", ["shotgun@pilgrims", "pistol@sultanate"], "envious-eyes")), "at most 1 from Envious Eyes");
+        Legal(Check("court", "dedicated-to-envy", 0, M("praetor", ["shotgun@pilgrims"], "envious-eyes"), M("hell-knight", []), M("hell-knight", [])));
+        Refused(Check("court", "dedicated-to-envy", 0, M("praetor", ["shotgun@pilgrims"]), M("hell-knight", []), M("hell-knight", [])), "needs Envious Eyes");
+        Refused(Check("court", "dedicated-to-envy", 0, M("praetor", ["shotgun@pilgrims", "pistol@sultanate"], "envious-eyes"), M("hell-knight", []), M("hell-knight", [])), "at most 1 from Envious Eyes");
     }
 
     [Fact]
