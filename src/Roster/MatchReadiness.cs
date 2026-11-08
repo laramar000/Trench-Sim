@@ -141,6 +141,10 @@ public sealed record ReadyModel(
     public bool CounterCharge { get; init; }
     public bool MementoMori { get; init; }
 
+    public bool SinVessel { get; init; }
+
+    public bool SinBeacon { get; init; }
+
     // Roster stage R6d (U120): the Trample ACTION, and Overwhelming Horde's DICE on its attacks without a weapon.
     public bool Tramples { get; init; }
     public bool Horde { get; init; }
@@ -235,7 +239,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("hateful", m.Hateful), ("bodyguard", m.Bodyguard), ("loudspeakers", m.Loudspeakers), ("puppetMaster", m.PuppetMaster), ("blesses", m.Blesses), ("heals", m.Heals), ("hides", m.Hides), ("defusesMines", m.DefusesMines), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("fieldShrine", m.FieldShrine), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("hateful", m.Hateful), ("bodyguard", m.Bodyguard), ("loudspeakers", m.Loudspeakers), ("puppetMaster", m.PuppetMaster), ("blesses", m.Blesses), ("heals", m.Heals), ("hides", m.Hides), ("defusesMines", m.DefusesMines), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("fieldShrine", m.FieldShrine), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("sinVessel", m.SinVessel), ("sinBeacon", m.SinBeacon), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
                     {
                         if (on)
                         {
@@ -373,6 +377,7 @@ public static class MatchReadiness
             var (hasCover, digsIn) = (false, false);
             var (burnsAtEnd, burnsWhenOut) = (false, false);
             var (treats, healingWaters, grinds, martyrdom) = (false, false, false, false);
+            var vesselKit = false;
             var fieldShrine = false;
             var talismans = 0;
             CatalogueEntry? digger = null;
@@ -522,6 +527,7 @@ public static class MatchReadiness
                         burnsAtEnd |= played.BurnsAtEnd;
                         burnsWhenOut |= played.BurnsWhenOut;
                         treats |= played.Treats;
+                        vesselKit |= played.Vessel;
                         fieldShrine |= played.FieldShrine;
                         healingWaters |= played.HealingWaters;
                         grinds |= played.Grinds;
@@ -693,6 +699,8 @@ public static class MatchReadiness
                 HuntsTheTough = upgradeHunts || abilities.Contains(Mubarizun),
                 CounterCharge = upgradeCounter || abilities.Contains(CounterCharge),
                 MementoMori = abilities.Contains(MementoMori),
+                SinVessel = vesselKit,
+                SinBeacon = abilities.Contains(BeaconName),
                 Tramples = abilities.Contains(TrampleAction),
                 Horde = horde,
                 EnforcesOrthodoxy = abilities.Contains(EnforcedOrthodoxy),
@@ -765,6 +773,7 @@ public static class MatchReadiness
     private const string BlessingName = "Blessing of the Serpent Moon (Spell, cost 2/4/6)";
     private const string OracleName = "Oracle Beast Cloak (Spell, cost 3)";
     private const string ShadowWalkerName = "Shadow-walker (Spell, cost 2)";
+    private const string BeaconName = "Beacon of Corruption";
     private const string BloodMagicName = "Blood Magic (Spell, cost 1)";
     private const string AriseName = "Arise and be Healed! ACTION";
     private const string HideAction = "Hide ACTION";
@@ -819,7 +828,7 @@ public static class MatchReadiness
         AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
         Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
         TeethAndClaws, TeethAndClawsLion, FeebleFlailing, CrushingBlows, PoisonStingers, OverwhelmingHorde, TrampleAction,
-        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName, ShadowWalkerName, BlessingName, OracleName,
+        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName, BeaconName, ShadowWalkerName, BlessingName, OracleName,
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1
@@ -976,7 +985,7 @@ public static class MatchReadiness
     // Cover's -2 DICE against the model.
     private sealed record PlayedPiece(int RangedDice = 0, int MeleeDice = 0, string? Trait = null, string? NotFor = null, int InjuryDiceTaken = 0, int MeleeInjury = 0,
         bool KeepsGoing = false, int ClimbDice = 0, bool Fanfare = false, bool BlendsIn = false, bool Whispers = false, bool Warded = false,
-        bool DigsIn = false, string? Unplayed = null, string? AsWeapon = null, bool BurnsAtEnd = false, bool BurnsWhenOut = false, bool Treats = false, bool HealingWaters = false, bool Grinds = false, bool Talisman = false, bool FieldShrine = false);
+        bool DigsIn = false, string? Unplayed = null, string? AsWeapon = null, bool BurnsAtEnd = false, bool BurnsWhenOut = false, bool Treats = false, bool HealingWaters = false, bool Grinds = false, bool Talisman = false, bool FieldShrine = false, bool Vessel = false);
 
     private static readonly Dictionary<string, PlayedPiece> PlayedEquipment = new(StringComparer.Ordinal)
     {
@@ -1005,6 +1014,7 @@ public static class MatchReadiness
         ["damned-pact"] = new(BurnsWhenOut: true),
         // Roster stage R5h (U113): the Treat ACTION, and Holy Water's +1 DICE to it.
         ["medi-kit"] = new(Treats: true),
+        ["sin-vessel"] = new(Vessel: true),
         // Field Shrine (U127): the shrine is deployed with its carrier and counts for Morale; it is not a model.
         ["field-shrine"] = new(FieldShrine: true),
         ["holy-water-of-lalibela"] = new(HealingWaters: true),

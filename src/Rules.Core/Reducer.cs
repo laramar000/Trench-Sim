@@ -120,6 +120,7 @@ public static class Reducer
             BaseTurned x => OnBaseTurned(state, x),
             ModelsMoved x => OnModelsMoved(state, x),
             SpellCast x => OnSpellCast(state, x),
+            VesselBroken x => OnVesselBroken(state, x),
             InjuryRollMade x => OnInjuryRollMade(state, x),
             ReactionDeclined x => OnReactionDeclined(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
@@ -748,6 +749,15 @@ public static class Reducer
         }
     }
 
+    // October 2026 Review (U144): the Break Vessel ACTION puts 2 SIN MARKERS (at most 6) next to the model, once per game.
+    private static MatchState OnVesselBroken(MatchState state, VesselBroken e)
+    {
+        var bearer = Active(state, e.Model, "A Break Vessel ACTION");
+        Require(state.Setup!.ProfileOf(e.Model)!.SinVessel && !bearer.VesselBroken && state.InProgress is null && state.Retreat is null && state.MineStop is null && !state.MustEndActivation && !state.ReloadEnds,
+            "Only a model with an unbroken Sin Vessel, between actions, breaks it.");
+        return TurnRules.WithModel(state, bearer with { VesselBroken = true, SinMarkers = Math.Min(BloodMarkers.Max, bearer.SinMarkers + 2) }) with { Actions = state.Actions | ActionsTaken.Vessel };
+    }
+
     // Roster stage R9a (U134): the models a successful Loudspeakers or Puppet Master ACTION moved, each to where the rules put it.
     private static MatchState OnModelsMoved(MatchState state, ModelsMoved e)
     {
@@ -866,7 +876,9 @@ public static class Reducer
         Require(model is not null && model.Seat == e.Seat && TurnRules.CanActivate(model), "That model cannot activate.");
         // Roster stage R10 (U135): a model with any INFECTION MARKER gains 1 more when it activates (Infection Markers, p. 128).
         var spread = model!.InfectionMarkers > 0 ? Math.Min(BloodMarkers.Max, model.InfectionMarkers + 1) : 0;
-        return TurnRules.WithModel(state, model with { ActivatedThisTurn = true, Hidden = false, InfectionMarkers = spread }) with
+        // October 2026 Review (U144): Beacon of Corruption puts 1 SIN MARKER next to its model each time it Activates.
+        var beacon = state.Setup!.ProfileOf(e.Model)?.SinBeacon == true ? Math.Min(BloodMarkers.Max, model.SinMarkers + 1) : model.SinMarkers;
+        return TurnRules.WithModel(state, model with { ActivatedThisTurn = true, Hidden = false, InfectionMarkers = spread, SinMarkers = beacon }) with
         {
             ActiveModel = e.Model,
             LastActivator = e.Seat,

@@ -309,6 +309,7 @@ public static partial class TurnSequence
             TakeSelfAction c => ValidateSelfAction(state, c),
             TurnBase c => ValidateTurnBase(state, c),
             CastSpell c => ValidateSpell(state, c),
+            BreakVessel c => ValidateBreakVessel(state, c),
             ChargeModel c => ValidateCharge(state, c),
             RetreatModel c => ValidateRetreat(state, c),
             FightModel c => ValidateFight(state, c),
@@ -391,7 +392,7 @@ public static partial class TurnSequence
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
         or ActivateModel or EndActivation or ResolveFailedMorale or ChooseMoraleOrder or PlaceModel or MoveModel or DashModel or Shoot
-        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or PlaceShrine or DeclineShrine or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell or DeclineReaction;
+        or ShootPoint or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ChooseAttacker or LayMines or PlaceShrine or DeclineShrine or ScatterAttack or TreatModel or TriggerMartyrdom or TakeSelfAction or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell or DeclineReaction or BreakVessel;
 
     // A value outside its enum (a cast number, a damaged message) is never read as one of the real choices.
     private static bool HasUndefinedChoice(Command command) => command switch
@@ -475,7 +476,7 @@ public static partial class TurnSequence
                     run.Emit(new ModelStoodUp(c.Model) { Quick = run.State.Setup.ProfileOf(c.Model)!.QuickToRise });
                 }
                 break;
-            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell or DeclineReaction:
+            case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or ChooseBodyguard or TurnBase or CastSpell or DeclineReaction or BreakVessel:
                 ExecuteBoard(run, command);
                 break;
             case EndActivation:

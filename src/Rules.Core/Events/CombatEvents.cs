@@ -781,6 +781,9 @@ public sealed record SpellCast(ModelId Model, SpellKind Spell, ImmutableArray<Ma
     public bool TakeBlessing { get; init; }
 }
 
+// October 2026 Review (U144): Model broke its Sin Vessel: 2 SIN MARKERS (at most 6) next to it. Once per game.
+public sealed record VesselBroken(ModelId Model) : GameEvent;
+
 // Roster stage R16 (U141): an Injury Roll was made for Target but its result is not applied yet: its player may cast Oracle
 // Beast Cloak or Too Proud to Fall first. The InjuryRolled that follows carries the same roll.
 public sealed record InjuryRollMade(ModelId Attacker, ModelId Target, InjuryRollResult Injury) : GameEvent;

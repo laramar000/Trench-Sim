@@ -409,6 +409,24 @@ public static partial class TurnSequence
             : null;
     }
 
+    // October 2026 Review (U144): the Break Vessel ACTION, once per game.
+    private static Rejection? ValidateBreakVessel(MatchState state, BreakVessel c)
+    {
+        if (ValidateActing(state, c.Seat, c.Model, out var bearer) is { } rejection)
+        {
+            return rejection;
+        }
+        if (state.Setup!.ProfileOf(c.Model) is not { SinVessel: true })
+        {
+            return new(ReasonCode.NoSuchAction, "Only a model with a Sin Vessel can take a Break Vessel ACTION.", RefVessel);
+        }
+        return bearer!.VesselBroken || state.InProgress is not null || state.Retreat is not null || state.MineStop is not null || state.MustEndActivation || state.ReloadEnds
+            ? new(ReasonCode.ActionAlreadyTaken, "The Sin Vessel can be broken once per game, between actions.", RefVessel)
+            : null;
+    }
+
+    private const string RefVessel = "Rules Review October 2026 p. 4";
+
     // Roster stage R5j: the models a Martyrdom Device would hit now (its bearer last) and those within 1" of it, for the
     // client's preview.
     public static (IReadOnlyList<ModelId> Hit, IReadOnlyList<ModelId> Close) MartyrdomHits(MatchState state, ModelId bearer) =>
@@ -865,6 +883,9 @@ public static partial class TurnSequence
             }
             case DeclineTalisman:
                 run.Emit(new ActivationEnded(state.ActiveModel!.Value, ActivationEndReason.RiskyFailure));
+                break;
+            case BreakVessel c:
+                run.Emit(new VesselBroken(c.Model));
                 break;
             case DeclineReaction c:
                 run.Emit(new ReactionDeclined(c.Seat));

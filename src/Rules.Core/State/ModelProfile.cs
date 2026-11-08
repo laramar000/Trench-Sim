@@ -366,6 +366,12 @@ public sealed record ModelProfile
     // Memento Mori (p. 53): its first Out of Action result counts as No Effect (it is never TOUGH).
     public bool MementoMori { get; init; }
 
+    // October 2026 Review (U144): a Sin Vessel (the Review's Chthonic Vessel): the Break Vessel ACTION, once per game.
+    public bool SinVessel { get; init; }
+
+    // October 2026 Review (U144): Beacon of Corruption, 1 SIN MARKER next to the model each time it Activates.
+    public bool SinBeacon { get; init; }
+
     // The keywords of every weapon the model has.
     public WeaponKeywords AllWeaponKeywords => RangedWeaponKeywords | MeleeWeaponKeywords
         | (SecondRangedWeapon?.Keywords ?? WeaponKeywords.None) | (SecondMeleeWeapon?.Keywords ?? WeaponKeywords.None)
@@ -576,6 +582,8 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                SinVessel = SinVessel,
+                SinBeacon = SinBeacon,
             };
         }
         // Roster stage R5i (U114): a Grind to Dust attack uses no Melee Weapon: no weapon DICE, INJURY DICE, modifier,
@@ -644,6 +652,8 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                SinVessel = SinVessel,
+                SinBeacon = SinBeacon,
             };
         }
         var m = SecondMeleeWeapon!;
@@ -712,6 +722,8 @@ public sealed record ModelProfile
             HuntsTheTough = HuntsTheTough,
             CounterCharge = CounterCharge,
             MementoMori = MementoMori,
+            SinVessel = SinVessel,
+            SinBeacon = SinBeacon,
         };
     }
 

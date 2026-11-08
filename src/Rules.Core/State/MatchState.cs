@@ -78,6 +78,7 @@ public enum ActionsTaken
     PuppetMaster = 65536, // roster stage R9a (U134): a Puppet Master ACTION
     Blessing = 131072, // roster stage R10 (U135): a God is With Us! ACTION
     Arise = 262144, // roster stage R12 (U137): an Arise and be Healed! ACTION
+    Vessel = 524288, // October 2026 Review (U144): a Break Vessel ACTION
 }
 
 public enum RollStage

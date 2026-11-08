@@ -798,6 +798,23 @@ public class MatchReadinessTests
         Assert.DoesNotContain("heals", Of("principality", "yeoman", "pistol").MatchCheck().ToContentJson("p", "P"), StringComparison.Ordinal);
     }
 
+    // October 2026 Rules Review (U144): the Praetor's Beacon of Corruption and a Sin Vessel are played.
+    [Fact]
+    public void SinSourcesArePlayed()
+    {
+        var builder = RosterBuilder.Shipped();
+        builder.ChooseFaction("court");
+        builder.ChooseVariant("dedicated-to-wrath");
+        builder.Select(builder.Add("praetor"));
+        builder.AddKit("sin-vessel");
+        var ready = builder.MatchCheck();
+        Assert.Empty(ready.Refused);
+        var praetor = Loaded(ready);
+        Assert.True(praetor.SinBeacon);
+        Assert.True(praetor.SinVessel);
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("Beacon", StringComparison.Ordinal) || w.Contains("Vessel", StringComparison.Ordinal));
+    }
+
     // Roster stage R11 (U136): the three Court spells bought as upgrades are known by the model; the others are still named.
     [Fact]
     public void CourtSpellsAreKnown()
