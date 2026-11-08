@@ -366,6 +366,9 @@ public sealed record ModelProfile
     // Memento Mori (p. 53): its first Out of Action result counts as No Effect (it is never TOUGH).
     public bool MementoMori { get; init; }
 
+    // October 2026 Review (U153): a Chain Fiend: what a Slavemaster can command.
+    public bool Commandable { get; init; }
+
     // October 2026 Review (U151): Burning Inferno, the Sorcerer's innate spell: a Ranged Attack (weapons 5 to 7) made right after casting it.
     public bool CastsInferno { get; init; }
 
@@ -598,6 +601,7 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                Commandable = Commandable,
                 CastsInferno = CastsInferno,
                 Perverse = Perverse,
                 MortalSuffering = MortalSuffering,
@@ -671,6 +675,7 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                Commandable = Commandable,
                 CastsInferno = CastsInferno,
                 Perverse = Perverse,
                 MortalSuffering = MortalSuffering,
@@ -744,6 +749,7 @@ public sealed record ModelProfile
             HuntsTheTough = HuntsTheTough,
             CounterCharge = CounterCharge,
             MementoMori = MementoMori,
+            Commandable = Commandable,
             CastsInferno = CastsInferno,
             Perverse = Perverse,
             MortalSuffering = MortalSuffering,

@@ -333,6 +333,8 @@ public static class Wire
         private static readonly HashSet<(Type, string)> OmitWhenNull =
         [
             (typeof(InjuryRolled), nameof(InjuryRolled.ConvertedTo)),
+            (typeof(CastSpell), nameof(CastSpell.Order)),
+            (typeof(SpellCast), nameof(SpellCast.Order)),
             (typeof(CastSpell), nameof(CastSpell.Mix)),
             (typeof(SpellCast), nameof(SpellCast.Mix)),
             (typeof(MarkersConverted), nameof(MarkersConverted.To)),
@@ -413,6 +415,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.HuntsTheTough)),
             (typeof(ModelProfile), nameof(ModelProfile.CounterCharge)),
             (typeof(ModelProfile), nameof(ModelProfile.MementoMori)),
+            (typeof(ModelProfile), nameof(ModelProfile.Commandable)),
             (typeof(ModelProfile), nameof(ModelProfile.CastsInferno)),
             (typeof(ModelProfile), nameof(ModelProfile.Perverse)),
             (typeof(ModelProfile), nameof(ModelProfile.MortalSuffering)),

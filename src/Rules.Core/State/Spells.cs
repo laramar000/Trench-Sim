@@ -49,6 +49,15 @@ public enum SpellKind
     RainingBlood = 65536,
 }
 
+// October 2026 Review (U153): the Command a Slavemaster gives a friendly Chain Fiend within 18".
+public enum SlaveOrder
+{
+    Fight,
+    Move,
+    Shoot,
+    Sacrifice,
+}
+
 // October 2026 Review (U149): what a What is Yours is Mine takes from its target, in any mix of kinds (as many in all as SIN MARKERS were paid).
 public sealed record MarkerMix(int Blood, int Blessing, int Sin);
 
@@ -59,7 +68,7 @@ public static class Spells
 {
     public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic
         | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh
-        | SpellKind.BlessingOfTheSerpentMoon | SpellKind.OracleBeastCloak | SpellKind.TooProudToFall | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony | SpellKind.BurningInferno | SpellKind.LeftHandPath;
+        | SpellKind.BlessingOfTheSerpentMoon | SpellKind.OracleBeastCloak | SpellKind.TooProudToFall | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony | SpellKind.BurningInferno | SpellKind.LeftHandPath | SpellKind.Slavemaster;
 
     // The number of markers a spell may cost: from Min to Max.
     public static (int Min, int Max) Cost(SpellKind spell) => spell switch
@@ -67,7 +76,7 @@ public static class Spells
         SpellKind.WhatIsYoursIsMine => (1, 3),
         SpellKind.ExquisitePain or SpellKind.RainingBlood or SpellKind.BurningInferno => (1, 3),
         SpellKind.CovetedPosition => (2, 2),
-        SpellKind.CharmOfAcedia or SpellKind.BlackHeart or SpellKind.BloodMagic => (1, 1),
+        SpellKind.CharmOfAcedia or SpellKind.BlackHeart or SpellKind.BloodMagic or SpellKind.Slavemaster => (1, 1),
         SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh or SpellKind.TooProudToFall or SpellKind.LightOfTheFallen or SpellKind.UncaringGluttony or SpellKind.LeftHandPath => (2, 2),
         SpellKind.BlessingOfTheSerpentMoon => (2, 6),
         SpellKind.OracleBeastCloak => (3, 3),
@@ -92,6 +101,7 @@ public static class Spells
         SpellKind.UncaringGluttony => "Uncaring Gluttony",
         SpellKind.BurningInferno => "Burning Inferno",
         SpellKind.LeftHandPath => "Left-Hand Path",
+        SpellKind.Slavemaster => "Slavemaster",
         _ => spell.ToString(),
     };
 

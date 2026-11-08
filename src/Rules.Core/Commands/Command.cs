@@ -184,6 +184,9 @@ public sealed record CastSpell(Seat Seat, ModelId Model, SpellKind Spell, Immuta
 
     // October 2026 Review (U149): what a What is Yours is Mine takes, in any mix of kinds; null is the old single marker (TakeBlessing says which); left off the wire when null.
     public MarkerMix? Mix { get; init; }
+
+    // October 2026 Review (U153): the Command a Slavemaster gives its Target; left off the wire when null.
+    public SlaveOrder? Order { get; init; }
 }
 
 // October 2026 Review (U144): the Break Vessel ACTION of a model with a Sin Vessel, once per game: 2 SIN MARKERS next to the model.

@@ -186,6 +186,10 @@ public sealed record RollInProgress(
 // Too Proud to Fall once they see it. Asked is true once that decision has been requested.
 public sealed record InfernoOwed(ModelId Caster, int Sin);
 
+// October 2026 Review (U153): the caster's activation, set aside while a Chain Fiend carries out a Slavemaster's Command as an activation of
+// its own; the caster's per-activation state is kept to be put back when the Chain Fiend's activation ends.
+public sealed record SuspendedActivation(ModelId Caster, ModelId Fiend, SlaveOrder Order, ActionsTaken Actions, SpellKind SpellsCast, bool MovementHalved, int ShotWeapon, bool Aiming, bool CounterCharging);
+
 public enum HeldStage
 {
     ReactionOwed,  // the target's player is to be asked about Oracle Beast Cloak / Too Proud to Fall
@@ -335,6 +339,8 @@ public sealed record MatchState
 
     // October 2026 Review (U151): a Burning Inferno cast with `Sin` SIN MARKERS whose Ranged Attack is still to be made.
     public InfernoOwed? Inferno { get; init; }
+
+    public SuspendedActivation? Suspended { get; init; }
 
     public SpellKind HeldReaction { get; init; }
 

@@ -504,6 +504,18 @@ public class TraitWireTests
     }
 
     [Fact]
+    public void ASlavemasterOrderRoundTripsAndIsLeftOutWhenNull()
+    {
+        var pay = System.Collections.Immutable.ImmutableArray.Create(new MarkerPayment(new ModelId("A1"), 1));
+        var plain = new SpellCast(new ModelId("A1"), SpellKind.CharmOfAcedia, pay);
+        Assert.DoesNotContain("order", Encoded(plain), StringComparison.OrdinalIgnoreCase);
+        var cast = new SpellCast(new ModelId("A1"), SpellKind.Slavemaster, pay) { Target = new ModelId("A2"), Order = SlaveOrder.Sacrifice };
+        Assert.Equal(SlaveOrder.Sacrifice, ((SpellCast)RoundTrip(cast)).Order);
+        var command = new Rules.Core.Commands.CastSpell(Seat.One, new ModelId("A1"), SpellKind.Slavemaster, pay) { Target = new ModelId("A2"), Order = SlaveOrder.Move };
+        Assert.Contains("order", Encoding.UTF8.GetString(Codec.Encode(new SubmitCommand("c13", 13, 0, command))), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ACharmedRollRoundTripsAndIsLeftOutWhenNot()
     {
         var plain = new Rules.Core.Dice.SuccessRollResult(new Rules.Core.Dice.RollRecord([1, 1], [1, 1]), 0, false);

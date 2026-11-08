@@ -642,7 +642,7 @@ internal static class Board
     // Why this model cannot cast that spell now, with that payment and target, or null when it can. The payment is BLOOD
     // MARKERS from models on the battlefield without CULT or DEMONIC, as many in all as the spell costs; the effects are worked
     // out after it is taken, so a model may pay with the very markers a spell would move.
-    public static string? SpellRefusal(MatchState state, ModelState caster, SpellKind spell, ImmutableArray<MarkerPayment> payment, ModelId? target, bool takeBlessing, ImmutableArray<ModelId> targets = default, EquipmentPiece piece = EquipmentPiece.None, MarkerMix? mix = null)
+    public static string? SpellRefusal(MatchState state, ModelState caster, SpellKind spell, ImmutableArray<MarkerPayment> payment, ModelId? target, bool takeBlessing, ImmutableArray<ModelId> targets = default, EquipmentPiece piece = EquipmentPiece.None, MarkerMix? mix = null, SlaveOrder? order = null)
     {
         if (!Spells.IsOne(spell))
         {
@@ -683,6 +683,30 @@ internal static class Board
         {
             return target is not null || takeBlessing ? $"{Spells.Name(spell)} has no target."
                 : (spell == SpellKind.BlackHeart ? state.BlackHeartModel : state.BloodMagicModel) == caster.Id ? $"The caster already has a {Spells.Name(spell)} in place." : null;
+        }
+        // October 2026 Review (U153): Slavemaster commands a friendly Chain Fiend within 18" (in sight or not).
+        if (spell == SpellKind.Slavemaster)
+        {
+            if (takeBlessing || !(targets.IsDefault || targets.IsEmpty) || order is not { } command || !Enum.IsDefined(command))
+            {
+                return "Slavemaster commands one friendly Chain Fiend: Fight, Move, Shoot or Sacrifice.";
+            }
+            if (target is not { } fiendId || state.FindModel(fiendId) is not { Position: not null } fiend || fiend.Seat != caster.Seat || fiend.Id == caster.Id
+                || !state.Setup!.ProfileOf(fiend.Id)!.Commandable || state.Suspended is not null
+                || !Measure.IsWithin(BodyOf(state, caster)!, BodyOf(state, fiend)!, SlaveReach))
+            {
+                return "Slavemaster commands a friendly Chain Fiend within 18\".";
+            }
+            if (command != SlaveOrder.Sacrifice && fiend.Status != ModelStatus.Standing)
+            {
+                return "Only a standing Chain Fiend can Fight, Move or Shoot.";
+            }
+            return command switch
+            {
+                SlaveOrder.Fight when !state.Setup!.ProfileOf(fiend.Id)!.CanMakeMeleeAttack => "That Chain Fiend has no Melee Weapon.",
+                SlaveOrder.Shoot when !state.Setup!.ProfileOf(fiend.Id)!.HasRangedWeapon => "That Chain Fiend has no ranged weapon.",
+                _ => null,
+            };
         }
         // October 2026 Review (U148): Uncaring Gluttony picks an enemy model that has not Activated this Turn, anywhere, and one piece of its
         // Equipment that still works.
@@ -907,6 +931,7 @@ internal static class Board
     }
 
     public static readonly Length RainReach = Length.FromInches(18);
+    public static readonly Length SlaveReach = Length.FromInches(18);
 
     // A consumable or once-only piece that has already been used cannot be picked (the Review: "used in this game").
     public static bool EquipmentSpent(ModelState model, ModelProfile profile, EquipmentPiece piece) => piece switch

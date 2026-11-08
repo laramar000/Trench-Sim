@@ -97,6 +97,7 @@ public static class Content
                         HuntsTheTough = m.TryGetProperty("huntsTheTough", out var huntsTheTough) && huntsTheTough.GetBoolean(),
                         CounterCharge = m.TryGetProperty("counterCharge", out var counterCharge) && counterCharge.GetBoolean(),
                         MementoMori = m.TryGetProperty("mementoMori", out var mementoMori) && mementoMori.GetBoolean(),
+                        Commandable = m.TryGetProperty("commandable", out var commandable) && commandable.GetBoolean(),
                         CastsInferno = m.TryGetProperty("castsInferno", out var castsInferno) && castsInferno.GetBoolean(),
                         Perverse = m.TryGetProperty("perverse", out var perverse) && perverse.GetBoolean(),
                         MortalSuffering = m.TryGetProperty("mortalSuffering", out var mortalSuffering) && mortalSuffering.GetBoolean(),

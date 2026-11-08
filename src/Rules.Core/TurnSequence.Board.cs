@@ -120,6 +120,27 @@ public static partial class TurnSequence
         }
     }
 
+    // October 2026 Review (U153): a Chain Fiend carrying out a Slavemaster's Command takes only that Command's ACTION (it may end its activation).
+    private static Rejection? CommandedRefusal(MatchState state, Command command)
+    {
+        if (state.Suspended is not { } set || state.ActiveModel != set.Fiend || state.InProgress is not null || state.Pending is not null)
+        {
+            return null;
+        }
+        var ok = command switch
+        {
+            FightModel => set.Order == SlaveOrder.Fight,
+            MoveModel => set.Order == SlaveOrder.Move,
+            Shoot c => set.Order == SlaveOrder.Shoot && c.Weapon < ModelProfile.InfernoWeapon,
+            ShootPoint c => set.Order == SlaveOrder.Shoot && c.Weapon < ModelProfile.InfernoWeapon,
+            DashModel or TreatModel or TakeSelfAction or TriggerMartyrdom or ChargeModel or RetreatModel or CastSpell or BreakVessel => false,
+            _ => true,
+        };
+        return ok ? null : new(ReasonCode.ActionExcluded, $"A Chain Fiend commanded to {set.Order} takes only that ACTION.", RefSlave);
+    }
+
+    private const string RefSlave = "Rules Review October 2026 p. 7";
+
     // October 2026 Review (U151): after a Burning Inferno is cast its Ranged Attack comes before anything else the model does (it may
     // still end its activation).
     private static Rejection? InfernoRefusal(MatchState state, Command command)
@@ -316,7 +337,7 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A spell is cast between actions, not while one is being resolved.", RefActions);
         }
-        return Board.SpellRefusal(state, caster!, c.Spell, c.Payment, c.Target, c.TakeBlessing, c.Targets, c.Piece, c.Mix) is { } why ? new(ReasonCode.SpellRefused, why, RefActions) : null;
+        return Board.SpellRefusal(state, caster!, c.Spell, c.Payment, c.Target, c.TakeBlessing, c.Targets, c.Piece, c.Mix, c.Order) is { } why ? new(ReasonCode.SpellRefused, why, RefActions) : null;
     }
 
     // Roster stage R8d (U133): turning an oval base in place, free, by the activating model between its actions.
@@ -941,7 +962,7 @@ public static partial class TurnSequence
                 run.Emit(new BaseTurned(c.Model, c.Axis));
                 break;
             case CastSpell c:
-                run.Emit(new SpellCast(c.Model, c.Spell, c.Payment) { Target = c.Target, TakeBlessing = c.TakeBlessing, Targets = c.Targets, Piece = c.Piece, Mix = c.Mix });
+                run.Emit(new SpellCast(c.Model, c.Spell, c.Payment) { Target = c.Target, TakeBlessing = c.TakeBlessing, Targets = c.Targets, Piece = c.Piece, Mix = c.Mix, Order = c.Order });
                 // Roster stage R15 (U140): Call of the Flesh is an ACTION that ends the caster's activation.
                 if (c.Spell == SpellKind.CallOfTheFlesh)
                 {

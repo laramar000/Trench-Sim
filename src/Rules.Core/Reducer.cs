@@ -711,7 +711,7 @@ public static class Reducer
         }
         var caster = Active(state, e.Model, "A spell");
         Require(state.InProgress is null && state.Retreat is null && state.MineStop is null && !state.MustEndActivation && !state.ReloadEnds, "A spell is cast between actions, not while one is being resolved.");
-        Require(Board.SpellRefusal(state, caster, e.Spell, e.Payment, e.Target, e.TakeBlessing, e.Targets, e.Piece, e.Mix) is null, "That spell cannot be cast like that.");
+        Require(Board.SpellRefusal(state, caster, e.Spell, e.Payment, e.Target, e.TakeBlessing, e.Targets, e.Piece, e.Mix, e.Order) is null, "That spell cannot be cast like that.");
         var next = state with { SpellsCast = state.SpellsCast | e.Spell };
         foreach (var p in e.Payment)
         {
@@ -746,6 +746,26 @@ public static class Reducer
         if (e.Spell == SpellKind.CallOfTheFlesh)
         {
             return next with { CallTarget = e.Model, CallActive = false };
+        }
+        // October 2026 Review (U153): Slavemaster. Sacrifice takes the Chain Fiend Out of Action; any other Command sets the caster's activation
+        // aside and gives the Chain Fiend one of its own (ended by EndActivation, or by whatever ends it) with only that Command's ACTION.
+        if (e.Spell == SpellKind.Slavemaster)
+        {
+            var fiend = next.FindModel(e.Target!.Value)!;
+            if (e.Order == SlaveOrder.Sacrifice)
+            {
+                return TurnRules.WithModel(next, fiend with { Status = ModelStatus.OutOfAction, Position = null });
+            }
+            return next with
+            {
+                ActiveModel = fiend.Id,
+                Actions = ActionsTaken.None,
+                MovementHalved = false,
+                ShotWeapon = 0,
+                Aiming = false,
+                CounterCharging = false,
+                Suspended = new SuspendedActivation(e.Model, fiend.Id, e.Order!.Value, next.Actions, next.SpellsCast, next.MovementHalved, next.ShotWeapon, next.Aiming, next.CounterCharging),
+            };
         }
         // October 2026 Review (U148): Uncaring Gluttony: the piece of Equipment is unusable for the rest of the game.
         if (e.Spell == SpellKind.UncaringGluttony)
@@ -951,6 +971,24 @@ public static class Reducer
         if (e.Reason == ActivationEndReason.Reload)
         {
             Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
+        }
+        // October 2026 Review (U153): a Chain Fiend's Commanded activation ends: its caster's goes on as it was.
+        if (state.Suspended is { } resumed && resumed.Fiend == e.Model)
+        {
+            return state with
+            {
+                ActiveModel = resumed.Caster,
+                Actions = resumed.Actions,
+                SpellsCast = resumed.SpellsCast,
+                MovementHalved = resumed.MovementHalved,
+                ShotWeapon = resumed.ShotWeapon,
+                Aiming = resumed.Aiming,
+                CounterCharging = resumed.CounterCharging,
+                MustEndActivation = false,
+                ReloadEnds = false,
+                Pending = null,
+                Suspended = null,
+            };
         }
         return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false, BlackHeartModel = null, BloodMagicModel = null, CharmedModel = null, Inferno = null, ShadowWalking = null, CallTarget = state.CallActive ? null : state.CallTarget, CallActive = false };
     }

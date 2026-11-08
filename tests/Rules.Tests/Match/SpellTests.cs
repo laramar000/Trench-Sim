@@ -14,7 +14,7 @@ namespace Rules.Tests.Match;
 // BLOOD MARKERS from models without CULT or DEMONIC, anywhere, no roll, each spell once per activation.
 public class SpellTests
 {
-    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony | SpellKind.BurningInferno | SpellKind.LeftHandPath, CastsInferno = true, Traits = ModelTraits.Demonic };
+    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony | SpellKind.BurningInferno | SpellKind.LeftHandPath | SpellKind.Slavemaster, CastsInferno = true, Traits = ModelTraits.Demonic };
 
     // A1 (the Court caster, DEMONIC, 2 SIN MARKERS) at (10, 10), A2 (DEMONIC, 3 SIN MARKERS) at (2, 30), B1 (16, 10), B2 (30, 30), activated A1;
     // B1 and B2 carry BLOOD MARKERS.
@@ -573,6 +573,74 @@ public class SpellTests
         var again = Ready(2, Wall("w", "13", "5", "14", "15"));
         again.Put(B(1), "25", "10");
         Assert.Throws<InvalidEventException>(() => Reducer.Apply(again.State, new ModelMoved(A(1), MoveKind.Move, moved.Path, moved.Cost) { Jumps = moved.Jumps }));
+    }
+
+    // October 2026 Review (U153): Slavemaster, a Command for a friendly Chain Fiend within 18".
+    private static readonly ModelProfile Fiend = new(L("6"), L("0.5"), L("18"), hasMeleeWeapon: true) { Commandable = true, Traits = ModelTraits.Demonic };
+
+    private static BoardPlay Slaver()
+    {
+        var scenario = new Scenario(Field("36", [], [new DeploymentZone("west", F("0", "0", "6", "36")), new DeploymentZone("east", F("30", "0", "36", "36"))]), []);
+        var play = new BoardPlay(2, id => id == A(1) ? Court : id == A(2) ? Fiend : Rifleman, scenario: scenario).ToActivation();
+        play.Put(A(1), "10", "10").Put(A(2), "12", "12").Put(B(1), "20", "12").Put(B(2), "30", "30").Sin(A(1), 3);
+        play.Do(new ActivateModel(Seat.One, A(1)));
+        return play;
+    }
+
+    private static CastSpell Command(SlaveOrder? order, string fiend = "A2") => new(Seat.One, A(1), SpellKind.Slavemaster, Pay(("A1", 1))) { Target = new ModelId(fiend), Order = order };
+
+    [Fact]
+    [Trait("Rule", "Slavemaster: a Cast Spell ACTION; a friendly Chain Fiend within 18\" carries out a Fight, Move or Shoot ACTION, or kills itself; it may still Activate this Turn")]
+    public void ASlavemasterCommandsAChainFiendToMoveThenReturnsToItsCaster()
+    {
+        var play = Slaver();
+        play.Refused(Command(null), ReasonCode.SpellRefused);                         // no Command named
+        play.Refused(Command(SlaveOrder.Move, "B1"), ReasonCode.SpellRefused);        // not a friend
+        play.Refused(Command(SlaveOrder.Move, "A1"), ReasonCode.SpellRefused);        // not a Chain Fiend
+        play.Put(A(2), "35", "35");
+        play.Refused(Command(SlaveOrder.Move), ReasonCode.SpellRefused);              // too far
+        play.Put(A(2), "12", "12");
+        play.Do(Command(SlaveOrder.Move));
+        Assert.Equal(A(2), play.State.ActiveModel);
+        Assert.Equal(A(1), play.State.Suspended!.Caster);
+        Assert.Equal(2, play.M(A(1)).SinMarkers);
+        Assert.False(play.M(A(2)).ActivatedThisTurn);                                  // it can still Activate this Turn
+        play.Refused(new MoveModel(Seat.One, A(1), Path(("9", "10"))), ReasonCode.ActivationInProgress);
+        play.Refused(new DashModel(Seat.One, A(2), Path(("14", "12"))), ReasonCode.ActionExcluded);
+        play.Refused(new FightModel(Seat.One, A(2), B(1)), ReasonCode.ActionExcluded);
+        play.Do(new MoveModel(Seat.One, A(2), Path(("15", "12"))));
+        Assert.Equal(P("15", "12"), play.M(A(2)).Position);
+        play.Refused(new MoveModel(Seat.One, A(2), Path(("16", "12"))), ReasonCode.ActionAlreadyTaken);
+        play.Do(new EndActivation(Seat.One));
+        Assert.Equal((A(1), null), (play.State.ActiveModel, play.State.Suspended));
+        Assert.Equal(ActionsTaken.None, play.State.Actions);
+        Assert.True(play.State.SpellsCast.HasFlag(SpellKind.Slavemaster));
+        play.Do(new MoveModel(Seat.One, A(1), Path(("9", "10"))));   // the caster goes on
+    }
+
+    [Fact]
+    public void ASlavemasterMaySacrificeOrFightOrShootWithItsChainFiend()
+    {
+        var sac = Slaver();
+        sac.Do(Command(SlaveOrder.Sacrifice));
+        Assert.Equal((ModelStatus.OutOfAction, null, A(1)), (sac.M(A(2)).Status, sac.M(A(2)).Position, sac.State.ActiveModel));
+        Assert.Null(sac.State.Suspended);
+
+        var fight = Slaver();
+        fight.Put(A(2), "19", "12");
+        fight.Do(Command(SlaveOrder.Fight));
+        fight.Refused(new MoveModel(Seat.One, A(2), Path(("18", "12"))), ReasonCode.ActionExcluded);
+        var events = Roll(fight, new FightModel(Seat.One, A(2), B(1)), 4).Events;
+        Assert.Contains(events, e => e is MeleeAttackDeclared);
+        fight.Do(new EndActivation(Seat.One));
+        Assert.Equal(A(1), fight.State.ActiveModel);
+
+        var shoot = Slaver();
+        shoot.Do(Command(SlaveOrder.Shoot));
+        shoot.Refused(new FightModel(Seat.One, A(2), B(1)), ReasonCode.ActionExcluded);
+        Assert.Contains(Roll(shoot, new Shoot(Seat.One, A(2), B(1)), 4).Events, e => e is RangedAttackDeclared);
+        shoot.Do(new EndActivation(Seat.One));
+        Assert.Equal(A(1), shoot.State.ActiveModel);
     }
 
     [Fact]

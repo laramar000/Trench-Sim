@@ -895,14 +895,12 @@ public class MatchReadinessTests
         Assert.True(Loaded(challenged).HuntsTheTough);
         Assert.True(Loaded(challenged).Traits.HasFlag(ModelTraits.Fear));
         Assert.Equal(SpellKind.UncaringGluttony, Praetor("dedicated-to-gluttony", "uncaring-gluttony").Spells);
-        // A spell the engine does not play yet is named, and gives nothing.
-        var slave = RosterBuilder.Shipped();
-        slave.ChooseFaction("court");
-        slave.ChooseVariant("dedicated-to-gluttony");
-        slave.Select(slave.Add("praetor"));
-        slave.ToggleUpgrade("slavemaster");
-        Assert.Contains(slave.MatchCheck().PlayedWithout, w => w.Contains("Slavemaster", StringComparison.Ordinal));
-        Assert.Equal(SpellKind.None, Loaded(slave.MatchCheck()).Spells);
+        // October 2026 Review (U153): Slavemaster is played, and a Chain Fiend can be commanded.
+        Assert.Equal(SpellKind.Slavemaster, Praetor("dedicated-to-gluttony", "slavemaster").Spells);
+        var fiend = RosterBuilder.Shipped();
+        fiend.ChooseFaction("court");
+        fiend.Select(fiend.Add("chain-fiend"));
+        Assert.True(Loaded(fiend.MatchCheck()).Commandable);
     }
 
     // Roster stage R6f (U122): the upgrades the engine plays: Legionnaire, Zealot Strength (and a Trench Pilgrim's 32 mm
