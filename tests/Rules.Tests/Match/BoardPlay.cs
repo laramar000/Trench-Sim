@@ -132,6 +132,13 @@ public sealed class BoardPlay
         return this;
     }
 
+    // October 2026 Rules Review (U142): SIN MARKERS, the Court's spell fuel.
+    public BoardPlay Sin(ModelId id, int markers)
+    {
+        State = WithModel(M(id) with { SinMarkers = markers });
+        return this;
+    }
+
     public BoardPlay SetStatus(ModelId id, ModelStatus status)
     {
         State = WithModel(M(id) with { Status = status, Position = status == ModelStatus.OutOfAction ? null : M(id).Position });

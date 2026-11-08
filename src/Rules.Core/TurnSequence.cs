@@ -174,7 +174,7 @@ public static partial class TurnSequence
                             .Select(sp => (sp, sp == SpellKind.OracleBeastCloak ? 3 : 2)).ToArray();
                     foreach (var (spell, cost) in offered)
                     {
-                        if (Board.CheapestPayment(state, cost) is { } payment)
+                        if (Board.CheapestPayment(state, pending.Seat, cost) is { } payment)
                         {
                             commands.Add(new CastSpell(pending.Seat, reactor, spell, payment));
                         }

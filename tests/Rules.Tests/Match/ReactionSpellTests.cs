@@ -30,12 +30,12 @@ public class ReactionSpellTests
 
     private static ImmutableArray<MarkerPayment> Pay(params (string, int)[] pays) => [.. pays.Select(p => new MarkerPayment(new ModelId(p.Item1), p.Item2))];
 
-    // A1 (the shooter, active) at (10, 10); B1 (knows `spells`) at (16, 10); A2 and B2 carry 3 BLOOD MARKERS each to pay with.
+    // A1 (the shooter, active) at (10, 10); B1 (DEMONIC, knows `spells`) at (16, 10); B2 (DEMONIC) carries 4 SIN MARKERS to pay with.
     private static BoardPlay Ready(SpellKind spells)
     {
         var scenario = new Scenario(Field("36", [], [new DeploymentZone("west", F("0", "0", "6", "36")), new DeploymentZone("east", F("30", "0", "36", "36"))]), []);
-        var play = new BoardPlay(2, id => id == B(1) ? Rifleman with { Spells = spells } : Rifleman, scenario: scenario).ToActivation();
-        play.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30").Mark(A(2), 3).Mark(B(2), 3);
+        var play = new BoardPlay(2, id => id == B(1) ? Rifleman with { Spells = spells, Traits = ModelTraits.Demonic } : id == B(2) ? Rifleman with { Traits = ModelTraits.Demonic } : Rifleman, scenario: scenario).ToActivation();
+        play.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30").Sin(B(2), 4);
         play.Do(new ActivateModel(Seat.One, A(1)));
         return play;
     }
@@ -52,13 +52,13 @@ public class ReactionSpellTests
         var play = Ready(SpellKind.BlessingOfTheSerpentMoon);
         Shoot(play);
         Assert.Equal(new PendingDecision(DecisionKind.UseBlessing, Seat.Two), play.State.Pending);
-        play.Refused(Cast(SpellKind.BlessingOfTheSerpentMoon, ("A2", 3)), ReasonCode.SpellRefused);    // 2, 4 or 6 only
-        play.Refused(Cast(SpellKind.OracleBeastCloak, ("A2", 3)), ReasonCode.SpellRefused);            // not known, not on offer
-        play.Refused(new CastSpell(Seat.One, B(1), SpellKind.BlessingOfTheSerpentMoon, Pay(("A2", 2))), ReasonCode.NotYourTurn);
-        var result = Go(play, Cast(SpellKind.BlessingOfTheSerpentMoon, ("A2", 2)), 1);
+        play.Refused(Cast(SpellKind.BlessingOfTheSerpentMoon, ("B2", 3)), ReasonCode.SpellRefused);    // 2, 4 or 6 only
+        play.Refused(Cast(SpellKind.OracleBeastCloak, ("B2", 3)), ReasonCode.SpellRefused);            // not known, not on offer
+        play.Refused(new CastSpell(Seat.One, B(1), SpellKind.BlessingOfTheSerpentMoon, Pay(("B2", 2))), ReasonCode.NotYourTurn);
+        var result = Go(play, Cast(SpellKind.BlessingOfTheSerpentMoon, ("B2", 2)), 1);
         var injury = result.Events.OfType<InjuryRolled>().Single();
         Assert.Equal(-1, injury.Injury.Modifier);
-        Assert.Equal(1, play.M(A(2)).BloodMarkers);
+        Assert.Equal(2, play.M(B(2)).SinMarkers);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class ReactionSpellTests
     {
         var four = Ready(SpellKind.BlessingOfTheSerpentMoon);
         Shoot(four);
-        Assert.Equal(-2, Go(four, Cast(SpellKind.BlessingOfTheSerpentMoon, ("A2", 3), ("B2", 1)), 1).Events.OfType<InjuryRolled>().Single().Injury.Modifier);
+        Assert.Equal(-2, Go(four, Cast(SpellKind.BlessingOfTheSerpentMoon, ("B2", 4)), 1).Events.OfType<InjuryRolled>().Single().Injury.Modifier);
 
         var declined = Ready(SpellKind.BlessingOfTheSerpentMoon);
         Shoot(declined);
@@ -74,14 +74,14 @@ public class ReactionSpellTests
         var events = Go(declined, new DeclineReaction(Seat.Two), 1).Events;
         Assert.Contains(events, e => e is ReactionDeclined);
         Assert.Equal(0, events.OfType<InjuryRolled>().Single().Injury.Modifier);
-        Assert.Equal(3, declined.M(A(2)).BloodMarkers);
+        Assert.Equal(4, declined.M(B(2)).SinMarkers);
     }
 
     [Fact]
     public void NoBlessingIsOfferedWithTooFewMarkersToPay()
     {
         var play = Ready(SpellKind.BlessingOfTheSerpentMoon);
-        play.Mark(A(2), 1).Mark(B(2), 0);
+        play.Sin(B(2), 1);
         var events = Shoot(play).Events;
         Assert.Null(play.State.Pending);
         Assert.Single(events.OfType<InjuryRolled>());
@@ -97,14 +97,14 @@ public class ReactionSpellTests
         Assert.DoesNotContain(made, e => e is InjuryRolled);
         Assert.Equal(new PendingDecision(DecisionKind.UseInjuryReaction, Seat.Two), play.State.Pending);
         Assert.Equal(ModelStatus.Standing, play.M(B(1)).Status);   // the result is not applied yet
-        play.Refused(Cast(SpellKind.OracleBeastCloak, ("A2", 2)), ReasonCode.SpellRefused);            // costs 3
-        play.Refused(Cast(SpellKind.TooProudToFall, ("A2", 2)), ReasonCode.SpellRefused);              // not known
-        var events = Go(play, Cast(SpellKind.OracleBeastCloak, ("A2", 3)), 1).Events;
+        play.Refused(Cast(SpellKind.OracleBeastCloak, ("B2", 2)), ReasonCode.SpellRefused);            // costs 3
+        play.Refused(Cast(SpellKind.TooProudToFall, ("B2", 2)), ReasonCode.SpellRefused);              // not known
+        var events = Go(play, Cast(SpellKind.OracleBeastCloak, ("B2", 3)), 1).Events;
         var injury = events.OfType<InjuryRolled>().Single();
         Assert.True(injury.Cloaked);
         Assert.Equal(InjuryOutcome.NoEffect, injury.Result);
         Assert.Equal(ModelStatus.Standing, play.M(B(1)).Status);
-        Assert.Equal(0, play.M(A(2)).BloodMarkers);
+        Assert.Equal(1, play.M(B(2)).SinMarkers);
         Assert.True(play.M(B(1)).OracleUsed);
         Assert.Null(play.State.Held);
         Assert.Equal(SpellKind.None, play.State.HeldReaction);
@@ -121,7 +121,7 @@ public class ReactionSpellTests
         Assert.False(injury.Cloaked);
         Assert.Equal(ModelStatus.OutOfAction, play.M(B(1)).Status);
         Assert.False(play.M(B(1)).OracleUsed);
-        Assert.Equal(3, play.M(A(2)).BloodMarkers);
+        Assert.Equal(4, play.M(B(2)).SinMarkers);
     }
 
     // The shot's two dice are sixes (a hit); every die after them is `rest`.
@@ -155,13 +155,13 @@ public class ReactionSpellTests
         var play = Ready(SpellKind.TooProudToFall);
         Assert.Contains(GoScripted(play, new Shoot(Seat.One, A(1), B(1)), 4).Events, e => e is InjuryRollMade);
         Assert.Equal(new PendingDecision(DecisionKind.UseInjuryReaction, Seat.Two), play.State.Pending);
-        play.Refused(Cast(SpellKind.TooProudToFall, ("A2", 3)), ReasonCode.SpellRefused);   // costs 2
-        var injury = Go(play, Cast(SpellKind.TooProudToFall, ("A2", 2)), 1).Events.OfType<InjuryRolled>().Single();
+        play.Refused(Cast(SpellKind.TooProudToFall, ("B2", 3)), ReasonCode.SpellRefused);   // costs 2
+        var injury = Go(play, Cast(SpellKind.TooProudToFall, ("B2", 2)), 1).Events.OfType<InjuryRolled>().Single();
         Assert.True(injury.Upheld);
         Assert.Equal(InjuryOutcome.Down, injury.Result);
         Assert.Equal((ModelStatus.Standing, 1), (play.M(B(1)).Status, play.M(B(1)).BloodMarkers));
         Assert.NotNull(play.M(B(1)).Position);
-        Assert.Equal(1, play.M(A(2)).BloodMarkers);
+        Assert.Equal(2, play.M(B(2)).SinMarkers);
 
         // Declined: Down as usual.
         var down = Ready(SpellKind.TooProudToFall);
@@ -178,7 +178,7 @@ public class ReactionSpellTests
         Assert.Equal(SpellKind.OracleBeastCloak | SpellKind.TooProudToFall, Board.ReactionsFor(play.State, play.M(B(1)), InjuryOutcome.Down));
         var legal = TurnSequence.LegalCommands(play.State).OfType<CastSpell>().Select(c => c.Spell).ToHashSet();
         Assert.Equal([SpellKind.OracleBeastCloak, SpellKind.TooProudToFall], legal.OrderBy(x => x));
-        Go(play, Cast(SpellKind.OracleBeastCloak, ("A2", 3)), 1);
+        Go(play, Cast(SpellKind.OracleBeastCloak, ("B2", 3)), 1);
         Assert.Null(play.State.Pending);
         Assert.Equal(ModelStatus.Standing, play.M(B(1)).Status);
     }

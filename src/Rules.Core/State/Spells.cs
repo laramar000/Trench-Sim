@@ -59,7 +59,7 @@ public static class Spells
     public static (int Min, int Max) Cost(SpellKind spell) => spell switch
     {
         SpellKind.WhatIsYoursIsMine => (1, 1),
-        SpellKind.ExquisitePain => (1, 2),
+        SpellKind.ExquisitePain => (1, 3),
         SpellKind.CovetedPosition => (2, 2),
         SpellKind.CharmOfAcedia or SpellKind.BlackHeart or SpellKind.BloodMagic => (1, 1),
         SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh or SpellKind.TooProudToFall => (2, 2),

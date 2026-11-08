@@ -536,7 +536,7 @@ internal static class Board
             return $"The model does not know {Spells.Name(spell)}.";
         }
         var (min, max) = Spells.Cost(spell);
-        if (PaymentRefusal(state, payment, out var paid) is { } unpaid)
+        if (PaymentRefusal(state, caster.Seat, payment, out var paid) is { } unpaid)
         {
             return unpaid;
         }
@@ -582,7 +582,7 @@ internal static class Board
             }
             return state.CallTarget is not null ? "A Call of the Flesh is already waiting for an enemy." : null;
         }
-        int BloodAfter(ModelState m) => m.BloodMarkers - paid.GetValueOrDefault(m.Id);
+        int BloodAfter(ModelState m) => m.BloodMarkers;
         var scenario = ScenarioOf(state)!;
         var from = BodyOf(state, caster)!;
         ModelState? victim = target is { } t ? state.FindModel(t) : null;
@@ -631,9 +631,9 @@ internal static class Board
         }
     }
 
-    // The BLOOD MARKERS a spell is paid with: each model pays once, with at least 1, from models on the battlefield without CULT or
-    // DEMONIC that have that many.
-    private static string? PaymentRefusal(MatchState state, ImmutableArray<MarkerPayment> payment, out Dictionary<ModelId, int> paid)
+    // October 2026 Rules Review (U142): the SIN MARKERS a spell is paid with: each friendly model with the DEMONIC keyword pays once, with at
+    // least 1, anywhere on the battlefield and in or out of sight, as many as it has.
+    private static string? PaymentRefusal(MatchState state, Seat seat, ImmutableArray<MarkerPayment> payment, out Dictionary<ModelId, int> paid)
     {
         paid = [];
         foreach (var p in payment.IsDefault ? [] : payment)
@@ -646,13 +646,13 @@ internal static class Board
             {
                 return "A payer must be on the battlefield.";
             }
-            if ((state.Setup!.ProfileOf(payer.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) != 0)
+            if (payer.Seat != seat || (state.Setup!.ProfileOf(payer.Id)!.Traits & ModelTraits.Demonic) == 0)
             {
-                return "Markers on a CULT or DEMONIC model cannot pay for a spell.";
+                return "A spell is paid with SIN MARKERS from friendly DEMONIC models.";
             }
-            if (p.Count > payer.BloodMarkers)
+            if (p.Count > payer.SinMarkers)
             {
-                return "A model cannot pay more BLOOD MARKERS than it has.";
+                return "A model cannot pay more SIN MARKERS than it has.";
             }
         }
         return null;
@@ -660,15 +660,15 @@ internal static class Board
 
     // ---- Roster stage R16 (U141): spells cast in answer to an Injury Roll ----
 
-    // The BLOOD MARKERS on the battlefield that can pay for a spell.
-    public static int Payable(MatchState state) =>
-        state.Models.Where(m => m.Position is not null && (state.Setup!.ProfileOf(m.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0).Sum(m => m.BloodMarkers);
+    // The SIN MARKERS on the battlefield that can pay for a spell cast for that seat.
+    public static int Payable(MatchState state, Seat seat) =>
+        state.Models.Where(m => m.Seat == seat && m.Position is not null && (state.Setup!.ProfileOf(m.Id)!.Traits & ModelTraits.Demonic) != 0).Sum(m => m.SinMarkers);
 
     private static bool Knows(MatchState state, ModelState model, SpellKind spell) => (state.Setup!.ProfileOf(model.Id)!.Spells & spell) != 0;
 
     // Blessing of the Serpent Moon: a model on the battlefield that knows it, with at least 2 markers to pay.
     public static bool BlessingAvailable(MatchState state, ModelState target) =>
-        target.Position is not null && target.Status != ModelStatus.OutOfAction && Knows(state, target, SpellKind.BlessingOfTheSerpentMoon) && Payable(state) >= 2;
+        target.Position is not null && target.Status != ModelStatus.OutOfAction && Knows(state, target, SpellKind.BlessingOfTheSerpentMoon) && Payable(state, target.Seat) >= 2;
 
     // The spells the target's player may cast once this Injury Roll's result is known (before it is applied): Oracle Beast Cloak
     // (cost 3, once per Turn) against any result but No Effect; Too Proud to Fall (cost 2) against a Down result.
@@ -678,7 +678,7 @@ internal static class Board
         {
             return SpellKind.None;
         }
-        var payable = Payable(state);
+        var payable = Payable(state, target.Seat);
         var spells = SpellKind.None;
         if (result != InjuryOutcome.NoEffect && !target.OracleUsed && payable >= 3 && Knows(state, target, SpellKind.OracleBeastCloak))
         {
@@ -719,16 +719,16 @@ internal static class Board
         }
     }
 
-    // The cheapest way to pay a cost: from models without CULT or DEMONIC, in id order, most markers first; null when it cannot be paid.
-    public static ImmutableArray<MarkerPayment>? CheapestPayment(MatchState state, int cost)
+    // The cheapest way to pay a cost: from friendly DEMONIC models, most SIN MARKERS first, then in id order; null when it cannot be paid.
+    public static ImmutableArray<MarkerPayment>? CheapestPayment(MatchState state, Seat seat, int cost)
     {
-        var payers = state.Models.Where(m => m.Position is not null && m.BloodMarkers > 0 && (state.Setup!.ProfileOf(m.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0)
-            .OrderByDescending(m => m.BloodMarkers).ThenBy(m => m.Id.Value, StringComparer.Ordinal);
+        var payers = state.Models.Where(m => m.Seat == seat && m.Position is not null && m.SinMarkers > 0 && (state.Setup!.ProfileOf(m.Id)!.Traits & ModelTraits.Demonic) != 0)
+            .OrderByDescending(m => m.SinMarkers).ThenBy(m => m.Id.Value, StringComparer.Ordinal);
         var left = cost;
         var payment = ImmutableArray.CreateBuilder<MarkerPayment>();
         foreach (var payer in payers)
         {
-            var take = Math.Min(left, payer.BloodMarkers);
+            var take = Math.Min(left, payer.SinMarkers);
             payment.Add(new MarkerPayment(payer.Id, take));
             left -= take;
             if (left == 0)

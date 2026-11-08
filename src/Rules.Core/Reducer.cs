@@ -705,7 +705,7 @@ public static class Reducer
         foreach (var p in e.Payment)
         {
             var payer = next.FindModel(p.Model)!;
-            next = TurnRules.WithModel(next, payer with { BloodMarkers = payer.BloodMarkers - p.Count });
+            next = TurnRules.WithModel(next, payer with { SinMarkers = payer.SinMarkers - p.Count });
         }
         var total = e.Payment.Sum(p => p.Count);
         // Roster stage R13 (U138): the caster's next Success Roll is a Success.
@@ -900,7 +900,7 @@ public static class Reducer
         {
             Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false, BlackHeartModel = null, BloodMagicModel = null, ShadowWalking = null, CallTarget = state.CallActive ? null : state.CallTarget, CallActive = false };
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false, BlackHeartModel = null, BloodMagicModel = null, CharmedModel = null, ShadowWalking = null, CallTarget = state.CallActive ? null : state.CallTarget, CallActive = false };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -1762,7 +1762,7 @@ public static class Reducer
         foreach (var p in e.Payment)
         {
             var payer = next.FindModel(p.Model)!;
-            next = TurnRules.WithModel(next, payer with { BloodMarkers = payer.BloodMarkers - p.Count });
+            next = TurnRules.WithModel(next, payer with { SinMarkers = payer.SinMarkers - p.Count });
         }
         if (e.Spell == SpellKind.BlessingOfTheSerpentMoon)
         {

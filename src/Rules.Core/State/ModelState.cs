@@ -28,11 +28,14 @@ public sealed record ModelState(
     BaseAxis Axis = BaseAxis.Y,
     int InfectionMarkers = 0,
     int BlessingMarkers = 0,
-    bool OracleUsed = false)
+    bool OracleUsed = false,
+    int SinMarkers = 0)
 {
     // Roster stage R10 (U135): INFECTION and BLESSING MARKERS are BLOOD MARKERS in another colour: up to 6 of each, and for
     // spending (an opponent's -DICE on a Success Roll, +INJURY DICE on an Injury Roll) every kind counts. Spending takes Blood
     // first, then Infection, then Blessing. Rules that remove BLOOD MARKERS (Treat, Laying on of Hands) remove only those.
+    // October 2026 Rules Review (U142): SIN MARKERS are the Court's spell fuel, a fourth kind (up to 6) a model carries; they are not
+    // BLOOD MARKERS, so an opponent cannot spend them and Treat does not remove them.
     public int Markers => BloodMarkers + InfectionMarkers + BlessingMarkers;
 
     // The model after `count` of its markers were spent, in that order.

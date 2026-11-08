@@ -16,15 +16,16 @@ public class SpellTests
 {
     private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh, Traits = ModelTraits.Demonic };
 
-    // A1 (the Court caster, DEMONIC) at (10, 10), A2 at (2, 30), B1 (16, 10), B2 (30, 30), activated A1; B1 and B2 carry markers.
+    // A1 (the Court caster, DEMONIC, 2 SIN MARKERS) at (10, 10), A2 (DEMONIC, 3 SIN MARKERS) at (2, 30), B1 (16, 10), B2 (30, 30), activated A1;
+    // B1 and B2 carry BLOOD MARKERS.
     private static BoardPlay Ready(int blood = 2, params TerrainBlock[] terrain) => Ready(blood, Rifleman, terrain);
 
     // The same set-up with the enemy (and A2) played by another profile, e.g. one that can fight.
     private static BoardPlay Ready(int blood, ModelProfile others, TerrainBlock[] terrain)
     {
         var scenario = new Scenario(Field("36", terrain, [new DeploymentZone("west", F("0", "0", "6", "36")), new DeploymentZone("east", F("30", "0", "36", "36"))]), []);
-        var play = new BoardPlay(2, id => id == A(1) ? Court : others, scenario: scenario).ToActivation();
-        play.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30").Mark(B(1), blood).Mark(B(2), blood);
+        var play = new BoardPlay(2, id => id == A(1) ? Court : id == A(2) ? Rifleman with { Traits = ModelTraits.Demonic } : others, scenario: scenario).ToActivation();
+        play.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30").Mark(B(1), blood).Mark(B(2), blood).Sin(A(1), 2).Sin(A(2), 3);
         play.Do(new ActivateModel(Seat.One, A(1)));
         return play;
     }
@@ -39,16 +40,16 @@ public class SpellTests
     public void WhatIsYoursIsMineMovesAMarkerToTheCaster()
     {
         var play = Ready();
-        var events = play.Do(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B2", 1))).Events;
-        Assert.Equal(new SpellCast(A(1), SpellKind.WhatIsYoursIsMine, Pay(("B2", 1))) { Target = B(1) }.Spell, ((SpellCast)events.Single()).Spell);
-        // B2 paid 1; B1 lost 1 to the caster.
-        Assert.Equal((1, 1, 1), (play.M(B(2)).BloodMarkers, play.M(B(1)).BloodMarkers, play.M(A(1)).BloodMarkers));
+        var events = play.Do(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A2", 1))).Events;
+        Assert.Equal(new SpellCast(A(1), SpellKind.WhatIsYoursIsMine, Pay(("A2", 1))) { Target = B(1) }.Spell, ((SpellCast)events.Single()).Spell);
+        // A2 paid 1 SIN MARKER; B1 lost 1 BLOOD MARKER to the caster.
+        Assert.Equal((2, 1, 1, 2), (play.M(B(2)).BloodMarkers, play.M(B(1)).BloodMarkers, play.M(A(1)).BloodMarkers, play.M(A(2)).SinMarkers));
         // Once per activation.
-        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B2", 1)), ReasonCode.SpellRefused);
+        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A2", 1)), ReasonCode.SpellRefused);
         // A blessing marker instead.
         var blessing = Ready();
         blessing.State = blessing.State with { Models = [.. blessing.State.Models.Select(m => m.Id == B(1) ? m with { BlessingMarkers = 2 } : m)] };
-        blessing.Do(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B2", 1)) with { TakeBlessing = true });
+        blessing.Do(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A2", 1)) with { TakeBlessing = true });
         Assert.Equal((1, 1), (blessing.M(B(1)).BlessingMarkers, blessing.M(A(1)).BlessingMarkers));
     }
 
@@ -57,22 +58,24 @@ public class SpellTests
     {
         var play = Ready();
         play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1"), ReasonCode.SpellRefused);                       // nothing paid
-        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B2", 2)), ReasonCode.SpellRefused);           // 2 for a cost of 1
-        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B2", 3)), ReasonCode.SpellRefused);           // more than it has
-        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A2", 1)), ReasonCode.SpellRefused);           // A2 has no markers
-        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B2", 1), ("B2", 1)), ReasonCode.SpellRefused); // twice the same payer
+        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A2", 2)), ReasonCode.SpellRefused);           // 2 for a cost of 1
+        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A2", 3)), ReasonCode.SpellRefused);           // more than it has
+        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("Z8", 1)), ReasonCode.SpellRefused);           // no such payer
+        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A2", 1), ("A2", 1)), ReasonCode.SpellRefused); // twice the same payer
         play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("Z9", 1)), ReasonCode.SpellRefused);           // no such model
-        // Markers on a CULT or DEMONIC model cannot pay.
-        var demon = new BoardPlay(2, id => id == A(1) ? Court : id == B(2) ? Rifleman with { Traits = ModelTraits.Cult } : Rifleman).ToActivation();
-        demon.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30").Mark(B(1), 2).Mark(B(2), 2);
-        demon.Do(new ActivateModel(Seat.One, A(1)));
-        demon.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B2", 1)), ReasonCode.SpellRefused);
-        demon.Do(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B1", 1)));
+        // Only friendly DEMONIC models pay (October 2026 Review, U142): not a friend without the keyword, not an enemy that has it.
+        var others = new BoardPlay(2, id => id == A(1) ? Court : id == B(2) ? Rifleman with { Traits = ModelTraits.Demonic } : Rifleman).ToActivation();
+        others.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30").Mark(B(1), 2).Sin(A(1), 1).Sin(A(2), 2).Sin(B(2), 2);
+        others.Do(new ActivateModel(Seat.One, A(1)));
+        others.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A2", 1)), ReasonCode.SpellRefused);   // a friend that is not DEMONIC
+        others.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B2", 1)), ReasonCode.SpellRefused);   // an enemy that is
+        others.Do(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A1", 1)));
+        Assert.Equal(0, others.M(A(1)).SinMarkers);
         // A model without the spell cannot cast it.
         var plain = new BoardPlay(2).ToActivation();
         plain.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30").Mark(B(1), 2);
         plain.Do(new ActivateModel(Seat.One, A(1)));
-        plain.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B1", 1)), ReasonCode.SpellRefused);
+        plain.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A1", 1)), ReasonCode.SpellRefused);
     }
 
     [Fact]
@@ -80,14 +83,14 @@ public class SpellTests
     public void ExquisitePainPutsThePaidMarkersOnATarget()
     {
         var play = Ready();
-        play.Do(Cast(SpellKind.ExquisitePain, "B1", ("B2", 1), ("B1", 1)));
-        // 2 paid (one from each), 2 put on B1: B1 had 2, paid 1, takes 2 = 3; B2 paid 1 = 1.
-        Assert.Equal((3, 1), (play.M(B(1)).BloodMarkers, play.M(B(2)).BloodMarkers));
+        play.Do(Cast(SpellKind.ExquisitePain, "B1", ("A2", 1), ("A1", 1)));
+        // 2 SIN MARKERS paid (one from each friendly model), 2 BLOOD MARKERS put on B1: 2 + 2 = 4.
+        Assert.Equal((4, 2, 2, 1), (play.M(B(1)).BloodMarkers, play.M(B(2)).BloodMarkers, play.M(A(2)).SinMarkers, play.M(A(1)).SinMarkers));
         var tooMany = Ready(5);
-        tooMany.Refused(Cast(SpellKind.ExquisitePain, "B1", ("B2", 2)), ReasonCode.SpellRefused);       // B1 would have 7
-        tooMany.Do(Cast(SpellKind.ExquisitePain, "B1", ("B2", 1)));
+        tooMany.Refused(Cast(SpellKind.ExquisitePain, "B1", ("A2", 2)), ReasonCode.SpellRefused);       // B1 would have 7
+        tooMany.Do(Cast(SpellKind.ExquisitePain, "B1", ("A2", 1)));
         Assert.Equal(6, tooMany.M(B(1)).BloodMarkers);
-        Ready().Refused(Cast(SpellKind.ExquisitePain, "B1", ("B2", 1), ("B1", 1), ("A2", 1)), ReasonCode.SpellRefused); // 3 is more than 2
+        Ready().Refused(Cast(SpellKind.ExquisitePain, "B1", ("A2", 3), ("A1", 1)), ReasonCode.SpellRefused); // 4 is more than 3
     }
 
     [Fact]
@@ -96,27 +99,27 @@ public class SpellTests
     {
         var play = Ready();
         play.Put(B(1), "20", "10");
-        play.Do(Cast(SpellKind.CovetedPosition, "B1", ("B2", 2)));
+        play.Do(Cast(SpellKind.CovetedPosition, "B1", ("A2", 2)));
         Assert.Equal((P("20", "10"), P("10", "10")), (play.M(A(1)).Position, play.M(B(1)).Position));
         // Beyond 12", or in the way of a wall's sight, it is refused; so is a target within 1" of another model.
         var far = Ready();
         far.Put(B(1), "25", "10");
-        far.Refused(Cast(SpellKind.CovetedPosition, "B1", ("B2", 2)), ReasonCode.SpellRefused);
+        far.Refused(Cast(SpellKind.CovetedPosition, "B1", ("A2", 2)), ReasonCode.SpellRefused);
         var walled = Ready(2, Wall("w", "13", "5", "14", "15"));
-        walled.Refused(Cast(SpellKind.CovetedPosition, "B1", ("B2", 2)), ReasonCode.SpellRefused);
+        walled.Refused(Cast(SpellKind.CovetedPosition, "B1", ("A2", 2)), ReasonCode.SpellRefused);
         var crowded = Ready();
         crowded.Put(B(1), "20", "10").Put(B(2), "20", "11.5");
-        crowded.Refused(Cast(SpellKind.CovetedPosition, "B1", ("B1", 1), ("B2", 1)), ReasonCode.SpellRefused);
+        crowded.Refused(Cast(SpellKind.CovetedPosition, "B1", ("A1", 1), ("A2", 1)), ReasonCode.SpellRefused);
     }
 
     [Fact]
     public void SpellsAreCastBetweenActionsAndResetEachActivation()
     {
         var play = Ready();
-        play.Do(Cast(SpellKind.ExquisitePain, "B1", ("B2", 1)));
+        play.Do(Cast(SpellKind.ExquisitePain, "B1", ("A2", 1)));
         Assert.Equal(SpellKind.ExquisitePain, play.State.SpellsCast);
         // A different spell is still open.
-        play.Do(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("B2", 1)));
+        play.Do(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A2", 1)));
         play.Do(new EndActivation(Seat.One));
         Assert.Equal(SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain, play.State.SpellsCast);
         play.Do(new ActivateModel(Seat.Two, B(1)));
@@ -127,8 +130,8 @@ public class SpellTests
     public void ForgedSpellsAreRefused()
     {
         var play = Ready();
-        var good = new SpellCast(A(1), SpellKind.ExquisitePain, Pay(("B2", 1))) { Target = B(1) };
-        Assert.Throws<InvalidEventException>(() => Reducer.Apply(play.State, good with { Payment = Pay(("B2", 3)) }));
+        var good = new SpellCast(A(1), SpellKind.ExquisitePain, Pay(("A2", 1))) { Target = B(1) };
+        Assert.Throws<InvalidEventException>(() => Reducer.Apply(play.State, good with { Payment = Pay(("A2", 4)) }));
         Assert.Throws<InvalidEventException>(() => Reducer.Apply(play.State, good with { Target = null }));
         Assert.Throws<InvalidEventException>(() => Reducer.Apply(play.State, good with { Spell = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain }));
         Assert.Throws<InvalidEventException>(() => Reducer.Apply(play.State, good with { Model = A(2) }));
@@ -156,7 +159,7 @@ public class SpellTests
     public void CharmOfAcediaMakesTheNextRollASuccess()
     {
         var play = Ready();
-        play.Do(Charm(("B2", 1)));
+        play.Do(Charm(("A2", 1)));
         Assert.Equal(A(1), play.State.CharmedModel);
         // A Dash roll of 1 + 1 fails by the dice, but the charm makes it a Success: the model moves and the activation goes on.
         var events = play.Do(DashTo("13"), 1, 1).Events;
@@ -171,20 +174,16 @@ public class SpellTests
     }
 
     [Fact]
-    public void ACharmWaitsForTheCastersRollAndKeepsAGoodOne()
+    public void ACharmLastsThisActivationOnlyAndAGoodRollStaysWhatItWas()
     {
+        // October 2026 Review (U142): the next Success Roll "this Activation": an unused Charm ends with it.
         var play = Ready();
-        play.Do(Charm(("B2", 1)));
+        play.Do(Charm(("A2", 1)));
         play.Do(new EndActivation(Seat.One));
-        // Another model's roll does not use it up, and is not made a Success.
-        play.Do(new ActivateModel(Seat.Two, B(1)));
-        play.Do(new DashModel(Seat.Two, B(1), Path(("19", "10"))));   // the opponent may spend B1's markers
-        var theirs = play.Do(new SpendMarkers(Seat.One, 0), 1, 1).Events.OfType<DashRolled>().Single();
-        Assert.Equal((false, SuccessOutcome.Failure), (theirs.Check.Charmed, theirs.Check.Outcome));
-        Assert.Equal(A(1), play.State.CharmedModel);
+        Assert.Null(play.State.CharmedModel);
         // A good roll stays what it was (a Critical Success is not made worse); the charm is still used up.
         var good = Ready();
-        good.Do(Charm(("B2", 1)));
+        good.Do(Charm(("A2", 1)));
         var rolled = good.Do(DashTo("13"), 6, 6).Events.OfType<DashRolled>().Single();
         Assert.Equal((true, SuccessOutcome.CriticalSuccess), (rolled.Check.Charmed, rolled.Check.Outcome));
         Assert.Null(good.State.CharmedModel);
@@ -199,10 +198,10 @@ public class SpellTests
     {
         var play = Ready();
         play.Refused(Free(SpellKind.BlackHeart), ReasonCode.SpellRefused);                                                                // nothing paid
-        play.Refused(new CastSpell(Seat.One, A(1), SpellKind.BlackHeart, Pay(("B2", 1))) { Target = B(1) }, ReasonCode.SpellRefused);   // no target
-        play.Do(Free(SpellKind.BlackHeart, ("B2", 1)));
+        play.Refused(new CastSpell(Seat.One, A(1), SpellKind.BlackHeart, Pay(("A2", 1))) { Target = B(1) }, ReasonCode.SpellRefused);   // no target
+        play.Do(Free(SpellKind.BlackHeart, ("A2", 1)));
         Assert.Equal(A(1), play.State.BlackHeartModel);
-        play.Refused(Free(SpellKind.BlackHeart, ("B1", 1)), ReasonCode.SpellRefused);                                                    // already in place
+        play.Refused(Free(SpellKind.BlackHeart, ("A1", 1)), ReasonCode.SpellRefused);                                                    // already in place
         var rolled = play.Do(DashTo("13"), 6, 5, 4).Events.OfType<DashRolled>().Single();
         Assert.Equal(1, rolled.Check.NetDice);
         Assert.Null(play.State.BlackHeartModel);
@@ -215,7 +214,7 @@ public class SpellTests
     public void ABlackHeartNotUsedEndsWithTheActivation()
     {
         var play = Ready();
-        play.Do(Free(SpellKind.BlackHeart, ("B2", 1)));
+        play.Do(Free(SpellKind.BlackHeart, ("A2", 1)));
         play.Do(new EndActivation(Seat.One));
         Assert.Null(play.State.BlackHeartModel);
     }
@@ -226,7 +225,7 @@ public class SpellTests
     {
         var play = Ready();
         play.Mark(B(1), 0);
-        play.Do(Free(SpellKind.BloodMagic, ("B2", 1)));
+        play.Do(Free(SpellKind.BloodMagic, ("A2", 1)));
         Assert.Equal(A(1), play.State.BloodMagicModel);
         // A Dash does not spend it.
         play.Do(DashTo("11"), 6, 6);
@@ -246,7 +245,7 @@ public class SpellTests
     {
         var play = Ready();
         var natural = Ready().Do(DashTo("13"), 1, 1).Events.OfType<DashRolled>().Single();
-        play.Do(Free(SpellKind.BlackHeart, ("B2", 1)));
+        play.Do(Free(SpellKind.BlackHeart, ("A2", 1)));
         var declared = Reducer.Apply(play.State, new DashDeclared(A(1), [P("13", "10")]));
         Assert.Throws<InvalidEventException>(() => Reducer.Apply(declared, new DashRolled(A(1), natural.Check)));
     }
@@ -263,10 +262,10 @@ public class SpellTests
 
         var play = Ready(2, MeleePlay.Brawler, []);
         play.Put(B(1), "11", "10");
-        play.Refused(Free(SpellKind.ShadowWalker, ("B2", 1)), ReasonCode.SpellRefused);   // costs 2
-        play.Do(Free(SpellKind.ShadowWalker, ("B2", 2)));
+        play.Refused(Free(SpellKind.ShadowWalker, ("A2", 1)), ReasonCode.SpellRefused);   // costs 2
+        play.Do(Free(SpellKind.ShadowWalker, ("A2", 2)));
         Assert.Equal(A(1), play.State.ShadowWalking);
-        play.Refused(Free(SpellKind.ShadowWalker, ("B1", 2)), ReasonCode.SpellRefused);   // already in place
+        play.Refused(Free(SpellKind.ShadowWalker, ("A1", 2)), ReasonCode.SpellRefused);   // already in place
         var events = play.Do(new RetreatModel(Seat.One, A(1), Path(("6", "10")))).Events;
         Assert.Null(play.State.Pending);
         Assert.Contains(events, e => e is RetreatResolved { Moved: true });
@@ -278,9 +277,9 @@ public class SpellTests
     {
         var play = Ready();
         play.Do(new MoveModel(Seat.One, A(1), Path(("9", "10"))));
-        play.Refused(Free(SpellKind.ShadowWalker, ("B2", 2)), ReasonCode.SpellRefused);   // it has moved already
+        play.Refused(Free(SpellKind.ShadowWalker, ("A2", 2)), ReasonCode.SpellRefused);   // it has moved already
         var other = Ready();
-        other.Do(Free(SpellKind.ShadowWalker, ("B2", 2)));
+        other.Do(Free(SpellKind.ShadowWalker, ("A2", 2)));
         other.Do(new EndActivation(Seat.One));
         Assert.Null(other.State.ShadowWalking);
     }
@@ -290,7 +289,7 @@ public class SpellTests
     public void CallOfTheFleshMakesTheNextEnemyCloseInAndSparesTheCaster()
     {
         var play = Ready();
-        var cast = play.Do(Free(SpellKind.CallOfTheFlesh, ("B2", 2)));
+        var cast = play.Do(Free(SpellKind.CallOfTheFlesh, ("A2", 2)));
         Assert.Contains(cast.Events, e => e is ActivationEnded { Model: var m } && m == A(1));
         Assert.Equal((A(1), false), (play.State.CallTarget, play.State.CallActive));
         Assert.Null(play.State.ActiveModel);
@@ -312,16 +311,16 @@ public class SpellTests
     public void CharmOfAcediaIsCheckedAndForgedRollsAreRefused()
     {
         var play = Ready();
-        play.Refused(new CastSpell(Seat.One, A(1), SpellKind.CharmOfAcedia, Pay(("B2", 1))) { Target = B(1) }, ReasonCode.SpellRefused);   // no target
+        play.Refused(new CastSpell(Seat.One, A(1), SpellKind.CharmOfAcedia, Pay(("A2", 1))) { Target = B(1) }, ReasonCode.SpellRefused);   // no target
         play.Refused(Charm(), ReasonCode.SpellRefused);                                                                                        // nothing paid
-        play.Do(Charm(("B2", 1)));
-        play.Refused(Charm(("B1", 1)), ReasonCode.SpellRefused);                                                                               // once per activation
+        play.Do(Charm(("A2", 1)));
+        play.Refused(Charm(("A1", 1)), ReasonCode.SpellRefused);                                                                               // once per activation
         // A roll the charm did not touch is refused while it is on, and a Charmed roll when it is not.
         var natural = Ready().Do(DashTo("13"), 6, 6).Events.OfType<DashRolled>().Single();
         var plainDeclared = Reducer.Apply(Ready().State, new DashDeclared(A(1), [P("13", "10")]));
         Assert.Throws<InvalidEventException>(() => Reducer.Apply(plainDeclared, new DashRolled(A(1), natural.Check with { Charmed = true })));
         var charmedPlay = Ready();
-        charmedPlay.Do(Charm(("B2", 1)));
+        charmedPlay.Do(Charm(("A2", 1)));
         var charmedDeclared = Reducer.Apply(charmedPlay.State, new DashDeclared(A(1), [P("13", "10")]));
         Assert.Throws<InvalidEventException>(() => Reducer.Apply(charmedDeclared, new DashRolled(A(1), natural.Check)));
         Reducer.Apply(charmedDeclared, new DashRolled(A(1), natural.Check with { Charmed = true }));
@@ -332,7 +331,7 @@ public class SpellTests
     {
         var play = Ready();
         Assert.DoesNotContain("charmed", StateHash.Canonical(play.State), StringComparison.Ordinal);
-        play.Do(Charm(("B2", 1)));
+        play.Do(Charm(("A2", 1)));
         Assert.Contains("charmed=A1", StateHash.Canonical(play.State), StringComparison.Ordinal);
     }
 }

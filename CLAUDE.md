@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U141), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U142), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -245,7 +245,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   3. DONE (R10, U135): marker kinds as recoloured blood markers, INFECTION MARKERS weapons, +1 infection on activation, God is With Us! (engine, CLI, client full stop key). Not played: the other abilities that place/move these markers (listed in U135).
   4. Court spells, PART DONE (R11, U136): the roster side was already there (the 16 spells are upgrades and abilities, so my
      first note that models could not carry them was wrong). Played: What is Yours is Mine, Exquisite Pain, Coveted Position
-     (`SpellKind`, `CastSpell`/`SpellCast`, `Board.SpellRefusal`, payment from non-CULT/DEMONIC models, `MatchState.SpellsCast`;
+     (`SpellKind`, `CastSpell`/`SpellCast`, `Board.SpellRefusal`, payment (since C1, U142: SIN MARKERS from friendly DEMONIC models; 1.0.2 had BLOOD MARKERS from non-CULT/DEMONIC), `MatchState.SpellsCast`;
      CLI `cast`; no client picker yet). Left, in a sensible order: ACTION spells Light of the Fallen (Injury Roll + push D6"), Uncaring Gluttony (disable one
      equipment piece), Burning Inferno (a BLAST attack whose radius is the markers paid), Slavemaster (needs the Chain Fiend's
      sacrifice); Left-Hand Path (a move into terrain); and a client payment picker.
@@ -261,8 +261,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
      key 0, slash (Puppet Master), Bodyguard/Talisman bars, oval drawing, marker drops, hot-seat UI check group. Windows essentials not run since
      d88ce8b. Godot is not installed in the cloud container (`which godot` is empty): this needs the owner's PC. Key G (Hide)
      is also the scenario toggle in `Main._UnhandledInput`: check which wins when the board has the keyboard.
-  9. October Rules Review 2026 changes (lists follow the 1.0.2 books): the text is not in the repo; Martyrdom Dog and Awaited
-     not played.
+  9. October Rules Review 2026: the owner chose (2026-11-08) to move the Court to it; the Review PDF was attached to the session, not
+     committed. Plan and stages C1-C6 in `docs/court-october-2026.md`; C1 (SIN MARKERS, spell payment) done, C2-C6 open. Until then
+     the remaining spells (Slavemaster, Burning Inferno, Left-Hand Path, Uncaring Gluttony, Light of Samael, Raining Blood...) wait for C3.
+     Martyrdom Dog and Awaited not played.
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):
   R6c numbers on existing hooks: Dash +1 DICE (Frightening Speed, Loping Dash, Mad Dash, Agile's Dash/Climb part),
   INJURY DICE against it (Corpulent -2, Artificial Life, Undead Fortitude unless FIRE, Abiotic Life vs GAS), Stealth
