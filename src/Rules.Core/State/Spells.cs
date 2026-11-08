@@ -49,6 +49,9 @@ public enum SpellKind
     RainingBlood = 65536,
 }
 
+// October 2026 Review (U149): what a What is Yours is Mine takes from its target, in any mix of kinds (as many in all as SIN MARKERS were paid).
+public sealed record MarkerMix(int Blood, int Blessing, int Sin);
+
 // Some of one model's BLOOD MARKERS spent on a spell.
 public sealed record MarkerPayment(ModelId Model, int Count);
 
@@ -61,7 +64,7 @@ public static class Spells
     // The number of markers a spell may cost: from Min to Max.
     public static (int Min, int Max) Cost(SpellKind spell) => spell switch
     {
-        SpellKind.WhatIsYoursIsMine => (1, 1),
+        SpellKind.WhatIsYoursIsMine => (1, 3),
         SpellKind.ExquisitePain or SpellKind.RainingBlood => (1, 3),
         SpellKind.CovetedPosition => (2, 2),
         SpellKind.CharmOfAcedia or SpellKind.BlackHeart or SpellKind.BloodMagic => (1, 1),

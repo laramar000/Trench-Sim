@@ -28,7 +28,8 @@ the progress; the reasoning for each rule is in `docs/interpretations.md` (U142 
 | C3a | Light of the Fallen (U146) | done |
 | C3b | Raining Blood (U147) | done |
 | C3c | Uncaring Gluttony (U148) | done |
-| C3 | Spells per the Review text: What is Yours is Mine (1-3, any marker mix), Call of the Flesh details, Slavemaster, Burning Inferno, Left-Hand Path, then the variant spells | open |
+| C3d | What is Yours is Mine (1-3, any marker mix), Call of the Flesh details (U149) | done |
+| C3 | Spells per the Review text: Slavemaster, Burning Inferno, Left-Hand Path, then the variant spells | open |
 | C4a | Base Court list in `court.json` and `catalogue.json` to the Review: models, costs, abilities, Armoury, new kit (U143) | done |
 | C4b | The rest of the Review's base text: Hunter, Pit Locust and Wretched details, mercenary Goetic Warlock / Sin Eater lines, every model's engine effects | open |
 | C5 | The seven variants' special rules and Battlekit, one variant at a time | open |

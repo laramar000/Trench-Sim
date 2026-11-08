@@ -2093,7 +2093,7 @@ public partial class BoardView : SubViewportContainer
     // with the battlefield's models (rebuilt whenever the state changes), and moved with the label when labels are spread.
     private void BloodRow(ModelShape model)
     {
-        if (BloodDrops.Row(model.BloodMarkers, model.InfectionMarkers, model.BlessingMarkers) is not { } row)
+        if (BloodDrops.Row(model.BloodMarkers, model.InfectionMarkers, model.BlessingMarkers, model.SinMarkers) is not { } row)
         {
             return;
         }
@@ -2103,7 +2103,7 @@ public partial class BoardView : SubViewportContainer
         var at = new Vector3((float)model.X, LabelHeight(model), (float)model.Y);
         var blood = new Color(0.80f, 0.10f, 0.08f);
         var offset = new Vector2(0, -(19 * _textScale + 6) / scale);
-        var sprite = Icon(IconTexture($"Blood{Math.Min(model.BloodMarkers, Rules.Core.State.BloodMarkers.Max)}-{model.InfectionMarkers}-{model.BlessingMarkers}", row, gold: false, blood), at, pixel,
+        var sprite = Icon(IconTexture($"Blood{Math.Min(model.BloodMarkers, Rules.Core.State.BloodMarkers.Max)}-{model.InfectionMarkers}-{model.BlessingMarkers}-{model.SinMarkers}", row, gold: false, blood), at, pixel,
             offset, dim: model.Activated && !model.Active);
         sprite.Name = $"Blood{model.Id.Value}";
         _content.AddChild(sprite);
@@ -2204,6 +2204,8 @@ public partial class BoardView : SubViewportContainer
                     // Roster stage R10 (U135): an INFECTION MARKER's drop is green, a BLESSING MARKER's bright blue.
                     'g' => _highContrast ? Colors.White : new Color(0.25f, 0.85f, 0.25f),
                     'b' => _highContrast ? Colors.White : new Color(0.25f, 0.70f, 1.0f),
+                    // October 2026 Review (U150): a SIN MARKER's drop is deep violet.
+                    'k' => _highContrast ? Colors.White : new Color(0.55f, 0.20f, 0.75f),
                     'X' => dark,
                     // A faint pale outline (an empty blood drop), seen on dark ground as on light.
                     'o' => _highContrast ? new Color(1, 1, 1, 0.55f) : new Color(0.85f, 0.80f, 0.69f, 0.55f),

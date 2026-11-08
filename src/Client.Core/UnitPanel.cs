@@ -263,11 +263,12 @@ public static class UnitPanel
         var found = state.FindModel(unit.Id);
         var markers = found?.BloodMarkers ?? 0;
         // Roster stage R10 (U135): INFECTION and BLESSING MARKERS are listed after the blood.
-        var others = (found?.InfectionMarkers ?? 0, found?.BlessingMarkers ?? 0);
+        var others = (found?.InfectionMarkers ?? 0, found?.BlessingMarkers ?? 0, found?.SinMarkers ?? 0);
         return $"{Words.Seat(unit.Seat)} [{unit.SeatLetter}]{(unit.Yours ? " (yours)" : "")} · {(unit.Status == ModelStatus.Down ? $"{ModelShape.DownMark} " : "")}{Words.Status(unit.Status)}" +
             (markers > 0 ? $" · {ModelShape.MarkerMark}{markers} Blood Marker{(markers == 1 ? "" : "s")}" : "") +
             (others.Item1 > 0 ? $" · {ModelShape.MarkerMark}{others.Item1} Infection Marker{(others.Item1 == 1 ? "" : "s")}" : "") +
-            (others.Item2 > 0 ? $" · {ModelShape.MarkerMark}{others.Item2} Blessing Marker{(others.Item2 == 1 ? "" : "s")}" : "");
+            (others.Item2 > 0 ? $" · {ModelShape.MarkerMark}{others.Item2} Blessing Marker{(others.Item2 == 1 ? "" : "s")}" : "") +
+            (others.Item3 > 0 ? $" · {ModelShape.MarkerMark}{others.Item3} Sin Marker{(others.Item3 == 1 ? "" : "s")}" : "");
     }
 
     // QoL H3: the unit's values as the rules hold them (its profile in the match setup): "Move 6.0" · Range 24.0" ·

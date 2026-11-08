@@ -473,6 +473,21 @@ public class TraitWireTests
     }
 
     [Fact]
+    public void AGluttonyPieceAndATakenMixRoundTripAndAreLeftOutWhenUnset()
+    {
+        var pay = System.Collections.Immutable.ImmutableArray.Create(new MarkerPayment(new ModelId("A2"), 2));
+        var plain = new SpellCast(new ModelId("A1"), SpellKind.CharmOfAcedia, pay);
+        Assert.DoesNotContain("piece", Encoded(plain), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("mix", Encoded(plain), StringComparison.OrdinalIgnoreCase);
+        var chew = new SpellCast(new ModelId("A1"), SpellKind.UncaringGluttony, pay) { Target = new ModelId("B1"), Piece = EquipmentPiece.MediKit };
+        Assert.Equal(EquipmentPiece.MediKit, ((SpellCast)RoundTrip(chew)).Piece);
+        var take = new SpellCast(new ModelId("A1"), SpellKind.WhatIsYoursIsMine, pay) { Target = new ModelId("B1"), Mix = new MarkerMix(1, 0, 1) };
+        Assert.Equal(new MarkerMix(1, 0, 1), ((SpellCast)RoundTrip(take)).Mix);
+        var command = new Rules.Core.Commands.CastSpell(Seat.One, new ModelId("A1"), SpellKind.UncaringGluttony, pay) { Target = new ModelId("B1"), Piece = EquipmentPiece.MediKit };
+        Assert.Contains("piece", Encoding.UTF8.GetString(Codec.Encode(new SubmitCommand("c10", 10, 0, command))), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ACharmedRollRoundTripsAndIsLeftOutWhenNot()
     {
         var plain = new Rules.Core.Dice.SuccessRollResult(new Rules.Core.Dice.RollRecord([1, 1], [1, 1]), 0, false);

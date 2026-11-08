@@ -796,6 +796,9 @@ public sealed record SpellCast(ModelId Model, SpellKind Spell, ImmutableArray<Ma
 
     // October 2026 Review (U148): the piece of Equipment an Uncaring Gluttony makes unusable; left off the wire when None.
     public EquipmentPiece Piece { get; init; }
+
+    // October 2026 Review (U149): what a What is Yours is Mine takes, in any mix of kinds; null is the old single marker (TakeBlessing says which); left off the wire when null.
+    public MarkerMix? Mix { get; init; }
 }
 
 // October 2026 Review (U144): Model broke its Sin Vessel: 2 SIN MARKERS (at most 6) next to it. Once per game.

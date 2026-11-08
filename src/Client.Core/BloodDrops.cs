@@ -31,12 +31,14 @@ public static class BloodDrops
     // Roster stage R10 (U135): INFECTION and BLESSING MARKERS are drops too, in the same row after the blood: 'g' (drawn green)
     // and 'b' (drawn bright blue). The row has room for 6 drops, or for all the model's markers when it has more (up to 6 of
     // each kind, 18). With blood alone it is exactly the row it always was.
-    public static string[]? Row(int blood, int infection = 0, int blessing = 0)
+    // October 2026 Review (U150): SIN MARKERS are a fourth kind of drop, 'k' (drawn deep violet), after the blessing.
+    public static string[]? Row(int blood, int infection = 0, int blessing = 0, int sin = 0)
     {
+        sin = Math.Clamp(sin, 0, BloodMarkers.Max);
         blood = Math.Clamp(blood, 0, BloodMarkers.Max);
         infection = Math.Clamp(infection, 0, BloodMarkers.Max);
         blessing = Math.Clamp(blessing, 0, BloodMarkers.Max);
-        var filled = blood + infection + blessing;
+        var filled = blood + infection + blessing + sin;
         if (filled <= 0)
         {
             return null;
@@ -49,7 +51,7 @@ public static class BloodDrops
             Array.Fill(line, '.');
             for (var d = 0; d < cells; d++)
             {
-                var fill = d < blood ? '#' : d < blood + infection ? 'g' : d < filled ? 'b' : '\0';
+                var fill = d < blood ? '#' : d < blood + infection ? 'g' : d < blood + infection + blessing ? 'b' : d < filled ? 'k' : '\0';
                 for (var x = 0; x < DropWidth; x++)
                 {
                     var c = Drop[y][x];
@@ -68,6 +70,6 @@ public static class BloodDrops
     {
         ArgumentNullException.ThrowIfNull(row);
         var cells = (row[0].Length + Gap) / (DropWidth + Gap);
-        return Enumerable.Range(0, cells).Count(d => row[3][d * (DropWidth + Gap) + 2] is '#' or 'g' or 'b');
+        return Enumerable.Range(0, cells).Count(d => row[3][d * (DropWidth + Gap) + 2] is '#' or 'g' or 'b' or 'k');
     }
 }

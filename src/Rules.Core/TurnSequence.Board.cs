@@ -111,13 +111,20 @@ public static partial class TurnSequence
             case ChargeModel c when !moved && c.Model == active && c.Target != caster:
                 return new(ReasonCode.ActionExcluded, why, RefCall);
             case MoveModel m when !moved && m.Model == active:
-                return EndsCloser(state, model, source, m.Path) ? null : new(ReasonCode.ActionExcluded, why, RefCall);
+                // October 2026 Review (U140): an engaged model must Retreat, one that can charge the caster (within 12" and in sight) must Charge.
+                return !Board.IsEngaged(state, model) && !CanChargeCaster(state, model, source) && EndsCloser(state, model, source, m.Path) ? null : new(ReasonCode.ActionExcluded, why, RefCall);
             case RetreatModel r when !moved && r.Model == active:
-                return EndsCloser(state, model, source, r.Path) ? null : new(ReasonCode.ActionExcluded, why, RefCall);
+                return Board.IsEngaged(state, model) && EndsCloser(state, model, source, r.Path) ? null : new(ReasonCode.ActionExcluded, why, RefCall);
             default:
                 return null;
         }
     }
+
+    private static bool CanChargeCaster(MatchState state, ModelState model, ModelState caster) =>
+        Board.BodyOf(state, model) is { } from && Board.BodyOf(state, caster) is { } to && Measure.IsWithin(from, to, CallChargeReach)
+        && Cover.Of(Board.ScenarioOf(state)!.Battlefield, from, to).Sight.Visibility != Visibility.None && Board.AssessCharge(state, model, caster) is null;
+
+    private static readonly Length CallChargeReach = Length.FromInches(12);
 
     private static bool ActsFor(Command command, ModelId active) => command switch
     {
@@ -278,7 +285,7 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A spell is cast between actions, not while one is being resolved.", RefActions);
         }
-        return Board.SpellRefusal(state, caster!, c.Spell, c.Payment, c.Target, c.TakeBlessing, c.Targets, c.Piece) is { } why ? new(ReasonCode.SpellRefused, why, RefActions) : null;
+        return Board.SpellRefusal(state, caster!, c.Spell, c.Payment, c.Target, c.TakeBlessing, c.Targets, c.Piece, c.Mix) is { } why ? new(ReasonCode.SpellRefused, why, RefActions) : null;
     }
 
     // Roster stage R8d (U133): turning an oval base in place, free, by the activating model between its actions.
@@ -895,7 +902,7 @@ public static partial class TurnSequence
                 run.Emit(new BaseTurned(c.Model, c.Axis));
                 break;
             case CastSpell c:
-                run.Emit(new SpellCast(c.Model, c.Spell, c.Payment) { Target = c.Target, TakeBlessing = c.TakeBlessing, Targets = c.Targets, Piece = c.Piece });
+                run.Emit(new SpellCast(c.Model, c.Spell, c.Payment) { Target = c.Target, TakeBlessing = c.TakeBlessing, Targets = c.Targets, Piece = c.Piece, Mix = c.Mix });
                 // Roster stage R15 (U140): Call of the Flesh is an ACTION that ends the caster's activation.
                 if (c.Spell == SpellKind.CallOfTheFlesh)
                 {

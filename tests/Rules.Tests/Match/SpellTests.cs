@@ -174,6 +174,24 @@ public class SpellTests
     }
 
     [Fact]
+    [Trait("Rule", "Call of the Flesh: a model that can charge the caster (within 12\" in sight) must Charge, an engaged one must Retreat")]
+    public void ACalledModelNearTheCasterMustChargeAndAnEngagedOneRetreat()
+    {
+        var near = Ready();
+        near.Do(Free(SpellKind.CallOfTheFlesh, ("A2", 2)));
+        near.Do(new ActivateModel(Seat.Two, B(1)));   // 6" from the caster, in sight
+        near.Refused(new MoveModel(Seat.Two, B(1), Path(("13", "10"))), ReasonCode.ActionExcluded);
+        near.Do(new ChargeModel(Seat.Two, B(1), A(1)), 6);
+
+        var engaged = Ready(2, MeleePlay.Brawler, []);
+        engaged.Put(B(1), "11", "10");
+        engaged.Do(Free(SpellKind.CallOfTheFlesh, ("A2", 2)));
+        engaged.Do(new ActivateModel(Seat.Two, B(1)));
+        engaged.Refused(new MoveModel(Seat.Two, B(1), Path(("12", "10"))), ReasonCode.ActionExcluded);
+        engaged.Refused(new ChargeModel(Seat.Two, B(1), A(1)), ReasonCode.AlreadyEngaged);   // it cannot charge while engaged
+    }
+
+    [Fact]
     public void ACharmLastsThisActivationOnlyAndAGoodRollStaysWhatItWas()
     {
         // October 2026 Review (U142): the next Success Roll "this Activation": an unused Charm ends with it.
@@ -289,6 +307,7 @@ public class SpellTests
     public void CallOfTheFleshMakesTheNextEnemyCloseInAndSparesTheCaster()
     {
         var play = Ready();
+        play.Put(B(1), "25", "10");   // over 12" away: a plain Move
         var cast = play.Do(Free(SpellKind.CallOfTheFlesh, ("A2", 2)));
         Assert.Contains(cast.Events, e => e is ActivationEnded { Model: var m } && m == A(1));
         Assert.Equal((A(1), false), (play.State.CallTarget, play.State.CallActive));
@@ -298,8 +317,8 @@ public class SpellTests
         // Nothing but a move towards the caster first.
         play.Refused(new DashModel(Seat.Two, B(1), Path(("20", "10"))), ReasonCode.ActionExcluded);
         play.Refused(new Shoot(Seat.Two, B(1), A(1)), ReasonCode.ActionExcluded);
-        play.Refused(new MoveModel(Seat.Two, B(1), Path(("20", "10"))), ReasonCode.ActionExcluded);   // away from the caster
-        play.Do(new MoveModel(Seat.Two, B(1), Path(("13", "10"))));
+        play.Refused(new MoveModel(Seat.Two, B(1), Path(("30", "10"))), ReasonCode.ActionExcluded);   // away from the caster
+        play.Do(new MoveModel(Seat.Two, B(1), Path(("20", "10"))));
         // The caster is still safe from it; anything else is free.
         play.Refused(new Shoot(Seat.Two, B(1), A(1)), ReasonCode.ActionExcluded);
         play.Do(new EndActivation(Seat.Two));
@@ -416,6 +435,28 @@ public class SpellTests
         var active = Ready(2, Rifleman with { Treats = true }, []);
         active.State = active.State with { Models = [.. active.State.Models.Select(m => m.Id == B(1) ? m with { ActivatedThisTurn = true } : m)] };
         active.Refused(new CastSpell(Seat.One, A(1), SpellKind.UncaringGluttony, Pay(("A2", 2))) { Target = B(1), Piece = EquipmentPiece.MediKit }, ReasonCode.SpellRefused);
+    }
+
+    // October 2026 Review (U149): What is Yours is Mine, cost 1-3, takes that many markers in any mix of kinds.
+    [Fact]
+    [Trait("Rule", "What is Yours is Mine: remove an equal number of BLOOD, BLESSING or SIN MARKERS, in any combination, from a model in sight and place them next to the caster")]
+    public void WhatIsYoursIsMineTakesAnyMixOfMarkers()
+    {
+        var play = Ready();
+        play.State = play.State with { Models = [.. play.State.Models.Select(m => m.Id == B(1) ? m with { BlessingMarkers = 2, SinMarkers = 1 } : m)] };
+        CastSpell Take(int paid, MarkerMix mix) => new CastSpell(Seat.One, A(1), SpellKind.WhatIsYoursIsMine, Pay(("A2", paid))) { Target = B(1), Mix = mix };
+        play.Refused(Take(3, new MarkerMix(1, 1, 0)), ReasonCode.SpellRefused);   // 2 taken, 3 paid
+        play.Refused(Take(3, new MarkerMix(3, 0, 0)), ReasonCode.SpellRefused);   // B1 has only 2 BLOOD MARKERS
+        play.Refused(Take(2, new MarkerMix(0, 0, 2)), ReasonCode.SpellRefused);   // and 1 SIN MARKER
+        play.Refused(Take(3, new MarkerMix(-1, 2, 2)), ReasonCode.SpellRefused);
+        play.Refused(Cast(SpellKind.WhatIsYoursIsMine, "B1", ("A2", 2)), ReasonCode.SpellRefused);   // no mix named for more than 1
+        play.Do(Take(3, new MarkerMix(1, 1, 1)));
+        Assert.Equal((1, 1, 0), (play.M(B(1)).BloodMarkers, play.M(B(1)).BlessingMarkers, play.M(B(1)).SinMarkers));
+        Assert.Equal((1, 1, 3, 0), (play.M(A(1)).BloodMarkers, play.M(A(1)).BlessingMarkers, play.M(A(1)).SinMarkers, play.M(A(2)).SinMarkers));
+
+        var full = Ready();
+        full.Sin(A(1), 6).Sin(B(1), 1);
+        full.Refused(Take(1, new MarkerMix(0, 0, 1)), ReasonCode.SpellRefused);   // the caster would have 7 SIN MARKERS
     }
 
     [Fact]

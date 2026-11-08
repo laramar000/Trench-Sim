@@ -525,7 +525,7 @@ internal static class Board
     // Why this model cannot cast that spell now, with that payment and target, or null when it can. The payment is BLOOD
     // MARKERS from models on the battlefield without CULT or DEMONIC, as many in all as the spell costs; the effects are worked
     // out after it is taken, so a model may pay with the very markers a spell would move.
-    public static string? SpellRefusal(MatchState state, ModelState caster, SpellKind spell, ImmutableArray<MarkerPayment> payment, ModelId? target, bool takeBlessing, ImmutableArray<ModelId> targets = default, EquipmentPiece piece = EquipmentPiece.None)
+    public static string? SpellRefusal(MatchState state, ModelState caster, SpellKind spell, ImmutableArray<MarkerPayment> payment, ModelId? target, bool takeBlessing, ImmutableArray<ModelId> targets = default, EquipmentPiece piece = EquipmentPiece.None, MarkerMix? mix = null)
     {
         if (!Spells.IsOne(spell))
         {
@@ -638,11 +638,18 @@ internal static class Board
                 {
                     return "The markers are taken from another model.";
                 }
-                if (takeBlessing ? victim.BlessingMarkers == 0 : BloodAfter(victim) == 0)
+                // October 2026 Review (U149): as many markers as SIN MARKERS paid, in any mix of BLOOD, BLESSING and SIN MARKERS.
+                var take = mix ?? (total == 1 ? (takeBlessing ? new MarkerMix(0, 1, 0) : new MarkerMix(1, 0, 0)) : null);
+                if (take is null || take.Blood < 0 || take.Blessing < 0 || take.Sin < 0 || take.Blood + take.Blessing + take.Sin != total)
                 {
-                    return $"The target has no {(takeBlessing ? "BLESSING" : "BLOOD")} MARKER to take.";
+                    return "What is Yours is Mine takes as many markers as SIN MARKERS were paid, and says which kinds.";
                 }
-                return (takeBlessing ? caster.BlessingMarkers : BloodAfter(caster)) >= BloodMarkers.Max ? "The caster has 6 of those markers already." : null;
+                if (take.Blood > BloodAfter(victim) || take.Blessing > victim.BlessingMarkers || take.Sin > victim.SinMarkers - paid.GetValueOrDefault(victim.Id))
+                {
+                    return "The target has not that many of those markers to take.";
+                }
+                return caster.BloodMarkers + take.Blood > BloodMarkers.Max || caster.BlessingMarkers + take.Blessing > BloodMarkers.Max || caster.SinMarkers - paid.GetValueOrDefault(caster.Id) + take.Sin > BloodMarkers.Max
+                    ? "The caster would have more than 6 of a kind of marker." : null;
             case SpellKind.ExquisitePain:
                 return BloodAfter(victim) + total > BloodMarkers.Max ? "The target could not take that many BLOOD MARKERS (at most 6)." : null;
             default:

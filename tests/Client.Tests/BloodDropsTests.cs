@@ -54,4 +54,17 @@ public class BloodDropsTests
         Assert.Equal(18, BloodDrops.Filled(BloodDrops.Row(6, 6, 6)!));
         Assert.Null(BloodDrops.Row(0, 0, 0));
     }
+
+    // October 2026 Review (U150): SIN MARKERS are a fourth kind of drop, after the blessing.
+    [Fact]
+    public void SinMarkersAreDropsOfTheirOwnKindAfterTheBlessing()
+    {
+        var row = BloodDrops.Row(1, 0, 1, 2)!;
+        Assert.Equal(4, BloodDrops.Filled(row));
+        var centres = Enumerable.Range(0, 6).Select(d => row[3][d * (BloodDrops.DropWidth + BloodDrops.Gap) + 2]).ToArray();
+        Assert.Equal(['#', 'b', 'k', 'k', 'o', 'o'], centres);
+        Assert.Equal(BloodDrops.Row(2, 1, 1), BloodDrops.Row(2, 1, 1, 0));
+        Assert.Equal(24, BloodDrops.Filled(BloodDrops.Row(6, 6, 6, 6)!));
+        Assert.NotNull(BloodDrops.Row(0, 0, 0, 1));
+    }
 }

@@ -711,7 +711,7 @@ public static class Reducer
         }
         var caster = Active(state, e.Model, "A spell");
         Require(state.InProgress is null && state.Retreat is null && state.MineStop is null && !state.MustEndActivation && !state.ReloadEnds, "A spell is cast between actions, not while one is being resolved.");
-        Require(Board.SpellRefusal(state, caster, e.Spell, e.Payment, e.Target, e.TakeBlessing, e.Targets, e.Piece) is null, "That spell cannot be cast like that.");
+        Require(Board.SpellRefusal(state, caster, e.Spell, e.Payment, e.Target, e.TakeBlessing, e.Targets, e.Piece, e.Mix) is null, "That spell cannot be cast like that.");
         var next = state with { SpellsCast = state.SpellsCast | e.Spell };
         foreach (var p in e.Payment)
         {
@@ -771,9 +771,10 @@ public static class Reducer
         switch (e.Spell)
         {
             case SpellKind.WhatIsYoursIsMine:
-                next = TurnRules.WithModel(next, e.TakeBlessing ? target with { BlessingMarkers = target.BlessingMarkers - 1 } : target with { BloodMarkers = target.BloodMarkers - 1 });
+                var took = e.Mix ?? (e.TakeBlessing ? new MarkerMix(0, 1, 0) : new MarkerMix(1, 0, 0));
+                next = TurnRules.WithModel(next, target with { BloodMarkers = target.BloodMarkers - took.Blood, BlessingMarkers = target.BlessingMarkers - took.Blessing, SinMarkers = target.SinMarkers - took.Sin });
                 caster = next.FindModel(e.Model)!;
-                return TurnRules.WithModel(next, e.TakeBlessing ? caster with { BlessingMarkers = caster.BlessingMarkers + 1 } : caster with { BloodMarkers = caster.BloodMarkers + 1 });
+                return TurnRules.WithModel(next, caster with { BloodMarkers = caster.BloodMarkers + took.Blood, BlessingMarkers = caster.BlessingMarkers + took.Blessing, SinMarkers = caster.SinMarkers + took.Sin });
             case SpellKind.ExquisitePain:
                 return TurnRules.WithModel(next, target with { BloodMarkers = target.BloodMarkers + total });
             default:

@@ -167,6 +167,9 @@ public sealed record CastSpell(Seat Seat, ModelId Model, SpellKind Spell, Immuta
 
     // October 2026 Review (U148): the piece of Equipment an Uncaring Gluttony makes unusable; left off the wire when None.
     public EquipmentPiece Piece { get; init; }
+
+    // October 2026 Review (U149): what a What is Yours is Mine takes, in any mix of kinds; null is the old single marker (TakeBlessing says which); left off the wire when null.
+    public MarkerMix? Mix { get; init; }
 }
 
 // October 2026 Review (U144): the Break Vessel ACTION of a model with a Sin Vessel, once per game: 2 SIN MARKERS next to the model.

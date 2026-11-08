@@ -139,6 +139,9 @@ public sealed record ModelShape(
 
     public int BlessingMarkers { get; init; }
 
+    // October 2026 Review (U150): the SIN MARKERS next to the model (not spendable, so not in AllMarkers).
+    public int SinMarkers { get; init; }
+
     public int AllMarkers => BloodMarkers + InfectionMarkers + BlessingMarkers;
 
     // Whether a point on the table is on the model's base (a round base: within Radius of the centre; an oval: of its core).
@@ -244,7 +247,7 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
             models.Add(new ModelShape(model.Id, names.Of(model.Id), model.Seat, Words.SeatLetter(model.Seat),
                 TableRect.Inches(body.Centre.X), TableRect.Inches(body.Centre.Y), TableRect.Inches(body.Radius),
                 level.Level == ModelLevel.High, standing, model.Status, state.ActiveModel == model.Id, model.Seat == you,
-                model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers) { TowerId = tower?.Id, Type = names.TypeOf(model.Id), HalfSpan = TableRect.Inches(body.HalfSpan), AxisX = !body.IsRound && body.Axis == BaseAxis.X, InfectionMarkers = model.InfectionMarkers, BlessingMarkers = model.BlessingMarkers });
+                model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers) { TowerId = tower?.Id, Type = names.TypeOf(model.Id), HalfSpan = TableRect.Inches(body.HalfSpan), AxisX = !body.IsRound && body.Axis == BaseAxis.X, InfectionMarkers = model.InfectionMarkers, BlessingMarkers = model.BlessingMarkers, SinMarkers = model.SinMarkers });
         }
         return new BoardScene(TableRect.Inches(field.Width), TableRect.Inches(field.Height), zones, terrain, models)
         {
