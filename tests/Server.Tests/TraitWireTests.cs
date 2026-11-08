@@ -460,6 +460,19 @@ public class TraitWireTests
     // Roster stage R11 (U136): a model's spells, the cast command and its event travel on the wire and back; without them nothing
     // new is written.
     [Fact]
+    public void RainingBloodTargetsRoundTripAndAreLeftOutWhenEmpty()
+    {
+        var pay = System.Collections.Immutable.ImmutableArray.Create(new MarkerPayment(new ModelId("A2"), 2));
+        var plain = new SpellCast(new ModelId("A1"), SpellKind.CharmOfAcedia, pay);
+        Assert.DoesNotContain("targets", Encoded(plain), StringComparison.OrdinalIgnoreCase);
+        var rain = new SpellCast(new ModelId("A1"), SpellKind.RainingBlood, pay) { Targets = [new ModelId("B1"), new ModelId("B2")] };
+        Assert.Contains("targets", Encoded(rain), StringComparison.OrdinalIgnoreCase);
+        Assert.True(((SpellCast)RoundTrip(rain)).Targets.SequenceEqual([new ModelId("B1"), new ModelId("B2")]));
+        var command = new Rules.Core.Commands.CastSpell(Seat.One, new ModelId("A1"), SpellKind.RainingBlood, pay) { Targets = [new ModelId("B1"), new ModelId("B2")] };
+        Assert.Contains("targets", Encoding.UTF8.GetString(Codec.Encode(new SubmitCommand("c9", 9, 0, command))), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ACharmedRollRoundTripsAndIsLeftOutWhenNot()
     {
         var plain = new Rules.Core.Dice.SuccessRollResult(new Rules.Core.Dice.RollRecord([1, 1], [1, 1]), 0, false);

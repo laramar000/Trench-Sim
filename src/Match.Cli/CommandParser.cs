@@ -62,7 +62,8 @@ public static class CommandParser
             // cast <model> <spell> [target] [blessing] <payer:n,payer:n...>, e.g. cast B1 ExquisitePain A2 C1:1,C2:1 (no target for CharmOfAcedia, BlackHeart, BloodMagic, ShadowWalker, CallOfTheFlesh, BlessingOfTheSerpentMoon, OracleBeastCloak, TooProudToFall)
             "cast" => new CastSpell(seat, Model(Arg(args, 0)), Enum.Parse<SpellKind>(Arg(args, 1), ignoreCase: true), [.. Arg(args, args.Length - 1).Split(',').Select(p => p.Split(':')).Select(p => new MarkerPayment(Model(p[0]), int.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture)))])
             {
-                Target = args.Length >= 4 ? Model(args[2]) : null,
+                Target = args.Length >= 4 && !args[1].Equals("RainingBlood", StringComparison.OrdinalIgnoreCase) ? Model(args[2]) : null,
+                Targets = args.Length >= 4 && args[1].Equals("RainingBlood", StringComparison.OrdinalIgnoreCase) ? [.. args[2].Split(',').Select(Model)] : [],
                 TakeBlessing = args.Skip(3).Any(a => a.Equals("blessing", StringComparison.OrdinalIgnoreCase)),
             },
             "arise" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.AriseAndBeHealed) { Target = Model(Arg(args, 1)) },

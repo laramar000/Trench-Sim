@@ -14,7 +14,7 @@ namespace Rules.Tests.Match;
 // BLOOD MARKERS from models without CULT or DEMONIC, anywhere, no roll, each spell once per activation.
 public class SpellTests
 {
-    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen, Traits = ModelTraits.Demonic };
+    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen | SpellKind.RainingBlood, Traits = ModelTraits.Demonic };
 
     // A1 (the Court caster, DEMONIC, 2 SIN MARKERS) at (10, 10), A2 (DEMONIC, 3 SIN MARKERS) at (2, 30), B1 (16, 10), B2 (30, 30), activated A1;
     // B1 and B2 carry BLOOD MARKERS.
@@ -359,6 +359,29 @@ public class SpellTests
         Assert.Equal(ModelStatus.Down, play.M(B(1)).Status);
         Assert.Contains(events, e => e is ModelsMoved);
         Assert.Equal(P("18", "10"), play.M(B(1)).Position);
+    }
+
+    // October 2026 Review (U147): Raining Blood, 1 BLOOD MARKER on each of as many enemies within 18" as SIN MARKERS paid.
+    [Fact]
+    [Trait("Rule", "Raining Blood: target as many enemy models within 18\" as SIN MARKERS were paid, no Line of Sight; 1 BLOOD MARKER on each")]
+    public void RainingBloodPutsABloodMarkerOnEachNamedEnemy()
+    {
+        var play = Ready();
+        play.Put(B(2), "12", "20");   // 10" away
+        CastSpell Rain(int paid, params string[] named) => new(Seat.One, A(1), SpellKind.RainingBlood, Pay(("A2", paid))) { Targets = [.. named.Select(n => new ModelId(n))] };
+        play.Refused(Rain(2, "B1"), ReasonCode.SpellRefused);             // one named for two paid
+        play.Refused(Rain(2, "B1", "B1"), ReasonCode.SpellRefused);       // twice the same
+        play.Refused(Rain(2, "B1", "A2"), ReasonCode.SpellRefused);       // a friend
+        play.Refused(Rain(1, "B1") with { Target = B(1) }, ReasonCode.SpellRefused);   // it has no single target
+        play.Put(B(2), "30", "30");
+        play.Refused(Rain(2, "B1", "B2"), ReasonCode.SpellRefused);       // B2 is out of reach
+        play.Put(B(2), "12", "20");
+        play.Do(Rain(2, "B1", "B2"));
+        Assert.Equal((3, 3, 1), (play.M(B(1)).BloodMarkers, play.M(B(2)).BloodMarkers, play.M(A(2)).SinMarkers));
+
+        var capped = Ready(6);
+        capped.Do(Rain(1, "B1"));
+        Assert.Equal(6, capped.M(B(1)).BloodMarkers);
     }
 
     [Fact]

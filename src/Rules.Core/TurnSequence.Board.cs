@@ -278,7 +278,7 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, "A spell is cast between actions, not while one is being resolved.", RefActions);
         }
-        return Board.SpellRefusal(state, caster!, c.Spell, c.Payment, c.Target, c.TakeBlessing) is { } why ? new(ReasonCode.SpellRefused, why, RefActions) : null;
+        return Board.SpellRefusal(state, caster!, c.Spell, c.Payment, c.Target, c.TakeBlessing, c.Targets) is { } why ? new(ReasonCode.SpellRefused, why, RefActions) : null;
     }
 
     // Roster stage R8d (U133): turning an oval base in place, free, by the activating model between its actions.
@@ -895,7 +895,7 @@ public static partial class TurnSequence
                 run.Emit(new BaseTurned(c.Model, c.Axis));
                 break;
             case CastSpell c:
-                run.Emit(new SpellCast(c.Model, c.Spell, c.Payment) { Target = c.Target, TakeBlessing = c.TakeBlessing });
+                run.Emit(new SpellCast(c.Model, c.Spell, c.Payment) { Target = c.Target, TakeBlessing = c.TakeBlessing, Targets = c.Targets });
                 // Roster stage R15 (U140): Call of the Flesh is an ACTION that ends the caster's activation.
                 if (c.Spell == SpellKind.CallOfTheFlesh)
                 {

@@ -881,6 +881,7 @@ public class MatchReadinessTests
         Assert.True(Loaded(sorcerer.MatchCheck()).Spells.HasFlag(SpellKind.BlessingOfTheSerpentMoon));
         Assert.Equal(SpellKind.TooProudToFall, Praetor("dedicated-to-pride", "too-proud-to-fall").Spells);
         Assert.Equal(SpellKind.LightOfTheFallen, Praetor("dedicated-to-pride", "light-of-samael").Spells);
+        Assert.Equal(SpellKind.RainingBlood, Praetor("dedicated-to-wrath", "raining-blood").Spells);
         // October 2026 Rules Review (U143): Infernal Challenge (+1 INJURY DICE against TOUGH), Corpse Candles (FEAR) and Auxilia Sorcerer (LEADER).
         var knight = RosterBuilder.Shipped();
         knight.ChooseFaction("court");

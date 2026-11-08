@@ -161,6 +161,9 @@ public sealed record CastSpell(Seat Seat, ModelId Model, SpellKind Spell, Immuta
     public ModelId? Target { get; init; }
 
     public bool TakeBlessing { get; init; }
+
+    // October 2026 Review (U147): Raining Blood's targets, one enemy model per SIN MARKER paid; left off the wire when empty.
+    public ImmutableArray<ModelId> Targets { get; init; } = [];
 }
 
 // October 2026 Review (U144): the Break Vessel ACTION of a model with a Sin Vessel, once per game: 2 SIN MARKERS next to the model.

@@ -435,6 +435,8 @@ public static class Wire
         private static readonly HashSet<(Type, string)> OmitWhenEmpty =
         [
             (typeof(SelfActionRolled), nameof(SelfActionRolled.StoodUp)),
+            (typeof(CastSpell), nameof(CastSpell.Targets)),
+            (typeof(SpellCast), nameof(SpellCast.Targets)),
         ];
 
         private static readonly HashSet<(Type, string)> OmitWhenZero =

@@ -525,7 +525,7 @@ internal static class Board
     // Why this model cannot cast that spell now, with that payment and target, or null when it can. The payment is BLOOD
     // MARKERS from models on the battlefield without CULT or DEMONIC, as many in all as the spell costs; the effects are worked
     // out after it is taken, so a model may pay with the very markers a spell would move.
-    public static string? SpellRefusal(MatchState state, ModelState caster, SpellKind spell, ImmutableArray<MarkerPayment> payment, ModelId? target, bool takeBlessing)
+    public static string? SpellRefusal(MatchState state, ModelState caster, SpellKind spell, ImmutableArray<MarkerPayment> payment, ModelId? target, bool takeBlessing, ImmutableArray<ModelId> targets = default)
     {
         if (!Spells.IsOne(spell))
         {
@@ -566,6 +566,25 @@ internal static class Board
         {
             return target is not null || takeBlessing ? $"{Spells.Name(spell)} has no target."
                 : (spell == SpellKind.BlackHeart ? state.BlackHeartModel : state.BloodMagicModel) == caster.Id ? $"The caster already has a {Spells.Name(spell)} in place." : null;
+        }
+        // October 2026 Review (U147): Raining Blood names one enemy model within 18" per SIN MARKER paid, in sight or not.
+        if (spell == SpellKind.RainingBlood)
+        {
+            var named = targets.IsDefault ? [] : targets;
+            if (target is not null || takeBlessing || named.Length != total || named.Distinct().Count() != named.Length)
+            {
+                return "Raining Blood names one different enemy model for each SIN MARKER paid, and no other target.";
+            }
+            var reach = BodyOf(state, caster)!;
+            foreach (var id in named)
+            {
+                if (state.FindModel(id) is not { Position: not null } enemy || enemy.Seat == caster.Seat || enemy.Status == ModelStatus.OutOfAction
+                    || !Measure.IsWithin(reach, BodyOf(state, enemy)!, RainReach))
+                {
+                    return "Raining Blood strikes enemy models within 18\".";
+                }
+            }
+            return null;
         }
         // Roster stage R15 (U140): Shadow-walker and Call of the Flesh need no target.
         if (spell is SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh)
@@ -743,6 +762,8 @@ internal static class Board
         var perverse = t.Perverse && (t.Traits & ModelTraits.Demonic) != 0 && target.SinMarkers > 0;
         return suffers || perverse;
     }
+
+    public static readonly Length RainReach = Length.FromInches(18);
 
     // ---- October 2026 Review (U146): Light of the Fallen ----
 

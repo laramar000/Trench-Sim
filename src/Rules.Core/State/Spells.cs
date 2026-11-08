@@ -44,6 +44,9 @@ public enum SpellKind
     BlessingOfTheSerpentMoon = 8192,
     OracleBeastCloak = 16384,
     TooProudToFall = 32768,
+
+    // Raining Blood (cost 1-3, Cast Spell ACTION): 1 BLOOD MARKER on each of as many enemy models within 18" as SIN MARKERS were paid (R17, U147).
+    RainingBlood = 65536,
 }
 
 // Some of one model's BLOOD MARKERS spent on a spell.
@@ -53,13 +56,13 @@ public static class Spells
 {
     public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic
         | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh
-        | SpellKind.BlessingOfTheSerpentMoon | SpellKind.OracleBeastCloak | SpellKind.TooProudToFall | SpellKind.LightOfTheFallen;
+        | SpellKind.BlessingOfTheSerpentMoon | SpellKind.OracleBeastCloak | SpellKind.TooProudToFall | SpellKind.LightOfTheFallen | SpellKind.RainingBlood;
 
     // The number of markers a spell may cost: from Min to Max.
     public static (int Min, int Max) Cost(SpellKind spell) => spell switch
     {
         SpellKind.WhatIsYoursIsMine => (1, 1),
-        SpellKind.ExquisitePain => (1, 3),
+        SpellKind.ExquisitePain or SpellKind.RainingBlood => (1, 3),
         SpellKind.CovetedPosition => (2, 2),
         SpellKind.CharmOfAcedia or SpellKind.BlackHeart or SpellKind.BloodMagic => (1, 1),
         SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh or SpellKind.TooProudToFall or SpellKind.LightOfTheFallen => (2, 2),
@@ -82,6 +85,7 @@ public static class Spells
         SpellKind.OracleBeastCloak => "Oracle Beast Cloak",
         SpellKind.TooProudToFall => "Too Proud to Fall",
         SpellKind.LightOfTheFallen => "Light of the Fallen",
+        SpellKind.RainingBlood => "Raining Blood",
         _ => spell.ToString(),
     };
 
