@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U153), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U154), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -262,7 +262,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
      d88ce8b. Godot is not installed in the cloud container (`which godot` is empty): this needs the owner's PC. Key G (Hide)
      is also the scenario toggle in `Main._UnhandledInput`: check which wins when the board has the keyboard.
   9. October Rules Review 2026: the owner chose (2026-11-08) to move the Court to it; the Review PDF was attached to the session, not
-     committed. Plan and stages C1-C6 in `docs/court-october-2026.md`; C1 (SIN MARKERS, spell payment), C2a (Beacon, Sin Vessel, U144), C2b (Mortal Suffering, Perversion, U145) C3a (Light of the Fallen, U146), C3b (Raining Blood, U147), C3c (Uncaring Gluttony, U148), C3d (What is Yours is Mine 1-3, Call of the Flesh details, U149), C3e (Burning Inferno, U151), C3f (Left-Hand Path, U152), C3g (Slavemaster, U153), C6a (SIN MARKER drops and unit card, U150) and C4a (base Court list data, U143) done, C4b, C5, C6 open. Until then
+     committed. Plan and stages C1-C6 in `docs/court-october-2026.md`; C1 (SIN MARKERS, spell payment), C2a (Beacon, Sin Vessel, U144), C2b (Mortal Suffering, Perversion, U145) C3a (Light of the Fallen, U146), C3b (Raining Blood, U147), C3c (Uncaring Gluttony, U148), C3d (What is Yours is Mine 1-3, Call of the Flesh details, U149), C3e (Burning Inferno, U151), C3f (Left-Hand Path, U152), C3g (Slavemaster, U153), C6a (SIN MARKER drops and unit card, U150), C6b (decision bars for the new decisions, U154) and C4a (base Court list data, U143) done, C4b, C5, C6 open. Until then
      the remaining spells (none left; C3 is done) wait for C3.
      Martyrdom Dog and Awaited not played.
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):

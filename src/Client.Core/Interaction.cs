@@ -607,6 +607,10 @@ public sealed class Interaction
             DecisionKind.UseBodyguard => _state.InProgress?.Target,
             DecisionKind.UseTalisman => _state.ActiveModel,
             DecisionKind.PlaceShrine => FieldShrines.CarrierWaiting(_state, seat)?.Id,
+            // Roster stage R16 (U141) and the October 2026 Review (U145): the model a spell is cast for, and the attacker asked about markers.
+            DecisionKind.UseBlessing => _state.InProgress?.Target,
+            DecisionKind.UseInjuryReaction => _state.Held?.Target,
+            DecisionKind.ConvertMarkers => _state.Held?.Attacker,
             _ => null,
         };
         if (anchor is not { } holder)
@@ -630,6 +634,14 @@ public sealed class Interaction
             PlaceShrine h => new BarItem(BarKind.Decide, "Place Field Shrine", $"{NameOf(holder)} deploys its Field Shrine at the suggested spot in your zone: it counts for Morale and can be shot or struck down.", Command: h),
             DeclineShrine n => new BarItem(BarKind.Decide, "No Field Shrine", $"{NameOf(holder)} does not deploy its Field Shrine.", Command: n),
             DeclineTalisman d => new BarItem(BarKind.Decide, "Keep Talisman", $"Keep the Talisman for later: {NameOf(holder)}'s activation ends.", Command: d),
+            CastSpell cast => new BarItem(BarKind.Decide, $"Cast {Spells.Name(cast.Spell)}",
+                $"{NameOf(cast.Model)} casts {Spells.Name(cast.Spell)}, paid with {string.Join(", ", cast.Payment.Select(p => $"{p.Count} SIN MARKER(S) from {NameOf(p.Model)}"))}.", Command: cast),
+            DeclineReaction r => new BarItem(BarKind.Decide, "No spell", "Cast nothing.", Command: r),
+            ConvertMarkers { Converted: > 0 } v => new BarItem(BarKind.Decide, $"{v.Converted} to SIN on {NameOf(v.To!.Value)}",
+                $"Mortal Suffering: {v.Converted} of the BLOOD MARKERS become SIN MARKERS next to {NameOf(v.To.Value)}.", Command: v),
+            ConvertMarkers { Stripped: > 0 } v => new BarItem(BarKind.Decide, $"Strip {v.Stripped} SIN",
+                $"Perversion of God's Laws: remove {v.Stripped} of the target's SIN MARKERS instead of placing BLOOD MARKERS.", Command: v),
+            ConvertMarkers v => new BarItem(BarKind.Decide, "Keep the Blood", "Change nothing: the BLOOD MARKERS are placed as the roll says.", Command: v),
             ScatterAttack s => new BarItem(BarKind.Decide, $"Land {ScatterWords.Direction(_state, s.At)}",
                 $"The missed attack lands {ScatterWords.Where(_state, s.At)}: {ScatterWords.Hits(_state, s.At, NameOf)}.", Command: s),
             _ => null,
