@@ -879,6 +879,7 @@ public class MatchReadinessTests
         sorcerer.ChooseVariant("dedicated-to-wrath");
         sorcerer.Select(sorcerer.Add("sorcerer"));
         Assert.True(Loaded(sorcerer.MatchCheck()).Spells.HasFlag(SpellKind.BlessingOfTheSerpentMoon));
+        Assert.True(Loaded(sorcerer.MatchCheck()).Spells.HasFlag(SpellKind.BurningInferno) && Loaded(sorcerer.MatchCheck()).CastsInferno);
         Assert.Equal(SpellKind.TooProudToFall, Praetor("dedicated-to-pride", "too-proud-to-fall").Spells);
         Assert.Equal(SpellKind.LightOfTheFallen, Praetor("dedicated-to-pride", "light-of-samael").Spells);
         Assert.Equal(SpellKind.RainingBlood, Praetor("dedicated-to-wrath", "raining-blood").Spells);

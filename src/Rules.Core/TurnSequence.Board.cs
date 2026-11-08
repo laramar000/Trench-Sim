@@ -120,6 +120,24 @@ public static partial class TurnSequence
         }
     }
 
+    // October 2026 Review (U151): after a Burning Inferno is cast its Ranged Attack comes before anything else the model does (it may
+    // still end its activation).
+    private static Rejection? InfernoRefusal(MatchState state, Command command)
+    {
+        if (state.Inferno is not { } owed || state.Phase != Phase.Activation || state.ActiveModel != owed.Caster || state.InProgress is not null || state.Pending is not null)
+        {
+            return null;
+        }
+        var ok = command switch
+        {
+            Shoot c => c.Attacker == owed.Caster && c.Weapon >= ModelProfile.InfernoWeapon,
+            ShootPoint c => c.Attacker == owed.Caster && c.Weapon >= ModelProfile.InfernoWeapon,
+            MoveModel or DashModel or TreatModel or TakeSelfAction or TriggerMartyrdom or ChargeModel or RetreatModel or FightModel or CastSpell or BreakVessel => false,
+            _ => true,
+        };
+        return ok ? null : new(ReasonCode.ActionExcluded, "A Burning Inferno's Ranged Attack comes before anything else.", RefInferno);
+    }
+
     private static bool CanChargeCaster(MatchState state, ModelState model, ModelState caster) =>
         Board.BodyOf(state, model) is { } from && Board.BodyOf(state, caster) is { } to && Measure.IsWithin(from, to, CallChargeReach)
         && Cover.Of(Board.ScenarioOf(state)!.Battlefield, from, to).Sight.Visibility != Visibility.None && Board.AssessCharge(state, model, caster) is null;
@@ -223,11 +241,19 @@ public static partial class TurnSequence
         {
             return rejection;
         }
-        if (state.Actions.HasFlag(ActionsTaken.Shoot))
+        if (c.Weapon >= ModelProfile.InfernoWeapon)
+        {
+            // October 2026 Review (U151): a Burning Inferno's attack follows its cast and is no Shoot ACTION.
+            if (!Reducer.InfernoMatches(state, c.Attacker, c.Weapon))
+            {
+                return new(ReasonCode.ActionExcluded, "That attack follows a Burning Inferno cast with that many SIN MARKERS.", RefInferno);
+            }
+        }
+        else if (state.Actions.HasFlag(ActionsTaken.Shoot))
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Shoot ACTION can be taken only once per activation.", RefActions);
         }
-        if (ActionLimits.ShootExcluded(state, c.Attacker, c.Weapon) is { } excluded)
+        else if (ActionLimits.ShootExcluded(state, c.Attacker, c.Weapon) is { } excluded)
         {
             return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
@@ -432,6 +458,7 @@ public static partial class TurnSequence
             : null;
     }
 
+    private const string RefInferno = "Rules Review October 2026 p. 9";
     private const string RefVessel = "Rules Review October 2026 p. 4";
 
     // Roster stage R5j: the models a Martyrdom Device would hit now (its bearer last) and those within 1" of it, for the
@@ -449,11 +476,18 @@ public static partial class TurnSequence
         {
             return rejection;
         }
-        if (state.Actions.HasFlag(ActionsTaken.Shoot))
+        if (c.Weapon >= ModelProfile.InfernoWeapon)
+        {
+            if (!Reducer.InfernoMatches(state, c.Attacker, c.Weapon))
+            {
+                return new(ReasonCode.ActionExcluded, "That attack follows a Burning Inferno cast with that many SIN MARKERS.", RefInferno);
+            }
+        }
+        else if (state.Actions.HasFlag(ActionsTaken.Shoot))
         {
             return new(ReasonCode.ActionAlreadyTaken, "A Shoot ACTION can be taken only once per activation.", RefActions);
         }
-        if (ActionLimits.ShootExcluded(state, c.Attacker, c.Weapon) is { } excluded)
+        else if (ActionLimits.ShootExcluded(state, c.Attacker, c.Weapon) is { } excluded)
         {
             return new(ReasonCode.ActionExcluded, excluded, ActionLimits.Ref);
         }
@@ -1250,7 +1284,7 @@ public static partial class TurnSequence
                     run.Emit(new DecisionRequested(DecisionKind.UseBlessing, target.Seat));
                     return true;
                 }
-                var modifiers = AttackDice.InjuryModifiers(weapon, s.Setup!.ProfileOf(target.Id)!, progress.Kind).Concat(Reducer.BlessingModifier(progress, target.Id));
+                var modifiers = Reducer.InjuryModifiersFor(s, progress, weapon, target).Concat(Reducer.BlessingModifier(progress, target.Id));
                 // Roster stage R5j (U115): a Martyrdom Device's bearer rolls 4D6 added together.
                 // Roster stage R5j (U115) and Bloodbath Rolls (p. 47, U124): a Bloodbath Roll keeps 3 dice, 4 with DEADLY.
                 var injury = InjuryRoll.Roll(dice, progress.BonusDice + Reducer.MagicDice(s, progress.Actor), progress.PenaltyDice, modifiers, target.Status == ModelStatus.Down,

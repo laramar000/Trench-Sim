@@ -191,7 +191,7 @@ public sealed record RangedAttackDeclared : GameEvent
     public bool Elevated { get; init; }
 
     // Roster stage R3 (U100): the weapon that shoots, 0 or 1 (the model's second ranged weapon). Left off the wire when 0.
-    public int Weapon { get => _weapon; init => _weapon = value is 0 or 1 or ModelProfile.GrenadeWeapon ? value : throw new ArgumentOutOfRangeException(nameof(Weapon), "A Ranged Attack is made with weapon 0, 1 or 2 (grenades)."); }
+    public int Weapon { get => _weapon; init => _weapon = value is 0 or 1 or ModelProfile.GrenadeWeapon or >= ModelProfile.InfernoWeapon and <= ModelProfile.InfernoWeapon + 2 ? value : throw new ArgumentOutOfRangeException(nameof(Weapon), "A Ranged Attack is made with weapon 0, 1, 2 (grenades) or 5 to 7 (a Burning Inferno)."); }
 
     private readonly int _weapon;
 

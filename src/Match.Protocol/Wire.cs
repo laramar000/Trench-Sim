@@ -413,6 +413,7 @@ public static class Wire
             (typeof(ModelProfile), nameof(ModelProfile.HuntsTheTough)),
             (typeof(ModelProfile), nameof(ModelProfile.CounterCharge)),
             (typeof(ModelProfile), nameof(ModelProfile.MementoMori)),
+            (typeof(ModelProfile), nameof(ModelProfile.CastsInferno)),
             (typeof(ModelProfile), nameof(ModelProfile.Perverse)),
             (typeof(ModelProfile), nameof(ModelProfile.MortalSuffering)),
             (typeof(ModelProfile), nameof(ModelProfile.SinVessel)),

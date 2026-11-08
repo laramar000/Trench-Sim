@@ -366,6 +366,9 @@ public sealed record ModelProfile
     // Memento Mori (p. 53): its first Out of Action result counts as No Effect (it is never TOUGH).
     public bool MementoMori { get; init; }
 
+    // October 2026 Review (U151): Burning Inferno, the Sorcerer's innate spell: a Ranged Attack (weapons 5 to 7) made right after casting it.
+    public bool CastsInferno { get; init; }
+
     // October 2026 Review (U145): Perversion of God's Laws, every Court warband's rule for its DEMONIC models.
     public bool Perverse { get; init; }
 
@@ -491,10 +494,17 @@ public sealed record ModelProfile
         2 => kind == AttackKind.Ranged && Grenade is not null,
         3 => kind == AttackKind.Melee && GrindsToDust,
         4 => kind == AttackKind.Melee && Tramples,
+        InfernoWeapon or InfernoWeapon + 1 or InfernoWeapon + 2 => kind == AttackKind.Ranged && CastsInferno,
         _ => false,
     };
 
     public const int GrenadeWeapon = 2;
+
+    // October 2026 Review (U151): a Burning Inferno's Ranged Attack, weapon 5 for 1 SIN MARKER paid, 6 for 2, 7 for 3: 36", FIRE, SCATTER,
+    // BLAST of as many inches as SIN MARKERS paid, and ARMOUR PIERCING from 2.
+    public const int InfernoWeapon = 5;
+
+    public static Weapon InfernoGun(int sin) => new(Length.FromInches(36), keywords: WeaponKeywords.Fire | WeaponKeywords.Scatter | (sin >= 2 ? WeaponKeywords.ArmourPiercing : WeaponKeywords.None)) { Blast = sin };
 
     // Roster stage R5i (U114): a Grind to Dust ACTION's Melee Attack, made without a Melee Weapon.
     public const int GrindWeapon = 3;
@@ -522,7 +532,7 @@ public sealed record ModelProfile
         }
         if (kind == AttackKind.Ranged)
         {
-            var w = weapon == GrenadeWeapon ? Grenade! : SecondRangedWeapon!;
+            var w = weapon == GrenadeWeapon ? Grenade! : weapon >= InfernoWeapon ? InfernoGun(weapon - InfernoWeapon + 1) : SecondRangedWeapon!;
             return new ModelProfile(Movement, BaseRadius, w.Range, w.InjuryModifier, Armour, HasMeleeWeapon, MeleeInjuryModifier)
             {
                 RangedAlsoMelee = w.AlsoMelee,
@@ -588,6 +598,7 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                CastsInferno = CastsInferno,
                 Perverse = Perverse,
                 MortalSuffering = MortalSuffering,
                 SinVessel = SinVessel,
@@ -660,6 +671,7 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                CastsInferno = CastsInferno,
                 Perverse = Perverse,
                 MortalSuffering = MortalSuffering,
                 SinVessel = SinVessel,
@@ -732,6 +744,7 @@ public sealed record ModelProfile
             HuntsTheTough = HuntsTheTough,
             CounterCharge = CounterCharge,
             MementoMori = MementoMori,
+            CastsInferno = CastsInferno,
             Perverse = Perverse,
             MortalSuffering = MortalSuffering,
             SinVessel = SinVessel,

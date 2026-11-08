@@ -100,6 +100,10 @@ public static class StateHash
         {
             Line(sb, "held", $"{held.Attacker.Value}>{held.Target.Value}:{held.Injury.Dice.Rolled.Count}:{string.Join("", held.Injury.Dice.Rolled)}:{held.Injury.NetDice}:{held.Injury.Modifier}:{(int)held.Stage}:{held.Converted}:{held.ConvertedTo?.Value ?? "-"}:{held.Stripped}:{(int)state.HeldReaction}");
         }
+        if (state.Inferno is { } inferno)
+        {
+            Line(sb, "inferno", $"{inferno.Caster.Value}:{inferno.Sin}");
+        }
         if (state.ShadowWalking is { } shadow)
         {
             Line(sb, "shadowWalking", shadow.Value);
@@ -320,6 +324,7 @@ public static class StateHash
             + (p.HuntsTheTough ? ",huntsTheTough=yes" : "")
             + (p.CounterCharge ? ",counterCharge=yes" : "")
             + (p.MementoMori ? ",mementoMori=yes" : "")
+            + (p.CastsInferno ? ",castsInferno=yes" : "")
             + (p.Perverse ? ",perverse=yes" : "")
             + (p.MortalSuffering ? ",mortalSuffering=yes" : "")
             + (p.SinVessel ? ",sinVessel=yes" : "")

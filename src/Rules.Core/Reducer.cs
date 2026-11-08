@@ -738,6 +738,11 @@ public static class Reducer
         {
             return next with { ShadowWalking = e.Model };
         }
+        // October 2026 Review (U151): a Burning Inferno gives the caster its Ranged Attack, made next.
+        if (e.Spell == SpellKind.BurningInferno)
+        {
+            return next with { Inferno = new InfernoOwed(e.Model, total) };
+        }
         if (e.Spell == SpellKind.CallOfTheFlesh)
         {
             return next with { CallTarget = e.Model, CallActive = false };
@@ -947,7 +952,7 @@ public static class Reducer
         {
             Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false, BlackHeartModel = null, BloodMagicModel = null, CharmedModel = null, ShadowWalking = null, CallTarget = state.CallActive ? null : state.CallTarget, CallActive = false };
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false, BlackHeartModel = null, BloodMagicModel = null, CharmedModel = null, Inferno = null, ShadowWalking = null, CallTarget = state.CallActive ? null : state.CallTarget, CallActive = false };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -1553,12 +1558,17 @@ public static class Reducer
     // The Blood Markers a Bloodbath Roll costs: 6, or 3 if the target is Down (p. 47).
     internal static int BloodbathCost(ModelState target) => target.Status == ModelStatus.Down ? 3 : 6;
 
+    // October 2026 Review (U151): the Burning Inferno just cast, by this model, with exactly the SIN MARKERS that weapon stands for.
+    internal static bool InfernoMatches(MatchState state, ModelId attacker, int weapon) =>
+        state.Inferno is { } owed && owed.Caster == attacker && owed.Sin == weapon - ModelProfile.InfernoWeapon + 1;
+
     private static MatchState OnRangedAttackDeclared(MatchState state, RangedAttackDeclared e)
     {
         var attacker = Active(state, e.Attacker, "A Ranged Attack");
-        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Shoot)
-            && ActionLimits.ShootExcluded(state, e.Attacker, e.Weapon) is null,
-            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION (unless ASSAULT) or, with a HEAVY weapon, a move.");
+        var inferno = e.Weapon >= ModelProfile.InfernoWeapon;
+        Require(state.InProgress is null && state.Retreat is null && (inferno ? InfernoMatches(state, e.Attacker, e.Weapon) : !state.Actions.HasFlag(ActionsTaken.Shoot)
+            && ActionLimits.ShootExcluded(state, e.Attacker, e.Weapon) is null),
+            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION (unless ASSAULT) or, with a HEAVY weapon, a move; a Burning Inferno's attack follows its cast.");
         var target = state.FindModel(e.Target);
         Require(target is not null, "Unknown target.");
         var facts = Board.Assess(state, attacker, target!, e.Weapon);
@@ -1571,8 +1581,9 @@ public static class Reducer
             Whispers(state, state.FindModel(e.Target)!), AimedDice(state, e.Attacker));
         return state with
         {
-            Actions = state.Actions | ActionsTaken.Shoot,
-            ShotWeapon = e.Weapon,
+            Actions = inferno ? state.Actions : state.Actions | ActionsTaken.Shoot,
+            ShotWeapon = inferno ? state.ShotWeapon : e.Weapon,
+            Inferno = null,
             InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, bonus, penalty, InjuryDiceLater: later, Weapon: e.Weapon),
         };
     }
@@ -1588,17 +1599,19 @@ public static class Reducer
     private static MatchState OnPointAttackDeclared(MatchState state, PointAttackDeclared e)
     {
         var attacker = Active(state, e.Attacker, "A Ranged Attack");
-        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Shoot)
-            && ActionLimits.ShootExcluded(state, e.Attacker, e.Weapon) is null,
-            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION (unless ASSAULT) or, with a HEAVY weapon, a move.");
+        var inferno = e.Weapon >= ModelProfile.InfernoWeapon;
+        Require(state.InProgress is null && state.Retreat is null && (inferno ? InfernoMatches(state, e.Attacker, e.Weapon) : !state.Actions.HasFlag(ActionsTaken.Shoot)
+            && ActionLimits.ShootExcluded(state, e.Attacker, e.Weapon) is null),
+            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION (unless ASSAULT) or, with a HEAVY weapon, a move; a Burning Inferno's attack follows its cast.");
         var facts = Board.AssessPoint(state, attacker, e.At, e.Weapon);
         Require(facts.IsLegal, "The attack is not legal here.");
         Require(facts.LongRange == e.LongRange, "The declared Long Range does not match the positions.");
         var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, false, false, aim: AimedDice(state, e.Attacker));
         return state with
         {
-            Actions = state.Actions | ActionsTaken.Shoot,
-            ShotWeapon = e.Weapon,
+            Actions = inferno ? state.Actions : state.Actions | ActionsTaken.Shoot,
+            ShotWeapon = inferno ? state.ShotWeapon : e.Weapon,
+            Inferno = null,
             InProgress = new RollInProgress(RollStage.ShotRoll, e.Attacker, null, bonus, penalty, InjuryDiceLater: later, Weapon: e.Weapon) { BlastAt = e.At },
         };
     }
@@ -1758,6 +1771,30 @@ public static class Reducer
     internal static int[] BlessingModifier(RollInProgress progress, ModelId target) =>
         progress.BlessedFor == target && progress.Blessing > 0 ? [-progress.Blessing] : [];
 
+    // The injury modifiers of an Injury Roll for `victim` (the attacker's weapon against its armour). October 2026 Review (U151): a Burning
+    // Inferno cast with 3 SIN MARKERS gives IGNORE ARMOUR to the model it was aimed at, or that the scattered point landed on.
+    internal static int[] InjuryModifiersFor(MatchState state, RollInProgress progress, ModelProfile profile, ModelState victim)
+    {
+        var target = state.Setup!.ProfileOf(victim.Id)!;
+        return progress.Weapon == ModelProfile.InfernoWeapon + 2 && InfernoCentre(progress, victim, target)
+            ? AttackDice.InjuryModifiers(profile with { RangedWeaponKeywords = profile.RangedWeaponKeywords | WeaponKeywords.IgnoreArmour }, target, progress.Kind)
+            : AttackDice.InjuryModifiers(profile, target, progress.Kind);
+    }
+
+    private static bool InfernoCentre(RollInProgress progress, ModelState victim, ModelProfile profile)
+    {
+        if (progress.BlastAt is not { } at)
+        {
+            return victim.Id == progress.Target;
+        }
+        if (victim.Position is not { } p)
+        {
+            return false;
+        }
+        var (dx, dy, r) = ((Int128)(p.X.Thousandths - at.X.Thousandths), (Int128)(p.Y.Thousandths - at.Y.Thousandths), (Int128)profile.BaseRadius.Thousandths);
+        return dx * dx + dy * dy <= r * r;
+    }
+
     // The checks every Injury Roll's dice must pass, whether it is applied at once or held for a reaction.
     private static (RollInProgress Progress, ModelState Attacker, ModelState Target, ModelProfile Profile) RequireInjuryDice(MatchState state, ModelId attackerId, ModelId targetId, InjuryRollResult injury)
     {
@@ -1772,7 +1809,7 @@ public static class Reducer
         var deadly = (profile.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0;
         Require(injury.AllFour == (progress.Martyrdom && target.Id == attacker.Id || progress.Bloodbath && deadly), "Only a Martyrdom Device's bearer, or a DEADLY Bloodbath Roll, rolls 4D6 added together.");
         Require(injury.NetDice == progress.BonusDice + MagicDice(state, progress.Actor) - progress.PenaltyDice
-            && injury.Modifier == InjuryRoll.CombineModifiers([.. AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(targetId)!, progress.Kind), .. BlessingModifier(progress, targetId)])
+            && injury.Modifier == InjuryRoll.CombineModifiers([.. InjuryModifiersFor(state, progress, profile, target), .. BlessingModifier(progress, targetId)])
             && injury.TargetAlreadyDown == (target.Status == ModelStatus.Down), "The Injury Roll must match the dice, modifiers and state of the target.");
         // Roster stage R5 (U104): a DEADLY weapon's Injury Rolls keep three dice, every other one two.
         Require(injury.Deadly == (progress.Bloodbath ? !deadly : deadly), "A DEADLY weapon's Injury Roll is 3D6, any other is 2D6; a Bloodbath Roll is 3D6, or 4D6 with DEADLY.");

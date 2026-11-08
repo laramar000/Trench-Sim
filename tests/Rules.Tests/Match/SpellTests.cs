@@ -14,7 +14,7 @@ namespace Rules.Tests.Match;
 // BLOOD MARKERS from models without CULT or DEMONIC, anywhere, no roll, each spell once per activation.
 public class SpellTests
 {
-    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony, Traits = ModelTraits.Demonic };
+    private static readonly ModelProfile Court = Rifleman with { Spells = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony | SpellKind.BurningInferno, CastsInferno = true, Traits = ModelTraits.Demonic };
 
     // A1 (the Court caster, DEMONIC, 2 SIN MARKERS) at (10, 10), A2 (DEMONIC, 3 SIN MARKERS) at (2, 30), B1 (16, 10), B2 (30, 30), activated A1;
     // B1 and B2 carry BLOOD MARKERS.
@@ -457,6 +457,70 @@ public class SpellTests
         var full = Ready();
         full.Sin(A(1), 6).Sin(B(1), 1);
         full.Refused(Take(1, new MarkerMix(0, 0, 1)), ReasonCode.SpellRefused);   // the caster would have 7 SIN MARKERS
+    }
+
+    // October 2026 Review (U151): Burning Inferno, a 36" BLAST attack after the cast, by the SIN MARKERS paid.
+    private sealed class HitThen(int rest) : IDiceSource
+    {
+        private int _rolled;
+
+        public int RollD6() => _rolled++ < 2 ? 6 : rest;
+    }
+
+    private static DecideResult Roll(BoardPlay play, Command command, int rest)
+    {
+        var result = TurnSequence.Decide(play.State, command, new HitThen(rest));
+        Assert.True(result.IsAccepted, result.Rejection?.Text);
+        play.State = result.State!;
+        play.Log.AddRange(result.Events);
+        return result;
+    }
+
+    [Fact]
+    [Trait("Rule", "Burning Inferno: a Cast Spell ACTION, then a Ranged Attack of range 36\" with BLAST, FIRE and SCATTER by the SIN MARKERS paid; ARMOUR PIERCING from 2")]
+    public void BurningInfernoCastsThenMakesItsRangedAttack()
+    {
+        var play = Ready();
+        play.Mark(B(1), 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => Rifleman.Using(AttackKind.Ranged, ModelProfile.InfernoWeapon));
+        var gun = Court.Using(AttackKind.Ranged, ModelProfile.InfernoWeapon + 1);
+        Assert.Equal((2, WeaponKeywords.Fire | WeaponKeywords.Scatter | WeaponKeywords.ArmourPiercing), (gun.RangedWeaponBlast, gun.RangedWeaponKeywords));
+        Assert.Equal(WeaponKeywords.Fire | WeaponKeywords.Scatter, Court.Using(AttackKind.Ranged, ModelProfile.InfernoWeapon).RangedWeaponKeywords);
+        play.Refused(new Shoot(Seat.One, A(1), B(1)) { Weapon = ModelProfile.InfernoWeapon + 1 }, ReasonCode.ActionExcluded);   // not cast yet
+        play.Do(Free(SpellKind.BurningInferno, ("A2", 2)));
+        Assert.Equal(new InfernoOwed(A(1), 2), play.State.Inferno);
+        play.Refused(Free(SpellKind.BurningInferno, ("A2", 1)), ReasonCode.ActionExcluded);                                   // its attack comes first
+        play.Refused(new Shoot(Seat.One, A(1), B(1)) { Weapon = ModelProfile.InfernoWeapon }, ReasonCode.ActionExcluded);    // 1 SIN MARKER's gun, 2 paid
+        play.Refused(new Shoot(Seat.One, A(1), B(1)), ReasonCode.ActionExcluded);                                            // an ordinary shot waits
+        play.Refused(new DashModel(Seat.One, A(1), Path(("11", "10"))), ReasonCode.ActionExcluded);
+        var events = Roll(play, new Shoot(Seat.One, A(1), B(1)) { Weapon = ModelProfile.InfernoWeapon + 1 }, 4).Events;
+        Assert.Contains(events, e => e is BlastHit);
+        Assert.Contains(events, e => e is InjuryRolled { Target: var t } && t == B(1));
+        Assert.Null(play.State.Inferno);
+        Assert.Equal(ActionsTaken.None, play.State.Actions);   // no Shoot ACTION was used
+        Assert.Equal(1, play.M(A(2)).SinMarkers);   // 3 - 2 paid
+    }
+
+    [Fact]
+    public void ABurningInfernoNotShotEndsWithTheActivationAndAThreeMarkerOneIgnoresTheArmourOfItsTarget()
+    {
+        var unused = Ready();
+        unused.Do(Free(SpellKind.BurningInferno, ("A2", 1)));
+        unused.Do(new EndActivation(Seat.One));
+        Assert.Null(unused.State.Inferno);
+
+        InjuryRolled Hit(int sin)
+        {
+            var play = new BoardPlay(2, id => id == A(1) ? Court : id == A(2) ? Rifleman with { Traits = ModelTraits.Demonic } : id == B(1) ? new ModelProfile(L("6"), L("0.5"), L("18"), 0, -2, false, 0) : Rifleman,
+                scenario: new Scenario(Field("36", [], [new DeploymentZone("west", F("0", "0", "6", "36")), new DeploymentZone("east", F("30", "0", "36", "36"))]), [])).ToActivation();
+            play.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30").Sin(A(2), 3);
+            play.Do(new ActivateModel(Seat.One, A(1)));
+            play.Do(Free(SpellKind.BurningInferno, ("A2", sin)));
+            return Roll(play, new Shoot(Seat.One, A(1), B(1)) { Weapon = ModelProfile.InfernoWeapon + sin - 1 }, 4).Events.OfType<InjuryRolled>().First(i => i.Target == B(1));
+        }
+        Assert.Equal(-2, Hit(1).Injury.Modifier);   // plain armour
+        Assert.Equal(-1, Hit(2).Injury.Modifier);   // ARMOUR PIERCING
+        Assert.Equal(0, Hit(3).Injury.Modifier);    // IGNORE ARMOUR for the model it was aimed at
     }
 
     [Fact]

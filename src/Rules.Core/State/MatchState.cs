@@ -182,6 +182,8 @@ public sealed record RollInProgress(
 
 // Roster stage R16 (U141): an Injury Roll made but not yet applied, because its target's player may cast Oracle Beast Cloak or
 // Too Proud to Fall once they see it. Asked is true once that decision has been requested.
+public sealed record InfernoOwed(ModelId Caster, int Sin);
+
 public enum HeldStage
 {
     ReactionOwed,  // the target's player is to be asked about Oracle Beast Cloak / Too Proud to Fall
@@ -328,6 +330,9 @@ public sealed record MatchState
 
     // Roster stage R16 (U141): the Injury Roll waiting for its target's reaction, and the spell cast against it.
     public HeldInjury? Held { get; init; }
+
+    // October 2026 Review (U151): a Burning Inferno cast with `Sin` SIN MARKERS whose Ranged Attack is still to be made.
+    public InfernoOwed? Inferno { get; init; }
 
     public SpellKind HeldReaction { get; init; }
 

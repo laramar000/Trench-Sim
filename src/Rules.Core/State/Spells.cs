@@ -59,13 +59,13 @@ public static class Spells
 {
     public static readonly SpellKind All = SpellKind.WhatIsYoursIsMine | SpellKind.ExquisitePain | SpellKind.CovetedPosition | SpellKind.CharmOfAcedia | SpellKind.BlackHeart | SpellKind.BloodMagic
         | SpellKind.ShadowWalker | SpellKind.CallOfTheFlesh
-        | SpellKind.BlessingOfTheSerpentMoon | SpellKind.OracleBeastCloak | SpellKind.TooProudToFall | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony;
+        | SpellKind.BlessingOfTheSerpentMoon | SpellKind.OracleBeastCloak | SpellKind.TooProudToFall | SpellKind.LightOfTheFallen | SpellKind.RainingBlood | SpellKind.UncaringGluttony | SpellKind.BurningInferno;
 
     // The number of markers a spell may cost: from Min to Max.
     public static (int Min, int Max) Cost(SpellKind spell) => spell switch
     {
         SpellKind.WhatIsYoursIsMine => (1, 3),
-        SpellKind.ExquisitePain or SpellKind.RainingBlood => (1, 3),
+        SpellKind.ExquisitePain or SpellKind.RainingBlood or SpellKind.BurningInferno => (1, 3),
         SpellKind.CovetedPosition => (2, 2),
         SpellKind.CharmOfAcedia or SpellKind.BlackHeart or SpellKind.BloodMagic => (1, 1),
         SpellKind.ShadowWalker or SpellKind.CallOfTheFlesh or SpellKind.TooProudToFall or SpellKind.LightOfTheFallen or SpellKind.UncaringGluttony => (2, 2),
@@ -90,6 +90,7 @@ public static class Spells
         SpellKind.LightOfTheFallen => "Light of the Fallen",
         SpellKind.RainingBlood => "Raining Blood",
         SpellKind.UncaringGluttony => "Uncaring Gluttony",
+        SpellKind.BurningInferno => "Burning Inferno",
         _ => spell.ToString(),
     };
 

@@ -318,6 +318,10 @@ public static partial class TurnSequence
         {
             return called;
         }
+        if (InfernoRefusal(state, command) is { } inferno)
+        {
+            return inferno;
+        }
 
         return command switch
         {
