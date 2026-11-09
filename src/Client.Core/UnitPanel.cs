@@ -443,6 +443,7 @@ public static class UnitPanel
             (p.HuntsTheTough, "+1 INJURY DICE against TOUGH"),
             (p.CounterCharge, "Counter-Charge: +1 DICE in melee after charging first"),
             (p.MementoMori, "first Out of Action counts as No Effect"),
+            (p.Gazes, "Goetic Gaze ACTION: a Success Roll puts BLOOD MARKERS on an enemy within 24in in sight"),
             (p.Slow, "Slow: counts as Movement 3in when it Dashes"),
             (p.GoadedForth, "Goaded Forth: +1 DICE to its Dash roll near a friendly Chain Fiend"),
             (p.BarbedEmbrace, "Barbed Embrace: enemies within 1in cannot Retreat"),

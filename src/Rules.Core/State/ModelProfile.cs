@@ -366,6 +366,9 @@ public sealed record ModelProfile
     // Memento Mori (p. 53): its first Out of Action result counts as No Effect (it is never TOUGH).
     public bool MementoMori { get; init; }
 
+    // Goetic Gaze ACTION: a Success Roll; on a Success 1 BLOOD MARKER (2 on a Critical Success) on an enemy within 24in in Line of Sight.
+    public bool Gazes { get; init; }
+
     // Slow: counts as Movement 3in when it takes a Dash ACTION.
     public bool Slow { get; init; }
 
@@ -631,6 +634,7 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                Gazes = Gazes,
                 Slow = Slow,
                 GoadedForth = GoadedForth,
                 BarbedEmbrace = BarbedEmbrace,
@@ -715,6 +719,7 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                Gazes = Gazes,
                 Slow = Slow,
                 GoadedForth = GoadedForth,
                 BarbedEmbrace = BarbedEmbrace,
@@ -799,6 +804,7 @@ public sealed record ModelProfile
             HuntsTheTough = HuntsTheTough,
             CounterCharge = CounterCharge,
             MementoMori = MementoMori,
+            Gazes = Gazes,
             Slow = Slow,
             GoadedForth = GoadedForth,
             BarbedEmbrace = BarbedEmbrace,

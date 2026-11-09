@@ -765,7 +765,8 @@ public sealed record SelfActionRolled : GameEvent
     public ImmutableArray<ModelId> StoodUp { get; init; } = [];
 
     // Roster stage R10 (U135): a God is With Us! ACTION's BLESSING MARKER placed on the Target (1, or 0 when it had 6 already or failed).
-    public int Placed { get => _placed; init => _placed = value is 0 or 1 ? value : throw new ArgumentOutOfRangeException(nameof(Placed), "A God is With Us! ACTION places 0 or 1 BLESSING MARKER."); }
+    // October 2026 Review (U161): a Goetic Gaze's BLOOD MARKERS (1, 2 on a Critical Success, fewer with no room).
+    public int Placed { get => _placed; init => _placed = value is >= 0 and <= 2 ? value : throw new ArgumentOutOfRangeException(nameof(Placed), "A God is With Us! ACTION places 0 or 1 BLESSING MARKER, a Goetic Gaze 0 to 2 BLOOD MARKERS."); }
 
     private readonly int _placed;
 

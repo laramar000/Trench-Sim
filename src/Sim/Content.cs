@@ -97,6 +97,7 @@ public static class Content
                         HuntsTheTough = m.TryGetProperty("huntsTheTough", out var huntsTheTough) && huntsTheTough.GetBoolean(),
                         CounterCharge = m.TryGetProperty("counterCharge", out var counterCharge) && counterCharge.GetBoolean(),
                         MementoMori = m.TryGetProperty("mementoMori", out var mementoMori) && mementoMori.GetBoolean(),
+                        Gazes = m.TryGetProperty("gazes", out var gazes) && gazes.GetBoolean(),
                         Slow = m.TryGetProperty("slow", out var slow) && slow.GetBoolean(),
                         GoadedForth = m.TryGetProperty("goadedForth", out var goadedForth) && goadedForth.GetBoolean(),
                         BarbedEmbrace = m.TryGetProperty("barbedEmbrace", out var barbedEmbrace) && barbedEmbrace.GetBoolean(),

@@ -68,6 +68,7 @@ public static class CommandParser
                 Piece = args.Length >= 5 && Enum.TryParse<EquipmentPiece>(args[3], ignoreCase: true, out var piece) ? piece : EquipmentPiece.None,
             },
             "arise" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.AriseAndBeHealed) { Target = Model(Arg(args, 1)) },
+            "gaze" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.GoeticGaze) { Target = Model(Arg(args, 1)) },
             "bless" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.GodIsWithUs) { Target = Model(Arg(args, 1)) },
             "loud" => new TakeSelfAction(seat, Model(One(args)), SelfActionKind.Loudspeakers),
             "puppet" => new TakeSelfAction(seat, Model(Arg(args, 0)), SelfActionKind.PuppetMaster) { Target = Model(Arg(args, 1)), Direction = Point(Arg(args, 2)) },

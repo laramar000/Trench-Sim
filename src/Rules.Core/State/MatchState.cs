@@ -80,6 +80,7 @@ public enum ActionsTaken
     Blessing = 131072, // roster stage R10 (U135): a God is With Us! ACTION
     Arise = 262144, // roster stage R12 (U137): an Arise and be Healed! ACTION
     Vessel = 524288, // October 2026 Review (U144): a Break Vessel ACTION
+    Gaze = 1048576, // October 2026 Review (U161): a Goetic Gaze ACTION
 }
 
 public enum RollStage
@@ -123,6 +124,7 @@ public enum SelfActionKind
     PuppetMaster,      // roster stage R9a (U134): moves one other model D6" in a straight line; with a Target and a Direction
     GodIsWithUs,       // roster stage R10 (U135): places 1 BLESSING MARKER on itself or a friend within 6" (its Target)
     AriseAndBeHealed,  // roster stage R12 (U137): stands a model up free and takes up to D3 BLOOD and INFECTION MARKERS off it (its Target)
+    GoeticGaze,        // October 2026 Review (U161): a Success Roll; 1 BLOOD MARKER (2 on a Critical) on an enemy within 24" in sight (its Target)
 }
 
 public enum AttackKind

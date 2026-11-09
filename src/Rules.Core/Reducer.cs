@@ -1231,6 +1231,8 @@ public static class Reducer
             SelfActionKind.GodIsWithUs => e.Target is { } blessed && BlessRefusal(state, model, blessed) is null && e.Direction is null,
             // Roster stage R12 (U137): an Arise and be Healed! is taken on the model itself or a friend within 3".
             SelfActionKind.AriseAndBeHealed => e.Target is { } healed && AriseRefusal(state, model, healed) is null && e.Direction is null,
+            // October 2026 Review (U161): a Goetic Gaze is aimed at an enemy within 24" in sight.
+            SelfActionKind.GoeticGaze => e.Target is { } gazed && GazeRefusal(state, model, gazed) is null && e.Direction is null,
             // Roster stage R9a (U134): a Puppet Master's victim is any other model in sight within 12", and the line it is moved along.
             SelfActionKind.PuppetMaster => e.Target is { } victim && state.FindModel(victim) is { } moved && Board.PuppetRefusal(state, model, moved) is null
                 && e.Direction is { } direction && direction != moved.Position,
@@ -1257,7 +1259,8 @@ public static class Reducer
             : healed is { Status: ModelStatus.Down } ? [healed.Id] : [];
         var removed = e.Succeeded && e.Action == SelfActionKind.LayingOnHands ? HandsRemove(state, e.Target!.Value, e.Check)
             : healed is not null ? Math.Min(e.Die, healed.BloodMarkers + healed.InfectionMarkers) : 0;
-        var placed = e.Succeeded && e.Action == SelfActionKind.GodIsWithUs && state.FindModel(e.Target!.Value)!.BlessingMarkers < BloodMarkers.Max ? 1 : 0;
+        var placed = e.Succeeded && e.Action == SelfActionKind.GodIsWithUs && state.FindModel(e.Target!.Value)!.BlessingMarkers < BloodMarkers.Max ? 1
+            : e.Succeeded && e.Action == SelfActionKind.GoeticGaze ? GazeMarkers(state, e.Target!.Value, e.Check) : 0;
         Require(e.StoodUp.SequenceEqual(stood) && e.Removed == removed && e.Placed == placed, "The ACTION's result must be what the rules give.");
         var next = state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure && RiskyEnds(state, e.Model) };
         if (!e.Succeeded)
@@ -1288,6 +1291,10 @@ public static class Reducer
                     BloodMarkers = risen.BloodMarkers - blood,
                     InfectionMarkers = risen.InfectionMarkers - (e.Removed - blood),
                 });
+            // October 2026 Review (U161): 1 BLOOD MARKER on the enemy gazed at, 2 on a Critical Success, up to 6.
+            case SelfActionKind.GoeticGaze:
+                var gazed = next.FindModel(e.Target!.Value)!;
+                return TurnRules.WithModel(next, gazed with { BloodMarkers = gazed.BloodMarkers + placed });
             // Roster stage R10 (U135): 1 BLESSING MARKER, up to 6.
             case SelfActionKind.GodIsWithUs:
                 var blessed = next.FindModel(e.Target!.Value)!;
@@ -1308,6 +1315,7 @@ public static class Reducer
         SelfActionKind.PuppetMaster => ActionsTaken.PuppetMaster,
         SelfActionKind.GodIsWithUs => ActionsTaken.Blessing,
         SelfActionKind.AriseAndBeHealed => ActionsTaken.Arise,
+        SelfActionKind.GoeticGaze => ActionsTaken.Gaze,
         _ => ActionsTaken.LayingOnHands,
     };
 
@@ -1321,6 +1329,7 @@ public static class Reducer
         SelfActionKind.PuppetMaster => profile.PuppetMaster,
         SelfActionKind.GodIsWithUs => profile.Blesses,
         SelfActionKind.AriseAndBeHealed => profile.Heals,
+        SelfActionKind.GoeticGaze => profile.Gazes,
         _ => profile.LaysOnHands,
     };
 
@@ -1338,7 +1347,26 @@ public static class Reducer
 
     // Every one of these ACTIONS is Risky but Laying on of Hands, a plain Success Roll (Risky for a Shaken warband, p. 50).
     internal static bool SelfActionRisky(MatchState state, ModelState model, SelfActionKind action) =>
-        action != SelfActionKind.LayingOnHands || state.IsShaken(model.Seat);
+        action is not (SelfActionKind.LayingOnHands or SelfActionKind.GoeticGaze) || state.IsShaken(model.Seat);
+
+    // October 2026 Review (U161): why a Goetic Gaze cannot be aimed at that model, or null: an enemy on the battlefield, not Out of
+    // Action, within 24" and in Line of Sight (seen at all, partly or fully).
+    internal static string? GazeRefusal(MatchState state, ModelState gazer, ModelId targetId)
+    {
+        if (state.FindModel(targetId) is not { Position: not null } target || target.Seat == gazer.Seat || target.Status == ModelStatus.OutOfAction)
+        {
+            return "A Goetic Gaze looks at an enemy model on the battlefield.";
+        }
+        return Board.BodyOf(state, gazer) is { } from && Board.BodyOf(state, target) is { } to && Board.ScenarioOf(state)?.Battlefield is { } field
+            && Measure.IsWithin(from, to, GazeReach) && HeightSight.Between(field, from, to).Visibility != Visibility.None
+            ? null : "A Goetic Gaze needs an enemy within 24\" in Line of Sight.";
+    }
+
+    private static readonly Length GazeReach = Length.FromInches(24);
+
+    // The BLOOD MARKERS a successful Goetic Gaze places: 1, or 2 on a Critical Success, never past the cap.
+    internal static int GazeMarkers(MatchState state, ModelId target, SuccessRollResult check) =>
+        Math.Min(check.Outcome == SuccessOutcome.CriticalSuccess ? 2 : 1, BloodMarkers.Max - state.FindModel(target)!.BloodMarkers);
 
     // Roster stage R7c (U130): why a Hide ACTION is not possible here, or null: the model must touch terrain that is
     // 1/2" high or more (a Cover or Wall piece).

@@ -403,6 +403,12 @@ public static partial class TurnSequence
             return c.Target is not { } healing ? new(ReasonCode.UnknownModel, "An Arise and be Healed! ACTION needs a target.", RefSelfAction)
                 : Reducer.AriseRefusal(state, actor!, healing) is { } ariseWhy ? new(ReasonCode.NotACandidate, ariseWhy, RefSelfAction) : null;
         }
+        // October 2026 Review (U161): a Goetic Gaze is aimed at an enemy within 24" in sight.
+        if (c.Action == SelfActionKind.GoeticGaze)
+        {
+            return c.Target is not { } gaze ? new(ReasonCode.UnknownModel, "A Goetic Gaze ACTION needs a target.", RefSelfAction)
+                : Reducer.GazeRefusal(state, actor!, gaze) is { } gazeWhy ? new(ReasonCode.NotACandidate, gazeWhy, RefSelfAction) : null;
+        }
         // Roster stage R10 (U135): a God is With Us! is taken on the model itself or a friend within 6".
         if (c.Action == SelfActionKind.GodIsWithUs)
         {
@@ -1084,7 +1090,8 @@ public static partial class TurnSequence
                     Die = arise,
                     StoodUp = helped && progress.SelfAction == SelfActionKind.EnforcedOrthodoxy ? Reducer.OrthodoxyStands(s, actor) : risen is { Status: ModelStatus.Down } ? [risen.Id] : [],
                     Removed = helped && progress.SelfAction == SelfActionKind.LayingOnHands ? Reducer.HandsRemove(s, progress.Target!.Value, roll) : risen is not null ? Math.Min(arise, risen.BloodMarkers + risen.InfectionMarkers) : 0,
-                    Placed = helped && progress.SelfAction == SelfActionKind.GodIsWithUs && s.FindModel(progress.Target!.Value)!.BlessingMarkers < BloodMarkers.Max ? 1 : 0,
+                    Placed = helped && progress.SelfAction == SelfActionKind.GodIsWithUs && s.FindModel(progress.Target!.Value)!.BlessingMarkers < BloodMarkers.Max ? 1
+                        : helped && progress.SelfAction == SelfActionKind.GoeticGaze ? Reducer.GazeMarkers(s, progress.Target!.Value, roll) : 0,
                 });
                 // Roster stage R9a (U134): a Loudspeakers ACTION moves the friends near it; a Puppet Master ACTION rolls its D6 and moves its model.
                 if (helped && progress.SelfAction == SelfActionKind.Loudspeakers)

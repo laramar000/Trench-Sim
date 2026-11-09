@@ -1,6 +1,7 @@
 using Rules.Core;
 using Rules.Core.Commands;
 using Rules.Core.Dice;
+using Rules.Core.Events;
 using Rules.Core.Geometry;
 using Rules.Core.State;
 using static Rules.Tests.Geometry.Geo;
@@ -85,5 +86,42 @@ public class CourtAbilityTests
         var plain = Skirmish("4", "2", "30", "30", Brawler);
         Assert.Null(TurnSequence.Check(plain.State, new DashModel(Seat.One, A(1), far)));
         Assert.Contains("slow=yes", StateHash.Canonical(play.State), StringComparison.Ordinal);
+    }
+
+    private static TakeSelfAction Gaze(string target) => new(Seat.One, A(1), SelfActionKind.GoeticGaze) { Target = new ModelId(target) };
+
+    [Fact]
+    [Trait("Rule", "Goetic Gaze ACTION: a Success Roll; 1 BLOOD MARKER (2 on a Critical) on an enemy within 24in in Line of Sight")]
+    public void AGazePlacesBloodMarkersOnAnEnemyInSight()
+    {
+        var play = Arena(id => id == A(1) ? Rifleman with { Gazes = true } : Rifleman);
+        play.Do(new ActivateModel(Seat.One, A(1)));
+        play.Refused(Gaze("A2"), ReasonCode.NotACandidate);                 // a friend
+        play.Refused(Gaze("B2"), ReasonCode.NotACandidate);                 // 28" away
+        play.Refused(new TakeSelfAction(Seat.One, A(1), SelfActionKind.GoeticGaze), ReasonCode.UnknownModel);
+        var rolled = play.Do(Gaze("B1"), 6, 6).Events.OfType<SelfActionRolled>().Single();
+        Assert.Equal((2, 2), (rolled.Placed, play.M(B(1)).BloodMarkers));
+        play.Refused(Gaze("B1"), ReasonCode.ActionAlreadyTaken);
+
+        var plain = Arena(id => id == A(1) ? Rifleman with { Gazes = true } : Rifleman);
+        plain.Do(new ActivateModel(Seat.One, A(1)));
+        var hit = plain.Do(Gaze("B1"), 4, 4).Events.OfType<SelfActionRolled>().Single();
+        Assert.Equal((1, 1), (hit.Placed, plain.M(B(1)).BloodMarkers));
+
+        var missed = Arena(id => id == A(1) ? Rifleman with { Gazes = true } : Rifleman);
+        missed.Do(new ActivateModel(Seat.One, A(1)));
+        missed.Do(Gaze("B1"), 1, 1);
+        Assert.Equal(0, missed.M(B(1)).BloodMarkers);
+
+        var none = Arena(_ => Rifleman);
+        none.Do(new ActivateModel(Seat.One, A(1)));
+        none.Refused(Gaze("B1"), ReasonCode.NoSuchAction);
+
+        // Room for only one: a Critical Success fills the last place and no more.
+        var full = Arena(id => id == A(1) ? Rifleman with { Gazes = true } : Rifleman);
+        full.State = full.State with { Models = [.. full.State.Models.Select(m => m.Id == B(1) ? m with { BloodMarkers = 5 } : m)] };
+        full.Do(new ActivateModel(Seat.One, A(1)));
+        Assert.Equal(1, full.Do(Gaze("B1"), 6, 6).Events.OfType<SelfActionRolled>().Single().Placed);
+        Assert.Equal(6, full.M(B(1)).BloodMarkers);
     }
 }

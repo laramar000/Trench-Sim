@@ -31,7 +31,7 @@ public static class UnitNotes
                 : [new(t.Target, "NOTHING TO TREAT", NoteTone.Info)],
             // Roster stage R6b/R6e (U118, U121): an Aim, Fortify, Enforced Orthodoxy or Laying on of Hands ACTION.
             SelfActionRolled { Action: SelfActionKind.EnforcedOrthodoxy, Succeeded: true } o => [new(o.Model, "ORTHODOXY ENFORCED", NoteTone.Success), .. o.StoodUp.Select(m => new UnitNote(m, "STANDS UP", NoteTone.Success))],
-            SelfActionRolled s => [s.Succeeded ? new(s.Action == SelfActionKind.LayingOnHands ? s.Target!.Value : s.Model, s.Action switch { SelfActionKind.Aim => "AIMED +2", SelfActionKind.LayingOnHands => s.Removed == 0 ? "NOTHING TO REMOVE" : $"-{s.Removed} BLOOD", _ => Words.SelfActionVerdicts(s.Action).Pass }, NoteTone.Success)
+            SelfActionRolled s => [s.Succeeded ? new(s.Action is SelfActionKind.LayingOnHands or SelfActionKind.GoeticGaze ? s.Target!.Value : s.Model, s.Action switch { SelfActionKind.Aim => "AIMED +2", SelfActionKind.GoeticGaze => s.Placed == 0 ? "NO ROOM" : $"+{s.Placed} BLOOD", SelfActionKind.LayingOnHands => s.Removed == 0 ? "NOTHING TO REMOVE" : $"-{s.Removed} BLOOD", _ => Words.SelfActionVerdicts(s.Action).Pass }, NoteTone.Success)
                 : new(s.Model, Words.SelfActionVerdicts(s.Action).Fail, NoteTone.Failure)],
             DashRolled d => [d.Check.Outcome == SuccessOutcome.Failure ? new(d.Model, "DASH FAILED", NoteTone.Failure) : new(d.Model, "DASH", NoteTone.Success)],
             SideClimbRolled c => [c.Check.Outcome == SuccessOutcome.Failure ? new(c.Model, "CLIMB FAILED", NoteTone.Failure) : new(c.Model, "CLIMB", NoteTone.Success)],

@@ -328,6 +328,7 @@ public static class StateHash
             + (p.HuntsTheTough ? ",huntsTheTough=yes" : "")
             + (p.CounterCharge ? ",counterCharge=yes" : "")
             + (p.MementoMori ? ",mementoMori=yes" : "")
+            + (p.Gazes ? ",gazes=yes" : "")
             + (p.Slow ? ",slow=yes" : "")
             + (p.GoadedForth ? ",goadedForth=yes" : "")
             + (p.BarbedEmbrace ? ",barbedEmbrace=yes" : "")
