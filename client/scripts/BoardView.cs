@@ -41,10 +41,34 @@ public partial class BoardView : SubViewportContainer
     private readonly Camera3D _camera = new() { Fov = 50, Near = 0.1f, Far = 1000 };
     private readonly WorldEnvironment _environment = new();
 
-    // Four flat slabs of dark mud around the table (placed by SurroundTable); the table itself is not covered.
+    // Four flat slabs around the table, the same mud at the same height, darkening with the distance from the table's edge
+    // until they meet the horizon (placed by SurroundTable). Drawn by a small shader: world-space tiling like the table's
+    // ground, lit by the same lights, and the fade is in the colour only (the table itself is untouched).
     private readonly Node3D _surround = new() { Name = "Surround" };
 
-    private static readonly StandardMaterial3D SurroundPaint = new() { AlbedoColor = new Color(0.20f, 0.175f, 0.135f), Roughness = 1f };
+    private static readonly Shader SurroundShader = new()
+    {
+        Code = """
+            shader_type spatial;
+            uniform sampler2D mud : source_color, filter_nearest, repeat_enable;
+            uniform bool use_mud = true;
+            uniform vec4 table; // min x, min z, max x, max z of the table, in inches
+            uniform vec3 plain : source_color = vec3(0.25, 0.22, 0.17);
+            uniform vec3 horizon : source_color = vec3(0.05, 0.045, 0.035);
+            uniform float fade = 90.0;
+            varying vec3 wpos;
+            void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+            void fragment() {
+                vec3 c = use_mud ? texture(mud, wpos.xz / 6.0).rgb : plain;
+                vec2 out_of = max(max(table.xy - wpos.xz, wpos.xz - table.zw), vec2(0.0));
+                float k = smoothstep(0.0, fade, length(out_of));
+                ALBEDO = mix(c, horizon, k);
+                ROUGHNESS = 1.0;
+            }
+            """,
+    };
+
+    private static readonly ShaderMaterial SurroundPaint = new() { Shader = SurroundShader };
 
     private void SurroundTable(double width, double depth)
     {
@@ -54,12 +78,16 @@ public partial class BoardView : SubViewportContainer
             old.QueueFree();
         }
         const float reach = 300;
-        // The same mud as the table, darker, so the table sits in a wasteland that goes on to the horizon.
-        if (Visuals.Texture(VisualCatalog.GroundKey) is { } art && SurroundPaint.AlbedoTexture is null)
+        if (Visuals.Texture(VisualCatalog.GroundKey) is { } art)
         {
-            Textured(SurroundPaint, art, 6f);
-            SurroundPaint.AlbedoColor = new Color(0.62f, 0.58f, 0.52f);
+            SurroundPaint.SetShaderParameter("mud", art);
+            SurroundPaint.SetShaderParameter("use_mud", true);
         }
+        else
+        {
+            SurroundPaint.SetShaderParameter("use_mud", false);
+        }
+        SurroundPaint.SetShaderParameter("table", new Vector4(0, 0, (float)width, (float)depth));
         var (w, d) = ((float)width, (float)depth);
         // x, y of the centre and the size of each slab: left and right of the table, then above and below it.
         foreach (var (cx, cy, sx, sy) in new (float, float, float, float)[]
@@ -71,7 +99,7 @@ public partial class BoardView : SubViewportContainer
             _surround.AddChild(new MeshInstance3D
             {
                 Mesh = new PlaneMesh { Size = new Vector2(sx, sy) },
-                Position = new Vector3(cx, -0.03f, cy),
+                Position = new Vector3(cx, -0.005f, cy),
                 MaterialOverride = SurroundPaint,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             });
@@ -3033,8 +3061,8 @@ public partial class BoardView : SubViewportContainer
                     SkyTopColor = new Color(0.10f, 0.11f, 0.13f),
                     SkyHorizonColor = new Color(0.42f, 0.38f, 0.33f),
                     SkyCurve = 0.18f,
-                    GroundHorizonColor = new Color(0.26f, 0.22f, 0.17f),
-                    GroundBottomColor = new Color(0.11f, 0.10f, 0.08f),
+                    GroundHorizonColor = new Color(0.07f, 0.062f, 0.05f),
+                    GroundBottomColor = new Color(0.05f, 0.045f, 0.035f),
                     GroundCurve = 0.05f,
                     SunAngleMax = 0f,
                     SunCurve = 0.001f,
