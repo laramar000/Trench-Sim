@@ -141,6 +141,12 @@ public sealed record ReadyModel(
     public bool CounterCharge { get; init; }
     public bool MementoMori { get; init; }
 
+    public bool GoadedForth { get; init; }
+
+    public bool BarbedEmbrace { get; init; }
+
+    public bool Totemic { get; init; }
+
     public bool NonPavebo { get; init; }
 
     public bool WoundedPride { get; init; }
@@ -259,7 +265,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("hateful", m.Hateful), ("bodyguard", m.Bodyguard), ("loudspeakers", m.Loudspeakers), ("puppetMaster", m.PuppetMaster), ("blesses", m.Blesses), ("heals", m.Heals), ("hides", m.Hides), ("defusesMines", m.DefusesMines), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("fieldShrine", m.FieldShrine), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("nonPavebo", m.NonPavebo), ("woundedPride", m.WoundedPride), ("gloryLost", m.GloryLost), ("downSins", m.DownSins), ("takedownSins", m.TakedownSins), ("fireSins", m.FireSins), ("commandable", m.Commandable), ("castsInferno", m.CastsInferno), ("perverse", m.Perverse), ("mortalSuffering", m.MortalSuffering), ("sinVessel", m.SinVessel), ("sinBeacon", m.SinBeacon), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("hateful", m.Hateful), ("bodyguard", m.Bodyguard), ("loudspeakers", m.Loudspeakers), ("puppetMaster", m.PuppetMaster), ("blesses", m.Blesses), ("heals", m.Heals), ("hides", m.Hides), ("defusesMines", m.DefusesMines), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("fieldShrine", m.FieldShrine), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("goadedForth", m.GoadedForth), ("barbedEmbrace", m.BarbedEmbrace), ("totemic", m.Totemic), ("nonPavebo", m.NonPavebo), ("woundedPride", m.WoundedPride), ("gloryLost", m.GloryLost), ("downSins", m.DownSins), ("takedownSins", m.TakedownSins), ("fireSins", m.FireSins), ("commandable", m.Commandable), ("castsInferno", m.CastsInferno), ("perverse", m.Perverse), ("mortalSuffering", m.MortalSuffering), ("sinVessel", m.SinVessel), ("sinBeacon", m.SinBeacon), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
                     {
                         if (on)
                         {
@@ -725,7 +731,7 @@ public static class MatchReadiness
                 Fortifies = abilities.Contains(FortifyAction),
                 Agile = abilities.Contains(Agile),
                 SwiftDash = upgradeDash || abilities.Contains(FrighteningSpeed) || abilities.Contains(LopingDash) || abilities.Contains(MadDash),
-                QuickToRise = abilities.Contains(FrighteningSpeed),
+                QuickToRise = abilities.Contains(FrighteningSpeed) || abilities.Contains(RelentlessName),
                 Hateful = abilities.Contains(HatefulName),
                 Bodyguard = abilities.Contains(BodyguardName),
                 Loudspeakers = abilities.Contains(LoudspeakersName),
@@ -741,6 +747,9 @@ public static class MatchReadiness
                 HuntsTheTough = upgradeHunts || abilities.Contains(Mubarizun),
                 CounterCharge = upgradeCounter || abilities.Contains(CounterCharge),
                 MementoMori = abilities.Contains(MementoMori),
+                GoadedForth = abilities.Contains(GoadedName),
+                BarbedEmbrace = abilities.Contains(BarbedName),
+                Totemic = abilities.Contains(TotemicName),
                 NonPavebo = roster.Variant == "dedicated-to-pride",
                 WoundedPride = upgradeWounded,
                 GloryLost = abilities.Contains(GloryLostName),
@@ -828,6 +837,10 @@ public static class MatchReadiness
     private const string OracleName = "Oracle Beast Cloak (Spell, cost 3)";
     private const string ShadowWalkerName = "Shadow-walker (Spell, cost 2)";
     private const string BeaconName = "Beacon of Corruption";
+    private const string TotemicName = "Totemic";
+    private const string BarbedName = "Barbed Embrace";
+    private const string GoadedName = "Goaded Forth";
+    private const string RelentlessName = "Relentless";
     private const string BloodMagicName = "Blood Magic (Spell, cost 1)";
     private const string AriseName = "Arise and be Healed! ACTION";
     private const string HideAction = "Hide ACTION";
@@ -883,7 +896,7 @@ public static class MatchReadiness
         AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
         Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
         TeethAndClaws, TeethAndClawsLion, FeebleFlailing, CrushingBlows, PoisonStingers, OverwhelmingHorde, TrampleAction,
-        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName, BeaconName, InfernoName, HandPathName, ShadowWalkerName, BlessingName, OracleName, GloryLostName, GloryLostName,
+        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName, BeaconName, InfernoName, HandPathName, ShadowWalkerName, BlessingName, OracleName, GloryLostName, TotemicName, BarbedName, GoadedName, RelentlessName,
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1

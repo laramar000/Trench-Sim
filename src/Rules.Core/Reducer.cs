@@ -941,6 +941,8 @@ public static class Reducer
         // Non Pavebo (U157): an ELITE model of the Pride variant that Activates in the open gets 2 SIN MARKERS.
         var pavebo = state.Setup.ProfileOf(e.Model) is { NonPavebo: true } np && (np.Traits & ModelTraits.Elite) != 0 && Board.InTheOpen(state, model)
             ? Math.Min(BloodMarkers.Max, beacon + 2) : beacon;
+        // Totemic (U159): a friendly DEMONIC model that Activates within 1" of a Totemic model first gets 1 SIN MARKER.
+        pavebo = TotemFor(state, model) ? Math.Min(BloodMarkers.Max, pavebo + 1) : pavebo;
         return TurnRules.WithModel(state, model with { ActivatedThisTurn = true, Hidden = false, InfectionMarkers = spread, SinMarkers = pavebo }) with
         {
             ActiveModel = e.Model,
@@ -1504,7 +1506,19 @@ public static class Reducer
     // Roster stage R5d (U108): a Dash roll's bonus dice: +1 within 4" of a friendly Musical Instrument (the dashing
     // model's own included); a climb roll's: the model's Mountaineer Kit.
     // Roster stage R6c (U119): +1 more for Agile, and +1 for Frightening Speed, Loping Dash or Mad Dash.
-    internal static int DashDice(MatchState state, ModelState model) => FanfareDice(state, model) + OwnDashDice(state.Setup!.ProfileOf(model.Id)!);
+    internal static int DashDice(MatchState state, ModelState model) => FanfareDice(state, model) + GoadedDice(state, model) + OwnDashDice(state.Setup!.ProfileOf(model.Id)!);
+
+    // Totemic (U159): the model is DEMONIC and a Totemic friend not Out of Action stands within 1" of it.
+    private static bool TotemFor(MatchState state, ModelState model) =>
+        state.Setup!.ProfileOf(model.Id) is { } mine && (mine.Traits & ModelTraits.Demonic) != 0 && Board.BodyOf(state, model) is { } body
+        && state.Models.Any(m => m.Id != model.Id && m.Seat == model.Seat && m.Position is not null && m.Status != ModelStatus.OutOfAction && state.Setup.ProfileOf(m.Id)?.Totemic == true
+            && Board.BodyOf(state, m) is { } totem && Measure.IsWithin(body, totem, Length.FromInches(1)));
+
+    // Goaded Forth (U159): +1 DICE to the Dash roll with a friendly Chain Fiend within 8" and in sight.
+    internal static int GoadedDice(MatchState state, ModelState model) =>
+        state.Setup!.ProfileOf(model.Id)?.GoadedForth == true && Board.BodyOf(state, model) is { } body && Board.ScenarioOf(state)?.Battlefield is { } field
+        && state.Models.Any(m => m.Seat == model.Seat && m.Id != model.Id && m.Position is not null && m.Status != ModelStatus.OutOfAction && state.Setup.ProfileOf(m.Id)?.Commandable == true
+            && Board.BodyOf(state, m) is { } fiend && Measure.IsWithin(body, fiend, Length.FromInches(8)) && HeightSight.Between(field, body, fiend).Visibility != Visibility.None) ? 1 : 0;
 
     internal static int OwnDashDice(ModelProfile profile) => (profile.Agile ? 1 : 0) + (profile.SwiftDash ? 1 : 0);
 
@@ -2303,8 +2317,8 @@ public static class Reducer
 
     // October 2026 Review (U157): Glory Lost, +1 DICE to its Melee Attacks while friendly Chain Fiends on the battlefield carry 3 or more SIN MARKERS between them.
     internal static int GloryDice(MatchState state, ModelId attacker) =>
-        state.Setup!.ProfileOf(attacker)!.GloryLost && state.FindModel(attacker) is { } model
-        && state.Models.Where(m => m.Seat == model.Seat && m.Position is not null && m.Status != ModelStatus.OutOfAction && state.Setup.ProfileOf(m.Id)!.Commandable).Sum(m => m.SinMarkers) >= 3 ? 1 : 0;
+        state.Setup!.ProfileOf(attacker)?.GloryLost == true && state.FindModel(attacker) is { } model
+        && state.Models.Where(m => m.Seat == model.Seat && m.Position is not null && m.Status != ModelStatus.OutOfAction && state.Setup.ProfileOf(m.Id)?.Commandable == true).Sum(m => m.SinMarkers) >= 3 ? 1 : 0;
 
     private static readonly Length HordeReach = Length.FromInches(3);
 

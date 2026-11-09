@@ -366,6 +366,15 @@ public sealed record ModelProfile
     // Memento Mori (p. 53): its first Out of Action result counts as No Effect (it is never TOUGH).
     public bool MementoMori { get; init; }
 
+    // Goaded Forth: +1 DICE to the Risky roll of its Dash ACTION with a friendly Chain Fiend within 8in and in sight.
+    public bool GoadedForth { get; init; }
+
+    // Barbed Embrace: an enemy model within 1in cannot take a Retreat ACTION.
+    public bool BarbedEmbrace { get; init; }
+
+    // Totemic: when a friendly DEMONIC model Activates within 1in of this model, it first gets 1 SIN MARKER.
+    public bool Totemic { get; init; }
+
     // Pride variant (Non Pavebo): an ELITE model that Activates in Open terrain, touching no piece that would give it COVER, gets 2 SIN MARKERS.
     public bool NonPavebo { get; init; }
 
@@ -619,6 +628,9 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                GoadedForth = GoadedForth,
+                BarbedEmbrace = BarbedEmbrace,
+                Totemic = Totemic,
                 NonPavebo = NonPavebo,
                 WoundedPride = WoundedPride,
                 GloryLost = GloryLost,
@@ -699,6 +711,9 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                GoadedForth = GoadedForth,
+                BarbedEmbrace = BarbedEmbrace,
+                Totemic = Totemic,
                 NonPavebo = NonPavebo,
                 WoundedPride = WoundedPride,
                 GloryLost = GloryLost,
@@ -779,6 +794,9 @@ public sealed record ModelProfile
             HuntsTheTough = HuntsTheTough,
             CounterCharge = CounterCharge,
             MementoMori = MementoMori,
+            GoadedForth = GoadedForth,
+            BarbedEmbrace = BarbedEmbrace,
+            Totemic = Totemic,
             NonPavebo = NonPavebo,
             WoundedPride = WoundedPride,
             GloryLost = GloryLost,

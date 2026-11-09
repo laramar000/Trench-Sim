@@ -317,6 +317,11 @@ public static class Previews
             {
                 facts.Add("+1 DICE on the Dash roll: a Musical Instrument within 4\" (p. 85).");
             }
+            // October 2026 Review (U159).
+            if (state.Setup!.ProfileOf(id) is { GoadedForth: true } goaded && TurnSequence.DashDice(state, id) - TurnSequence.FanfareDice(state, id) - (goaded.Agile ? 1 : 0) - (goaded.SwiftDash ? 1 : 0) > 0)
+            {
+                facts.Add("+1 DICE on the Dash roll: Goaded Forth, a friendly Chain Fiend within 8\" in sight.");
+            }
             // Roster stage R6c (U119).
             if (state.Setup!.ProfileOf(id) is { } dasher && (dasher.Agile || dasher.SwiftDash))
             {

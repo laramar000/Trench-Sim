@@ -910,6 +910,24 @@ public class MatchReadinessTests
         Assert.True(Loaded(fiend.MatchCheck()).GloryLost);
     }
 
+    // October 2026 Review (U159): the Fallen Saint's Totemic and Relentless, the Wretched's Goaded Forth.
+    [Fact]
+    public void CourtModelAbilitiesArePlayed()
+    {
+        ModelProfile Unit(string entry)
+        {
+            var builder = RosterBuilder.Shipped();
+            builder.ChooseFaction("court");
+            builder.Select(builder.Add(entry));
+            return Loaded(builder.MatchCheck());
+        }
+        var saint = Unit("fallen-saint");
+        Assert.True(saint.Totemic && saint.QuickToRise);
+        Assert.True(Unit("wretched").GoadedForth);
+        Assert.False(Unit("chain-fiend").Totemic);
+        Assert.True(Unit("goetic-warlock").BarbedEmbrace);
+    }
+
     // October 2026 Review (U157): Hellfire Ember gives the bearer's Melee Weapon FIRE, Lesser Murder Mark takes 1 INJURY DICE off attacks on it.
     [Fact]
     public void WrathKitIsPlayed()

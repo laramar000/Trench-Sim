@@ -1118,6 +1118,11 @@ internal static class Board
         {
             return new(ReasonCode.NotEngaged, "Only a model within 1\" of an enemy can Retreat.", RefRetreat);
         }
+        // Barbed Embrace (U159): an enemy within 1" of a Barbed Embrace model cannot Retreat.
+        if (OnTable(state).Any(o => o.Seat != model.Seat && o.Status != ModelStatus.OutOfAction && state.Setup!.ProfileOf(o.Id)?.BarbedEmbrace == true && Measure.IsWithin(BodyOf(state, model)!, BodyOf(state, o)!, EngagementRange)))
+        {
+            return new(ReasonCode.ActionExcluded, "An enemy within 1\" of a Barbed Embrace model cannot Retreat.", RefRetreat);
+        }
         var result = Movement.CheckPath(ScenarioOf(state)!.Battlefield, BodyOf(state, model)!, path, Allowance(state, model), ObstaclesFor(state, model), retreat: true);
         if (!result.IsLegal)
         {
