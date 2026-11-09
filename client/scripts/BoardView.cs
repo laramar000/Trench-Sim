@@ -1615,6 +1615,22 @@ public partial class BoardView : SubViewportContainer
                 Interaction.PickToPlace(model);
                 Sync();
                 break;
+            case BarKind.Spell:
+                GrabFocus();
+                if (item.Spell == Rules.Core.State.SpellKind.None)
+                {
+                    Interaction.OpenSpells();
+                }
+                else
+                {
+                    Interaction.PickSpell(item.Spell);
+                }
+                Sync();
+                break;
+            case BarKind.SpellBack:
+                Interaction.SpellBack();
+                Sync();
+                break;
             case BarKind.Undo:
                 Interaction.RemovePoint();
                 Sync();

@@ -401,7 +401,7 @@ public static class UnitPanel
         }
         if (p.Spells != SpellKind.None)
         {
-            parts.Add("Spells: " + string.Join(", ", Enum.GetValues<SpellKind>().Where(k => k != SpellKind.None && p.Spells.HasFlag(k)).Select(Spells.Name)) + " (cast with the CLI: cast)");
+            parts.Add("Spells: " + string.Join(", ", Enum.GetValues<SpellKind>().Where(k => k != SpellKind.None && p.Spells.HasFlag(k)).Select(Spells.Name)) + " (the Spells button on the action bar; Raining Blood, Burning Inferno, Left-Hand Path and Slavemaster by the CLI: cast)");
         }
         if (p.Heals)
         {

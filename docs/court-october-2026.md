@@ -38,6 +38,6 @@ the progress; the reasoning for each rule is in `docs/interpretations.md` (U142 
 | C5 | The seven variants' recruitment, special rules, Goetic Powers, Armoury and new kit as data (U155) | done |
 | C5b | Variants' engine effects: SIN MARKER sources for Wrath, Envy, Gluttony (U156) | part done (U156, U157); Proud Defiance and Gluttony's second clause open |
 | C5b | The variants' special rules and new kit played by the engine, one by one | open |
-| C6 | Client: SIN MARKER display (board drops, unit card), spell picker | open |
+| C6 | Client: SIN MARKER display (board drops, unit card), decision bars (C6a, C6b), spell menu on the action bar (U158; compiled, not run in Godot) | done; Raining Blood, Burning Inferno, Left-Hand Path, Slavemaster stay CLI-only |
 
 Until C2 and C4 are done the engine cannot give a Court model SIN MARKERS in a real match; only tests do.

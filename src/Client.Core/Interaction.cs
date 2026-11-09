@@ -116,12 +116,21 @@ public enum BarKind
 
     // Stage K4: chooses the model to place next (Model); nothing is sent.
     Pick,
+
+    // October 2026 Review, stage C6: opens the spell menu, or chooses one of its spells (BarItem.Spell); nothing is sent.
+    Spell,
+
+    // Leaves the spell menu (or its target list) for the one before; nothing is sent.
+    SpellBack,
 }
 
 // One button of the action bar: a short label, a tooltip that says what it does (and its optional key), and the command
 // it sends for Activate and End activation (the rules' own legal command, which the server still decides).
 public sealed record BarItem(BarKind Kind, string Label, string Tip, bool Enabled = true, InteractionMode Mode = InteractionMode.None, Command? Command = null, ModelId? Model = null)
 {
+    // The spell a Spell item chooses; None for the item that opens the menu.
+    public SpellKind Spell { get; init; }
+
     // QoL H5: the key that does the same, shown on the button ("Move · M"); null when there is none. No key is new.
     public string? Key => Kind switch
     {
@@ -281,6 +290,56 @@ public sealed class Interaction
     // Stage U1: the attack being chosen was picked from the Combat menu, so Esc goes back to the menu first.
     public bool FromCombat { get; private set; }
 
+    // October 2026 Review, stage C6: the spell menu on the action bar (open) and the spell whose targets it lists (None while it lists the spells).
+    public bool SpellsOpen { get; private set; }
+
+    public SpellKind SpellChosen { get; private set; }
+
+    public void OpenSpells()
+    {
+        if (_seat is { } seat && Pending is null && Mode == InteractionMode.None && SpellChoices(seat).Count > 0)
+        {
+            SpellsOpen = true;
+            SpellChosen = SpellKind.None;
+            Changed();
+        }
+    }
+
+    public void PickSpell(SpellKind spell)
+    {
+        if (SpellsOpen && _seat is { } seat && SpellChoices(seat).Any(c => c.Spell == spell))
+        {
+            SpellChosen = spell;
+            Changed();
+        }
+    }
+
+    public void SpellBack()
+    {
+        if (SpellChosen != SpellKind.None)
+        {
+            SpellChosen = SpellKind.None;
+        }
+        else
+        {
+            SpellsOpen = false;
+        }
+        Changed();
+    }
+
+    private IReadOnlyList<(SpellKind Spell, IReadOnlyList<CastSpell> Casts)>? _spellChoices;
+    private MatchState? _spellState;
+
+    private IReadOnlyList<(SpellKind Spell, IReadOnlyList<CastSpell> Casts)> SpellChoices(Seat seat)
+    {
+        if (_spellChoices is null || !ReferenceEquals(_spellState, _state))
+        {
+            _spellChoices = SpellPicker.Choices(_state, seat);
+            _spellState = _state;
+        }
+        return _spellChoices;
+    }
+
     // Stage K6: Shoot, Charge and Fight, which the bar offers as one Combat action.
     public static bool IsAttack(InteractionMode mode) => mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight;
 
@@ -320,6 +379,9 @@ public sealed class Interaction
         _server = state;
         _seat = seat;
         _state = Effective();
+        // A new state closes the spell menu: a cast, another activation or the end of this one all make its list stale.
+        SpellsOpen = false;
+        SpellChosen = SpellKind.None;
         _armed = false;
         // While a command is on its way, the server's answer decides what happens to the choice.
         if (Pending is null && Mode != InteractionMode.None && !StillPossible())
@@ -568,7 +630,16 @@ public sealed class Interaction
         var legal = _state.Pending is null ? LegalCommands().Where(c => CommandSeats.Of(c) == seat).ToList() : [];
         if (_state.Phase == Phase.Activation && _state.ActiveModel is { } active && _state.FindModel(active)?.Seat == seat)
         {
+            var spells = SpellChoices(seat);
+            if (SpellsOpen && spells.Count > 0)
+            {
+                return new(active, SpellItems(spells));
+            }
             var items = BarOffered.Select(m => new BarItem(BarKind.Start, Words(m), Tip(m), Mode: m)).ToList();
+            if (spells.Count > 0)
+            {
+                items.Add(new(BarKind.Spell, "Spells", "Cast one of this model's Court spells: choose the spell, then its target. Each is paid the cheapest way, at its lowest cost; the server decides."));
+            }
             if (legal.OfType<EndActivation>().FirstOrDefault() is { } end)
             {
                 items.Add(Chosen is null
@@ -586,6 +657,30 @@ public sealed class Interaction
             return new(chosen, [new(BarKind.Activate, "Activate", "Start this model's activation, then choose its actions (key A).", Command: activate)]);
         }
         return ActionBar.Empty;
+    }
+
+    // The spell menu: the spells the model can cast now, then, once one is chosen, each cast the rules accept (target, equipment piece).
+    private List<BarItem> SpellItems(IReadOnlyList<(SpellKind Spell, IReadOnlyList<CastSpell> Casts)> spells)
+    {
+        var items = new List<BarItem>();
+        var back = new BarItem(BarKind.SpellBack, "Back", SpellChosen == SpellKind.None ? "Close the spell menu." : "Back to the list of spells.");
+        if (spells.FirstOrDefault(c => c.Spell == SpellChosen) is { Casts: { Count: > 0 } casts })
+        {
+            foreach (var cast in casts)
+            {
+                var on = cast.Target is { } t ? $" on {NameOf(t)}" : "";
+                var with = cast.Piece != EquipmentPiece.None ? $" ({cast.Piece})" : cast.TakeBlessing ? " (a Blessing Marker)" : "";
+                items.Add(new(BarKind.Decide, $"{Spells.Name(cast.Spell)}{on}{with}",
+                    $"{NameOf(cast.Model)} casts {Spells.Name(cast.Spell)}{on}{with}, paid with {string.Join(", ", cast.Payment.Select(p => $"{p.Count} SIN MARKER(S) from {NameOf(p.Model)}"))}.", Command: cast));
+            }
+        }
+        else
+        {
+            items.AddRange(spells.Select(c => new BarItem(BarKind.Spell, Spells.Name(c.Spell),
+                $"{Spells.Name(c.Spell)}: {Spells.Cost(c.Spell).Min} SIN MARKER(S); {c.Casts.Count} way(s) to cast it now.") { Spell = c.Spell }));
+        }
+        items.Add(back);
+        return items;
     }
 
     // A decision of yours about a model on the battlefield (spending Blood Markers, free attacks on a retreating model,

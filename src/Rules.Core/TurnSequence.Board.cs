@@ -454,6 +454,9 @@ public static partial class TurnSequence
 
     public static int GloryDice(MatchState state, ModelId attacker) => Reducer.GloryDice(state, attacker);
 
+    // October 2026 Review (C6): the cheapest way the seat can pay a spell's cost in SIN MARKERS; null when it cannot.
+    public static ImmutableArray<MarkerPayment>? CheapestPayment(MatchState state, Seat seat, int cost) => Board.CheapestPayment(state, seat, cost);
+
     // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION (Warbands p. 58), once per game.
     private static Rejection? ValidateTrigger(MatchState state, TriggerMartyrdom c)
     {
