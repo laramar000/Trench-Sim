@@ -157,7 +157,7 @@ public sealed record ModelProfile
     // ---- Roster stage R5b (U106): model keywords ----
 
     private const ModelTraits AllTraits = ModelTraits.Fear | ModelTraits.NegateFear | ModelTraits.Tough | ModelTraits.NegateHeavy | ModelTraits.Leader
-        | ModelTraits.Principality | ModelTraits.Cult | ModelTraits.Demonic | ModelTraits.Pilgrim;
+        | ModelTraits.Principality | ModelTraits.Cult | ModelTraits.Demonic | ModelTraits.Pilgrim | ModelTraits.Elite;
 
     // FEAR, NEGATE FEAR, TOUGH, NEGATE HEAVY (STRONG) and LEADER; roster stage R6a: PRINCIPALITY, CULT and DEMONIC; roster stage R7d: PILGRIM.
     public ModelTraits Traits
@@ -365,6 +365,15 @@ public sealed record ModelProfile
 
     // Memento Mori (p. 53): its first Out of Action result counts as No Effect (it is never TOUGH).
     public bool MementoMori { get; init; }
+
+    // Pride variant (Non Pavebo): an ELITE model that Activates in Open terrain, touching no piece that would give it COVER, gets 2 SIN MARKERS.
+    public bool NonPavebo { get; init; }
+
+    // Wounded Pride: after a non-ELITE model's attack puts BLOOD MARKERS on this model, the attacker gets as many.
+    public bool WoundedPride { get; init; }
+
+    // Glory Lost: +1 DICE to its Melee Attacks while friendly Chain Fiends carry 3 or more SIN MARKERS in all.
+    public bool GloryLost { get; init; }
 
     // Gluttony variant: a DEMONIC bearer taking a model Down gives it 1 SIN MARKER.
     public bool DownSins { get; init; }
@@ -610,6 +619,9 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                NonPavebo = NonPavebo,
+                WoundedPride = WoundedPride,
+                GloryLost = GloryLost,
                 DownSins = DownSins,
                 TakedownSins = TakedownSins,
                 FireSins = FireSins,
@@ -687,6 +699,9 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                NonPavebo = NonPavebo,
+                WoundedPride = WoundedPride,
+                GloryLost = GloryLost,
                 DownSins = DownSins,
                 TakedownSins = TakedownSins,
                 FireSins = FireSins,
@@ -764,6 +779,9 @@ public sealed record ModelProfile
             HuntsTheTough = HuntsTheTough,
             CounterCharge = CounterCharge,
             MementoMori = MementoMori,
+            NonPavebo = NonPavebo,
+            WoundedPride = WoundedPride,
+            GloryLost = GloryLost,
             DownSins = DownSins,
             TakedownSins = TakedownSins,
             FireSins = FireSins,

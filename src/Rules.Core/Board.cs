@@ -44,6 +44,13 @@ internal static class Board
         ScenarioOf(state)?.Battlefield is not { } field
         || !field.Terrain.Any(t => (t.Kind & (TerrainKind.Difficult | TerrainKind.Dangerous)) != 0 && t.Footprint.Parts.Any(r => r.Contains(at)));
 
+    // October 2026 Review (U157), Non Pavebo: on Open terrain and touching no terrain piece at least 1/2" high (the width test is not made:
+    // a narrower piece counts as shelter here).
+    public static bool InTheOpen(MatchState state, ModelState model) =>
+        model.Position is { } at && BodyOf(state, model) is { } body && OnOpenTerrain(state, at)
+        && (ScenarioOf(state)?.Battlefield is not { } field
+            || !field.Terrain.Any(t => !t.IsTrench && SightHeights.TopOf(t) >= Cover.MinimumHeight && t.Footprint.Touches(body)));
+
     public const string RefAttack = "1.0.2 pp. 42-44";
     public const string RefMove = "1.0.2 pp. 34-35";
     public const string RefCharge = "1.0.2 pp. 34, 36-37";

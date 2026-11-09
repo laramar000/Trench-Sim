@@ -452,6 +452,8 @@ public static partial class TurnSequence
     // Roster stage R6d (U120): Overwhelming Horde's DICE on a Melee Attack with that weapon now.
     public static int HordeDice(MatchState state, ModelId attacker, int weapon) => Reducer.HordeDice(state, attacker, weapon);
 
+    public static int GloryDice(MatchState state, ModelId attacker) => Reducer.GloryDice(state, attacker);
+
     // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION (Warbands p. 58), once per game.
     private static Rejection? ValidateTrigger(MatchState state, TriggerMartyrdom c)
     {

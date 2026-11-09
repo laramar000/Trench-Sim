@@ -141,6 +141,12 @@ public sealed record ReadyModel(
     public bool CounterCharge { get; init; }
     public bool MementoMori { get; init; }
 
+    public bool NonPavebo { get; init; }
+
+    public bool WoundedPride { get; init; }
+
+    public bool GloryLost { get; init; }
+
     public bool DownSins { get; init; }
 
     public bool TakedownSins { get; init; }
@@ -253,7 +259,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("hateful", m.Hateful), ("bodyguard", m.Bodyguard), ("loudspeakers", m.Loudspeakers), ("puppetMaster", m.PuppetMaster), ("blesses", m.Blesses), ("heals", m.Heals), ("hides", m.Hides), ("defusesMines", m.DefusesMines), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("fieldShrine", m.FieldShrine), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("downSins", m.DownSins), ("takedownSins", m.TakedownSins), ("fireSins", m.FireSins), ("commandable", m.Commandable), ("castsInferno", m.CastsInferno), ("perverse", m.Perverse), ("mortalSuffering", m.MortalSuffering), ("sinVessel", m.SinVessel), ("sinBeacon", m.SinBeacon), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("hateful", m.Hateful), ("bodyguard", m.Bodyguard), ("loudspeakers", m.Loudspeakers), ("puppetMaster", m.PuppetMaster), ("blesses", m.Blesses), ("heals", m.Heals), ("hides", m.Hides), ("defusesMines", m.DefusesMines), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("fieldShrine", m.FieldShrine), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("nonPavebo", m.NonPavebo), ("woundedPride", m.WoundedPride), ("gloryLost", m.GloryLost), ("downSins", m.DownSins), ("takedownSins", m.TakedownSins), ("fireSins", m.FireSins), ("commandable", m.Commandable), ("castsInferno", m.CastsInferno), ("perverse", m.Perverse), ("mortalSuffering", m.MortalSuffering), ("sinVessel", m.SinVessel), ("sinBeacon", m.SinBeacon), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
                     {
                         if (on)
                         {
@@ -318,7 +324,7 @@ public static class MatchReadiness
     // Roster stage R6f (U122): what an upgrade the engine plays gives, beside its keywords (STRONG, FEAR): Ranged or Melee
     // DICE, a Melee Characteristic set to a number (Kavass: +0 instead of -1), +1 DICE to the Dash roll, Counter-Charge,
     // and a base that changes for one entry (a Trench Pilgrim with Zealot Strength has a 32 mm base).
-    private sealed record PlayedUpgrade(int RangedDice = 0, int MeleeDice = 0, int? MeleeTo = null, bool Dash = false, bool CounterCharge = false, string? BaseFor = null, bool Hunts = false);
+    private sealed record PlayedUpgrade(int RangedDice = 0, int MeleeDice = 0, int? MeleeTo = null, bool Dash = false, bool CounterCharge = false, string? BaseFor = null, bool Hunts = false, bool Wounded = false);
 
     private static readonly Dictionary<string, PlayedUpgrade> PlayedUpgrades = new(StringComparer.Ordinal)
     {
@@ -334,6 +340,7 @@ public static class MatchReadiness
         ["infernal-challenge"] = new(Hunts: true),
         ["corpse-candles"] = new(),
         ["auxilia-sorcerer"] = new(),
+        ["wounded-pride"] = new(Wounded: true),
     };
 
     // Roster stage R11 (U136): the spell upgrades the engine plays, by upgrade id, with the engine's spell name.
@@ -391,6 +398,7 @@ public static class MatchReadiness
             var unplayed = entry.Keywords.Where(k => !Gain(k, gains)).ToList();
             var rangedBonus = 0;
             var meleeBonus = 0;
+            var emberFire = false;
             var injuryTaken = 0;
             var meleeInjury = 0;
             var (keepsGoing, climbDice, fanfare, blendsIn) = (false, 0, false, false);
@@ -415,7 +423,7 @@ public static class MatchReadiness
                 without.Add($"{who}: its abilities ({string.Join(", ", skipped)})");
             }
             var baseMm = entry.BaseWidthMm;
-            var (upgradeDash, upgradeCounter, upgradeHunts) = (false, false, false);
+            var (upgradeDash, upgradeCounter, upgradeHunts, upgradeWounded) = (false, false, false, false);
             var spells = new List<string>();
             // Roster stage R14 (U139): Blood Magic is an ability, not an upgrade.
             if (abilities.Contains(BloodMagicName))
@@ -462,6 +470,7 @@ public static class MatchReadiness
                     upgradeDash |= played.Dash;
                     upgradeCounter |= played.CounterCharge;
                     upgradeHunts |= played.Hunts;
+                    upgradeWounded |= played.Wounded;
                     if (played.BaseFor == entry.Id)
                     {
                         baseMm = ZealotBaseMm;
@@ -530,6 +539,10 @@ public static class MatchReadiness
                         break;
                     case KitCategory.Equipment when piece.Keywords.Any(k => k.Id == "AMMUNITION"):
                         ammunition.Add(piece);
+                        break;
+                    case KitCategory.Equipment when piece.Id == "hellfire-ember":
+                        // October 2026 Review (U157): its bearer's Melee Attacks have FIRE.
+                        emberFire = true;
                         break;
                     case KitCategory.Equipment when PlayedEquipment.TryGetValue(piece.Id, out var played):
                         // A Shovel's keywords are named below, unless it is the model's second Shovel.
@@ -673,7 +686,7 @@ public static class MatchReadiness
                 MeleeWeaponDice = Dice(melee?.Dice ?? 0, who, $"{melee?.Name}'s DICE", without),
                 MeleeWeaponInjuryDice = Dice(melee?.InjuryDice ?? 0, who, $"{melee?.Name}'s INJURY DICE", without),
                 RangedWeaponKeywords = ranged is null ? [] : WithAmmunition(Played(ranged), ammoFirst),
-                MeleeWeaponKeywords = melee is null ? [] : Played(melee),
+                MeleeWeaponKeywords = melee is null ? [] : emberFire ? [.. Played(melee).Append("Fire").Distinct()] : Played(melee),
                 MeleeWeaponCleave = melee is null ? 0 : Cleave(melee, who, without),
                 RangedWeaponBlast = ranged is null ? 0 : BlastOf(ranged, who, without),
                 ImperviousArmour = impervious,
@@ -728,6 +741,9 @@ public static class MatchReadiness
                 HuntsTheTough = upgradeHunts || abilities.Contains(Mubarizun),
                 CounterCharge = upgradeCounter || abilities.Contains(CounterCharge),
                 MementoMori = abilities.Contains(MementoMori),
+                NonPavebo = roster.Variant == "dedicated-to-pride",
+                WoundedPride = upgradeWounded,
+                GloryLost = abilities.Contains(GloryLostName),
                 DownSins = roster.Variant == "dedicated-to-gluttony",
                 TakedownSins = roster.Variant == "dedicated-to-envy",
                 FireSins = roster.Variant == "dedicated-to-wrath",
@@ -840,6 +856,7 @@ public static class MatchReadiness
     // Roster stage R6e (U121).
     private const string EnforcedOrthodoxy = "Enforced Orthodoxy ACTION";
     private const string LayingOnHands = "Laying on of Hands ACTION";
+    private const string GloryLostName = "Glory Lost";
 
     // The attack an ability makes without a weapon: Poison Stingers CLEAVE 2 and SHRAPNEL, Crushing Blows CLEAVE 2,
     // Feeble Flailing -1 DICE, Teeth & Claws and Overwhelming Horde (its DICE come in the match) plain; null without one.
@@ -866,7 +883,7 @@ public static class MatchReadiness
         AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
         Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
         TeethAndClaws, TeethAndClawsLion, FeebleFlailing, CrushingBlows, PoisonStingers, OverwhelmingHorde, TrampleAction,
-        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName, BeaconName, InfernoName, HandPathName, ShadowWalkerName, BlessingName, OracleName,
+        EnforcedOrthodoxy, LayingOnHands, HatefulName, BodyguardName, LoudspeakersName, PuppetMasterName, GodIsWithUsName, AriseName, DefuseMineName, HideAction, BloodMagicName, BeaconName, InfernoName, HandPathName, ShadowWalkerName, BlessingName, OracleName, GloryLostName, GloryLostName,
     };
 
     // Assault Drill: HEAVY has no effect for 1 Melee Weapon (the first that has it); Battlefield Demolition: for 1
@@ -982,10 +999,11 @@ public static class MatchReadiness
         ["PRINCIPALITY"] = "Principality",
         ["CULT"] = "Cult",
         ["PILGRIM"] = "Pilgrim",
+        ["ELITE"] = "Elite",
     };
 
     // The engine's trait names in its order (Rules.Core ModelTraits).
-    private static readonly string[] TraitNames = ["Fear", "NegateFear", "Tough", "NegateHeavy", "Leader", "Principality", "Cult", "Demonic", "Pilgrim"];
+    private static readonly string[] TraitNames = ["Fear", "NegateFear", "Tough", "NegateHeavy", "Leader", "Principality", "Cult", "Demonic", "Pilgrim", "Elite"];
 
     // What a model takes from its keywords and battlekit: NEGATE values and traits.
     private sealed record Gains(HashSet<string> Negates, HashSet<string> Traits);
@@ -1038,6 +1056,7 @@ public static class MatchReadiness
         ["holy-smoke"] = new(Trait: "NegateFear", InjuryDiceTaken: -1),
         ["zealots-draught"] = new(Trait: "NegateFear", InjuryDiceTaken: -1),
         ["grovelling-devotee"] = new(MeleeInjury: 1),
+        ["lesser-murder-mark"] = new(InjuryDiceTaken: -1),
         ["pontiffs-crucifix"] = new(KeepsGoing: true),
         ["mountaineer-kit"] = new(ClimbDice: 1),
         ["musical-instrument"] = new(Fanfare: true),

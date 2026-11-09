@@ -30,4 +30,7 @@ public enum ModelTraits
 
     // Roster stage R7d (U131): PILGRIM, the faction keyword Bodyguard looks for.
     Pilgrim = 256,
+
+    // October 2026 Review (U157): ELITE, the keyword Wounded Pride looks for.
+    Elite = 512,
 }

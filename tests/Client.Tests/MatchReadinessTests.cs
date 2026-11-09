@@ -118,7 +118,8 @@ public class MatchReadinessTests
         var ready = Principality(("lieutenant", ["automatic-rifle"])).MatchCheck();
         Assert.True(ready.Ok);
         Assert.Contains(ready.PlayedWithout, w => w.EndsWith("Automatic Rifle's AUTOMATIC", StringComparison.Ordinal));
-        Assert.Contains(ready.PlayedWithout, w => w.Contains("its keywords", StringComparison.Ordinal));
+        // ELITE is played (U157), so a Lieutenant has no model keyword left out.
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("its keywords", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -244,11 +245,11 @@ public class MatchReadinessTests
         var lieutenant = Of("principality", "lieutenant", "pistol");
         var ready = lieutenant.MatchCheck();
         // Roster stage R6a (U117): the faction keyword PRINCIPALITY is played too (Onward Christian Soldiers! looks for it).
-        Assert.Equal(ModelTraits.Leader | ModelTraits.Tough | ModelTraits.Principality, Loaded(ready).Traits);
-        Assert.Contains(ready.PlayedWithout, w => w.Contains("its keywords (ELITE)", StringComparison.Ordinal));
+        Assert.Equal(ModelTraits.Leader | ModelTraits.Tough | ModelTraits.Principality | ModelTraits.Elite, Loaded(ready).Traits);
+        Assert.DoesNotContain(ready.PlayedWithout, w => w.Contains("ELITE", StringComparison.Ordinal));   // played since U157
         Assert.Contains("\"traits\"", ready.ToContentJson("p", "P"), StringComparison.Ordinal);
 
-        Assert.Equal(ModelTraits.NegateFear | ModelTraits.Principality, Loaded(Of("principality", "trench-cleric", "pistol").MatchCheck()).Traits);
+        Assert.Equal(ModelTraits.NegateFear | ModelTraits.Principality | ModelTraits.Elite, Loaded(Of("principality", "trench-cleric", "pistol").MatchCheck()).Traits);
         Assert.Equal(ModelTraits.NegateHeavy | ModelTraits.Principality, Loaded(Of("principality", "mechanized-heavy-infantry").MatchCheck()).Traits);
         var bull = Loaded(Of("sultanate", "brazen-bull").MatchCheck());
         Assert.Equal(ModelTraits.Fear | ModelTraits.Tough | ModelTraits.NegateHeavy, bull.Traits);
@@ -291,7 +292,7 @@ public class MatchReadinessTests
         abyssinian.AddKit("anfarro");
         var crowned = abyssinian.MatchCheck();
         Played(crowned, "Anfarro");
-        Assert.Equal((2, 3, ModelTraits.Leader | ModelTraits.Tough | ModelTraits.NegateFear | ModelTraits.Principality), (Loaded(crowned).RangedDice, Loaded(crowned).MeleeDice, Loaded(crowned).Traits));
+        Assert.Equal((2, 3, ModelTraits.Leader | ModelTraits.Tough | ModelTraits.NegateFear | ModelTraits.Principality | ModelTraits.Elite), (Loaded(crowned).RangedDice, Loaded(crowned).MeleeDice, Loaded(crowned).Traits));
 
         var monastery = RosterBuilder.Shipped();
         monastery.ChooseFaction("pilgrims");
@@ -393,7 +394,7 @@ public class MatchReadinessTests
         var smoked = cleric.MatchCheck();
         Assert.Empty(smoked.Refused);
         Assert.DoesNotContain(smoked.PlayedWithout, w => w.Contains("Holy Smoke", StringComparison.Ordinal));
-        Assert.Equal((-1, ModelTraits.NegateFear | ModelTraits.Principality), (Loaded(smoked).InjuryDiceTaken, Loaded(smoked).Traits));
+        Assert.Equal((-1, ModelTraits.NegateFear | ModelTraits.Principality | ModelTraits.Elite), (Loaded(smoked).InjuryDiceTaken, Loaded(smoked).Traits));
         Assert.Contains("\"injuryDiceTaken\": -1", smoked.ToContentJson("p", "P"), StringComparison.Ordinal);
 
         var pilgrim = Of("pilgrims", "trench-pilgrim", "zealots-draught").MatchCheck();
@@ -838,6 +839,8 @@ public class MatchReadinessTests
         Assert.True(wrath.FireSins && !plain.FireSins && !wrath.DownSins && !wrath.TakedownSins);
         Assert.True(Praetor("dedicated-to-envy").TakedownSins);
         Assert.True(Praetor("dedicated-to-gluttony").DownSins);
+        var pride = Praetor("dedicated-to-pride");
+        Assert.True(pride.NonPavebo && pride.Traits.HasFlag(ModelTraits.Elite) && !plain.NonPavebo);
     }
 
     // Roster stage R11 (U136): the three Court spells bought as upgrades are known by the model; the others are still named.
@@ -904,6 +907,29 @@ public class MatchReadinessTests
         fiend.ChooseFaction("court");
         fiend.Select(fiend.Add("chain-fiend"));
         Assert.True(Loaded(fiend.MatchCheck()).Commandable);
+        Assert.True(Loaded(fiend.MatchCheck()).GloryLost);
+    }
+
+    // October 2026 Review (U157): Hellfire Ember gives the bearer's Melee Weapon FIRE, Lesser Murder Mark takes 1 INJURY DICE off attacks on it.
+    [Fact]
+    public void WrathKitIsPlayed()
+    {
+        ModelProfile Praetor(params string[] kit)
+        {
+            var builder = RosterBuilder.Shipped();
+            builder.ChooseFaction("court");
+            builder.ChooseVariant("dedicated-to-wrath");
+            builder.Select(builder.Add("praetor"));
+            foreach (var k in kit)
+            {
+                builder.AddKit(k);
+            }
+            return Loaded(builder.MatchCheck());
+        }
+        Assert.False(Praetor("ruin-mace").MeleeWeaponKeywords.HasFlag(WeaponKeywords.Fire));
+        Assert.True(Praetor("ruin-mace", "hellfire-ember").MeleeWeaponKeywords.HasFlag(WeaponKeywords.Fire));
+        Assert.Equal(0, Praetor().InjuryDiceTaken);
+        Assert.Equal(-1, Praetor("lesser-murder-mark").InjuryDiceTaken);
     }
 
     // Roster stage R6f (U122): the upgrades the engine plays: Legionnaire, Zealot Strength (and a Trench Pilgrim's 32 mm

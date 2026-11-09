@@ -227,4 +227,51 @@ public class SinSourceTests
         GoScripted(noFire, new Shoot(Seat.One, A(1), B(1)), 4);
         Assert.Equal(0, noFire.M(A(1)).SinMarkers);
     }
+
+    [Fact]
+    [Trait("Rule", "Wounded Pride: after a non-ELITE model's attack puts BLOOD MARKERS on the bearer, the attacker gets as many")]
+    public void WoundedPrideSendsTheBloodMarkersBackToANonEliteAttacker()
+    {
+        var play = Duel(Rifleman, Rifleman with { WoundedPride = true });
+        GoScripted(play, new Shoot(Seat.One, A(1), B(1)), 4);
+        Assert.Equal((1, 1), (play.M(B(1)).BloodMarkers, play.M(A(1)).BloodMarkers));
+
+        var elite = Duel(Rifleman with { Traits = ModelTraits.Elite }, Rifleman with { WoundedPride = true });
+        GoScripted(elite, new Shoot(Seat.One, A(1), B(1)), 4);
+        Assert.Equal((1, 0), (elite.M(B(1)).BloodMarkers, elite.M(A(1)).BloodMarkers));
+
+        var plain = Duel(Rifleman, Rifleman);
+        GoScripted(plain, new Shoot(Seat.One, A(1), B(1)), 4);
+        Assert.Equal(0, plain.M(A(1)).BloodMarkers);
+    }
+
+    private static BoardPlay Pride(ModelProfile model, params TerrainBlock[] terrain)
+    {
+        var scenario = new Scenario(Field("36", terrain, [new DeploymentZone("west", F("0", "0", "6", "36")), new DeploymentZone("east", F("30", "0", "36", "36"))]), []);
+        var play = new BoardPlay(2, id => id == A(1) ? model : Rifleman, scenario: scenario).ToActivation();
+        play.Put(A(1), "10", "10").Put(A(2), "2", "30").Put(B(1), "16", "10").Put(B(2), "30", "30");
+        return play;
+    }
+
+    [Fact]
+    [Trait("Rule", "Non Pavebo: an ELITE model that Activates in Open terrain, touching no piece that gives COVER, gets 2 SIN MARKERS")]
+    public void NonPaveboPaysTwoSinMarkersOnlyInTheOpen()
+    {
+        var elite = Rifleman with { NonPavebo = true, Traits = ModelTraits.Elite };
+        var open = Pride(elite);
+        open.Do(new ActivateModel(Seat.One, A(1)));
+        Assert.Equal(2, open.M(A(1)).SinMarkers);
+
+        var sheltered = Pride(elite, Wall("w", "9", "9", "12", "10.4"));   // touches the base
+        sheltered.Do(new ActivateModel(Seat.One, A(1)));
+        Assert.Equal(0, sheltered.M(A(1)).SinMarkers);
+
+        var far = Pride(elite, Wall("w", "20", "20", "22", "20.2"));   // elsewhere on the field
+        far.Do(new ActivateModel(Seat.One, A(1)));
+        Assert.Equal(2, far.M(A(1)).SinMarkers);
+
+        var notElite = Pride(Rifleman with { NonPavebo = true });
+        notElite.Do(new ActivateModel(Seat.One, A(1)));
+        Assert.Equal(0, notElite.M(A(1)).SinMarkers);
+    }
 }

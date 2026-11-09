@@ -938,7 +938,10 @@ public static class Reducer
         var spread = model!.InfectionMarkers > 0 ? Math.Min(BloodMarkers.Max, model.InfectionMarkers + 1) : 0;
         // October 2026 Review (U144): Beacon of Corruption puts 1 SIN MARKER next to its model each time it Activates.
         var beacon = state.Setup!.ProfileOf(e.Model)?.SinBeacon == true ? Math.Min(BloodMarkers.Max, model.SinMarkers + 1) : model.SinMarkers;
-        return TurnRules.WithModel(state, model with { ActivatedThisTurn = true, Hidden = false, InfectionMarkers = spread, SinMarkers = beacon }) with
+        // Non Pavebo (U157): an ELITE model of the Pride variant that Activates in the open gets 2 SIN MARKERS.
+        var pavebo = state.Setup.ProfileOf(e.Model) is { NonPavebo: true } np && (np.Traits & ModelTraits.Elite) != 0 && Board.InTheOpen(state, model)
+            ? Math.Min(BloodMarkers.Max, beacon + 2) : beacon;
+        return TurnRules.WithModel(state, model with { ActivatedThisTurn = true, Hidden = false, InfectionMarkers = spread, SinMarkers = pavebo }) with
         {
             ActiveModel = e.Model,
             LastActivator = e.Seat,
@@ -2028,6 +2031,12 @@ public static class Reducer
         {
             state = TurnRules.WithModel(state, self with { SinMarkers = Math.Min(BloodMarkers.Max, self.SinMarkers + gained) });
         }
+        // Wounded Pride (U157): the BLOOD MARKERS a non-ELITE attacker put on a bearer come back on the attacker.
+        var placed = hurt.BloodMarkers - target.BloodMarkers;
+        if (state.Setup!.ProfileOf(target.Id)!.WoundedPride && (mine.Traits & ModelTraits.Elite) == 0 && placed > 0 && state.FindModel(attacker.Id) is { } hitter)
+        {
+            state = TurnRules.WithModel(state, hitter with { BloodMarkers = Math.Min(BloodMarkers.Max, hitter.BloodMarkers + placed) });
+        }
         if (mine.TakedownSins && tookDown && Board.BodyOf(state, attacker) is { } from)
         {
             foreach (var friend in state.Models.Where(m => m.Seat == attacker.Seat && m.Id != attacker.Id && m.Position is not null && m.Status != ModelStatus.OutOfAction
@@ -2277,7 +2286,7 @@ public static class Reducer
     // A Melee Attack's Success Roll dice: the declared penalty and the attacker's own dice with that weapon (roster
     // stages R1, R3).
     private static (int Bonus, int Penalty) MeleeDice(MatchState state, MeleeAttackDeclared e) =>
-        AttackDice.With(CounterDice(state, e.Attacker) + HordeDice(state, e.Attacker, e.Weapon), e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Melee, e.Weapon), AttackKind.Melee));
+        AttackDice.With(CounterDice(state, e.Attacker) + HordeDice(state, e.Attacker, e.Weapon) + GloryDice(state, e.Attacker), e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Melee, e.Weapon), AttackKind.Melee));
 
     // Roster stage R6c (U119): +1 DICE to the active model's Melee Attacks after a Counter-Charge this activation.
     internal static int CounterDice(MatchState state, ModelId attacker) => state.CounterCharging && state.ActiveModel == attacker ? 1 : 0;
@@ -2291,6 +2300,11 @@ public static class Reducer
         weapon == 0 && state.Setup!.ProfileOf(attacker)!.Horde && state.FindModel(attacker) is { } model && Board.BodyOf(state, model) is { } body
             ? state.Models.Count(m => m.Seat == model.Seat && m.Id != model.Id && m.Position is not null && m.Status != ModelStatus.OutOfAction && Board.BodyOf(state, m) is { } other && Measure.IsWithin(body, other, HordeReach))
             : 0;
+
+    // October 2026 Review (U157): Glory Lost, +1 DICE to its Melee Attacks while friendly Chain Fiends on the battlefield carry 3 or more SIN MARKERS between them.
+    internal static int GloryDice(MatchState state, ModelId attacker) =>
+        state.Setup!.ProfileOf(attacker)!.GloryLost && state.FindModel(attacker) is { } model
+        && state.Models.Where(m => m.Seat == model.Seat && m.Position is not null && m.Status != ModelStatus.OutOfAction && state.Setup.ProfileOf(m.Id)!.Commandable).Sum(m => m.SinMarkers) >= 3 ? 1 : 0;
 
     private static readonly Length HordeReach = Length.FromInches(3);
 
