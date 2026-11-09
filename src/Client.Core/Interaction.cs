@@ -122,6 +122,9 @@ public enum BarKind
 
     // Leaves the spell menu (or its target list) for the one before; nothing is sent.
     SpellBack,
+
+    // October 2026 Review (U161): opens the list of enemies a Goetic Gaze may look at; nothing is sent. Back is SpellBack.
+    Gaze,
 }
 
 // One button of the action bar: a short label, a tooltip that says what it does (and its optional key), and the command
@@ -295,6 +298,35 @@ public sealed class Interaction
 
     public SpellKind SpellChosen { get; private set; }
 
+    // October 2026 Review (U161): the Goetic Gaze target list is open on the bar.
+    public bool GazeOpen { get; private set; }
+
+    public void OpenGaze()
+    {
+        if (_seat is { } seat && Pending is null && Mode == InteractionMode.None && GazeTargets(seat).Count > 0)
+        {
+            GazeOpen = true;
+            SpellsOpen = false;
+            Changed();
+        }
+    }
+
+    private IReadOnlyList<TakeSelfAction>? _gazes;
+    private MatchState? _gazeState;
+
+    private IReadOnlyList<TakeSelfAction> GazeTargets(Seat seat)
+    {
+        if (_gazes is null || !ReferenceEquals(_gazeState, _state))
+        {
+            _gazes = _state.Setup is { } setup && _state.Pending is null && _state.ActiveModel is { } active && _state.FindModel(active)?.Seat == seat && setup.ProfileOf(active) is { Gazes: true }
+                ? [.. _state.Models.Where(m => m.Seat != seat && m.Position is not null).Select(m => new TakeSelfAction(seat, active, SelfActionKind.GoeticGaze) { Target = m.Id })
+                    .Where(c => TurnSequence.Check(_state, c) is null)]
+                : [];
+            _gazeState = _state;
+        }
+        return _gazes;
+    }
+
     public void OpenSpells()
     {
         if (_seat is { } seat && Pending is null && Mode == InteractionMode.None && SpellChoices(seat).Count > 0)
@@ -316,7 +348,11 @@ public sealed class Interaction
 
     public void SpellBack()
     {
-        if (SpellChosen != SpellKind.None)
+        if (GazeOpen)
+        {
+            GazeOpen = false;
+        }
+        else if (SpellChosen != SpellKind.None)
         {
             SpellChosen = SpellKind.None;
         }
@@ -382,6 +418,7 @@ public sealed class Interaction
         // A new state closes the spell menu: a cast, another activation or the end of this one all make its list stale.
         SpellsOpen = false;
         SpellChosen = SpellKind.None;
+        GazeOpen = false;
         _armed = false;
         // While a command is on its way, the server's answer decides what happens to the choice.
         if (Pending is null && Mode != InteractionMode.None && !StillPossible())
@@ -630,12 +667,22 @@ public sealed class Interaction
         var legal = _state.Pending is null ? LegalCommands().Where(c => CommandSeats.Of(c) == seat).ToList() : [];
         if (_state.Phase == Phase.Activation && _state.ActiveModel is { } active && _state.FindModel(active)?.Seat == seat)
         {
+            var gazes = GazeTargets(seat);
+            if (GazeOpen && gazes.Count > 0)
+            {
+                return new(active, [.. gazes.Select(g => new BarItem(BarKind.Decide, $"Gaze at {NameOf(g.Target!.Value)}",
+                    $"{NameOf(g.Model)} gazes at {NameOf(g.Target!.Value)}: a Success Roll puts 1 Blood Marker on it (2 on a Critical Success).", Command: g)), new BarItem(BarKind.SpellBack, "Back", "Close the list.")]);
+            }
             var spells = SpellChoices(seat);
             if (SpellsOpen && spells.Count > 0)
             {
                 return new(active, SpellItems(spells));
             }
             var items = BarOffered.Select(m => new BarItem(BarKind.Start, Words(m), Tip(m), Mode: m)).ToList();
+            if (gazes.Count > 0)
+            {
+                items.Add(new(BarKind.Gaze, "Goetic Gaze", "Look at an enemy within 24\" in sight: a Success Roll puts 1 Blood Marker on it (2 on a Critical Success). Choose the enemy next."));
+            }
             if (spells.Count > 0)
             {
                 items.Add(new(BarKind.Spell, "Spells", "Cast one of this model's Court spells: choose the spell, then its target. Each is paid the cheapest way, at its lowest cost; the server decides."));

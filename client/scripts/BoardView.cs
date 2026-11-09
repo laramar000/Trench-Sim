@@ -1627,6 +1627,11 @@ public partial class BoardView : SubViewportContainer
                 }
                 Sync();
                 break;
+            case BarKind.Gaze:
+                GrabFocus();
+                Interaction.OpenGaze();
+                Sync();
+                break;
             case BarKind.SpellBack:
                 Interaction.SpellBack();
                 Sync();

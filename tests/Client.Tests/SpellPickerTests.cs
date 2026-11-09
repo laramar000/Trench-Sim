@@ -73,4 +73,39 @@ public class SpellPickerTests
         interaction.OpenSpells();
         Assert.False(interaction.SpellsOpen);
     }
+
+    // October 2026 Review (U161): the Goetic Gaze button lists the enemies the rules accept, and Back closes the list.
+    [Fact]
+    public void TheGazeButtonListsTheEnemiesInSight()
+    {
+        var warbands = Content.Load(Content.MeleePath()).Select(w => w with
+        {
+            Models = w.Models.Select(m => m with { Profile = m.Profile with { Gazes = true } }).ToList(),
+        }).ToList();
+        var state = MatchState.None;
+        foreach (var e in Runner.Run(2, warbands).Log)
+        {
+            state = Reducer.Apply(state, e);
+            if (state.Phase != Phase.Activation || state.ActiveModel is not { } active || state.Pending is not null || state.Actions != ActionsTaken.None || state.FindModel(active) is not { } model)
+            {
+                continue;
+            }
+            var interaction = new Interaction();
+            interaction.Update(state, model.Seat);
+            if (!interaction.Bar(null).Items.Any(i => i.Kind == BarKind.Gaze))
+            {
+                continue;
+            }
+            interaction.OpenGaze();
+            var items = interaction.Bar(null).Items;
+            var gazes = items.Where(i => i.Kind == BarKind.Decide).ToList();
+            Assert.NotEmpty(gazes);
+            Assert.All(gazes, g => Assert.Null(TurnSequence.Check(state, g.Command!)));
+            Assert.Equal(BarKind.SpellBack, items[^1].Kind);
+            interaction.SpellBack();
+            Assert.False(interaction.GazeOpen);
+            return;
+        }
+        Assert.Fail("No activation with an enemy in sight was found.");
+    }
 }
