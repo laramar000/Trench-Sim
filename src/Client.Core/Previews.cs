@@ -247,7 +247,7 @@ public static class Previews
         };
         var facts = new List<string>();
         var refusal = Opening(state) ?? (kind == PreviewKind.Retreat ? CheckRetreat(state, seat, model, path, facts) : CheckMove(state, seat, model, path, kind, facts));
-        double? allowance = state.FindModel(model) is { } mover && state.Setup?.ProfileOf(model) is not null ? TableRect.Inches(Allowance(state, mover)) : null;
+        double? allowance = state.FindModel(model) is { } mover && state.Setup?.ProfileOf(model) is not null ? TableRect.Inches(Allowance(state, mover, kind == PreviewKind.Dash)) : null;
         var marks = Marks(state, model, path);
         // Towers proposal, stage T4: a path that goes up or down a ladder says so, and what the climb costs (U66).
         var climbs = marks.Zip(marks.Skip(1)).Where(m => m.First.Height != m.Second.Height).Select(m => Math.Abs(m.Second.Height - m.First.Height)).ToList();
@@ -307,8 +307,8 @@ public static class Previews
         {
             return new(ReasonCode.TooManyWaypoints, $"A move has at most {Rules.Core.Events.ModelMoved.MaxWaypoints} waypoints.", RefMove);
         }
-        var result = Movement.CheckPath(state.Setup!.Scenario!.Battlefield, BodyOf(state, model!)!, path, Allowance(state, model!), Obstacles(state, model!), sideClimb: true);
-        facts.Add($"Distance {Inch(result.Cost)} of {Inch(Allowance(state, model!))} allowed{(state.MovementHalved ? " (halved after standing up)" : "")}.");
+        var result = Movement.CheckPath(state.Setup!.Scenario!.Battlefield, BodyOf(state, model!)!, path, Allowance(state, model!, kind == PreviewKind.Dash), Obstacles(state, model!), sideClimb: true);
+        facts.Add($"Distance {Inch(result.Cost)} of {Inch(Allowance(state, model!, kind == PreviewKind.Dash))} allowed{(state.MovementHalved ? " (halved after standing up)" : "")}.");
         if (kind == PreviewKind.Dash)
         {
             facts.Add("A Dash is a Risky Success Roll: the dice decide whether the model moves (server).");
@@ -1349,9 +1349,11 @@ public static class Previews
     private static bool IsEngaged(MatchState state, ModelState model) =>
         BodyOf(state, model) is { } body && OnTable(state).Any(o => o.Seat != model.Seat && Measure.IsWithin(body, BodyOf(state, o)!, Engagement));
 
-    private static Length Allowance(MatchState state, ModelState model)
+    // October 2026 Review (U160): Slow counts a Dash as Movement 3" (the same rule as Board.Allowance).
+    private static Length Allowance(MatchState state, ModelState model, bool dash = false)
     {
-        var movement = state.Setup!.ProfileOf(model.Id)!.Movement;
+        var profile = state.Setup!.ProfileOf(model.Id)!;
+        var movement = dash && profile.Slow && profile.Movement > Length.FromInches(3) ? Length.FromInches(3) : profile.Movement;
         return state.MovementHalved ? Length.FromThousandths(movement.Thousandths / 2) : movement;
     }
 

@@ -135,20 +135,24 @@ internal static class Board
         Math.Min(ShrineState.MaxBonus, ShrineState.MoraleBonus * state.Shrines.Count(h => h.Seat == seat));
 
     // Movement for this activation: the profile's Movement, halved after standing up (Core p. 20, U30).
-    public static Length Allowance(MatchState state, ModelState model)
+    // October 2026 Review (U160): Slow counts the model's Movement as 3" when it takes a Dash ACTION (dash: true), and only then.
+    public static Length Allowance(MatchState state, ModelState model, bool dash = false)
     {
-        var movement = state.Setup!.ProfileOf(model.Id)!.Movement;
+        var profile = state.Setup!.ProfileOf(model.Id)!;
+        var movement = dash && profile.Slow && profile.Movement > SlowMovement ? SlowMovement : profile.Movement;
         return state.MovementHalved ? Length.FromThousandths(movement.Thousandths / 2) : movement;
     }
 
-    public static MoveResult CheckMove(MatchState state, ModelState mover, IReadOnlyList<Point2> path)
+    public static readonly Length SlowMovement = Length.FromInches(3);
+
+    public static MoveResult CheckMove(MatchState state, ModelState mover, IReadOnlyList<Point2> path, bool dash = false)
     {
         var scenario = ScenarioOf(state)!;
         var others = OnTable(state)
             .Where(m => m.Id != mover.Id)
             .Select(m => new Obstacle(BodyOf(state, m)!, m.Seat == mover.Seat ? Relation.Friendly : Relation.Enemy))
             .Concat(ShrineObstacles(state));
-        return Movement.CheckPath(scenario.Battlefield, BodyOf(state, mover)!, path, Allowance(state, mover), others, sideClimb: true);
+        return Movement.CheckPath(scenario.Battlefield, BodyOf(state, mover)!, path, Allowance(state, mover, dash), others, sideClimb: true);
     }
 
     // ---- October 2026 Review (U152): Left-Hand Path ----
@@ -184,11 +188,11 @@ internal static class Board
     // A move whose path has points the model is redeployed at (Left-Hand Path): the walks between them are checked as ordinary moves
     // from where the model then stands, within what is left of its Movement; each redeployment must be more than 1" from every enemy,
     // a legal place for the base, and in contact with a terrain piece within 24" of where the model was.
-    public static MoveResult CheckMove(MatchState state, ModelState mover, IReadOnlyList<Point2> path, IReadOnlyList<int> jumps)
+    public static MoveResult CheckMove(MatchState state, ModelState mover, IReadOnlyList<Point2> path, IReadOnlyList<int> jumps, bool dash = false)
     {
         if (jumps.Count == 0)
         {
-            return CheckMove(state, mover, path);
+            return CheckMove(state, mover, path, dash);
         }
         var scenario = ScenarioOf(state)!;
         var others = OnTable(state)
@@ -197,7 +201,7 @@ internal static class Board
             .Concat(ShrineObstacles(state))
             .ToList();
         var body = BodyOf(state, mover)!;
-        var left = Allowance(state, mover);
+        var left = Allowance(state, mover, dash);
         var spent = Length.Zero;
         var walk = new List<Point2>();
         MoveResult? Walk()

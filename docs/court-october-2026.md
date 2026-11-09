@@ -34,7 +34,7 @@ the progress; the reasoning for each rule is in `docs/interpretations.md` (U142 
 | C3g | Slavemaster (U153) | done |
 | C3 | The variant warbands' own spells (with C5) | open |
 | C4a | Base Court list in `court.json` and `catalogue.json` to the Review: models, costs, abilities, Armoury, new kit (U143) | done |
-| C4b | The rest of the Review's base text: Hunter, Pit Locust and Wretched details, mercenary Goetic Warlock / Sin Eater lines, every model's engine effects | part done (U159: Totemic, Relentless, Barbed Embrace, Goaded Forth); Slow, Aura of Sin, Annihilator, Iron-Clawed Hands, Goetic Gaze/Portal, Vengeful Scripture, Devour the Guilty open |
+| C4b | The rest of the Review's base text: Hunter, Pit Locust and Wretched details, mercenary Goetic Warlock / Sin Eater lines, every model's engine effects | part done (U159: Totemic, Relentless, Barbed Embrace, Goaded Forth; U160: Slow, Iron-Clawed Hands); Aura of Sin, Annihilator, Goetic Gaze/Portal, Vengeful Scripture, Devour the Guilty open |
 | C5 | The seven variants' recruitment, special rules, Goetic Powers, Armoury and new kit as data (U155) | done |
 | C5b | Variants' engine effects: SIN MARKER sources for Wrath, Envy, Gluttony (U156) | part done (U156, U157); Proud Defiance and Gluttony's second clause open |
 | C5b | The variants' special rules and new kit played by the engine, one by one | open |

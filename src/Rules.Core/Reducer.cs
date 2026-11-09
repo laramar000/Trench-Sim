@@ -1140,7 +1140,7 @@ public static class Reducer
         var model = Active(state, e.Model, "A Dash");
         Require(state.InProgress is null && !state.Actions.HasFlag(ActionsTaken.Dash), "A Dash can be taken once per activation.");
         Require(ActionLimits.MoveExcluded(state, e.Model) is null, ActionLimits.HeavyText);
-        Require(Board.JumpProblem(state, model, e.Path, e.Jumps, e.Payment) is null && Board.CheckMove(state, model, e.Path, e.Jumps).IsLegal, "A Dash must follow a legal path.");
+        Require(Board.JumpProblem(state, model, e.Path, e.Jumps, e.Payment) is null && Board.CheckMove(state, model, e.Path, e.Jumps, dash: true).IsLegal, "A Dash must follow a legal path.");
         return state with
         {
             Actions = state.Actions | ActionsTaken.Dash,
@@ -1453,7 +1453,7 @@ public static class Reducer
             Require(state.InProgress is { Stage: RollStage.DashMove } p && p.Actor == e.Model && p.DashPath.SequenceEqual(e.Path),
                 "A Dash climbs only after its own roll succeeded, along the declared path.");
         }
-        Require(Board.CheckMove(state, model, e.Path) is { IsLegal: true, SideClimb: not null }, "A climb must be part of a legal move that climbs a tower's side.");
+        Require(Board.CheckMove(state, model, e.Path, e.Kind == MoveKind.Dash) is { IsLegal: true, SideClimb: not null }, "A climb must be part of a legal move that climbs a tower's side.");
         var action = e.Kind == MoveKind.Move ? ActionsTaken.Move : ActionsTaken.Dash;
         return state with
         {
@@ -1534,7 +1534,7 @@ public static class Reducer
     internal static ImmutableArray<Point2> ClimbStopPath(MatchState state, RollInProgress progress)
     {
         var model = state.FindModel(progress.Actor)!;
-        var at = Board.CheckMove(state, model, progress.DashPath).SideClimb!.Value;
+        var at = Board.CheckMove(state, model, progress.DashPath, dash: true).SideClimb!.Value;
         return progress.DashPath.Take(at).ToImmutableArray();
     }
 
@@ -1546,7 +1546,7 @@ public static class Reducer
             var expected = climb.Stage == RollStage.ClimbMove ? climb.DashPath : ClimbStopPath(state, climb);
             Require(e.Kind == (climb.ClimbAction == ActionsTaken.Move ? MoveKind.Move : MoveKind.Dash) && expected.SequenceEqual(e.Path),
                 "A climbing move follows its roll: the whole path on a Success, only up to the climb on a Failure.");
-            var climbed = Board.CheckMove(state, model, e.Path);
+            var climbed = Board.CheckMove(state, model, e.Path, e.Kind == MoveKind.Dash);
             Require(climbed.IsLegal && climbed.Cost == e.Cost, "The move must follow a legal path at the recorded cost.");
             var climbedTo = TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
             {
@@ -1568,7 +1568,7 @@ public static class Reducer
                 "A Dash moves only after its roll succeeded, along the declared path.");
         }
         Require(Board.JumpProblem(state, model, e.Path, e.Jumps, e.Payment) is null, "The Left-Hand Path jumps must be known, in order and paid for.");
-        var check = Board.CheckMove(state, model, e.Path, e.Jumps);
+        var check = Board.CheckMove(state, model, e.Path, e.Jumps, e.Kind == MoveKind.Dash);
         Require(check.IsLegal && check.Cost == e.Cost, "The move must follow a legal path at the recorded cost.");
         Require(check.SideClimb is null, "A move that climbs a tower's side needs its Risky Success Roll first.");
         var paying = state;

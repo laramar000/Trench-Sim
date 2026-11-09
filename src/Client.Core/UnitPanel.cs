@@ -443,6 +443,7 @@ public static class UnitPanel
             (p.HuntsTheTough, "+1 INJURY DICE against TOUGH"),
             (p.CounterCharge, "Counter-Charge: +1 DICE in melee after charging first"),
             (p.MementoMori, "first Out of Action counts as No Effect"),
+            (p.Slow, "Slow: counts as Movement 3in when it Dashes"),
             (p.GoadedForth, "Goaded Forth: +1 DICE to its Dash roll near a friendly Chain Fiend"),
             (p.BarbedEmbrace, "Barbed Embrace: enemies within 1in cannot Retreat"),
             (p.Totemic, "Totemic: friendly DEMONIC models Activating within 1in get 1 SIN MARKER"),

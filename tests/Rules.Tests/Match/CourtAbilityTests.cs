@@ -70,4 +70,20 @@ public class CourtAbilityTests
         Assert.Equal(0, Dice("25"));          // beyond 8"
         Assert.Equal(0, Dice("14", fiend: false));
     }
+
+    [Fact]
+    [Trait("Rule", "Slow: counts as Movement 3in when it takes a Dash ACTION")]
+    public void SlowShortensADashAndNothingElse()
+    {
+        var slow = Brawler with { Slow = true };
+        var play = Skirmish("4", "2", "30", "30", slow);
+        var far = Path(("8.5", "2"));      // 4.5" away: inside a Brawler's Movement, outside Slow's 3"
+        Assert.NotNull(TurnSequence.Check(play.State, new DashModel(Seat.One, A(1), far)));
+        Assert.Null(TurnSequence.Check(play.State, new DashModel(Seat.One, A(1), Path(("6.5", "2")))));
+        Assert.Null(TurnSequence.Check(play.State, new MoveModel(Seat.One, A(1), far)));
+
+        var plain = Skirmish("4", "2", "30", "30", Brawler);
+        Assert.Null(TurnSequence.Check(plain.State, new DashModel(Seat.One, A(1), far)));
+        Assert.Contains("slow=yes", StateHash.Canonical(play.State), StringComparison.Ordinal);
+    }
 }

@@ -366,6 +366,9 @@ public sealed record ModelProfile
     // Memento Mori (p. 53): its first Out of Action result counts as No Effect (it is never TOUGH).
     public bool MementoMori { get; init; }
 
+    // Slow: counts as Movement 3in when it takes a Dash ACTION.
+    public bool Slow { get; init; }
+
     // Goaded Forth: +1 DICE to the Risky roll of its Dash ACTION with a friendly Chain Fiend within 8in and in sight.
     public bool GoadedForth { get; init; }
 
@@ -628,6 +631,7 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                Slow = Slow,
                 GoadedForth = GoadedForth,
                 BarbedEmbrace = BarbedEmbrace,
                 Totemic = Totemic,
@@ -711,6 +715,7 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                Slow = Slow,
                 GoadedForth = GoadedForth,
                 BarbedEmbrace = BarbedEmbrace,
                 Totemic = Totemic,
@@ -794,6 +799,7 @@ public sealed record ModelProfile
             HuntsTheTough = HuntsTheTough,
             CounterCharge = CounterCharge,
             MementoMori = MementoMori,
+            Slow = Slow,
             GoadedForth = GoadedForth,
             BarbedEmbrace = BarbedEmbrace,
             Totemic = Totemic,

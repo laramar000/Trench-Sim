@@ -257,7 +257,7 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.MoveIllegal, cannot, "Rules Review October 2026 p. 12");
         }
-        var result = Board.CheckMove(state, model!, path.IsDefault ? [] : path, jumping);
+        var result = Board.CheckMove(state, model!, path.IsDefault ? [] : path, jumping, action == ActionsTaken.Dash);
         return result.IsLegal ? null : new(ReasonCode.MoveIllegal, result.Text, result.RuleRef);
     }
 
@@ -1117,7 +1117,7 @@ public static partial class TurnSequence
             }
             case RollStage.DashMove:
             {
-                var dash = Board.CheckMove(s, actor, progress.DashPath, progress.DashJumps.IsDefault ? [] : progress.DashJumps);
+                var dash = Board.CheckMove(s, actor, progress.DashPath, progress.DashJumps.IsDefault ? [] : progress.DashJumps, dash: true);
                 if (dash.SideClimb is not null)
                 {
                     DeclareClimb(run, progress.Actor, MoveKind.Dash, progress.DashPath);
@@ -1142,14 +1142,14 @@ public static partial class TurnSequence
             case RollStage.ClimbMove:
             {
                 var kind = progress.ClimbAction == ActionsTaken.Move ? MoveKind.Move : MoveKind.Dash;
-                run.Emit(new ModelMoved(progress.Actor, kind, progress.DashPath, Board.CheckMove(s, actor, progress.DashPath).Cost));
+                run.Emit(new ModelMoved(progress.Actor, kind, progress.DashPath, Board.CheckMove(s, actor, progress.DashPath, dash: true).Cost));
                 return true;
             }
             case RollStage.ClimbStop:
             {
                 var kind = progress.ClimbAction == ActionsTaken.Move ? MoveKind.Move : MoveKind.Dash;
                 var stop = Reducer.ClimbStopPath(s, progress);
-                run.Emit(new ModelMoved(progress.Actor, kind, stop, Board.CheckMove(s, actor, stop).Cost));
+                run.Emit(new ModelMoved(progress.Actor, kind, stop, Board.CheckMove(s, actor, stop, dash: true).Cost));
                 // A Mine Marker on the way halts the move first; the activation ends once the move is over.
                 if (run.State.MineStop is null && run.State.MustEndActivation)
                 {

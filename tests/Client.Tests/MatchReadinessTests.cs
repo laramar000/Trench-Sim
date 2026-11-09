@@ -926,6 +926,9 @@ public class MatchReadinessTests
         Assert.True(Unit("wretched").GoadedForth);
         Assert.False(Unit("chain-fiend").Totemic);
         Assert.True(Unit("goetic-warlock").BarbedEmbrace);
+        var claws = Unit("goetic-warlock");   // Iron-Clawed Hands: a CLEAVE 2, CRITICAL attack with no weapon
+        Assert.True(claws.MeleeWeaponCleave == 2 && claws.MeleeWeaponKeywords.HasFlag(WeaponKeywords.Critical));
+        Assert.True(Unit("fallen-saint").Slow == false && Unit("scriptural-guardian").Slow);
     }
 
     // October 2026 Review (U157): Hellfire Ember gives the bearer's Melee Weapon FIRE, Lesser Murder Mark takes 1 INJURY DICE off attacks on it.
