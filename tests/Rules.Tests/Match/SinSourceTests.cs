@@ -205,7 +205,7 @@ public class SinSourceTests
     [Trait("Rule", "Envy variant: when a model takes an enemy Down, each other friendly DEMONIC model within 6in earns 1 SIN MARKER")]
     public void ATakedownEarnsNearbyDemonicFriendsASinMarker()
     {
-        var play = Duel(Demon with { TakedownSins = true }, Rifleman);
+        var play = Duel(Rifleman with { TakedownSins = true }, Rifleman);   // the taker need not be DEMONIC
         play.Put(A(2), "12", "10");
         GoScripted(play, new Shoot(Seat.One, A(1), B(1)), 4);
         Assert.Equal((0, 1), (play.M(A(1)).SinMarkers, play.M(A(2)).SinMarkers));

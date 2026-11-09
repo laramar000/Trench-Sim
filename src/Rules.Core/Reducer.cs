@@ -2017,13 +2017,13 @@ public static class Reducer
     // October 2026 Review (U156): the Wrath, Envy and Gluttony variants earn SIN MARKERS from their attacks. Derived from the event, so no field.
     private static MatchState SinGains(MatchState state, RollInProgress progress, ModelState attacker, ModelState target, ModelState hurt, ModelProfile profile)
     {
-        if (progress.Spell != SpellKind.None || progress.Martyrdom || attacker.Seat == target.Seat || state.Setup!.ProfileOf(attacker.Id) is not { } mine
-            || (mine.Traits & ModelTraits.Demonic) == 0)
+        if (progress.Spell != SpellKind.None || progress.Martyrdom || attacker.Seat == target.Seat || state.Setup!.ProfileOf(attacker.Id) is not { } mine)
         {
             return state;
         }
         var tookDown = target.Status == ModelStatus.Standing && hurt.Status != ModelStatus.Standing || target.Status == ModelStatus.Down && hurt.Status == ModelStatus.OutOfAction;
-        var gained = (mine.FireSins && (profile.AttackKeywords(progress.Kind) & WeaponKeywords.Fire) != 0 ? 1 : 0) + (mine.DownSins && tookDown ? 1 : 0);
+        var demonic = (mine.Traits & ModelTraits.Demonic) != 0;
+        var gained = (!demonic ? 0 : (mine.FireSins && (profile.AttackKeywords(progress.Kind) & WeaponKeywords.Fire) != 0 ? 1 : 0) + (mine.DownSins && tookDown ? 1 : 0));
         if (gained > 0 && state.FindModel(attacker.Id) is { } self)
         {
             state = TurnRules.WithModel(state, self with { SinMarkers = Math.Min(BloodMarkers.Max, self.SinMarkers + gained) });
