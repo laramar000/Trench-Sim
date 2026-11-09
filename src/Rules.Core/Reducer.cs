@@ -2000,18 +2000,43 @@ public static class Reducer
         // A blast's next model (U102), once this one is rolled for.
         if (!progress.BlastQueue.IsDefaultOrEmpty)
         {
-            var after = TurnRules.WithModel(state, hurt) with { Held = null, HeldReaction = SpellKind.None };
+            var after = SinGains(TurnRules.WithModel(state, hurt) with { Held = null, HeldReaction = SpellKind.None }, progress, attacker, target, hurt, profile);
             return after with { InProgress = NextBlastRoll(after, progress, progress.BlastQueue) };
         }
         // RELOAD: the attacker's activation ends now its ACTION is done (not after a free attack, which is not its own); a
         // scattered attack's failed Risky roll ends it instead (U103).
-        var done = AttackOver(TurnRules.WithModel(state, hurt) with { Held = null, HeldReaction = SpellKind.None }, progress);
+        var done = AttackOver(SinGains(TurnRules.WithModel(state, hurt) with { Held = null, HeldReaction = SpellKind.None }, progress, attacker, target, hurt, profile), progress);
         // October 2026 Review (U146): Light of the Fallen drives a surviving target on a base of 40mm or smaller D6" straight away from the caster.
         if (progress.Spell == SpellKind.LightOfTheFallen && hurt.Status != ModelStatus.OutOfAction && Board.LightPushes(state, attacker, hurt) is { } away)
         {
             done = done with { ForcedMovesOwed = new ForcedOwed(attacker.Id, SelfActionKind.PuppetMaster, target.Id, away) };
         }
         return done;
+    }
+
+    // October 2026 Review (U156): the Wrath, Envy and Gluttony variants earn SIN MARKERS from their attacks. Derived from the event, so no field.
+    private static MatchState SinGains(MatchState state, RollInProgress progress, ModelState attacker, ModelState target, ModelState hurt, ModelProfile profile)
+    {
+        if (progress.Spell != SpellKind.None || progress.Martyrdom || attacker.Seat == target.Seat || state.Setup!.ProfileOf(attacker.Id) is not { } mine
+            || (mine.Traits & ModelTraits.Demonic) == 0)
+        {
+            return state;
+        }
+        var tookDown = target.Status == ModelStatus.Standing && hurt.Status != ModelStatus.Standing || target.Status == ModelStatus.Down && hurt.Status == ModelStatus.OutOfAction;
+        var gained = (mine.FireSins && (profile.AttackKeywords(progress.Kind) & WeaponKeywords.Fire) != 0 ? 1 : 0) + (mine.DownSins && tookDown ? 1 : 0);
+        if (gained > 0 && state.FindModel(attacker.Id) is { } self)
+        {
+            state = TurnRules.WithModel(state, self with { SinMarkers = Math.Min(BloodMarkers.Max, self.SinMarkers + gained) });
+        }
+        if (mine.TakedownSins && tookDown && Board.BodyOf(state, attacker) is { } from)
+        {
+            foreach (var friend in state.Models.Where(m => m.Seat == attacker.Seat && m.Id != attacker.Id && m.Position is not null && m.Status != ModelStatus.OutOfAction
+                && (state.Setup!.ProfileOf(m.Id)!.Traits & ModelTraits.Demonic) != 0 && Board.BodyOf(state, m) is { } other && Measure.IsWithin(from, other, Length.FromInches(6))).ToList())
+            {
+                state = TurnRules.WithModel(state, state.FindModel(friend.Id)! with { SinMarkers = Math.Min(BloodMarkers.Max, friend.SinMarkers + 1) });
+            }
+        }
+        return state;
     }
 
     // Roster stage R5b (U106): TOUGH turns the first Out of Action result a model suffers into a Down result (p. 57).

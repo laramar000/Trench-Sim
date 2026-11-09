@@ -366,6 +366,15 @@ public sealed record ModelProfile
     // Memento Mori (p. 53): its first Out of Action result counts as No Effect (it is never TOUGH).
     public bool MementoMori { get; init; }
 
+    // Gluttony variant: a DEMONIC bearer taking a model Down gives it 1 SIN MARKER.
+    public bool DownSins { get; init; }
+
+    // Envy variant: a friendly attacker's takedown gives each other friendly DEMONIC model within 6in 1 SIN MARKER.
+    public bool TakedownSins { get; init; }
+
+    // Wrath variant: a DEMONIC bearer's FIRE hit on an enemy gives it 1 SIN MARKER.
+    public bool FireSins { get; init; }
+
     // October 2026 Review (U153): a Chain Fiend: what a Slavemaster can command.
     public bool Commandable { get; init; }
 
@@ -601,6 +610,9 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                DownSins = DownSins,
+                TakedownSins = TakedownSins,
+                FireSins = FireSins,
                 Commandable = Commandable,
                 CastsInferno = CastsInferno,
                 Perverse = Perverse,
@@ -675,6 +687,9 @@ public sealed record ModelProfile
                 HuntsTheTough = HuntsTheTough,
                 CounterCharge = CounterCharge,
                 MementoMori = MementoMori,
+                DownSins = DownSins,
+                TakedownSins = TakedownSins,
+                FireSins = FireSins,
                 Commandable = Commandable,
                 CastsInferno = CastsInferno,
                 Perverse = Perverse,
@@ -749,6 +764,9 @@ public sealed record ModelProfile
             HuntsTheTough = HuntsTheTough,
             CounterCharge = CounterCharge,
             MementoMori = MementoMori,
+            DownSins = DownSins,
+            TakedownSins = TakedownSins,
+            FireSins = FireSins,
             Commandable = Commandable,
             CastsInferno = CastsInferno,
             Perverse = Perverse,

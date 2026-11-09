@@ -179,4 +179,52 @@ public class SinSourceTests
         Assert.Throws<InvalidEventException>(() => Reducer.Apply(held, new MarkersConverted(Seat.One, 1, B(2), 0)));      // not a friend
         Reducer.Apply(answered, new InjuryRolled(A(1), B(1), made.Injury) { Converted = 1, ConvertedTo = A(2) });
     }
+
+    // ---- C5b (U156): the Wrath, Envy and Gluttony variants earn SIN MARKERS from their attacks ----
+
+    private static readonly ModelProfile Demon = Rifleman with { Traits = ModelTraits.Demonic };
+
+    [Fact]
+    [Trait("Rule", "Gluttony variant: a DEMONIC model that takes an enemy Down earns 1 SIN MARKER")]
+    public void TakingAModelDownEarnsAGluttonyModelASinMarker()
+    {
+        var play = Duel(Demon with { DownSins = true }, Rifleman);
+        GoScripted(play, new Shoot(Seat.One, A(1), B(1)), 4);
+        Assert.Equal((ModelStatus.Down, 1), (play.M(B(1)).Status, play.M(A(1)).SinMarkers));
+
+        var plain = Duel(Demon, Rifleman);
+        GoScripted(plain, new Shoot(Seat.One, A(1), B(1)), 4);
+        Assert.Equal(0, plain.M(A(1)).SinMarkers);
+
+        var miss = Duel(Demon with { DownSins = true }, Rifleman);
+        GoScripted(miss, new Shoot(Seat.One, A(1), B(1)), 1);   // 1 + 1: no effect
+        Assert.Equal((ModelStatus.Standing, 0), (miss.M(B(1)).Status, miss.M(A(1)).SinMarkers));
+    }
+
+    [Fact]
+    [Trait("Rule", "Envy variant: when a model takes an enemy Down, each other friendly DEMONIC model within 6in earns 1 SIN MARKER")]
+    public void ATakedownEarnsNearbyDemonicFriendsASinMarker()
+    {
+        var play = Duel(Demon with { TakedownSins = true }, Rifleman);
+        play.Put(A(2), "12", "10");
+        GoScripted(play, new Shoot(Seat.One, A(1), B(1)), 4);
+        Assert.Equal((0, 1), (play.M(A(1)).SinMarkers, play.M(A(2)).SinMarkers));
+
+        var far = Duel(Demon with { TakedownSins = true }, Rifleman);   // A2 stands 20in away
+        GoScripted(far, new Shoot(Seat.One, A(1), B(1)), 4);
+        Assert.Equal(0, far.M(A(2)).SinMarkers);
+    }
+
+    [Fact]
+    [Trait("Rule", "Wrath variant: a DEMONIC model's FIRE hit on an enemy earns it 1 SIN MARKER")]
+    public void AFireHitEarnsAWrathModelASinMarker()
+    {
+        var play = Duel(Demon with { FireSins = true, RangedWeaponKeywords = WeaponKeywords.Fire }, Rifleman);
+        GoScripted(play, new Shoot(Seat.One, A(1), B(1)), 4);
+        Assert.Equal(1, play.M(A(1)).SinMarkers);
+
+        var noFire = Duel(Demon with { FireSins = true }, Rifleman);
+        GoScripted(noFire, new Shoot(Seat.One, A(1), B(1)), 4);
+        Assert.Equal(0, noFire.M(A(1)).SinMarkers);
+    }
 }

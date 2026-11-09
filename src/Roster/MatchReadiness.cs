@@ -141,6 +141,12 @@ public sealed record ReadyModel(
     public bool CounterCharge { get; init; }
     public bool MementoMori { get; init; }
 
+    public bool DownSins { get; init; }
+
+    public bool TakedownSins { get; init; }
+
+    public bool FireSins { get; init; }
+
     public bool Commandable { get; init; }
 
     public bool CastsInferno { get; init; }
@@ -247,7 +253,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("hateful", m.Hateful), ("bodyguard", m.Bodyguard), ("loudspeakers", m.Loudspeakers), ("puppetMaster", m.PuppetMaster), ("blesses", m.Blesses), ("heals", m.Heals), ("hides", m.Hides), ("defusesMines", m.DefusesMines), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("fieldShrine", m.FieldShrine), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("commandable", m.Commandable), ("castsInferno", m.CastsInferno), ("perverse", m.Perverse), ("mortalSuffering", m.MortalSuffering), ("sinVessel", m.SinVessel), ("sinBeacon", m.SinBeacon), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("hateful", m.Hateful), ("bodyguard", m.Bodyguard), ("loudspeakers", m.Loudspeakers), ("puppetMaster", m.PuppetMaster), ("blesses", m.Blesses), ("heals", m.Heals), ("hides", m.Hides), ("defusesMines", m.DefusesMines), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("fieldShrine", m.FieldShrine), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("downSins", m.DownSins), ("takedownSins", m.TakedownSins), ("fireSins", m.FireSins), ("commandable", m.Commandable), ("castsInferno", m.CastsInferno), ("perverse", m.Perverse), ("mortalSuffering", m.MortalSuffering), ("sinVessel", m.SinVessel), ("sinBeacon", m.SinBeacon), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
                     {
                         if (on)
                         {
@@ -722,6 +728,9 @@ public static class MatchReadiness
                 HuntsTheTough = upgradeHunts || abilities.Contains(Mubarizun),
                 CounterCharge = upgradeCounter || abilities.Contains(CounterCharge),
                 MementoMori = abilities.Contains(MementoMori),
+                DownSins = roster.Variant == "dedicated-to-gluttony",
+                TakedownSins = roster.Variant == "dedicated-to-envy",
+                FireSins = roster.Variant == "dedicated-to-wrath",
                 Commandable = entry.Id == "chain-fiend",
                 CastsInferno = abilities.Contains(InfernoName),
                 Perverse = isCourt,

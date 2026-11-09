@@ -835,6 +835,9 @@ public class MatchReadinessTests
         var wrath = Praetor("dedicated-to-wrath");
         Assert.False(wrath.MortalSuffering);
         Assert.True(wrath.Perverse);
+        Assert.True(wrath.FireSins && !plain.FireSins && !wrath.DownSins && !wrath.TakedownSins);
+        Assert.True(Praetor("dedicated-to-envy").TakedownSins);
+        Assert.True(Praetor("dedicated-to-gluttony").DownSins);
     }
 
     // Roster stage R11 (U136): the three Court spells bought as upgrades are known by the model; the others are still named.
