@@ -40,6 +40,43 @@ public partial class BoardView : SubViewportContainer
     private readonly Node3D _effects = new() { Name = "Effects" };
     private readonly Camera3D _camera = new() { Fov = 50, Near = 0.1f, Far = 1000 };
     private readonly WorldEnvironment _environment = new();
+
+    // Four flat slabs of dark mud around the table (placed by SurroundTable); the table itself is not covered.
+    private readonly Node3D _surround = new() { Name = "Surround" };
+
+    private static readonly StandardMaterial3D SurroundPaint = new() { AlbedoColor = new Color(0.20f, 0.175f, 0.135f), Roughness = 1f };
+
+    private void SurroundTable(double width, double depth)
+    {
+        foreach (var old in _surround.GetChildren())
+        {
+            _surround.RemoveChild(old);
+            old.QueueFree();
+        }
+        const float reach = 300;
+        // The same mud as the table, darker, so the table sits in a wasteland that goes on to the horizon.
+        if (Visuals.Texture(VisualCatalog.GroundKey) is { } art && SurroundPaint.AlbedoTexture is null)
+        {
+            Textured(SurroundPaint, art, 6f);
+            SurroundPaint.AlbedoColor = new Color(0.62f, 0.58f, 0.52f);
+        }
+        var (w, d) = ((float)width, (float)depth);
+        // x, y of the centre and the size of each slab: left and right of the table, then above and below it.
+        foreach (var (cx, cy, sx, sy) in new (float, float, float, float)[]
+        {
+            (-reach / 2, d / 2, reach, d + 2 * reach), (w + reach / 2, d / 2, reach, d + 2 * reach),
+            (w / 2, -reach / 2, w, reach), (w / 2, d + reach / 2, w, reach),
+        })
+        {
+            _surround.AddChild(new MeshInstance3D
+            {
+                Mesh = new PlaneMesh { Size = new Vector2(sx, sy) },
+                Position = new Vector3(cx, -0.03f, cy),
+                MaterialOverride = SurroundPaint,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            });
+        }
+    }
     private readonly Node3D _overlay = new();
     private readonly HoverThrottle _hover = new(0.08);
     private readonly List<string> _overlayTexts = [];
@@ -152,6 +189,9 @@ public partial class BoardView : SubViewportContainer
         SizeFlagsHorizontal = SizeFlags.ExpandFill;
         AddChild(_viewport);
         _viewport.AddChild(_environment);
+        // Decorative wasteland: a wide flat plain of dark mud just under the table, so it does not float in the sky (never
+        // picked, never measured; the table itself is drawn as before).
+        _viewport.AddChild(_surround);
         _viewport.AddChild(_sun);
         // Visual pass Stage 1: a light from the camera's side that falls on the units only (render layer 2).
         _camera.AddChild(_unitLight);
@@ -2962,6 +3002,7 @@ public partial class BoardView : SubViewportContainer
 
     private void ApplyEnvironment()
     {
+        _surround.Visible = !_highContrast;
         if (_highContrast)
         {
             _sun.RotationDegrees = new Vector3(-60, 35, 0);
@@ -2980,10 +3021,25 @@ public partial class BoardView : SubViewportContainer
         _sun.RotationDegrees = new Vector3(-52, 30, 0);
         _sun.LightColor = new Color(0.86f, 0.89f, 0.95f);
         _sun.LightEnergy = 1.0f;
+        // Decorative sky (graphics only: the lighting below stays the flat cool ambient, so nothing on the table changes):
+        // a heavy overcast gradient, lighter and warmer at the horizon, with dark mud below it, behind the battlefield.
         _environment.Environment = new Godot.Environment
         {
-            BackgroundMode = Godot.Environment.BGMode.Color,
-            BackgroundColor = new Color(0.17f, 0.18f, 0.19f),
+            BackgroundMode = Godot.Environment.BGMode.Sky,
+            Sky = new Sky
+            {
+                SkyMaterial = new ProceduralSkyMaterial
+                {
+                    SkyTopColor = new Color(0.10f, 0.11f, 0.13f),
+                    SkyHorizonColor = new Color(0.42f, 0.38f, 0.33f),
+                    SkyCurve = 0.18f,
+                    GroundHorizonColor = new Color(0.26f, 0.22f, 0.17f),
+                    GroundBottomColor = new Color(0.11f, 0.10f, 0.08f),
+                    GroundCurve = 0.05f,
+                    SunAngleMax = 0f,
+                    SunCurve = 0.001f,
+                },
+            },
             AmbientLightSource = Godot.Environment.AmbientSource.Color,
             AmbientLightColor = new Color(0.70f, 0.72f, 0.78f),
             AmbientLightEnergy = 0.5f,
@@ -3215,6 +3271,7 @@ public partial class BoardView : SubViewportContainer
     // The terrain layer (see TerrainKey), drawn into _terrain.
     private void DrawTerrain(BoardScene scene)
     {
+        SurroundTable(scene.Width, scene.Depth);
         // Trench-maps stage S3: with trenches the ground is boxes around their parts, reaching below the deepest floor, so
         // their sides are the trench walls; each part gets a floor at its depth. Without trenches, the one flat box as before.
         var holes = TrenchPits.Holes(scene);

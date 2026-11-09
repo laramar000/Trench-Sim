@@ -98,11 +98,6 @@ public partial class UiCheck : Node
                     // M7.5 stage 5c: the same play as pvp-a, against trench-cli --bot.
                     await PvpCreate();
                     break;
-                case "court-look":
-                    // For looking at the Court's client features only (never run by the checks): screenshots of the Goetic Gaze
-                    // button and the spell menu on a state made from TRENCH_COURT_EVENTS (a file of wire-format events).
-                    await CourtLook();
-                    break;
                 case "dev":
                     // For development only (never run by the checks): a hot-seat match, then the steps named in the
                     // TRENCH_DEV environment variable, with screenshots, to look at one part of the screen quickly.
@@ -2620,107 +2615,6 @@ public partial class UiCheck : Node
                     break;
             }
         }
-    }
-
-    private async Task CourtLook()
-    {
-        await ChooseOption(Option("ranged"), _scenario, "court-choose-scenario");
-        await Press(ButtonNamed(HotSeatButton), Key.Enter, "court-start-enter");
-        if (await Until(() => Label("HOT-SEAT:")?.Text, 300, "hotseat") is null)
-        {
-            Check("court-started", false, "the hot-seat match screen did not appear");
-            return;
-        }
-        await Frames(10);
-        if (Dialog<AcceptDialog>() is not null)
-        {
-            await KeyPress(Key.Escape);
-        }
-        var board = Controls<BoardView>().First(b => b.IsVisibleInTree());
-        var state = Rules.Core.State.MatchState.None;
-        Rules.Core.State.MatchState? chosen = null;
-        foreach (var line in System.IO.File.ReadAllLines(OS.GetEnvironment("TRENCH_COURT_EVENTS")))
-        {
-            if (Match.Protocol.Codec.ParseServer(System.Text.Encoding.UTF8.GetBytes(line), out _) is Match.Protocol.EventPublished published)
-            {
-                state = Rules.Core.Reducer.Apply(state, published.Event);
-                if (chosen is null && state.Phase == Rules.Core.State.Phase.Activation && state.ActiveModel is not null && state.Pending is null && state.Actions == Rules.Core.State.ActionsTaken.None)
-                {
-                    chosen = state;
-                }
-            }
-        }
-        if (chosen is not { } start || start.Setup is not { } setup)
-        {
-            Check("court-state", false, "no activation found in the events");
-            return;
-        }
-        var seat = start.FindModel(start.ActiveModel!.Value)!.Seat;
-        var demonic = Rules.Core.State.ModelTraits.Demonic;
-        // The Goetic Warlock stands in the middle of the table with two enemies in the open about 8" away; every Demonic friend holds 3 SIN MARKERS.
-        var gazer = start.Models.First(m => m.Seat == seat && setup.ProfileOf(m.Id) is { Gazes: true });
-        var caster = start.Models.First(m => m.Seat == seat && m.Id != gazer.Id && setup.ProfileOf(m.Id) is { } p && (p.Spells & Rules.Core.State.SpellKind.ExquisitePain) != 0);
-        var enemies = start.Models.Where(m => m.Seat != seat).Take(2).Select(m => m.Id).ToList();
-        Rules.Core.Geometry.Point2 At(string x, string y) => new(Rules.Core.Geometry.Length.Parse(x), Rules.Core.Geometry.Length.Parse(y));
-        var spots = new Dictionary<Rules.Core.State.ModelId, Rules.Core.Geometry.Point2>
-        {
-            [gazer.Id] = At("15", "18"), [caster.Id] = At("14", "22"), [enemies[0]] = At("23", "18"), [enemies[1]] = At("23", "22"),
-        };
-        MatchStateWith(ref start, spots, seat, setup, demonic);
-        Rules.Core.State.MatchState Show(Rules.Core.State.ModelId active)
-        {
-            var next = start with { ActiveModel = active, Actions = Rules.Core.State.ActionsTaken.None, Pending = null, InProgress = null };
-            board.Show(Client.Core.BoardScene.Of(next, seat, Client.Core.ContentNames.None), next, seat, []);
-            return next;
-        }
-        async Task ClickBar(string label)
-        {
-            await Frames(5);
-            if (board.BarButtonAt(label) is { } at)
-            {
-                foreach (var pressed in new[] { true, false })
-                {
-                    Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
-                    await Frames(2);
-                }
-            }
-            else
-            {
-                Check("court-click", false, $"no bar button {label}");
-            }
-            await Frames(5);
-        }
-        Show(gazer.Id);
-        await Frames(10);
-        await Shot("court-1-gaze-button");
-        await ClickBar("Goetic Gaze");
-        await Shot("court-2-gaze-targets");
-        await ClickBar("Back");
-        Show(caster.Id);
-        await Frames(10);
-        await Shot("court-3-caster-bar");
-        await ClickBar("Spells");
-        await Shot("court-4-spell-list");
-        await ClickBar("Exquisite Pain");
-        await Shot("court-5-spell-casts");
-        Check("court-look", true, "done");
-    }
-
-    private static void MatchStateWith(ref Rules.Core.State.MatchState state, Dictionary<Rules.Core.State.ModelId, Rules.Core.Geometry.Point2> spots, Rules.Core.State.Seat seat,
-        Rules.Core.State.MatchSetup setup, Rules.Core.State.ModelTraits demonic)
-    {
-        state = state with
-        {
-            Models = [.. state.Models.Select(m =>
-            {
-                var moved = spots.TryGetValue(m.Id, out var at) ? m with { Position = at, Status = Rules.Core.State.ModelStatus.Standing } : m;
-                if (m.Seat == seat && setup.ProfileOf(m.Id) is { } p && (p.Traits & demonic) != 0)
-                {
-                    moved = moved with { SinMarkers = 3 };
-                }
-                return m.Seat != seat && spots.ContainsKey(m.Id) ? moved with { BloodMarkers = 2 } : moved;
-            })],
-        };
     }
 
     // Dev only: both seats deploy every model and answer who activates first (hints and placements, following the turn),
