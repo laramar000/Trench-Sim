@@ -1691,6 +1691,27 @@ public partial class UiCheck : Node
             $"{models.Count} models, {drawn.FromArt} figures, {drawn.Plain} plain; {(problems.Count == 0 ? "each inside its base, at its height, accent = body colour, muted sandstone base top with a muted body-colour rim, outlined and in the unit light, base at the rules' radius" : string.Join("; ", problems))}; catalog {board.Visuals.Catalog.Entries.Count} entries; art problems: {string.Join(" / ", board.Visuals.Failures)}");
     }
 
+    // PSX look (psx-shader): every textured figure surface uses the PSX shader, and close, mid and far shots of a figure are
+    // saved (psx-close, psx-mid, psx-far) for a look at the vertex snap, texture warp and colour steps. Run it before any new
+    // figure goes in: TRENCH_DEV=deploy,psx with `--ui-check dev`.
+    private async Task PsxCheck(BoardView board)
+    {
+        var (shaded, textured) = board.PsxSurfaces();
+        Check("psx-shader", textured > 0 && shaded == textured, $"{shaded} of {textured} textured figure surfaces use psx_figure.gdshader");
+        board.Select(null);
+        var models = board.Scene?.Models.Where(m => m.X > 0).ToList() ?? [];
+        if (models.Count == 0)
+        {
+            return;
+        }
+        foreach (var (name, distance) in new[] { ("psx-portrait", 1.8f), ("psx-close", 3f), ("psx-mid", 7f), ("psx-far", 16f) })
+        {
+            board.CentreOn(models[0].Id, distance);
+            await Frames(10);
+            await Shot(name);
+        }
+    }
+
     // Graphics stage G2 (ground-decor): every terrain piece has its texture, and the ground decals are the ones the layout
     // gives (GroundDecor), each flat (no higher than 0.1") and clear of every terrain piece's footprint.
     private void GroundDecorCheck(BoardView board)
@@ -2584,6 +2605,9 @@ public partial class UiCheck : Node
                     break;
                 case "figures":
                     UnitFiguresCheck(board);
+                    break;
+                case "psx":
+                    await PsxCheck(board);
                     break;
                 case "decor":
                     GroundDecorCheck(board);

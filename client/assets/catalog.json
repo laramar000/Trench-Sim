@@ -21,6 +21,7 @@
     "unit:Lieutenant": { "file": "units/lieutenant.glb", "height": 1.5 },
     "unit:Blind Marksman": { "file": "units/blind-marksman.glb", "height": 1.25 },
     "unit:Trench Cleric": { "file": "units/trench-cleric.glb", "height": 1.65 },
+    "unit:Combat Engineer": "units/combat-engineer.glb",
     "ground": "ground/mud.png",
     "terrain:Low": "terrain/rubble.png",
     "terrain:Cover": "terrain/burlap.png",

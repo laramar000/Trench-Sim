@@ -59,12 +59,15 @@ oppressive, gothic. Every figure must read first as a silhouette, then by its eq
 
 | Class | Base | Figure height | Body | All modules | Total triangles | Textures |
 |---|---|---|---|---|---|---|
-| A infantry | 25 mm | 1.2" | 1,000 | 600-850 | 1,850 | body 128 px, each module 64 px |
-| B elite | 32 mm | 1.3" (bulkier, same head size) | 1,200 | 900 | 2,100 | body 128, modules 64 |
-| C heavy | 40 mm | 1.6" | 1,600 | 1,000 | 2,600 | body 256, modules 64 |
-| D large | 50 mm | 2.0" | 2,200 | 1,200 | 3,400 | body 256, modules 128 |
-| E huge | 60 mm | 2.4" | 2,800 | 1,400 | 4,200 | body 256, modules 128 |
-| F oval | 30 x 60 mm | by the creature; length along the oval | 2,000 | 1,000 | 3,000 | body 256, modules 64 |
+| A infantry | 25 mm | 1.2" | 1,150 | 2,400 | 3,600 | body 128 px, each module 64 px |
+| B elite | 32 mm | 1.3" (bulkier, same head size) | 1,200 | 3,300 | 4,500 | body 128, modules 64 |
+| C heavy | 40 mm | 1.6" | 1,600 | 4,400 | 6,000 | body 256, modules 64 |
+| D large | 50 mm | 2.0" | 2,200 | 5,000 | 7,200 | body 256, modules 128 |
+| E huge | 60 mm | 2.4" | 2,800 | 6,200 | 9,000 | body 256, modules 128 |
+| F oval | 30 x 60 mm | by the creature; length along the oval | 2,000 | 3,500 | 5,500 | body 256, modules 64 |
+
+The class limits above were raised on 2026-11-04 (the owner: raise the limit in general, since too many things looked
+unnatural at the old ones). The exceptions below were set before and are still listed so each figure's test row has its reason.
 
 Exceptions the owner allowed: the Castigator, 3,100 triangles (class B), for its detailed gas mask (2026-11-03); the Reliquary Walker,
 8,000 triangles (class E) with 256 px textures on its body and wheel, for a posed martyr bound to the wheel (2026-11-03);
@@ -138,6 +141,7 @@ embedded with nearest sampling.
 - Seat colour visible from above.
 - Footprint inside the base; nothing floating or sunk; nothing pierces the body.
 - Budget and texture sizes of its class; nodes named as in section 5.
+- PSX shader (`client/shaders/psx_figure.gdshader`) tested in the game with the new figure, before it is shown for approval: `TRENCH_DEV=deploy,psx godot --path client -- --ui-check dev --out <dir> --scenario ranged` (check `psx-shader` passes; look at `psx-close`, `psx-mid`, `psx-far` for texture warp, wobble and colour steps).
 
 ## Appendix: units and bases
 

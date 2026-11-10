@@ -3400,6 +3400,27 @@ public partial class BoardView : SubViewportContainer
         paint.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
     }
 
+    // PSX look, for the UI check: the figures' textured surfaces drawn with the PSX shader, and all their textured surfaces.
+    public (int Shaded, int Textured) PsxSurfaces()
+    {
+        int shaded = 0, textured = 0;
+        foreach (var holder in _content.GetChildren().OfType<Node3D>().Where(n => n.Name.ToString().StartsWith("Figure", StringComparison.Ordinal)))
+        {
+            foreach (var mesh in holder.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
+            {
+                for (var i = 0; mesh.Mesh is { } m && i < m.GetSurfaceCount(); i++)
+                {
+                    if (m.SurfaceGetMaterial(i) is BaseMaterial3D { AlbedoTexture: not null })
+                    {
+                        textured++;
+                        shaded += mesh.GetSurfaceOverrideMaterial(i) is ShaderMaterial { Shader.ResourcePath: var p } && p.EndsWith("psx_figure.gdshader", StringComparison.Ordinal) ? 1 : 0;
+                    }
+                }
+            }
+        }
+        return (shaded, textured);
+    }
+
     public (int FromArt, int Plain, bool Ground) ArtDrawn => (_figuresFromArt, _figuresPlain, _groundFromArt);
 
     // Graphics stage G3, for the UI check: how a model's figure is drawn now, or null when it has the plain body. Box: the
@@ -3630,9 +3651,17 @@ public partial class BoardView : SubViewportContainer
         });
     }
 
+    // Grimdark: the seat colours drawn on the figures (accent, base rim) are drained toward grey and darkened, so blue and red
+    // stay easy to tell apart but never glow. Decoration only; ModelColour (the colour in text and the panels) is unchanged.
+    private static Color Grimdark(Color c)
+    {
+        var grey = 0.3f * c.R + 0.59f * c.G + 0.11f * c.B;
+        return new Color(Mathf.Lerp(c.R, grey, 0.45f) * 0.6f, Mathf.Lerp(c.G, grey, 0.45f) * 0.6f, Mathf.Lerp(c.B, grey, 0.45f) * 0.6f, c.A);
+    }
+
     private Color BodyColour(ModelShape model)
     {
-        var seat = ModelColour(model);
+        var seat = Grimdark(ModelColour(model));
         return model.Look == UnitLook.Activated ? seat.Lerp(new Color(0.5f, 0.5f, 0.5f), ActivatedWash) : seat;
     }
 
@@ -3642,7 +3671,7 @@ public partial class BoardView : SubViewportContainer
 
     public Color? BodyColourOf(ModelId id) => _bodyColours.TryGetValue(id, out var c) ? c : null;
 
-    public Color SeatColourOf(ModelShape model) => ModelColour(model);
+    public Color SeatColourOf(ModelShape model) => Grimdark(ModelColour(model));   // the seat colour as drawn on the figures
 
     public IReadOnlyCollection<ModelId> EligibleRings => _eligibleRings;
 

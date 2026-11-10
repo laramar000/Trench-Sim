@@ -322,3 +322,12 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   plated sleeves, gilt shrine on the left shoulder, rope stole, belt pouches, ray-fitted chain fringe, long pale vestment with
   prayer strips, open book (Weapon2 node), pistol, a great riveted cross on the back. Left: Combat Engineer, Mechanized
   Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
+- 2026-11-10: art style change. The owner wants every figure in a PS2-era painted-texture look (clothes, straps, plates and
+  grime painted into a 256 px body texture on a smooth low-poly body; solid shapes only for silhouette: headgear, weapons,
+  packs, pauldrons, big hulls). All 17 figures were converted (`PAINT` bake hook, shared helpers `psx_*`, `ww1_paint`,
+  `toeless_feet`, `KIT`, `JOINTS` in `tools/art/make_figures.py`), budgets in `UnitFiguresTests` lowered to the new counts.
+  Combat Engineer done and registered (`units/combat-engineer.glb`, 2,923 triangles). PSX look in the game:
+  `client/shaders/psx_figure.gdshader` (vertex snap, affine textures, colour steps, grimdark grade), applied in
+  `Visuals.UseNearestFilter`; seat colours drawn on figures are darkened (`BoardView.Grimdark`). Test it before any new figure:
+  `TRENCH_DEV=deploy,psx godot --path client -- --ui-check dev` and `tools/art/psx_showcase.gd`. Left: Mechanized Heavy
+  Infantry (40 mm), Combat Medic, Holy Warrior (build them in the painted style).

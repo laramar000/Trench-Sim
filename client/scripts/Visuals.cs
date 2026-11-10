@@ -171,6 +171,10 @@ public sealed class Visuals
 
     // PS1-style textures stay crisp pixels up close: every textured material of a loaded model samples its texture with
     // nearest filtering (no smoothing, no mipmaps).
+    // The PlayStation look for the figures (vertex snap, affine textures, colour steps); null if the shader is missing.
+    private static readonly Shader? Psx = ResourceLoader.Exists("res://shaders/psx_figure.gdshader")
+        ? ResourceLoader.Load<Shader>("res://shaders/psx_figure.gdshader") : null;
+
     private static void UseNearestFilter(Node3D model)
     {
         foreach (var mesh in model.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
@@ -180,6 +184,13 @@ public sealed class Visuals
                 if (m.SurfaceGetMaterial(i) is BaseMaterial3D material)
                 {
                     material.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
+                    if (Psx is { } shader && material.AlbedoTexture is { } texture)
+                    {
+                        var psx = new ShaderMaterial { Shader = shader };
+                        psx.SetShaderParameter("albedo_tex", texture);
+                        psx.SetShaderParameter("albedo_colour", material.AlbedoColor);
+                        mesh.SetSurfaceOverrideMaterial(i, psx);
+                    }
                 }
             }
         }
