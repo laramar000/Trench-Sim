@@ -46,6 +46,16 @@ public partial class BoardView : SubViewportContainer
     // ground, lit by the same lights, and the fade is in the colour only (the table itself is untouched).
     private readonly Node3D _surround = new() { Name = "Surround" };
 
+    // The white line round the battlefield's perimeter, so the board stays easy to find against the plain: thin unshaded
+    // strips just outside the table's edge (never over the play area).
+    private static readonly StandardMaterial3D PerimeterPaint = new()
+    {
+        AlbedoColor = Colors.White,
+        ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+    };
+
+    private const float PerimeterWidth = 0.18f;
+
     private static readonly Shader SurroundShader = new()
     {
         Code = """
@@ -58,12 +68,35 @@ public partial class BoardView : SubViewportContainer
             uniform float fade = 90.0;
             varying vec3 wpos;
             void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+            float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+            float vnoise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+            }
+            float fbm(vec2 p) { return vnoise(p) * 0.5 + vnoise(p * 2.07) * 0.3 + vnoise(p * 4.3) * 0.2; }
             void fragment() {
-                vec3 c = use_mud ? texture(mud, wpos.xz / 6.0).rgb : plain;
-                vec2 out_of = max(max(table.xy - wpos.xz, wpos.xz - table.zw), vec2(0.0));
-                float k = smoothstep(0.0, fade, length(out_of));
-                ALBEDO = mix(c, horizon, k);
-                ROUGHNESS = 1.0;
+                vec2 w = wpos.xz;
+                vec2 out_of = max(max(table.xy - w, w - table.zw), vec2(0.0));
+                float dist = length(out_of);
+                // Next to the table the mud is the table's own; further out the repeats are broken up: a second
+                // lookup turned and scaled differently, then big patches of wetter and drier ground.
+                float away = smoothstep(2.0, 18.0, dist);
+                vec3 c = plain;
+                if (use_mud) {
+                    vec3 a = texture(mud, w / 6.0).rgb;
+                    vec3 b = texture(mud, (mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * w) / 9.7).rgb;
+                    c = mix(a, mix(a, b, 0.6), away);
+                }
+                float lump = fbm(w / 9.0);
+                float dry = smoothstep(0.50, 0.75, fbm(w / 5.0 + 17.0));
+                float wet = smoothstep(0.55, 0.78, fbm(w / 13.0 + 41.0));
+                c *= mix(1.0, 0.55 + 0.9 * lump, away);
+                c = mix(c, c * vec3(1.25, 1.0, 0.78), away * dry * 0.8);
+                c = mix(c, c * vec3(0.62, 0.68, 0.74), away * wet * 0.85);
+                ALBEDO = mix(c, horizon, smoothstep(0.0, fade, dist));
+                ROUGHNESS = mix(1.0, 0.55, away * wet);
             }
             """,
     };
@@ -101,6 +134,21 @@ public partial class BoardView : SubViewportContainer
                 Mesh = new PlaneMesh { Size = new Vector2(sx, sy) },
                 Position = new Vector3(cx, -0.005f, cy),
                 MaterialOverride = SurroundPaint,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            });
+        }
+        var line = PerimeterWidth;
+        foreach (var (cx, cy, sx, sy) in new (float, float, float, float)[]
+        {
+            (w / 2, -line / 2, w + 2 * line, line), (w / 2, d + line / 2, w + 2 * line, line),
+            (-line / 2, d / 2, line, d), (w + line / 2, d / 2, line, d),
+        })
+        {
+            _surround.AddChild(new MeshInstance3D
+            {
+                Mesh = new PlaneMesh { Size = new Vector2(sx, sy) },
+                Position = new Vector3(cx, 0.004f, cy),
+                MaterialOverride = PerimeterPaint,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             });
         }
