@@ -99,8 +99,8 @@ public class UnitFiguresTests
         { "units/lieutenant.glb", 2900, 256, 0.9f }, { "units/blind-marksman.glb", 2300, 256, 0.9f },
         { "units/trench-cleric.glb", 2000, 256, 0.9f },
         { "units/combat-engineer.glb", 3300, 256, 0.9f },
-        { "units/mechanized-heavy-infantry.glb", 4000, 256, 1.1f }, { "units/combat-medic.glb", 1300, 256, 0.9f },
-        { "units/holy-warrior.glb", 2500, 256, 0.9f },
+        { "units/mechanized-heavy-infantry.glb", 4500, 512, 1.1f }, { "units/combat-medic.glb", 1500, 256, 0.9f },
+        { "units/holy-warrior.glb", 2700, 256, 0.9f },
     };
 
     [Theory]

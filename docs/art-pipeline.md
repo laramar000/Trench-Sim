@@ -81,6 +81,8 @@ drawn 1.65" tall for the cap and cross.
 Painted from the start (2026-11-10), within their class limits: Mechanized Heavy Infantry (class C, 3,934 triangles, drawn
 1.6"), Combat Medic (class A, 1,283 triangles; the roster gives it a 25 mm base) and Holy Warrior (class B, 2,422
 triangles, drawn 1.55"). With them every Principality unit has its figure (20 figures in all).
+Detail pass (2026-11-10): Mechanized Heavy Infantry 4,402 triangles with a 512 px body texture (class C, inside the file
+size limit) and 256 px modules; Combat Medic 1,459 (short split tunic and apron instead of the greatcoat); Holy Warrior 2,662.
 A script figure sets these with `BODY_BUDGET` and `TEX_SIZES` (texture size by module name). `render_turnaround.py`
 takes the catalog height as an optional last argument, so a large figure is shown at its drawn size on its base.
 
