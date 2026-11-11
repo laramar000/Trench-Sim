@@ -172,6 +172,31 @@ public class MapGeneratorTests
         Assert.InRange(withTrenches, 500, 1000);
     }
 
+    // U163: a thousand battlegrounds: towers and the other new features, the blocking-terrain rule, the printed objectives, and a
+    // match can be set up on each.
+    [Fact]
+    public void ThousandBattlegroundMapsAllHaveTowersAndFitClaimNoMansLand()
+    {
+        var features = new HashSet<string>();
+        foreach (var map in Thousand(MapGenerator.Battleground))
+        {
+            KeepsTheRules(map);
+            Assert.Null(map.ArchetypeKind);
+            Assert.Equal(["obj-1", "obj-2", "obj-3", "obj-4", "obj-5"], map.ObjectiveIds.AsEnumerable());
+            var towers = map.Battlefield.Terrain.Where(t => t.IsTower).ToList();
+            Assert.InRange(towers.Count, 2, 4);
+            Assert.All(towers, t => Assert.Equal(Length.FromInches(2), t.Climb!.Height));
+            Assert.Contains(map.Battlefield.Terrain, t => t.Kind.HasFlag(TerrainKind.Impassable) || t.Profile == TerrainProfile.Wall && !t.IsTower);
+            foreach (var t in map.Battlefield.Terrain)
+            {
+                features.Add(new string(t.Id.TakeWhile(c => !char.IsDigit(c)).ToArray()));
+            }
+            Assert.Equal(ClaimNoMansLand.ScenarioId, ScenarioSetups.OnMap(Scenarios.All["ranged"], map).ScenarioId);
+            Assert.Throws<MapFormatException>(() => ScenarioSetups.OnMap(Scenarios.All["ranged" + ScenarioSetups.TrenchWarfareSuffix], map));
+        }
+        Assert.Superset(new HashSet<string> { "tower-", "wire-", "sandbags-", "wall-", "bunker-", "mud-", "ruin-", "corner-", "landmark-" }, features);
+    }
+
     [Fact]
     public void ThousandTrenchWarfareMapsAllFitTheScenario()
     {
@@ -209,6 +234,7 @@ public class MapGeneratorTests
         Assert.Equal(PinnedClaim, RecordFormat.MapHash(MapGenerator.Generate(MapGenerator.ClaimNoMansLand, 1).ToScenario()));
         Assert.Equal(PinnedTrenchWarfare, RecordFormat.MapHash(MapGenerator.Generate(MapGenerator.TrenchWarfare, 1).ToScenario()));
         Assert.Equal(PinnedRuins, RecordFormat.MapHash(MapGenerator.Generate(MapGenerator.DecimatedRuins, 1).ToScenario()));
+        Assert.Equal(PinnedBattleground, RecordFormat.MapHash(MapGenerator.Generate(MapGenerator.Battleground, 1).ToScenario()));
         foreach (var kind in MapGenerator.Kinds)
         {
             var map = MapGenerator.Generate(kind, 77);
@@ -220,6 +246,8 @@ public class MapGeneratorTests
 
     private const string PinnedClaim = "sha256:0e6a5244390ec730eb543425c3651f031faccb09d51d91cf9b4324e8f65048cb";
     private const string PinnedTrenchWarfare = "sha256:3959b1d4e771657e0b3da3735c28864ec44e8eaa6c3a1ea21b0de2dabff2a2f5";
+    private const string PinnedBattleground = "sha256:9dbe6098c8373c4a81958c4cd398ca406eb562d817cce6e2d7906c731090639c";
+
     private const string PinnedRuins = "sha256:fb35e17da65e7c66deaa58d55f75932b69ae4f1b128f7ac3063cf0d027df7a26";
 
     [Fact]

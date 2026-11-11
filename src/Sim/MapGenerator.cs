@@ -30,7 +30,11 @@ public static class MapGenerator
     public const string TrenchWarfare = Rules.Core.Scenarios.TrenchWarfare.ScenarioId;
     public const string DecimatedRuins = "decimated-ruins";
 
-    public static readonly ImmutableArray<string> Kinds = [TrenchLines, ClaimNoMansLand, TrenchWarfare, DecimatedRuins];
+    // U163: a Claim No Man's Land battlefield with towers and more kinds of terrain (wire, sandbags, bunkers, ruined walls,
+    // mud). A test layout, not a No Man's Land set-up (it names no archetype), so it keeps only the blocking-terrain rule.
+    public const string Battleground = "battleground";
+
+    public static readonly ImmutableArray<string> Kinds = [TrenchLines, ClaimNoMansLand, TrenchWarfare, DecimatedRuins, Battleground];
 
     // The largest base a generated map is checked for: 1" radius (a 50 mm base is 0.984").
     public static readonly Length DesignBaseRadius = Length.Inch;
@@ -96,6 +100,7 @@ public static class MapGenerator
                 ClaimNoMansLand => ClaimMap(id, seed, random),
                 TrenchWarfare => TrenchWarfareMap(id, seed, random),
                 DecimatedRuins => RuinsMap(id, seed, random),
+                Battleground => BattlegroundMap(id, seed, random),
                 _ => null,
             };
             if (map is not null && map.Problems(DesignBaseRadius).IsEmpty
@@ -241,7 +246,7 @@ public static class MapGenerator
         public readonly List<string> Ruins = [];
 
         public bool Place(string id, Func<MapRandom, int, int, Footprint> shape, Func<string, Footprint, TerrainBlock> make,
-            (int X1, int Y1, int X2, int Y2) area, bool ruin = false, Func<Footprint, bool>? also = null)
+            (int X1, int Y1, int X2, int Y2) area, bool ruin = false, Func<Footprint, bool>? also = null, int gapHalves = 6)
         {
             for (var t = 0; t < 100; t++)
             {
@@ -251,7 +256,7 @@ public static class MapGenerator
                 {
                     continue;
                 }
-                if (Pieces.All(x => MapLayout.GapSquared(x.Footprint, footprint) >= Square(Length.FromInches(3))) && (also?.Invoke(footprint) ?? true))
+                if (Pieces.All(x => MapLayout.GapSquared(x.Footprint, footprint) >= Square(H(gapHalves))) && (also?.Invoke(footprint) ?? true))
                 {
                     Pieces.Add(make(id, footprint));
                     if (ruin)
@@ -277,7 +282,7 @@ public static class MapGenerator
             }
         }
 
-        public MapDefinition Map(string id, string name, string archetype, ImmutableArray<string> supports, IEnumerable<string> objectives) =>
+        public MapDefinition Map(string id, string name, string? archetype, ImmutableArray<string> supports, IEnumerable<string> objectives) =>
             new(id, name, archetype, supports, new Battlefield(TableSize, TableSize, Pieces, Zones), [.. objectives.Order(StringComparer.Ordinal)])
             {
                 RuinIds = [.. Ruins.Order(StringComparer.Ordinal)],
@@ -309,6 +314,14 @@ public static class MapGenerator
     private static MapDefinition? ClaimMap(string id, int seed, MapRandom random)
     {
         var layout = new Layout(random);
+        ObjectivesAndZoneTrenches(layout, random);
+        layout.NoMansLandPieces(WholeTable);
+        return layout.Map(id, $"Generated No Man's Land {seed.ToString(CultureInfo.InvariantCulture)}", "no-mans-land", [ClaimNoMansLand], ClaimObjectives.Select(o => o.Id));
+    }
+
+    // The five Objectives (a sandbag position, a ruined house or a shell hole each), then up to two trench sections in each zone.
+    private static void ObjectivesAndZoneTrenches(Layout layout, MapRandom random)
+    {
         foreach (var (objective, x1, y1, x2, y2) in ClaimObjectives)
         {
             var f = Footprint.Of(R(x1, y1, x2, y2));
@@ -335,9 +348,72 @@ public static class MapGenerator
                 layout.Place($"trench-{zone}-{i}", (r, x, y) => Footprint.Of(R(x, y, x + width, y + r.Between(8, 16))), Trench, (x1, 0, x1 + 12, Table));
             }
         }
-        layout.NoMansLandPieces(WholeTable);
-        return layout.Map(id, $"Generated No Man's Land {seed.ToString(CultureInfo.InvariantCulture)}", "no-mans-land", [ClaimNoMansLand], ClaimObjectives.Select(o => o.Id));
     }
+
+    // Battleground (U163): the Claim No Man's Land objectives and zone trenches, then, between the zones and 2" apart (a gap a
+    // model can walk through), towers (2" high, a ladder on each of two sides: the vertical terrain), belts of barbed wire
+    // nothing crosses, sandbag lines, ruined buildings, corners and straight walls, bunkers, mud, landmarks. Each kind is as many
+    // as fit; the layout must still keep the blocking-terrain rule (a model can leave its zone and reach every Objective).
+    private static MapDefinition? BattlegroundMap(string id, int seed, MapRandom random)
+    {
+        var layout = new Layout(random);
+        ObjectivesAndZoneTrenches(layout, random);
+        var between = (12, 0, Table - 12, Table);
+        void Many(string name, int low, int high, Func<MapRandom, int, int, Footprint> shape, Func<string, Footprint, TerrainBlock> make)
+        {
+            var count = random.Between(low, high);
+            for (var i = 1; i <= count; i++)
+            {
+                layout.Place($"{name}-{i}", shape, make, between, gapHalves: 4);
+            }
+        }
+        Many("tower", 2, 4, Tower, TowerPiece);
+        Many("wire", 1, 3, Wire, (i, f) => new TerrainBlock(i, f, TerrainProfile.Low, TerrainKind.Impassable));
+        Many("sandbags", 2, 4, Sandbags, Cover);
+        Many("ruin", 1, 2, Building, Cover);
+        Many("corner", 1, 2, Corner, WallPiece);
+        Many("wall", 1, 3, StraightWall, WallPiece);
+        Many("bunker", 1, 2, Bunker, WallPiece);
+        Many("mud", 2, 3, Patch, Rough);
+        Many("landmark", 1, 2, Landmark, Cover);
+        return layout.Map(id, $"Generated Battleground {seed.ToString(CultureInfo.InvariantCulture)}", null, [ClaimNoMansLand], ClaimObjectives.Select(o => o.Id));
+    }
+
+    // A tower: 2.5" or 3" square, 2" high, a ladder at the middle of its west and east sides.
+    private static Footprint Tower(MapRandom random, int x, int y)
+    {
+        var side = random.OneIn(2) ? 5 : 6;
+        return Footprint.Of(R(x, y, x + side, y + side));
+    }
+
+    private static TerrainBlock TowerPiece(string id, Footprint f)
+    {
+        var b = f.Bounds;
+        var middle = Length.FromThousandths((b.Min.Y.Thousandths + b.Max.Y.Thousandths) / 2);
+        return new TerrainBlock(id, f, TerrainProfile.Wall, TerrainKind.Open, SurfaceLevel.High, true)
+        {
+            Climb = new Climb(Length.FromInches(2), [new Ladder(id + "-west", new Point2(b.Min.X, middle)), new Ladder(id + "-east", new Point2(b.Max.X, middle))]),
+        };
+    }
+
+    // A belt of barbed wire: 1" wide, 4" to 8" long, either way.
+    private static Footprint Wire(MapRandom random, int x, int y) => Strip(random, x, y, 2, 8, 16);
+
+    // A line of sandbags: 1" thick, 3" to 5" long, either way.
+    private static Footprint Sandbags(MapRandom random, int x, int y) => Strip(random, x, y, 2, 6, 10);
+
+    // A ruined wall in a straight line: half an inch thick, 4" to 8" long, either way.
+    private static Footprint StraightWall(MapRandom random, int x, int y) => Strip(random, x, y, 1, 8, 16);
+
+    private static Footprint Strip(MapRandom random, int x, int y, int thick, int shortest, int longest)
+    {
+        var length = random.Between(shortest, longest);
+        return random.OneIn(2) ? Footprint.Of(R(x, y, x + length, y + thick)) : Footprint.Of(R(x, y, x + thick, y + length));
+    }
+
+    // A bunker: a solid block 2.5" to 3" by 2" to 2.5", too tall to see over or enter.
+    private static Footprint Bunker(MapRandom random, int x, int y) =>
+        Footprint.Of(R(x, y, x + random.Between(5, 6), y + random.Between(4, 5)));
 
     // Trench Warfare: the defender's three trench sections, 8" to 9.5" long, 2.5" or 3" wide, all in one deployment zone
     // (west or east) and 3" or more apart (p. 162, U88); nothing else in either zone; the other pieces between the zones.

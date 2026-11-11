@@ -20,6 +20,8 @@ public static class MapChoices
         // Trench-maps stage S9: the server makes a new map for each match; the record names the one it made.
         new(GeneratedPrefix + ClaimNoMansLand, RandomName, ClaimNoMansLand),
         new(GeneratedPrefix + TrenchWarfare, RandomName, TrenchWarfare),
+        // U163: towers, wire, sandbags, bunkers, ruined walls and mud, for Claim No Man's Land.
+        new(GeneratedPrefix + "battleground", "Random battleground (towers, wire, bunkers...)", ClaimNoMansLand),
     ];
 
     public const string GeneratedPrefix = "generated-";

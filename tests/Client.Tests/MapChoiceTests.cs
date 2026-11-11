@@ -16,7 +16,7 @@ public class MapChoiceTests
         Assert.Equal(maps.Keys.Except(own).Order(), presets.Select(m => m.Id).Order());
         // Stage S9: one random map per scenario, a request the server's generator answers with a map for that scenario.
         var random = MapChoices.All.Except(presets).ToList();
-        Assert.Equal([MapChoices.ClaimNoMansLand, MapChoices.TrenchWarfare], random.Select(m => m.ScenarioId));
+        Assert.Equal([MapChoices.ClaimNoMansLand, MapChoices.TrenchWarfare, MapChoices.ClaimNoMansLand], random.Select(m => m.ScenarioId));
         Assert.All(random, m =>
         {
             Assert.True(MapGenerator.IsRequest(m.Id, out var kind), m.Id);
@@ -32,7 +32,7 @@ public class MapChoiceTests
     [Fact]
     public void ANameOffersThePresetsOfItsScenario()
     {
-        Assert.Equal(["ruined-village", "shell-holes", "crossfire", "generated-claim-no-mans-land"], MapChoices.For("melee-2v2-towers").Select(m => m.Id));
+        Assert.Equal(["ruined-village", "shell-holes", "crossfire", "generated-claim-no-mans-land", "generated-battleground"], MapChoices.For("melee-2v2-towers").Select(m => m.Id));
         Assert.Equal(["dust", "broken-line", "generated-trench-warfare"], MapChoices.For("ranged-trench-warfare").Select(m => m.Id));
         Assert.All(ContentNames.Choices, c => Assert.NotEmpty(MapChoices.For(c)));
     }
