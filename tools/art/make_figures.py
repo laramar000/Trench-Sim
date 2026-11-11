@@ -416,36 +416,225 @@ def ww1_rifle(hr, hl, back=0.25, ahead=0.42, bayonet=0.2):
     bar(hr + d * 0.1, hr + d * 0.1 + side * 0.05 + Vector((0, 0, 0.01)), 0.008, "metal", sides=3)   # bolt handle
     bar(hr, hr + d * 0.12 - Vector((0, 0, 0.03)), 0.016, "metal", sides=4)                           # magazine and trigger guard
     if bayonet: bar(muz, muz + d * bayonet, 0.006, "iron", sides=3)
+def arm_mark(s, a0, a1, t):
+    # a landmark on the outside of a limb (side s, from joint a0 towards a1, t along): (surface point, out, along); out
+    # points away from the torso's axis, so a sleeve patch is painted on the outer side whatever the pose
+    human_ = bpy.data.objects["human"]
+    j0 = JOINTS[f"{a0}.{s}"]; j1 = FISTS[s][0] - FISTS[s][1] * 0.045 if a1 == "wrist" and s in FISTS else JOINTS[f"{a1}.{s}"]
+    pt = j0 + (j1 - j0) * t; al = (j1 - j0).normalized()
+    out = Vector((pt.x, pt.y + 0.02, 0)); out = (out - al * out.dot(al)).normalized()
+    ok, at, *_ = human_.ray_cast(pt + out * 0.5, -out)
+    return (at if ok else Vector((9, 9, 9))), out, al
+def generic_detail(C, coat=None, patch=None, stripes=None, hc=None):
+    # Detail pass (2026-11-10) for the generic figures in greatcoats (Rifleman, Shield-bearer, Standard-bearer). Returns
+    # paint(base, p, n, ao) (None: not here): on the coat skirt (coat: its object) a crisp front edge with a worn light
+    # lip, hip pocket flaps with a button and a stitched edge, a buttoned half-belt behind, a darned patch, mud thrown up
+    # the skirt; on the tunic shoulder straps with a brass button, a sleeve patch (patch=(side, shape, colour key), shape
+    # bar/disc/diamond/triangle) and wound stripes (stripes=side) on the forearm; mud blots up the legs; on the steel
+    # helmet (hc: its centre, as psx_brodie) chin-strap lugs, a dent and a worn rim.
+    from mathutils import noise as _nz
+    def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
+    seam = C["coatd"].lerp(C["ink"], 0.45)
+    hem = None
+    if coat is not None:   # the hem's height near p, as psx_greatcoat: the nearest bottom-edge vertices across the ground
+        import bmesh as _bm
+        from mathutils.kdtree import KDTree
+        bm = _bm.new(); bm.from_mesh(coat.data); lows = [v.co.copy() for v in bm.verts if v.is_boundary and v.co.z < 0.9]; bm.free()
+        kd = KDTree(len(lows))
+        for i, v in enumerate(lows): kd.insert(Vector((v.x, v.y, 0)), i)
+        kd.balance()
+        def hem(p): return sum(lows[i].z for _, i, _ in kd.find_n(Vector((p.x, p.y, 0)), 3)) / 3
+    PATCH = arm_mark(patch[0], "upperarm01", "lowerarm01", 0.3) if patch else None
+    STRIPE = arm_mark(stripes, "lowerarm01", "wrist", 0.4) if stripes else None
+    def on_mark(p, n, mk):   # (across, along) on a limb landmark's outer face, or None
+        at, out, al = mk
+        if n.dot(out) < 0.25 or (p - at).length > 0.06: return None
+        q = p - at; return q.dot(al.cross(out)), q.dot(al)
+    def paint(base, p, n, ao):
+        x, y, z = p.x, p.y, p.z; s_ = n.dot(PSX_LIGHT)
+        if base == "greatcoat" and hem is not None:
+            h = z - hem(p)
+            if h < 0.04 or z > 0.972: return None   # the hem and the belt: psx_greatcoat's
+            if y < 0 and 0.019 < x < 0.037 and z < 0.965:   # the front edge: the overlap's ink edge and its worn lip
+                return C["ink"] if x < 0.026 else lit(C["coatl"], n, ao, p=p)
+            for sx in (-1, 1):   # the hip pocket flaps, a button on each, a shadow under the flap
+                u, v = x * sx - 0.125, z - 0.855
+                if y < 0.0 and abs(u) < 0.046 and -0.026 < v < 0.02:
+                    if v < -0.018: return lit(C["coatd"], n, ao, p=p) if abs(u) < 0.04 else None
+                    if abs(u) > 0.039 or abs(v) > 0.013: return C["ink"]
+                    b = psx_dot(p, [Vector((sx * 0.125, y, 0.85))], C, 0.0065)
+                    if b is not None: return b
+                    return lit(C["coatl"] if s_ > -0.1 else C["coat"], n, ao, p=p)
+            if y > 0.02 and abs(x) < 0.115 and abs(z - 0.928) < 0.02:   # the half-belt across the back, buttoned at each end
+                if abs(z - 0.928) > 0.014 or abs(x) > 0.108: return C["ink"]
+                b = psx_dot(p, [Vector((sx * 0.088, y, 0.928)) for sx in (-1, 1)], C, 0.0075)
+                if b is not None: return b
+                return lit(C["coatl"] if z > 0.93 and s_ > -0.2 else C["coat"], n, ao, p=p)
+            if y > 0.02 and abs(x - 0.085) < 0.034 and abs(z - 0.72) < 0.03:   # a darned patch, its stitches round it
+                if abs(x - 0.085) > 0.028 or abs(z - 0.72) > 0.024: return seam
+                return lit(C["clothd"].lerp(C["coat"], 0.5), n, ao, p=p)
+            if h < 0.16 and _nz.noise(p * Vector((24, 24, 12)) + Vector((7, 3, 1))) > 0.38 + h * 2.2:   # mud thrown up the skirt, in blots
+                return lit(C["mud"] if _nz.noise(p * 40) > -0.2 else C["coatd"].lerp(C["mud"], 0.6), n, ao, p=p)
+            return None
+        if base == "helmet" and hc is not None:
+            q = p - hc; r = math.hypot(q.x, q.y / 1.08)
+            if n.z < -0.5: return None
+            b = psx_dot(p, [hc + Vector((sx * 0.118, 0, 0.056)) for sx in (-1, 1)], C, 0.0085)   # the chin-strap lugs
+            if b is not None: return b
+            if q.z < 0.046 and 0.15 < r < 0.158: return C["ironl"] if s_ > 0.0 else C["helmet"]   # the worn rim
+            if q.z > 0.046:
+                dd = (q - Vector((0.045, -0.07, 0.085))).length   # a dent on the crown, light on its lower rim, dark in its hollow
+                if dd < 0.024: return lit(C["helmetd"] if q.z > 0.083 else C["helmetl"], n, ao, p=p)
+                if 0.046 < q.z < 0.056 and r > 0.11: return C["helmetd"]   # the crown's foot, in the brim's shadow
+            return None
+        if base == "tunic":
+            if PATCH is not None:
+                m = on_mark(p, n, PATCH)
+                if m is not None:
+                    u, v = m; shp, ck = patch[1], patch[2]
+                    f = {"bar": max(abs(u) / 0.024, abs(v) / 0.014), "disc": math.hypot(u, v) / 0.019,
+                         "diamond": (abs(u) + abs(v)) / 0.024, "triangle": max(abs(v) / 0.016, (abs(u) * 1.6 + v) / 0.026)}[shp]
+                    if f < 1.0: return C["ink"] if f > 0.78 else lit(C[ck], n, ao, p=p)
+            if STRIPE is not None:
+                m = on_mark(p, n, STRIPE)
+                if m is not None and abs(m[1]) < 0.022 and (abs(m[0] - 0.009) < 0.0055 or abs(m[0] + 0.009) < 0.0055):
+                    return C["brassl"] if s_ > 0.2 else C["brass"]
+            for sx in (1, -1):   # shoulder straps from the collar out to the shoulder, a brass button at the collar end
+                sh = JOINTS["upperarm01.L" if sx > 0 else "upperarm01.R"]
+                if n.z > 0.4 and z > sh.z - 0.03 and abs(x) > 0.05:
+                    dd, tt = segd(Vector((x, y, 0)), Vector((sx * 0.06, sh.y, 0)), Vector((sh.x, sh.y, 0)))
+                    if dd < 0.019:
+                        if dd > 0.014 or tt > 0.97: return C["ink"]
+                        if tt < 0.24 and dd < 0.01: return C["brassl"] if s_ > 0.6 else C["brass"]
+                        return lit(C["tunicl"] if s_ > 0.5 else C["tunic"], n, ao, p=p)
+        if base in ("breeches", "puttee") and z < 0.62 and z > 0.16:   # mud splashed up the legs, in blots, thicker low and on the knees
+            k_ = (0.62 - z) / 0.45 + (0.25 if n.y < -0.4 else 0.0) - (0.35 if z < 0.43 else 0.0)   # sparing on the puttees' turns
+            if _nz.noise(p * Vector((18, 18, 10)) + Vector((3, 1, 7))) > 0.52 - k_ * 0.3:
+                return lit(C["mud"] if _nz.noise(p * 40) > -0.3 else C["breechesd"].lerp(C["mud"], 0.5), n, ao, p=p)
+        return None
+    return paint
 def rifleman():
     # Rifleman (the generic line rifle: Sharpshooter, Marksman): standing at port arms, the rifle across the body with
     # its bayonet fixed, a steel helmet, a knee-length greatcoat, a pack with a blanket roll; a sash across the chest
     # and over the shoulder in the seat colour (Accent). Painted PSX look (2026-11-10): ww1_paint for the tunic,
     # webbing, breeches, puttees, boots and gloves; the greatcoat skirt draped (Coat). Solid only for the silhouette:
     # Helmet (the steel helmet), Back (pack), Weapon (rifle), Accent (sash).
+    # Detail pass (2026-11-10): the sash (it lay inside the body) is now a flat band laid round the torso, over the left
+    # shoulder; a water bottle, bayonet scabbard and haversack hang outside the coat (Hip); a mess tin and an entrenching
+    # tool on the pack (Back); a sling under the rifle, its butt plate, bands and bolt painted; generic_detail's coat
+    # pockets, half-belt, patch and mud, shoulder straps, a sleeve patch, wound stripes and the helmet's lugs and dent.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 800; TEX_SIZES = {"Body": 256, "Coat": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 800; TEX_SIZES = {"Body": 256, "Coat": 256, "Helmet": 128, "Back": 128, "Weapon": 128, "Hip": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    from mathutils import noise as _nz
     def pose(r):
         human.reach(r, "R", P(-0.24, 0.02, 1.08), P(-0.07, -0.22, 1.0))
         human.reach(r, "L", P(0.26, -0.1, 1.12), P(0.1, -0.28, 1.27))
     hands, hp, top = human_body(pose, dress=WW1_DRESS, head="mannequin", mitts="leather", shape="male-young-averagemuscle-minweight")
     surf = ww1_uniform(bands=False); toeless_feet()
-    coat = psx_greatcoat()
-    module("Helmet"); helm = psx_brodie(hp, top)
+    coat = psx_greatcoat(); coat_o = MODULES["Coat"][0]
+    hb = bpy.data.objects["human"]
+    def csurf(o_, d_, out=0.0):   # the outermost point of the body or the coat seen from o_ along d_, out from it
+        best = None
+        for ob in (hb, coat_o):
+            ok, at, *_ = ob.ray_cast(o_, d_)
+            if ok and (best is None or (at - o_).length < (best - o_).length): best = at
+        return (best if best is not None else o_ + d_ * 0.8) - d_ * out
+    module("Helmet"); helm = psx_brodie(hp, top); hc = Vector((hp.x, hp.y - 0.008, top.z - 0.075))
     module("Back")
     box((0, 0.075, 1.18), (0.2, 0.09, 0.22), "cloth")                                    # pack, blanket roll on top
     bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.04, depth=0.26, location=(0, 0.075, 1.32), rotation=(0, math.pi / 2, 0))
     add(bpy.context.object, "rags")
-    module("Weapon"); ww1_rifle(FISTS["R"][0], FISTS["L"][0])
+    TIN = Vector((0.0, 0.128, 1.19)); box(tuple(TIN), (0.1, 0.02, 0.075), "metal")       # a mess tin strapped to the pack's back
+    ET = Vector((-0.112, 0.075, 1.05))                                                     # an entrenching tool down the pack's side
+    box(tuple(ET), (0.014, 0.07, 0.08), "iron"); bar(ET + Vector((0, 0, 0.04)), ET + Vector((0, 0, 0.27)), 0.011, "wood", sides=4)
+    module("Weapon")
+    hr, hl = FISTS["R"][0], FISTS["L"][0]; ww1_rifle(hr, hl)
+    d = (hl - hr).normalized(); butt, muz = hr - d * 0.25, hl + d * 0.42
+    side = d.cross(Vector((0, 0, 1))).normalized(); dn = d.cross(side).normalized()
+    if dn.y > 0: dn = -dn                                                                  # the rifle's underside, away from the chest
+    sl0, sl1 = butt + d * 0.06 + dn * 0.03, muz - d * 0.12 + dn * 0.022                   # the sling, slack under the rifle
+    slm = (sl0 + sl1) / 2 + dn * 0.05
+    bar(sl0, slm, 0.006, "leather", sides=3); bar(slm, sl1, 0.006, "leather", sides=3)
+    module("Hip")
+    CANT = csurf(Vector((1.0, 0.0, 0.86)), Vector((-1, 0, 0))) + Vector((0.024, 0, 0))   # an enamel water bottle in a webbing carrier, left hip
+    bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.05, depth=0.036, location=tuple(CANT), rotation=(0, math.pi / 2, 0))
+    o = bpy.context.object; o.scale = (1, 0.82, 1); add(o, "cloth")
+    bar(CANT + Vector((0, 0, 0.036)), CANT + Vector((0, 0, 0.058)), 0.01, "brass", sides=5)
+    SC0 = csurf(Vector((1.0, 0.075, 0.96)), Vector((-1, 0, 0)), 0.014); SC1 = csurf(Vector((1.0, 0.13, 0.71)), Vector((-1, 0, 0)), 0.016)
+    bar(SC0, SC1, 0.012, "leather", sides=4)                                               # the bayonet scabbard behind it
+    bar(SC1, SC1 + (SC1 - SC0).normalized() * 0.03, 0.009, "brass", sides=4)
+    HV = csurf(Vector((-1.0, 0.0, 0.86)), Vector((1, 0, 0))) + Vector((-0.028, 0, 0))     # the haversack on the right hip
+    HA = 0.12; box(tuple(HV), (0.05, 0.19, 0.15), "olive", rot=(0, HA, 0))
     module("Body")
-    # the sash: from the right hip up across the chest, over the left shoulder and down the back
-    hb = bpy.data.objects["human"]
-    ok, sh_, *_ = hb.ray_cast(Vector((0.12, -0.01, 2.0)), Vector((0, 0, -1)))
-    sh_ = (sh_ if ok else Vector((0.12, -0.01, 1.45))) + Vector((0, 0, 0.016))
-    pts = [surf(-0.15, 0.99, out=0.02), surf(0.11, 1.36, out=0.018), sh_, surf(-0.1, 1.06, front=False, out=0.02)]
-    chain(pts, [(0.04, 0.012)] * len(pts), "accent", subdiv=0)
-    C = generic_palette()
-    PAINT = ww1_paint(C, extra=chain_paint(lambda b, p, n, ao: plain_face(C, b, p, n, ao), lambda b, p, n, ao: helm(C, b, p, n, ao),
-                                           lambda b, p, n, ao: coat(C, b, p, n, ao)))
+    # the sash (Accent): a flat band round the torso in a tilted plane, from the right hip over the left shoulder; each
+    # point found from inside the torso outwards, so the arms in front never catch it
+    lo_, hi_ = Vector((-0.15, 0.0, 0.98)), Vector((0.12, 0.0, 1.47))
+    c_ = (lo_ + hi_) / 2; u_ = (hi_ - lo_).normalized(); v_ = Vector((0, 1, 0)); nrm = u_.cross(v_).normalized()
+    K = 20; ring = []
+    for i in range(K):
+        f_ = 2 * math.pi * i / K; dr = u_ * math.cos(f_) + v_ * math.sin(f_)
+        ok, at, nn, _ = hb.ray_cast(c_, dr)
+        ring.append((at if ok else c_ + dr * 0.15) + dr * 0.016)
+    me = bpy.data.meshes.new("sash")
+    me.from_pydata([tuple(q + nrm * s * 0.024) for q in ring for s in (-1, 1)], [], [(2 * i, 2 * ((i + 1) % K), 2 * ((i + 1) % K) + 1, 2 * i + 1) for i in range(K)])
+    o = bpy.data.objects.new("sash", me); scn.collection.objects.link(o); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.008
+    for f in me.polygons: f.use_smooth = True
+    add(o, "accent")
+    C = generic_palette(olive="5e6440", olived="3c4029", olivel="7a8058", enamel="3e4a3a", patch="7a2a1e", tinl="70726c")
+    def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
+    gen = generic_detail(C, coat_o, patch=("R", "bar", "patch"), stripes="L", hc=hc)
+    def detail(base, p, n, ao):   # the new kit (None: not one of these)
+        x, y, z = p.x, p.y, p.z; s_ = n.dot(PSX_LIGHT)
+        def lt(c_, metal=False, grime=0.0): return lit(c_, n, ao, metal, grime, p)
+        if base == "cloth" and (p - CANT).length < 0.075:   # the bottle: a webbing carrier, its straps crossing, dark enamel showing
+            q = p - CANT; r_ = math.hypot(q.y / 0.82, q.z)
+            if abs(n.x) > 0.6:
+                if r_ > 0.046: return C["ink"]
+                if abs(q.y) < 0.007 or abs(q.z) < 0.007: return lt(C["webbing"])
+                return lt(C["enamel"] if s_ > 0.0 else C["metal"], metal=True)
+            if abs(q.z + 0.012) < 0.008: return C["ink"] if abs(q.z + 0.012) > 0.005 else lt(C["webbing"])
+            return lt(C["webbingd"] if s_ > 0.3 else C["webbingd"].lerp(C["ink"], 0.3), grime=0.2)
+        if base == "brass" and (p - CANT).length < 0.09: return C["brassl"] if s_ > 0.4 else C["brass"]
+        if base in ("leather", "brass") and segd(p, SC0, SC1 + (SC1 - SC0).normalized() * 0.03)[0] < 0.03:   # the scabbard: a webbing frog, a brass chape
+            if base == "brass": return C["brassl"] if s_ > 0.3 else C["brass"]
+            t = segd(p, SC0, SC1)[1]
+            if t < 0.2: return C["ink"] if abs(t - 0.2) < 0.03 else lt(C["webbing"])
+            return lt(C["leatherl"] if s_ > 0.55 else C["leather"])
+        if base == "olive":   # the haversack: a flap with an ink edge, a brass stud, two buckled straps, a stencilled number block
+            q = p - HV; ca, sa = math.cos(HA), math.sin(HA); q = Vector((q.x * ca - q.z * sa, q.y, q.x * sa + q.z * ca))
+            if q.z < -0.071 or abs(abs(q.y) - 0.095) < 0.005: return C["ink"]
+            if abs(q.z - 0.02) < 0.004: return C["ink"]                                                     # the flap's edge
+            if abs(abs(q.y) - 0.05) < 0.011 and q.z > -0.03:
+                if abs(abs(q.y) - 0.05) > 0.007: return C["ink"]
+                return C["brassl"] if abs(q.z + 0.01) < 0.008 else lt(C["leather"])
+            if q.z < 0.0 and abs(q.y) < 0.026 and q.z > -0.05 and n.x < -0.5:                              # a pale stencilled block
+                return lt(C["olived"]) if abs(q.y) > 0.02 or q.z < -0.044 or q.z > -0.006 else lt(C["pale"])
+            return lt(C["olivel"] if q.z > 0.02 and s_ > 0.1 else (C["olive"] if s_ > -0.2 else C["olived"]), grime=0.2)
+        if base == "metal" and (p - TIN).length < 0.09:   # the mess tin, a webbing strap round it
+            q = p - TIN
+            if abs(q.x) < 0.012: return C["ink"] if abs(q.x) > 0.008 else lt(C["webbing"])
+            if max(abs(q.x) - 0.05, abs(q.z) - 0.0375) > -0.004: return C["ink"]
+            return lt(C["tinl"] if s_ > 0.5 else C["tin"], metal=True)
+        if base in ("iron", "wood") and (p - ET).length < 0.3 and x < -0.1:   # the entrenching tool: a bright worn edge, a strap
+            q = p - ET
+            if base == "wood": return C["ink"] if abs(q.z - 0.2) < 0.008 else psx_kit(C, "wood", p, n, ao)
+            if abs(q.z - 0.012) < 0.012: return C["ink"] if abs(q.z - 0.012) > 0.008 else lt(C["webbing"])
+            if q.z < -0.03 or abs(q.y) > 0.03: return C["ironl"]
+            return lt(C["rust"] if _nz.noise(p * 30) > 0.4 else C["iron"], metal=True)
+        if base in ("wood", "metal", "iron", "leather") and segd(p, butt, muz + d * 0.2)[0] < 0.1:   # the rifle
+            t = (p - hr).dot(d)
+            if base == "leather": return lt(C["leatherl"] if s_ > 0.5 else C["leather"])
+            if base == "wood":
+                if (p - butt).dot(d) < 0.018: return C["brassl"] if s_ > 0.3 else C["brass"]                   # the butt plate
+                for tb in (0.42, (muz - hr).dot(d) - 0.14):                                                 # barrel bands
+                    if abs(t - tb) < 0.012: return C["ink"] if abs(t - tb) > 0.008 else lt(C["metall"], metal=True)
+                if abs(t + 0.12) < 0.005: return C["woodd"]                                                 # the stock's joint
+                return psx_kit(C, base, p, n, ao)
+            if base == "metal" and t < 0.14: return C["ink"] if abs(t - 0.06) < 0.005 else lt(C["metall"] if s_ > 0.3 else C["metal"], metal=True)
+            if base == "iron": return lt(C["ironl"] if s_ > 0.2 else C["iron"], metal=True)               # the bayonet, bright
+        return None
+    PAINT = ww1_paint(C, extra=chain_paint(lambda b, p, n, ao: plain_face(C, b, p, n, ao), gen, lambda b, p, n, ao: helm(C, b, p, n, ao),
+                                           lambda b, p, n, ao: coat(C, b, p, n, ao), detail))
 def skirmisher():
     # Skirmisher (the generic light trooper: Skirmisher, Runner): leaning into a run, a short carbine held low, a
     # close canvas hood with a long tail over a blank mannequin face, a stick grenade in the belt; a short shoulder cape
@@ -453,8 +642,12 @@ def skirmisher():
     # boots, gloves and satchel; the hood painted on the head in its own node (Helmet, 128 px: the face opening, its
     # rolled edge, folds). Solid only for the silhouette: Helmet (the hooded head, the hood's tail), Weapon (carbine,
     # grenade), Accent (cape).
+    # Detail pass (2026-11-10): a brass clasp at the cape's throat (Helmet), a second grenade and the carbine's sling
+    # (Weapon), a water bottle and a sheathed trench knife (Hip); a cartridge bandolier, a bloodied field dressing on the
+    # left forearm, a knee patch, the hood's crown seam, side patch, eyelets and tail tie, generic_detail's sleeve patch,
+    # wound stripes and mud; the carbine's butt plate, band and bolt painted.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 256, "Helmet": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 256, "Helmet": 128, "Weapon": 128, "Hip": 128, "Kit": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.12, 1.4)); human.aim(r, "neck01", P(0, -0.2, 1.6))
@@ -484,15 +677,60 @@ def skirmisher():
     o = bpy.data.objects.new("cape", me); scn.collection.objects.link(o); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012
     for f in me.polygons: f.use_smooth = True
     add(o, "accent")
+    # detail pass (2026-11-10): a brass clasp closing the cape at the throat
+    cf = Vector(verts[K // 2]).lerp(Vector(verts[K + K // 2]), 0.45); co_ = (cf - (NECK + ax * -0.02)); co_ = (co_ - ax * co_.dot(ax)).normalized()
+    CLASP = cf + co_ * 0.012
+    sphere(tuple(CLASP), 0.02, "brass", (1, 1, 1), seg=8, rings=4); o = MODULES["Helmet"][-1]
+    o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(co_); o.scale = (1, 1, 0.4)
     module("Weapon")
     hr, hl = FISTS["R"][0], FISTS["L"][0]
     ww1_rifle(hr, hl, back=0.18, ahead=0.2, bayonet=0.15)                                # a short carbine
     g = surf(-0.12, 0.99, out=0.035)                                                      # the stick grenade in the belt
     bar(g - Vector((0, 0, 0.07)), g + Vector((0, 0, 0.03)), 0.009, "wood", sides=4)
     bar(g + Vector((0, 0, 0.03)), g + Vector((0, 0, 0.085)), 0.022, "iron", sides=6)
+    # detail pass (2026-11-10): a second grenade tucked in the belt at the left, the carbine's sling, slack under it
+    g2 = surf(0.075, 0.99, out=0.035); gd = Vector((0.25, 0, 1)).normalized()
+    bar(g2 - gd * 0.07, g2 + gd * 0.03, 0.009, "wood", sides=4); bar(g2 + gd * 0.03, g2 + gd * 0.085, 0.022, "iron", sides=6)
+    d = (hl - hr).normalized(); butt, muz = hr - d * 0.18, hl + d * 0.2
+    side = d.cross(Vector((0, 0, 1))).normalized(); dn = d.cross(side).normalized()
+    if dn.z > 0: dn = -dn
+    sl0, sl1 = butt + d * 0.05 + dn * 0.028, muz - d * 0.06 + dn * 0.02; slm = (sl0 + sl1) / 2 + dn * 0.05
+    bar(sl0, slm, 0.006, "leather", sides=3); bar(slm, sl1, 0.006, "leather", sides=3)
+    module("Hip")
+    skirts_ = [o for o in MODULES["Body"] if o.name.startswith("cloth")]
+    def surf2(o_, d_, out=0.012):   # the outermost point of the body or the tunic skirt seen from o_ along d_
+        best = None
+        for ob in (hb, *skirts_):
+            ok, at, *_ = ob.ray_cast(o_, d_)
+            if ok and (best is None or (at - o_).length < (best - o_).length): best = at
+        return (best if best is not None else o_ + d_ * 0.9) - d_ * out
+    CANT = surf2(Vector((1.0, 0.01, 0.87)), Vector((-1, 0, 0)), 0.0) + Vector((0.022, 0, 0))   # a squat water bottle on the left hip
+    bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.045, depth=0.034, location=tuple(CANT), rotation=(0, math.pi / 2, 0))
+    o = bpy.context.object; o.scale = (1, 0.85, 1); add(o, "cloth")
+    bar(CANT + Vector((0, 0, 0.032)), CANT + Vector((0, 0, 0.052)), 0.009, "brass", sides=5)
+    KN = surf2(Vector((0.13, -1.0, 0.93)), Vector((0, 1, 0)), 0.012); kd = Vector((0.35, -0.15, -1)).normalized()   # a trench knife in its sheath, front left
+    bar(KN, KN + kd * 0.15, 0.011, "leather", sides=4); bar(KN - kd * 0.06, KN, 0.009, "wood", sides=4)
+    kx = kd.cross(Vector((0, -1, 0))).normalized(); bar(KN - kx * 0.022, KN + kx * 0.022, 0.006, "brass", sides=3)
+    module("Kit")
+    # a leather cartridge bandolier from the left shoulder (under the cape) across the chest to the right hip: a flat
+    # band laid on the front of the torso in a tilted plane, each point found from inside the torso outwards
+    hips_ = (JOINTS["upperleg01.L"] + JOINTS["upperleg01.R"]) / 2; tc_ = (NECK + hips_) / 2
+    blo, bhi = Vector((-0.16, tc_.y, 0.99)), Vector((0.12, (NECK.y + tc_.y) / 2, 1.42))
+    bc = (blo + bhi) / 2; bu = (bhi - blo).normalized(); bv = Vector((0, -1, 0)); bv = (bv - bu * bv.dot(bu)).normalized(); bn = bu.cross(bv).normalized()
+    strip = []
+    for i in range(9):
+        f_ = math.pi * i / 8; dr = bu * math.cos(f_) + bv * math.sin(f_)
+        ok, at, *_ = hb.ray_cast(bc, dr)
+        strip.append((at if ok else bc + dr * 0.15) + dr * 0.014)
+    me = bpy.data.meshes.new("bandolier")
+    me.from_pydata([tuple(q + bn * s * 0.022) for q in strip for s in (-1, 1)], [], [(2 * i, 2 * i + 2, 2 * i + 3, 2 * i + 1) for i in range(8)])
+    o = bpy.data.objects.new("bandolier", me); scn.collection.objects.link(o); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.008
+    for f in me.polygons: f.use_smooth = True
+    add(o, "olive")
     module("Body")
-    C = generic_palette(hood="5a5442", hoodd="3a3628", hoodl="776f58")
-    def lit(c, n, ao, p=None): return psx_lit(c, n, ao, p=p, mud=C["mud"])
+    C = generic_palette(hood="5a5442", hoodd="3a3628", hoodl="776f58", bandage="b8ae94", bandaged="867c66", patch="5a5a30",
+                        knee="4a4a36", kneed="2e2e22")
+    def lit(c, n, ao, p=None, metal=False): return psx_lit(c, n, ao, metal, p=p, mud=C["mud"])
     def hood(base, p, n, ao):
         if base != "hood": return None
         q = p - fb["mid"]; a, u, f = q.dot(fb["ax"]), q.dot(fb["up"]), q.dot(fb["fwd"])
@@ -501,11 +739,81 @@ def skirmisher():
             if e < 1.0:   # the face in the opening, shadowed under the hood's brow
                 if e > 0.86: return C["ink"]
                 return lit(C["mannequind"] if u > 0.03 or n.dot(PSX_LIGHT) < 0.1 else C["mannequin"], n, ao, p=p)
-            if e < 1.5: return lit(C["hoodl"] if n.dot(PSX_LIGHT) > 0.3 else C["hood"], n, ao, p=p)   # the rolled edge
+            if e < 1.5:   # the rolled edge, the drawstring's two eyelets under the chin
+                for ex in (-0.022, 0.022):
+                    if math.hypot(a - ex, u + 0.098) < 0.008: return C["ink"] if math.hypot(a - ex, u + 0.098) > 0.0045 else C["brassl"]
+                return lit(C["hoodl"] if n.dot(PSX_LIGHT) > 0.3 else C["hood"], n, ao, p=p)
             if e < 1.62: return C["ink"]
+        # detail pass (2026-11-10): a seam over the crown and down the back, a stitched patch on the left side, the tail's tie
+        if abs(a) < 0.0055 and u > -0.02 and f < 0.06 and (p - back).length > 0.04: return C["hoodd"].lerp(C["ink"], 0.5)
+        if abs(a - 0.075) < 0.03 and abs(u - 0.02) < 0.026 and f < 0.02:
+            if abs(a - 0.075) > 0.024 or abs(u - 0.02) > 0.02: return C["hoodd"].lerp(C["ink"], 0.5)
+            return lit(C["patch"], n, ao, p=p)
+        tl = segd(p, back, back - fb["fwd"] * 0.07 - Vector((0, 0, 0.1)))
+        if tl[0] < 0.05 and abs(tl[1] - 0.55) < 0.07: return C["ink"] if abs(tl[1] - 0.55) > 0.045 else lit(C["webbing"], n, ao, p=p)
         fo = (math.atan2(a, -f) * 3.0 + _nz.noise(p * 12) * 0.8) % 1.0                       # folds drawn back from the face
         return lit(C["hoodd"] if fo < 0.15 else C["hood"], n, ao, p=p)
-    PAINT = ww1_paint(C, extra=hood)
+    gen = generic_detail(C, patch=("R", "triangle", "patch"), stripes="R")
+    KNEE = JOINTS["lowerleg01.R"]
+    def detail(base, p, n, ao):   # the new kit and painted details (None: not here)
+        x, y, z = p.x, p.y, p.z; s_ = n.dot(PSX_LIGHT)
+        def lt(c_, metal=False): return lit(c_, n, ao, p=p, metal=metal)
+        if base == "brass" and (p - CLASP).length < 0.04:   # the clasp: a rim, a raised boss
+            r_ = (p - CLASP).length; return C["ink"] if 0.011 < r_ < 0.014 else (C["brassl"] if s_ > 0.3 else C["brass"])
+        if base == "cloth" and (p - CANT).length < 0.07:   # the bottle: felt cover, a stitched seam, a strap over it
+            q = p - CANT
+            if abs(q.y) < 0.006 and q.z > 0: return C["ink"] if abs(q.y) > 0.0035 else lt(C["leather"])
+            if abs(n.x) > 0.6: return C["ink"] if math.hypot(q.y / 0.85, q.z) > 0.041 else lt(C["clothl"] if s_ > 0.4 else C["cloth"])
+            return lt(C["clothd"] if abs(q.x) < 0.003 else C["cloth"])
+        if base == "brass" and (p - CANT).length < 0.08: return C["brassl"] if s_ > 0.4 else C["brass"]
+        if (p - KN).length < 0.2 and base in ("leather", "wood", "brass") and segd(p, KN - kd * 0.06, KN + kd * 0.15)[0] < 0.03:   # the knife
+            t = (p - KN).dot(kd)
+            if base == "brass": return C["brassl"] if s_ > 0.2 else C["brass"]
+            if base == "wood": return C["ink"] if abs(t + 0.03) < 0.004 else psx_kit(C, "wood", p, n, ao)
+            if t > 0.13: return C["metall"]                                                        # the sheath's chape
+            return C["ink"] if abs(t - 0.04) < 0.005 else lt(C["leatherl"] if s_ > 0.4 else C["leather"])
+        if base in ("wood", "iron") and (min((p - g).length, (p - g2).length) < 0.11):   # the grenades: a ringed iron head, a brass cap
+            gg, dd_ = (g, Vector((0, 0, 1))) if (p - g).length < (p - g2).length else (g2, gd)
+            t = (p - gg).dot(dd_)
+            if base == "wood": return C["brassl"] if t < -0.062 else (C["ink"] if abs(t + 0.02) < 0.004 else psx_kit(C, "wood", p, n, ao))
+            if abs(t - 0.058) < 0.006 or abs(t - 0.033) < 0.004: return C["ink"]
+            return lt(C["ironl"] if s_ > 0.5 else C["metal"], metal=True)
+        if base in ("wood", "metal", "iron", "leather") and segd(p, butt, muz + d * 0.15)[0] < 0.09:   # the carbine
+            t = (p - hr).dot(d)
+            if base == "leather": return lt(C["leatherl"] if s_ > 0.5 else C["leather"])
+            if base == "wood":
+                if (p - butt).dot(d) < 0.016: return C["brassl"] if s_ > 0.3 else C["brass"]
+                if abs(t - (muz - hr).dot(d) + 0.12) < 0.011: return C["ink"] if abs(t - (muz - hr).dot(d) + 0.12) > 0.007 else lt(C["metall"], True)
+                return psx_kit(C, "wood", p, n, ao)
+            if base == "metal" and t < 0.13: return C["ink"] if abs(t - 0.055) < 0.005 else lt(C["metall"] if s_ > 0.3 else C["metal"], True)
+            if base == "iron": return lt(C["ironl"] if s_ > 0.2 else C["iron"], True)
+        if base == "breeches" and (p - KNEE).length < 0.07 and n.y < -0.2:   # a knee patch sewn over a tear
+            q = p - KNEE
+            if abs(q.x) < 0.04 and abs(q.z) < 0.04:
+                if abs(q.x) > 0.033 or abs(q.z) > 0.033: return C["kneed"]
+                return lt(C["knee"])
+        if base == "tunic" and y > 0.02 and abs(x) < 0.06 and 0.895 < z < 0.97:   # a webbing pouch hung behind the belt: a flap, a brass stud
+            if abs(x) > 0.052 or z < 0.903: return C["ink"]
+            if abs(z - 0.94) < 0.004: return C["ink"]
+            if abs(x) < 0.007 and abs(z - 0.932) < 0.007: return C["brassl"]
+            return lt(C["webbingl"] if z > 0.94 else C["webbing"])
+        if base == "tunic":
+            side_, along, ad = psx_arm(p)
+            if side_ == "L" and ad < 0.06 and (abs(x) > 0.16 or y < -0.17) and 1.4 < along < 1.68 and z > 0.9:   # a field dressing round the left forearm, blood soaked through
+                if along < 1.42 or along > 1.66: return C["ink"]
+                if _nz.noise(p * 16 + Vector((2, 5, 1))) > 0.38: return C["blood"]
+                return lt(C["bandaged"] if (along * 30) % 1.0 < 0.25 else C["bandage"])
+        if base == "olive":   # the bandolier (leather): pockets, each a flap with a brass stud
+            q = p - bc; f_ = math.atan2(q.dot(bv), q.dot(bu)) / math.pi; w_ = q.dot(bn)
+            if abs(w_) > 0.022: return C["ink"]
+            k = (f_ * 7) % 1.0
+            if 0.15 < f_ < 0.9 and n.dot((p - bc).normalized()) > 0.3:
+                if k < 0.12 or k > 0.88: return C["ink"]
+                if abs(w_) < 0.007 and abs(k - 0.62) < 0.1: return C["brassl"] if s_ > 0.0 else C["brass"]
+                if k < 0.45: return C["ink"] if k > 0.38 else lt(C["leatherl"])
+            return lt(C["leather"])
+        return None
+    PAINT = ww1_paint(C, extra=chain_paint(hood, detail, gen))
 def shield():
     # Shield-bearer (the generic shield wall: Bulwark, Shieldbearer): an enclosed iron bucket helm (no head under it),
     # rounded iron pauldrons, a knee-length greatcoat, a breastplate; a tall planked shield held out on the left arm, its
@@ -514,15 +822,32 @@ def shield():
     # eye slit, breaths and rivets, the pauldrons' lames and the shield's planks and rim painted; the greatcoat skirt
     # draped (Coat). Solid only for the silhouette: Helmet (helm, pauldrons), Shield (board, bands, boss), Weapon (mace),
     # Accent (the shield's face).
+    # Detail pass (2026-11-10): a rondel dagger and a belt pouch outside the coat (Hip); the helm's side seams and rivet
+    # rows, rust run down from its rivets, a dent; buckled straps over the pauldrons, worn lame edges; the shield's bands
+    # riveted, the boss ringed, hack marks on the rim; the mace's leather grip, collar and head seam; the breastplate
+    # scratched, rusted and dented, buckled side straps; generic_detail's coat pockets, half-belt, patch and mud.
     global BODY_BUDGET, TEX_SIZES, PAINT
-    BODY_BUDGET = 760; TEX_SIZES = {"Body": 256, "Coat": 128, "Helmet": 128, "Shield": 128}
+    BODY_BUDGET = 760; TEX_SIZES = {"Body": 256, "Coat": 256, "Helmet": 128, "Shield": 128, "Weapon": 128, "Hip": 128}
     from mathutils import noise as _nz
     def pose(r):
         human.reach(r, "L", P(0.3, -0.08, 1.12), P(0.16, -0.3, 1.05))
         human.reach(r, "R", P(-0.33, -0.02, 1.4), P(-0.3, -0.1, 1.62))
     hands, hp, top = human_body(pose, dress=WW1_DRESS, head=None, mitts="leather", shape="male-young-averagemuscle-averageweight")
     ww1_uniform(bands=False); toeless_feet()
-    coat = psx_greatcoat()
+    coat = psx_greatcoat(); coat_o = MODULES["Coat"][0]
+    hb = bpy.data.objects["human"]
+    def csurf(o_, d_, out=0.0):   # the outermost point of the body or the coat seen from o_ along d_, out from it
+        best = None
+        for ob in (hb, coat_o):
+            ok, at, *_ = ob.ray_cast(o_, d_)
+            if ok and (best is None or (at - o_).length < (best - o_).length): best = at
+        return (best if best is not None else o_ + d_ * 0.8) - d_ * out
+    module("Hip")
+    RD = csurf(Vector((-0.11, -1.0, 0.95)), Vector((0, 1, 0)), 0.014); rdd = Vector((-0.3, -0.12, -1)).normalized()   # the rondel dagger, front right
+    bar(RD, RD + rdd * 0.17, 0.011, "leather", sides=4); bar(RD - rdd * 0.07, RD, 0.008, "wood", sides=4)
+    for k_ in (0.0, -0.075): sphere(tuple(RD + rdd * k_), 0.017, "brass", (1, 1, 0.35), seg=6, rings=3)   # its two rondels
+    PO = csurf(Vector((-1.0, -0.05, 0.9)), Vector((1, 0, 0))) + Vector((-0.024, 0, 0))   # a leather belt pouch on the right hip
+    box(tuple(PO), (0.045, 0.1, 0.085), "leather", rot=(0, 0.12, 0))
     module("Helmet")
     c = Vector((hp.x, hp.y, top.z - 0.09))
     bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.125, depth=0.32, location=tuple(c - Vector((0, 0, 0.03)))); add(bpy.context.object, "iron")   # down onto the shoulders: no gap at the neck
@@ -535,6 +860,14 @@ def shield():
     box((hl.x, hl.y - 0.095, 0.87), (0.36, 0.012, 0.7), "accent")
     for bz in (0.6, 1.14): box((hl.x, hl.y - 0.105, bz), (0.37, 0.012, 0.04), "iron")   # two iron bands and a boss: no emblem, it stands in for several units
     sphere((hl.x, hl.y - 0.1, 0.87), 0.05, "iron", (1, 0.55, 1), seg=8, rings=4)
+    # detail pass (2026-11-10): a vertical strap between the bands, a flange under the boss, iron corner brackets
+    fy = hl.y - 0.105
+    box((hl.x, fy, 0.87), (0.04, 0.01, 0.5), "iron")
+    bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.068, depth=0.01, location=(hl.x, fy - 0.006, 0.87), rotation=(math.pi / 2, 0, 0)); add(bpy.context.object, "iron")
+    CORNERS = [Vector((hl.x + sx * 0.165, fy, 0.87 + sz * 0.335)) for sx in (-1, 1) for sz in (-1, 1)]
+    for cq in CORNERS:
+        sx, sz = (1 if cq.x > hl.x else -1), (1 if cq.z > 0.87 else -1)
+        box(tuple(cq - Vector((sx * 0.03, 0, 0))), (0.085, 0.01, 0.024), "iron"); box(tuple(cq - Vector((0, 0, sz * 0.03))), (0.024, 0.01, 0.085), "iron")
     module("Weapon")
     hr = hands["R"]; up = Vector((0, 0, 1)); mh = hr + up * 0.34
     bar(hr - up * 0.12, hr + up * 0.3, 0.017, "wood")
@@ -555,36 +888,122 @@ def shield():
                 return lit(iron(n), n, ao, True, p)
             if q.z < -0.115: return C["ink"] if abs(q.z + 0.118) < 0.004 else lit(C["irond"], n, ao, True, p)   # the gorget under a seam
             if abs(q.z - 0.115) < 0.006: return C["ink"]                                           # the crown seam
-            r_ = psx_dot(p, [c + Vector((0.125 * math.sin(k * math.pi / 4), -0.125 * math.cos(k * math.pi / 4), 0.095)) for k in range(8)], C, 0.008, m="iron")
+            if abs(q.z - 0.107) < 0.004 and n.dot(PSX_LIGHT) > -0.2: return lit(C["ironl"], n, ao, True, p)   # its worn lip
+            RIV = [c + Vector((0.125 * math.sin(k * math.pi / 4), -0.125 * math.cos(k * math.pi / 4), 0.095)) for k in range(8)]
+            SEAMR = [c + Vector((sx * 0.125, 0, rz)) for sx in (-1, 1) for rz in (0.045, -0.005, -0.055)]   # the side seams' rivet rows
+            r_ = psx_dot(p, RIV + SEAMR, C, 0.008, m="iron")
             if r_ is not None: return r_
+            if abs(q.y) < 0.011 and abs(q.x) > 0.1 and q.z < 0.09: return C["ink"] if abs(q.y) < 0.004 else lit(C["irond"], n, ao, True, p)   # the side seams, plate over plate
+            for rp in RIV + SEAMR:   # rust run down from each rivet
+                e_ = p - rp
+                if -0.06 * (0.6 + 0.4 * _nz.noise(rp * 9)) < e_.z < -0.012 and Vector((e_.x, e_.y)).length < 0.0055: return lit(C["rust"], n, ao, False, p)
             if q.y < 0:
                 if abs(q.z - 0.02) < 0.016 and abs(q.x) < 0.1 and abs(q.x) > 0.008:              # the eye slits, a nose bar between
                     return C["ink"] if abs(q.z - 0.02) > 0.011 else C["dark"]
+                if abs(q.z - 0.042) < 0.005 and abs(q.x) < 0.1: return lit(C["ironl"], n, ao, True, p)   # the brow's light edge over the slits
                 if abs(q.x) < 0.012 and q.z < 0.1: return C["ink"] if abs(q.x) > 0.008 else lit(C["ironl"], n, ao, True, p)   # the front ridge
                 if q.x < -0.03 and -0.09 < q.z < -0.02 and (q.x * 90) % 1.0 < 0.35 and (q.z * 90) % 1.0 < 0.35: return C["dark"]   # breaths
+                dd = math.hypot(q.x - 0.06, q.z + 0.06)   # a dent on the left cheek: dark in the hollow, light on its lower lip
+                if dd < 0.022: return lit(C["irond"] if q.z > -0.062 else C["ironl"], n, ao, True, p)
+            elif q.z < 0.1:   # the back: a riveted seam down the middle, its plate edge catching the light
+                if abs(q.x) < 0.012: return C["ink"] if abs(q.x) < 0.004 else C["ironl"]
+                r_ = psx_dot(p, [c + Vector((0.022, 0.125, rz)) for rz in (0.06, 0.0, -0.06)], C, 0.007, m="iron")
+                if r_ is not None: return r_
             if _nz.noise(p * 24) > 0.5: return lit(C["rust"] if _nz.noise(p * 70) > 0 else C["rustd"], n, ao, False, p)
-            return lit(iron(n), n, ao, True, p)
-        for pd in pads:   # the pauldrons: three lames down the arm, a rivet at each end
+            return lit(iron(n) if q.y < 0 else C["iron"], n, ao, True, p)   # the back kept readable, not black
+        for pd in pads:   # the pauldrons: three lames down the arm, a rivet at each end, a buckled strap over the top
             e = p - pd
             if e.length < 0.13:
                 if n.z < -0.6: return C["dark"]
+                sgn = 1 if pd.x > 0 else -1
+                if n.z > 0.45 and abs(e.y) < 0.014:
+                    if abs(e.y) > 0.01: return C["ink"]
+                    if abs(e.x * sgn + 0.025) < 0.011: return C["ink"] if abs(e.x * sgn + 0.025) > 0.007 else C["brassl"]   # the buckle
+                    return lit(C["leatherl"] if n.dot(PSX_LIGHT) > 0.5 else C["leather"], n, ao, p=p)
                 k = (e.z + 0.07) / 0.035
                 if k % 1.0 < 0.14: return C["ink"]
                 r_ = psx_dot(p, [pd + Vector((0, sy * 0.105, 0.03)) for sy in (-1, 1)], C, 0.008, m="brass")
                 if r_ is not None: return r_
-                return lit(C["ironl"] if k % 1.0 > 0.75 and n.dot(PSX_LIGHT) > 0 else iron(n), n, ao, True, p)
+                if k % 1.0 > 0.8 and n.dot(PSX_LIGHT) > -0.3: return lit(C["ironl"], n, ao, True, p)   # each lame's worn lower edge
+                if _nz.noise(p * 26 + Vector((4, 0, 0))) > 0.55: return lit(C["rust"], n, ao, False, p)
+                return lit(iron(n), n, ao, True, p)
         return None
     def board(base, p, n, ao):
         if base != "wood" or (p - sc).length > 0.5 or abs(p.x - sc.x) > 0.23: return None
         q = p - sc
-        if abs(q.x) > 0.19 or abs(q.z) > 0.37: return C["ink"] if abs(q.x) > 0.205 or abs(q.z) > 0.385 else lit(iron(n), n, ao, True, p)   # the iron rim
+        if abs(q.x) > 0.19 or abs(q.z) > 0.37:   # the iron rim, hacked and nicked bright in places
+            if abs(q.x) > 0.205 or abs(q.z) > 0.385: return C["ink"]
+            if _nz.noise(p * Vector((30, 30, 30)) + Vector((1, 2, 3))) > 0.5: return C["ironl"]
+            return lit(iron(n), n, ao, True, p)
         r_ = psx_dot(p, [sc + Vector((sx * 0.197, q.y, sz * 0.12)) for sx in (-1, 1) for sz in (-3, -1, 1, 3)], C, 0.007, m="brass")
         if r_ is not None: return r_
         if (q.x + 0.21) % 0.07 < 0.005: return C["ink"]                                         # planks
+        if q.y > 0 and abs(q.x) < 0.03 and abs(q.z - 0.02) < 0.05:   # the hand grip's iron straps behind
+            return C["ink"] if abs(q.x) > 0.024 or abs(q.z - 0.02) > 0.044 else lit(iron(n), n, ao, True, p)
         if q.y > 0 and abs(abs(q.z) - 0.2) < 0.022: return C["ink"] if abs(abs(q.z) - 0.2) > 0.016 else lit(C["leather"], n, ao, p=p)   # arm straps
         return psx_kit(C, "wood", p, n, ao)
-    def mace(base, p, n, ao):
-        if base in ("metal", "iron") and ((p - mh).length < 0.12 or (p - sc).length < 0.5): return psx_kit(C, "iron", p, n, ao)
+    def fittings(base, p, n, ao):   # the shield's bands (riveted) and boss (ringed); the mace's head
+        if base not in ("metal", "iron"): return None
+        s_ = n.dot(PSX_LIGHT)
+        if (p - mh).length < 0.12:
+            if base == "metal": return lit(C["ironl"] if s_ > 0.3 else C["iron"], n, ao, True, p)          # the flanges, bright edged
+            return C["ink"] if abs((p - mh).z) < 0.005 else psx_kit(C, "iron", p, n, ao)                     # the head, a forge seam round it
+        if (p - sc).length > 0.55: return None
+        bo = Vector((hl.x, hl.y - 0.1, 0.87))
+        r2 = math.hypot(p.x - bo.x, p.z - bo.z)
+        if r2 < 0.047 and p.y < fy - 0.0118:   # the boss: a dark ring at its foot, a hot highlight up and to the left
+            if r2 > 0.042: return C["ink"]
+            if math.hypot(p.x - bo.x + 0.014, p.z - bo.z - 0.014) < 0.01: return C["ironl"]
+            return lit(iron(n), n, ao, True, p)
+        if r2 < 0.072 and p.y < fy:   # the flange: an ink rim, six rivets round it
+            if r2 > 0.063: return C["ink"]
+            r_ = psx_dot(p, [Vector((bo.x + 0.054 * math.cos(k * math.pi / 3), p.y, bo.z + 0.054 * math.sin(k * math.pi / 3))) for k in range(6)], C, 0.0055, m="iron")
+            if r_ is not None: return r_
+            return lit(C["irond"] if r2 < 0.047 else iron(n), n, ao, True, p)
+        if abs(p.x - hl.x) < 0.024 and abs(p.z - 0.87) < 0.26 and p.y < fy + 0.004 and min(abs(p.z - 0.6), abs(p.z - 1.14)) > 0.02:   # the vertical strap, riveted
+            if abs(p.x - hl.x) > 0.016: return C["ink"]
+            r_ = psx_dot(p, [Vector((hl.x, p.y, 0.87 + k * 0.08)) for k in (-3, -2, 2, 3)], C, 0.0055, m="iron")
+            if r_ is not None: return r_
+            return lit(C["ironl"] if p.x < hl.x - 0.008 and s_ > -0.3 else iron(n), n, ao, True, p)
+        for cq in CORNERS:   # the corner brackets: a rivet in each arm, a bright worn edge
+            q = p - cq
+            if abs(q.x) < 0.12 and abs(q.z) < 0.12 and p.y < fy + 0.004 and min(abs(p.z - 0.6), abs(p.z - 1.14)) > 0.02:
+                sx, sz = (1 if cq.x > hl.x else -1), (1 if cq.z > 0.87 else -1)
+                r_ = psx_dot(p, [cq - Vector((sx * 0.05, 0, 0)), cq - Vector((0, 0, sz * 0.05)), cq], C, 0.0055, m="iron")
+                if r_ is not None: return r_
+                if abs(q.x) > 0.008 and abs(q.z) > 0.008 and min(abs(q.x - sx * 0.0115), abs(q.z - sz * 0.0115)) < 0.003: return C["ink"]
+                return lit(C["ironl"] if q.z * sz > 0.004 or q.x * sx > 0.004 else iron(n), n, ao, True, p)
+        for bz in (0.6, 1.14):
+            q = p - Vector((hl.x, hl.y - 0.105, bz))
+            if abs(q.z) < 0.03 and abs(q.x) < 0.2:
+                if abs(q.z) > 0.016 or abs(q.x) > 0.178: return C["ink"]
+                r_ = psx_dot(p, [Vector((hl.x + k * 0.058, p.y, bz)) for k in range(-3, 4)], C, 0.0065, m="iron")
+                if r_ is not None: return r_
+                if q.z > 0.009 and s_ > -0.4: return lit(C["ironl"], n, ao, True, p)
+                if _nz.noise(p * 28) > 0.5: return lit(C["rust"], n, ao, False, p)
+                return lit(iron(n), n, ao, True, p)
+        return psx_kit(C, "iron", p, n, ao)
+    def haft(base, p, n, ao):   # the mace's haft: a leather grip bound round it, an iron collar under the head
+        if base != "wood" or (p - hr).length > 0.45 or abs(p.x - hr.x) > 0.05: return None
+        t = p.z - hr.z
+        if 0.27 < t < 0.3: return lit(iron(n), n, ao, True, p)
+        if -0.1 < t < 0.08:
+            fr = (t * 45 + math.atan2(p.x - hr.x, p.y - hr.y) / (2 * math.pi)) % 1.0
+            return C["ink"] if fr < 0.2 else lit(C["leatherl"] if fr > 0.75 else C["leather"], n, ao, p=p)
+        return psx_kit(C, "wood", p, n, ao)
+    def kit(base, p, n, ao):   # the dagger and the pouch
+        s_ = n.dot(PSX_LIGHT)
+        if (p - RD).length < 0.26 and base in ("leather", "wood", "brass") and segd(p, RD - rdd * 0.08, RD + rdd * 0.17)[0] < 0.03:
+            if base == "brass": return C["ink"] if n.dot(rdd) ** 2 < 0.2 else (C["brassl"] if s_ > 0.2 else C["brass"])
+            if base == "wood": return C["ink"] if abs((p - RD).dot(rdd) + 0.035) < 0.004 else psx_kit(C, "wood", p, n, ao)
+            t = (p - RD).dot(rdd)
+            return C["metall"] if t > 0.15 else (C["ink"] if abs(t - 0.05) < 0.005 else lit(C["leatherl"] if s_ > 0.4 else C["leather"], n, ao, p=p))
+        if base == "leather" and (p - PO).length < 0.1:
+            q = p - PO; ca, sa = math.cos(0.12), math.sin(0.12); q = Vector((q.x * ca - q.z * sa, q.y, q.x * sa + q.z * ca))
+            if q.z < -0.038 or abs(q.y) > 0.046: return C["ink"]
+            if abs(q.z - 0.012) < 0.004: return C["ink"]
+            if abs(q.y) < 0.007 and abs(q.z) < 0.008: return C["brassl"]
+            return lit(C["leatherl"] if q.z > 0.012 else C["leather"], n, ao, p=p)
         return None
     def chest(base, p, n, ao):   # the breastplate over the tunic: a ridge, a rolled neck edge, rivets, two lames
         if base != "tunic": return None
@@ -597,26 +1016,51 @@ def shield():
         if ed < 0.008: return C["ink"]
         r_ = psx_dot(p, [Vector((sx * 0.12, y, rz)) for sx in (-1, 1) for rz in (1.1, 1.22)], C, 0.0065)
         if r_ is not None: return r_
+        if 0.15 - abs(x) < 0.03 and abs(z - 1.2) < 0.014:   # buckled side straps
+            if abs(z - 1.2) > 0.01: return C["ink"]
+            return C["brassl"] if 0.15 - abs(x) > 0.02 else lit(C["leather"], n, ao, p=p)
         for L_ in (1.12, 1.07):
             if abs(z - L_) < 0.004: return C["ink"]
+        dd = math.hypot(x + 0.06, z - 1.25)   # a dent below the right collarbone
+        if dd < 0.02: return lit(C["irond"] if z > 1.25 else C["ironl"], n, ao, True, p)
+        if _nz.noise(p * 22 + Vector((9, 9, 9))) > 0.56: return lit(C["rust"] if _nz.noise(p * 60) > 0 else C["rustd"], n, ao, False, p)
         cc = C["ironl"] if (ed < 0.016 and z > 1.28) or abs(x) < 0.006 else iron(n)
         return lit(cc, n, ao, True, p)
-    PAINT = ww1_paint(C, extra=chain_paint(helm, board, mace, chest, lambda b, p, n, ao: coat(C, b, p, n, ao)))
+    gen = generic_detail(C, coat_o, patch=None)
+    PAINT = ww1_paint(C, extra=chain_paint(helm, board, haft, kit, fittings, chest, gen, lambda b, p, n, ao: coat(C, b, p, n, ao)))
 def standard():
     # Standard-bearer (the generic banner and lamp: Banner Carrier, Lamp Keeper): a tall pole held upright, its pennant
     # in the seat colour (Accent), a lantern hung from the crossbar, a brass finial; a steel helmet over a blank mannequin
     # face and a knee-length greatcoat. Painted PSX look (2026-11-10): ww1_paint for the tunic, webbing, breeches,
     # puttees, boots and gloves; the greatcoat skirt draped (Coat); the lantern's lit panes and frame, the pole's grain
     # and brass painted. Solid only for the silhouette: Helmet (the steel helmet), Weapon (pole, lantern), Accent.
+    # Detail pass (2026-11-10): the lantern's corner posts, peaked cap and bale, brass caps on the crossbar's end and two
+    # cord tassels under the finial (Weapon); an oil flask on the left hip, a blanket roll across the small of the back
+    # (Hip); the pole's brass ferrules, leather grip
+    # wraps and iron shoe, the lantern's sooty cap and hanger chain painted; a whistle on its lanyard, generic_detail's coat
+    # pockets, half-belt, patch and mud, shoulder straps, a sleeve patch, wound stripes and the helmet's lugs and dent.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 256, "Coat": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 256, "Coat": 256, "Helmet": 128, "Weapon": 256, "Hip": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    from mathutils import noise as _nz
     def pose(r):
         human.reach(r, "R", P(-0.24, -0.02, 1.08), P(-0.15, -0.2, 1.02))
         human.reach(r, "L", P(0.12, -0.18, 1.2), P(-0.1, -0.22, 1.36))
     hands, hp, top = human_body(pose, dress=WW1_DRESS, head="mannequin", mitts="leather", shape="male-young-averagemuscle-minweight")
     ww1_uniform(bands=False); toeless_feet()
-    coat = psx_greatcoat()
-    module("Helmet"); helm = psx_brodie(hp, top)
+    coat = psx_greatcoat(); coat_o = MODULES["Coat"][0]
+    hb = bpy.data.objects["human"]
+    module("Helmet"); helm = psx_brodie(hp, top); hc = Vector((hp.x, hp.y - 0.008, top.z - 0.075))
+    module("Hip")
+    best = None   # the oil flask on the left hip, outside the coat
+    for ob in (hb, coat_o):
+        ok, at, *_ = ob.ray_cast(Vector((1.0, -0.01, 0.87)), Vector((-1, 0, 0)))
+        if ok and (best is None or at.x > best.x): best = at
+    FL = (best if best is not None else Vector((0.2, -0.01, 0.87))) + Vector((0.033, 0, 0))
+    bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.03, depth=0.1, location=tuple(FL)); add(bpy.context.object, "metal")
+    bar(FL + Vector((0, 0, 0.05)), FL + Vector((0, 0, 0.072)), 0.011, "wood", sides=4)   # its stopper
+    ok, bk, *_ = hb.ray_cast(Vector((0, 1.0, 1.06)), Vector((0, -1, 0)))   # a blanket roll strapped across the small of the back
+    BR = (bk if ok else Vector((0, 0.12, 1.06))) + Vector((0, 0.036, 0))
+    bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.036, depth=0.3, location=tuple(BR), rotation=(0, math.pi / 2, 0)); add(bpy.context.object, "rags")
     module("Weapon")
     x, y = FISTS["R"][0].x, FISTS["R"][0].y
     base, tip = Vector((x, y, 0.05)), Vector((x, y, 2.0))
@@ -632,17 +1076,78 @@ def standard():
     bar(L - Vector((0, 0, 0.05)), L - Vector((0, 0, 0.2)), 0.004, "metal", sides=3)
     box(tuple(lc), (0.07, 0.07, 0.1), "glow")
     box(tuple(L - Vector((0, 0, 0.21))), (0.09, 0.09, 0.02), "iron"); box(tuple(L - Vector((0, 0, 0.33))), (0.09, 0.09, 0.02), "iron")
+    # detail pass (2026-11-10): corner posts, a peaked cap, a brass cap on the crossbar's end, two tassels under the finial
+    for sx in (-1, 1):
+        for sy in (-1, 1): bar(lc + Vector((sx * 0.038, sy * 0.038, -0.055)), lc + Vector((sx * 0.038, sy * 0.038, 0.055)), 0.006, "iron", sides=3)
+    bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.058, radius2=0.012, depth=0.045, location=tuple(L - Vector((0, 0, 0.178))), rotation=(0, 0, math.pi / 4))
+    add(bpy.context.object, "iron")
+    sphere(tuple(L - Vector((0, 0, 0.05))), 0.014, "brass", seg=6, rings=4)
+    TAS = [tip + Vector((sx * 0.026, -0.012, -0.02)) for sx in (-1, 1)]
+    for t0 in TAS:
+        t1 = t0 + Vector((0.006 * (1 if t0.x > x else -1), 0, -0.13)); bar(t0, t1, 0.0045, "rope", sides=3)
+        bar(t1, t1 - Vector((0, 0, 0.04)), 0.012, "rope", sides=5)
     module("Body")
-    C = generic_palette(glowd="a07028", glowl="fff0b0")
+    C = generic_palette(glowd="a07028", glowl="fff0b0", ochre="8a6a2a", pewter="6e706a", pewterl="9a9c94", soot="1e1c1a")
+    def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
+    gen = generic_detail(C, coat_o, patch=("L", "disc", "ochre"), stripes="R", hc=hc)
     def lantern(base, p, n, ao):
+        s_ = n.dot(PSX_LIGHT)
         if base == "glow":   # lit panes behind an iron frame and a cross bar
             q = p - lc; u = q.x if abs(n.x) < 0.5 else q.y
             if abs(u) > 0.028 or abs(q.z) < 0.004: return C["ink"]
             return C["glowl"] if abs(u) < 0.012 and q.z > 0 else (C["glow"] if q.z > -0.03 else C["glowd"])
+        if base == "rope":   # the tassels: gilt cord, a bound head, frayed ends
+            t1 = min(TAS, key=lambda t0: (p - t0).length)
+            if p.z < t1.z - 0.16: return C["giltd"] if (math.atan2(p.x - t1.x, p.y - t1.y) * 4) % 1.0 < 0.35 else C["gilt"]
+            if p.z < t1.z - 0.135: return C["ink"] if abs(p.z - (t1.z - 0.145)) < 0.005 else (C["giltl"] if s_ > 0.2 else C["gilt"])
+            return C["giltl"] if s_ > 0.4 else C["gilt"]
+        if (p - lc).length < 0.2 and base in ("iron", "brass"):   # the lantern's frame and cap: sooty above, rivets at the plate corners
+            q = p - lc
+            if base == "brass": return C["brassl"] if s_ > 0.3 else C["brass"]
+            if q.z > 0.075: return lit(C["soot"] if _nz.noise(p * 40) > -0.2 else C["irond"], n, ao, True, p)
+            if abs(abs(q.z) - 0.06) < 0.012:
+                r_ = psx_dot(p, [lc + Vector((sx * 0.038, sy * 0.038, q.z)) for sx in (-1, 1) for sy in (-1, 1)], C, 0.006, m="brass")
+                if r_ is not None: return r_
+                return C["ink"] if abs(abs(q.z) - 0.06) > 0.009 else lit(C["ironl"] if s_ > 0.2 else C["iron"], n, ao, True, p)
+            return lit(C["ironl"] if s_ > 0.4 else C["irond"], n, ao, True, p)
+        if base == "rags":   # the blanket roll: rolled ends, two buckled straps, a grey stripe woven in
+            q = p - BR
+            if abs(n.x) > 0.6: return C["ink"] if (math.hypot(q.y, q.z) * 150) % 1.0 < 0.3 else lit(C["rags"], n, ao, p=p)
+            if abs(abs(q.x) - 0.09) < 0.013:
+                if abs(abs(q.x) - 0.09) > 0.009: return C["ink"]
+                return C["brassl"] if q.y > 0.02 and abs(q.z) < 0.012 else lit(C["leather"], n, ao, p=p)
+            if abs(abs(q.x) - 0.125) < 0.006: return lit(C["ragsd"], n, ao, p=p)
+            return lit(C["ragsd"] if math.sin(q.x * 140 + _nz.noise(p * 20)) > 0.75 else C["rags"], n, ao, grime=0.2, p=p)
+        if base == "metal" and (p - FL).length < 0.09:   # the oil flask: pewter, a strap round it, a stamped band
+            q = p - FL
+            if abs(q.z) < 0.008: return C["ink"] if abs(q.z) > 0.005 else lit(C["leather"], n, ao, p=p)
+            if abs(q.z - 0.042) < 0.004 or abs(q.z + 0.046) < 0.004: return C["ink"]
+            return lit(C["pewterl"] if s_ > 0.45 else C["pewter"], n, ao, True, p)
+        if base == "wood" and (p - FL).length < 0.12: return lit(C["wood"], n, ao, p=p)
+        if base == "metal" and (p - L).length < 0.25:   # the hanger: a chain of links
+            return C["ink"] if (p.z * 70) % 1.0 < 0.3 else lit(C["metall"], n, ao, True, p)
+        if base == "wood" and abs(p.x - x) < 0.03 and abs(p.y - y) < 0.03:   # the pole: an iron shoe, brass ferrules, leather grips where the hands hold it
+            z = p.z
+            if z < 0.14: return lit(C["ironl"] if s_ > 0.2 else C["iron"], n, ao, True, p)
+            if abs(z - 0.14) < 0.012 or abs(z - (tip.z - 0.075)) < 0.014: return C["ink"] if abs(z - 0.14) > 0.009 and z < 1 else (C["brassl"] if s_ > 0.2 else C["brass"])
+            for hz in (FISTS["R"][0].z, FISTS["L"][0].z):
+                if abs(z - hz) < 0.13:   # wider than the fist, so the binding shows above and below it
+                    fr = (z * 50 + math.atan2(p.x - x, p.y - y) / (2 * math.pi)) % 1.0
+                    return C["ink"] if fr < 0.18 else lit(C["leatherl"] if fr > 0.7 else C["leather"], n, ao, p=p)
+            return psx_kit(C, "wood", p, n, ao)
+        if base == "wood" and abs(p.z - (tip.z - 0.05)) < 0.03:   # the crossbar: grain, a brass band at the pole
+            return C["brass"] if abs(p.x - x) < 0.05 else psx_kit(C, "wood", p, n, ao)
         if base in ("brass", "iron", "metal", "wood"): return psx_kit(C, base, p, n, ao)
         return None
-    PAINT = ww1_paint(C, extra=chain_paint(lambda b, p, n, ao: plain_face(C, b, p, n, ao), lambda b, p, n, ao: helm(C, b, p, n, ao),
-                                           lambda b, p, n, ao: coat(C, b, p, n, ao), lantern))
+    def whistle(base, p, n, ao):   # a whistle on a lanyard, from the left shoulder strap to the left breast pocket
+        if base != "tunic" or p.y > 0: return None
+        dd, t = segd(Vector((p.x, p.z, 0)), Vector((0.12, 1.42, 0)), Vector((0.07, 1.27, 0)))
+        if dd < 0.006: return lit(C["pale"], n, ao, p=p)
+        q = Vector((p.x - 0.068, p.z - 1.255))
+        if abs(q.x) < 0.012 and abs(q.y) < 0.022: return C["ink"] if abs(q.x) > 0.008 or abs(q.y) > 0.018 else (C["brassl"] if q.y > 0 else C["brass"])
+        return None
+    PAINT = ww1_paint(C, extra=chain_paint(lambda b, p, n, ao: plain_face(C, b, p, n, ao), gen, lambda b, p, n, ao: helm(C, b, p, n, ao),
+                                           lambda b, p, n, ao: coat(C, b, p, n, ao), lantern, whistle))
 
 def robe_and_tabard(rnd):
     # long robe with a torn hem

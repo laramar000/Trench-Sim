@@ -84,13 +84,14 @@ public class UnitFiguresTests
     // the detail pass, as it is drawn twice a man's height); Mechanized Heavy
     // Infantry 4,000 (class C, drawn 1.6", so 1.1 is 1.47" on its 40 mm base), Combat Medic 1,300 (class A) and Holy
     // Warrior 2,500 (class B, drawn 1.55") (2026-11-10, painted from the start); the four generic
-    // figures (class A) Rifleman 1,400, Skirmisher 1,400, Shield-bearer 1,500 and Standard-bearer 1,300. Before painting, the
+    // figures (class A) Rifleman 1,600, Skirmisher 1,600, Shield-bearer 1,700 and Standard-bearer 1,500 (after the detail
+    // pass). Before painting, the
     // owner's exceptions for modelled kit (2026-11-03/04) were the Yeoman 2,400, Shock Trooper 2,700, Lieutenant 3,400,
     // Blind Marksman 2,800, Trench Cleric 4,000, Castigator 3,100, Sanctified Giant 5,200 and Reliquary Walker 8,000.
     public static TheoryData<string, int, int, float> Figures => new()
     {
-        { "units/rifleman.glb", 1400, 256, 0.9f }, { "units/skirmisher.glb", 1400, 256, 0.9f }, { "units/shield.glb", 1500, 256, 0.9f },
-        { "units/standard.glb", 1300, 256, 0.9f }, { "units/trench-pilgrim.glb", 1300, 256, 0.9f },
+        { "units/rifleman.glb", 1600, 256, 0.9f }, { "units/skirmisher.glb", 1600, 256, 0.9f }, { "units/shield.glb", 1700, 256, 0.9f },
+        { "units/standard.glb", 1500, 256, 0.9f }, { "units/trench-pilgrim.glb", 1300, 256, 0.9f },
         { "units/stigmatic-nun.glb", 1400, 256, 0.9f }, { "units/ecclesiastic-prisoner.glb", 1600, 256, 0.9f },
         { "units/war-prophet.glb", 2000, 256, 0.9f }, { "units/castigator.glb", 2300, 256, 0.9f },
         { "units/reliquary-walker.glb", 7000, 512, 1.1f }, { "units/sanctified-giant.glb", 4900, 256, 1.1f },
