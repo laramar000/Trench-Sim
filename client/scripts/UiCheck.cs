@@ -2548,6 +2548,11 @@ public partial class UiCheck : Node
     private async Task DevSteps()
     {
         await ChooseOption(Option("ranged"), _scenario, "dev-choose-scenario");
+        // TRENCH_MAP names an item of the Map list (by its id, for example "generated-battleground").
+        if (System.Environment.GetEnvironmentVariable("TRENCH_MAP") is { Length: > 0 } mapName)
+        {
+            await ChooseOption(Option(""), mapName, "dev-choose-map");
+        }
         await Press(ButtonNamed(HotSeatButton), Key.Enter, "dev-start-enter");
         if (await Until(() => Label("HOT-SEAT:")?.Text, 300, "hotseat") is null)
         {
