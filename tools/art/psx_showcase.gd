@@ -52,7 +52,8 @@ func _initialize() -> void:
 		cam.fov = 30
 		world.add_child(cam)
 		cam.make_current()
-		cam.look_at_from_position(Vector3(0, 0.75, 3.2), Vector3(0, 0.6, 0))
+		var cz := float(OS.get_environment("PSX_CAM_Z")) if OS.get_environment("PSX_CAM_Z") != "" else 3.2   # PSX_CAM_Z=1.2 for a close-up
+		cam.look_at_from_position(Vector3(0, 0.75 if cz > 2.0 else 0.8, cz), Vector3(0, 0.6 if cz > 2.0 else 0.8, 0))
 		for i in 6:
 			await process_frame
 		root.get_texture().get_image().save_png("%s/psx-showcase-%s.png" % [out, "on" if use_psx else "off"])

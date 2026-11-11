@@ -90,17 +90,17 @@ public class UnitFiguresTests
     // Blind Marksman 2,800, Trench Cleric 4,000, Castigator 3,100, Sanctified Giant 5,200 and Reliquary Walker 8,000.
     public static TheoryData<string, int, int, float> Figures => new()
     {
-        { "units/rifleman.glb", 1600, 256, 0.9f }, { "units/skirmisher.glb", 1600, 256, 0.9f }, { "units/shield.glb", 1700, 256, 0.9f },
-        { "units/standard.glb", 1500, 256, 0.9f }, { "units/trench-pilgrim.glb", 1300, 256, 0.9f },
-        { "units/stigmatic-nun.glb", 1400, 256, 0.9f }, { "units/ecclesiastic-prisoner.glb", 1600, 256, 0.9f },
-        { "units/war-prophet.glb", 2000, 256, 0.9f }, { "units/castigator.glb", 2300, 256, 0.9f },
-        { "units/reliquary-walker.glb", 7000, 512, 1.1f }, { "units/sanctified-giant.glb", 4900, 256, 1.1f },
-        { "units/yeoman.glb", 1500, 256, 0.9f }, { "units/shock-trooper.glb", 2000, 256, 0.9f },
-        { "units/lieutenant.glb", 2900, 256, 0.9f }, { "units/blind-marksman.glb", 2300, 256, 0.9f },
-        { "units/trench-cleric.glb", 2300, 256, 0.9f },
-        { "units/combat-engineer.glb", 3300, 256, 0.9f },
-        { "units/mechanized-heavy-infantry.glb", 4500, 512, 1.1f }, { "units/combat-medic.glb", 1500, 256, 0.9f },
-        { "units/holy-warrior.glb", 2700, 256, 0.9f },
+        { "units/rifleman.glb", 1600, 512, 0.9f }, { "units/skirmisher.glb", 1600, 512, 0.9f }, { "units/shield.glb", 1700, 512, 0.9f },
+        { "units/standard.glb", 1500, 512, 0.9f }, { "units/trench-pilgrim.glb", 1300, 512, 0.9f },
+        { "units/stigmatic-nun.glb", 1400, 512, 0.9f }, { "units/ecclesiastic-prisoner.glb", 1600, 512, 0.9f },
+        { "units/war-prophet.glb", 2000, 512, 0.9f }, { "units/castigator.glb", 2300, 512, 0.9f },
+        { "units/reliquary-walker.glb", 7000, 512, 1.1f }, { "units/sanctified-giant.glb", 4900, 512, 1.1f },
+        { "units/yeoman.glb", 1500, 512, 0.9f }, { "units/shock-trooper.glb", 2000, 512, 0.9f },
+        { "units/lieutenant.glb", 2900, 512, 0.9f }, { "units/blind-marksman.glb", 2300, 512, 0.9f },
+        { "units/trench-cleric.glb", 2300, 512, 0.9f },
+        { "units/combat-engineer.glb", 3300, 512, 0.9f },
+        { "units/mechanized-heavy-infantry.glb", 4500, 512, 1.1f }, { "units/combat-medic.glb", 1500, 512, 0.9f },
+        { "units/holy-warrior.glb", 2700, 512, 0.9f },
     };
 
     [Theory]

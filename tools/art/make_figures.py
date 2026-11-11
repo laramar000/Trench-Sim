@@ -524,7 +524,7 @@ def rifleman():
     # tool on the pack (Back); a sling under the rifle, its butt plate, bands and bolt painted; generic_detail's coat
     # pockets, half-belt, patch and mud, shoulder straps, a sleeve patch, wound stripes and the helmet's lugs and dent.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 800; TEX_SIZES = {"Body": 256, "Coat": 256, "Helmet": 128, "Back": 128, "Weapon": 128, "Hip": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 800; TEX_SIZES = {"Body": 512, "Coat": 512, "Helmet": 128, "Back": 128, "Weapon": 128, "Hip": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.reach(r, "R", P(-0.24, 0.02, 1.08), P(-0.07, -0.22, 1.0))
@@ -647,7 +647,7 @@ def skirmisher():
     # left forearm, a knee patch, the hood's crown seam, side patch, eyelets and tail tie, generic_detail's sleeve patch,
     # wound stripes and mud; the carbine's butt plate, band and bolt painted.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 256, "Helmet": 128, "Weapon": 128, "Hip": 128, "Kit": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 512, "Helmet": 128, "Weapon": 128, "Hip": 128, "Kit": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.12, 1.4)); human.aim(r, "neck01", P(0, -0.2, 1.6))
@@ -827,7 +827,7 @@ def shield():
     # riveted, the boss ringed, hack marks on the rim; the mace's leather grip, collar and head seam; the breastplate
     # scratched, rusted and dented, buckled side straps; generic_detail's coat pockets, half-belt, patch and mud.
     global BODY_BUDGET, TEX_SIZES, PAINT
-    BODY_BUDGET = 760; TEX_SIZES = {"Body": 256, "Coat": 256, "Helmet": 128, "Shield": 128, "Weapon": 128, "Hip": 128}
+    BODY_BUDGET = 760; TEX_SIZES = {"Body": 512, "Coat": 512, "Helmet": 128, "Shield": 128, "Weapon": 128, "Hip": 128}
     from mathutils import noise as _nz
     def pose(r):
         human.reach(r, "L", P(0.3, -0.08, 1.12), P(0.16, -0.3, 1.05))
@@ -1040,7 +1040,7 @@ def standard():
     # wraps and iron shoe, the lantern's sooty cap and hanger chain painted; a whistle on its lanyard, generic_detail's coat
     # pockets, half-belt, patch and mud, shoulder straps, a sleeve patch, wound stripes and the helmet's lugs and dent.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 256, "Coat": 256, "Helmet": 128, "Weapon": 256, "Hip": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 512, "Coat": 512, "Helmet": 128, "Weapon": 256, "Hip": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.reach(r, "R", P(-0.24, -0.02, 1.08), P(-0.15, -0.2, 1.02))
@@ -1583,7 +1583,7 @@ def trench_pilgrim():
     # Solid only for the silhouette: Helmet (the capirote: a sackcloth cone on an iron base with a painted blood cross,
     # rivets and a prayer strip under a wax seal), Back (pack with a rolled blanket), Weapon (bolt-action rifle with
     # fixed bayonet, at port arms), Accent (the capirote band, seat colour).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 900; TEX_SIZES = {"Body": 256, "Helmet": 128, "Weapon": 128, "Back": 128, "Hip": 128}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 900; TEX_SIZES = {"Body": 512, "Helmet": 128, "Weapon": 128, "Back": 128, "Hip": 128}
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.06, 1.4))
@@ -1754,7 +1754,7 @@ def yeoman():
     # Detail pass (2026-11-10): the respirator bag and the entrenching tool made solid, a water bottle, bayonet scabbard,
     # rifle sling and mess tin added (Hip, Weapon, Back); chevron, battalion patch, shoulder straps and mud painted.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 256, "Helmet": 128, "Weapon": 128, "Back": 128, "Hip": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 512, "Helmet": 128, "Weapon": 128, "Back": 128, "Hip": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.1, 1.4))                                          # leaning into the advance
@@ -1929,7 +1929,7 @@ def shock_trooper():
     # (hammer), Accent (the helmet). Detail pass (2026-11-10): the grenade bag (three handles) and a short spade on the
     # back made solid, a water bottle and a boot knife added; armband, rivets, rust, mud and the hammer head painted.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 900; TEX_SIZES = {"Body": 256, "Helmet": 128, "Chest": 128, "Hip": 128, "Weapon": 128, "Back": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 900; TEX_SIZES = {"Body": 512, "Helmet": 128, "Chest": 128, "Hip": 128, "Weapon": 128, "Back": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.12, 1.4))                                        # leaning into the charge
@@ -2186,7 +2186,7 @@ def lieutenant():
     # map case on the right hip, the breeches, puttees, boots and gloves painted (ww1_paint for the legs and sleeves).
     # Solid only for the silhouette: Coat (the long skirt), Helmet (the sallet with its raised visor, the mail collar), Back (shield), Weapon
     # (sword), Accent (the helm and the shield's face).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 256, "Coat": 128, "Back": 128, "Weapon": 128, "Hip": 128, "Helmet": 128}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 512, "Coat": 128, "Back": 128, "Weapon": 128, "Hip": 128, "Helmet": 128}
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.03, 1.4))                                         # upright, chest out
@@ -2535,7 +2535,7 @@ def blind_marksman():
     # along the kneeling legs (toeless boot hulls), the red blindfold painted on the blank head, folds, a ragged muddy hem
     # and a brass clasp painted on the cloak and hood. Solid only for the silhouette: Back (cloak and hood, their own
     # texture), Helmet (the blindfolded head, its own texture), Hip (canteen), Weapon (rifle), Accent (the stole).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 900; TEX_SIZES = {"Body": 256, "Back": 256, "Helmet": 128, "Weapon": 128, "Hip": 128}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 900; TEX_SIZES = {"Body": 512, "Back": 256, "Helmet": 128, "Weapon": 128, "Hip": 128}
     from mathutils import noise as _nz
     def pose(r):   # crouched at rest on one knee (owner's sniper photos): right knee and shin on the ground, left foot
         # planted with the knee up, the rifle held upright in front, its butt grounded
@@ -2780,7 +2780,7 @@ def trench_cleric():
     # the book; wider unbroken ink lines on the cuirass, arms and straps, rivets along each lame, scuffs and edge
     # highlights; an embroidered border above the vestment's hem, sealed prayer strips with clean script, coarser mail;
     # the great cross with plank seams, nailed iron bands and a plate at the crossing; kit textures raised to 128 px.
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 256, "Robe": 256, "Weapon2": 128, "Back": 128, "Chest": 128, "Helmet": 128}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 512, "Robe": 512, "Weapon2": 128, "Back": 128, "Chest": 128, "Helmet": 128}
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.03, 1.4))                                         # upright
@@ -3181,7 +3181,7 @@ def combat_engineer():
     # hard shading bands and grime. Solid shapes only where the silhouette needs them: the closed sallet in the seat
     # colour (Accent) with a brass cross on the brow (Helmet), two plain pauldrons (Chest), the pack and bedroll (Back),
     # the submachine gun with a drum magazine levelled forward in both hands (Weapon).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1500; TEX_SIZES = {"Body": 256, "Back": 128, "Weapon": 128, "Hip": 128, "Chest": 128}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1500; TEX_SIZES = {"Body": 512, "Back": 128, "Weapon": 128, "Hip": 128, "Chest": 128}
     def pose(r):
         human.aim(r, "spine03", P(0, -0.09, 1.4))                                          # leaning into the stride
         human.aim(r, "upperleg01.L", P(0.11, -0.16, 0.5)); human.aim(r, "upperleg02.L", P(0.11, -0.16, 0.5))
@@ -3633,7 +3633,7 @@ def stigmatic_nun():
     # blood cross on the hood's crown. Solid only for the silhouette: the veil and hood (Body), Helmet (the masked head), Weapon
     # (pistol), Weapon2 (the serrated blade), Accent (shoulder tabs, seat colour).
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 256, "Helmet": 128, "Hip": 128, "Weapon": 128, "Weapon2": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 512, "Helmet": 128, "Hip": 128, "Weapon": 128, "Weapon2": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.06, 1.4))
@@ -3877,7 +3877,7 @@ def ecclesiastic_prisoner():
     # band, rivets, rope and scrawled prayers painted. Solid only for the silhouette: Helmet (iron helm with spikes),
     # Weapon (the stocks board), Back (bomb), Hip (loincloth), Accent (the cloth band round the helm and the loincloth's
     # front flap).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 820; TEX_SIZES = {"Body": 256, "Back": 128, "Weapon": 128, "Hip": 128, "Helmet": 128}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 820; TEX_SIZES = {"Body": 512, "Back": 128, "Weapon": 128, "Hip": 128, "Helmet": 128}
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.28, 1.32)); human.aim(r, "neck01", P(0, -0.38, 1.44))
@@ -4092,7 +4092,7 @@ def war_prophet():
     # the frame, the charge's fuse cap and clamp made solid; a woven border, patches and a rope cincture on the robe,
     # helm rivets, scratches and rust, gilt edging, dents and gouges on the cuirass, boot buckles and mud painted.
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000
-    TEX_SIZES = {"Body": 256, "Robe": 256, "Helmet": 128, "Chest": 128, "Back": 128, "Weapon": 128, "Hip": 64}
+    TEX_SIZES = {"Body": 512, "Robe": 512, "Helmet": 128, "Chest": 128, "Back": 128, "Weapon": 128, "Hip": 64}
     from mathutils import noise as _nz
     import bmesh as _bm
     for k_ in ("helm", "pauldron"): M.setdefault(k_, mat(k_, "7a7c80", 0.3, 18))   # plate, told apart from the body's when painted
@@ -4571,7 +4571,7 @@ def castigator():
     # (Hip) made solid; a studded baldric, forearm straps and rust on the mail, a great cross, seam and mended tear on the
     # cape, patches and a rope cincture on the robe, plank seams and soot on the shield, gilt bands on the hat painted.
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000
-    TEX_SIZES = {"Body": 256, "Robe": 256, "Back": 128, "Helmet": 128, "Weapon2": 128, "Hip": 64}
+    TEX_SIZES = {"Body": 512, "Robe": 512, "Back": 128, "Helmet": 128, "Weapon2": 128, "Hip": 64}
     from mathutils import noise as _nz
     import bmesh as _bm
     M.setdefault("hat", mat("hat", "141210", 0.05)); M.setdefault("cape", mat("cape", "3e3a34"))
@@ -5388,7 +5388,7 @@ def sanctified_giant():
     # chain (Hip) and iron strips on the plaque made solid; chafed skin, a branded cross, a rope on the arm, coherent blood,
     # mud on the shins, the belt's knotted end, sacking patches and a twine seam on the skirt painted.
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1750
-    TEX_SIZES = {"Body": 256, "Robe": 256, "Back": 128, "Weapon": 128, "Helmet": 128, "Hip": 128}   # class C: a 256 px body
+    TEX_SIZES = {"Body": 512, "Robe": 512, "Back": 128, "Weapon": 128, "Helmet": 128, "Hip": 128}   # class C: a 256 px body
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.2, 1.34)); human.aim(r, "neck01", P(0, -0.22, 1.62))
@@ -6202,7 +6202,7 @@ def combat_medic():
     # cross, the neck cloth's folds painted on their solid shapes. Modules: Coat, Helmet (cap, neck cloth), Back (chest),
     # Hip (bag, dagger), Weapon (pistol), Accent (the cap's crown).
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 900; TEX_SIZES = {"Body": 256, "Coat": 256, "Back": 128, "Hip": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 900; TEX_SIZES = {"Body": 512, "Coat": 512, "Back": 128, "Hip": 128}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     import bmesh as _bm
     def pose(r):
@@ -6453,7 +6453,7 @@ def holy_warrior():
     # knees, greaves, sabatons, grime); the helm's slit and breaths, the mail rings, the sword's fuller and engraved
     # scripture, the strip's text painted on their solid shapes. Modules: Helmet (helm, cross, aventail), Chest
     # (pauldrons, seal, knee cops), Weapon (sword), Accent (tabards, pauldron tops).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1100; TEX_SIZES = {"Body": 256, "Helmet": 256, "Chest": 256, "Weapon": 256}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1100; TEX_SIZES = {"Body": 512, "Helmet": 256, "Chest": 256, "Weapon": 256}
     from mathutils import noise as _nz
     import bmesh as _bm
     def pose(r):

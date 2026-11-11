@@ -5,8 +5,8 @@ shader_type spatial;
 uniform sampler2D albedo_tex : source_color, filter_nearest;
 uniform vec4 albedo_colour : source_color = vec4(1.0);
 uniform float snap_columns = 220.0;   // grid columns across the screen; rows follow a 16:9 screen
-uniform float colour_steps = 24.0;    // levels per colour channel
-uniform float dither = 0.6;
+uniform float colour_steps = 32.0;    // levels per colour channel
+uniform float dither = 0.35;
 uniform float grime_dark = 0.62;      // grimdark grade: brightness
 uniform float grime_desat = 0.55;     // grimdark grade: how much colour drains toward grey
 uniform vec3 grime_tint : source_color = vec3(1.0, 0.93, 0.82);   // dirty warm cast           // 0 off, 1 full ordered dither
