@@ -339,6 +339,7 @@ public partial class BoardView : SubViewportContainer
             _selected = null;
         }
         Interaction.Update(state ?? MatchState.None, seat);
+        _deploying = state?.Phase is Phase.PreGame or Phase.Deployment;
         // When one of your models starts its activation, it becomes the selected model, so its action bar shows at once.
         var active = state?.ActiveModel is { } a && state.FindModel(a)?.Seat == seat ? a : (ModelId?)null;
         if (active != _lastActive)
@@ -3131,7 +3132,12 @@ public partial class BoardView : SubViewportContainer
     // Graphics stage G1: the colours of the battlefield (muted mud, stone, timber).
     public Color GroundColour => _highContrast ? new Color(0.18f, 0.18f, 0.18f) : new Color(0.25f, 0.22f, 0.17f);
 
-    private Color ZoneColour => _highContrast ? new Color(0.36f, 0.36f, 0.36f) : new Color(0.31f, 0.30f, 0.27f);
+    // Deployment zones: shown (as a border only) from the match's creation until every model is set up.
+    private bool _deploying;
+
+    private const double ZoneLine = 0.15;
+
+    private Color ZoneBorderColour => _highContrast ? Colors.White : new Color(0.88f, 0.82f, 0.62f);
 
     // Performance: the terrain (ground, trench pits, decals, zone tints, terrain pieces, outlines, towers) is drawn once
     // into its own layer and kept while nothing it is drawn from changes (TerrainKey); every update redraws only what
@@ -3168,7 +3174,7 @@ public partial class BoardView : SubViewportContainer
     private string TerrainKey(BoardScene scene)
     {
         var key = new System.Text.StringBuilder();
-        key.Append(System.Globalization.CultureInfo.InvariantCulture, $"{scene.Width:R}x{scene.Depth:R}|{_highContrast}|{_textScale:R}|{_topDown}");
+        key.Append(System.Globalization.CultureInfo.InvariantCulture, $"{scene.Width:R}x{scene.Depth:R}|{_highContrast}|{_textScale:R}|{_topDown}|{_deploying}");
         foreach (var zone in scene.Zones)
         {
             key.Append(System.Globalization.CultureInfo.InvariantCulture, $"|z{zone.Id}:{zone.Area}");
@@ -3400,12 +3406,17 @@ public partial class BoardView : SubViewportContainer
                 _decals++;
             }
         }
-        foreach (var zone in scene.Zones)
+        // The zones are the table's own mud; only while the models are being set up is each outlined by a thin border.
+        foreach (var zone in _deploying ? scene.Zones : [])
         {
-            // Not over a trench, so the pit stays open.
-            foreach (var cell in TrenchPits.Around(zone.Area, holes))
+            var (a, line) = (zone.Area, ZoneLine);
+            foreach (var (cx, cy, sx, sy) in new (double, double, double, double)[]
             {
-                Box(new Vector3((float)cell.CentreX, 0.01f, (float)cell.CentreY), new Vector3((float)cell.Width, 0.02f, (float)cell.Depth), ZoneColour);
+                (a.CentreX, a.Y0 + line / 2, a.X1 - a.X0, line), (a.CentreX, a.Y1 - line / 2, a.X1 - a.X0, line),
+                (a.X0 + line / 2, a.CentreY, line, a.Y1 - a.Y0 - 2 * line), (a.X1 - line / 2, a.CentreY, line, a.Y1 - a.Y0 - 2 * line),
+            })
+            {
+                Box(new Vector3((float)cx, 0.01f, (float)cy), new Vector3((float)sx, 0.02f, (float)sy), ZoneBorderColour);
             }
         }
         foreach (var piece in scene.Terrain)
