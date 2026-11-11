@@ -329,5 +329,12 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Combat Engineer done and registered (`units/combat-engineer.glb`, 2,923 triangles). PSX look in the game:
   `client/shaders/psx_figure.gdshader` (vertex snap, affine textures, colour steps, grimdark grade), applied in
   `Visuals.UseNearestFilter`; seat colours drawn on figures are darkened (`BoardView.Grimdark`). Test it before any new figure:
-  `TRENCH_DEV=deploy,psx godot --path client -- --ui-check dev` and `tools/art/psx_showcase.gd`. Left: Mechanized Heavy
-  Infantry (40 mm), Combat Medic, Holy Warrior (build them in the painted style).
+  `TRENCH_DEV=deploy,psx godot --path client -- --ui-check dev` and `tools/art/psx_showcase.gd`.
+- 2026-11-10: the last three Principality figures done in the painted style and registered (not yet shown to the owner,
+  not committed): Mechanized Heavy Infantry (`units/mechanized-heavy-infantry.glb`, class C 40 mm, height 1.6", 3,934
+  triangles: riveted plate, bucket helm in a gorget, back engine with two exhaust stacks and hoses, water-cooled heavy
+  machine gun, seat colour on the pauldron tops), Combat Medic (`units/combat-medic.glb`, class A 25 mm as the roster
+  gives, 1,283 triangles: peaked cap in the seat colour, greatcoat, armband with a patriarchal cross, vial bandolier,
+  medi-kit bag, medical chest, pistol) and Holy Warrior (`units/holy-warrior.glb`, class B 32 mm, height 1.55", 2,422
+  triangles: sugar-loaf great helm with a brass cross, gilt cross on the cuirass, tabard and pauldron tops in the seat
+  colour, two-handed sword at vigil). New shared helpers `psx_shell` and `hose`. Left: none (20 figures).

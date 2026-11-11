@@ -56,9 +56,12 @@ public class UnitFiguresTests
         Assert.Contains("Blind Marksman", known);
         Assert.Contains("Trench Cleric", known);
         Assert.Contains("Combat Engineer", known);
+        Assert.Contains("Mechanized Heavy Infantry", known);
+        Assert.Contains("Combat Medic", known);
+        Assert.Contains("Holy Warrior", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
         Assert.All(units, u => Assert.Contains(u, known));
-        Assert.Equal(17, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.Equal(20, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -76,7 +79,9 @@ public class UnitFiguresTests
     // Trooper 1,700, Lieutenant 2,800 (class B, its sallet, shield and long coat stay solid), Blind Marksman 2,200 (class B,
     // kneeling, drawn 1.25" with the rifle upright above him), Trench Cleric 2,000 (class B, drawn 1.65" with the cross
     // and tall cap), War Prophet 1,800 and Castigator 2,100 (class B), Sanctified Giant 4,600 (class C), Reliquary Walker
-    // 6,500 (class E, rounded to the next 500; its hull plates stay solid, panels and rivets painted); the four generic
+    // 6,500 (class E, rounded to the next 500; its hull plates stay solid, panels and rivets painted); Mechanized Heavy
+    // Infantry 4,000 (class C, drawn 1.6", so 1.1 is 1.47" on its 40 mm base), Combat Medic 1,300 (class A) and Holy
+    // Warrior 2,500 (class B, drawn 1.55") (2026-11-10, painted from the start); the four generic
     // figures (class A) Rifleman 1,400, Skirmisher 1,400, Shield-bearer 1,500 and Standard-bearer 1,300. Before painting, the
     // owner's exceptions for modelled kit (2026-11-03/04) were the Yeoman 2,400, Shock Trooper 2,700, Lieutenant 3,400,
     // Blind Marksman 2,800, Trench Cleric 4,000, Castigator 3,100, Sanctified Giant 5,200 and Reliquary Walker 8,000.
@@ -91,6 +96,8 @@ public class UnitFiguresTests
         { "units/lieutenant.glb", 2800, 256, 0.9f }, { "units/blind-marksman.glb", 2200, 256, 0.9f },
         { "units/trench-cleric.glb", 2000, 256, 0.9f },
         { "units/combat-engineer.glb", 3000, 256, 0.9f },
+        { "units/mechanized-heavy-infantry.glb", 4000, 256, 1.1f }, { "units/combat-medic.glb", 1300, 256, 0.9f },
+        { "units/holy-warrior.glb", 2500, 256, 0.9f },
     };
 
     [Theory]

@@ -78,6 +78,9 @@ sallet with its raised visor, the shield and the boots (2026-11-03); the Blind M
 (class B), kneeling with a long rifle (2026-11-03), drawn 1.25" tall since it kneels; the Trench Cleric, 4,000 triangles
 (class B), for the cuirass with its lames front and back, boxy pauldrons, chain fringe and the great cross (2026-11-04),
 drawn 1.65" tall for the cap and cross.
+Painted from the start (2026-11-10), within their class limits: Mechanized Heavy Infantry (class C, 3,934 triangles, drawn
+1.6"), Combat Medic (class A, 1,283 triangles; the roster gives it a 25 mm base) and Holy Warrior (class B, 2,422
+triangles, drawn 1.55"). With them every Principality unit has its figure (20 figures in all).
 A script figure sets these with `BODY_BUDGET` and `TEX_SIZES` (texture size by module name). `render_turnaround.py`
 takes the catalog height as an optional last argument, so a large figure is shown at its drawn size on its base.
 
