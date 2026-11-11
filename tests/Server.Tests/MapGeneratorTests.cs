@@ -183,6 +183,8 @@ public class MapGeneratorTests
             KeepsTheRules(map);
             Assert.Null(map.ArchetypeKind);
             Assert.Equal(["obj-1", "obj-2", "obj-3", "obj-4", "obj-5"], map.ObjectiveIds.AsEnumerable());
+            // U164: hard to draw a clear line from one deployment zone into the other.
+            Assert.True(MapGenerator.OpenLineShare(map.Battlefield) <= 0.12, map.Id);
             var towers = map.Battlefield.Terrain.Where(t => t.IsTower).ToList();
             Assert.InRange(towers.Count, 2, 4);
             Assert.All(towers, t => Assert.Equal(Length.FromInches(2), t.Climb!.Height));
@@ -194,7 +196,7 @@ public class MapGeneratorTests
             Assert.Equal(ClaimNoMansLand.ScenarioId, ScenarioSetups.OnMap(Scenarios.All["ranged"], map).ScenarioId);
             Assert.Throws<MapFormatException>(() => ScenarioSetups.OnMap(Scenarios.All["ranged" + ScenarioSetups.TrenchWarfareSuffix], map));
         }
-        Assert.Superset(new HashSet<string> { "tower-", "wire-", "sandbags-", "wall-", "bunker-", "mud-", "ruin-", "corner-", "landmark-" }, features);
+        Assert.Superset(new HashSet<string> { "tower-", "screen-", "wire-", "sandbags-", "wall-", "bunker-", "mud-", "ruin-", "corner-", "landmark-" }, features);
     }
 
     [Fact]
@@ -246,7 +248,7 @@ public class MapGeneratorTests
 
     private const string PinnedClaim = "sha256:0e6a5244390ec730eb543425c3651f031faccb09d51d91cf9b4324e8f65048cb";
     private const string PinnedTrenchWarfare = "sha256:3959b1d4e771657e0b3da3735c28864ec44e8eaa6c3a1ea21b0de2dabff2a2f5";
-    private const string PinnedBattleground = "sha256:9dbe6098c8373c4a81958c4cd398ca406eb562d817cce6e2d7906c731090639c";
+    private const string PinnedBattleground = "sha256:5fa188adf77ef6c799b5e9e67b3f3a08cbbbeec3ffb79f785d07f3e75c11f816";
 
     private const string PinnedRuins = "sha256:fb35e17da65e7c66deaa58d55f75932b69ae4f1b128f7ac3063cf0d027df7a26";
 

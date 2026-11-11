@@ -367,7 +367,18 @@ public static class MapGenerator
                 layout.Place($"{name}-{i}", shape, make, between, gapHalves: 4);
             }
         }
+        // Towers first (a tower is a wall too), then screens: broken walls across the middle, one or two to each of six bands from
+        // zone to zone, staggered by chance, so that a line from one zone to the other is nearly always cut (checked below).
         Many("tower", 2, 4, Tower, TowerPiece);
+        for (var band = 0; band < 6; band++)
+        {
+            var window = (12 + band * 8, 0, 20 + band * 8, Table);
+            var count = random.Between(1, 2);
+            for (var i = 1; i <= count; i++)
+            {
+                layout.Place($"screen-{band + 1}-{i}", Screen, WallPiece, window, gapHalves: 4);
+            }
+        }
         Many("wire", 1, 3, Wire, (i, f) => new TerrainBlock(i, f, TerrainProfile.Low, TerrainKind.Impassable));
         Many("sandbags", 2, 4, Sandbags, Cover);
         Many("ruin", 1, 2, Building, Cover);
@@ -376,7 +387,36 @@ public static class MapGenerator
         Many("bunker", 1, 2, Bunker, WallPiece);
         Many("mud", 2, 3, Patch, Rough);
         Many("landmark", 1, 2, Landmark, Cover);
-        return layout.Map(id, $"Generated Battleground {seed.ToString(CultureInfo.InvariantCulture)}", null, [ClaimNoMansLand], ClaimObjectives.Select(o => o.Id));
+        var map = layout.Map(id, $"Generated Battleground {seed.ToString(CultureInfo.InvariantCulture)}", null, [ClaimNoMansLand], ClaimObjectives.Select(o => o.Id));
+        return OpenLineShare(map.Battlefield) <= MaxOpenLines && map.Battlefield.Terrain.Count(t => t.IsTower) >= 2 ? map : null;
+    }
+
+    // U164: "hard to draw a clear line from one deployment zone into the other". Of 144 lines between 12 spots in the west zone and
+    // 12 in the east (a model's base at each end), the share that can see across at all (partly or fully, `HeightSight`).
+    private const double MaxOpenLines = 0.12;
+
+    public static double OpenLineShare(Battlefield field)
+    {
+        var base05 = Length.FromThousandths(500);
+        var ys = new[] { 3, 9, 15, 21, 27, 33 }.Select(y => Length.FromInches(y)).ToArray();
+        var west = ys.SelectMany(y => new[] { 1500L, 4500L }.Select(x => new ModelBody("west", new Point2(Length.FromThousandths(x), y), base05))).ToList();
+        var east = ys.SelectMany(y => new[] { 31500L, 34500L }.Select(x => new ModelBody("east", new Point2(Length.FromThousandths(x), y), base05))).ToList();
+        var open = 0;
+        foreach (var a in west)
+        {
+            foreach (var b in east)
+            {
+                open += HeightSight.Between(field, a, b).Visibility != Visibility.None ? 1 : 0;
+            }
+        }
+        return open / (double)(west.Count * east.Count);
+    }
+
+    // A broken wall across the table: half an inch to an inch thick, 7" to 13" long, running north-south.
+    private static Footprint Screen(MapRandom random, int x, int y)
+    {
+        var thick = random.Between(1, 2);
+        return Footprint.Of(R(x, y, x + thick, y + random.Between(14, 26)));
     }
 
     // A tower: 2.5" or 3" square, 2" high, a ladder at the middle of its west and east sides.
