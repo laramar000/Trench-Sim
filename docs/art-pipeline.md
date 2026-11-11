@@ -83,6 +83,7 @@ Painted from the start (2026-11-10), within their class limits: Mechanized Heavy
 triangles, drawn 1.55"). With them every Principality unit has its figure (20 figures in all).
 Detail pass (2026-11-10): Mechanized Heavy Infantry 4,402 triangles with a 512 px body texture (class C, inside the file
 size limit) and 256 px modules; Combat Medic 1,459 (short split tunic and apron instead of the greatcoat); Holy Warrior 2,662.
+Texture sizes (2026-11-11, the owner: clean fine detail): every figure's body and every module texture is 512 px (the file-size limit in `UnitFiguresTests` is doubled to match); older text above giving 128 or 256 px is superseded.
 A script figure sets these with `BODY_BUDGET` and `TEX_SIZES` (texture size by module name). `render_turnaround.py`
 takes the catalog height as an optional last argument, so a large figure is shown at its drawn size on its base.
 

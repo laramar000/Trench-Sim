@@ -108,7 +108,7 @@ public class UnitFiguresTests
     public void AFigureIsSmallFitsItsBaseAndHasAnAccent(string file, int budget, int texture, float width)
     {
         var bytes = File.ReadAllBytes(Path.Combine(Assets, file));
-        Assert.True(bytes.Length < Math.Max(160 * 1024, budget * 80) * (texture / 128), $"{bytes.Length} bytes");   // a larger budget or texture, a larger file
+        Assert.True(bytes.Length < Math.Max(160 * 1024, budget * 80) * (texture / 128) * 2, $"{bytes.Length} bytes");   // a larger budget or texture, a larger file (doubled 2026-11-11: every module texture is 512 px at the owner's request)
         Assert.Equal(0x46546C67u, BitConverter.ToUInt32(bytes, 0));
         var length = BitConverter.ToInt32(bytes, 12);
         using var gltf = JsonDocument.Parse(Encoding.UTF8.GetString(bytes, 20, length));
