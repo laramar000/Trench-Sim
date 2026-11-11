@@ -41,6 +41,10 @@ public static class MapGenerator
 
     public const int Tries = 200;
 
+    // For tests and tuning: how many tries the last map made on this thread took.
+    [ThreadStatic]
+    public static int LastTries;
+
     private static readonly Length TableSize = Length.FromInches(36);
 
     public static string IdOf(string kind, int seed)
@@ -100,12 +104,13 @@ public static class MapGenerator
                 ClaimNoMansLand => ClaimMap(id, seed, random),
                 TrenchWarfare => TrenchWarfareMap(id, seed, random),
                 DecimatedRuins => RuinsMap(id, seed, random),
-                Battleground => BattlegroundMap(id, seed, random),
+                Battleground => BattlegroundMap(id, seed, random, attempt),
                 _ => null,
             };
             if (map is not null && map.Problems(DesignBaseRadius).IsEmpty
                 && map.Supports.All(s => ScenarioSetups.Definitions[s].Unmet(map.ToScenario(), map.ArchetypeKind).IsEmpty))
             {
+                LastTries = attempt + 1;
                 return map;
             }
         }
@@ -256,7 +261,7 @@ public static class MapGenerator
                 {
                     continue;
                 }
-                if (Pieces.All(x => MapLayout.GapSquared(x.Footprint, footprint) >= Square(H(gapHalves))) && (also?.Invoke(footprint) ?? true))
+                if (Pieces.All(x => Far(x.Footprint.Bounds, b, H(gapHalves)) || MapLayout.GapSquared(x.Footprint, footprint) >= Square(H(gapHalves))) && (also?.Invoke(footprint) ?? true))
                 {
                     Pieces.Add(make(id, footprint));
                     if (ruin)
@@ -268,6 +273,10 @@ public static class MapGenerator
             }
             return false;
         }
+
+        // True when the two boxes are at least `gap` apart along one axis (so the shapes inside them are at least that far apart).
+        private static bool Far(Rect a, Rect b, Length gap) =>
+            b.Min.X - a.Max.X >= gap || a.Min.X - b.Max.X >= gap || b.Min.Y - a.Max.Y >= gap || a.Min.Y - b.Max.Y >= gap;
 
         // The No Man's Land pieces this game has rules for (p. 65): two ruined buildings, two ruined corners, two areas
         // of difficult ground and two landmarks, as many as fit. Hills and dangerous ground are left out (U90).
@@ -354,7 +363,7 @@ public static class MapGenerator
     // model can walk through), towers (2" high, a ladder on each of two sides: the vertical terrain), belts of barbed wire
     // nothing crosses, sandbag lines, ruined buildings, corners and straight walls, bunkers, mud, landmarks. Each kind is as many
     // as fit; the layout must still keep the blocking-terrain rule (a model can leave its zone and reach every Objective).
-    private static MapDefinition? BattlegroundMap(string id, int seed, MapRandom random)
+    private static MapDefinition? BattlegroundMap(string id, int seed, MapRandom random, int attempt)
     {
         var layout = new Layout(random);
         ObjectivesAndZoneTrenches(layout, random);
@@ -373,6 +382,12 @@ public static class MapGenerator
         // Towers first (a tower is a wall too), then screens: tall walls of many shapes (angled stair-stepped walls, ruined churches,
         // houses and courtyards, long straight walls) across the middle, one or two to each of six bands from zone to zone, staggered
         // by chance, so that a line from one zone to the other is nearly always cut (checked below).
+        // Not every map has trenches in the middle: many do, one to three sections or networks, laid first so they get room (U166).
+        // After 80 tries a seed that cannot be made with them is made without (so that every seed gives a map).
+        if (random.Below(100) < 90 && attempt < 80)
+        {
+            Many("trench-mid", 1, 3, TrenchShape, Trench);
+        }
         Many("tower", 2, 4, Tower, TowerPiece);
         Many("barn", 0, 1, Barn, Cover);
         for (var band = 0; band < 6; band++)
@@ -402,21 +417,39 @@ public static class MapGenerator
         Many("bunker", 1, 2, Bunker, WallPiece);
         Many("mud", 2, 3, Patch, Rough);
         Many("landmark", 1, 2, Landmark, Cover);
-        var map = layout.Map(id, $"Generated Battleground {seed.ToString(CultureInfo.InvariantCulture)}", null, [ClaimNoMansLand], ClaimObjectives.Select(o => o.Id));
-        return map.Battlefield.Terrain.Count(t => t.IsTower) >= 2 && OpenLineShare(map.Battlefield, MaxOpenLines) <= MaxOpenLines ? map : null;
+        // Repair: while too many lines are open, one more screen in a band chosen at random (up to six), so that a layout that
+        // crowded out some of its screens is mended and not thrown away.
+        MapDefinition Made() => layout.Map(id, $"Generated Battleground {seed.ToString(CultureInfo.InvariantCulture)}", null, [ClaimNoMansLand], ClaimObjectives.Select(o => o.Id));
+        var map = Made();
+        // The limit loosens a little after 150 tries, so that every seed gives a map.
+        var limit = attempt < 150 ? MaxOpenLines : LooseOpenLines;
+        var share = OpenLineShare(map.Battlefield, limit);
+        for (var repair = 0; repair < 6 && share > limit; repair++)
+        {
+            var x0 = 12 + random.Below(6) * 8;
+            var (name, shape) = ScreenShapes[random.Below(ScreenShapes.Length)];
+            if (layout.Place(Next(name), shape, WallPiece, (x0, 0, Math.Min(Table - 12, x0 + 16), Table), gapHalves: 4))
+            {
+                map = Made();
+                share = OpenLineShare(map.Battlefield, limit);
+            }
+        }
+        return share <= limit && map.Battlefield.Terrain.Count(t => t.IsTower) >= 2 ? map : null;
     }
 
-    // U164: "hard to draw a clear line from one deployment zone into the other". Of 144 lines between 12 spots in the west zone and
-    // 12 in the east (a model's base at each end), the share that can see across at all (partly or fully, `HeightSight`).
-    private const double MaxOpenLines = 0.12;
+    // U164: "hard to draw a clear line from one deployment zone into the other". Of 36 lines between 6 spots in the west zone and
+    // 6 in the east (a model's base at each end), the share that can see across at all (partly or fully, `HeightSight`).
+    public const double MaxOpenLines = 0.15;
+
+    public const double LooseOpenLines = 0.25;
 
     // `stopAbove`: once the share is certainly above this it returns early (the answer then is only "above").
     public static double OpenLineShare(Battlefield field, double stopAbove = 1)
     {
         var base05 = Length.FromThousandths(500);
         var ys = new[] { 3, 9, 15, 21, 27, 33 }.Select(y => Length.FromInches(y)).ToArray();
-        var west = ys.SelectMany(y => new[] { 1500L, 4500L }.Select(x => new ModelBody("west", new Point2(Length.FromThousandths(x), y), base05))).ToList();
-        var east = ys.SelectMany(y => new[] { 31500L, 34500L }.Select(x => new ModelBody("east", new Point2(Length.FromThousandths(x), y), base05))).ToList();
+        var west = ys.SelectMany(y => new[] { 3000L }.Select(x => new ModelBody("west", new Point2(Length.FromThousandths(x), y), base05))).ToList();
+        var east = ys.SelectMany(y => new[] { 33000L }.Select(x => new ModelBody("east", new Point2(Length.FromThousandths(x), y), base05))).ToList();
         var open = 0;
         foreach (var a in west)
         {
@@ -438,6 +471,9 @@ public static class MapGenerator
     private static Footprint Compose(MapRandom random, int x, int y, IReadOnlyList<(int X1, int Y1, int X2, int Y2)> rects)
     {
         var (transpose, flipX, flipY) = (random.OneIn(2), random.OneIn(2), random.OneIn(2));
+        // Moved so the shape's lowest corner is at 0, 0 (a Z-bend can reach to the left of where it starts).
+        var (left, low) = (rects.Min(r => r.X1), rects.Min(r => r.Y1));
+        rects = [.. rects.Select(r => (r.X1 - left, r.Y1 - low, r.X2 - left, r.Y2 - low))];
         var (w, h) = (rects.Max(r => r.X2), rects.Max(r => r.Y2));
         var parts = new List<Rect>();
         foreach (var (a, b, c, d) in rects)
@@ -505,6 +541,32 @@ public static class MapGenerator
             (x, y) = (x + run, y + rise);
         }
         return rects;
+    }
+
+    // ---- Trenches in the middle (U166): 2.5" or 3" wide, 1" deep, every part 4" to 12" long (p. 62). A straight section, an
+    // L-bend, a Z (two bends), a T (a branch off a section) or a crossroads; turned and mirrored at random.
+
+    private static Footprint TrenchShape(MapRandom random, int x, int y)
+    {
+        var w = random.OneIn(2) ? 5 : 6;
+        var a = random.Between(8, 24);
+        var b = random.Between(8, 18);
+        switch (random.Below(5))
+        {
+            case 0:
+                return Compose(random, x, y, [(0, 0, a, w)]);
+            case 1:
+                return Compose(random, x, y, [(0, 0, a, w), (a - w, w, a, w + b)]);
+            case 2:
+                var c = random.Between(8, 16);
+                return Compose(random, x, y, [(0, 0, a, w), (a - w, w, a, w + b), (a - w - c, w + b, a, w + b + w)]);
+            case 3:
+                var at = random.Between(0, a - w);
+                return Compose(random, x, y, [(0, 0, a, w), (at, w, at + w, w + b)]);
+            default:
+                var cross = random.Between(0, a - w);
+                return Compose(random, x, y, [(0, b, a, b + w), (cross, 0, cross + w, b), (cross, b + w, cross + w, b + w + b)]);
+        }
     }
 
     // A ruined church: a nave of two long side walls and a back wall, a door gap in the front gable, and a bell tower base at a corner.

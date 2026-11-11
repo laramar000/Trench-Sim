@@ -146,10 +146,13 @@ public class MapGeneratorTests
         Assert.DoesNotContain(map.Battlefield.Terrain, t => t.Kind.HasFlag(TerrainKind.Dangerous));
         foreach (var t in map.Battlefield.Terrain.Where(t => t.IsTrench))
         {
-            var b = t.Footprint.Bounds;
-            var (length, width) = b.Width > b.Height ? (b.Width, b.Height) : (b.Height, b.Width);
-            Assert.InRange(length.Thousandths, 4000, 12000);
-            Assert.InRange(width.Thousandths, 2000, 4000);
+            // Each part of a trench (a bend or a branch has several) is a section 4" to 12" long and 2" to 4" wide.
+            foreach (var b in t.Footprint.Parts)
+            {
+                var (length, width) = b.Width > b.Height ? (b.Width, b.Height) : (b.Height, b.Width);
+                Assert.InRange(length.Thousandths, 4000, 12000);
+                Assert.InRange(width.Thousandths, 2000, 4000);
+            }
         }
     }
 
@@ -193,7 +196,7 @@ public class MapGeneratorTests
             Assert.Null(map.ArchetypeKind);
             Assert.Equal(["obj-1", "obj-2", "obj-3", "obj-4", "obj-5"], map.ObjectiveIds.AsEnumerable());
             // U164: hard to draw a clear line from one deployment zone into the other.
-            Assert.True(MapGenerator.OpenLineShare(map.Battlefield) <= 0.12, map.Id);
+            Assert.True(MapGenerator.OpenLineShare(map.Battlefield) <= MapGenerator.LooseOpenLines, map.Id);
             var towers = map.Battlefield.Terrain.Where(t => t.IsTower).ToList();
             Assert.InRange(towers.Count, 2, 4);
             Assert.All(towers, t => Assert.Equal(Length.FromInches(2), t.Climb!.Height));
@@ -207,8 +210,12 @@ public class MapGeneratorTests
         Assert.Superset(new HashSet<string>
         {
             "tower-", "stairs-", "steep-", "longwall-", "church-", "house-", "courtyard-", "burnt-", "barn-", "ruin-", "silo-", "wreck-",
-            "fence-", "rubble-", "wire-", "sandbags-", "corner-", "bunker-", "mud-", "landmark-",
+            "fence-", "rubble-", "trench-mid-", "wire-", "sandbags-", "corner-", "bunker-", "mud-", "landmark-",
         }, features);
+        // U166: trenches in the middle in some maps, not in all: between a fifth and nine in ten.
+        var withMiddleTrenches = maps.Count(m => m.Battlefield.Terrain.Any(t => t.IsTrench && t.Id.StartsWith("trench-mid-", StringComparison.Ordinal)));
+        Assert.InRange(withMiddleTrenches, 60, 270);
+        Assert.True(maps.Count(m => MapGenerator.OpenLineShare(m.Battlefield) <= MapGenerator.MaxOpenLines) >= 285);
         // Some piece is made of several rectangles (a stair-stepped wall, an outline): not just boxes.
         Assert.Contains(maps, m => m.Battlefield.Terrain.Any(t => t.Footprint.Parts.Length >= 5));
         foreach (var map in maps.Take(40))
@@ -267,7 +274,7 @@ public class MapGeneratorTests
 
     private const string PinnedClaim = "sha256:0e6a5244390ec730eb543425c3651f031faccb09d51d91cf9b4324e8f65048cb";
     private const string PinnedTrenchWarfare = "sha256:3959b1d4e771657e0b3da3735c28864ec44e8eaa6c3a1ea21b0de2dabff2a2f5";
-    private const string PinnedBattleground = "sha256:2b79dbdcac971adbb7c242383d1c42704053f8e445f0748aa2391547bc1888b5";
+    private const string PinnedBattleground = "sha256:036dba89f83ffdde826a96767cf83f5e59aab1cfc16688017ec499897810fc3b";
 
     private const string PinnedRuins = "sha256:fb35e17da65e7c66deaa58d55f75932b69ae4f1b128f7ac3063cf0d027df7a26";
 
