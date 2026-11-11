@@ -2775,7 +2775,12 @@ def trench_cleric():
     # painted (ww1_paint for the legs, sleeves and gloves); the cross's iron bands and rivets and the book's text painted
     # too. Solid only for the silhouette: Helmet (cap fittings), Chest (pauldrons, shrine, mail collar), Back (cross),
     # Weapon (pistol), Weapon2 (book), Robe (vestment), Accent (cap, pauldron tops).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 256, "Robe": 256, "Weapon2": 128}
+    # Detail pass (2026-11-10): a solid iron cross hung from the stole on a chain, clear of the book; prayer beads and a
+    # solid pouch on the belt, a holster on the right hip; candle stubs on the shrine; clasps, a chain and corner caps on
+    # the book; wider unbroken ink lines on the cuirass, arms and straps, rivets along each lame, scuffs and edge
+    # highlights; an embroidered border above the vestment's hem, sealed prayer strips with clean script, coarser mail;
+    # the great cross with plank seams, nailed iron bands and a plate at the crossing; kit textures raised to 128 px.
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 256, "Robe": 256, "Weapon2": 128, "Back": 128, "Chest": 128, "Helmet": 128}
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.03, 1.4))                                         # upright
@@ -2849,6 +2854,30 @@ def trench_cleric():
     nz_ = NECK.z if hasattr(NECK, "z") else 1.5
     bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=0.125, radius2=0.075, depth=0.07, end_fill_type='NOTHING', location=(0, c0.y + 0.012, nz_ + 0.02))
     o = bpy.context.object; o.scale = (1, 0.92, 1); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(o, "mail")   # the mail collar
+    # detail pass: the iron cross hung on a short chain from the stole at the right of the chest, clear of the book
+    XC = surf(-0.085, 1.075, out=0.018); XC.x = -0.085; XC.z = 1.075
+    box(tuple(XC), (0.03, 0.014, 0.13), "iron"); box(tuple(XC + Vector((0, 0, 0.03))), (0.088, 0.014, 0.03), "iron")
+    st_ = surf(-0.08, 1.15, out=0.016); bar(st_, XC + Vector((0, 0, 0.063)), 0.004, "iron", sides=3)
+    if 1 in shoulders:   # three candle stubs standing on the pauldron in front of the shrine, burnt down unevenly
+        CAND = [shoulders[1] + Vector((dx, dy, 0.062 + h_ / 2)) for dx, dy, h_ in ((0.012, -0.012, 0.034), (0.05, -0.02, 0.022), (0.084, -0.008, 0.028))]
+        for (dx, dy, h_), c_ in zip(((0.012, -0.012, 0.034), (0.05, -0.02, 0.022), (0.084, -0.008, 0.028)), CAND):
+            bpy.ops.mesh.primitive_cylinder_add(vertices=6, radius=0.0075, depth=h_, location=tuple(c_)); add(bpy.context.object, "glow")
+    else: CAND = []
+    def vsurf(x, z, out=0.006):   # a point on the vestment's front at (x, z)
+        ok, loc, *_ = vest.ray_cast(Vector((x, -1.0, z)), Vector((0, 1, 0)))
+        return (loc if ok else Vector((x, -0.16, z))) + Vector((0, -out, 0))
+    # prayer beads looped from the belt on the left front, beads and thread alternating, a small bone cross at the tail
+    BP = [vsurf(0.035 + 0.075 * (1 - math.cos(math.pi * i / 10)) / 2, 0.972 - 0.1 * math.sin(math.pi * i / 10) ** 1.3, 0.009) for i in range(1, 10)]
+    tail = BP[4]; BP += [tail + Vector((0.004 * i, -0.002 * i, -0.016 * i)) for i in range(1, 3)]
+    for b_ in BP: sphere(tuple(b_), 0.009, "bone", seg=4, rings=2)   # each bead an octahedron: eight triangles
+    BX = BP[-1] + Vector((0.004, -0.002, -0.024)); box(tuple(BX), (0.008, 0.006, 0.03), "bone"); box(tuple(BX + Vector((0, 0, 0.006))), (0.022, 0.006, 0.007), "bone")
+    # a solid holster on the right hip (the pistol is drawn) and a pouch on the left, for the side silhouette
+    HOL = vsurf(-0.19, 0.9); ok, HOL, *_ = vest.ray_cast(Vector((-1.0, -0.005, 0.905)), Vector((1, 0, 0)))
+    HOL = (HOL if ok else Vector((-0.18, -0.005, 0.905))) + Vector((-0.016, 0, 0))
+    box(tuple(HOL), (0.03, 0.085, 0.125), "leather", rot=(math.radians(-8), math.radians(-6), 0))
+    ok, PCH, *_ = vest.ray_cast(Vector((1.0, -0.03, 0.925)), Vector((-1, 0, 0)))
+    PCH = (PCH if ok else Vector((0.18, -0.03, 0.925))) + Vector((0.017, 0, 0))
+    box(tuple(PCH), (0.032, 0.07, 0.066), "leather", rot=(0, math.radians(6), 0))
     module("Back")
     # the great cross strapped across the back: two planks, leaning with its head over the left shoulder (iron bands and
     # rivets painted), leather straps over the shoulders
@@ -2880,6 +2909,13 @@ def trench_cleric():
         obox(bk + rr * 0.06 * s, rr, u_, (0.12, 0.17, 0.008), "leather")                 # the cover
         obox(bk + rr * 0.056 * s + n_ * 0.012, rr, u_, (0.108, 0.155, 0.016), "parchment")   # the pages
     bar(bk - u_ * 0.07 + n_ * 0.02, bk - u_ * 0.07 + n_ * 0.02 - Vector((0, 0, 0.12)), 0.005, "blood", sides=3)
+    for s in (-1, 1):   # detail pass: brass clasps hanging open from each cover's outer edge
+        rr = (r_ * math.cos(math.radians(12)) + n_ * math.sin(math.radians(12)) * s).normalized()
+        obox(bk + rr * 0.123 * s - n_ * 0.004 - Vector((0, 0, 0.012)), rr, Vector((0, 0, 1)), (0.012, 0.03, 0.005), "brass")
+    # the book's chain, sagging from the spine's foot down to the belt
+    BK0 = bk - u_ * 0.085 - n_ * 0.004; BK1 = surf(0.1, 0.99, out=0.02); mid_ = (BK0 + BK1) / 2 - Vector((0, 0, 0.07))
+    pts_ = [BK0 * (1 - t) ** 2 + mid_ * 2 * t * (1 - t) + BK1 * t * t for t in (0.0, 0.33, 0.66, 1.0)]
+    for a_, b_ in zip(pts_, pts_[1:]): bar(a_, b_, 0.004, "iron", sides=4)
     module("Body")
 
     # ---- the paint ----
@@ -2887,46 +2923,65 @@ def trench_cleric():
                     olive="5e6a3c", olived="363d22", olivel="808c58", vest="b4a67e", vestd="7e7456", vestl="d0c49c",
                     rope="7e6c48", roped="45391f", gilt="9a7a32", giltd="5e4a1a", giltl="d0b060", icon="4a1a12",
                     mail="3e4044", maill="62646a", parchment="d4c49a", parchmentd="a89870", mannequin="cfc4b0", mannequind="9a9282",
-                    leather="3e2d1f", leatherl="5e4632", strip="cfc2a0", blood="5e140d", bloodd="3a0c08")})
+                    leather="3e2d1f", leatherl="5e4632", strip="cfc2a0", blood="5e140d", bloodd="3a0c08",
+                    bone="b8ac90", bonel="d8ccb0", boned="7e735e", wax="c4b690", waxd="8a7e60", flame="c89040",
+                    rust="6a4630", rustd="452a1a", thread="8a6a30", threadl="b89a50")})
     def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
     S0, S1 = Vector((0.12, 1.47)), Vector((-0.15, 1.03))   # the rope stole, left shoulder to right hip (x, z), front
     def stole(x, z):
         d_ = S1 - S0; t = max(0.0, min(1.0, (Vector((x, z)) - S0).dot(d_) / d_.length_squared)); return (Vector((x, z)) - (S0 + d_ * t)).length, t
     def rope(dd, along):   # a twisted rope band
         if dd > 0.012: return C["ink"]
-        return C["roped"] if (along * 90 + dd * 50) % 1.0 < 0.25 else C["rope"]
-    def mail(p, n, ao):
-        return C["ink"] if (p.z * 240) % 1.0 < 0.3 and ((p.x + p.y) * 120 + (p.z * 240 // 1) * 0.5) % 1.0 < 0.4 else lit(C["maill"] if n.dot(PSX_LIGHT) > 0.4 else C["mail"], n, ao, metal=True, p=p)
+        return C["roped"] if (along * 40 + dd * 30) % 1.0 < 0.35 else (C["rope"] if dd > 0.004 else C["rope"].lerp(C["parchment"], 0.3))
+    def mail(p, n, ao):   # rows of rings two texels high (detail pass: finer rows read as noise): a light top, a dark gap under
+        r_ = p.z * 80; fr = r_ % 1.0; ring = ((math.atan2(p.x, -p.y) * 14 + (r_ // 1) * 0.5) % 1.0)
+        if fr < 0.28: return C["ink"]
+        if fr > 0.7 and 0.15 < ring < 0.85: return lit(C["maill"], n, ao, metal=True, p=p)
+        return lit(C["mail"] if ring > 0.12 else C["ink"].lerp(C["mail"], 0.5), n, ao, metal=True, p=p)
     def blood(p, dense=0.0):
         if _nz.noise(p * 13) > 0.66 - dense: return C["bloodd"] if _nz.noise(p * 40) > 0.3 else C["blood"]
         if _nz.noise(p * 70 + Vector((4, 4, 4))) > 0.72 - dense * 0.5: return C["blood"]
         return None
-    def belt(x, y, z, n, ao, p):   # the belt, a brass buckle at the front
-        if z < 0.974 or z > 1.02: return C["ink"]
-        if y < 0 and abs(x) < 0.024:
-            if abs(x) > 0.019 or abs(z - 0.997) > 0.02: return C["ink"]
-            return C["dark"] if abs(x) < 0.008 and abs(z - 0.997) < 0.01 else (C["brassl"] if n.dot(PSX_LIGHT) > 0.4 else C["brass"])
-        return lit(C["leatherl"] if abs(z - 0.997) < 0.004 else C["leather"], n, ao, p=p)
-    def plate(z, n, ao, p, edges):   # olive plate in lames: an ink line at each step, light above it, shadow under it
+    def belt(x, y, z, n, ao, p):   # the belt, a brass buckle at the front, brass keepers, a pale stitched line along each edge
+        if z < 0.976 or z > 1.018: return C["ink"]
+        if y < 0 and abs(x) < 0.026:
+            if abs(x) > 0.02 or abs(z - 0.997) > 0.02: return C["ink"]
+            if abs(x) < 0.008 and abs(z - 0.997) < 0.01: return C["dark"] if abs(x - 0.002) > 0.002 else C["brass"]   # the frame's hole, its tongue
+            return C["brassl"] if z > 0.999 and x < 0.012 else C["brass"]
+        a_ = math.degrees(math.atan2(x, -y))
+        if any(abs(a_ - k) < 2.2 for k in (-62, 62, 150, -150)): return C["brassl"] if z > 1.0 else C["brass"]   # keepers
+        if abs(z - 0.981) < 0.0025 or abs(z - 1.013) < 0.0025: return C["leatherl"].lerp(C["parchment"], 0.25)   # stitched edges
+        return lit(C["leatherl"] if abs(z - 0.997) < 0.004 else C["leather"], n, ao, grime=0.2, p=p)
+    def plate(z, n, ao, p, edges):   # olive plate in lames: an ink line at each step, a bright edge above it, shadow under it, scuffs
         c = C["olive"]
         for L_ in edges:
-            if abs(z - L_) < 0.005: return C["ink"]
-            if 0 < L_ - z < 0.014: c = C["olived"]
-            elif 0 < z - L_ < 0.008: c = C["olivel"]
+            if abs(z - L_) < 0.0085: return C["ink"]
+            if 0 < L_ - z < 0.018: c = C["olived"]
+            elif 0 < z - L_ < 0.014: c = C["olivel"].lerp(C["ironl"], 0.3)   # the worn top edge, bright steel
         if c is C["olive"] and n.dot(PSX_LIGHT) > 0.7: c = C["olivel"]
-        return lit(c, n, ao, metal=True, p=p)
+        if c is C["olive"] and _nz.noise(p * 8 + Vector((2, 9, 4))) > 0.62: c = C["olive"].lerp(C["rust"], 0.45)      # a rust bloom
+        return lit(c, n, ao, metal=True, grime=0.1, p=p)
     LAMES = (1.215, 1.163, 1.111, 1.059)
     def extra(base, p, n, ao):
         x, y, z = p.x, p.y, p.z
         if base == "mannequin":   # the blank face, the neck: smooth pale plaster
             return lit(C["mannequin"] if n.dot(PSX_LIGHT) > 0.0 else C["mannequind"], n, ao, p=p)
         if base == "mail": return mail(p, n, ao)
-        if base == "olive":   # the pauldrons: a light top edge, dark undersides, a row of rivets along the top
+        if base == "olive":   # the pauldrons: a light top edge, dark undersides, rivets along the top and the lower lame, scuffs
             if n.z > 0.7: return lit(C["olivel"], n, ao, metal=True, p=p)
             if n.z < -0.5: return lit(C["olived"], n, ao, metal=True, p=p)
-            sh_ = shoulders.get(1 if x > 0 else -1)
-            if sh_ is not None and abs(z - (sh_.z + 0.025)) < 0.007 and ((y + x) * 40) % 1.0 < 0.3: return C["brassl"]
-            if sh_ is not None and abs(z - (sh_.z - 0.05)) < 0.006: return C["ink"]
+            sx_ = 1 if x > 0 else -1; sh_ = shoulders.get(sx_)
+            if sh_ is not None:
+                rv = []
+                for cx_, cz_, ang_, offs in ((0.04, 0.022, 10, (-0.05, -0.017, 0.017, 0.05)), (0.06, -0.068, 14, (-0.035, 0.0, 0.035))):
+                    for dx in offs:
+                        for fy in (-1, 1):
+                            rv.append(sh_ + Vector((cx_ * sx_ + dx * math.cos(math.radians(ang_)), fy * (0.075 if cz_ > 0 else 0.07), cz_ - dx * math.sin(math.radians(ang_ * sx_)))))
+                d_ = psx_dot(p, rv, C, 0.0055)
+                if d_ is not None: return d_
+                if abs(z - (sh_.z - 0.05)) < 0.0065: return C["ink"]
+                if abs(z - (sh_.z + 0.034)) < 0.004 and abs(n.z) < 0.5: return C["olivel"].lerp(C["ironl"], 0.5)   # the bright rolled edge under the slab
+                if _nz.noise(p * 22 + Vector((1, 5, 2))) > 0.6: return lit(C["olive"].lerp(C["ironl"], 0.45), n, ao, metal=True, p=p)   # scuffs
             if sh_ is not None and x < 0 and n.y < -0.6 and abs(x + 0.17) < 0.03 and abs(z - (sh_.z - 0.02)) < 0.035:   # the gilt icon hung on the right pauldron
                 if abs(x + 0.17) > 0.024 or abs(z - (sh_.z - 0.02)) > 0.03: return C["ink"]
                 if abs(x + 0.17) > 0.016 or abs(z - (sh_.z - 0.02)) > 0.022: return C["giltl"] if z > sh_.z - 0.02 else C["gilt"]
@@ -2935,54 +2990,132 @@ def trench_cleric():
         if base == "gilt":   # the shrine: gilt with an ink edge, a dark painted icon in the middle
             sh_ = shoulders.get(1); sc_ = sh_ + Vector((0.045, 0.04, 0.105)) if sh_ is not None else p
             q = p - sc_
-            if n.y < -0.6 and abs(q.x) < 0.017 and abs(q.z) < 0.04: return C["ink"] if abs(q.x) > 0.013 or abs(q.z) > 0.036 else (C["giltl"] if q.z > 0.02 else C["icon"])
+            if n.y < -0.6 and abs(q.x) < 0.017 and abs(q.z) < 0.04:   # the icon: an arched panel, a haloed figure (no face), a gilt frame
+                if abs(q.x) > 0.013 or abs(q.z) > 0.036: return C["ink"]
+                if math.hypot(q.x, q.z - 0.016) < 0.008: return C["giltl"]
+                return C["icon"] if abs(q.x) > 0.004 or q.z > 0.01 else C["roped"]
+            if abs(n.y) > 0.6 and (abs(q.x) > 0.021 or q.z > 0.044): return C["ink"] if abs(q.x) > 0.023 else C["giltl"]   # the bright frame edge
+            if abs(q.x) > 0.026 and n.y < -0.5 and abs((q.z * 50) % 1.0 - 0.5) < 0.2: return C["giltd"]   # the wings' panels
             return lit(C["giltl"] if n.dot(PSX_LIGHT) > 0.5 else C["gilt"], n, ao, metal=True, p=p)
-        if base == "wood" and (p - bc_).length < 0.6 and y > bc_.y - 0.05:   # the great cross: grain, iron bands at the ends, rivets down the upright
+        if base == "glow":   # the candle stubs: pale wax with drips down the side, a black wick and a small dull flame on top
+            c_ = min(CAND, key=lambda c: (p - c).length) if CAND else p
+            if n.z > 0.7: return C["flame"] if (p - c_).xy.length < 0.0035 else (C["dark"] if (p - c_).xy.length < 0.005 else C["wax"])
+            if n.z < -0.5: return C["waxd"]
+            drip = math.sin(math.atan2(p.y - c_.y, p.x - c_.x) * 3 + c_.x * 40) * 0.008
+            return lit(C["wax"] if p.z > c_.z + drip else C["waxd"].lerp(C["wax"], 0.5), n, ao, p=p)
+        if base == "iron" and (p - XC).length < 0.1:   # the iron cross on the chest: a bright worn face (its texels are few), dark sides as its outline
+            if n.y < -0.6: return C["ironl"].lerp(C["parchment"], 0.25) if (p - XC).z > -0.03 else C["ironl"]
+            return C["ink"]
+        if base == "leather" and (p - HOL).length < 0.1:   # the holster: a flap with a brass stud, a pale stitched edge, scuffs
+            q = p - HOL
+            if abs(q.z - 0.03) < 0.005: return C["ink"]
+            if q.z > 0.03: return C["brassl"] if abs(q.y) < 0.007 and abs(q.z - 0.042) < 0.007 and n.x < -0.5 else lit(C["leatherl"], n, ao, p=p)
+            if n.x < -0.5 and (abs(abs(q.y) - 0.034) < 0.003 or abs(q.z + 0.054) < 0.003): return C["leatherl"].lerp(C["parchment"], 0.3)
+            return lit(C["leather"] if _nz.noise(p * 40) < 0.45 else C["leatherl"], n, ao, grime=0.25, p=p)
+        if base == "leather" and (p - PCH).length < 0.07:   # the pouch: flap, stud, stitches
+            q = p - PCH
+            if abs(q.z - 0.008) < 0.005: return C["ink"]
+            if q.z > 0.008: return C["brassl"] if abs(q.y) < 0.006 and abs(q.z - 0.016) < 0.006 and n.x > 0.5 else lit(C["leatherl"], n, ao, p=p)
+            if n.x > 0.5 and abs(abs(q.y) - 0.028) < 0.003: return C["leatherl"].lerp(C["parchment"], 0.3)
+            return lit(C["leather"], n, ao, grime=0.3, p=p)
+        if base == "iron" and z > 1.5:   # the cap's iron band: ink rims, studs round it
+            if abs(z - zb - 0.008) > 0.008: return C["ink"]
+            if (math.degrees(math.atan2(x - c0.x, -(y - c0.y))) / 24.0) % 1.0 < 0.3: return C["ironl"] if z > zb + 0.008 else C["iron"]
+            return lit(C["irond"], n, ao, metal=True, p=p)
+        if base == "bone":   # the prayer beads: worn bone, a dark gap between beads
+            return lit(C["bonel"] if n.dot(PSX_LIGHT) > 0.4 else (C["bone"] if n.dot(PSX_LIGHT) > -0.3 else C["boned"]), n, ao, p=p)
+        if base == "iron" and (p - BK1).length < 0.25 and z < 1.2:   # the book chain's links: alternate light and dark
+            return C["ironl"] if ((p - BK1).length * 70) % 1.0 < 0.5 else C["irond"]
+        if base == "wood" and (p - bc_).length < 0.6 and y > bc_.y - 0.05:   # the great cross: two planks, grain, nailed iron bands, a plate at the crossing
             q = p - bc_; lx = q.x * math.cos(t_) - q.z * math.sin(t_); lz = q.x * math.sin(t_) + q.z * math.cos(t_)
             on_bar = abs(lz - 0.2) < 0.066
             e = min(0.5 - abs(lz), 0.42 - abs(lx) if on_bar else 1.0)
-            if e < 0.06: return C["ink"] if abs(e - 0.03) > 0.024 else lit(C["ironl"] if n.dot(PSX_LIGHT) > 0.4 else C["iron"], n, ao, metal=True, p=p)
+            iron_ = lambda: lit(C["ironl"] if n.dot(PSX_LIGHT) > 0.4 else C["iron"], n, ao, metal=True, p=p)
+            if e < 0.07:   # the band: ink rims, two nails across it, rust at its edges
+                if e < 0.008 or e > 0.062: return C["ink"]
+                acr = lx if 0.5 - abs(lz) <= e + 1e-6 else lz - 0.2   # across the beam, from its middle
+                if math.hypot(e - 0.035, abs(acr) - 0.035) < 0.01: return C["ink"] if math.hypot(e - 0.035, abs(acr) - 0.035) > 0.006 else C["ironl"]   # nails
+                if e < 0.016 or e > 0.054: return lit(C["rust"], n, ao, p=p)
+                return iron_()
+            if on_bar and abs(lz - 0.2) < 0.06 and abs(lx) < 0.06 and q.y > 0.02:   # the iron plate at the crossing, a cross cut in it
+                if abs(lx) > 0.052 or abs(lz - 0.2) > 0.052: return C["ink"]
+                if (abs(lx) < 0.009 and abs(lz - 0.2) < 0.04) or (abs(lz - 0.21) < 0.009 and abs(lx) < 0.03): return C["dark"]
+                d_ = psx_dot(Vector((lx, 0, lz)), [Vector((sx * 0.04, 0, 0.2 + sz * 0.04)) for sx in (-1, 1) for sz in (-1, 1)], C, 0.006, "iron")
+                return d_ if d_ is not None else iron_()
             if abs(lx) < 0.07 and q.y > 0.02:
-                for rz in (-0.38, -0.2, 0.4):
+                for rz in (-0.38, -0.27, -0.06, 0.4):
                     rr = math.hypot(lx, lz - rz)
-                    if rr < 0.012: return C["ink"] if rr > 0.008 else C["ironl"]
-            g = math.sin((lx if on_bar and abs(lx) > 0.07 else lz) * 70 + _nz.noise(p * 10) * 3)
-            return lit(C["woodd"] if g > 0.85 else (C["woodl"] if n.dot(PSX_LIGHT) > 0.6 else C["wood"]), n, ao, grime=0.15, p=p)
+                    if rr < 0.013: return C["ink"] if rr > 0.008 else C["ironl"]
+            if not on_bar and abs(lx) < 0.006 and q.y > 0.02: return C["woodd"].lerp(C["ink"], 0.4)   # the seam between the upright's two planks
+            if _nz.noise(p * 7 + Vector((3, 3, 3))) > 0.55: return lit(C["woodd"].lerp(C["mud"], 0.5), n, ao, p=p)   # dark stains
+            g = math.sin((lx if on_bar and abs(lx) > 0.07 else lz) * 45 + _nz.noise(p * 8) * 3)
+            return lit(C["woodd"] if g > 0.8 else (C["woodl"] if n.dot(PSX_LIGHT) > 0.6 else C["wood"]), n, ao, grime=0.15, p=p)
         if base == "parchment":   # the open pages: lines of text, a red initial
             q = p - bk; uu, rx = q.dot(u_), q.dot(r_)
-            if n.dot(n_) > 0.5:
-                if 0.006 < abs(rx) < 0.1 and -0.065 < uu < 0.065 and (uu * 70) % 1.0 < 0.35: return C["blood"] if abs(rx) < 0.02 and uu > 0.05 else C["ink"]
-                return C["parchmentd"] if abs(rx) < 0.008 else C["parchment"]
+            if n.dot(n_) > 0.5:   # detail pass: a red initial, a framed picture on the right page, a red rubric, lines of text
+                ax_ = abs(rx)
+                if ax_ < 0.009: return C["parchmentd"]                                           # the gutter
+                if rx > 0 and 0.03 < rx < 0.09 and 0.0 < uu < 0.06:                             # the picture: a gilt frame, a dark cross on red
+                    if rx < 0.036 or rx > 0.084 or uu < 0.006 or uu > 0.054: return C["giltd"]
+                    if (abs(rx - 0.06) < 0.005 and 0.01 < uu < 0.05) or (abs(uu - 0.036) < 0.005 and abs(rx - 0.06) < 0.016): return C["ink"]
+                    return C["blood"]
+                if rx < 0 and 0.014 < ax_ < 0.034 and 0.036 < uu < 0.062: return C["blood"] if 0.018 < ax_ < 0.03 and 0.04 < uu < 0.058 else C["giltd"]   # the initial
+                if 0.014 < ax_ < 0.092 and -0.068 < uu < 0.064 and (uu * 48) % 1.0 < 0.42:
+                    if rx < 0 and ax_ < 0.034 and uu > 0.03: return C["parchment"]
+                    if (ax_ - 0.014) / 0.078 > 0.55 + 0.45 * (((uu * 48 // 1) * 0.37) % 1.0): return C["parchment"]   # ragged line ends
+                    return C["blood"] if abs(uu + 0.012) < 0.012 else C["ink"]
+                return C["parchment"]
+            if abs(n.dot(n_)) < 0.5: return C["giltd"] if (p - bk).dot(n_) % 0.004 < 0.0016 else C["parchmentd"]   # the page block's gilt edges
             return lit(C["parchmentd"], n, ao, p=p)
-        if base == "leather" and (p - bk).length < 0.14: return lit(C["leatherl"] if n.dot(PSX_LIGHT) > 0.5 else C["leather"], n, ao, p=p)   # the book's cover
+        if base == "leather" and (p - bk).length < 0.14:   # the book's cover: tooled border, brass corner caps, a gilt cross, wear
+            q = p - bk; uu, rx = q.dot(u_), abs(q.dot(r_))
+            if rx > 0.098 and abs(uu) > 0.064: return C["brassl"] if n.dot(PSX_LIGHT) > 0.3 else C["brass"]
+            if n.dot(n_) < -0.5 and ((abs(rx - 0.06) < 0.0045 and abs(uu) < 0.04) or (abs(uu - 0.012) < 0.0045 and abs(rx - 0.06) < 0.022)): return C["giltl"]
+            if abs(rx - 0.112) < 0.003 or abs(abs(uu) - 0.074) < 0.003: return C["leatherl"].lerp(C["giltd"], 0.5)
+            if (rx > 0.112 or abs(uu) > 0.078): return C["ink"]
+            return lit(C["leatherl"] if n.dot(PSX_LIGHT) > 0.5 or _nz.noise(p * 60) > 0.5 else C["leather"], n, ao, p=p)
         if base == "vestment":   # the vestment: belt and pouches at the top, the mail fringe, prayer strips, the holster, blood, a ragged muddy hem
             a = math.degrees(math.atan2(x, -y)); aa = abs(a)
             if z > 0.974: return belt(x, y, z, n, ao, p)
             if y < 0:
-                for px_ in (-0.15, -0.085, 0.085, 0.15):   # the pouches hung on the belt
+                for px_ in (-0.15, -0.085, 0.085, 0.15):   # the pouches hung on the belt: flap, brass stud, pale stitches at the sides
                     if abs(x - px_) < 0.03 and 0.91 < z < 0.976:
-                        if abs(x - px_) > 0.025 or z < 0.916: return C["ink"]
-                        if abs(z - 0.952) < 0.003: return C["ink"]
-                        if abs(x - px_) < 0.005 and abs(z - 0.945) < 0.005: return C["brassl"]
-                        return lit(C["leatherl"] if z > 0.952 else C["leather"], n, ao, p=p)
-            if x < -0.14 and n.x < -0.3 and -0.06 < y < 0.05 and 0.84 < z < 0.976:   # the empty holster on the right hip
-                if z < 0.846 or y < -0.054 or y > 0.044: return C["ink"]
-                if abs(z - 0.94) < 0.003: return C["ink"]
-                return lit(C["leatherl"] if z > 0.94 else C["leather"], n, ao, p=p)
+                        if abs(x - px_) > 0.0245 or z < 0.917: return C["ink"]
+                        if abs(z - 0.952) < 0.004: return C["ink"]
+                        if abs(x - px_) < 0.006 and abs(z - 0.944) < 0.006: return C["brassl"] if z > 0.944 else C["brass"]
+                        if abs(x - px_) > 0.019 and z < 0.948: return C["leatherl"].lerp(C["parchment"], 0.3)
+                        return lit(C["leatherl"] if z > 0.952 else C["leather"], n, ao, grime=0.25, p=p)
             if aa < 112:   # the mail fringe, scalloped
-                fz = 0.885 - (0.014 if int((a + 112) / 9) % 2 else 0.0)
+                fz = 0.885 - (0.016 if int((a + 112) / 9) % 2 else 0.0)
                 if z > fz:
-                    if z < fz + 0.006: return C["ink"]
+                    if z < fz + 0.007: return C["ink"]
                     return mail(p, n, ao)
             if y < 0:
-                for sx_, z0, h_ in ((-0.08, 0.62, 0.36), (0.0, 0.58, 0.4), (0.08, 0.62, 0.32)):   # prayer strips, a wax seal at the top
-                    if abs(x - sx_) < 0.026 and z0 - h_ / 2 < z < min(z0 + h_ / 2, 0.875):
-                        if abs(x - sx_) > 0.022 or z < z0 - h_ / 2 + 0.005: return lit(C["vestd"], n, ao, p=p)
-                        zt = min(z0 + h_ / 2, 0.875)
-                        if math.hypot(x - sx_, z - (zt - 0.03)) < 0.016: return C["blood"] if math.hypot(x - sx_, z - (zt - 0.03)) < 0.012 else C["bloodd"]
-                        if abs(x - sx_) < 0.013 and (z * 70) % 1.0 < 0.22 and _nz.noise(p * 150) > 0.0: return C["vestd"]   # scripture, faded
+                for sx_, z0, h_ in ((-0.08, 0.62, 0.36), (0.0, 0.58, 0.4), (0.08, 0.62, 0.32)):   # prayer strips: a red wax seal, clean lines of script, a torn foot
+                    zt = min(z0 + h_ / 2, 0.875); zb_ = z0 - h_ / 2 + 0.012 * math.sin(x * 400)
+                    if abs(x - sx_) < 0.027 and zb_ < z < zt:
+                        if abs(x - sx_) > 0.022 or z < zb_ + 0.006: return C["ink"]
+                        rs_ = math.hypot(x - sx_, z - (zt - 0.032))
+                        if rs_ < 0.019: return C["ink"] if rs_ > 0.016 else (C["blood"].lerp(C["giltl"], 0.3) if rs_ < 0.006 and z > zt - 0.032 else (C["blood"] if rs_ < 0.012 else C["bloodd"]))
+                        if abs(x - sx_ - 0.006) < 0.004 and zt - 0.07 < z < zt - 0.045: return C["bloodd"]   # the seal's ribbon tail
+                        k_ = (z - zb_ - 0.02) / 0.042; row = k_ // 1   # script: solid lines about three texels high, every other one shorter
+                        if k_ > 0 and k_ % 1.0 < 0.45 and z < zt - 0.062 and -0.014 < x - sx_ < (0.014 if row % 2 else 0.003): return C["ink"].lerp(C["strip"], 0.2)
                         return lit(C["strip"], n, ao, p=p)
+            h_ = z - hem
             if z < hem + 0.01 + 0.02 * max(0.0, _nz.noise(Vector((a * 0.2, 0, 0)))): return C["ink"] if z < hem + 0.006 else lit(C["vestd"].lerp(C["mud"], 0.6), n, ao, p=p)
+            BZ = hem + 0.105   # an embroidered border above the hem: two ochre threads, a row of small crosses
+            if abs(z - BZ) < 0.03:
+                if abs(abs(z - BZ) - 0.026) < 0.004: return C["thread"]
+                cx_ = ((a + 180) / 14) % 1.0 - 0.5; cz_ = z - BZ
+                if (abs(cx_) < 0.08 and abs(cz_) < 0.016) or (abs(cx_) < 0.25 and abs(cz_ - 0.004) < 0.005): return C["threadl"] if n.dot(PSX_LIGHT) > 0.2 else C["thread"]
+                return lit(C["vestd"].lerp(C["mud"], 0.35), n, ao, p=p)
+            if h_ < 0.18 and _nz.noise(Vector((a * 0.12, 0, z * 9))) > 0.25 - h_: return lit(C["vestd"].lerp(C["mud"], 0.55), n, ao, p=p)   # mud splashed up
+            for pa, pz, pw, ph in ((-58, 0.5, 9.0, 0.06), (140, 0.66, 8.0, 0.05)):   # patches sewn on with coarse stitches
+                du, dv = (a - pa) / pw, (z - pz) / ph
+                if abs(du) < 1 and abs(dv) < 1:
+                    if abs(du) > 0.86 or abs(dv) > 0.84: return C["ink"]
+                    if (abs(du) > 0.66 or abs(dv) > 0.64) and ((du + dv) * 4) % 1.0 < 0.5: return C["roped"]
+                    return lit(C["vestl"].lerp(C["mud"], 0.3), n, ao, p=p)
             b_ = blood(p, 0.1 * max(0.0, (0.7 - z) / 0.4))
             if b_ is not None: return b_
             f = (a / 24.0 + _nz.noise(Vector((a * 0.03, 0, z * 2))) * 0.3) % 1.0
@@ -2996,10 +3129,15 @@ def trench_cleric():
             if abs(along - 1.0) < 0.12:
                 if abs(along - 1.0) > 0.1: return C["ink"]
                 return lit(C["olivel"] if n.dot(PSX_LIGHT) > 0.5 else C["olive"], n, ao, metal=True, p=p)
-            for b_ in (0.35, 0.8):
-                if abs(along - b_) < 0.05: return C["ink"] if abs(along - b_) > 0.04 else lit(C["ironl"] if n.dot(PSX_LIGHT) > 0.4 else C["iron"], n, ao, metal=True, p=p)
-            if (along * 9) % 1.0 < 0.12: return C["ink"]
-            return lit(C["olivel"] if (along * 9) % 1.0 < 0.3 else (C["olived"] if (along * 9) % 1.0 > 0.85 else C["olive"]), n, ao, metal=True, p=p)
+            for b_ in (0.35, 0.8):   # iron bands, a rivet on the outside of each
+                if abs(along - b_) < 0.06:
+                    if abs(along - b_) > 0.045: return C["ink"]
+                    if ad > 0.05 and abs(along - b_) < 0.025 and (p.y < -0.02) : return C["ironl"]
+                    return lit(C["ironl"] if n.dot(PSX_LIGHT) > 0.4 else C["iron"], n, ao, metal=True, p=p)
+            f_ = (along * 7) % 1.0   # lames: an unbroken ink step, a bright edge under it, shadow above the next
+            if f_ < 0.2: return C["ink"]
+            if f_ < 0.36: return C["olivel"] if _nz.noise(p * 50) > -0.4 else C["olive"].lerp(C["ironl"], 0.5)
+            return lit(C["olived"] if f_ > 0.84 else C["olive"], n, ao, metal=True, p=p)
         front = y < 0
         if z < 0.974: return lit(C["tunicd"], n, ao, p=p)                                   # under the vestment's top
         if z < 1.02: return belt(x, y, z, n, ao, p)
@@ -3007,20 +3145,29 @@ def trench_cleric():
         if front:
             dd, t = stole(x, z)
             if dd < 0.016: return rope(dd, t)
-            if abs(x + 0.01) < 0.01 and 1.12 < z < 1.2 or abs(x + 0.01) < 0.028 and abs(z - 1.175) < 0.009:   # the iron cross hung from it
-                if abs(x + 0.01) > 0.007 and abs(z - 1.175) > 0.006 or z < 1.124: return C["ink"]
-                return lit(C["ironl"] if n.dot(PSX_LIGHT) > 0.3 else C["iron"], n, ao, metal=True, p=p)
-            rv = psx_dot(p, [Vector((sx * 0.12, y, rz + 0.026)) for sx in (-1, 1) for rz in LAMES], C, 0.0065)
+            if abs(x - XC.x - 0.006) < 0.024 and abs(z - XC.z + 0.006) < 0.075 or abs(x - XC.x - 0.006) < 0.052 and abs(z - XC.z - 0.024) < 0.022: return C["olived"].lerp(C["ink"], 0.5)   # the cross's shadow on the plate
+            rv = psx_dot(p, [Vector((sx * k, y, rz + 0.026)) for sx in (-1, 1) for k in (0.06, 0.12, 0.17) for rz in LAMES], C, 0.0062)
             if rv is not None: return rv
+            for sx in (-1, 1):   # rust run down from the lower rivets
+                if abs(x - sx * 0.12) < 0.004 and 1.0 < z < LAMES[-1] + 0.02 and _nz.noise(Vector((sx, 0, z * 30))) > -0.2: return C["rust"]
             top_ = 1.43 - 3.0 * x * x
             if z > top_ - 0.012: return C["ink"] if z < top_ - 0.004 else lit(C["olivel"], n, ao, metal=True, p=p)   # the rolled neckline
             if abs(x) < 0.006 and z > LAMES[0]: return lit(C["olivel"], n, ao, metal=True, p=p)                      # the ridge
+            if z > LAMES[0] + 0.01 and abs(z - (top_ - 0.045)) < 0.005: return C["olived"]                            # an engraved line under the neckline
             return plate(z, n, ao, p, LAMES)
-        if abs(n.x) > 0.8:   # the side straps joining breast and back plates
+        if abs(n.x) > 0.8:   # the side straps joining breast and back plates: a brass buckle frame with its tongue, a pale stitched line
             for sz in (1.15, 1.3):
-                if abs(z - sz) < 0.014: return C["ink"] if abs(z - sz) > 0.01 else (C["brass"] if abs(y) < 0.008 else lit(C["leather"], n, ao, p=p))
+                if abs(z - sz) < 0.016:
+                    if abs(z - sz) > 0.011: return C["ink"]
+                    if abs(y) < 0.014:
+                        if abs(y) > 0.009 or abs(z - sz) > 0.007: return C["brassl"] if z > sz else C["brass"]
+                        return C["dark"] if abs(z - sz) > 0.002 else C["brass"]
+                    if abs(z - sz) < 0.0025: return C["leatherl"].lerp(C["parchment"], 0.3)
+                    return lit(C["leather"], n, ao, p=p)
             return lit(C["tunicd"], n, ao, p=p)
-        if abs(x) < 0.005 and z < LAMES[0]: return C["ink"]
+        if abs(x) < 0.007 and z < LAMES[0]: return C["ink"]   # the back plate's seam, rivets beside it
+        rv = psx_dot(p, [Vector((sx * k, y, rz + 0.026)) for sx in (-1, 1) for k in (0.03, 0.14) for rz in LAMES], C, 0.0062)
+        if rv is not None: return rv
         return plate(z, n, ao, p, LAMES)
     PAINT = ww1_paint(C, extra=extra, hips=False)
 
