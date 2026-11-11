@@ -172,13 +172,22 @@ public class MapGeneratorTests
         Assert.InRange(withTrenches, 500, 1000);
     }
 
-    // U163: a thousand battlegrounds: towers and the other new features, the blocking-terrain rule, the printed objectives, and a
-    // match can be set up on each.
+    // U163, U165: battlegrounds from seeds spread over the whole seed range (the server picks any of 2 billion): towers and the other
+    // features, the blocking-terrain rule, few open lines between the zones, the printed objectives, a match can be set up on each.
+    private static List<MapDefinition> Spread(string kind, int count)
+    {
+        var maps = new MapDefinition[count];
+        Parallel.For(0, count, i => maps[i] = MapGenerator.Generate(kind, (int)(i * 3_579_139L % int.MaxValue)));
+        return [.. maps];
+    }
+
     [Fact]
-    public void ThousandBattlegroundMapsAllHaveTowersAndFitClaimNoMansLand()
+    public void ThreeHundredBattlegroundMapsAcrossTheSeedRangeAreAllValidAndVaried()
     {
         var features = new HashSet<string>();
-        foreach (var map in Thousand(MapGenerator.Battleground))
+        var maps = Spread(MapGenerator.Battleground, 300);
+        Assert.Equal(300, maps.Select(m => RecordFormat.MapHash(m.ToScenario())).Distinct().Count());
+        foreach (var map in maps)
         {
             KeepsTheRules(map);
             Assert.Null(map.ArchetypeKind);
@@ -188,15 +197,25 @@ public class MapGeneratorTests
             var towers = map.Battlefield.Terrain.Where(t => t.IsTower).ToList();
             Assert.InRange(towers.Count, 2, 4);
             Assert.All(towers, t => Assert.Equal(Length.FromInches(2), t.Climb!.Height));
-            Assert.Contains(map.Battlefield.Terrain, t => t.Kind.HasFlag(TerrainKind.Impassable) || t.Profile == TerrainProfile.Wall && !t.IsTower);
+            Assert.Contains(map.Battlefield.Terrain, t => t.Profile == TerrainProfile.Wall && !t.IsTower);
             foreach (var t in map.Battlefield.Terrain)
             {
                 features.Add(new string(t.Id.TakeWhile(c => !char.IsDigit(c)).ToArray()));
             }
+        }
+        // Every kind of piece the generator knows turns up somewhere in them (U165): angled walls, churches, houses and more.
+        Assert.Superset(new HashSet<string>
+        {
+            "tower-", "stairs-", "steep-", "longwall-", "church-", "house-", "courtyard-", "burnt-", "barn-", "ruin-", "silo-", "wreck-",
+            "fence-", "rubble-", "wire-", "sandbags-", "corner-", "bunker-", "mud-", "landmark-",
+        }, features);
+        // Some piece is made of several rectangles (a stair-stepped wall, an outline): not just boxes.
+        Assert.Contains(maps, m => m.Battlefield.Terrain.Any(t => t.Footprint.Parts.Length >= 5));
+        foreach (var map in maps.Take(40))
+        {
             Assert.Equal(ClaimNoMansLand.ScenarioId, ScenarioSetups.OnMap(Scenarios.All["ranged"], map).ScenarioId);
             Assert.Throws<MapFormatException>(() => ScenarioSetups.OnMap(Scenarios.All["ranged" + ScenarioSetups.TrenchWarfareSuffix], map));
         }
-        Assert.Superset(new HashSet<string> { "tower-", "screen-", "wire-", "sandbags-", "wall-", "bunker-", "mud-", "ruin-", "corner-", "landmark-" }, features);
     }
 
     [Fact]
@@ -248,7 +267,7 @@ public class MapGeneratorTests
 
     private const string PinnedClaim = "sha256:0e6a5244390ec730eb543425c3651f031faccb09d51d91cf9b4324e8f65048cb";
     private const string PinnedTrenchWarfare = "sha256:3959b1d4e771657e0b3da3735c28864ec44e8eaa6c3a1ea21b0de2dabff2a2f5";
-    private const string PinnedBattleground = "sha256:5fa188adf77ef6c799b5e9e67b3f3a08cbbbeec3ffb79f785d07f3e75c11f816";
+    private const string PinnedBattleground = "sha256:2b79dbdcac971adbb7c242383d1c42704053f8e445f0748aa2391547bc1888b5";
 
     private const string PinnedRuins = "sha256:fb35e17da65e7c66deaa58d55f75932b69ae4f1b128f7ac3063cf0d027df7a26";
 

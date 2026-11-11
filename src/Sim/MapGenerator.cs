@@ -359,43 +359,59 @@ public static class MapGenerator
         var layout = new Layout(random);
         ObjectivesAndZoneTrenches(layout, random);
         var between = (12, 0, Table - 12, Table);
+        // Ids count up per kind of piece ("church-1", "stairs-2"), whether it came as a screen or as one of the rest.
+        var counts = new Dictionary<string, int>();
+        string Next(string name) => $"{name}-{counts[name] = counts.GetValueOrDefault(name) + 1}";
         void Many(string name, int low, int high, Func<MapRandom, int, int, Footprint> shape, Func<string, Footprint, TerrainBlock> make)
         {
             var count = random.Between(low, high);
             for (var i = 1; i <= count; i++)
             {
-                layout.Place($"{name}-{i}", shape, make, between, gapHalves: 4);
+                layout.Place(Next(name), shape, make, between, gapHalves: 4);
             }
         }
-        // Towers first (a tower is a wall too), then screens: broken walls across the middle, one or two to each of six bands from
-        // zone to zone, staggered by chance, so that a line from one zone to the other is nearly always cut (checked below).
+        // Towers first (a tower is a wall too), then screens: tall walls of many shapes (angled stair-stepped walls, ruined churches,
+        // houses and courtyards, long straight walls) across the middle, one or two to each of six bands from zone to zone, staggered
+        // by chance, so that a line from one zone to the other is nearly always cut (checked below).
         Many("tower", 2, 4, Tower, TowerPiece);
+        Many("barn", 0, 1, Barn, Cover);
         for (var band = 0; band < 6; band++)
         {
-            var window = (12 + band * 8, 0, 20 + band * 8, Table);
+            var x0 = 12 + band * 8;
+            var window = (x0, 0, Math.Min(Table - 12, x0 + 16), Table);
             var count = random.Between(1, 2);
             for (var i = 1; i <= count; i++)
             {
-                layout.Place($"screen-{band + 1}-{i}", Screen, WallPiece, window, gapHalves: 4);
+                var (name, shape) = ScreenShapes[random.Below(ScreenShapes.Length)];
+                layout.Place(Next(name), shape, WallPiece, window, gapHalves: 4);
             }
         }
+        // The rest: some of each, as many as fit, the buildings first.
+        Many("church", 0, 1, Church, WallPiece);
+        Many("house", 0, 2, RuinedHouse, WallPiece);
+        Many("burnt", 1, 2, BurntHouse, Cover);
+        Many("ruin", 0, 2, Building, Cover);
+        Many("courtyard", 0, 1, Courtyard, WallPiece);
+        Many("silo", 0, 2, Silo, WallPiece);
+        Many("wreck", 0, 2, Wreck, Cover);
+        Many("fence", 0, 2, Fence, Cover);
+        Many("rubble", 1, 3, Rubble, Rough);
         Many("wire", 1, 3, Wire, (i, f) => new TerrainBlock(i, f, TerrainProfile.Low, TerrainKind.Impassable));
         Many("sandbags", 2, 4, Sandbags, Cover);
-        Many("ruin", 1, 2, Building, Cover);
         Many("corner", 1, 2, Corner, WallPiece);
-        Many("wall", 1, 3, StraightWall, WallPiece);
         Many("bunker", 1, 2, Bunker, WallPiece);
         Many("mud", 2, 3, Patch, Rough);
         Many("landmark", 1, 2, Landmark, Cover);
         var map = layout.Map(id, $"Generated Battleground {seed.ToString(CultureInfo.InvariantCulture)}", null, [ClaimNoMansLand], ClaimObjectives.Select(o => o.Id));
-        return OpenLineShare(map.Battlefield) <= MaxOpenLines && map.Battlefield.Terrain.Count(t => t.IsTower) >= 2 ? map : null;
+        return map.Battlefield.Terrain.Count(t => t.IsTower) >= 2 && OpenLineShare(map.Battlefield, MaxOpenLines) <= MaxOpenLines ? map : null;
     }
 
     // U164: "hard to draw a clear line from one deployment zone into the other". Of 144 lines between 12 spots in the west zone and
     // 12 in the east (a model's base at each end), the share that can see across at all (partly or fully, `HeightSight`).
     private const double MaxOpenLines = 0.12;
 
-    public static double OpenLineShare(Battlefield field)
+    // `stopAbove`: once the share is certainly above this it returns early (the answer then is only "above").
+    public static double OpenLineShare(Battlefield field, double stopAbove = 1)
     {
         var base05 = Length.FromThousandths(500);
         var ys = new[] { 3, 9, 15, 21, 27, 33 }.Select(y => Length.FromInches(y)).ToArray();
@@ -407,17 +423,154 @@ public static class MapGenerator
             foreach (var b in east)
             {
                 open += HeightSight.Between(field, a, b).Visibility != Visibility.None ? 1 : 0;
+                if (open > stopAbove * west.Count * east.Count)
+                {
+                    return open / (double)(west.Count * east.Count);
+                }
             }
         }
         return open / (double)(west.Count * east.Count);
     }
 
-    // A broken wall across the table: half an inch to an inch thick, 7" to 13" long, running north-south.
-    private static Footprint Screen(MapRandom random, int x, int y)
+    // ---- Battleground shapes (U165). Every shape is a few rectangles in half inches, joined along shared edges, then turned and
+    // mirrored at random (one of the eight ways a rectangle's corners can go), so the same shape comes out in every direction.
+
+    private static Footprint Compose(MapRandom random, int x, int y, IReadOnlyList<(int X1, int Y1, int X2, int Y2)> rects)
     {
-        var thick = random.Between(1, 2);
-        return Footprint.Of(R(x, y, x + thick, y + random.Between(14, 26)));
+        var (transpose, flipX, flipY) = (random.OneIn(2), random.OneIn(2), random.OneIn(2));
+        var (w, h) = (rects.Max(r => r.X2), rects.Max(r => r.Y2));
+        var parts = new List<Rect>();
+        foreach (var (a, b, c, d) in rects)
+        {
+            var (x1, y1, x2, y2) = (a, b, c, d);
+            if (flipX)
+            {
+                (x1, x2) = (w - c, w - a);
+            }
+            if (flipY)
+            {
+                (y1, y2) = (h - d, h - b);
+            }
+            if (transpose)
+            {
+                (x1, y1, x2, y2) = (y1, x1, y2, x2);
+            }
+            parts.Add(R(x + x1, y + y1, x + x2, y + y2));
+        }
+        return Footprint.Join(parts);
     }
+
+    // The four walls of a hollow building, half an inch thick, with one breach cut into one wall: a door (1" to 1.5") or a wide
+    // breach. One only: a footprint must stay in one piece, and a ring cut twice is two. `breaches` 0 leaves it closed.
+    private static List<(int X1, int Y1, int X2, int Y2)> Outline(MapRandom random, int w, int h, int breaches)
+    {
+        // Wall 0 bottom, 1 top (both w long), 2 left, 3 right (both h - 2 long, between them).
+        var walls = new (int X1, int Y1, int X2, int Y2)[] { (0, 0, w, 1), (0, h - 1, w, h), (0, 1, 1, h - 1), (w - 1, 1, w, h - 1) };
+        if (breaches == 0)
+        {
+            return [.. walls];
+        }
+        var wall = random.Below(4);
+        var (x1, y1, x2, y2) = walls[wall];
+        var along = wall < 2;
+        var length = along ? x2 - x1 : y2 - y1;
+        var gap = length >= 8 && random.OneIn(3) ? random.Between(4, length - 4) : random.Between(2, Math.Min(3, length - 4));
+        var at = random.Between(2, length - 2 - gap);
+        var rest = walls.Where((_, i) => i != wall).ToList();
+        if (along)
+        {
+            rest.Add((x1, y1, x1 + at, y2));
+            rest.Add((x1 + at + gap, y1, x2, y2));
+        }
+        else
+        {
+            rest.Add((x1, y1, x2, y1 + at));
+            rest.Add((x1, y1 + at + gap, x2, y2));
+        }
+        return rest;
+    }
+
+    // A stair-stepped wall at an angle: `steps` runs of `run` halves, each stepping up `rise` halves, half an inch thick.
+    private static List<(int X1, int Y1, int X2, int Y2)> Stairs(int steps, int run, int rise)
+    {
+        var rects = new List<(int, int, int, int)>();
+        int x = 0, y = 0;
+        for (var k = 0; k < steps; k++)
+        {
+            rects.Add((x, y, x + run, y + 1));
+            if (k < steps - 1)
+            {
+                rects.Add((x + run - 1, y + 1, x + run, y + 1 + rise));
+            }
+            (x, y) = (x + run, y + rise);
+        }
+        return rects;
+    }
+
+    // A ruined church: a nave of two long side walls and a back wall, a door gap in the front gable, and a bell tower base at a corner.
+    private static Footprint Church(MapRandom random, int x, int y)
+    {
+        var (w, l) = (random.Between(8, 10), random.Between(14, 20));
+        return Compose(random, x, y,
+        [
+            (0, 0, 1, l), (w - 1, 0, w, l), (1, l - 1, w - 1, l), (1, 0, 3, 1), (w - 3, 0, w - 1, 1), (w, 0, w + 4, 4),
+        ]);
+    }
+
+    // A ruined house: four tall broken walls, one breach.
+    private static Footprint RuinedHouse(MapRandom random, int x, int y) =>
+        Compose(random, x, y, Outline(random, random.Between(8, 11), random.Between(8, 12), 1));
+
+    // A burnt-out house: low charred walls, now and then with none missing at all.
+    private static Footprint BurntHouse(MapRandom random, int x, int y) =>
+        Compose(random, x, y, Outline(random, random.Between(8, 10), random.Between(8, 12), random.Between(0, 1)));
+
+    // A walled courtyard: a big square of broken wall.
+    private static Footprint Courtyard(MapRandom random, int x, int y) =>
+        Compose(random, x, y, Outline(random, random.Between(12, 14), random.Between(12, 14), 1));
+
+    // A barn: a long low outline with one opening.
+    private static Footprint Barn(MapRandom random, int x, int y) =>
+        Compose(random, x, y, Outline(random, random.Between(8, 10), random.Between(12, 16), 1));
+
+    // A grain silo: a solid post 2" to 3" square.
+    private static Footprint Silo(MapRandom random, int x, int y)
+    {
+        var side = random.Between(4, 6);
+        return Footprint.Of(R(x, y, x + side, y + side));
+    }
+
+    // A wrecked cart or gun carriage: two joined blocks.
+    private static Footprint Wreck(MapRandom random, int x, int y) =>
+        Compose(random, x, y, [(0, 0, 5, 3), (1, 3, 4, 5)]);
+
+    // A low fence or hedge running at an angle.
+    private static Footprint Fence(MapRandom random, int x, int y) =>
+        Compose(random, x, y, Stairs(random.Between(2, 4), random.Between(3, 6), random.Between(1, 3)));
+
+    // A rubble heap: an irregular patch of two or three blocks.
+    private static Footprint Rubble(MapRandom random, int x, int y)
+    {
+        var (a, b, c) = (random.Between(4, 7), random.Between(4, 7), random.Between(2, 4));
+        return random.OneIn(2)
+            ? Compose(random, x, y, [(0, 0, a, b), (a, 1, a + c, b - 1)])
+            : Compose(random, x, y, [(0, 0, a, b), (a, 1, a + c, b - 1), (1, b, a - 1, b + c)]);
+    }
+
+    // The shapes a screen across the table takes: a long angled stair-stepped wall (shallow or steep), a straight broken wall, a
+    // church, a ruined house, a courtyard. Each is tall wall, so each cuts the sight across the middle.
+    private static readonly (string Name, Func<MapRandom, int, int, Footprint> Shape)[] ScreenShapes =
+    [
+        ("stairs", (r, x, y) => Compose(r, x, y, Stairs(r.Between(3, 5), r.Between(3, 5), r.Between(1, 2)))),
+        ("steep", (r, x, y) => Compose(r, x, y, Stairs(r.Between(3, 4), r.Between(2, 3), r.Between(3, 4)))),
+        ("stairs", (r, x, y) => Compose(r, x, y, Stairs(r.Between(4, 6), r.Between(3, 4), r.Between(1, 2)))),
+        ("longwall", (r, x, y) => Footprint.Of(R(x, y, x + r.Between(1, 2), y + r.Between(14, 26)))),
+        ("church", Church),
+        ("church", Church),
+        ("house", RuinedHouse),
+        ("house", RuinedHouse),
+        ("courtyard", Courtyard),
+    ];
 
     // A tower: 2.5" or 3" square, 2" high, a ladder at the middle of its west and east sides.
     private static Footprint Tower(MapRandom random, int x, int y)
@@ -441,9 +594,6 @@ public static class MapGenerator
 
     // A line of sandbags: 1" thick, 3" to 5" long, either way.
     private static Footprint Sandbags(MapRandom random, int x, int y) => Strip(random, x, y, 2, 6, 10);
-
-    // A ruined wall in a straight line: half an inch thick, 4" to 8" long, either way.
-    private static Footprint StraightWall(MapRandom random, int x, int y) => Strip(random, x, y, 1, 8, 16);
 
     private static Footprint Strip(MapRandom random, int x, int y, int thick, int shortest, int longest)
     {
