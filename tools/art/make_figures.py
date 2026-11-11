@@ -4022,11 +4022,11 @@ def mechanized_heavy_infantry():
                     mail="3a3c3e", maill="5e6064", stencil="a89c80", steam="8e8a80")})
     def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
     def rusty(c, p, k=0.5):   # rust running down from the seams and rivets
-        if _nz.noise(Vector((p.x * 34, p.y * 34, p.z * 2.5))) > 0.58 and _nz.noise(p * 6) > 0.0: return c.lerp(C["rust"], k)
+        if _nz.noise(Vector((p.x * 14, p.y * 14, p.z * 2.0))) > 0.66 and _nz.noise(p * 5) > 0.1: return c.lerp(C["rust"], k * 0.8)   # fewer, larger rust runs (tidier pixels)
         return c
     def pl(p, n, ao, edge=None, light=False):   # gunmetal plate in three bands, rust runs, grime low down
         c = C["platel"] if (light or n.dot(PSX_LIGHT) > 0.78) else (C["plate"] if n.dot(PSX_LIGHT) > -0.35 else C["plated"])
-        return lit(rusty(c, p), n, ao, metal=True, grime=0.3 * max(0.0, (0.5 - p.z) / 0.4), p=p)
+        return lit(rusty(c, p), n, ao, metal=True, grime=0.12 * max(0.0, (0.5 - p.z) / 0.4), p=p)
     def mail(p, n, ao):
         return C["ink"] if (p.z * 240) % 1.0 < 0.3 and ((p.x + p.y) * 120 + (p.z * 240 // 1) * 0.5) % 1.0 < 0.4 else lit(C["maill"] if n.dot(PSX_LIGHT) > 0.4 else C["mail"], n, ao, metal=True, p=p)
     def hazard(p, k=1.0):   # diagonal stripes, worn
