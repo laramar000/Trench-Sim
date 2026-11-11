@@ -75,7 +75,8 @@ public class UnitFiguresTests
     // and 256 px, the owner's exception, 2026-11-03) is drawn 2.4" tall, so 1.1 is 2.2" on its 60 mm (2.36") base; the
     // Sanctified Giant (5,200, the owner allows larger units more) is drawn 1.6", so 1.1 is 1.47" on its 40 mm (1.57") base.
     // Painted figures (PSX look, clothes painted on a 256 px body texture, 2026-11-10) take their own count rounded up to
-    // the next 100: the Trench Pilgrim 1,200, Stigmatic Nun 1,200, Ecclesiastic Prisoner 1,300, Yeoman 1,400, Shock
+    // the next 100 (after the detail pass, 2026-11-10, up to ~25% more each): the Trench Pilgrim 1,300, Stigmatic Nun 1,400,
+    // Ecclesiastic Prisoner 1,600, Combat Engineer 3,300 (class A, its pauldrons, pack and kit solid), Yeoman 1,400, Shock
     // Trooper 1,700, Lieutenant 2,800 (class B, its sallet, shield and long coat stay solid), Blind Marksman 2,200 (class B,
     // kneeling, drawn 1.25" with the rifle upright above him), Trench Cleric 2,000 (class B, drawn 1.65" with the cross
     // and tall cap), War Prophet 1,800 and Castigator 2,100 (class B), Sanctified Giant 4,600 (class C), Reliquary Walker
@@ -88,14 +89,14 @@ public class UnitFiguresTests
     public static TheoryData<string, int, int, float> Figures => new()
     {
         { "units/rifleman.glb", 1400, 256, 0.9f }, { "units/skirmisher.glb", 1400, 256, 0.9f }, { "units/shield.glb", 1500, 256, 0.9f },
-        { "units/standard.glb", 1300, 256, 0.9f }, { "units/trench-pilgrim.glb", 1200, 256, 0.9f },
-        { "units/stigmatic-nun.glb", 1200, 256, 0.9f }, { "units/ecclesiastic-prisoner.glb", 1300, 256, 0.9f },
+        { "units/standard.glb", 1300, 256, 0.9f }, { "units/trench-pilgrim.glb", 1300, 256, 0.9f },
+        { "units/stigmatic-nun.glb", 1400, 256, 0.9f }, { "units/ecclesiastic-prisoner.glb", 1600, 256, 0.9f },
         { "units/war-prophet.glb", 1800, 256, 0.9f }, { "units/castigator.glb", 2100, 256, 0.9f },
         { "units/reliquary-walker.glb", 6500, 256, 1.1f }, { "units/sanctified-giant.glb", 4600, 256, 1.1f },
         { "units/yeoman.glb", 1400, 256, 0.9f }, { "units/shock-trooper.glb", 1700, 256, 0.9f },
         { "units/lieutenant.glb", 2800, 256, 0.9f }, { "units/blind-marksman.glb", 2200, 256, 0.9f },
         { "units/trench-cleric.glb", 2000, 256, 0.9f },
-        { "units/combat-engineer.glb", 3000, 256, 0.9f },
+        { "units/combat-engineer.glb", 3300, 256, 0.9f },
         { "units/mechanized-heavy-infantry.glb", 4000, 256, 1.1f }, { "units/combat-medic.glb", 1300, 256, 0.9f },
         { "units/holy-warrior.glb", 2500, 256, 0.9f },
     };
