@@ -170,6 +170,35 @@ public sealed record TerrainBlock
 
     public bool IsTrench => _depth is not null;
 
+    // Tall buildings (owner, 2026-11-12, U168): a Wall on the ground that nothing can walk on may stand 4.5" or 6" high instead of the
+    // usual 3". Sight and cover read it (SightHeights.TopOf): a model on a 2" tower, whose eye is at 3.1", sees over a 3" wall but not
+    // over a taller one. Null for every other piece, which then behaves exactly as before.
+    public Length? Height
+    {
+        get => _height;
+        init
+        {
+            if (value is { } height)
+            {
+                if (Profile != TerrainProfile.Wall || Surface != SurfaceLevel.Ground || IsWalkable)
+                {
+                    throw new ArgumentException("Only a Wall on the ground that cannot be walked on can be taller than 3\".", nameof(Height));
+                }
+                if (!TallHeights.Contains(height))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(Height), "A tall building is 4.5\" or 6\" high.");
+                }
+            }
+            _height = value;
+        }
+    }
+
+    private readonly Length? _height;
+
+    public bool IsTall => _height is not null;
+
+    public static readonly IReadOnlyList<Length> TallHeights = [Length.Parse("4.5"), Length.Parse("6")];
+
     public static readonly Length MinTrenchDepth = Length.Parse("0.5");
     public static readonly Length MaxTrenchDepthExclusive = Length.FromInches(3);
 }

@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U167), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U168), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -269,8 +269,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
      Claim No Man's Land maps with 2-4 towers, angled stair-stepped walls, churches, houses, courtyards, barns, silos, wrecks,
      fences, rubble, wire, bunkers, mud, zone trenches and (in about six maps in ten) trenches in the middle; screens of tall wall
      keep the zones from seeing each other in full (U164) and a balance check keeps the sides fair (U167). Client: "Random
-     battleground" in the Map list. Seeds are the server's own draw, about two billion maps. Heights are the engine's three (true
-     diagonals and per-piece heights would change the rules: not done). Not run in Godot except screenshots (dev UI check
+     battleground" in the Map list. Seeds are the server's own draw, about two billion maps. Walls are 3", 4.5" or 6" (U168: tall buildings, real sight heights); true
+     diagonals are not done. Not run in Godot except screenshots (dev UI check
      `TRENCH_DEV=deploy,shot TRENCH_MAP=generated-battleground`). Open: balance measures only mid-table exposure and piece/trench
      counts; objective attack/defence modes are not balanced on purpose; no 48" generator.
 - R6 survey (2026-11-01): 76 abilities not played yet. Proposed batches, smallest first (owner picks):

@@ -36,7 +36,7 @@ public static class SightHeights
         {
             TerrainProfile.Low => Low,
             TerrainProfile.Cover => Cover,
-            _ => Wall,
+            _ => piece.Height ?? Wall,
         };
     }
 

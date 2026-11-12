@@ -241,6 +241,11 @@ public static class StateHash
             {
                 Line(sb, "trench", $"{t.Id},depth={depth.Thousandths}");
             }
+            // Tall buildings only (U168), likewise.
+            if (t.Height is { } tall)
+            {
+                Line(sb, "tall", $"{t.Id},height={tall.Thousandths}");
+            }
         }
         Line(sb, "objectives", string.Join(",", scenario.ObjectiveIds));
     }

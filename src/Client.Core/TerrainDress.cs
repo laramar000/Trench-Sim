@@ -207,14 +207,30 @@ public static class TerrainDress
         {
             var arches = (int)(length / 2);
             var archHigh = Math.Min(1.4, h * 0.5);
-            for (var i = 0; i < arches; i++)
+            // A tall building (U168) has a row of windows to each storey of about 1.5", and a pale floor line between them.
+            var storeys = piece.Platform || h <= 3.2 ? 1 : (int)Math.Floor(h / 1.5);
+            for (var storey = 0; storey < storeys; storey++)
             {
-                var along = -length / 2 + length / arches * (i + 0.5);
-                foreach (var side in new[] { -1, 1 })
+                var floor = storey * (body / storeys);
+                var windowHigh = storeys == 1 ? archHigh : Math.Min(archHigh, body / storeys * 0.6);
+                for (var i = 0; i < arches; i++)
                 {
-                    var across = side * (thick / 2 - inset / 2);
-                    var (x, z) = alongX ? (a.CentreX + along, a.CentreY + across) : (a.CentreX + across, a.CentreY + along);
-                    parts.Add(new DressPart(PartShape.Arch, x, 0.3 + archHigh / 2, z, 0.6, archHigh, inset, yaw, 0, 0.3));
+                    // Some upper windows are blown out and left blank: a ruin.
+                    if (storey > 0 && random.Next() < 0.2)
+                    {
+                        continue;
+                    }
+                    var along = -length / 2 + length / arches * (i + 0.5);
+                    foreach (var side in new[] { -1, 1 })
+                    {
+                        var across = side * (thick / 2 - inset / 2);
+                        var (x, z) = alongX ? (a.CentreX + along, a.CentreY + across) : (a.CentreX + across, a.CentreY + along);
+                        parts.Add(new DressPart(PartShape.Arch, x, floor + 0.3 + windowHigh / 2, z, 0.6, windowHigh, inset, yaw, 0, 0.3));
+                    }
+                }
+                if (storey > 0)
+                {
+                    parts.Add(new DressPart(PartShape.Block, a.CentreX, floor, a.CentreY, alongX ? a.Width : a.Width - 2 * inset, 0.06, alongX ? a.Depth - 2 * inset : a.Depth, 0, 0, 1.25));
                 }
             }
         }

@@ -6,7 +6,7 @@ Since stage L2 of the line-of-sight plan (2026-10-25) the rules see in three dim
 ## How it works
 
 - **Heights.** A figure is 1.2" tall. The shooter's eye is 1.1" above its base. Terrain is a box from the ground up:
-  Low 0.25", Cover 0.75", Wall 3", and a tower its climb height. The client draws terrain at these same heights, and a
+  Low 0.25", Cover 0.75", Wall 3" (or 4.5" or 6" for a tall building, U168), and a tower its climb height. The client draws terrain at these same heights, and a
   test (`BoardSceneHeightTests`) keeps them equal.
 - **Rays.** Nine rays run from the eye to nine points on the target: three heights (legs 0.3", body 0.7", head 1.1"
   above its base), each left, middle and right across the line, at 0.8 of the base radius.

@@ -25,6 +25,7 @@ namespace Sim;
 //               "dangerous", "impassable", surface (optional): "ground" | "high", walkable (optional),
 //               climb (optional): { height, ladders: [{ id, at: [x, y] }] },
 //               depth (optional): inches, makes a "low" piece a trench section (trench-maps stage S3, U80),
+//               height (optional): "4.5" or "6", a tall building: a "wall" on the ground, not walkable (U168),
 //               ruin (optional): true for a ruined building or corner, spaced by the Decimated Ruins rules (stage S4) }
 //   rect        [x1, y1, x2, y2] in inches: the lower-left and upper-right corners
 //   parts       instead of rect, for a ground piece shaped like an L, T or plus: a list of two or more rects that
@@ -288,6 +289,10 @@ public static class MapFiles
                 {
                     w.WriteString("depth", In(depth));
                 }
+                if (t.Height is { } tall)
+                {
+                    w.WriteString("height", In(tall));
+                }
                 if (ruins.Contains(t.Id))
                 {
                     w.WriteBoolean("ruin", true);
@@ -303,7 +308,7 @@ public static class MapFiles
     private static (TerrainBlock Block, bool Ruin) Piece(JsonElement element, int index)
     {
         var o = Object(element, $"terrain piece {index + 1}");
-        Only(o, $"terrain piece {index + 1}", "id", "rect", "parts", "profile", "kind", "surface", "walkable", "climb", "depth", "ruin");
+        Only(o, $"terrain piece {index + 1}", "id", "rect", "parts", "profile", "kind", "surface", "walkable", "climb", "depth", "height", "ruin");
         var id = Text(o, "id");
         var what = $"terrain '{id}'";
         var profile = Text(o, "profile") switch
@@ -349,6 +354,7 @@ public static class MapFiles
         }
         var footprint = FootprintOf(o, what);
         Length? depth = o.TryGetProperty("depth", out _) ? LengthOf(o, "depth") : null;
+        Length? tall = o.TryGetProperty("height", out _) ? LengthOf(o, "height") : null;
         Climb? climb = null;
         if (o.TryGetProperty("climb", out var c))
         {
@@ -378,7 +384,7 @@ public static class MapFiles
                 _ => throw new MapFormatException($"{what}: ruin must be true or false."),
             };
         }
-        return (Build(what, () => new TerrainBlock(id, footprint, profile, kind, surface, walkable) { Climb = climb, Depth = depth }), ruin);
+        return (Build(what, () => new TerrainBlock(id, footprint, profile, kind, surface, walkable) { Climb = climb, Depth = depth, Height = tall }), ruin);
     }
 
     // U94: separate Cover or Wall pieces (towers included) whose footprints touch, along an edge or at a corner. A sight

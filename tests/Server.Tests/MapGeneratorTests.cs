@@ -223,6 +223,10 @@ public class MapGeneratorTests
             Assert.True(balance.Pieces <= MapGenerator.MaxPieceGap * 2 && balance.Trenches <= MapGenerator.MaxTrenchGap * 2, $"{map.Id} pieces {balance.Pieces} trenches {balance.Trenches}");
         }
         Assert.True(maps.Count(m => MapGenerator.Imbalance(m.Battlefield) is { Exposure: <= MapGenerator.MaxExposureGap, Pieces: <= MapGenerator.MaxPieceGap, Trenches: <= MapGenerator.MaxTrenchGap }) >= 285);
+        // U168: tall buildings, 4.5" and 6", in some maps and not in all, and no piece higher than the tiers.
+        Assert.Contains(maps, m => m.Battlefield.Terrain.Any(t => t.Height == Length.Parse("6")));
+        Assert.Contains(maps, m => m.Battlefield.Terrain.Any(t => t.Height == Length.Parse("4.5")));
+        Assert.Contains(maps, m => m.Battlefield.Terrain.All(t => !t.IsTall));
         // Some piece is made of several rectangles (a stair-stepped wall, an outline): not just boxes.
         Assert.Contains(maps, m => m.Battlefield.Terrain.Any(t => t.Footprint.Parts.Length >= 5));
         foreach (var map in maps.Take(40))
@@ -281,7 +285,7 @@ public class MapGeneratorTests
 
     private const string PinnedClaim = "sha256:0e6a5244390ec730eb543425c3651f031faccb09d51d91cf9b4324e8f65048cb";
     private const string PinnedTrenchWarfare = "sha256:3959b1d4e771657e0b3da3735c28864ec44e8eaa6c3a1ea21b0de2dabff2a2f5";
-    private const string PinnedBattleground = "sha256:88e06d068ac5c67e0d2c4f3b45640fa5f12ff57d79b4fa773efe6311a9be113a";
+    private const string PinnedBattleground = "sha256:569b1612e72df7beaf9b5038ef2405c9a49206e1853e8c250bb494b9321f7601";
 
     private const string PinnedRuins = "sha256:fb35e17da65e7c66deaa58d55f75932b69ae4f1b128f7ac3063cf0d027df7a26";
 

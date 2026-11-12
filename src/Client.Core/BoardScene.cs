@@ -219,7 +219,7 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
         {
             var objective = scenario.ObjectiveIds.Contains(t.Id);
             // A tower is drawn at its own height, with its ladders (towers proposal, stage T4).
-            return new TerrainShape(t.Id, TableRect.Of(t.Footprint.Bounds), t.Profile, t.Climb is { } climb ? TableRect.Inches(climb.Height) : t.IsTrench ? 0 : DisplayHeight.Of(t.Profile),
+            return new TerrainShape(t.Id, TableRect.Of(t.Footprint.Bounds), t.Profile, t.Climb is { } climb ? TableRect.Inches(climb.Height) : t.IsTrench ? 0 : t.Height is { } tall ? TableRect.Inches(tall) : DisplayHeight.Of(t.Profile),
                 t.IsPlatform, objective, TerrainLabel(t, objective), objective ? Rules.Core.Objectives.ControllerNow(state, t.Id) : null)
             {
                 Ladders = t.Climb is { } c ? [.. c.Ladders.Select(l => new LadderShape(l.Id, TablePoint.Of(l.At), Climb.SideOf(t.Footprint.Bounds, l.At)!.Value))] : [],

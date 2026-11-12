@@ -340,6 +340,7 @@ public static class Wire
             (typeof(MarkersConverted), nameof(MarkersConverted.To)),
             (typeof(TerrainBlock), nameof(TerrainBlock.Climb)),
             (typeof(TerrainBlock), nameof(TerrainBlock.Depth)),
+            (typeof(TerrainBlock), nameof(TerrainBlock.Height)),
             (typeof(CreateMatch), nameof(CreateMatch.Map)),
             (typeof(CreateMatch), nameof(CreateMatch.Roster)),
             (typeof(JoinMatch), nameof(JoinMatch.Roster)),

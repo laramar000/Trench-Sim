@@ -170,6 +170,32 @@ public class MapFileTests
         Assert.DoesNotContain("\ntrench=", StateHash.Canonical(Reducer.Apply(MatchState.None, new MatchCreated(Setups["ranged"]))), StringComparison.Ordinal);
     }
 
+    // U168: a tall building's height travels in the map file, on the wire and in the state hash; every other piece is written as before.
+    [Fact]
+    public void ATallBuildingsHeightTravelsAndIsLeftOutForOtherPieces()
+    {
+        // "height" is the battlefield's own once; a piece with no tall height adds none.
+        Assert.Equal(2, Json(ClaimNoMansLand.Create()).Split("\"height\":").Length);
+        Assert.DoesNotContain("\ntall=", StateHash.Canonical(Reducer.Apply(MatchState.None, new MatchCreated(Setups["ranged"]))), StringComparison.Ordinal);
+        // wall-1 as a 6" building.
+        var map = MapFiles.Parse(Edit("\"id\": \"wall-1\",\n      \"rect\": [\"14\", \"11\", \"20\", \"12\"],\n      \"profile\": \"wall\"", "\"id\": \"wall-1\",\n      \"rect\": [\"14\", \"11\", \"20\", \"12\"],\n      \"profile\": \"wall\",\n      \"height\": \"6\""), "claim-no-mans-land.json");
+        var piece = map.Battlefield.Terrain.Single(t => t.Id == "wall-1");
+        Assert.Equal(Rules.Core.Geometry.Length.Parse("6"), piece.Height);
+        Assert.Equal(1, map.Battlefield.Terrain.Count(t => t.IsTall));
+        var json = Json(map.ToScenario());
+        Assert.Equal(3, json.Split("\"height\":").Length);
+        var read = System.Text.Json.JsonSerializer.Deserialize<Scenario>(json, Wire.Options)!;
+        Assert.Equal(Rules.Core.Geometry.Length.Parse("6"), read.Battlefield.Terrain.Single(t => t.Id == "wall-1").Height);
+        Assert.Equal(json, Json(read));
+        // It is written back to a map file and read again.
+        Assert.Equal(Rules.Core.Geometry.Length.Parse("6"), MapFiles.Parse(MapFiles.ToJson(map), "claim-no-mans-land.json").Battlefield.Terrain.Single(t => t.Id == "wall-1").Height);
+        var coded = Setups["ranged"];
+        var setup = new MatchSetup(coded.RulesVersion, coded.ScenarioId, coded.TurnLimit, coded.Profile, coded.ZoneIds, coded.Models, map.ToScenario());
+        Assert.Contains("\ntall=wall-1,height=6000", StateHash.Canonical(Reducer.Apply(MatchState.None, new MatchCreated(setup))), StringComparison.Ordinal);
+        // Only a wall that cannot be walked on, and only at 4.5" or 6".
+        Assert.Contains("height", Assert.Throws<MapFormatException>(() => MapFiles.Parse(Edit("\"profile\": \"wall\"", "\"profile\": \"wall\", \"height\": \"5\""), "claim-no-mans-land.json")).Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void AHighPieceCannotBeJoinedParts()
     {

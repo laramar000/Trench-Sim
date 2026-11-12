@@ -304,6 +304,17 @@ public static class MapGenerator
 
     private static TerrainBlock WallPiece(string id, Footprint f) => new(id, f, TerrainProfile.Wall);
 
+    // A Wall of the given height in inches: 3 is the plain Wall, 4.5 and 6 are tall buildings (U168).
+    private static TerrainBlock WallOf(string id, Footprint f, double inches) =>
+        inches > 3 ? new TerrainBlock(id, f, TerrainProfile.Wall) { Height = Length.Parse(inches.ToString("0.0", CultureInfo.InvariantCulture)) } : WallPiece(id, f);
+
+    // The heights a battleground piece may stand at, by its name: churches and silos tall, houses and corners mixed, bunkers low.
+    private static readonly Dictionary<string, double[]> WallHeights = new()
+    {
+        ["church"] = [6], ["house"] = [4.5, 6], ["courtyard"] = [3, 4.5], ["silo"] = [4.5, 6], ["corner"] = [3, 4.5], ["bunker"] = [3],
+        ["stairs"] = [3, 4.5], ["steep"] = [4.5], ["longwall"] = [3, 4.5],
+    };
+
     private static TerrainBlock Rough(string id, Footprint f) => new(id, f, TerrainProfile.Low, TerrainKind.Difficult);
 
     private static TerrainBlock Trench(string id, Footprint f) => new(id, f, TerrainProfile.Low) { Depth = TrenchDepth };
@@ -370,6 +381,8 @@ public static class MapGenerator
         var layout = new Layout(random);
         ObjectivesAndZoneTrenches(layout, random, sameCount: true);
         var between = (12, 0, Table - 12, Table);
+        // A wall of this kind of piece, at one of the heights it may have (U168).
+        Func<string, Footprint, TerrainBlock> Tall(string name) => (pieceId, f) => WallOf(pieceId, f, WallHeights[name][random.Below(WallHeights[name].Length)]);
         // Ids count up per kind of piece ("church-1", "stairs-2"), whether it came as a screen or as one of the rest.
         var counts = new Dictionary<string, int>();
         string Next(string name) => $"{name}-{counts[name] = counts.GetValueOrDefault(name) + 1}";
@@ -400,23 +413,23 @@ public static class MapGenerator
             for (var i = 1; i <= count; i++)
             {
                 var (name, shape) = ScreenShapes[random.Below(ScreenShapes.Length)];
-                layout.Place(Next(name), shape, WallPiece, window, gapHalves: 4);
+                layout.Place(Next(name), shape, Tall(name), window, gapHalves: 4);
             }
         }
         // The rest: some of each, as many as fit, the buildings first.
-        Many("church", 0, 1, Church, WallPiece);
-        Many("house", 0, 2, RuinedHouse, WallPiece);
+        Many("church", 0, 1, Church, Tall("church"));
+        Many("house", 0, 2, RuinedHouse, Tall("house"));
         Many("burnt", 1, 2, BurntHouse, Cover);
         Many("ruin", 0, 2, Building, Cover);
-        Many("courtyard", 0, 1, Courtyard, WallPiece);
-        Many("silo", 0, 2, Silo, WallPiece);
+        Many("courtyard", 0, 1, Courtyard, Tall("courtyard"));
+        Many("silo", 0, 2, Silo, Tall("silo"));
         Many("wreck", 0, 2, Wreck, Cover);
         Many("fence", 0, 2, Fence, Cover);
         Many("rubble", 1, 3, Rubble, Rough);
         Many("wire", 1, 3, Wire, (i, f) => new TerrainBlock(i, f, TerrainProfile.Low, TerrainKind.Impassable));
         Many("sandbags", 2, 4, Sandbags, Cover);
-        Many("corner", 1, 2, Corner, WallPiece);
-        Many("bunker", 1, 2, Bunker, WallPiece);
+        Many("corner", 1, 2, Corner, Tall("corner"));
+        Many("bunker", 1, 2, Bunker, Tall("bunker"));
         Many("mud", 2, 3, Patch, Rough);
         Many("landmark", 1, 2, Landmark, Cover);
         // Repair: while too many lines are open, one more screen in a band chosen at random (up to six), so that a layout that
@@ -434,7 +447,7 @@ public static class MapGenerator
             var midY = (westY + eastY) / 2;
             var area = (20, Math.Max(0, midY - 20), Table - 20, Math.Min(Table, midY + 20));
             var (name, shape) = ScreenShapes[random.Below(ScreenShapes.Length)];
-            if (layout.Place(Next(name), shape, WallPiece, area, gapHalves: 4))
+            if (layout.Place(Next(name), shape, Tall(name), area, gapHalves: 4))
             {
                 map = Made();
                 share = OpenLineShare(map.Battlefield, limit);
@@ -452,7 +465,7 @@ public static class MapGenerator
             var band = (balance.WestSeesMore ? 0 : 3) + random.Below(3);
             var (name, shape) = ScreenShapes[random.Below(ScreenShapes.Length)];
             var x0 = 12 + band * 8;
-            if (layout.Place(Next(name), shape, WallPiece, (x0, 0, Math.Min(Table - 12, x0 + 16), Table), gapHalves: 4))
+            if (layout.Place(Next(name), shape, Tall(name), (x0, 0, Math.Min(Table - 12, x0 + 16), Table), gapHalves: 4))
             {
                 map = Made();
                 balance = Imbalance(map.Battlefield);
