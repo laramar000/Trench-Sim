@@ -64,8 +64,8 @@ public partial class BoardView : SubViewportContainer
             uniform bool use_mud = true;
             uniform vec4 table; // min x, min z, max x, max z of the table, in inches
             uniform vec3 plain : source_color = vec3(0.25, 0.22, 0.17);
-            uniform vec3 horizon : source_color = vec3(0.05, 0.045, 0.035);
-            uniform float fade = 90.0;
+            uniform vec3 horizon : source_color = vec3(0.10, 0.085, 0.065);
+            uniform float fade = 130.0;
             varying vec3 wpos;
             void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
             float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -76,27 +76,119 @@ public partial class BoardView : SubViewportContainer
                 return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
             }
             float fbm(vec2 p) { return vnoise(p) * 0.5 + vnoise(p * 2.07) * 0.3 + vnoise(p * 4.3) * 0.2; }
+            float fbm5(vec2 p) {
+                float v = 0.0;
+                float a = 0.5;
+                for (int i = 0; i < 5; i++) {
+                    v += a * vnoise(p);
+                    p = p * 2.03 + vec2(17.0, 9.0);
+                    a *= 0.5;
+                }
+                return v;
+            }
+            // The ground's height: lumps, and long ruts where wheels and boots have been.
+            float height_at(vec2 w) {
+                float ruts = abs(vnoise(vec2(w.x * 0.35, w.y * 0.9)) - 0.5) * 2.0;
+                return fbm5(w * 0.9) * 0.8 + (1.0 - smoothstep(0.0, 0.25, ruts)) * -0.25;
+            }
             void fragment() {
                 vec2 w = wpos.xz;
                 vec2 out_of = max(max(table.xy - w, w - table.zw), vec2(0.0));
                 float dist = length(out_of);
                 // Next to the table the mud is the table's own; further out the repeats are broken up: a second
-                // lookup turned and scaled differently, then big patches of wetter and drier ground.
+                // lookup turned and scaled differently, a fine third one, then big patches of wetter and drier ground.
                 float away = smoothstep(2.0, 18.0, dist);
+                float near_detail = 1.0 - smoothstep(30.0, 70.0, dist);
                 vec3 c = plain;
                 if (use_mud) {
                     vec3 a = texture(mud, w / 6.0).rgb;
                     vec3 b = texture(mud, (mat2(vec2(0.8, 0.6), vec2(-0.6, 0.8)) * w) / 9.7).rgb;
+                    vec3 fine = texture(mud, (mat2(vec2(0.6, -0.8), vec2(0.8, 0.6)) * w) / 2.3).rgb;
                     c = mix(a, mix(a, b, 0.6), away);
+                    c *= mix(1.0, 0.65 + 0.7 * fine.r / max(0.05, (a.r + b.r) * 0.5), away * near_detail * 0.6);
                 }
-                float lump = fbm(w / 9.0);
+                float lump = fbm5(w / 7.0);
                 float dry = smoothstep(0.50, 0.75, fbm(w / 5.0 + 17.0));
                 float wet = smoothstep(0.55, 0.78, fbm(w / 13.0 + 41.0));
                 c *= mix(1.0, 0.55 + 0.9 * lump, away);
                 c = mix(c, c * vec3(1.25, 1.0, 0.78), away * dry * 0.8);
-                c = mix(c, c * vec3(0.62, 0.68, 0.74), away * wet * 0.85);
+                // Churned ground: dark, trodden strips between the ruts.
+                float churn = smoothstep(0.62, 0.8, fbm5(w * vec2(0.45, 1.1) + 70.0));
+                c = mix(c, c * vec3(0.55, 0.5, 0.45), away * churn * 0.7);
+                // Puddles in the wet patches: dark and shiny, with a cold sky tint.
+                float puddle = wet * smoothstep(0.55, 0.7, fbm5(w / 3.2 + 90.0));
+                c = mix(c, vec3(0.09, 0.1, 0.12), away * puddle * 0.85);
+                // Pebbles and scraps: pale specks, a few to a square inch near the camera.
+                vec2 cell = floor(w * 5.0);
+                float speck = step(0.965, hash(cell)) * smoothstep(0.2, 0.5, length(fract(w * 5.0) - 0.5) * -1.0 + 0.6);
+                c = mix(c, vec3(0.52, 0.5, 0.45) * (0.7 + 0.5 * hash(cell + 3.0)), away * near_detail * speck * 0.8);
                 ALBEDO = mix(c, horizon, smoothstep(0.0, fade, dist));
-                ROUGHNESS = mix(1.0, 0.55, away * wet);
+                ROUGHNESS = mix(1.0, 0.12, away * puddle);
+                SPECULAR = mix(0.2, 0.7, away * puddle);
+                // Bumps: the height's slope turned into a tilt of the surface (view space).
+                vec2 g = vec2(height_at(w + vec2(0.12, 0.0)) - height_at(w - vec2(0.12, 0.0)), height_at(w + vec2(0.0, 0.12)) - height_at(w - vec2(0.0, 0.12))) / 0.24;
+                vec3 tilt = (VIEW_MATRIX * vec4(-g.x, 0.0, -g.y, 0.0)).xyz;
+                NORMAL = normalize(NORMAL + tilt * 0.35 * away * near_detail * (1.0 - puddle));
+            }
+            """,
+    };
+
+    // A heavy smoke-and-cloud sky (decoration only; the lighting stays the flat cool ambient): a dark zenith, a brown haze at the
+    // horizon, two layers of cloud laid out on a plane overhead, and the red glow of far-off fires low on one side. Static (no TIME),
+    // so the sky costs nothing once drawn.
+    private static readonly Shader SkyShader = new()
+    {
+        Code = """
+            shader_type sky;
+            uniform vec3 zenith : source_color = vec3(0.045, 0.05, 0.06);
+            uniform vec3 haze : source_color = vec3(0.36, 0.29, 0.22);
+            uniform vec3 fire : source_color = vec3(0.85, 0.36, 0.1);
+            uniform vec3 ground : source_color = vec3(0.05, 0.045, 0.035);
+            float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+            float vnoise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+            }
+            float fbm(vec2 p) {
+                float v = 0.0;
+                float a = 0.5;
+                for (int i = 0; i < 6; i++) {
+                    v += a * vnoise(p);
+                    p = p * 2.03 + vec2(11.0, 5.0);
+                    a *= 0.5;
+                }
+                return v;
+            }
+            void sky() {
+                vec3 d = EYEDIR;
+                if (d.y <= 0.0) {
+                    COLOR = mix(haze * 0.22, ground, smoothstep(0.0, -0.4, d.y));
+                } else {
+                    float low = pow(1.0 - d.y, 3.5);
+                    vec3 col = mix(zenith, haze, low);
+                    vec2 uv = d.xz / (d.y + 0.18);
+                    float far_layer = fbm(uv * 0.9 + 3.0);
+                    float near_layer = fbm(uv * 2.2 + vec2(40.0, 8.0) + far_layer * 1.5);
+                    float cloud = smoothstep(0.38, 0.78, far_layer * 0.55 + near_layer * 0.45);
+                    // Cloud bellies are dark; lit from below by the haze near the horizon.
+                    vec3 cloud_col = mix(vec3(0.045, 0.045, 0.05), haze * 0.75, low) * (0.6 + 0.8 * near_layer);
+                    col = mix(col, cloud_col, cloud * (0.9 - 0.35 * low));
+                    // Smoke columns: thin dark streaks rising from the horizon.
+                    float bearing = atan(d.x, d.z);
+                    float column = smoothstep(0.55, 0.9, vnoise(vec2(bearing * 7.0, d.y * 1.5))) * smoothstep(0.5, 0.0, d.y);
+                    col = mix(col, vec3(0.03, 0.028, 0.026), column * 0.7);
+                    // Far-off fires: a red-orange glow low down, in three places round the horizon.
+                    float glow = 0.0;
+                    for (int k = 0; k < 3; k++) {
+                        float centre = 0.6 + float(k) * 2.1;
+                        float da = atan(sin(bearing - centre), cos(bearing - centre));
+                        glow += exp(-da * da * 14.0) * pow(1.0 - d.y, 9.0) * (0.5 + 0.5 * hash(vec2(float(k), 3.0)));
+                    }
+                    col += fire * glow * (0.45 + 0.4 * fbm(uv * 3.0));
+                    COLOR = col;
+                }
             }
             """,
     };
@@ -3103,20 +3195,7 @@ public partial class BoardView : SubViewportContainer
         _environment.Environment = new Godot.Environment
         {
             BackgroundMode = Godot.Environment.BGMode.Sky,
-            Sky = new Sky
-            {
-                SkyMaterial = new ProceduralSkyMaterial
-                {
-                    SkyTopColor = new Color(0.10f, 0.11f, 0.13f),
-                    SkyHorizonColor = new Color(0.42f, 0.38f, 0.33f),
-                    SkyCurve = 0.18f,
-                    GroundHorizonColor = new Color(0.07f, 0.062f, 0.05f),
-                    GroundBottomColor = new Color(0.05f, 0.045f, 0.035f),
-                    GroundCurve = 0.05f,
-                    SunAngleMax = 0f,
-                    SunCurve = 0.001f,
-                },
-            },
+            Sky = new Sky { SkyMaterial = new ShaderMaterial { Shader = SkyShader } },
             AmbientLightSource = Godot.Environment.AmbientSource.Color,
             AmbientLightColor = new Color(0.70f, 0.72f, 0.78f),
             AmbientLightEnergy = 0.5f,
