@@ -3378,6 +3378,7 @@ public partial class BoardView : SubViewportContainer
                 Box(new Vector3((float)part.CentreX, -floor - (below - floor) / 2, (float)part.CentreY), new Vector3((float)part.Width, below - floor, (float)part.Depth), TrenchFloorColour);
                 DrawDuckboards(part, floor);
             }
+            DrawTrenchEdges(trench.Parts, (float)trench.Depth);
             _pits[trench.Id] = -trench.Depth;
         }
         // Graphics stage G2: flat craters and duckboards on open ground, clear of every terrain piece and zone.
@@ -3539,7 +3540,8 @@ public partial class BoardView : SubViewportContainer
     {
         var along = part.Width >= part.Depth;
         var length = along ? part.Width : part.Depth;
-        var across = (along ? part.Depth : part.Width) - 0.6;
+        // A walkway down the middle with mud showing along both sides (about half the width).
+        var across = Math.Max(0.7, (along ? part.Depth : part.Width) * 0.55);
         if (across <= 0.2)
         {
             return;
@@ -3549,6 +3551,96 @@ public partial class BoardView : SubViewportContainer
             var (x, y) = along ? (part.X0 + at + 0.1, part.CentreY) : (part.CentreX, part.Y0 + at + 0.1);
             var size = along ? new Vector3(0.2f, 0.03f, (float)across) : new Vector3((float)across, 0.03f, 0.2f);
             Box(new Vector3((float)x, -floor + 0.015f, (float)y), size, DuckboardColour);
+        }
+    }
+
+    // Trench look (decoration only, inside the pit or under 0.25" high just outside it): plank revetment with a post every 1.5" on
+    // the pit's walls, a fire step along the north and west walls, and a broken line of sandbags along the rim, on every edge that
+    // is not shared with another part of the same trench (a bend or a branch stays open). Deterministic: every player draws the same.
+    private void DrawTrenchEdges(IReadOnlyList<TableRect> parts, float floor)
+    {
+        if (_highContrast)
+        {
+            return;
+        }
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var part = parts[i];
+            // side 0 north (y = Y0), 1 south (y = Y1), 2 west (x = X0), 3 east (x = X1)
+            for (var side = 0; side < 4; side++)
+            {
+                var horizontal = side < 2;
+                var (lo, hi) = horizontal ? (part.X0, part.X1) : (part.Y0, part.Y1);
+                var line = side switch { 0 => part.Y0, 1 => part.Y1, 2 => part.X0, _ => part.X1 };
+                var open = new List<(double A, double B)> { (lo, hi) };
+                for (var j = 0; j < parts.Count; j++)
+                {
+                    if (j == i)
+                    {
+                        continue;
+                    }
+                    var other = parts[j];
+                    var touches = side switch
+                    {
+                        0 => Math.Abs(other.Y1 - line) < 0.01,
+                        1 => Math.Abs(other.Y0 - line) < 0.01,
+                        2 => Math.Abs(other.X1 - line) < 0.01,
+                        _ => Math.Abs(other.X0 - line) < 0.01,
+                    };
+                    if (!touches)
+                    {
+                        continue;
+                    }
+                    var (cutA, cutB) = horizontal ? (other.X0, other.X1) : (other.Y0, other.Y1);
+                    open = [.. open.SelectMany(o => new[] { (o.A, Math.Min(o.B, cutA)), (Math.Max(o.A, cutB), o.B) }).Where(o => o.Item2 - o.Item1 > 0.05)];
+                }
+                var inward = side is 0 or 2 ? 1 : -1;
+                foreach (var (a, b) in open)
+                {
+                    TrenchSide(horizontal, line, inward, a, b, floor, firestep: side is 0 or 2);
+                }
+            }
+        }
+    }
+
+    private static double Jitter(double a, double b)
+    {
+        var h = unchecked((int)((long)Math.Floor(a * 8) * 73856093L ^ (long)Math.Floor(b * 8) * 19349663L));
+        return (h & 0xFFFF) / 65535.0;
+    }
+
+    private void TrenchSide(bool horizontal, double line, int inward, double a, double b, float floor, bool firestep)
+    {
+        Vector3 At(double along, double across, float y) => horizontal ? new Vector3((float)along, y, (float)(line + across * inward)) : new Vector3((float)(line + across * inward), y, (float)along);
+        Vector3 Size(double length, double thick, float height) => horizontal ? new Vector3((float)length, height, (float)thick) : new Vector3((float)thick, height, (float)length);
+        // Plank wall on the inside face, in two shades by plank.
+        for (var at = a; at < b - 0.01; at += 0.5)
+        {
+            var end = Math.Min(b, at + 0.5);
+            var shade = 0.85f + 0.3f * (float)Jitter(at, line);
+            Box(At((at + end) / 2, 0.035, -floor / 2), Size(end - at, 0.07, floor), new Color(0.31f * shade, 0.22f * shade, 0.13f * shade));
+        }
+        // Posts, a little proud of the planks, every 1.5".
+        for (var at = a + 0.1; at < b - 0.05; at += 1.5)
+        {
+            Box(At(at, 0.09, -floor / 2 + 0.05f), Size(0.14, 0.12, floor + 0.1f), new Color(0.22f, 0.15f, 0.09f));
+        }
+        // Fire step: a low bench against the wall.
+        if (firestep && b - a > 0.6)
+        {
+            Box(At((a + b) / 2, 0.30, -floor + 0.17f), Size(b - a - 0.1, 0.36, 0.34f), new Color(0.24f, 0.19f, 0.12f));
+        }
+        // Parapet: a line of sandbags on the rim, outside the pit, with a gap now and then.
+        for (var at = a + 0.05; at < b - 0.2; at += 0.42)
+        {
+            var j = Jitter(at, line * 3);
+            if (j < 0.1)
+            {
+                continue;
+            }
+            var tone = 0.9f + 0.25f * (float)Jitter(line, at);
+            var height = 0.15f + 0.07f * (float)j;
+            Box(At(at + 0.19, -0.11, height / 2), Size(0.38, 0.22, height), new Color(0.46f * tone, 0.40f * tone, 0.29f * tone));
         }
     }
 
