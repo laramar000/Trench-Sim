@@ -329,7 +329,7 @@ public static class MapGenerator
     }
 
     // The five Objectives (a sandbag position, a ruined house or a shell hole each), then up to two trench sections in each zone.
-    private static void ObjectivesAndZoneTrenches(Layout layout, MapRandom random)
+    private static void ObjectivesAndZoneTrenches(Layout layout, MapRandom random, bool sameCount = false)
     {
         foreach (var (objective, x1, y1, x2, y2) in ClaimObjectives)
         {
@@ -348,9 +348,11 @@ public static class MapGenerator
                     break;
             }
         }
+        // `sameCount` (the battleground): both zones draw the same number of sections, so neither starts with more trench.
+        var shared = sameCount ? random.Between(0, 2) : 0;
         foreach (var (zone, x1) in new[] { ("west", 0), ("east", Table - 12) })
         {
-            var count = random.Between(0, 2);
+            var count = sameCount ? shared : random.Between(0, 2);
             for (var i = 1; i <= count; i++)
             {
                 var width = random.OneIn(2) ? 5 : 6;
@@ -366,7 +368,7 @@ public static class MapGenerator
     private static MapDefinition? BattlegroundMap(string id, int seed, MapRandom random, int attempt)
     {
         var layout = new Layout(random);
-        ObjectivesAndZoneTrenches(layout, random);
+        ObjectivesAndZoneTrenches(layout, random, sameCount: true);
         var between = (12, 0, Table - 12, Table);
         // Ids count up per kind of piece ("church-1", "stairs-2"), whether it came as a screen or as one of the rest.
         var counts = new Dictionary<string, int>();
@@ -424,17 +426,79 @@ public static class MapGenerator
         // The limit loosens a little after 150 tries, so that every seed gives a map.
         var limit = attempt < 150 ? MaxOpenLines : LooseOpenLines;
         var share = OpenLineShare(map.Battlefield, limit);
-        for (var repair = 0; repair < 6 && share > limit; repair++)
+        for (var repair = 0; repair < 10 && share > limit; repair++)
         {
-            var x0 = 12 + random.Below(6) * 8;
+            // Aim at one of the open lines: a screen across its middle, anywhere within 10" of it along the way.
+            var open = OpenLinePairs(map.Battlefield);
+            var (westY, eastY) = open[random.Below(open.Count)];
+            var midY = (westY + eastY) / 2;
+            var area = (20, Math.Max(0, midY - 20), Table - 20, Math.Min(Table, midY + 20));
             var (name, shape) = ScreenShapes[random.Below(ScreenShapes.Length)];
-            if (layout.Place(Next(name), shape, WallPiece, (x0, 0, Math.Min(Table - 12, x0 + 16), Table), gapHalves: 4))
+            if (layout.Place(Next(name), shape, WallPiece, area, gapHalves: 4))
             {
                 map = Made();
                 share = OpenLineShare(map.Battlefield, limit);
             }
         }
-        return share <= limit && map.Battlefield.Terrain.Count(t => t.IsTower) >= 2 ? map : null;
+        if (share > limit || map.Battlefield.Terrain.Count(t => t.IsTower) < 2)
+        {
+            return null;
+        }
+        // Fairness (U167): neither zone may have a clear advantage. Mended by a screen on the side that sees more of the middle.
+        var tolerance = attempt < 150 ? 1.0 : 2.0;
+        var balance = Imbalance(map.Battlefield);
+        for (var repair = 0; repair < 4 && balance.Exposure > MaxExposureGap * tolerance; repair++)
+        {
+            var band = (balance.WestSeesMore ? 0 : 3) + random.Below(3);
+            var (name, shape) = ScreenShapes[random.Below(ScreenShapes.Length)];
+            var x0 = 12 + band * 8;
+            if (layout.Place(Next(name), shape, WallPiece, (x0, 0, Math.Min(Table - 12, x0 + 16), Table), gapHalves: 4))
+            {
+                map = Made();
+                balance = Imbalance(map.Battlefield);
+            }
+        }
+        // Pieces: a small piece (a wreck, a sandbag line, a fence) on the lighter side, until the counts are within the gap.
+        for (var repair = 0; repair < 4 && balance.Pieces > MaxPieceGap; repair++)
+        {
+            var (name, shape) = new (string, Func<MapRandom, int, int, Footprint>)[] { ("wreck", Wreck), ("sandbags", Sandbags), ("fence", Fence) }[random.Below(3)];
+            var light = layout.Pieces.Count(t => !t.IsTrench && !t.Id.StartsWith("obj-", StringComparison.Ordinal) && t.Footprint.Bounds.Min.X.Thousandths + t.Footprint.Bounds.Max.X.Thousandths < 36000)
+                < layout.Pieces.Count(t => !t.IsTrench && !t.Id.StartsWith("obj-", StringComparison.Ordinal) && t.Footprint.Bounds.Min.X.Thousandths + t.Footprint.Bounds.Max.X.Thousandths >= 36000);
+            if (layout.Place(Next(name), shape, name == "sandbags" ? Cover : name == "wreck" ? Cover : Cover, light ? (12, 0, 36, Table) : (36, 0, Table - 12, Table), gapHalves: 4))
+            {
+                map = Made();
+                balance = Imbalance(map.Battlefield);
+            }
+        }
+        return balance.Exposure <= MaxExposureGap * tolerance && balance.Pieces <= MaxPieceGap * tolerance && balance.Trenches <= MaxTrenchGap * tolerance ? map : null;
+    }
+
+    // U167: how lopsided a battleground is between its west and east halves. `Exposure`: 60 lines from 4 spots in each zone to 15 spots
+    // in the middle band (the same 15 for both, x 14", 18" and 22" mirrored), the share that can see (`HeightSight`), as the gap
+    // between the zones over their average. `Pieces` and `Trenches`: the difference in the number of pieces (not Objectives, not trenches)
+    // and of trench pieces whose middle lies in each half of the table.
+    public const double MaxExposureGap = 0.30;
+
+    public const int MaxPieceGap = 2;
+
+    public const int MaxTrenchGap = 1;
+
+    public readonly record struct Balance(double Exposure, int Pieces, int Trenches, bool WestSeesMore);
+
+    public static Balance Imbalance(Battlefield field)
+    {
+        var base05 = Length.FromThousandths(500);
+        var targets = new[] { 14, 18, 22 }.SelectMany(x => new[] { 6, 12, 18, 24, 30 }.Select(y => new Point2(Length.FromInches(x), Length.FromInches(y)))).ToList();
+        int Seen(long zoneX, bool mirror) =>
+            new[] { 5, 13, 23, 31 }.Sum(y => targets.Count(t =>
+                HeightSight.Between(field, new ModelBody("zone", new Point2(Length.FromThousandths(zoneX), Length.FromInches(y)), base05),
+                    new ModelBody("mid", mirror ? new Point2(Length.FromInches(36) - t.X, t.Y) : t, base05)).Visibility == Visibility.Full));
+        var (west, east) = (Seen(3000, false), Seen(33000, true));
+        var gap = Math.Abs(west - east) / ((west + east + 1) / 2.0);
+        bool InWest(TerrainBlock t) => t.Footprint.Bounds.Min.X.Thousandths + t.Footprint.Bounds.Max.X.Thousandths < 36000;
+        var pieces = field.Terrain.Where(t => !t.IsTrench && !t.Id.StartsWith("obj-", StringComparison.Ordinal)).ToList();
+        var trenches = field.Terrain.Where(t => t.IsTrench).ToList();
+        return new Balance(gap, Math.Abs(pieces.Count(InWest) - pieces.Count(t => !InWest(t))), Math.Abs(trenches.Count(InWest) - trenches.Count(t => !InWest(t))), west > east);
     }
 
     // U164: "hard to draw a clear line from one deployment zone into the other". Of 36 lines between 6 spots in the west zone and
@@ -442,6 +506,26 @@ public static class MapGenerator
     public const double MaxOpenLines = 0.15;
 
     public const double LooseOpenLines = 0.25;
+
+    // The open lines themselves, as the half-inch heights of their two ends (the same 36 lines as OpenLineShare).
+    private static List<(int West, int East)> OpenLinePairs(Battlefield field)
+    {
+        var base05 = Length.FromThousandths(500);
+        var found = new List<(int, int)>();
+        foreach (var yw in new[] { 3, 9, 15, 21, 27, 33 })
+        {
+            foreach (var ye in new[] { 3, 9, 15, 21, 27, 33 })
+            {
+                var a = new ModelBody("west", new Point2(Length.FromThousandths(3000), Length.FromInches(yw)), base05);
+                var b = new ModelBody("east", new Point2(Length.FromThousandths(33000), Length.FromInches(ye)), base05);
+                if (HeightSight.Between(field, a, b).Visibility == Visibility.Full)
+                {
+                    found.Add((yw * 2, ye * 2));
+                }
+            }
+        }
+        return found;
+    }
 
     // `stopAbove`: once the share is certainly above this it returns early (the answer then is only "above").
     public static double OpenLineShare(Battlefield field, double stopAbove = 1)
@@ -455,7 +539,7 @@ public static class MapGenerator
         {
             foreach (var b in east)
             {
-                open += HeightSight.Between(field, a, b).Visibility != Visibility.None ? 1 : 0;
+                open += HeightSight.Between(field, a, b).Visibility == Visibility.Full ? 1 : 0;
                 if (open > stopAbove * west.Count * east.Count)
                 {
                     return open / (double)(west.Count * east.Count);

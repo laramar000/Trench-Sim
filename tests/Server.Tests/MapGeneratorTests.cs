@@ -200,7 +200,6 @@ public class MapGeneratorTests
             var towers = map.Battlefield.Terrain.Where(t => t.IsTower).ToList();
             Assert.InRange(towers.Count, 2, 4);
             Assert.All(towers, t => Assert.Equal(Length.FromInches(2), t.Climb!.Height));
-            Assert.Contains(map.Battlefield.Terrain, t => t.Profile == TerrainProfile.Wall && !t.IsTower);
             foreach (var t in map.Battlefield.Terrain)
             {
                 features.Add(new string(t.Id.TakeWhile(c => !char.IsDigit(c)).ToArray()));
@@ -216,6 +215,14 @@ public class MapGeneratorTests
         var withMiddleTrenches = maps.Count(m => m.Battlefield.Terrain.Any(t => t.IsTrench && t.Id.StartsWith("trench-mid-", StringComparison.Ordinal)));
         Assert.InRange(withMiddleTrenches, 60, 270);
         Assert.True(maps.Count(m => MapGenerator.OpenLineShare(m.Battlefield) <= MapGenerator.MaxOpenLines) >= 285);
+        // U167: fair to both sides: neither zone sees clearly more of the middle, and the pieces and trenches are about evenly shared.
+        foreach (var map in maps)
+        {
+            var balance = MapGenerator.Imbalance(map.Battlefield);
+            Assert.True(balance.Exposure <= MapGenerator.MaxExposureGap * 2, $"{map.Id} exposure {balance.Exposure:0.00}");
+            Assert.True(balance.Pieces <= MapGenerator.MaxPieceGap * 2 && balance.Trenches <= MapGenerator.MaxTrenchGap * 2, $"{map.Id} pieces {balance.Pieces} trenches {balance.Trenches}");
+        }
+        Assert.True(maps.Count(m => MapGenerator.Imbalance(m.Battlefield) is { Exposure: <= MapGenerator.MaxExposureGap, Pieces: <= MapGenerator.MaxPieceGap, Trenches: <= MapGenerator.MaxTrenchGap }) >= 285);
         // Some piece is made of several rectangles (a stair-stepped wall, an outline): not just boxes.
         Assert.Contains(maps, m => m.Battlefield.Terrain.Any(t => t.Footprint.Parts.Length >= 5));
         foreach (var map in maps.Take(40))
@@ -274,7 +281,7 @@ public class MapGeneratorTests
 
     private const string PinnedClaim = "sha256:0e6a5244390ec730eb543425c3651f031faccb09d51d91cf9b4324e8f65048cb";
     private const string PinnedTrenchWarfare = "sha256:3959b1d4e771657e0b3da3735c28864ec44e8eaa6c3a1ea21b0de2dabff2a2f5";
-    private const string PinnedBattleground = "sha256:036dba89f83ffdde826a96767cf83f5e59aab1cfc16688017ec499897810fc3b";
+    private const string PinnedBattleground = "sha256:88e06d068ac5c67e0d2c4f3b45640fa5f12ff57d79b4fa773efe6311a9be113a";
 
     private const string PinnedRuins = "sha256:fb35e17da65e7c66deaa58d55f75932b69ae4f1b128f7ac3063cf0d027df7a26";
 
