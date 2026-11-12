@@ -285,6 +285,30 @@ public class MapGeneratorTests
 
     private const string PinnedRuins = "sha256:fb35e17da65e7c66deaa58d55f75932b69ae4f1b128f7ac3063cf0d027df7a26";
 
+    // U163-U167: whole matches (the bots play to the end, the record is closed and names the map) on battlegrounds made from seeds at
+    // the start, middle and end of the range, for a small and a larger warband.
+    [Theory]
+    [InlineData(7, "ranged-1v1")]
+    [InlineData(1234567, "melee-2v2")]
+    [InlineData(2_000_000_000, "ranged-1v1")]
+    public void AMatchPlaysToTheEndOnABattleground(int seed, string scenario)
+    {
+        var recorder = new CapturingRecorder();
+        var harness = new Harness(recorder: recorder, mapSeed: () => seed);
+        var one = harness.Connect();
+        one.Send(new CreateMatch(scenario) { Map = "generated-battleground" });
+        var two = harness.Connect();
+        two.Send(new JoinMatch(one.Welcome!.Code));
+        Play.ToEnd(one, two, 3);
+        var record = Assert.Single(recorder.Closed);
+        Assert.Equal($"generated-battleground-v1-{seed}", record.Map);
+        Assert.Equal(RecordFormat.MapHash(MapGenerator.Generate(MapGenerator.Battleground, seed).ToScenario()), record.MapHash);
+        // It is a Claim No Man's Land map and fits no other scenario.
+        var other = harness.Connect();
+        other.Send(new CreateMatch(scenario + ScenarioSetups.TrenchWarfareSuffix) { Map = "generated-battleground" });
+        Assert.Equal(nameof(ProtocolError.MapDoesNotFit), Assert.IsType<Rejected>(other.LastAnswer).Code);
+    }
+
     [Fact]
     public void ARandomMapRequestGetsANewMapAndTheRecordNamesIt()
     {
