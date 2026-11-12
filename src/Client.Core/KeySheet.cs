@@ -15,9 +15,11 @@ public static class KeySheet
     public static readonly IReadOnlyList<(string Group, IReadOnlyList<Entry> Entries)> Groups =
     [
         ("Camera", [
-            E("pan", "Arrows", "Right-drag"),
+            E("move the camera, smoothly (Shift: faster; WASD too while the right button is held)", "Arrows", "W", "A", "S", "D"),
+            E("turn the camera all the way round and tilt it", "Right-drag"),
+            E("pan with the mouse", "Middle-drag"),
             E("zoom (the wheel: towards the pointer)", "+", "-", "Wheel"),
-            E("turn 90°", "Q", "E"),
+            E("turn 90° (snaps to a side)", "Q", "E"),
             E("top-down or angled", "T"),
             E("fit the table", "F"),
             E("reset the view", "Shift+F"),

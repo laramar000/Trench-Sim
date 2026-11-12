@@ -144,6 +144,7 @@ public partial class BoardView : SubViewportContainer
             uniform vec3 haze : source_color = vec3(0.36, 0.29, 0.22);
             uniform vec3 fire : source_color = vec3(0.85, 0.36, 0.1);
             uniform vec3 ground : source_color = vec3(0.05, 0.045, 0.035);
+            uniform vec3 edge : source_color = vec3(0.10, 0.085, 0.065); // the mud's own far colour (SurroundShader's horizon)
             float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
             float vnoise(vec2 p) {
                 vec2 i = floor(p);
@@ -164,7 +165,7 @@ public partial class BoardView : SubViewportContainer
             void sky() {
                 vec3 d = EYEDIR;
                 if (d.y <= 0.0) {
-                    COLOR = mix(haze * 0.22, ground, smoothstep(0.0, -0.4, d.y));
+                    COLOR = mix(edge, ground, smoothstep(0.0, -0.4, d.y));
                 } else {
                     float low = pow(1.0 - d.y, 3.5);
                     vec3 col = mix(zenith, haze, low);
@@ -187,7 +188,8 @@ public partial class BoardView : SubViewportContainer
                         glow += exp(-da * da * 14.0) * pow(1.0 - d.y, 9.0) * (0.5 + 0.5 * hash(vec2(float(k), 3.0)));
                     }
                     col += fire * glow * (0.45 + 0.4 * fbm(uv * 3.0));
-                    COLOR = col;
+                    // Where the plain meets the sky the two blend, so there is no seam.
+                    COLOR = mix(edge, col, smoothstep(0.0, 0.14, d.y));
                 }
             }
             """,
@@ -202,7 +204,7 @@ public partial class BoardView : SubViewportContainer
             _surround.RemoveChild(old);
             old.QueueFree();
         }
-        const float reach = 300;
+        const float reach = 900;
         if (Visuals.Texture(VisualCatalog.GroundKey) is { } art)
         {
             SurroundPaint.SetShaderParameter("mud", art);
@@ -255,7 +257,9 @@ public partial class BoardView : SubViewportContainer
     private Vector3 _target;
     private float _distance = 50;
     private float _orthoSize = 40;
-    private int _yaw;
+    // The camera's turn round the table in degrees (any value, 0 = facing north) and its pitch (12 to 88; 55 by default).
+    private float _yaw;
+    private float _pitch = AngledPitch;
     private bool _topDown;
     private bool _autoFit = true;
     private bool _dragging;
@@ -333,7 +337,9 @@ public partial class BoardView : SubViewportContainer
 
     public bool TopDown => _topDown;
 
-    public int Yaw => _yaw;
+    public int Yaw => (((int)Math.Round(_yaw) % 360) + 360) % 360;
+
+    public float Pitch => _pitch;
 
     public Camera3D Camera => _camera;
 
@@ -480,7 +486,7 @@ public partial class BoardView : SubViewportContainer
         _target = new Vector3((float)_scene.Width / 2, 0, (float)_scene.Depth / 2);
         if (_topDown)
         {
-            var turned = _yaw % 180 != 0;
+            var turned = Math.Abs(Mathf.Sin(Mathf.DegToRad(_yaw))) > 0.7f;
             var across = (float)(turned ? _scene.Depth : _scene.Width);
             var along = (float)(turned ? _scene.Width : _scene.Depth);
             _orthoSize = Math.Max(along, across * Size.Y / Size.X) * (1 + 2 * FitMargin);
@@ -509,7 +515,7 @@ public partial class BoardView : SubViewportContainer
 
     public void Turn(int steps)
     {
-        _yaw = ((_yaw + steps * 90) % 360 + 360) % 360;
+        _yaw = ((Mathf.Round(_yaw / 90f) * 90f + steps * 90) % 360 + 360) % 360;
         Fit();
     }
 
@@ -662,6 +668,7 @@ public partial class BoardView : SubViewportContainer
     public void ResetView()
     {
         _yaw = 0;
+        _pitch = AngledPitch;
         if (_topDown)
         {
             _topDown = false;
@@ -694,7 +701,7 @@ public partial class BoardView : SubViewportContainer
         _autoFit = false;
         _distance = 4;
         var yaw = Mathf.DegToRad(_yaw);
-        var pitch = Mathf.DegToRad(AngledPitch);
+        var pitch = Mathf.DegToRad(_pitch);
         _target = at - new Vector3(Mathf.Sin(yaw) * Mathf.Cos(pitch), Mathf.Sin(pitch), Mathf.Cos(yaw) * Mathf.Cos(pitch)) * _distance;
         PlaceCamera();
         Changed?.Invoke();
@@ -710,6 +717,57 @@ public partial class BoardView : SubViewportContainer
 
     // How many moves the camera has followed off screen (for the UI check).
     public int FollowedMoves { get; private set; }
+
+    private bool _rightHeld;
+    private Vector2 _panSpeed;
+
+    // Turns the camera round the table by the pointer's movement in pixels: 0.3 degrees a pixel sideways (any angle, all the way
+    // round), 0.2 up and down for the pitch (not top-down). The target and distance stay, so the table stays where it is.
+    public void OrbitBy(float dx, float dy)
+    {
+        _autoFit = false;
+        _yaw = ((_yaw - dx * 0.3f) % 360 + 360) % 360;
+        if (!_topDown)
+        {
+            _pitch = Math.Clamp(_pitch + dy * 0.2f, MinPitch, MaxPitch);
+        }
+        PlaceCamera();
+        Changed?.Invoke();
+    }
+
+    public const float MinPitch = 12f;
+    public const float MaxPitch = 88f;
+
+    // The camera keys, held: the arrows (unless they are moving the cursor) and, while the right button is down, WASD; Shift is
+    // twice as fast. The speed eases in and out, and scales with the zoom, so the camera glides.
+    private void MoveCameraByKeys(double delta)
+    {
+        var focus = GetViewport().GuiGetFocusOwner();
+        var typing = focus is LineEdit or TextEdit;
+        var dir = Vector2.Zero;
+        if (!typing)
+        {
+            if (!Interaction.UsesCursor)
+            {
+                dir += new Vector2((Input.IsKeyPressed(Key.Right) ? 1 : 0) - (Input.IsKeyPressed(Key.Left) ? 1 : 0), (Input.IsKeyPressed(Key.Up) ? 1 : 0) - (Input.IsKeyPressed(Key.Down) ? 1 : 0));
+            }
+            if (_rightHeld)
+            {
+                dir += new Vector2((Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0), (Input.IsKeyPressed(Key.W) ? 1 : 0) - (Input.IsKeyPressed(Key.S) ? 1 : 0));
+            }
+        }
+        var speed = (_topDown ? _orthoSize : _distance) * 0.8f * (Input.IsKeyPressed(Key.Shift) ? 2f : 1f);
+        var want = dir.LengthSquared() > 0 ? dir.Normalized() * speed : Vector2.Zero;
+        _panSpeed = _panSpeed.Lerp(want, 1f - Mathf.Exp(-10f * (float)delta));
+        if (_panSpeed.LengthSquared() > 0.0004f * speed * speed)
+        {
+            Pan(_panSpeed.X * (float)delta, _panSpeed.Y * (float)delta);
+        }
+        else if (want == Vector2.Zero)
+        {
+            _panSpeed = Vector2.Zero;
+        }
+    }
 
     // Pans by a distance in inches, relative to the way the camera faces (right, and away from the viewer).
     public void Pan(float right, float forward)
@@ -1114,6 +1172,7 @@ public partial class BoardView : SubViewportContainer
     public override void _Process(double delta)
     {
         PlaceStrip();
+        MoveCameraByKeys(delta);
         if (_turnBanner.Visible)
         {
             if (Time.GetTicksMsec() / 1000.0 >= _turnBannerUntil)
@@ -1179,11 +1238,12 @@ public partial class BoardView : SubViewportContainer
                 AcceptEvent();
                 break;
             case InputEventMouseButton { ButtonIndex: MouseButton.Right } right:
-                // A right-click without dragging cancels the action being chosen; dragging pans.
+                // A right-click without dragging cancels the action being chosen; dragging turns the camera round the table
+                // (sideways: all the way round, up and down: the pitch). WASD move the camera while the button is held.
                 if (right.Pressed)
                 {
                     _rightFrom = right.Position;
-                    _dragging = true;
+                    _rightHeld = true;
                     _panStarted = false;
                 }
                 else
@@ -1193,7 +1253,7 @@ public partial class BoardView : SubViewportContainer
                         RightClick();
                     }
                     _rightFrom = null;
-                    _dragging = false;
+                    _rightHeld = false;
                 }
                 AcceptEvent();
                 break;
@@ -1209,10 +1269,15 @@ public partial class BoardView : SubViewportContainer
                 ZoomAt(1.1f, wheel.Position);
                 AcceptEvent();
                 break;
-            // A right-button drag pans only once the pointer has moved 6 pixels, so a slightly shaky right-click cancels
+            // A right-button drag turns the camera only once the pointer has moved 6 pixels, so a slightly shaky right-click cancels
             // without moving the camera.
-            case InputEventMouseMotion shaky when _dragging && _rightFrom is { } pressedAt && !_panStarted
+            case InputEventMouseMotion shaky when _rightHeld && _rightFrom is { } pressedAt && !_panStarted
                 && pressedAt.DistanceTo(shaky.Position) < 6:
+                AcceptEvent();
+                break;
+            case InputEventMouseMotion orbit when _rightHeld:
+                _panStarted = true;
+                OrbitBy(orbit.Relative.X, orbit.Relative.Y);
                 AcceptEvent();
                 break;
             case InputEventMouseMotion motion when _dragging:
@@ -1423,6 +1488,11 @@ public partial class BoardView : SubViewportContainer
 
     private bool HandleKey(InputEventKey key)
     {
+        // While the right button is held, W, A, S and D fly the camera (MoveCameraByKeys) and are not the action keys.
+        if (_rightHeld && key.Keycode is Key.W or Key.A or Key.S or Key.D)
+        {
+            return true;
+        }
         if (ModeKey(key.Keycode) is { } mode)
         {
             StartPreview(mode);
@@ -1457,10 +1527,8 @@ public partial class BoardView : SubViewportContainer
         }
         switch (key.Keycode)
         {
-            case Key.Left: Pan(-2, 0); return true;
-            case Key.Right: Pan(2, 0); return true;
-            case Key.Up: Pan(0, 2); return true;
-            case Key.Down: Pan(0, -2); return true;
+            // The arrows move the camera in MoveCameraByKeys (held, smooth); the key press itself is only kept from the focus.
+            case Key.Left or Key.Right or Key.Up or Key.Down: return true;
             case Key.Equal or Key.Plus or Key.KpAdd: Zoom(0.85f); return true;
             case Key.Minus or Key.KpSubtract: Zoom(1.15f); return true;
             case Key.Q: Turn(-1); return true;
@@ -3107,13 +3175,19 @@ public partial class BoardView : SubViewportContainer
         label.Offset = new Vector2(0, pixels);
     }
 
-    private string Facing() => _yaw switch
+    // The compass point the camera faces, to the nearest of eight.
+    private string Facing() => ((int)Math.Round(((_yaw % 360) + 360) % 360 / 45.0) % 8) switch
     {
         0 => "north",
-        90 => "west",
-        180 => "south",
-        _ => "east",
+        1 => "north-west",
+        2 => "west",
+        3 => "south-west",
+        4 => "south",
+        5 => "south-east",
+        6 => "east",
+        _ => "north-east",
     };
+
 
     private void PlaceCamera()
     {
@@ -3127,7 +3201,7 @@ public partial class BoardView : SubViewportContainer
             return;
         }
         _camera.Projection = Camera3D.ProjectionType.Perspective;
-        var pitch = Mathf.DegToRad(AngledPitch);
+        var pitch = Mathf.DegToRad(_pitch);
         var back = new Vector3(Mathf.Sin(yaw) * Mathf.Cos(pitch), Mathf.Sin(pitch), Mathf.Cos(yaw) * Mathf.Cos(pitch));
         _camera.Position = _target + back * _distance;
         _camera.Rotation = new Vector3(-pitch, yaw, 0);

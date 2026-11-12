@@ -10,7 +10,7 @@ public class KeySheetTests
     public void TheSheetNamesEveryKey()
     {
         var keys = KeySheet.Keys.ToHashSet(StringComparer.Ordinal);
-        foreach (var key in new[] { "Arrows", "+", "-", "Wheel", "Right-drag", "Q", "E", "T", "F", "Shift+F", "Home", "Double-click", "Click", "Click a log row",
+        foreach (var key in new[] { "Arrows", "+", "-", "Wheel", "Right-drag", "Middle-drag", "Q", "E", "T", "F", "Shift+F", "Home", "Double-click", "Click", "Click a log row",
             "N", "P", "J", "Shift+J", "O", "Shift+O", "A", "L", "M", "D", "R", "S", "C", "X", "K", "Enter", "Shift+click", "Space", "Confirm", "Backspace",
             "Esc", "Right-click", "F1", "F2", "?", "G", "1", "2", "3" })
         {

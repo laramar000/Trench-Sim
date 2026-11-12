@@ -506,8 +506,7 @@ public partial class UiCheck : Node
         await KeyPress(Key.Equal);
         await Frames(2);
         var zoomed = board.Camera.Position.DistanceTo(new Vector3(18, 0, 18)) < before.DistanceTo(new Vector3(18, 0, 18));
-        await KeyPress(Key.Left);
-        await Frames(2);
+        await HoldKey(Key.Left, 20);
         var panned = board.Camera.Position.X < before.X - 0.5f;
         await KeyPress(Key.F);
         await Frames(3);
@@ -2594,6 +2593,34 @@ public partial class UiCheck : Node
                     break;
                 case "views":
                     await DevViews(board);
+                    break;
+                case "keypan":
+                {
+                    board.Fit();
+                    board.PlaceCameraAt(new Vector3(18, 6, 40));
+                    await Frames(3);
+                    var from = board.Camera.Position;
+                    await HoldKey(Key.Left, 20);
+                    var moved = board.Camera.Position.X - from.X;
+                    await Frames(30);   // it eases to a stop
+                    var settled = board.Camera.Position;
+                    await Frames(10);
+                    Check("board-arrow-glide", moved < -0.5f && board.Camera.Position.DistanceTo(settled) < 0.01f, $"moved {moved:0.00}\" while held, still after release: {board.Camera.Position.DistanceTo(settled) < 0.01f}");
+                    break;
+                }
+                case "orbit":
+                    // Free camera, as a right-drag does it: round the table in 60-degree steps at the usual pitch, then low down.
+                    board.Fit();
+                    foreach (var turn in new[] { 0, 1, 2, 3 })
+                    {
+                        board.OrbitBy(-200f, 0);   // 60 degrees
+                        await Frames(8);
+                        await Shot($"orbit-{(turn + 1) * 60}");
+                    }
+                    board.OrbitBy(0, -250f);       // down to a low angle: the sky shows
+                    await Frames(8);
+                    await Shot("orbit-low");
+                    Check("board-orbit", board.Yaw == 240 && board.Pitch < 20f, $"yaw {board.Yaw}, pitch {board.Pitch}");
                     break;
                 case "readable":
                     await ReadableCheck(board);
@@ -5874,6 +5901,15 @@ public partial class UiCheck : Node
             Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = pressed, ShiftPressed = shift, CtrlPressed = ctrl });
             await Frames(2);
         }
+    }
+
+    // Holds a key down for some frames (the camera keys move the camera while they are held).
+    private async Task HoldKey(Key key, int frames)
+    {
+        Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = true });
+        await Frames(frames);
+        Input.ParseInputEvent(new InputEventKey { Keycode = key, PhysicalKeycode = key, Pressed = false });
+        await Frames(2);
     }
 
     private async Task TypeText(string text)
