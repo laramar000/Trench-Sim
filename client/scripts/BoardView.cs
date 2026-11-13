@@ -3551,8 +3551,9 @@ public partial class BoardView : SubViewportContainer
                     shape.AddChild(figure);
                 }
                 Visuals.FitOnBase(shape, new Vector3(0, -figureTall / 2, 0), (float)model.Radius, figureTall);
-                // The seat colour is drawn flat (unshaded), so the side reads the same in light and shade.
-                Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
+                // The seat colour is drawn unshaded, so the side reads the same in light and shade; the figure's own baked
+                // shading (its Accent's vertex colours, tools/art/make_figures.py) darkens it in folds and under other parts.
+                Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, VertexColorUseAsAlbedo = true });
                 // Visual pass Stage 1: the unit light reaches the figure, and a thin outline keeps it apart from the
                 // ground and from the next model (warmer on the selected one).
                 foreach (var mesh in figure.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>().Append(figure as MeshInstance3D).OfType<MeshInstance3D>())

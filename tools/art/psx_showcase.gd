@@ -26,7 +26,7 @@ func _initialize() -> void:
 		for n in names:
 			var doc := GLTFDocument.new()
 			var state := GLTFState.new()
-			doc.append_from_file(ProjectSettings.globalize_path("res://assets/units/%s.glb" % n), state)
+			doc.append_from_file(n if n.ends_with(".glb") else ProjectSettings.globalize_path("res://assets/units/%s.glb" % n), state)   # a full path to a .glb: a build outside the project, to compare
 			var fig: Node3D = doc.generate_scene(state)
 			for mesh in fig.find_children("*", "MeshInstance3D", true, false):
 				for i in mesh.mesh.get_surface_count():
@@ -43,6 +43,7 @@ func _initialize() -> void:
 			var seat := StandardMaterial3D.new()
 			seat.albedo_color = Color(0.22, 0.28, 0.4)
 			seat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			seat.vertex_color_use_as_albedo = true
 			for mesh in fig.find_children("Accent*", "MeshInstance3D", true, false):
 				mesh.material_override = seat
 			fig.position = Vector3(x, 0, 0)

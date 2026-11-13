@@ -338,3 +338,12 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   medi-kit bag, medical chest, pistol) and Holy Warrior (`units/holy-warrior.glb`, class B 32 mm, height 1.55", 2,422
   triangles: sugar-loaf great helm with a brass cross, gilt cross on the cuirass, tabard and pauldron tops in the seat
   colour, two-handed sword at vigil). New shared helpers `psx_shell` and `hose`. Left: none (20 figures).
+- 2026-11-12: detail pass on all 20 figures (the owner: "1 more passover for detail", "highest quality possible"). The bake
+  in `tools/art/make_figures.py` now packs each UV layout tight (`uv.pack_islands`, the default left half a texture
+  empty), paints every texel as the mean of 3 x 3 samples (thin painted lines no longer break into dashes) and adds grain
+  in `psx_lit`; every Body, Coat and Robe texture is 1,024 px, the other modules 512 px (`UnitFiguresTests` rows 1,024).
+  The Accent carries baked grey shading in its vertex colours (`accent_shading`, exported as COLOR_0); the client
+  multiplies it with the seat colour (`BoardView`: `VertexColorUseAsAlbedo`, still unshaded). Standard-bearer: crossbar,
+  pennant and lantern hang outward from his right, the pennant waved (budget 1,700); Combat Medic: apron folded (1,600).
+  A build takes 3 to 10 minutes a figure; `psx_showcase.gd` also takes full paths to .glb files. The units folder is
+  about 40 MB. Renders (not in git): `ui-check-results/s5/` (`g1`..`g5` all figures, `before`, `after`).

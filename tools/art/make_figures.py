@@ -524,7 +524,7 @@ def rifleman():
     # tool on the pack (Back); a sling under the rifle, its butt plate, bands and bolt painted; generic_detail's coat
     # pockets, half-belt, patch and mud, shoulder straps, a sleeve patch, wound stripes and the helmet's lugs and dent.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 800; TEX_SIZES = {"Body": 512, "Coat": 512, "Helmet": 512, "Back": 512, "Weapon": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 800; TEX_SIZES = {"Body": 1024, "Coat": 1024, "Helmet": 512, "Back": 512, "Weapon": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.reach(r, "R", P(-0.24, 0.02, 1.08), P(-0.07, -0.22, 1.0))
@@ -647,7 +647,7 @@ def skirmisher():
     # left forearm, a knee patch, the hood's crown seam, side patch, eyelets and tail tie, generic_detail's sleeve patch,
     # wound stripes and mud; the carbine's butt plate, band and bolt painted.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 512, "Helmet": 512, "Weapon": 512, "Hip": 512, "Kit": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Weapon": 512, "Hip": 512, "Kit": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.12, 1.4)); human.aim(r, "neck01", P(0, -0.2, 1.6))
@@ -827,7 +827,7 @@ def shield():
     # riveted, the boss ringed, hack marks on the rim; the mace's leather grip, collar and head seam; the breastplate
     # scratched, rusted and dented, buckled side straps; generic_detail's coat pockets, half-belt, patch and mud.
     global BODY_BUDGET, TEX_SIZES, PAINT
-    BODY_BUDGET = 760; TEX_SIZES = {"Body": 512, "Coat": 512, "Helmet": 512, "Shield": 512, "Weapon": 512, "Hip": 512}
+    BODY_BUDGET = 760; TEX_SIZES = {"Body": 1024, "Coat": 1024, "Helmet": 512, "Shield": 512, "Weapon": 512, "Hip": 512}
     from mathutils import noise as _nz
     def pose(r):
         human.reach(r, "L", P(0.3, -0.08, 1.12), P(0.16, -0.3, 1.05))
@@ -1040,7 +1040,7 @@ def standard():
     # wraps and iron shoe, the lantern's sooty cap and hanger chain painted; a whistle on its lanyard, generic_detail's coat
     # pockets, half-belt, patch and mud, shoulder straps, a sleeve patch, wound stripes and the helmet's lugs and dent.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 512, "Coat": 512, "Helmet": 512, "Weapon": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Coat": 1024, "Helmet": 512, "Weapon": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.reach(r, "R", P(-0.24, -0.02, 1.08), P(-0.15, -0.2, 1.02))
@@ -1067,12 +1067,19 @@ def standard():
     bar(base, tip, 0.017, "wood")
     sphere(tuple(tip + Vector((0, 0, 0.03))), 0.035, "brass", seg=8, rings=5)
     bar(tip + Vector((0, 0, 0.03)), tip + Vector((0, 0, 0.15)), 0.01, "brass", sides=4)
-    bar(tip - Vector((0, 0, 0.05)), tip - Vector((-0.42, 0, 0.05)), 0.008, "wood", sides=4)
-    me = bpy.data.meshes.new("pennant"); x0, x1, zt, zb = x, x + 0.42, tip.z - 0.05, tip.z - 0.65
-    me.from_pydata([(x0, y, zt), (x1, y, zt), (x1, y, zb), ((x0 + x1)/2, y, zb + 0.15), (x0, y, zb)], [], [(0, 4, 3, 2, 1)])
+    # the crossbar and pennant hang outward from the bearer's right (2026-11-12): over the body they hid the head from
+    # the front; the pennant is a swallow-tailed cloth in slow waves, so its baked shading shows folds
+    bar(tip - Vector((0, 0, 0.05)), tip - Vector((0.42, 0, 0.05)), 0.008, "wood", sides=4)
+    me = bpy.data.meshes.new("pennant"); zt, zb, NU, NV = tip.z - 0.05, tip.z - 0.65, 6, 6
+    def pen(i, j):   # i along the crossbar from the pole, j down the cloth
+        u, v = i / NU, j / NV; low = zb + 0.15 * (1 - abs(2 * u - 1))
+        return (x - 0.42 * u, y + 0.045 * v * math.sin(u * 7.5 + v * 2.0), zt + (low - zt) * v)
+    me.from_pydata([pen(i, j) for j in range(NV + 1) for i in range(NU + 1)], [],
+                   [(j * (NU + 1) + i, j * (NU + 1) + i + 1, (j + 1) * (NU + 1) + i + 1, (j + 1) * (NU + 1) + i) for j in range(NV) for i in range(NU)])
+    for f in me.polygons: f.use_smooth = True
     o = bpy.data.objects.new("pennant", me); scn.collection.objects.link(o)
-    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.015; add(o, "accent")
-    L = tip - Vector((-0.42, 0, 0)); lc = L - Vector((0, 0, 0.27))
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(o, "accent")
+    L = tip - Vector((0.42, 0, 0)); lc = L - Vector((0, 0, 0.27))
     bar(L - Vector((0, 0, 0.05)), L - Vector((0, 0, 0.2)), 0.004, "metal", sides=3)
     box(tuple(lc), (0.07, 0.07, 0.1), "glow")
     box(tuple(L - Vector((0, 0, 0.21))), (0.09, 0.09, 0.02), "iron"); box(tuple(L - Vector((0, 0, 0.33))), (0.09, 0.09, 0.02), "iron")
@@ -1302,7 +1309,7 @@ def psx_lit(c, n, ao, metal=False, grime=0.0, p=None, mud=None):   # three hard 
     if metal and s > 0.86: k = 1.55
     k *= 0.7 if ao < 0.5 else (0.86 if ao < 0.75 else 1.0)
     if p is not None:
-        k *= 1.0 + 0.04 * _nz.noise(p * 34.0)
+        k *= 1.0 + 0.04 * _nz.noise(p * 34.0) + 0.035 * _nz.noise(p * 130.0) + 0.05 * _nz.noise(p * 7.0)   # grain and broad stains (2026-11-12, the 1024 px bodies show them)
         if grime > 0 and mud is not None and _nz.noise(p * 9.0 + Vector((5, 5, 5))) > 0.5 - grime: c = c.lerp(mud, 0.55)
     return Vector([min(1.0, v * k) for v in c])
 def psx_arm(p):   # (side, distance along the arm 0 shoulder .. 1 elbow .. 2 wrist, distance to its axis) of the nearer arm
@@ -1583,7 +1590,7 @@ def trench_pilgrim():
     # Solid only for the silhouette: Helmet (the capirote: a sackcloth cone on an iron base with a painted blood cross,
     # rivets and a prayer strip under a wax seal), Back (pack with a rolled blanket), Weapon (bolt-action rifle with
     # fixed bayonet, at port arms), Accent (the capirote band, seat colour).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 900; TEX_SIZES = {"Body": 512, "Helmet": 512, "Weapon": 512, "Back": 512, "Hip": 512}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 900; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Weapon": 512, "Back": 512, "Hip": 512}
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.06, 1.4))
@@ -1754,7 +1761,7 @@ def yeoman():
     # Detail pass (2026-11-10): the respirator bag and the entrenching tool made solid, a water bottle, bayonet scabbard,
     # rifle sling and mess tin added (Hip, Weapon, Back); chevron, battalion patch, shoulder straps and mud painted.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 512, "Helmet": 512, "Weapon": 512, "Back": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Weapon": 512, "Back": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.1, 1.4))                                          # leaning into the advance
@@ -1929,7 +1936,7 @@ def shock_trooper():
     # (hammer), Accent (the helmet). Detail pass (2026-11-10): the grenade bag (three handles) and a short spade on the
     # back made solid, a water bottle and a boot knife added; armband, rivets, rust, mud and the hammer head painted.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 900; TEX_SIZES = {"Body": 512, "Helmet": 512, "Chest": 512, "Hip": 512, "Weapon": 512, "Back": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 900; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Chest": 512, "Hip": 512, "Weapon": 512, "Back": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.12, 1.4))                                        # leaning into the charge
@@ -2186,7 +2193,7 @@ def lieutenant():
     # map case on the right hip, the breeches, puttees, boots and gloves painted (ww1_paint for the legs and sleeves).
     # Solid only for the silhouette: Coat (the long skirt), Helmet (the sallet with its raised visor, the mail collar), Back (shield), Weapon
     # (sword), Accent (the helm and the shield's face).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 512, "Coat": 512, "Back": 512, "Weapon": 512, "Hip": 512, "Helmet": 512}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 1024, "Coat": 1024, "Back": 512, "Weapon": 512, "Hip": 512, "Helmet": 512}
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.03, 1.4))                                         # upright, chest out
@@ -2535,7 +2542,7 @@ def blind_marksman():
     # along the kneeling legs (toeless boot hulls), the red blindfold painted on the blank head, folds, a ragged muddy hem
     # and a brass clasp painted on the cloak and hood. Solid only for the silhouette: Back (cloak and hood, their own
     # texture), Helmet (the blindfolded head, its own texture), Hip (canteen), Weapon (rifle), Accent (the stole).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 900; TEX_SIZES = {"Body": 512, "Back": 512, "Helmet": 512, "Weapon": 512, "Hip": 512}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 900; TEX_SIZES = {"Body": 1024, "Back": 512, "Helmet": 512, "Weapon": 512, "Hip": 512}
     from mathutils import noise as _nz
     def pose(r):   # crouched at rest on one knee (owner's sniper photos): right knee and shin on the ground, left foot
         # planted with the knee up, the rifle held upright in front, its butt grounded
@@ -2780,7 +2787,7 @@ def trench_cleric():
     # the book; wider unbroken ink lines on the cuirass, arms and straps, rivets along each lame, scuffs and edge
     # highlights; an embroidered border above the vestment's hem, sealed prayer strips with clean script, coarser mail;
     # the great cross with plank seams, nailed iron bands and a plate at the crossing; kit textures raised to 128 px.
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 512, "Robe": 512, "Weapon2": 512, "Back": 512, "Chest": 512, "Helmet": 512}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 1024, "Robe": 1024, "Weapon2": 512, "Back": 512, "Chest": 512, "Helmet": 512}
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.03, 1.4))                                         # upright
@@ -3181,7 +3188,7 @@ def combat_engineer():
     # hard shading bands and grime. Solid shapes only where the silhouette needs them: the closed sallet in the seat
     # colour (Accent) with a brass cross on the brow (Helmet), two plain pauldrons (Chest), the pack and bedroll (Back),
     # the submachine gun with a drum magazine levelled forward in both hands (Weapon).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1500; TEX_SIZES = {"Body": 512, "Back": 512, "Weapon": 512, "Hip": 512, "Chest": 512}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1500; TEX_SIZES = {"Body": 1024, "Back": 512, "Weapon": 512, "Hip": 512, "Chest": 512}
     def pose(r):
         human.aim(r, "spine03", P(0, -0.09, 1.4))                                          # leaning into the stride
         human.aim(r, "upperleg01.L", P(0.11, -0.16, 0.5)); human.aim(r, "upperleg02.L", P(0.11, -0.16, 0.5))
@@ -3633,7 +3640,7 @@ def stigmatic_nun():
     # blood cross on the hood's crown. Solid only for the silhouette: the veil and hood (Body), Helmet (the masked head), Weapon
     # (pistol), Weapon2 (the serrated blade), Accent (shoulder tabs, seat colour).
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 512, "Helmet": 512, "Hip": 512, "Weapon": 512, "Weapon2": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Hip": 512, "Weapon": 512, "Weapon2": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.06, 1.4))
@@ -3877,7 +3884,7 @@ def ecclesiastic_prisoner():
     # band, rivets, rope and scrawled prayers painted. Solid only for the silhouette: Helmet (iron helm with spikes),
     # Weapon (the stocks board), Back (bomb), Hip (loincloth), Accent (the cloth band round the helm and the loincloth's
     # front flap).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 820; TEX_SIZES = {"Body": 512, "Back": 512, "Weapon": 512, "Hip": 512, "Helmet": 512}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Back": 512, "Weapon": 512, "Hip": 512, "Helmet": 512}
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.28, 1.32)); human.aim(r, "neck01", P(0, -0.38, 1.44))
@@ -4092,7 +4099,7 @@ def war_prophet():
     # the frame, the charge's fuse cap and clamp made solid; a woven border, patches and a rope cincture on the robe,
     # helm rivets, scratches and rust, gilt edging, dents and gouges on the cuirass, boot buckles and mud painted.
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000
-    TEX_SIZES = {"Body": 512, "Robe": 512, "Helmet": 512, "Chest": 512, "Back": 512, "Weapon": 512, "Hip": 512}
+    TEX_SIZES = {"Body": 1024, "Robe": 1024, "Helmet": 512, "Chest": 512, "Back": 512, "Weapon": 512, "Hip": 512}
     from mathutils import noise as _nz
     import bmesh as _bm
     for k_ in ("helm", "pauldron"): M.setdefault(k_, mat(k_, "7a7c80", 0.3, 18))   # plate, told apart from the body's when painted
@@ -4571,7 +4578,7 @@ def castigator():
     # (Hip) made solid; a studded baldric, forearm straps and rust on the mail, a great cross, seam and mended tear on the
     # cape, patches and a rope cincture on the robe, plank seams and soot on the shield, gilt bands on the hat painted.
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000
-    TEX_SIZES = {"Body": 512, "Robe": 512, "Back": 512, "Helmet": 512, "Weapon2": 512, "Hip": 512}
+    TEX_SIZES = {"Body": 1024, "Robe": 1024, "Back": 512, "Helmet": 512, "Weapon2": 512, "Hip": 512}
     from mathutils import noise as _nz
     import bmesh as _bm
     M.setdefault("hat", mat("hat", "141210", 0.05)); M.setdefault("cape", mat("cape", "3e3a34"))
@@ -4892,7 +4899,7 @@ def reliquary_walker():
     # knee cops, a pressure gauge and valve wheel over the boiler made solid; dents, gouges, a band of crosses on each
     # pauldron front, soot, oil runs, mud, a scratched tally and the chain curtains as strands of links painted.
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 2800
-    TEX_SIZES = {"Body": 512, "Helmet": 512, "Chest": 512, "Hip": 512, "Back": 512, "Weapon": 512, "Weapon2": 512}   # the martyr needs the wheel's 256
+    TEX_SIZES = {"Body": 1024, "Helmet": 512, "Chest": 512, "Hip": 512, "Back": 512, "Weapon": 512, "Weapon2": 512}   # the martyr needs the wheel's 256
     # (detail pass 2026-11-10: the body 512, as it is drawn twice a man's height, so its texels match the men's on screen)
     from mathutils import noise as _nz
     BOXES = []   # the hull's and the stone's boxes, for painting each face in its own frame: (centre, inverse rotation, half size)
@@ -5388,7 +5395,7 @@ def sanctified_giant():
     # chain (Hip) and iron strips on the plaque made solid; chafed skin, a branded cross, a rope on the arm, coherent blood,
     # mud on the shins, the belt's knotted end, sacking patches and a twine seam on the skirt painted.
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1750
-    TEX_SIZES = {"Body": 512, "Robe": 512, "Back": 512, "Weapon": 512, "Helmet": 512, "Hip": 512}   # class C: a 256 px body
+    TEX_SIZES = {"Body": 1024, "Robe": 1024, "Back": 512, "Weapon": 512, "Helmet": 512, "Hip": 512}   # class C: a 256 px body
     from mathutils import noise as _nz
     def pose(r):
         human.aim(r, "spine03", P(0, -0.2, 1.34)); human.aim(r, "neck01", P(0, -0.22, 1.62))
@@ -5791,7 +5798,7 @@ def mechanized_heavy_infantry():
     # gorget), Chest (pauldrons, knee cops), Back (engine, tank, stacks, hoses), Weapon (machine gun), Accent (pauldron
     # tops).
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1750
-    TEX_SIZES = {"Body": 512, "Back": 512, "Chest": 512, "Helmet": 512, "Weapon": 512}   # class C: a 512 px body, 256 px kit (detail pass)
+    TEX_SIZES = {"Body": 1024, "Back": 512, "Chest": 512, "Helmet": 512, "Weapon": 512}   # class C: a 512 px body, 256 px kit (detail pass)
     from mathutils import noise as _nz
     import bmesh as _bm
     def pose(r):
@@ -6202,7 +6209,7 @@ def combat_medic():
     # cross, the neck cloth's folds painted on their solid shapes. Modules: Coat, Helmet (cap, neck cloth), Back (chest),
     # Hip (bag, dagger), Weapon (pistol), Accent (the cap's crown).
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 900; TEX_SIZES = {"Body": 512, "Coat": 512, "Back": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 900; TEX_SIZES = {"Body": 1024, "Coat": 1024, "Back": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     import bmesh as _bm
     def pose(r):
@@ -6248,10 +6255,13 @@ def combat_medic():
     for v in coat.data.vertices: v.co += Vector((v.co.x, v.co.y - 0.005, 0)).normalized() * 0.01 * max(0.0, (0.99 - v.co.z) / 0.24)   # a little flare to the hem
     for o in under: MODULES["Body"].remove(o); bpy.data.objects.remove(o)
     bpy.context.view_layer.update()
-    extra_ = [coat]; AC, AR = 4, 5
+    extra_ = [coat]; AC, AR = 6, 6
     rows_ = [[(Vector((-0.12 + 0.24 * i / AC, -0.1, 0.975 - 0.42 * j / AR)), Vector((0.25 * (-1 + 2 * i / AC), -1, 0))) for i in range(AC + 1)] for j in range(AR + 1)]
     fs_ = [(j * (AC + 1) + i, j * (AC + 1) + i + 1, (j + 1) * (AC + 1) + i + 1, (j + 1) * (AC + 1) + i) for j in range(AR) for i in range(AC)]
     apron = laid(rows_, 0.02, "pale", 0.008, fs_)
+    for v in apron.data.vertices:   # (2026-11-12) it hung like a board: soft folds deepening to the hem, which sags between them
+        t = max(0.0, (0.975 - v.co.z) / 0.42)
+        v.co.y -= 0.014 * t * (0.5 + 0.5 * math.sin(v.co.x * 52)); v.co.z += 0.012 * t * t * math.cos(v.co.x * 30)
     hem_c = hem_line(coat, 0.0, 0.005); apz = min(v.co.z for v in apron.data.vertices)
     module("Body")
     module("Helmet")
@@ -6453,7 +6463,7 @@ def holy_warrior():
     # knees, greaves, sabatons, grime); the helm's slit and breaths, the mail rings, the sword's fuller and engraved
     # scripture, the strip's text painted on their solid shapes. Modules: Helmet (helm, cross, aventail), Chest
     # (pauldrons, seal, knee cops), Weapon (sword), Accent (tabards, pauldron tops).
-    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1100; TEX_SIZES = {"Body": 512, "Helmet": 512, "Chest": 512, "Weapon": 512}
+    global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1100; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Chest": 512, "Weapon": 512}
     from mathutils import noise as _nz
     import bmesh as _bm
     def pose(r):
@@ -6796,8 +6806,11 @@ for name, o in OBJS.items():
         continue
     only(o)
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris()
-    bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.03); bpy.ops.object.mode_set(mode='OBJECT')
     size = (TEX_SIZES or {}).get(name, 512 if name == "Body" else 256)   # one 128x128 texture for the body, 64x64 for each module (larger classes more)
+    # packed tight (2026-11-12): the default packing left half the texture empty, so painted lines fell under a texel
+    bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.03)
+    bpy.ops.uv.select_all(action='SELECT'); bpy.ops.uv.pack_islands(rotate=True, margin_method='FRACTION', margin=6 / size, shape_method='CONCAVE')
+    bpy.ops.object.mode_set(mode='OBJECT')
     img = bpy.data.images.new(f"{role}-{name}", size, size, alpha=True); img.generated_color = (0, 0, 0, 0)   # alpha 0 marks unbaked texels
     for m in o.data.materials:
         tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; m.node_tree.nodes.active = tn
@@ -6838,20 +6851,31 @@ for name, o in OBJS.items():
         rgb = [(round(s ** (1 / 2.2) * 31) / 31) ** 2.2 for s in srgb]
         for t in holes: px[t * 4:t * 4 + 3] = rgb
     if PAINT is not None:   # painted: each texel coloured from the surface point it maps to, then grown 4 texels past each island
+        # each texel is the mean of SS x SS samples inside its faces (2026-11-12): a line thinner than a texel stays a
+        # whole, softer line, not a row of dashes; a texel with no sample inside any face takes one from just outside
         V, names, out_ = o.data.vertices, [m_.name for m_ in o.data.materials], [None] * (size * size)
+        SS = 3; acc = {}
         for p in o.data.polygons:
             a, b, c = [Vector((u.x * size, u.y * size)) for u in uvs(p)]
             d = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y)
             if abs(d) < 1e-9: continue
-            vs = [V[i].co for i in p.vertices]; ns = [V[i].normal for i in p.vertices]
+            vs = [V[i].co for i in p.vertices]; ns = [V[i].normal for i in p.vertices]; mn = names[p.material_index]
+            def at(ux, uy, tol):
+                l1 = ((b.y - c.y) * (ux - c.x) + (c.x - b.x) * (uy - c.y)) / d; l2 = ((c.y - a.y) * (ux - c.x) + (a.x - c.x) * (uy - c.y)) / d
+                l3 = 1 - l1 - l2
+                if min(l1, l2, l3) < tol: return None
+                return PAINT(mn, vs[0] * l1 + vs[1] * l2 + vs[2] * l3, (ns[0] * l1 + ns[1] * l2 + ns[2] * l3).normalized(), ao[t * 4], tx, ty)
             for ty in range(max(0, int(min(a.y, b.y, c.y))), min(size, int(max(a.y, b.y, c.y)) + 1)):
                 for tx in range(max(0, int(min(a.x, b.x, c.x))), min(size, int(max(a.x, b.x, c.x)) + 1)):
-                    ux, uy = tx + 0.5, ty + 0.5
-                    l1 = ((b.y - c.y) * (ux - c.x) + (c.x - b.x) * (uy - c.y)) / d; l2 = ((c.y - a.y) * (ux - c.x) + (a.x - c.x) * (uy - c.y)) / d
-                    l3 = 1 - l1 - l2
-                    if min(l1, l2, l3) < -0.05: continue
                     t = ty * size + tx
-                    out_[t] = PAINT(names[p.material_index], vs[0] * l1 + vs[1] * l2 + vs[2] * l3, (ns[0] * l1 + ns[1] * l2 + ns[2] * l3).normalized(), ao[t * 4], tx, ty)
+                    for sy in range(SS):
+                        for sx in range(SS):
+                            r_ = at(tx + (sx + 0.5) / SS, ty + (sy + 0.5) / SS, 0.0)
+                            if r_ is None: continue
+                            s_ = acc.setdefault(t, [0.0, 0.0, 0.0, 0])
+                            s_[0] += r_[0]; s_[1] += r_[1]; s_[2] += r_[2]; s_[3] += 1
+                    if t not in acc and out_[t] is None: out_[t] = at(tx + 0.5, ty + 0.5, -0.05)
+        for t, s_ in acc.items(): out_[t] = (s_[0] / s_[3], s_[1] / s_[3], s_[2] / s_[3])
         for _ in range(4):
             grow = {}
             for t in range(size * size):
@@ -6874,6 +6898,27 @@ for name, o in OBJS.items():
 while A.data.uv_layers: A.data.uv_layers.remove(A.data.uv_layers[0])
 A.data.materials.clear(); am = bpy.data.materials.new("Accent"); am.use_nodes = True; A.data.materials.append(am)
 only(A); bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris(); bpy.ops.object.mode_set(mode='OBJECT')
+# Its shading is in its vertex colours (2026-11-12), which the client multiplies with the seat colour: the hard light
+# bands of psx_lit, darker where other parts stand close (rays cast from each vertex), so it is no longer one flat patch.
+def accent_shading():
+    from mathutils.bvhtree import BVHTree
+    from mathutils import noise as _nz
+    import random
+    dg = bpy.context.evaluated_depsgraph_get()
+    trees = [BVHTree.FromObject(o, dg) for o in OBJS.values()]
+    rnd = random.Random(7); dirs = [Vector((rnd.gauss(0, 1), rnd.gauss(0, 1), rnd.gauss(0, 1))).normalized() for _ in range(40)]
+    me = A.data; occ = []
+    for v in me.vertices:
+        ds = [d for d in dirs if d.dot(v.normal) > 0.25]
+        hit = sum(1 for d in ds if any(t.ray_cast(v.co + v.normal * 0.004 + d * 0.004, d, 0.12)[0] is not None for t in trees))
+        occ.append(hit / max(1, len(ds)))
+    col = me.color_attributes.new("Col", 'BYTE_COLOR', 'CORNER')
+    for l in me.loops:
+        s = me.corner_normals[l.index].vector.dot(PSX_LIGHT); v = me.vertices[l.vertex_index]
+        k = (1.0 if s > 0.62 else (0.86 if s > 0.0 else 0.7)) * (1 - 0.45 * occ[l.vertex_index]) * (1 + 0.05 * _nz.noise(v.co * 20))
+        col.data[l.index].color = (min(1.0, k) ** 2.2,) * 3 + (1.0,)   # linear, as glTF stores it
+    me.color_attributes.active_color = col
+accent_shading()
 # scale to the game's 1.2 tall, feet at 0, centred
 ALL = list(OBJS.values())
 low = min((o.matrix_world @ v.co).z for o in ALL for v in o.data.vertices)
@@ -6886,7 +6931,7 @@ allp = [(o.matrix_world @ v.co) for o in ALL for v in o.data.vertices]
 w = max(max(p.x for p in allp)-min(p.x for p in allp), max(p.y for p in allp)-min(p.y for p in allp))
 print(f"FIG {role} " + " ".join(f"{n}={tris(o)}" for n, o in OBJS.items()) + f" total={sum(tris(o) for o in ALL)} height={max(p.z for p in allp):.3f} width={w:.3f}")
 bpy.ops.object.select_all(action='SELECT')
-bpy.ops.export_scene.gltf(filepath=f"{outdir}/{role}.glb", export_format='GLB', export_yup=True)
+bpy.ops.export_scene.gltf(filepath=f"{outdir}/{role}.glb", export_format='GLB', export_yup=True, export_vertex_color='ACTIVE')   # the Accent's shading
 # the Blender source, for review or hand edits (docs/art-pipeline.md): saved only when asked
 if os.environ.get("FIG_BLEND"):
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(os.environ["FIG_BLEND"], f"{role}.blend"), compress=True)

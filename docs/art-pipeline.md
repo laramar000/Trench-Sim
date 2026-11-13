@@ -84,6 +84,7 @@ triangles, drawn 1.55"). With them every Principality unit has its figure (20 fi
 Detail pass (2026-11-10): Mechanized Heavy Infantry 4,402 triangles with a 512 px body texture (class C, inside the file
 size limit) and 256 px modules; Combat Medic 1,459 (short split tunic and apron instead of the greatcoat); Holy Warrior 2,662.
 Texture sizes (2026-11-11, the owner: clean fine detail): every figure's body and every module texture is 512 px (the file-size limit in `UnitFiguresTests` is doubled to match); older text above giving 128 or 256 px is superseded.
+Detail pass (2026-11-12, the owner: highest quality): every body, coat and robe texture is 1,024 px, the other modules stay 512 px. The bake packs each UV layout tight (the default packing left half of a texture empty) and paints every texel as the mean of 3 x 3 samples, so a painted line thinner than a texel stays a whole line, not a row of dashes.
 A script figure sets these with `BODY_BUDGET` and `TEX_SIZES` (texture size by module name). `render_turnaround.py`
 takes the catalog height as an optional last argument, so a large figure is shown at its drawn size on its base.
 
@@ -100,7 +101,8 @@ drawn round.
   15-bit colour (5 bits per channel), sampled nearest. No normal, roughness or metal maps: roughness 1, metallic 0,
   so the game's lights shade everything alike.
 - Source materials are the named palette entries of `make_figures.py` (`M`), each with a little noise for grime.
-- Accent parts are untextured; the client gives them the seat colour.
+- Accent parts are untextured; the client gives them the seat colour, multiplied with their vertex colours: baked grey
+  shading (hard light bands, darker where other parts stand close), so a seat-colour part is not one flat patch.
 - Lighting is the game's own; nothing is baked except occlusion. Review renders use a flat studio light
   (`tools/art/render_turnaround.py`) and the game itself.
 
