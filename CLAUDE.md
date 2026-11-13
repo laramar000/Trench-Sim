@@ -358,7 +358,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Walker lumbering stride, Giant twisted, Yeoman and Shock Trooper charging, Lieutenant sword thrust up and forward,
   Blind Marksman head turned (still kneeling), Cleric book high and pistol levelled, Engineer crouched assault,
   Mechanized wide braced stance, Medic running, Holy Warrior high guard. Catalog heights on one true scale (the owner,
-  2026-11-13: "sizes are all wrong scale properly"): `raw` x 0.70" for every human figure, Giant 1.85" (the owner: "bigger", then "meet in the middle"), Mechanized 1.55" (owner's choice 2026-11-13 after lore research: the Anchorite Shrine is 12 to 15 ft in the official lore and machine armour "far smaller", so the Walker stands 1.75 times the Mechanized),
+  2026-11-13: "sizes are all wrong scale properly"): `raw` x 0.70" for every human figure, Giant 1.6" and Mechanized 1.45" (the owner, 2026-11-13, after "bigger", "meet in the middle" and 1.55" for the Mechanized: "reduce size of both large non shrine units", smaller than the Walker and bigger than normal units; lore research: the Anchorite Shrine is 12 to 15 ft in the official lore and machine armour "far smaller", so the Walker stands 1.87 times the Mechanized),
   1.13 Walker (`client/assets/catalog.json`: every unit entry gives a height; before, human bodies ran from 0.56 to
   0.93). UI check `unit-figures` now expects each unit's catalog height, not 1.2. `psx_showcase.gd` draws figures at
   their catalog heights. Godot windows: open them on the second monitor (`--screen 1`), the owner plays on the first. `psx_showcase.gd`: `PSX_YAW=<degrees>` turns the
