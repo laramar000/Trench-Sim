@@ -3161,7 +3161,13 @@ public partial class BoardView : SubViewportContainer
     }
 
     // Where a model's own label is drawn: a little above its body.
-    private static float LabelHeight(ModelShape model) => (float)model.Standing + (model.Status == ModelStatus.Standing ? 1.2f : 0.3f) + 0.6f;
+    // Decoration only: a standing figure is as tall as a 28 mm miniature on its base (1.2" on the usual 25 mm base), so a
+    // bigger datasheet base gets a bigger figure. Down, it lies low as before.
+    public static float StandingHeight(double radius) => radius <= 0 ? 1.2f : (float)Math.Clamp(2 * radius * 1.22, 0.6, 4.0);
+
+    private static float ModelHeight(ModelShape model) => model.Status == ModelStatus.Standing ? StandingHeight(model.Radius) : 0.3f;
+
+    private static float LabelHeight(ModelShape model) => (float)model.Standing + ModelHeight(model) + 0.6f;
 
     // Label3D offsets are in the label's own pixels (the same units as its font size), so these keep their spacing on
     // screen at any distance. AboveLabel clears a selected model's label (centred on its anchor) with a gap.
@@ -3962,7 +3968,7 @@ public partial class BoardView : SubViewportContainer
     {
         {
             var standing = (float)model.Standing;
-            var tall = model.Status == ModelStatus.Standing ? 1.2f : 0.3f;
+            var tall = ModelHeight(model);
             var colour = BodyColour(model);
             _bodyColours[model.Id] = colour;
             // Graphics stages G0 and G3: a model is drawn with its figure from the art catalog when it has one (not in high
