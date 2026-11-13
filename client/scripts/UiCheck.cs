@@ -1648,7 +1648,7 @@ public partial class UiCheck : Node
     }
 
     // Graphics stage G3 (unit-figures): every model is drawn with its figure from the art catalog; the figure stands on
-    // the model's spot, inside its base, 1.2" tall (lying no higher than 0.3" while Down), its accent painted with the
+    // the model's spot, inside its base, as tall as its catalog entry says (lying no higher than 0.3" while Down), its accent painted with the
     // model's body colour (seat, grey wash once activated), on a base drawn at the rules' exact radius.
     private void UnitFiguresCheck(BoardView board)
     {
@@ -1668,7 +1668,9 @@ public partial class UiCheck : Node
             {
                 problems.Add($"{m.Id.Value} outside its base: centre ({centre.X:0.00}, {centre.Z:0.00}) for ({m.X:0.00}, {m.Y:0.00}), half {half.X:0.00} x {half.Z:0.00}, radius {m.Radius:0.00}");
             }
-            if (Math.Abs(f.Box.Position.Y - m.Standing) > 0.02 || (standing ? Math.Abs(f.Box.Size.Y - 1.2) > 0.02 : f.Box.Size.Y > 0.31))
+            // its catalog height (every unit entry gives one since the dynamic poses, 2026-11-13; 1.2" without one)
+            var tall = board.Visuals.Catalog.HeightFor(m.Type is { } type ? Client.Core.VisualCatalog.UnitKey(type) : Client.Core.VisualCatalog.DefaultUnitKey, Client.Core.VisualCatalog.DefaultUnitKey);
+            if (Math.Abs(f.Box.Position.Y - m.Standing) > 0.02 || (standing ? Math.Abs(f.Box.Size.Y - tall) > 0.02 : f.Box.Size.Y > 0.31))
             {
                 problems.Add($"{m.Id.Value} height {f.Box.Size.Y:0.00} from {f.Box.Position.Y:0.00} ({m.Status} at {m.Standing:0.00})");
             }

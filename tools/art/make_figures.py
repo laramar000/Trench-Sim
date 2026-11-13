@@ -241,6 +241,38 @@ FLOOR = 0.8168
 def P(x, y, h): return Vector((x, y, h - FLOOR))      # a point h metres above the floor
 def lift(v): return Vector((v.x, v.y, v.z + FLOOR))
 
+# Dynamic poses (2026-11-12, the owner: "more dynamic and less static"). A figure's pose() may call legs() for its
+# stance; TWIST turns the shoulders against the hips and LOOK turns the head on the neck (degrees, positive to the
+# figure's left), both applied to the finished, painted figure (dynamic_warp, at the end of this file).
+GROUND = 0.0   # how far legs() raised the ground to the feet (the pelvis stays where the painters expect it)
+TWIST = 0.0
+LOOK = 0.0
+WARP = None   # a figure's own warp(module name, point) -> point of the finished, painted figure, before TWIST and LOOK
+HIPS = None; HEAD_AXIS = None
+def sstep(t): t = max(0.0, min(1.0, t)); return t * t * (3 - 2 * t)
+def legs(r, L, R, drop=0.0, heel=None):
+    # A stance by inverse kinematics: each foot at (x, y, degrees its toes turn out), flat on the ground; heel={"R": 0.06}
+    # lifts that heel, the foot on its toes. The ground rises (GROUND) until the straighter leg just reaches it, and by
+    # drop more for a crouch; the knees bend the way the toes point.
+    global GROUND
+    heel = heel or {}; tg = {"L": L, "R": R}; J = {}
+    for s in tg:
+        hip = human.world(r, f"upperleg01.{s}", "head"); kn = human.world(r, f"lowerleg01.{s}", "head"); an = human.world(r, f"foot.{s}", "head")
+        J[s] = (hip, (kn - hip).length, (an - kn).length, an.z)
+    def need(s):   # how far the ground must rise for this leg, nearly straight, to reach its foot
+        hip, T, S, az = J[s]; d = math.hypot(tg[s][0] - hip.x, tg[s][1] - hip.y)
+        return hip.z - math.sqrt(max(1e-4, (0.985 * (T + S)) ** 2 - d * d)) - az - heel.get(s, 0.0)
+    GROUND = max(0.0, need("L"), need("R")) + drop
+    for s in tg:
+        hip, T, S, az = J[s]; x, y, toe = tg[s]; toe = math.radians(toe) * (1 if s == "L" else -1)
+        f = Vector((math.sin(toe), -math.cos(toe), 0)); A = Vector((x, y, az + GROUND + heel.get(s, 0.0)))
+        v = A - hip; D = min(v.length, 0.999 * (T + S)); u = v.normalized()
+        a = (T * T - S * S + D * D) / (2 * D); h = math.sqrt(max(0.0, T * T - a * a))
+        b = f - u * f.dot(u); b = b.normalized() if b.length > 1e-6 else Vector((0, -1, 0))
+        K = hip + u * a + b * h
+        for bn in ("upperleg01", "upperleg02"): human.aim(r, f"{bn}.{s}", K)
+        for bn in ("lowerleg01", "lowerleg02"): human.aim(r, f"{bn}.{s}", A)
+        human.aim(r, f"foot.{s}", Vector((A.x, A.y, az + GROUND - 0.09)) + f * 0.16)
 def human_body(pose, coat=True, dress=None, head="hood", mitts=None, shape="male-young-averagemuscle-averageweight", tris=800):
     body, rig = human.load(DATA, ((f"macrodetails/universal-{shape}.target", 1.0),))
     for s in ("L", "R"):      # legs together, straight
@@ -256,6 +288,7 @@ def human_body(pose, coat=True, dress=None, head="hood", mitts=None, shape="male
     global NECK; NECK = lift(human.world(rig, "neck01", "head"))   # the neck's root, for headgear that sits on it
     global JOINTS; JOINTS = {f"{b}.{s}": lift(human.world(rig, f"{b}.{s}", "head")) for s in ("L", "R")
                              for b in ("upperarm01", "lowerarm01", "wrist", "upperleg01", "lowerleg01", "foot")}   # landmarks for painted figures
+    global HIPS, HEAD_AXIS; HIPS = (JOINTS["upperleg01.L"] + JOINTS["upperleg01.R"]) / 2; HEAD_AXIS = (headtop - NECK).normalized()
     faces = human.bake_pose(body, rig)
     body.location.z = FLOOR; bpy.context.view_layer.objects.active = body
     bpy.ops.object.select_all(action='DESELECT'); body.select_set(True)
@@ -527,8 +560,12 @@ def rifleman():
     BODY_BUDGET = 800; TEX_SIZES = {"Body": 1024, "Coat": 1024, "Helmet": 512, "Back": 512, "Weapon": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
-        human.reach(r, "R", P(-0.24, 0.02, 1.08), P(-0.07, -0.22, 1.0))
-        human.reach(r, "L", P(0.26, -0.1, 1.12), P(0.1, -0.28, 1.27))
+        # (2026-11-12, dynamic) doubling forward: a long stride off the back foot, leaning into it
+        legs(r, L=(0.13, -0.26, 6), R=(-0.14, 0.22, 28), heel={"R": 0.06})
+        human.aim(r, "spine03", P(0, -0.1, 1.4))
+        human.reach(r, "R", P(-0.24, 0.02, 1.08), P(-0.07, -0.24, 1.0))
+        human.reach(r, "L", P(0.26, -0.12, 1.14), P(0.1, -0.32, 1.29))
+    global TWIST, LOOK; TWIST, LOOK = -10, 16
     hands, hp, top = human_body(pose, dress=WW1_DRESS, head="mannequin", mitts="leather", shape="male-young-averagemuscle-minweight")
     surf = ww1_uniform(bands=False); toeless_feet()
     coat = psx_greatcoat(); coat_o = MODULES["Coat"][0]
@@ -650,9 +687,12 @@ def skirmisher():
     BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Weapon": 512, "Hip": 512, "Kit": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.12, 1.4)); human.aim(r, "neck01", P(0, -0.2, 1.6))
+        # (2026-11-12, dynamic) stalking forward in a crouch, knees bent, the head turned to one side
+        legs(r, L=(0.15, -0.28, 10), R=(-0.16, 0.2, 35), drop=0.07, heel={"R": 0.05})
+        human.aim(r, "spine03", P(0, -0.16, 1.4)); human.aim(r, "neck01", P(0, -0.24, 1.6))
         human.reach(r, "R", P(-0.25, -0.05, 1.0), P(-0.1, -0.3, 0.98))
         human.reach(r, "L", P(0.24, -0.2, 1.05), P(0.08, -0.42, 1.08))
+    global TWIST, LOOK; TWIST, LOOK = 12, -22
     hands, hp, top = human_body(pose, dress=WW1_DRESS, head="hood", mitts="leather", shape="male-young-averagemuscle-minweight")
     surf = ww1_uniform(bands=False); toeless_feet()
     fb = FACE_BOX
@@ -830,8 +870,12 @@ def shield():
     BODY_BUDGET = 760; TEX_SIZES = {"Body": 1024, "Coat": 1024, "Helmet": 512, "Shield": 512, "Weapon": 512, "Hip": 512}
     from mathutils import noise as _nz
     def pose(r):
-        human.reach(r, "L", P(0.3, -0.08, 1.12), P(0.16, -0.3, 1.05))
-        human.reach(r, "R", P(-0.33, -0.02, 1.4), P(-0.3, -0.1, 1.62))
+        # (2026-11-12, dynamic) braced behind the shield, the shield foot forward, the mace drawn back to strike
+        legs(r, L=(0.14, -0.3, 0), R=(-0.2, 0.2, 50), drop=0.05)
+        human.aim(r, "spine03", P(0, -0.08, 1.4))
+        human.reach(r, "L", P(0.3, -0.1, 1.12), P(0.16, -0.32, 1.05))
+        human.reach(r, "R", P(-0.36, 0.06, 1.42), P(-0.34, 0.02, 1.66))
+    global TWIST, LOOK; TWIST, LOOK = -16, 0
     hands, hp, top = human_body(pose, dress=WW1_DRESS, head=None, mitts="leather", shape="male-young-averagemuscle-averageweight")
     ww1_uniform(bands=False); toeless_feet()
     coat = psx_greatcoat(); coat_o = MODULES["Coat"][0]
@@ -1043,8 +1087,11 @@ def standard():
     BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Coat": 1024, "Helmet": 512, "Weapon": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
+        # (2026-11-12, dynamic) striding out, chest up, looking back to the men behind
+        legs(r, L=(0.12, 0.2, 25), R=(-0.13, -0.24, 5), heel={"L": 0.06})
         human.reach(r, "R", P(-0.24, -0.02, 1.08), P(-0.15, -0.2, 1.02))
         human.reach(r, "L", P(0.12, -0.18, 1.2), P(-0.1, -0.22, 1.36))
+    global TWIST, LOOK; TWIST, LOOK = 8, 30
     hands, hp, top = human_body(pose, dress=WW1_DRESS, head="mannequin", mitts="leather", shape="male-young-averagemuscle-minweight")
     ww1_uniform(bands=False); toeless_feet()
     coat = psx_greatcoat(); coat_o = MODULES["Coat"][0]
@@ -1063,7 +1110,7 @@ def standard():
     bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.036, depth=0.3, location=tuple(BR), rotation=(0, math.pi / 2, 0)); add(bpy.context.object, "rags")
     module("Weapon")
     x, y = FISTS["R"][0].x, FISTS["R"][0].y
-    base, tip = Vector((x, y, 0.05)), Vector((x, y, 2.0))
+    base, tip = Vector((x, y, 0.05 + GROUND)), Vector((x, y, 2.0))   # its shoe on the ground the stance stands on
     bar(base, tip, 0.017, "wood")
     sphere(tuple(tip + Vector((0, 0, 0.03))), 0.035, "brass", seg=8, rings=5)
     bar(tip + Vector((0, 0, 0.03)), tip + Vector((0, 0, 0.15)), 0.01, "brass", sides=4)
@@ -1135,8 +1182,8 @@ def standard():
             return C["ink"] if (p.z * 70) % 1.0 < 0.3 else lit(C["metall"], n, ao, True, p)
         if base == "wood" and abs(p.x - x) < 0.03 and abs(p.y - y) < 0.03:   # the pole: an iron shoe, brass ferrules, leather grips where the hands hold it
             z = p.z
-            if z < 0.14: return lit(C["ironl"] if s_ > 0.2 else C["iron"], n, ao, True, p)
-            if abs(z - 0.14) < 0.012 or abs(z - (tip.z - 0.075)) < 0.014: return C["ink"] if abs(z - 0.14) > 0.009 and z < 1 else (C["brassl"] if s_ > 0.2 else C["brass"])
+            if z < 0.14 + GROUND: return lit(C["ironl"] if s_ > 0.2 else C["iron"], n, ao, True, p)
+            if abs(z - 0.14 - GROUND) < 0.012 or abs(z - (tip.z - 0.075)) < 0.014: return C["ink"] if abs(z - 0.14 - GROUND) > 0.009 and z < 1 else (C["brassl"] if s_ > 0.2 else C["brass"])
             for hz in (FISTS["R"][0].z, FISTS["L"][0].z):
                 if abs(z - hz) < 0.13:   # wider than the fist, so the binding shows above and below it
                     fr = (z * 50 + math.atan2(p.x - x, p.y - y) / (2 * math.pi)) % 1.0
@@ -1331,7 +1378,7 @@ def toeless_feet(m="boots", foot=None):
     # picks a foot's vertices for a pose whose feet are not flat on the floor (the kneeling Blind Marksman)
     import bmesh as _bm
     human_ = bpy.data.objects["human"]
-    if foot is None: foot = lambda co, sx: co.z < 0.1 and co.x * sx > 0
+    if foot is None: foot = lambda co, sx: co.z < JOINTS["foot.L" if sx > 0 else "foot.R"].z + 0.02 and co.x * sx > 0   # below the ankle (0.1 standing; higher in a legs() stance or on its toes)
     for sx in (1, -1):
         bm = _bm.new()
         for v in human_.data.vertices:
@@ -1593,9 +1640,12 @@ def trench_pilgrim():
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 900; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Weapon": 512, "Back": 512, "Hip": 512}
     from mathutils import noise as _nz
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.06, 1.4))
-        human.reach(r, "R", P(-0.24, 0.0, 1.06), P(-0.08, -0.24, 0.98))
-        human.reach(r, "L", P(0.25, -0.12, 1.12), P(0.1, -0.3, 1.25))
+        # (2026-11-12, dynamic) charging: a long stride, bent into it, the rifle thrust forward
+        legs(r, L=(0.13, -0.3, 5), R=(-0.14, 0.24, 30), drop=0.03, heel={"R": 0.07})
+        human.aim(r, "spine03", P(0, -0.16, 1.4))
+        human.reach(r, "R", P(-0.24, 0.0, 1.06), P(-0.08, -0.26, 0.98))
+        human.reach(r, "L", P(0.25, -0.16, 1.12), P(0.1, -0.38, 1.22))
+    global TWIST, LOOK; TWIST, LOOK = -12, 8
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "puttee", "thigh": "breeches", "torso": "tunic"}, head=None, mitts="leather",
                                 shape="male-young-averagemuscle-minweight")   # lean, under a capirote that hides the head
     ww1_uniform(bands=False)   # the loose wool and the tunic's skirt; the puttee tapes are painted
@@ -1764,15 +1814,12 @@ def yeoman():
     BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Weapon": 512, "Back": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.1, 1.4))                                          # leaning into the advance
-        human.aim(r, "upperleg01.L", P(0.11, -0.14, 0.5)); human.aim(r, "upperleg02.L", P(0.11, -0.14, 0.5))
-        human.aim(r, "lowerleg01.L", P(0.12, -0.12, 0.08)); human.aim(r, "lowerleg02.L", P(0.12, -0.12, 0.08))
-        human.aim(r, "foot.L", P(0.12, -0.28, -0.01))
-        human.aim(r, "upperleg01.R", P(-0.1, 0.06, 0.5)); human.aim(r, "upperleg02.R", P(-0.1, 0.06, 0.5))
-        human.aim(r, "lowerleg01.R", P(-0.11, 0.16, 0.1)); human.aim(r, "lowerleg02.R", P(-0.11, 0.16, 0.1))
-        human.aim(r, "foot.R", P(-0.11, 0.02, -0.02))
-        human.reach(r, "R", P(-0.22, 0.06, 1.0), P(-0.12, -0.12, 0.93))                  # right fist on the grip at the hip
-        human.reach(r, "L", P(0.2, -0.2, 1.08), P(0.05, -0.42, 1.03))                    # left hand forward under the stock
+        # (2026-11-12, dynamic) driving forward at the double, bent low over the levelled rifle
+        legs(r, L=(0.12, -0.32, 5), R=(-0.13, 0.26, 25), drop=0.03, heel={"R": 0.08})
+        human.aim(r, "spine03", P(0, -0.16, 1.4))
+        human.reach(r, "R", P(-0.22, 0.06, 1.0), P(-0.12, -0.12, 0.93))   # right fist on the grip at the hip
+        human.reach(r, "L", P(0.2, -0.2, 1.08), P(0.05, -0.42, 1.03))     # left hand forward under the stock
+    global TWIST, LOOK; TWIST, LOOK = -12, 10
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "puttee", "thigh": "breeches", "torso": "tunic"}, head="hood",
                                 mitts="leather", shape="male-young-averagemuscle-minweight")
     ww1_uniform(bands=False)   # the loose wool and the tunic's skirt; the puttee tapes are painted
@@ -1939,15 +1986,12 @@ def shock_trooper():
     BODY_BUDGET = 900; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Chest": 512, "Hip": 512, "Weapon": 512, "Back": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.12, 1.4))                                        # leaning into the charge
-        human.aim(r, "upperleg01.L", P(0.11, -0.2, 0.52)); human.aim(r, "upperleg02.L", P(0.11, -0.2, 0.52))
-        human.aim(r, "lowerleg01.L", P(0.12, -0.18, 0.08)); human.aim(r, "lowerleg02.L", P(0.12, -0.18, 0.08))
-        human.aim(r, "foot.L", P(0.12, -0.34, -0.01))
-        human.aim(r, "upperleg01.R", P(-0.1, 0.1, 0.5)); human.aim(r, "upperleg02.R", P(-0.1, 0.1, 0.5))
-        human.aim(r, "lowerleg01.R", P(-0.11, 0.26, 0.13)); human.aim(r, "lowerleg02.R", P(-0.11, 0.26, 0.13))
-        human.aim(r, "foot.R", P(-0.11, 0.14, -0.02))                                     # pushing off the back foot
-        human.reach(r, "R", P(-0.33, 0.02, 1.28), P(-0.22, -0.1, 1.48))                  # wound up: the top hand by the right shoulder
-        human.reach(r, "L", P(0.16, -0.3, 1.2), P(-0.09, -0.38, 1.3))                   # the lower hand across the chest, under the mask
+        # (2026-11-12, dynamic) the charge: a long low stride off the back toes, the body wound right round for the blow
+        legs(r, L=(0.13, -0.36, 5), R=(-0.15, 0.28, 32), drop=0.05, heel={"R": 0.09})
+        human.aim(r, "spine03", P(0, -0.16, 1.4))
+        human.reach(r, "R", P(-0.33, 0.02, 1.28), P(-0.22, -0.1, 1.48))   # wound up: the top hand by the right shoulder
+        human.reach(r, "L", P(0.16, -0.3, 1.2), P(-0.09, -0.38, 1.3))     # the lower hand across the chest, under the mask
+    global TWIST, LOOK; TWIST, LOOK = -22, 16
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "boots", "thigh": "breeches", "torso": "tunic"}, head="hood",
                                 mitts="leather", shape="male-young-averagemuscle-minweight")
     ww1_uniform(bands=False)   # the loose wool and the tunic's skirt
@@ -2196,15 +2240,12 @@ def lieutenant():
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 1024, "Coat": 1024, "Back": 512, "Weapon": 512, "Hip": 512, "Helmet": 512}
     from mathutils import noise as _nz
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.03, 1.4))                                         # upright, chest out
-        human.aim(r, "upperleg01.L", P(0.13, -0.06, 0.5)); human.aim(r, "upperleg02.L", P(0.13, -0.06, 0.5))
-        human.aim(r, "lowerleg01.L", P(0.15, -0.06, 0.08)); human.aim(r, "lowerleg02.L", P(0.15, -0.06, 0.08))
-        human.aim(r, "foot.L", P(0.17, -0.22, -0.01))
-        human.aim(r, "upperleg01.R", P(-0.11, 0.03, 0.5)); human.aim(r, "upperleg02.R", P(-0.11, 0.03, 0.5))
-        human.aim(r, "lowerleg01.R", P(-0.12, 0.05, 0.08)); human.aim(r, "lowerleg02.R", P(-0.12, 0.05, 0.08))
-        human.aim(r, "foot.R", P(-0.15, -0.1, -0.02))
-        human.reach(r, "R", P(-0.33, -0.02, 1.02), P(-0.27, -0.14, 1.24))               # the sword hand up by the right shoulder
-        human.reach(r, "L", P(0.35, 0.06, 1.18), P(0.24, -0.02, 1.02))                   # the left fist on the hip
+        # (2026-11-12, dynamic) leading the advance: striding out, the sword thrust up and forward, looking back to his men
+        legs(r, L=(0.15, -0.28, 8), R=(-0.14, 0.2, 30), heel={"R": 0.06})
+        human.aim(r, "spine03", P(0, -0.07, 1.4))
+        human.reach(r, "R", P(-0.3, -0.2, 1.3), P(-0.24, -0.5, 1.46))     # the sword arm thrust up and forward
+        human.reach(r, "L", P(0.35, 0.06, 1.18), P(0.24, -0.02, 1.02))    # the left fist on the hip
+    global TWIST, LOOK; TWIST, LOOK = 12, -24
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "puttee", "thigh": "breeches", "torso": "tunic"}, head="mannequin",
                                 mitts="leather", shape="male-young-averagemuscle-averageweight")
     surf = ww1_uniform(bands=False)   # the loose wool and the tunic's skirt; the puttee tapes are painted
@@ -2238,8 +2279,8 @@ def lieutenant():
         for e_ in (a_, b_): sphere(tuple(L(*e_, out=0.014)), 0.017, "brass", seg=5, rings=3)
     module("Weapon")
     # the curved sword resting on the right shoulder: the grip through the right fist, the blade up and back
-    fr, d = FISTS["R"]; want = Vector((-0.04, 0.78, 0.6))
-    e = (want - d * want.dot(d)).normalized(); side = e.cross(Vector((1, 0, 0))).normalized()   # the edge faces forward
+    fr, d = FISTS["R"]; want = Vector((0.0, -0.6, 0.8))   # (2026-11-12) thrust up and forward, no longer resting on the shoulder
+    e = (want - d * want.dot(d) * 0.3).normalized(); side = e.cross(Vector((1, 0, 0))).normalized()   # the edge faces forward
     if side.y > 0: side = -side
     base, Lb, w = fr + e * 0.055, 0.5, 0.036
     def at(t, c): return base + e * t - side * (0.18 * (t / Lb) ** 2 * Lb * 0.25) + side * c   # the blade bowed back
@@ -2790,15 +2831,12 @@ def trench_cleric():
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000; TEX_SIZES = {"Body": 1024, "Robe": 1024, "Weapon2": 512, "Back": 512, "Chest": 512, "Helmet": 512}
     from mathutils import noise as _nz
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.03, 1.4))                                         # upright
-        human.aim(r, "upperleg01.L", P(0.12, -0.05, 0.5)); human.aim(r, "upperleg02.L", P(0.12, -0.05, 0.5))
-        human.aim(r, "lowerleg01.L", P(0.13, -0.05, 0.08)); human.aim(r, "lowerleg02.L", P(0.13, -0.05, 0.08))
-        human.aim(r, "foot.L", P(0.15, -0.21, -0.01))
-        human.aim(r, "upperleg01.R", P(-0.11, 0.03, 0.5)); human.aim(r, "upperleg02.R", P(-0.11, 0.03, 0.5))
-        human.aim(r, "lowerleg01.R", P(-0.12, 0.05, 0.08)); human.aim(r, "lowerleg02.R", P(-0.12, 0.05, 0.08))
-        human.aim(r, "foot.R", P(-0.15, -0.1, -0.02))
-        human.reach(r, "R", P(-0.24, -0.04, 1.1), P(-0.25, -0.24, 0.96))                 # the pistol hand hanging at the side
-        human.reach(r, "L", P(0.25, 0.0, 1.12), P(0.19, -0.3, 1.2))                      # the book held up in front
+        # (2026-11-12, dynamic) preaching under fire: stepping forward, the book held high, the pistol levelled
+        legs(r, L=(0.13, -0.22, 8), R=(-0.13, 0.16, 28), heel={"R": 0.04})
+        human.aim(r, "spine03", P(0, -0.05, 1.4))
+        human.reach(r, "R", P(-0.28, -0.14, 1.26), P(-0.24, -0.44, 1.4))  # the pistol levelled
+        human.reach(r, "L", P(0.3, -0.04, 1.2), P(0.26, -0.3, 1.42))      # the book held high
+    global TWIST, LOOK; TWIST, LOOK = -10, 14
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "puttee", "thigh": "breeches", "torso": "tunic"}, head="mannequin",
                                 mitts="leather", shape="male-young-averagemuscle-averageweight")
     import random, bmesh as _bm; rnd = random.Random(1917)
@@ -3190,15 +3228,12 @@ def combat_engineer():
     # the submachine gun with a drum magazine levelled forward in both hands (Weapon).
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1500; TEX_SIZES = {"Body": 1024, "Back": 512, "Weapon": 512, "Hip": 512, "Chest": 512}
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.09, 1.4))                                          # leaning into the stride
-        human.aim(r, "upperleg01.L", P(0.11, -0.16, 0.5)); human.aim(r, "upperleg02.L", P(0.11, -0.16, 0.5))
-        human.aim(r, "lowerleg01.L", P(0.12, -0.14, 0.08)); human.aim(r, "lowerleg02.L", P(0.12, -0.14, 0.08))
-        human.aim(r, "foot.L", P(0.12, -0.3, -0.01))
-        human.aim(r, "upperleg01.R", P(-0.1, 0.07, 0.5)); human.aim(r, "upperleg02.R", P(-0.1, 0.07, 0.5))
-        human.aim(r, "lowerleg01.R", P(-0.11, 0.22, 0.13)); human.aim(r, "lowerleg02.R", P(-0.11, 0.22, 0.13))
-        human.aim(r, "foot.R", P(-0.11, 0.12, -0.02))                                      # pushing off the back foot
-        human.reach(r, "R", P(-0.25, -0.07, 1.13), P(-0.1, -0.3, 1.22))                  # the right fist on the pistol grip, by the chest
-        human.reach(r, "L", P(0.22, -0.15, 1.13), P(0.07, -0.55, 1.25))                  # the left hand out on the foregrip: aiming
+        # (2026-11-12, dynamic) assaulting: a long crouched stride, the gun aimed
+        legs(r, L=(0.13, -0.32, 5), R=(-0.14, 0.24, 28), drop=0.06, heel={"R": 0.07})
+        human.aim(r, "spine03", P(0, -0.13, 1.4))
+        human.reach(r, "R", P(-0.25, -0.07, 1.13), P(-0.1, -0.3, 1.22))   # the right fist on the pistol grip, by the chest
+        human.reach(r, "L", P(0.22, -0.15, 1.13), P(0.07, -0.55, 1.25))   # the left hand out on the foregrip: aiming
+    global TWIST, LOOK; TWIST, LOOK = 12, -8
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "puttee", "thigh": "trousers", "torso": "greatcoat"}, head="mannequin",
                                 mitts="leather", shape="male-young-averagemuscle-maxweight")
     import bmesh as _bm
@@ -3208,20 +3243,7 @@ def combat_engineer():
         if 0.95 < v.co.z < 1.44: v.co += v.normal * 0.012
     for v in human_.data.vertices: # bulkier legs (the owner, 2026-11-10): baggy trousers, fullest at the thigh, tapering to the boot
         if 0.1 < v.co.z < 0.97: v.co += v.normal * (0.016 * math.sin(math.pi * min(1.0, (v.co.z - 0.1) / 0.87)) ** 1.5 - 0.004)   # breeches: fuller at the thigh, slim calf like the Trench Pilgrim
-    # each foot swapped for its convex hull, a toeless boot shape (the boots themselves are painted on)
-    for sx in (1, -1):
-        bm = _bm.new()
-        for v in human_.data.vertices:
-            if v.co.z < 0.1 and v.co.x * sx > 0: bm.verts.new(v.co + Vector((0, 0, 0)))
-        r_ = _bm.ops.convex_hull(bm, input=bm.verts)
-        _bm.ops.delete(bm, geom=[g for g in r_["geom_interior"] if isinstance(g, _bm.types.BMVert)], context='VERTS')
-        _bm.ops.dissolve_limit(bm, angle_limit=math.radians(8), verts=bm.verts, edges=bm.edges)
-        me = bpy.data.meshes.new("boot"); bm.to_mesh(me); bm.free()
-        for f in me.polygons: f.use_smooth = True
-        o = bpy.data.objects.new("boot", me); scn.collection.objects.link(o); add(o, "boots")
-    bm = _bm.new(); bm.from_mesh(human_.data)
-    _bm.ops.delete(bm, geom=[f for f in bm.faces if max(v.co.z for v in f.verts) < 0.095], context='FACES')
-    bm.to_mesh(human_.data); bm.free()
+    toeless_feet()
     # landmarks for the painting, from the posed body
     shoulders = {}
     for s, x in (("L", 0.19), ("R", -0.19)):
@@ -3643,9 +3665,12 @@ def stigmatic_nun():
     BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Hip": 512, "Weapon": 512, "Weapon2": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.06, 1.4))
-        human.reach(r, "R", P(-0.22, -0.16, 1.24), P(-0.2, -0.42, 1.34))
-        human.reach(r, "L", P(0.24, -0.06, 1.0), P(0.22, -0.22, 0.9))
+        # (2026-11-12, dynamic) striding under the habit, the pistol levelled, the blade swept out to the side
+        legs(r, L=(0.13, 0.18, 25), R=(-0.12, -0.24, 5), heel={"L": 0.05})
+        human.aim(r, "spine03", P(0, -0.08, 1.4))
+        human.reach(r, "R", P(-0.24, -0.2, 1.3), P(-0.2, -0.5, 1.42))
+        human.reach(r, "L", P(0.3, 0.0, 1.08), P(0.4, -0.12, 0.92))
+    global TWIST, LOOK; TWIST, LOOK = 14, -14
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "habit", "thigh": "habit", "torso": "habit"}, head="mannequin",
                                 mitts="gauntlet", shape="female-young-averagemuscle-minweight")
     import random; rnd = random.Random(1917)
@@ -3887,9 +3912,12 @@ def ecclesiastic_prisoner():
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Back": 512, "Weapon": 512, "Hip": 512, "Helmet": 512}
     from mathutils import noise as _nz
     def pose(r):
+        # (2026-11-12, dynamic) staggering forward under the bomb, knees buckling, the head hung to one side
+        legs(r, L=(0.15, -0.22, 12), R=(-0.1, 0.16, 20), drop=0.06, heel={"R": 0.05})
         human.aim(r, "spine03", P(0, -0.28, 1.32)); human.aim(r, "neck01", P(0, -0.38, 1.44))
         human.reach(r, "R", P(-0.2, -0.16, 1.12), P(-0.07, -0.3, 0.98))
         human.reach(r, "L", P(0.2, -0.16, 1.12), P(0.07, -0.3, 0.98))
+    global TWIST, LOOK; TWIST, LOOK = 10, -20
     hands, hp, top = human_body(pose, coat=False, dress={"foot": "flesh", "shin": "flesh", "thigh": "flesh", "torso": "flesh"}, head=None,
                                 mitts="flesh", shape="male-young-minmuscle-minweight")
     import random; rnd = random.Random(1915)
@@ -3955,7 +3983,7 @@ def ecclesiastic_prisoner():
     for a_, b_ in zip(CH, CH[1:]): bar(a_, b_, 0.006, "iron", sides=4)
     module("Hip")
     # the ankle chain between the cuffs, sagging to the ground
-    ank = {s: human_.ray_cast(Vector((0.0, JOINTS[("foot.L" if s > 0 else "foot.R")].y, 0.1)), Vector((s, 0, 0)))[1] for s in (1, -1)}   # the cuffs' inner sides
+    ank = {s: human_.ray_cast(Vector((0.0, JOINTS[("foot.L" if s > 0 else "foot.R")].y, JOINTS[("foot.L" if s > 0 else "foot.R")].z + 0.02)), Vector((s, 0, 0)))[1] for s in (1, -1)}   # the cuffs' inner sides
     AC = [ank[1].lerp(ank[-1], k / 4) - Vector((0, 0.01, 0.055 * math.sin(math.pi * k / 4))) for k in range(5)]
     for a_, b_ in zip(AC, AC[1:]): bar(a_, b_, 0.006, "iron", sides=4)
     module("Helmet")
@@ -4104,8 +4132,11 @@ def war_prophet():
     import bmesh as _bm
     for k_ in ("helm", "pauldron"): M.setdefault(k_, mat(k_, "7a7c80", 0.3, 18))   # plate, told apart from the body's when painted
     def pose(r):
+        # (2026-11-12, dynamic) preaching on the march: striding under the robe, the left hand thrown up
+        legs(r, L=(0.12, -0.22, 8), R=(-0.13, 0.16, 25), heel={"R": 0.04})
         human.reach(r, "R", P(-0.28, 0.02, 1.12), P(-0.3, -0.12, 1.22))
-        human.reach(r, "L", P(0.25, 0.0, 1.08), P(0.27, -0.06, 0.88))
+        human.reach(r, "L", P(0.3, -0.08, 1.3), P(0.36, -0.24, 1.6))
+    global TWIST, LOOK; TWIST, LOOK = 10, 12
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "boots", "thigh": "boots", "torso": "plate"}, head=None,
                                 mitts="plate", shape="male-young-averagemuscle-averageweight")
     import random; rnd = random.Random(1918)
@@ -4583,8 +4614,12 @@ def castigator():
     import bmesh as _bm
     M.setdefault("hat", mat("hat", "141210", 0.05)); M.setdefault("cape", mat("cape", "3e3a34"))
     def pose(r):
-        human.reach(r, "R", P(-0.3, -0.06, 1.3), P(-0.4, -0.18, 1.42))
-        human.reach(r, "L", P(0.25, -0.1, 1.06), P(0.17, -0.3, 1.1))
+        # (2026-11-12, dynamic) stepping in behind the reliquary, the flail swung up and back
+        legs(r, L=(0.13, -0.26, 5), R=(-0.16, 0.18, 35), drop=0.02)
+        human.aim(r, "spine03", P(0, -0.07, 1.4))
+        human.reach(r, "R", P(-0.34, 0.0, 1.4), P(-0.44, -0.08, 1.62))
+        human.reach(r, "L", P(0.25, -0.12, 1.06), P(0.17, -0.34, 1.12))
+    global TWIST, LOOK; TWIST, LOOK = -14, 8
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "boots", "thigh": "boots", "torso": "mail"}, head=None,
                                 mitts="leather", shape="male-young-averagemuscle-averageweight")
     import random; rnd = random.Random(1919)
@@ -5044,6 +5079,19 @@ def reliquary_walker():
     # --- Weapon: the bonebreaker mace, its haft through the right fist, its flanged head at the ground
     module("Weapon")
     fist = Vector((-0.58, -0.12, 0.43)); tip = Vector((-0.8, -0.6, 0.07)); d = (tip - fist).normalized()
+    # (2026-11-12, dynamic) a lumbering stride, as a warp of the finished walker (its hull and painting are laid out
+    # square): the left leg sheared forward and the right back from the hips down, feet flat; the hull above leaning
+    # into the step and turned to its left; the mace and the wheel turn whole with the hull
+    global WARP
+    def walk(name, q):
+        q = q.copy(); w = 1.0
+        if not name.startswith("Weapon"):
+            w = sstep((q.z - 0.6) / 0.25)
+            q.y += (-0.17 if q.x > 0 else 0.13) * sstep((abs(q.x) - 0.02) / 0.14) * sstep((0.66 - q.z) / 0.5)
+        c = Vector((0, 0, 0.7))
+        if name == "Weapon": q.z += 0.14   # the mace's flanged head rests on the ground, not under it (it held the feet off the ground)
+        return Matrix.Rotation(math.radians(12) * w, 3, 'Z') @ (Matrix.Rotation(math.radians(6) * w, 3, 'X') @ (q - c)) + c
+    WARP = walk
     bar(fist - d * 0.22, tip, 0.026, "wood", sides=6)
     sphere(tuple(fist - d * 0.24), 0.04, "iron", seg=6, rings=4)                          # the pommel
     head_ = tip + d * 0.07
@@ -5407,6 +5455,7 @@ def sanctified_giant():
         human.aim(r, "foot.R", P(-0.13, 0.2, -0.02))                                             # up on its toes
         human.reach(r, "R", P(-0.36, -0.14, 1.14), P(-0.22, -0.4, 1.3))
         human.reach(r, "L", P(0.31, -0.1, 0.98), P(0.19, -0.32, 0.88))
+    global TWIST, LOOK; TWIST, LOOK = 14, -16
     hands, hp, top = human_body(pose, coat=False, head=None, mitts="brute", shape="male-young-maxmuscle-maxweight", tris=1500,
                                 dress={"foot": "brute", "shin": "brute", "thigh": "brute", "torso": "brute", "hand": "brute"})   # bare legs under the skirt
     import random; rnd = random.Random(1923)
@@ -5802,15 +5851,12 @@ def mechanized_heavy_infantry():
     from mathutils import noise as _nz
     import bmesh as _bm
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.07, 1.4))                                              # braced, a little forward
-        human.aim(r, "upperleg01.L", P(0.15, -0.08, 0.5)); human.aim(r, "upperleg02.L", P(0.15, -0.08, 0.5))
-        human.aim(r, "lowerleg01.L", P(0.17, -0.09, 0.08)); human.aim(r, "lowerleg02.L", P(0.17, -0.09, 0.08))
-        human.aim(r, "foot.L", P(0.2, -0.25, -0.01))
-        human.aim(r, "upperleg01.R", P(-0.14, 0.06, 0.5)); human.aim(r, "upperleg02.R", P(-0.14, 0.06, 0.5))
-        human.aim(r, "lowerleg01.R", P(-0.16, 0.1, 0.08)); human.aim(r, "lowerleg02.R", P(-0.16, 0.1, 0.08))
-        human.aim(r, "foot.R", P(-0.2, -0.05, -0.02))
-        human.reach(r, "R", P(-0.25, 0.04, 1.02), P(-0.14, -0.14, 0.93))                     # the right fist on the rear grip at the hip
-        human.reach(r, "L", P(0.22, -0.16, 1.05), P(0.07, -0.36, 1.0))                       # the left on the forward handle
+        # (2026-11-12, dynamic) firing from the hip: a wide braced stance, knees bent, the gun swung across
+        legs(r, L=(0.2, -0.22, 15), R=(-0.21, 0.16, 38), drop=0.05)
+        human.aim(r, "spine03", P(0, -0.07, 1.4))
+        human.reach(r, "R", P(-0.25, 0.04, 1.02), P(-0.14, -0.14, 0.93))  # the right fist on the rear grip at the hip
+        human.reach(r, "L", P(0.22, -0.16, 1.05), P(0.07, -0.36, 1.0))    # the left on the forward handle
+    global TWIST, LOOK; TWIST, LOOK = 16, -14
     hands, hp, top = human_body(pose, coat=False, head=None, mitts="leather", shape="male-young-maxmuscle-maxweight", tris=1500,
                                 dress={"foot": "boots", "shin": "plate", "thigh": "plate", "torso": "plate"})
     human_ = bpy.data.objects["human"]
@@ -6213,15 +6259,12 @@ def combat_medic():
     from mathutils import noise as _nz
     import bmesh as _bm
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.06, 1.4))                                              # walking, a little forward
-        human.aim(r, "upperleg01.L", P(0.11, -0.12, 0.5)); human.aim(r, "upperleg02.L", P(0.11, -0.12, 0.5))
-        human.aim(r, "lowerleg01.L", P(0.12, -0.1, 0.08)); human.aim(r, "lowerleg02.L", P(0.12, -0.1, 0.08))
-        human.aim(r, "foot.L", P(0.12, -0.26, -0.01))
-        human.aim(r, "upperleg01.R", P(-0.1, 0.05, 0.5)); human.aim(r, "upperleg02.R", P(-0.1, 0.05, 0.5))
-        human.aim(r, "lowerleg01.R", P(-0.11, 0.14, 0.1)); human.aim(r, "lowerleg02.R", P(-0.11, 0.14, 0.1))
-        human.aim(r, "foot.R", P(-0.11, 0.0, -0.02))
-        human.reach(r, "R", P(-0.24, 0.0, 1.1), P(-0.25, -0.16, 0.92))                        # the pistol hand hanging, a little forward
-        human.reach(r, "L", P(0.27, 0.04, 1.15), P(0.25, -0.1, 0.99))                         # the left hand resting on the bag
+        # (2026-11-12, dynamic) running to a casualty: a long stride off the back toes, the pistol hand swung forward
+        legs(r, L=(0.12, -0.32, 5), R=(-0.12, 0.26, 20), drop=0.02, heel={"R": 0.09})
+        human.aim(r, "spine03", P(0, -0.13, 1.4))
+        human.reach(r, "R", P(-0.27, -0.04, 1.12), P(-0.26, -0.28, 1.04)) # the pistol hand swung forward
+        human.reach(r, "L", P(0.27, 0.04, 1.15), P(0.25, -0.1, 0.99))     # the left hand on the bag
+    global TWIST, LOOK; TWIST, LOOK = -10, 18
     hands, hp, top = human_body(pose, dress=WW1_DRESS, head="mannequin", mitts="leather", shape="male-young-averagemuscle-minweight")
     surf = ww1_uniform(bands=False); toeless_feet()
     human_ = bpy.data.objects["human"]
@@ -6467,15 +6510,12 @@ def holy_warrior():
     from mathutils import noise as _nz
     import bmesh as _bm
     def pose(r):
-        human.aim(r, "spine03", P(0, -0.02, 1.4))                                              # upright, at vigil
-        human.aim(r, "upperleg01.L", P(0.13, -0.03, 0.5)); human.aim(r, "upperleg02.L", P(0.13, -0.03, 0.5))
-        human.aim(r, "lowerleg01.L", P(0.15, -0.03, 0.08)); human.aim(r, "lowerleg02.L", P(0.15, -0.03, 0.08))
-        human.aim(r, "foot.L", P(0.18, -0.19, -0.01))
-        human.aim(r, "upperleg01.R", P(-0.13, 0.01, 0.5)); human.aim(r, "upperleg02.R", P(-0.13, 0.01, 0.5))
-        human.aim(r, "lowerleg01.R", P(-0.15, 0.02, 0.08)); human.aim(r, "lowerleg02.R", P(-0.15, 0.02, 0.08))
-        human.aim(r, "foot.R", P(-0.18, -0.15, -0.01))
-        human.reach(r, "R", P(-0.21, -0.06, 1.1), P(-0.035, -0.27, 1.0))                      # both hands on the crossguard
-        human.reach(r, "L", P(0.21, -0.06, 1.1), P(0.035, -0.27, 1.06))
+        # (2026-11-12, dynamic) no longer at vigil: stepping in with the sword in a high guard over the right shoulder
+        legs(r, L=(0.14, -0.26, 5), R=(-0.17, 0.2, 40), drop=0.03)
+        human.aim(r, "spine03", P(0, -0.05, 1.4))
+        human.reach(r, "R", P(-0.4, -0.1, 1.28), P(-0.146, -0.19, 1.49))   # the upper hand, under the crossguard
+        human.reach(r, "L", P(0.14, -0.26, 1.22), P(-0.127, -0.22, 1.4))   # the lower hand, across the chest
+    global TWIST, LOOK; TWIST, LOOK = -14, 12
     hands, hp, top = human_body(pose, dress={"foot": "boots", "shin": "plate", "thigh": "plate", "torso": "plate"}, head="mannequin",
                                 mitts="leather", shape="male-young-averagemuscle-averageweight")
     human_ = bpy.data.objects["human"]
@@ -6535,8 +6575,13 @@ def holy_warrior():
     BL0 = gz - 0.015
     me = bpy.data.meshes.new("blade")
     w0, w1 = 0.034, 0.024
-    me.from_pydata([(sx_ - w0, sy_, BL0), (sx_ + w0, sy_, BL0), (sx_ + w1, sy_, 0.07), (sx_, sy_, 0.012), (sx_ - w1, sy_, 0.07)], [], [(0, 1, 2, 3, 4)])
+    me.from_pydata([(sx_ - w0, sy_, BL0), (sx_ + w0, sy_, BL0), (sx_ + w1, sy_, BL0 - 0.9), (sx_, sy_, BL0 - 0.96), (sx_ - w1, sy_, BL0 - 0.9)], [], [(0, 1, 2, 3, 4)])
     bl = bpy.data.objects.new("blade", me); scn.collection.objects.link(bl); bl.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(bl, "blade")
+    # (2026-11-12, dynamic) built point down as before (its painting is laid out that way), then turned whole about the
+    # grip into a high guard over the right shoulder (WARP, after the bake)
+    global WARP
+    _piv = Vector((sx_, sy_, gz + 0.09)); _rot = Vector((0, 0, -1)).rotation_difference(Vector((-0.2, 0.35, 0.92)).normalized()).to_matrix()
+    WARP = lambda name, q: _rot @ (q - _piv) + _piv if name == "Weapon" else q
     box((sx_, sy_ - 0.006, gz - 0.05), (0.03, 0.006, 0.07), "parchment")                     # a prayer strip bound under the guard
     module("Accent")
     # the tabard, front and back, from the belt to below the knees (detail pass, 2026-11-10): laid row by row close over
@@ -6801,12 +6846,16 @@ while t > BUDGET:   # the head and hands ("head" group) are kept as they are
     d = B.modifiers.new("d","DECIMATE"); d.ratio = r; d.vertex_group = "head"; d.invert_vertex_group = True
     bpy.ops.object.modifier_apply(modifier="d"); t = tris(B); r = BUDGET / t * 0.98
 scn.render.engine = 'CYCLES'; scn.cycles.device = 'CPU'; scn.render.bake.margin = 4   # a wider margin, so no tiny UV island samples an unbaked (black) texel
+if GROUND > 0:   # the leg landmarks the painters read, lowered as the painted leg points are (legs_down, below)
+    for k_ in JOINTS:
+        if k_.startswith(("lowerleg", "foot")): JOINTS[k_] = JOINTS[k_] - Vector((0, 0, GROUND * (1 - sstep((JOINTS[k_].z - 0.5) / 0.4))))
 for name, o in OBJS.items():
     if name == "Accent":
         continue
     only(o)
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris()
     size = (TEX_SIZES or {}).get(name, 512 if name == "Body" else 256)   # one 128x128 texture for the body, 64x64 for each module (larger classes more)
+    if os.environ.get("FIG_FAST"): size = 64
     # packed tight (2026-11-12): the default packing left half the texture empty, so painted lines fell under a texel
     bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.03)
     bpy.ops.uv.select_all(action='SELECT'); bpy.ops.uv.pack_islands(rotate=True, margin_method='FRACTION', margin=6 / size, shape_method='CONCAVE')
@@ -6850,11 +6899,11 @@ for name, o in OBJS.items():
         srgb = [((e0[c] + e1[c]) / 2) ** (1 / 2.2) for c in range(3)]
         rgb = [(round(s ** (1 / 2.2) * 31) / 31) ** 2.2 for s in srgb]
         for t in holes: px[t * 4:t * 4 + 3] = rgb
-    if PAINT is not None:   # painted: each texel coloured from the surface point it maps to, then grown 4 texels past each island
+    if PAINT is not None and not os.environ.get("FIG_FAST"):   # painted: each texel coloured from the surface point it maps to, then grown 4 texels past each island (FIG_FAST: a quick unpainted build, to check a pose)
         # each texel is the mean of SS x SS samples inside its faces (2026-11-12): a line thinner than a texel stays a
         # whole, softer line, not a row of dashes; a texel with no sample inside any face takes one from just outside
         V, names, out_ = o.data.vertices, [m_.name for m_ in o.data.materials], [None] * (size * size)
-        SS = 3; acc = {}
+        SS = 3; acc = {}; legs_down = GROUND > 0 and name in ("Body", "Boots")
         for p in o.data.polygons:
             a, b, c = [Vector((u.x * size, u.y * size)) for u in uvs(p)]
             d = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y)
@@ -6864,7 +6913,9 @@ for name, o in OBJS.items():
                 l1 = ((b.y - c.y) * (ux - c.x) + (c.x - b.x) * (uy - c.y)) / d; l2 = ((c.y - a.y) * (ux - c.x) + (a.x - c.x) * (uy - c.y)) / d
                 l3 = 1 - l1 - l2
                 if min(l1, l2, l3) < tol: return None
-                return PAINT(mn, vs[0] * l1 + vs[1] * l2 + vs[2] * l3, (ns[0] * l1 + ns[1] * l2 + ns[2] * l3).normalized(), ao[t * 4], tx, ty)
+                pt = vs[0] * l1 + vs[1] * l2 + vs[2] * l3
+                if legs_down: pt.z -= GROUND * (1 - sstep((pt.z - 0.5) / 0.4))   # a legs() stance: the legs painted as if the feet stood on the plain floor
+                return PAINT(mn, pt, (ns[0] * l1 + ns[1] * l2 + ns[2] * l3).normalized(), ao[t * 4], tx, ty)
             for ty in range(max(0, int(min(a.y, b.y, c.y))), min(size, int(max(a.y, b.y, c.y)) + 1)):
                 for tx in range(max(0, int(min(a.x, b.x, c.x))), min(size, int(max(a.x, b.x, c.x)) + 1)):
                     t = ty * size + tx
@@ -6919,6 +6970,29 @@ def accent_shading():
         col.data[l.index].color = (min(1.0, k) ** 2.2,) * 3 + (1.0,)   # linear, as glTF stores it
     me.color_attributes.active_color = col
 accent_shading()
+def dynamic_warp():
+    # TWIST and LOOK: the shoulders turned against the hips (rising from the hips to the chest) and the head turned on the
+    # neck (the head, its gear and what lies close round the neck's axis), as a smooth warp of the finished figure, so
+    # the painted torso and every strapped-on part turn with it. A weapon or shield turns whole, with the fist nearest it.
+    tw, lk = math.radians(TWIST), math.radians(LOOK)
+    def twist(p, z): return Matrix.Rotation(tw * sstep((z - 0.95) / 0.45), 3, 'Z') @ (p - HIPS) + HIPS
+    for name, o in OBJS.items():
+        vs = o.data.vertices
+        if name.startswith(("Weapon", "Shield")) and FISTS:
+            az = min((min((v.co - f[0]).length for v in vs), f[0].z) for f in FISTS.values())[1]
+            for v in vs: v.co = twist(v.co, az)
+            continue
+        for v in vs:
+            p = v.co
+            if lk and name in ("Body", "Helmet", "Accent"):
+                e = p - NECK; t = e.dot(HEAD_AXIS); rad = (e - HEAD_AXIS * t).length
+                p = Matrix.Rotation(lk * sstep(t / 0.07) * sstep((0.26 - rad) / 0.08), 3, HEAD_AXIS) @ e + NECK
+            v.co = twist(p, p.z)
+        o.data.update()
+if WARP is not None:
+    for name, o in OBJS.items():
+        for v in o.data.vertices: v.co = WARP(name, v.co)
+if TWIST or LOOK: dynamic_warp()
 # scale to the game's 1.2 tall, feet at 0, centred
 ALL = list(OBJS.values())
 low = min((o.matrix_world @ v.co).z for o in ALL for v in o.data.vertices)
@@ -6929,7 +7003,8 @@ for o in ALL:
     for v in o.data.vertices: v.co *= 1.2 / top
 allp = [(o.matrix_world @ v.co) for o in ALL for v in o.data.vertices]
 w = max(max(p.x for p in allp)-min(p.x for p in allp), max(p.y for p in allp)-min(p.y for p in allp))
-print(f"FIG {role} " + " ".join(f"{n}={tris(o)}" for n, o in OBJS.items()) + f" total={sum(tris(o) for o in ALL)} height={max(p.z for p in allp):.3f} width={w:.3f}")
+# feet: how far the body's lowest point stands above the figure's (0: the feet are on the ground, not held up by a part hanging lower)
+print(f"FIG {role} " + " ".join(f"{n}={tris(o)}" for n, o in OBJS.items()) + f" total={sum(tris(o) for o in ALL)} height={max(p.z for p in allp):.3f} raw={top:.3f} width={w:.3f} feet={min(v.co.z for v in B.data.vertices):.3f}")
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=f"{outdir}/{role}.glb", export_format='GLB', export_yup=True, export_vertex_color='ACTIVE')   # the Accent's shading
 # the Blender source, for review or hand edits (docs/art-pipeline.md): saved only when asked

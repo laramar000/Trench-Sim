@@ -8,6 +8,9 @@ func _initialize() -> void:
 	var out := args[0]
 	var names := args.slice(1)
 	var shader: Shader = load("res://shaders/psx_figure.gdshader")
+	# each figure at its catalog height (inches = units here), as the game draws it: the sheet shows true relative sizes
+	var entries: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/catalog.json"))["entries"]
+	var close := OS.get_environment("PSX_CAM_Z") != ""
 	root.size = Vector2i(1280, 720)
 	for use_psx in [true, false]:
 		var world := Node3D.new()
@@ -22,7 +25,9 @@ func _initialize() -> void:
 		var sun := DirectionalLight3D.new()
 		sun.rotation_degrees = Vector3(-45, -30, 0)
 		world.add_child(sun)
-		var x := -(names.size() - 1) * 0.45
+		var gap := 0.9 if close else 1.05   # the room a 1.2 tall figure gets; a taller one more
+		var x := 0.0
+		var tallest := 1.2
 		for n in names:
 			var doc := GLTFDocument.new()
 			var state := GLTFState.new()
@@ -46,15 +51,25 @@ func _initialize() -> void:
 			seat.vertex_color_use_as_albedo = true
 			for mesh in fig.find_children("Accent*", "MeshInstance3D", true, false):
 				mesh.material_override = seat
-			fig.position = Vector3(x, 0, 0)
+			var tall := 1.2
+			for e in entries.values():
+				if e is Dictionary and e.get("file", "") == "units/%s" % n.get_file().trim_suffix(".glb") + ".glb":
+					tall = e.get("height", 1.2)
+			if not close:
+				fig.scale = Vector3.ONE * (tall / 1.2)
+				tallest = maxf(tallest, tall)
+			var room := gap if close else gap * tall / 1.2
+			fig.position = Vector3(x + room / 2, 0, 0)
+			fig.rotation_degrees.y = float(OS.get_environment("PSX_YAW"))   # PSX_YAW=40: every figure turned, a three-quarter view
 			world.add_child(fig)
-			x += 0.9
+			x += room
 		var cam := Camera3D.new()
 		cam.fov = 30
 		world.add_child(cam)
 		cam.make_current()
-		var cz := float(OS.get_environment("PSX_CAM_Z")) if OS.get_environment("PSX_CAM_Z") != "" else 3.2   # PSX_CAM_Z=1.2 for a close-up
-		cam.look_at_from_position(Vector3(0, 0.75 if cz > 2.0 else 0.8, cz), Vector3(0, 0.6 if cz > 2.0 else 0.8, 0))
+		# PSX_CAM_Z=1.2 for a close-up (figures then at the file's own 1.2); else far enough for the row and its tallest figure
+		var cz := float(OS.get_environment("PSX_CAM_Z")) if close else maxf((x + 0.3) / 0.95, tallest * 1.15 / 0.536)
+		cam.look_at_from_position(Vector3(x / 2, 0.8 if close else tallest * 0.55, cz), Vector3(x / 2, 0.8 if close else tallest * 0.48, 0))
 		for i in 6:
 			await process_frame
 		root.get_texture().get_image().save_png("%s/psx-showcase-%s.png" % [out, "on" if use_psx else "off"])

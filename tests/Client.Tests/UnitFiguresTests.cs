@@ -89,17 +89,18 @@ public class UnitFiguresTests
     // owner's exceptions for modelled kit (2026-11-03/04) were the Yeoman 2,400, Shock Trooper 2,700, Lieutenant 3,400,
     // Blind Marksman 2,800, Trench Cleric 4,000, Castigator 3,100, Sanctified Giant 5,200 and Reliquary Walker 8,000.
     // Detail pass (2026-11-12): every body, coat and robe texture is 1,024 px (the other modules stay 512 px); the
-    // Standard-bearer 1,700 (a waved pennant) and the Combat Medic 1,600 (a folded apron).
+    // Standard-bearer 1,700 (a waved pennant) and the Combat Medic 1,600 (a folded apron). Dynamic poses (2026-11-12): the
+    // Castigator and the Trench Cleric 2,400 (their bodies reduce a little differently in the new stances).
     public static TheoryData<string, int, int, float> Figures => new()
     {
         { "units/rifleman.glb", 1600, 1024, 0.9f }, { "units/skirmisher.glb", 1600, 1024, 0.9f }, { "units/shield.glb", 1700, 1024, 0.9f },
         { "units/standard.glb", 1700, 1024, 0.9f }, { "units/trench-pilgrim.glb", 1300, 1024, 0.9f },
         { "units/stigmatic-nun.glb", 1400, 1024, 0.9f }, { "units/ecclesiastic-prisoner.glb", 1600, 1024, 0.9f },
-        { "units/war-prophet.glb", 2000, 1024, 0.9f }, { "units/castigator.glb", 2300, 1024, 0.9f },
+        { "units/war-prophet.glb", 2000, 1024, 0.9f }, { "units/castigator.glb", 2400, 1024, 0.9f },
         { "units/reliquary-walker.glb", 7000, 1024, 1.1f }, { "units/sanctified-giant.glb", 4900, 1024, 1.1f },
         { "units/yeoman.glb", 1500, 1024, 0.9f }, { "units/shock-trooper.glb", 2000, 1024, 0.9f },
         { "units/lieutenant.glb", 2900, 1024, 0.9f }, { "units/blind-marksman.glb", 2300, 1024, 0.9f },
-        { "units/trench-cleric.glb", 2300, 1024, 0.9f },
+        { "units/trench-cleric.glb", 2400, 1024, 0.9f },
         { "units/combat-engineer.glb", 3300, 1024, 0.9f },
         { "units/mechanized-heavy-infantry.glb", 4500, 1024, 1.1f }, { "units/combat-medic.glb", 1600, 1024, 0.9f },
         { "units/holy-warrior.glb", 2700, 1024, 0.9f },

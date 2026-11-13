@@ -347,3 +347,19 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   pennant and lantern hang outward from his right, the pennant waved (budget 1,700); Combat Medic: apron folded (1,600).
   A build takes 3 to 10 minutes a figure; `psx_showcase.gd` also takes full paths to .glb files. The units folder is
   about 40 MB. Renders (not in git): `ui-check-results/s5/` (`g1`..`g5` all figures, `before`, `after`).
+- 2026-11-12/13: dynamic poses on all 20 figures (the owner: "make all of their posing more dynamic and less static").
+  New in `tools/art/make_figures.py`: `legs(r, L=(x, y, toe), R=..., drop=, heel=)` (stance by inverse kinematics, the
+  ground rises to the feet: `GROUND`; grounded kit adds it), `TWIST` and `LOOK` (shoulders and head turned, a warp of the
+  finished figure, `dynamic_warp`), `WARP` (a figure's own warp: Holy Warrior sword into a high guard, Reliquary Walker
+  stride; its mace no longer hangs below the feet), `FIG_FAST=1` (unpainted build in seconds). The `FIG` line prints
+  `raw=` (metres before scaling) and `feet=` (must be 0). Poses: Rifleman doubling forward, Skirmisher stalking in a
+  crouch, Shield braced with the mace back, Standard striding and looking back, Trench Pilgrim charging, Nun striding
+  with the pistol levelled, Prisoner staggering, War Prophet preaching with a hand raised, Castigator flail swung back,
+  Walker lumbering stride, Giant twisted, Yeoman and Shock Trooper charging, Lieutenant sword thrust up and forward,
+  Blind Marksman head turned (still kneeling), Cleric book high and pistol levelled, Engineer crouched assault,
+  Mechanized wide braced stance, Medic running, Holy Warrior high guard. Catalog heights on one true scale (the owner,
+  2026-11-13: "sizes are all wrong scale properly"): `raw` x 0.70" for every human figure, 0.80 Mechanized, 0.93 Giant,
+  1.13 Walker (`client/assets/catalog.json`: every unit entry gives a height; before, human bodies ran from 0.56 to
+  0.93). UI check `unit-figures` now expects each unit's catalog height, not 1.2. `psx_showcase.gd` draws figures at
+  their catalog heights. Godot windows: open them on the second monitor (`--screen 1`), the owner plays on the first. `psx_showcase.gd`: `PSX_YAW=<degrees>` turns the
+  figures. Budgets: Castigator and Trench Cleric 2,400.
