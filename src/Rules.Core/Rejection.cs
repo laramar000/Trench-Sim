@@ -47,6 +47,16 @@ public enum ReasonCode
     NotACandidate,
     // M4 reducer hardening
     UnknownCommand,
+    // Trench Warfare's Mine Markers (p. 162)
+    MinesIllegal,
+    // Roster stage R3: a Fight's next attack is with another weapon
+    WrongWeapon,
+    // Roster stage R5h: an ACTION the model's kit does not give it, and a Treat with nothing to treat
+    NoSuchAction,
+    NothingToTreat,
+    // Roster stage R5i: a Grind to Dust target that is not Down, or on a base larger than 32 mm
+    TargetNotDown,
+    TargetTooLarge,
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.

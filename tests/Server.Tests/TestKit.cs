@@ -28,7 +28,7 @@ internal sealed class Harness
     private long _next;
 
     // A zero rejoin window gives M5's behaviour (a disconnect aborts at once); the M6 tests pass a window and a clock.
-    public Harness(int seed = 1, Func<IDiceSource>? dice = null, int maxMatches = 64, TimeSpan? rejoinWindow = null, TimeProvider? time = null, IMatchRecorder? recorder = null)
+    public Harness(int seed = 1, Func<IDiceSource>? dice = null, int maxMatches = 64, TimeSpan? rejoinWindow = null, TimeProvider? time = null, IMatchRecorder? recorder = null, Func<int>? mapSeed = null, RosterMatches? rosters = null)
     {
         Lobby = new Lobby(
             Scenarios.All,
@@ -38,7 +38,10 @@ internal sealed class Harness
             maxMatches,
             time,
             rejoinWindow ?? TimeSpan.Zero,
-            recorder);
+            recorder,
+            ScenarioCatalog.Maps,
+            mapSeed,
+            rosters);
     }
 
     // Connections the Lobby asked the transport to close.
@@ -269,7 +272,11 @@ internal static class TestRecords
     public static MatchRecordBody With(MatchRecordBody body, IEnumerable<RecordedEvent>? events = null, RecordResult? result = null,
         RecordEngine? engine = null, string? fingerprint = null) =>
         new(body.MatchId, body.Code, body.CreatedAt, body.ClosedAt, engine ?? body.Engine, body.Scenario,
-            fingerprint ?? body.ContentFingerprint, events ?? body.Events, result ?? body.Result);
+            fingerprint ?? body.ContentFingerprint, events ?? body.Events, result ?? body.Result)
+        {
+            Map = body.Map,
+            MapHash = body.MapHash,
+        };
 
     // The result that matches a list of events, for a forger who re-signs consistently.
     public static RecordResult ResultFor(RecordResult result, IReadOnlyList<RecordedEvent> events) =>

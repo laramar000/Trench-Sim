@@ -202,7 +202,7 @@ public class ChargeTests
     }
 
     [Fact]
-    [Trait("Rule", "Actions p. 34, Ranged Attacks p. 42: no Shoot ACTION with a Charge ACTION (no ASSAULT yet)")]
+    [Trait("Rule", "Actions p. 34, Ranged Attacks p. 42: no Shoot ACTION with a Charge ACTION without ASSAULT")]
     public void ShootAndChargeExcludeEachOther()
     {
         var shotFirst = Skirmish("4", "2", "12", "2", Gunman);

@@ -9,7 +9,7 @@ namespace Match.Cli;
 public static class CommandParser
 {
     public const string Help = """
-        zone <id>                 choose a deployment zone
+        zone <id>                 choose a deployment zone     attacker One|Two      Trench Warfare: who attacks
         deploy <model>            deploy (no battlefield)      place <model> <x,y>   set up at a point
         first One|Two             choose who activates first   order One|Two         Morale order
         activate <model>          start an activation          end                   end the activation
@@ -19,6 +19,10 @@ public static class CommandParser
         retreat <model> <x,y>...  retreat                      free <model>          take a free attack
         decline                   decline free attacks         friendly <model>      choose the friendly victim
         morale BecomeShaken|SoundRetreat                       answer a failed Morale Check
+        scatter <x,y>             where a missed SCATTER attack lands
+        bloodbath <n>             spend n Blood Markers (6, or 3 if Down) for a Bloodbath Roll
+        carry / stop              carry a charge on to within 1" of another enemy, or stop in contact
+        blast <model> <x,y>       aim a BLAST weapon at a point
         """;
 
     public static Command Parse(string line, Seat seat)
@@ -35,6 +39,7 @@ public static class CommandParser
             "deploy" => new DeployModel(seat, Model(One(args))),
             "place" => new PlaceModel(seat, Model(Arg(args, 0)), Point(Arg(args, 1))),
             "first" => new ChooseFirstActivation(seat, SeatName(One(args))),
+            "attacker" => new ChooseAttacker(seat, SeatName(One(args))),
             "order" => new ChooseMoraleOrder(seat, SeatName(One(args))),
             "activate" => new ActivateModel(seat, Model(One(args))),
             "end" => new EndActivation(seat),
@@ -45,9 +50,16 @@ public static class CommandParser
             "charge" => new ChargeModel(seat, Model(Arg(args, 0)), Model(Arg(args, 1))),
             "fight" => new FightModel(seat, Model(Arg(args, 0)), Model(Arg(args, 1))),
             "markers" => new SpendMarkers(seat, int.Parse(One(args), CultureInfo.InvariantCulture)),
+            "bloodbath" => new SpendMarkers(seat, int.Parse(One(args), CultureInfo.InvariantCulture)) { Bloodbath = true },
             "free" => new FreeFight(seat, Model(One(args))),
             "decline" => new DeclineFreeFights(seat),
             "friendly" => new ChooseFriendlyTarget(seat, Model(One(args))),
+            "scatter" => new ScatterAttack(seat, Point(One(args))),
+            "talisman" => new UseTalisman(seat),
+            "keep" => new DeclineTalisman(seat),
+            "carry" => new CarryOnCharge(seat),
+            "stop" => new StopCharge(seat),
+            "blast" => new ShootPoint(seat, Model(Arg(args, 0)), Point(Arg(args, 1))),
             "morale" => new ResolveFailedMorale(seat, Enum.Parse<MoraleFailureChoice>(One(args))),
             _ => throw new FormatException($"Unknown command '{words[0]}'. Type 'help'."),
         };

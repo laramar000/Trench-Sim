@@ -30,6 +30,13 @@ public sealed record ResolveFailedMorale(Seat Seat, MoraleFailureChoice Choice) 
 
 public sealed record ChooseMoraleOrder(Seat Seat, Seat First) : Command;
 
+// Trench Warfare (p. 161): the roles roll-off winner chooses which seat attacks; the other defends.
+public sealed record ChooseAttacker(Seat Seat, Seat Attacker) : Command;
+
+// Trench Warfare (p. 162): the defender sets up the Mine Markers (ids Mines.IdOf(0) onwards, in this order) and names
+// the duds among them. Only the defender's seat sees the duds.
+public sealed record LayMines(Seat Seat, ImmutableArray<Point2> Markers, ImmutableArray<string> Duds) : Command;
+
 // ---- M4: commands that need a battlefield (a MatchSetup with a Scenario) ----
 
 // Sets a model up at a point inside its deployment zone (Scenario I, p. 152). Replaces DeployModel when there is a battlefield.
@@ -42,10 +49,20 @@ public sealed record MoveModel(Seat Seat, ModelId Model, ImmutableArray<Point2> 
 public sealed record DashModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command;
 
 // A Shoot ACTION: a Ranged Attack by the active model against one enemy model (pp. 42-44).
-public sealed record Shoot(Seat Seat, ModelId Attacker, ModelId Target) : Command;
+public sealed record Shoot(Seat Seat, ModelId Attacker, ModelId Target) : Command
+{
+    // Roster stage R3 (U100): which of the model's weapons of that kind attacks: 0, or 1 for its second weapon.
+    // Left off the wire when 0.
+    public int Weapon { get; init; }
+}
 
 // Answers a pending Blood Marker decision (p. 28): spend this many markers, or none (Count 0).
-public sealed record SpendMarkers(Seat Seat, int Count) : Command;
+// Bloodbath (p. 47, U123): before an Injury Roll, spend 6 markers (3 if the target is Down) for a Bloodbath Roll, which
+// keeps one more die. Left off the wire when false.
+public sealed record SpendMarkers(Seat Seat, int Count) : Command
+{
+    public bool Bloodbath { get; init; }
+}
 
 // ---- M4 Slice B: Charge, Retreat, Fight and the choices around them ----
 
@@ -56,13 +73,61 @@ public sealed record ChargeModel(Seat Seat, ModelId Model, ModelId Target) : Com
 public sealed record RetreatModel(Seat Seat, ModelId Model, ImmutableArray<Point2> Path) : Command;
 
 // A Fight ACTION (pp. 34, 45-46): one Melee Attack with the model's Melee Weapon against one enemy within 1".
-public sealed record FightModel(Seat Seat, ModelId Model, ModelId Target) : Command;
+public sealed record FightModel(Seat Seat, ModelId Model, ModelId Target) : Command
+{
+    // Roster stage R3 (U100): which of the model's weapons of that kind attacks: 0, or 1 for its second weapon.
+    // Left off the wire when 0.
+    public int Weapon { get; init; }
+}
 
 // The opponent of a retreating model attacks it with one engaged model (p. 37). Answers the FreeFight decision.
-public sealed record FreeFight(Seat Seat, ModelId Attacker) : Command;
+public sealed record FreeFight(Seat Seat, ModelId Attacker) : Command
+{
+    // Roster stage R3 (U100): which of the model's weapons of that kind attacks: 0, or 1 for its second weapon.
+    // Left off the wire when 0.
+    public int Weapon { get; init; }
+}
 
 // The opponent declines the remaining free attacks (p. 37). Answers the FreeFight decision.
 public sealed record DeclineFreeFights(Seat Seat) : Command;
 
 // A shot into melee rolled 1-3: the shooter picks which of its own models within 1" of the target is shot (p. 42).
 public sealed record ChooseFriendlyTarget(Seat Seat, ModelId Victim) : Command;
+
+// Roster stage R4c (U103): a SCATTER attack missed; the attacker's opponent picks the point it lands at, exactly the
+// scatter distance from the target and in Line of Sight of it (p. 57). Answers the ChooseScatterPoint decision.
+public sealed record ScatterAttack(Seat Seat, Point2 At) : Command;
+
+// Roster stage R5a (U105): a Shoot ACTION with a BLAST weapon aimed at a visible point on the battlefield instead of a
+// model (p. 53). Weapon as for Shoot.
+public sealed record ShootPoint(Seat Seat, ModelId Attacker, Point2 At) : Command
+{
+    public int Weapon { get; init; }
+}
+
+// Roster stage R5h (U113): a Treat ACTION with a Medi-kit (p. 84): a Risky Success Roll, and on a Success, Choice: remove
+// 1 BLOOD MARKER from the model itself or a friendly model within 1" (Target), or stand up a Down friendly model within 1".
+public sealed record TreatModel(Seat Seat, ModelId Model, ModelId Target, TreatChoice Choice) : Command;
+
+// Roster stage R5j (U115): a Trigger Martyrdom Device ACTION (Warbands p. 58): the device detonates, once per game.
+public sealed record TriggerMartyrdom(Seat Seat, ModelId Model) : Command;
+
+// Roster stage R5k (U116): answers the UseTalisman decision after the active model's Risky Success Roll failed: use one of
+// its Talismans (a Blessed Icon or an Unholy Trinket) so the activation does not end, or let the activation end.
+public sealed record UseTalisman(Seat Seat) : Command;
+public sealed record DeclineTalisman(Seat Seat) : Command;
+
+// U124: answers the CarryOnCharge decision: the charging model carries on round its target to within 1" of another
+// enemy model (p. 37), or stops where it made contact.
+public sealed record CarryOnCharge(Seat Seat) : Command;
+public sealed record StopCharge(Seat Seat) : Command;
+
+// Roster stage R6b (U118): an ACTION the model takes on itself alone, a Risky Success Roll: Aim (+2 DICE to the roll; on
+// a Success its Ranged Attacks get +2 DICE for the rest of the activation) or Fortify (on a Success it has COVER until it
+// moves).
+// Roster stage R6e (U121): Target, the friend a Laying on of Hands ACTION is taken on (the model itself included); no other
+// ACTION has one.
+public sealed record TakeSelfAction(Seat Seat, ModelId Model, SelfActionKind Action) : Command
+{
+    public ModelId? Target { get; init; }
+}

@@ -44,11 +44,11 @@
     "targetLevel": "High",
     "visibility": "None",
     "visible": 0,
-    "total": 4,
+    "total": 9,
     "cover": false,
     "coverBy": null
   },
   "status": "provisional",
-  "basis": "U17, U21: sight is deliberately asymmetric",
-  "ruling": "A target's high ground adds no shelter, but the ground wall still blocks the ground attacker; the platform itself does not block its own occupant."
+  "basis": "U17, U19, U77",
+  "ruling": "The target on its 3\" platform is hidden by the 3\" wall between it and the ground attacker, which stands close to the wall and looks up; the target's own platform does not block it."
 }

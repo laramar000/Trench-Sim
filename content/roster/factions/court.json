@@ -1,0 +1,5489 @@
+{
+ "format": 1,
+ "rulesVersion": "1.0.2",
+ "id": "court",
+ "name": "The Court",
+ "alignment": "fallen",
+ "budgetDucats": 700,
+ "specialRules": [
+  {
+   "name": "Seven Deadly Sins",
+   "summary": "Before recruiting, dedicate the warband to Wrath, Envy, Lust, Pride, Sloth, Gluttony or Greed: in the builder, pick that sin's list. The standard list shows only the powers open to every warband.",
+   "page": 147
+  },
+  {
+   "name": "Goetic Powers",
+   "summary": "ELITE models can have Goetic Powers (abilities and spells), as many as their entry says. Spells are paid for in BLOOD MARKERS from any models without CULT or DEMONIC, anywhere; no Success Roll; the same spell at most once per Activation.",
+   "page": 147
+  }
+ ],
+ "models": [
+  {
+   "id": "praetor",
+   "name": "Praetor",
+   "max": 1,
+   "cost": {
+    "amount": 115,
+    "currency": "ducats"
+   },
+   "movementInches": 8,
+   "movementType": "flying",
+   "ranged": 3,
+   "melee": 3,
+   "armour": 0,
+   "baseMm": [
+    50
+   ],
+   "keywords": [
+    {
+     "id": "COURT"
+    },
+    {
+     "id": "DEMONIC"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "FLYING"
+    },
+    {
+     "id": "LEADER"
+    },
+    {
+     "id": "STRONG"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "armoury",
+   "upgrades": [
+    {
+     "id": "slavemaster",
+     "name": "Slavemaster (Spell, cost 1)",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 162
+   },
+   "status": "verified",
+   "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
+   "naming": "keep"
+  },
+  {
+   "id": "sorcerer",
+   "name": "Sorcerer",
+   "max": 1,
+   "cost": {
+    "amount": 75,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "flying",
+   "ranged": 1,
+   "melee": 1,
+   "armour": 0,
+   "baseMm": [
+    50
+   ],
+   "keywords": [
+    {
+     "id": "COURT"
+    },
+    {
+     "id": "DEMONIC"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "FLYING"
+    }
+   ],
+   "kitAccess": "armoury",
+   "upgrades": [
+    {
+     "id": "burning-inferno",
+     "name": "Burning Inferno (Spell, cost 1-3)",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
+    },
+    {
+     "id": "slavemaster",
+     "name": "Slavemaster (Spell, cost 1)",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+    }
+   ],
+   "abilities": [
+    {
+     "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
+     "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
+     "page": 163
+    }
+   ],
+   "kitRules": {
+    "noCategories": [
+     "ranged",
+     "grenade"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 163
+   },
+   "status": "verified",
+   "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
+   "naming": "keep"
+  },
+  {
+   "id": "shadow-hunter",
+   "name": "Shadow Hunter",
+   "max": 1,
+   "cost": {
+    "amount": 110,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 2,
+   "melee": 1,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "COURT"
+    },
+    {
+     "id": "DEMONIC"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "INFILTRATOR"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "bow-of-lethe"
+   ],
+   "abilities": [
+    {
+     "name": "Left-Hand Path (Spell, cost 2)",
+     "summary": "Moving into terrain it may vanish and reappear touching another terrain piece over 1\" from enemies (closer to the target if charging).",
+     "page": 165
+    },
+    {
+     "name": "Oracle Beast Cloak (Spell, cost 3)",
+     "summary": "Once per Turn after an Injury Roll for it: the result becomes No Effect.",
+     "page": 165
+    },
+    {
+     "name": "Shadow-walker (Spell, cost 2)",
+     "summary": "Before it Retreats: enemies get no attack as it leaves.",
+     "page": 165
+    }
+   ],
+   "kitRules": {
+    "note": "A Shadow Hunter cannot have 2-Handed Weapons (not checked by the builder)."
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 164
+   },
+   "status": "verified",
+   "note": "Always has its Bow of Lethe (no cost) and its three Goetic Powers.",
+   "naming": "rename"
+  },
+  {
+   "id": "hell-knight",
+   "name": "Hell Knight",
+   "max": 3,
+   "cost": {
+    "amount": 100,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 2,
+   "armour": -2,
+   "baseMm": [
+    40
+   ],
+   "keywords": [
+    {
+     "id": "COURT"
+    },
+    {
+     "id": "DEMONIC"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "STRONG"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "infernal-iron-armour"
+   ],
+   "upgrades": [
+    {
+     "id": "slavemaster",
+     "name": "Slavemaster (Spell, cost 1)",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+    }
+   ],
+   "abilities": [
+    {
+     "name": "Blood Magic (Spell, cost 1)",
+     "summary": "Free. Cast before its Injury Rolls: +1 INJURY DICE to all of them for that attack.",
+     "page": 166
+    }
+   ],
+   "kitRules": {
+    "noCategories": [
+     "armour"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 166
+   },
+   "status": "verified",
+   "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
+   "naming": "keep"
+  },
+  {
+   "id": "wretched",
+   "name": "Wretched",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": -1,
+   "melee": -1,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "COURT"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Law of Hell",
+     "summary": "If it takes an enemy ELITE model Out of Action it goes free: removed from the game and the roster.",
+     "page": 167
+    }
+   ],
+   "kitRules": {
+    "maxCostDucats": 10,
+    "mustHaveWeapon": true
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 167
+   },
+   "status": "verified",
+   "note": "There must be more DEMONIC models than Wretched (not checked by the builder).",
+   "naming": "keep"
+  },
+  {
+   "id": "pit-locust",
+   "name": "Pit Locust",
+   "max": 3,
+   "cost": {
+    "amount": 90,
+    "currency": "ducats"
+   },
+   "movementInches": 8,
+   "movementType": "flying",
+   "ranged": 0,
+   "melee": 2,
+   "armour": -2,
+   "baseMm": [
+    30,
+    60
+   ],
+   "keywords": [
+    {
+     "id": "COURT"
+    },
+    {
+     "id": "DEMONIC"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "FLYING"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Poison Stingers",
+     "summary": "May make Melee Attacks without a weapon, with CLEAVE 2 and SHRAPNEL.",
+     "page": 168
+    }
+   ],
+   "kitRules": {
+    "noCategories": [
+     "ranged",
+     "melee",
+     "grenade",
+     "shield",
+     "armour"
+    ],
+    "onlyKit": [
+     {
+      "category": "equipment",
+      "kit": [
+       "crown-of-hellfire"
+      ]
+     }
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 168
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "chain-fiend",
+   "name": "Chain Fiend",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 1,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "COURT"
+    },
+    {
+     "id": "DEMONIC"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Hateful",
+     "summary": "Activating over 1\" from enemies with a non-CULT, non-DEMONIC enemy in sight within 12\", it must charge the closest one (standing up first).",
+     "page": 169
+    },
+    {
+     "name": "Torturer",
+     "summary": "May attack a non-DEMONIC friend instead, and then cannot attack again that Activation.",
+     "page": 169
+    }
+   ],
+   "kitRules": {
+    "note": "A Chain Fiend can have only 1 Ranged Weapon, costing 30 ducats or less (not checked by the builder)."
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 169
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "fallen-saint",
+   "name": "Fallen Saint",
+   "max": 1,
+   "cost": {
+    "amount": 140,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": null,
+   "melee": 3,
+   "armour": -3,
+   "baseMm": [
+    60
+   ],
+   "keywords": [
+    {
+     "id": "COURT"
+    },
+    {
+     "id": "DEMONIC"
+    },
+    {
+     "id": "IGNORE",
+     "value": "OFF-HAND"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "STRONG"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Annihilator",
+     "summary": "One Fight ACTION per Melee Weapon each Activation.",
+     "page": 170
+    },
+    {
+     "name": "Demonic Aura",
+     "summary": "One aura set by the warband's Deadly Sin (see the sin's list).",
+     "page": 170
+    }
+   ],
+   "kitRules": {
+    "noCategories": [
+     "ranged",
+     "grenade",
+     "shield",
+     "armour",
+     "equipment",
+     "special"
+    ],
+    "arms": {
+     "count": 3,
+     "twoHandedArms": 1,
+     "maxTwoHanded": 1
+    },
+    "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 170
+   },
+   "status": "verified",
+   "naming": "rename"
+  }
+ ],
+ "armoury": [
+  {
+   "kit": "arquebus",
+   "cost": {
+    "amount": 8,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "blunderbuss",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "flamethrower",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "heavy-flamethrower",
+   "cost": {
+    "amount": 55,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "ophidian-rifle",
+   "cost": {
+    "amount": 25,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "pistol",
+   "cost": {
+    "amount": 6,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "serpent-assault-gun",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "shotgun",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "great-hammer-maul",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "great-sword-axe",
+   "cost": {
+    "amount": 12,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "headtaker",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "hellblade",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "status": "verified"
+  },
+  {
+   "kit": "forked-abyssal-sword",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "polearm",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sword-axe",
+   "cost": {
+    "amount": 4,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "torture-instrument",
+   "cost": {
+    "amount": 8,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "trench-club",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "trench-knife",
+   "cost": {
+    "amount": 1,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "gas-grenades",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "incendiary-grenades",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "trench-shield",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "infernal-iron-armour",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "model": "hell-knight"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "reinforced-armour",
+   "cost": {
+    "amount": 40,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "standard-armour",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "combat-helmet",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "headgear"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "crown-of-hellfire",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    },
+    {
+     "model": "pit-locust"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "gas-mask",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "incendiary-ammunition",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "musical-instrument",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "restraining-muzzle",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "only": [
+    {
+     "model": "chain-fiend"
+    }
+   ],
+   "status": "verified",
+   "note": "up to 3 more can be bought for 1 Glory each as Glory Items (not priced by the builder)"
+  },
+  {
+   "kit": "shovel",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "model": "wretched"
+    },
+    {
+     "model": "chain-fiend"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "troop-flag",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "unholy-relic",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "unholy-trinket",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "battlefield-title",
+   "cost": {
+    "amount": 5,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bestial-skin-cloak",
+   "cost": {
+    "amount": 6,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "cruel-helmet",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "limit": 2,
+   "only": [
+    {
+     "model": "wretched"
+    }
+   ],
+   "stipulations": [
+    "headgear"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "knighthood",
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "the-black-codex",
+   "cost": {
+    "amount": 8,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "model": "sorcerer"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "worldly-dominion",
+   "cost": {
+    "amount": 9,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "model": "praetor"
+    },
+    {
+     "model": "sorcerer"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "piece-of-silver",
+   "cost": {
+    "amount": 12,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "rocket-propelled-grenade",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "trench-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified",
+   "note": "Loyal Hound and one Special Training are +1 Glory each, bought as their own items"
+  },
+  {
+   "kit": "loyal-hound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "needsKit": "trench-dog",
+   "limitPerModel": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "hellhound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
+  }
+ ],
+ "variants": [
+  {
+   "id": "dedicated-to-wrath",
+   "name": "Dedicated to Wrath",
+   "removeModels": [
+    "praetor",
+    "sorcerer",
+    "hell-knight",
+    "fallen-saint"
+   ],
+   "addModels": [
+    {
+     "id": "praetor",
+     "name": "Praetor",
+     "max": 1,
+     "cost": {
+      "amount": 115,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 3,
+     "melee": 3,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "blind-rage",
+       "name": "Blind Rage (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "+1 DICE to the Risky roll for a Dash ACTION"
+      },
+      {
+       "id": "charge-of-hatred",
+       "name": "Charge of Hatred (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy"
+      },
+      {
+       "id": "lesser-mark-of-cain",
+       "name": "Lesser Mark of Cain (Ability)",
+       "cost": {
+        "amount": 20,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "-1 INJURY DICE to Injury Rolls against it"
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 162
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "sorcerer",
+     "name": "Sorcerer",
+     "max": 1,
+     "cost": {
+      "amount": 75,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "flying",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "burning-inferno",
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "blind-rage",
+       "name": "Blind Rage (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "+1 DICE to the Risky roll for a Dash ACTION"
+      },
+      {
+       "id": "charge-of-hatred",
+       "name": "Charge of Hatred (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy"
+      },
+      {
+       "id": "lesser-mark-of-cain",
+       "name": "Lesser Mark of Cain (Ability)",
+       "cost": {
+        "amount": 20,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "-1 INJURY DICE to Injury Rolls against it"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
+       "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
+       "page": 163
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 163
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "hell-knight",
+     "name": "Hell Knight",
+     "max": 3,
+     "cost": {
+      "amount": 100,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "infernal-iron-armour"
+     ],
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "blind-rage",
+       "name": "Blind Rage (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "+1 DICE to the Risky roll for a Dash ACTION"
+      },
+      {
+       "id": "charge-of-hatred",
+       "name": "Charge of Hatred (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "note": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy"
+      },
+      {
+       "id": "lesser-mark-of-cain",
+       "name": "Lesser Mark of Cain (Ability)",
+       "cost": {
+        "amount": 20,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "-1 INJURY DICE to Injury Rolls against it"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blood Magic (Spell, cost 1)",
+       "summary": "Free. Cast before its Injury Rolls: +1 INJURY DICE to all of them for that attack.",
+       "page": 166
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 166
+     },
+     "status": "verified",
+     "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "fallen-saint",
+     "name": "Fallen Saint",
+     "max": 1,
+     "cost": {
+      "amount": 140,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": 3,
+     "armour": -3,
+     "baseMm": [
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "IGNORE",
+       "value": "OFF-HAND"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Annihilator",
+       "summary": "One Fight ACTION per Melee Weapon each Activation.",
+       "page": 170
+      },
+      {
+       "name": "Aura of Wrath",
+       "summary": "+1 DICE to Melee Attacks and Dash Risky rolls for friends within 8\" (itself included).",
+       "page": 170
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade",
+       "shield",
+       "armour",
+       "equipment",
+       "special"
+      ],
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 170
+     },
+     "status": "verified",
+     "naming": "rename"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Dedicated to Wrath",
+     "summary": "The warband is dedicated to Wrath: its ELITE models can also take the Wrath Goetic Powers, and a Fallen Saint has the Aura of Wrath.",
+     "page": 147
+    },
+    {
+     "name": "Blind Rage (Ability)",
+     "summary": "+1 DICE to the Risky roll for a Dash ACTION.",
+     "page": 155
+    },
+    {
+     "name": "Charge of Hatred (Ability)",
+     "summary": "charges as if Movement 12\" with no Charge Bonus roll; a Risky roll first unless the target is the closest visible enemy.",
+     "page": 155
+    },
+    {
+     "name": "Lesser Mark of Cain (Ability)",
+     "summary": "-1 INJURY DICE to Injury Rolls against it.",
+     "page": 155
+    },
+    {
+     "name": "Praetor of Wrath",
+     "summary": "A Praetor dedicated to Wrath can have only 1 Goetic Power (not checked by the builder).",
+     "page": 162
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 155
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "dedicated-to-envy",
+   "name": "Dedicated to Envy",
+   "removeModels": [
+    "praetor",
+    "sorcerer",
+    "hell-knight",
+    "fallen-saint"
+   ],
+   "addModels": [
+    {
+     "id": "praetor",
+     "name": "Praetor",
+     "max": 1,
+     "cost": {
+      "amount": 115,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 3,
+     "melee": 3,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "coveted-position",
+       "name": "Coveted Position (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: swap places with a model within 12\" in sight that is over 1\" from others. Praetors & Sorcerers only"
+      },
+      {
+       "id": "envious-eyes",
+       "name": "Envious Eyes (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (listed in the armoury as from those factions). Praetors & Sorcerers only"
+      },
+      {
+       "id": "what-is-yours-is-mine",
+       "name": "What is Yours is Mine (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself"
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 162
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "sorcerer",
+     "name": "Sorcerer",
+     "max": 1,
+     "cost": {
+      "amount": 75,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "flying",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "burning-inferno",
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "coveted-position",
+       "name": "Coveted Position (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: swap places with a model within 12\" in sight that is over 1\" from others. Praetors & Sorcerers only"
+      },
+      {
+       "id": "envious-eyes",
+       "name": "Envious Eyes (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (listed in the armoury as from those factions). Praetors & Sorcerers only"
+      },
+      {
+       "id": "what-is-yours-is-mine",
+       "name": "What is Yours is Mine (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
+       "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
+       "page": 163
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 163
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "hell-knight",
+     "name": "Hell Knight",
+     "max": 3,
+     "cost": {
+      "amount": 100,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "infernal-iron-armour"
+     ],
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "what-is-yours-is-mine",
+       "name": "What is Yours is Mine (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blood Magic (Spell, cost 1)",
+       "summary": "Free. Cast before its Injury Rolls: +1 INJURY DICE to all of them for that attack.",
+       "page": 166
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 166
+     },
+     "status": "verified",
+     "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "fallen-saint",
+     "name": "Fallen Saint",
+     "max": 1,
+     "cost": {
+      "amount": 140,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": 3,
+     "armour": -3,
+     "baseMm": [
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "IGNORE",
+       "value": "OFF-HAND"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Annihilator",
+       "summary": "One Fight ACTION per Melee Weapon each Activation.",
+       "page": 170
+      },
+      {
+       "name": "Aura of Envy",
+       "summary": "Enemies within 12\" cannot charge its warband's models that are within 1\" of their own warband's models.",
+       "page": 170
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade",
+       "shield",
+       "armour",
+       "equipment",
+       "special"
+      ],
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 170
+     },
+     "status": "verified",
+     "naming": "rename"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Dedicated to Envy",
+     "summary": "The warband is dedicated to Envy: its ELITE models can also take the Envy Goetic Powers, and a Fallen Saint has the Aura of Envy.",
+     "page": 147
+    },
+    {
+     "name": "Coveted Position (Spell, cost 2)",
+     "summary": "Cast Spell ACTION: swap places with a model within 12\" in sight that is over 1\" from others. Praetors & Sorcerers only.",
+     "page": 156
+    },
+    {
+     "name": "Envious Eyes (Ability)",
+     "summary": "may buy 1 piece from The Principality, Pilgrims or The Sultanate armoury (listed in the armoury as from those factions). Praetors & Sorcerers only.",
+     "page": 156
+    },
+    {
+     "name": "What is Yours is Mine (Spell, cost 1)",
+     "summary": "Cast Spell ACTION: move 1 BLOOD or BLESSING MARKER from a model in sight to itself.",
+     "page": 156
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 156
+   },
+   "status": "verified",
+   "naming": "keep",
+   "kitGroups": [
+    {
+     "id": "envious-eyes",
+     "name": "Envious Eyes",
+     "limitPerModel": 1,
+     "needsUpgrade": "envious-eyes"
+    }
+   ],
+   "addArmoury": [
+    {
+     "kit": "automatic-pistol",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 3,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-rifle",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-shotgun",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bolt-action-rifle",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "flamethrower",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "grenade-launcher",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "heavy-flamethrower",
+     "cost": {
+      "amount": 55,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "heavy-shotgun",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "pistol",
+     "cost": {
+      "amount": 6,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "semi-automatic-rifle",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "shotgun",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-rifle",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "submachine-gun",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bayonet",
+     "cost": {
+      "amount": 2,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "needsBayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "great-hammer-maul",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 12,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "polearm",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sword-axe",
+     "cost": {
+      "amount": 4,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-club",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-knife",
+     "cost": {
+      "amount": 1,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "frag-grenades",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "incendiary-grenades",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "satchel-charge",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 3,
+     "limitPerModel": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "heavy-ballistic-shield",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified",
+     "note": "models wearing Machine Armour only"
+    },
+    {
+     "kit": "trench-shield",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "machine-armour",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified",
+     "note": "the Limit of 1 does not count Mechanized Heavy Infantry"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "standard-armour",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "binoculars",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "combat-helmet",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "field-shrine",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "gas-mask",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "zealots-draught",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "medi-kit",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "mountaineer-kit",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 4,
+     "status": "verified"
+    },
+    {
+     "kit": "musical-instrument",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "shovel",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "troop-flag",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "battlefield-title",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "book-of-battle-prayers",
+     "cost": {
+      "amount": 7,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "winged-plate",
+     "cost": {
+      "amount": 8,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified",
+     "note": "only a model that already has a Battlefield Title or a Knighthood"
+    },
+    {
+     "kit": "field-hospital",
+     "cost": {
+      "amount": 10,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "great-banner-of-the-principality",
+     "cost": {
+      "amount": 12,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "knighthood",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "resurrection-engine",
+     "cost": {
+      "amount": 11,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "rocket-propelled-grenade",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "salvage-golem",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "smokescreen",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-scope",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-pistol",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "blunderbuss",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bolt-action-rifle",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "flamethrower",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "musket",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "pistol",
+     "cost": {
+      "amount": 6,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "punt-gun",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "semi-automatic-rifle",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "shotgun",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-rifle",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "submachine-gun",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "anti-tank-hammer",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 3,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bayonet",
+     "cost": {
+      "amount": 2,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "needsBayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "flail-scourge",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "great-hammer-maul",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 12,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "misericordia",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "polearm",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sword-axe",
+     "cost": {
+      "amount": 4,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-club",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-knife",
+     "cost": {
+      "amount": 1,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "incendiary-grenades",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "molotov-cocktail",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "warcross",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "holy-icon-shield",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "trench-shield",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "standard-armour",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "blessed-icon",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "field-shrine",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "gas-mask",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "holy-relic",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "incendiary-ammunition",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "iron-capirote",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "zealots-draught",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 3,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "medi-kit",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "mountaineer-kit",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "musical-instrument",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "troop-flag",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "donkeys-jawbone",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "holy-grenade",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "horn-of-joshua",
+     "cost": {
+      "amount": 9,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "rocket-propelled-grenade",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "pilgrims",
+     "group": "envious-eyes",
+     "limit": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "flamethrower",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "jezzail",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "musket",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "pistol",
+     "cost": {
+      "amount": 6,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "shotgun",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "siege-jezzail",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-rifle",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bayonet",
+     "cost": {
+      "amount": 2,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "needsBayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "great-hammer-maul",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 12,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "halberd-gun",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "polearm",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sword-axe",
+     "cost": {
+      "amount": 4,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-club",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-knife",
+     "cost": {
+      "amount": 1,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "frag-grenades",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-shield",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "alchemist-armour",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "standard-armour",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "alchemical-ammunition",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "binoculars",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "cloak-of-the-mountain",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "combat-helmet",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "gas-mask",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "holy-relic",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "medi-kit",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "mountaineer-kit",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "musical-instrument",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "shovel",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "status": "verified"
+    },
+    {
+     "kit": "homunculus-bird",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "troop-flag",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "wind-amulet",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "damascus-armour",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "field-hospital",
+     "cost": {
+      "amount": 10,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "kilij",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "knighthood",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "masterwork-jezzail",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "rocket-propelled-grenade",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-scope",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "envious-eyes",
+     "limit": 2,
+     "status": "verified"
+    }
+   ]
+  },
+  {
+   "id": "dedicated-to-lust",
+   "name": "Dedicated to Lust",
+   "removeModels": [
+    "praetor",
+    "sorcerer",
+    "hell-knight",
+    "fallen-saint"
+   ],
+   "addModels": [
+    {
+     "id": "praetor",
+     "name": "Praetor",
+     "max": 1,
+     "cost": {
+      "amount": 115,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 3,
+     "melee": 3,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "call-of-the-flesh",
+       "name": "Call of the Flesh (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION (ends its Activation): the next enemy to Activate must first Move, Charge or Retreat as close to it as possible, and cannot attack it that Turn. Praetors & Sorcerers only"
+      },
+      {
+       "id": "exquisite-pain",
+       "name": "Exquisite Pain (Spell, cost 1-2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: the markers paid go onto a model in sight"
+      },
+      {
+       "id": "forbidden-pleasures",
+       "name": "Forbidden Pleasures (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "before deployment place 3 BLOOD MARKERS on one non-DEMONIC friend. Praetors & Sorcerers only"
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 162
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "sorcerer",
+     "name": "Sorcerer",
+     "max": 1,
+     "cost": {
+      "amount": 75,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "flying",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "burning-inferno",
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "call-of-the-flesh",
+       "name": "Call of the Flesh (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION (ends its Activation): the next enemy to Activate must first Move, Charge or Retreat as close to it as possible, and cannot attack it that Turn. Praetors & Sorcerers only"
+      },
+      {
+       "id": "exquisite-pain",
+       "name": "Exquisite Pain (Spell, cost 1-2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: the markers paid go onto a model in sight"
+      },
+      {
+       "id": "forbidden-pleasures",
+       "name": "Forbidden Pleasures (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "before deployment place 3 BLOOD MARKERS on one non-DEMONIC friend. Praetors & Sorcerers only"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
+       "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
+       "page": 163
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 163
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "hell-knight",
+     "name": "Hell Knight",
+     "max": 3,
+     "cost": {
+      "amount": 100,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "infernal-iron-armour"
+     ],
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "exquisite-pain",
+       "name": "Exquisite Pain (Spell, cost 1-2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: the markers paid go onto a model in sight"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blood Magic (Spell, cost 1)",
+       "summary": "Free. Cast before its Injury Rolls: +1 INJURY DICE to all of them for that attack.",
+       "page": 166
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 166
+     },
+     "status": "verified",
+     "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "fallen-saint",
+     "name": "Fallen Saint",
+     "max": 1,
+     "cost": {
+      "amount": 140,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": 3,
+     "armour": -3,
+     "baseMm": [
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "IGNORE",
+       "value": "OFF-HAND"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Annihilator",
+       "summary": "One Fight ACTION per Melee Weapon each Activation.",
+       "page": 170
+      },
+      {
+       "name": "Aura of Lust",
+       "summary": "Enemy armour without IMPERVIOUS within 4\" can lose any of its keywords or rules (except base size).",
+       "page": 170
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade",
+       "shield",
+       "armour",
+       "equipment",
+       "special"
+      ],
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 170
+     },
+     "status": "verified",
+     "naming": "rename"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Dedicated to Lust",
+     "summary": "The warband is dedicated to Lust: its ELITE models can also take the Lust Goetic Powers, and a Fallen Saint has the Aura of Lust.",
+     "page": 147
+    },
+    {
+     "name": "Call of the Flesh (Spell, cost 2)",
+     "summary": "Cast Spell ACTION (ends its Activation): the next enemy to Activate must first Move, Charge or Retreat as close to it as possible, and cannot attack it that Turn. Praetors & Sorcerers only.",
+     "page": 157
+    },
+    {
+     "name": "Exquisite Pain (Spell, cost 1-2)",
+     "summary": "Cast Spell ACTION: the markers paid go onto a model in sight.",
+     "page": 157
+    },
+    {
+     "name": "Forbidden Pleasures (Ability)",
+     "summary": "before deployment place 3 BLOOD MARKERS on one non-DEMONIC friend. Praetors & Sorcerers only.",
+     "page": 157
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 157
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "dedicated-to-pride",
+   "name": "Dedicated to Pride",
+   "removeModels": [
+    "praetor",
+    "sorcerer",
+    "hell-knight",
+    "fallen-saint"
+   ],
+   "addModels": [
+    {
+     "id": "praetor",
+     "name": "Praetor",
+     "max": 1,
+     "cost": {
+      "amount": 115,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 3,
+     "melee": 3,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "light-of-samael",
+       "name": "Light of the Fallen (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: Injury Roll for an enemy within 24\" in sight; a 32mm or smaller target is driven back D6\". Praetors & Sorcerers only"
+      },
+      {
+       "id": "proud-defiance",
+       "name": "Proud Defiance (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "no Morale Checks while it is on the battlefield"
+      },
+      {
+       "id": "too-proud-to-fall",
+       "name": "Too Proud to Fall (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "cast when taken Down: it stays standing (other effects still apply). Praetors & Sorcerers only"
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 162
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "sorcerer",
+     "name": "Sorcerer",
+     "max": 1,
+     "cost": {
+      "amount": 75,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "flying",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "burning-inferno",
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "light-of-samael",
+       "name": "Light of the Fallen (Spell, cost 2)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: Injury Roll for an enemy within 24\" in sight; a 32mm or smaller target is driven back D6\". Praetors & Sorcerers only"
+      },
+      {
+       "id": "proud-defiance",
+       "name": "Proud Defiance (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "no Morale Checks while it is on the battlefield"
+      },
+      {
+       "id": "too-proud-to-fall",
+       "name": "Too Proud to Fall (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "cast when taken Down: it stays standing (other effects still apply). Praetors & Sorcerers only"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
+       "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
+       "page": 163
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 163
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "hell-knight",
+     "name": "Hell Knight",
+     "max": 3,
+     "cost": {
+      "amount": 100,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "infernal-iron-armour"
+     ],
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "proud-defiance",
+       "name": "Proud Defiance (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "no Morale Checks while it is on the battlefield"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blood Magic (Spell, cost 1)",
+       "summary": "Free. Cast before its Injury Rolls: +1 INJURY DICE to all of them for that attack.",
+       "page": 166
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 166
+     },
+     "status": "verified",
+     "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "fallen-saint",
+     "name": "Fallen Saint",
+     "max": 1,
+     "cost": {
+      "amount": 140,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": 3,
+     "armour": -3,
+     "baseMm": [
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "IGNORE",
+       "value": "OFF-HAND"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Annihilator",
+       "summary": "One Fight ACTION per Melee Weapon each Activation.",
+       "page": 170
+      },
+      {
+       "name": "Aura of Pride",
+       "summary": "At the end of its Activation each enemy within 8\" gets 1 BLOOD MARKER.",
+       "page": 171
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade",
+       "shield",
+       "armour",
+       "equipment",
+       "special"
+      ],
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 170
+     },
+     "status": "verified",
+     "naming": "rename"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Dedicated to Pride",
+     "summary": "The warband is dedicated to Pride: its ELITE models can also take the Pride Goetic Powers, and a Fallen Saint has the Aura of Pride.",
+     "page": 147
+    },
+    {
+     "name": "Light of the Fallen (Spell, cost 2)",
+     "summary": "Cast Spell ACTION: Injury Roll for an enemy within 24\" in sight; a 32mm or smaller target is driven back D6\". Praetors & Sorcerers only.",
+     "page": 158
+    },
+    {
+     "name": "Proud Defiance (Ability)",
+     "summary": "no Morale Checks while it is on the battlefield.",
+     "page": 158
+    },
+    {
+     "name": "Too Proud to Fall (Spell, cost 2)",
+     "summary": "cast when taken Down: it stays standing (other effects still apply). Praetors & Sorcerers only.",
+     "page": 158
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 158
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "dedicated-to-sloth",
+   "name": "Dedicated to Sloth",
+   "removeModels": [
+    "praetor",
+    "sorcerer",
+    "hell-knight",
+    "fallen-saint"
+   ],
+   "addModels": [
+    {
+     "id": "praetor",
+     "name": "Praetor",
+     "max": 1,
+     "cost": {
+      "amount": 115,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 3,
+     "melee": 3,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "charm-of-acedia",
+       "name": "Charm of Acedia (Spell, cost 1)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: the first roll of its next ACTION is a Success"
+      },
+      {
+       "id": "daemonium-meridianum",
+       "name": "Daemonium Meridianum (Ability)",
+       "cost": {
+        "amount": 20,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Open or Dangerous ground within 6\" is Difficult terrain for enemies"
+      },
+      {
+       "id": "morphean-mind",
+       "name": "Morphean Mind (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls"
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 162
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "sorcerer",
+     "name": "Sorcerer",
+     "max": 1,
+     "cost": {
+      "amount": 75,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "flying",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "burning-inferno",
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "charm-of-acedia",
+       "name": "Charm of Acedia (Spell, cost 1)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: the first roll of its next ACTION is a Success"
+      },
+      {
+       "id": "daemonium-meridianum",
+       "name": "Daemonium Meridianum (Ability)",
+       "cost": {
+        "amount": 20,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Open or Dangerous ground within 6\" is Difficult terrain for enemies"
+      },
+      {
+       "id": "morphean-mind",
+       "name": "Morphean Mind (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
+       "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
+       "page": 163
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 163
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "hell-knight",
+     "name": "Hell Knight",
+     "max": 3,
+     "cost": {
+      "amount": 100,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "infernal-iron-armour"
+     ],
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "charm-of-acedia",
+       "name": "Charm of Acedia (Spell, cost 1)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: the first roll of its next ACTION is a Success"
+      },
+      {
+       "id": "daemonium-meridianum",
+       "name": "Daemonium Meridianum (Ability)",
+       "cost": {
+        "amount": 20,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Open or Dangerous ground within 6\" is Difficult terrain for enemies"
+      },
+      {
+       "id": "morphean-mind",
+       "name": "Morphean Mind (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blood Magic (Spell, cost 1)",
+       "summary": "Free. Cast before its Injury Rolls: +1 INJURY DICE to all of them for that attack.",
+       "page": 166
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 166
+     },
+     "status": "verified",
+     "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "fallen-saint",
+     "name": "Fallen Saint",
+     "max": 1,
+     "cost": {
+      "amount": 140,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": 3,
+     "armour": -3,
+     "baseMm": [
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "IGNORE",
+       "value": "OFF-HAND"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Annihilator",
+       "summary": "One Fight ACTION per Melee Weapon each Activation.",
+       "page": 170
+      },
+      {
+       "name": "Aura of Sloth",
+       "summary": "Enemies within 8\" treat Minor Hit results as Down.",
+       "page": 171
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade",
+       "shield",
+       "armour",
+       "equipment",
+       "special"
+      ],
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 170
+     },
+     "status": "verified",
+     "naming": "rename"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Dedicated to Sloth",
+     "summary": "The warband is dedicated to Sloth: its ELITE models can also take the Sloth Goetic Powers, and a Fallen Saint has the Aura of Sloth.",
+     "page": 147
+    },
+    {
+     "name": "Charm of Acedia (Spell, cost 1)",
+     "summary": "Cast Spell ACTION: the first roll of its next ACTION is a Success.",
+     "page": 159
+    },
+    {
+     "name": "Daemonium Meridianum (Ability)",
+     "summary": "Open or Dangerous ground within 6\" is Difficult terrain for enemies.",
+     "page": 159
+    },
+    {
+     "name": "Morphean Mind (Ability)",
+     "summary": "the opponent can spend at most 1 BLOOD MARKER for -1 DICE on its Success Rolls.",
+     "page": 159
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 159
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "dedicated-to-gluttony",
+   "name": "Dedicated to Gluttony",
+   "removeModels": [
+    "praetor",
+    "sorcerer",
+    "hell-knight",
+    "fallen-saint"
+   ],
+   "addModels": [
+    {
+     "id": "praetor",
+     "name": "Praetor",
+     "max": 1,
+     "cost": {
+      "amount": 115,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 3,
+     "melee": 3,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "belly-of-the-beast",
+       "name": "Belly of the Beast (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "a Melee Attack that places BLOOD MARKERS on it gives the attacker 1 BLOOD MARKER"
+      },
+      {
+       "id": "eater-of-the-flesh",
+       "name": "Eater of the Flesh (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "after its Melee Attack remove 1 BLOOD MARKER from itself per marker placed on the target (not CULT or DEMONIC targets). Praetors & Sorcerers only"
+      },
+      {
+       "id": "uncaring-gluttony",
+       "name": "Uncaring Gluttony (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game"
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 162
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "sorcerer",
+     "name": "Sorcerer",
+     "max": 1,
+     "cost": {
+      "amount": 75,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "flying",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "burning-inferno",
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "belly-of-the-beast",
+       "name": "Belly of the Beast (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "a Melee Attack that places BLOOD MARKERS on it gives the attacker 1 BLOOD MARKER"
+      },
+      {
+       "id": "eater-of-the-flesh",
+       "name": "Eater of the Flesh (Ability)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "after its Melee Attack remove 1 BLOOD MARKER from itself per marker placed on the target (not CULT or DEMONIC targets). Praetors & Sorcerers only"
+      },
+      {
+       "id": "uncaring-gluttony",
+       "name": "Uncaring Gluttony (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
+       "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
+       "page": 163
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 163
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "hell-knight",
+     "name": "Hell Knight",
+     "max": 3,
+     "cost": {
+      "amount": 100,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "infernal-iron-armour"
+     ],
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "belly-of-the-beast",
+       "name": "Belly of the Beast (Ability)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "a Melee Attack that places BLOOD MARKERS on it gives the attacker 1 BLOOD MARKER"
+      },
+      {
+       "id": "uncaring-gluttony",
+       "name": "Uncaring Gluttony (Spell, cost 2)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blood Magic (Spell, cost 1)",
+       "summary": "Free. Cast before its Injury Rolls: +1 INJURY DICE to all of them for that attack.",
+       "page": 166
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 166
+     },
+     "status": "verified",
+     "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "fallen-saint",
+     "name": "Fallen Saint",
+     "max": 1,
+     "cost": {
+      "amount": 140,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": 3,
+     "armour": -3,
+     "baseMm": [
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "IGNORE",
+       "value": "OFF-HAND"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Annihilator",
+       "summary": "One Fight ACTION per Melee Weapon each Activation.",
+       "page": 170
+      },
+      {
+       "name": "Aura of Gluttony",
+       "summary": "-1 DICE to rolls for enemies within 8\" that are not CULT or ARTIFICIAL.",
+       "page": 171
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade",
+       "shield",
+       "armour",
+       "equipment",
+       "special"
+      ],
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 170
+     },
+     "status": "verified",
+     "naming": "rename"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Dedicated to Gluttony",
+     "summary": "The warband is dedicated to Gluttony: its ELITE models can also take the Gluttony Goetic Powers, and a Fallen Saint has the Aura of Gluttony.",
+     "page": 147
+    },
+    {
+     "name": "Belly of the Beast (Ability)",
+     "summary": "a Melee Attack that places BLOOD MARKERS on it gives the attacker 1 BLOOD MARKER.",
+     "page": 160
+    },
+    {
+     "name": "Eater of the Flesh (Ability)",
+     "summary": "after its Melee Attack remove 1 BLOOD MARKER from itself per marker placed on the target (not CULT or DEMONIC targets). Praetors & Sorcerers only.",
+     "page": 160
+    },
+    {
+     "name": "Uncaring Gluttony (Spell, cost 2)",
+     "summary": "Cast Spell ACTION: one piece of Equipment of an enemy that has not Activated is unusable for the game.",
+     "page": 160
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 160
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "dedicated-to-greed",
+   "name": "Dedicated to Greed",
+   "removeModels": [
+    "praetor",
+    "sorcerer",
+    "hell-knight",
+    "fallen-saint"
+   ],
+   "addModels": [
+    {
+     "id": "praetor",
+     "name": "Praetor",
+     "max": 1,
+     "cost": {
+      "amount": 115,
+      "currency": "ducats"
+     },
+     "movementInches": 8,
+     "movementType": "flying",
+     "ranged": 3,
+     "melee": 3,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "body-of-gold",
+       "name": "Body of Gold (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "GOLEM"
+        }
+       ],
+       "note": "GOLEM; it loses TOUGH and cannot gain it"
+      },
+      {
+       "id": "greedy-hearts",
+       "name": "Greedy Hearts (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more"
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 162
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 2 Goetic Powers (1 if dedicated to Wrath) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "sorcerer",
+     "name": "Sorcerer",
+     "max": 1,
+     "cost": {
+      "amount": 75,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "flying",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      50
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "FLYING"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "burning-inferno",
+       "name": "Burning Inferno (Spell, cost 1-3)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a 36\" Ranged Attack with BLAST (inches = markers paid), FIRE and SCATTER; the model hit gets IGNORE ARMOUR. Sorcerers only"
+      },
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "body-of-gold",
+       "name": "Body of Gold (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "GOLEM"
+        }
+       ],
+       "note": "GOLEM; it loses TOUGH and cannot gain it"
+      },
+      {
+       "id": "greedy-hearts",
+       "name": "Greedy Hearts (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blessing of the Serpent Moon (Spell, cost 2/4/6)",
+       "summary": "Free. Cast before an Injury Roll for it: -1 INJURY MODIFIER per 2 markers paid.",
+       "page": 163
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 163
+     },
+     "status": "verified",
+     "note": "The warband must include a Praetor or a Sorcerer, or both (not checked by the builder). Goetic Powers: up to 3 Goetic Powers (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "hell-knight",
+     "name": "Hell Knight",
+     "max": 3,
+     "cost": {
+      "amount": 100,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 2,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "infernal-iron-armour"
+     ],
+     "upgrades": [
+      {
+       "id": "slavemaster",
+       "name": "Slavemaster (Spell, cost 1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Cast Spell ACTION: a Chain Fiend within 18\" sacrifices itself, fights, moves or shoots"
+      },
+      {
+       "id": "black-heart",
+       "name": "Black Heart (Spell, cost 1)",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "note": "cast before its Success or Risky roll: +1 DICE"
+      },
+      {
+       "id": "body-of-gold",
+       "name": "Body of Gold (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "GOLEM"
+        }
+       ],
+       "note": "GOLEM; it loses TOUGH and cannot gain it"
+      },
+      {
+       "id": "greedy-hearts",
+       "name": "Greedy Hearts (Ability)",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "note": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Blood Magic (Spell, cost 1)",
+       "summary": "Free. Cast before its Injury Rolls: +1 INJURY DICE to all of them for that attack.",
+       "page": 166
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 166
+     },
+     "status": "verified",
+     "note": "Always has Infernal Iron Armour; it cannot be removed and is in its Armour Characteristic. Goetic Powers: up to 2 Goetic Powers, one of them Blood Magic (free) (the count is not checked by the builder).",
+     "naming": "keep"
+    },
+    {
+     "id": "fallen-saint",
+     "name": "Fallen Saint",
+     "max": 1,
+     "cost": {
+      "amount": 140,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": null,
+     "melee": 3,
+     "armour": -3,
+     "baseMm": [
+      60
+     ],
+     "keywords": [
+      {
+       "id": "COURT"
+      },
+      {
+       "id": "DEMONIC"
+      },
+      {
+       "id": "IGNORE",
+       "value": "OFF-HAND"
+      },
+      {
+       "id": "FEAR"
+      },
+      {
+       "id": "STRONG"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Annihilator",
+       "summary": "One Fight ACTION per Melee Weapon each Activation.",
+       "page": 170
+      },
+      {
+       "name": "Aura of Greed",
+       "summary": "Enemies within 12\" that Charge must charge it if they can reach it simply.",
+       "page": 171
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade",
+       "shield",
+       "armour",
+       "equipment",
+       "special"
+      ],
+      "arms": {
+       "count": 3,
+       "twoHandedArms": 1,
+       "maxTwoHanded": 1
+      },
+      "note": "Several arms: three 1-Handed Melee Weapons, or two and one 2-Handed."
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 170
+     },
+     "status": "verified",
+     "naming": "rename"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Dedicated to Greed",
+     "summary": "The warband is dedicated to Greed: its ELITE models can also take the Greed Goetic Powers, and a Fallen Saint has the Aura of Greed.",
+     "page": 147
+    },
+    {
+     "name": "Black Heart (Spell, cost 1)",
+     "summary": "cast before its Success or Risky roll: +1 DICE.",
+     "page": 161
+    },
+    {
+     "name": "Body of Gold (Ability)",
+     "summary": "GOLEM; it loses TOUGH and cannot gain it.",
+     "page": 161
+    },
+    {
+     "name": "Greedy Hearts (Ability)",
+     "summary": "after deployment 1 BLESSING MARKER per enemy model worth 150 ducats or more.",
+     "page": 161
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 161
+   },
+   "status": "verified",
+   "naming": "keep"
+  }
+ ],
+ "source": {
+  "book": "Warbands of Trench Crusade",
+  "version": "1.0.2",
+  "page": 146
+ },
+ "status": "verified",
+ "naming": "rename",
+ "kitGroups": [
+  {
+   "id": "dog-training",
+   "name": "Trench Dog training",
+   "limitPerModel": 1,
+   "note": "one Special Training per Trench Dog (core rulebook p. 142)"
+  }
+ ]
+}

@@ -1,0 +1,163 @@
+{
+  "format": 1,
+  "id": "shell-holes",
+  "name": "Shell Holes",
+  "notes": "Preset for Claim No Man's Land (stage S7): a cratered field. The Objectives are the deepest shell holes, on the printed marker positions (U32); the other craters are difficult ground.",
+  "width": "36",
+  "height": "36",
+  "archetype": "no-mans-land",
+  "supports": [
+    "claim-no-mans-land"
+  ],
+  "zones": [
+    {
+      "id": "west",
+      "rect": [
+        "0",
+        "0",
+        "6",
+        "36"
+      ]
+    },
+    {
+      "id": "east",
+      "rect": [
+        "30",
+        "0",
+        "36",
+        "36"
+      ]
+    }
+  ],
+  "objectives": [
+    "obj-1",
+    "obj-2",
+    "obj-3",
+    "obj-4",
+    "obj-5"
+  ],
+  "terrain": [
+    {
+      "id": "obj-1",
+      "rect": [
+        "10",
+        "4",
+        "14",
+        "8"
+      ],
+      "profile": "low"
+    },
+    {
+      "id": "obj-2",
+      "rect": [
+        "10",
+        "28",
+        "14",
+        "32"
+      ],
+      "profile": "low"
+    },
+    {
+      "id": "obj-3",
+      "rect": [
+        "22",
+        "4",
+        "26",
+        "8"
+      ],
+      "profile": "low"
+    },
+    {
+      "id": "obj-4",
+      "rect": [
+        "22",
+        "28",
+        "26",
+        "32"
+      ],
+      "profile": "low"
+    },
+    {
+      "id": "obj-5",
+      "rect": [
+        "16",
+        "16",
+        "20",
+        "20"
+      ],
+      "profile": "low"
+    },
+    {
+      "id": "crater-1",
+      "rect": [
+        "8",
+        "12",
+        "12",
+        "15"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "crater-2",
+      "rect": [
+        "24",
+        "21",
+        "28",
+        "24"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "crater-3",
+      "rect": [
+        "17",
+        "23",
+        "20",
+        "25"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "crater-4",
+      "rect": [
+        "16",
+        "11",
+        "19",
+        "13"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "stump-1",
+      "rect": [
+        "8",
+        "20",
+        "10",
+        "22"
+      ],
+      "profile": "cover"
+    },
+    {
+      "id": "stump-2",
+      "rect": [
+        "26",
+        "14",
+        "28",
+        "16"
+      ],
+      "profile": "cover"
+    }
+  ]
+}

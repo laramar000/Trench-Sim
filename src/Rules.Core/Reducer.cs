@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Rules.Core.Dice;
 using Rules.Core.Events;
 using Rules.Core.Geometry;
+using Rules.Core.Scenarios;
 using Rules.Core.State;
 
 namespace Rules.Core;
@@ -42,8 +43,9 @@ public static class Reducer
         Require(state.Phase != Phase.None, "No match has been created.");
         Require(state.Phase != Phase.Ended, "The match has ended.");
         RequireFollowUp(state, e);
+        state = ForgoAttacks(state, e);
 
-        return e switch
+        var next = e switch
         {
             RollOffResolved x => OnRollOffResolved(state, x),
             DecisionRequested x => OnDecisionRequested(state, x),
@@ -66,24 +68,145 @@ public static class Reducer
             ModelStoodUp x => OnModelStoodUp(state, x),
             DashDeclared x => OnDashDeclared(state, x),
             DashRolled x => OnDashRolled(state, x),
+            SideClimbDeclared x => OnSideClimbDeclared(state, x),
+            SideClimbRolled x => OnSideClimbRolled(state, x),
             ModelMoved x => OnModelMoved(state, x),
             MarkersSpent x => OnMarkersSpent(state, x),
             RangedAttackDeclared x => OnRangedAttackDeclared(state, x),
             RangedSuccessRolled x => OnRangedSuccessRolled(state, x),
+            PointAttackDeclared x => OnPointAttackDeclared(state, x),
+            PointSuccessRolled x => OnPointSuccessRolled(state, x),
+            PointBlastHit x => OnPointBlastHit(state, x),
             InjuryRolled x => OnInjuryRolled(state, x),
             ObjectivesScored x => OnObjectivesScored(state, x),
             ChargeDeclared x => OnChargeDeclared(state, x),
             ChargeRolled x => OnChargeRolled(state, x),
             ChargeMoved x => OnChargeMoved(state, x),
+            ChargeCarriedOn x => OnChargeCarriedOn(state, x),
+            ChargeStopped x => OnChargeStopped(state, x),
             RetreatDeclared x => OnRetreatDeclared(state, x),
             FreeFightsDeclined x => OnFreeFightsDeclined(state, x),
             RetreatResolved x => OnRetreatResolved(state, x),
             MeleeAttackDeclared x => OnMeleeAttackDeclared(state, x),
             MeleeSuccessRolled x => OnMeleeSuccessRolled(state, x),
             ShootingTargetRolled x => OnShootingTargetRolled(state, x),
+            BlastHit x => OnBlastHit(state, x),
+            AttackScattered x => OnAttackScattered(state, x),
+            ScatterMissed x => OnScatterMissed(state, x),
             FriendlyTargetChosen x => OnFriendlyTargetChosen(state, x),
+            AttackerChosen x => OnAttackerChosen(state, x),
+            TrenchesScored x => OnTrenchesScored(state, x),
+            GameLengthRolled x => OnGameLengthRolled(state, x),
+            MinesLaid x => OnMinesLaid(state, x),
+            MineRevealed x => OnMineRevealed(state, x),
+            MineExploded x => OnMineExploded(state, x),
+            MoveResumed x => OnMoveResumed(state, x),
+            GloriousDeedCompleted x => OnDeedCompleted(state, x),
+            BloodMarkersPlaced x => OnBloodMarkersPlaced(state, x),
+            TreatDeclared x => OnTreatDeclared(state, x),
+            TreatRolled x => OnTreatRolled(state, x),
+            SelfActionDeclared x => OnSelfActionDeclared(state, x),
+            SelfActionRolled x => OnSelfActionRolled(state, x),
+            MartyrdomTriggered x => OnMartyrdomTriggered(state, x),
+            TalismanUsed x => OnTalismanUsed(state, x),
             _ => throw new InvalidEventException($"Unknown event type {e.GetType().Name}."),
         };
+        // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
+        next = Undig(next, e);
+        // Roster stage R5g (U112): BLOOD MARKERS this event owes the enemies near a Crown or Damned Pact bearer.
+        next = Burns(state, e, next);
+        // Glorious Deeds (U96): what the deeds need to know, and any deed this event completed.
+        return e is GloriousDeedCompleted ? next : Deeds.Track(state, e, next);
+    }
+
+    // A move that leaves the spot counts even when it ends there again.
+    private static MatchState Undig(MatchState state, GameEvent e)
+    {
+        var walked = e switch
+        {
+            ModelMoved m => (m.Model, m.Path),
+            ChargeMoved c => (c.Model, c.Path),
+            ChargeCarriedOn c => (c.Model, c.Path),
+            RetreatResolved r => (r.Model, r.Path),
+            MoveResumed r => (r.Model, r.Path),
+            _ => ((ModelId?)null, ImmutableArray<Point2>.Empty),
+        };
+        bool Away(ModelState m) => m.DugInAt is { } at && (m.Position != at || walked.Item1 == m.Id && !walked.Item2.IsDefault && walked.Item2.Any(p => p != at));
+        return state.Models.Any(Away)
+            ? state with { Models = state.Models.Select(m => Away(m) ? m with { DugInAt = null } : m).ToImmutableArray() }
+            : state;
+    }
+
+    // Roster stage R3 (U100): the Melee Attacks still to come of a Fight or free attack are made one after another;
+    // anything else that happens ends them (the active model chose to do something else, or the action is over).
+    private static MatchState ForgoAttacks(MatchState state, GameEvent e) =>
+        state.AttacksLeft is not null && e is not (MeleeAttackDeclared or MeleeSuccessRolled or InjuryRolled or MarkersSpent or DecisionRequested or GloriousDeedCompleted or BloodMarkersPlaced or MatchEnded)
+            ? state with { AttacksLeft = null }
+            : state;
+
+    // The CLEAVE free attack that must come next: the free attacker has attacks left, nothing is waiting, and the
+    // retreating model is still on the battlefield (p. 37 with p. 53).
+    internal static MeleeAttacksLeft? FreeAttackDue(MatchState state) =>
+        state.AttacksLeft is { Free: true, Next.Length: > 0 } left && state.InProgress is null && state.Pending is null
+        && state.Retreat is { } retreat && state.FindModel(retreat.Model) is { Position: not null, Status: not ModelStatus.OutOfAction }
+            ? left
+            : null;
+
+    // The Melee Attacks a Fight or free attack has after its first: the rest of the first weapon's CLEAVE attacks, then
+    // (a Fight with two Melee Weapons) the other weapon's, with the Off-Hand -1 DICE (p. 45).
+    internal static ImmutableArray<MeleeAttackSlot> AttacksAfterFirst(ModelProfile profile, int weapon, bool free)
+    {
+        var next = ImmutableArray.CreateBuilder<MeleeAttackSlot>();
+        for (var i = 1; i < profile.MeleeAttacksWith(weapon); i++)
+        {
+            next.Add(new MeleeAttackSlot(weapon, false));
+        }
+        if (!free && profile.Weapons(AttackKind.Melee) == 2)
+        {
+            var other = 1 - weapon;
+            for (var i = 0; i < profile.MeleeAttacksWith(other); i++)
+            {
+                next.Add(new MeleeAttackSlot(other, true));
+            }
+        }
+        return next.ToImmutable();
+    }
+
+    // The weapon an attack in progress is made with (roster stage R3). A Martyrdom Device's detonation (U115) has no
+    // weapon: no injury modifier or keywords of its own.
+    internal static ModelProfile AttackProfile(MatchState state, RollInProgress progress) => progress.Martyrdom
+        ? new ModelProfile(state.Setup!.ProfileOf(progress.Actor)!.Movement, state.Setup.ProfileOf(progress.Actor)!.BaseRadius, Length.Zero)
+        : state.Setup!.ProfileOf(progress.Actor)!.Using(progress.Kind, progress.Weapon);
+
+    // Roster stage R5j (U115): a Trigger Martyrdom Device ACTION, once per game: the models within 3" (itself last) and
+    // the others within 1", worked out again from the positions; then the first one's Injury Roll.
+    private static MatchState OnMartyrdomTriggered(MatchState state, MartyrdomTriggered e)
+    {
+        var model = Active(state, e.Model, "A Martyrdom Device");
+        Require(state.InProgress is null && state.Retreat is null, "A Martyrdom Device waits for the last action to finish.");
+        Require(MartyrdomRefusal(state, model) is null, "Only a model with a Martyrdom Device not yet detonated can trigger it, standing on the battlefield.");
+        var (hit, close) = Board.MartyrdomHits(state, model);
+        Require(hit.SequenceEqual(e.Hit) && close.SequenceEqual(e.Close), "The device hits exactly the models within 3\" (its bearer last); +1 INJURY DICE for the others within 1\".");
+        var spent = TurnRules.WithModel(state, model with { MartyrdomSpent = true }) with { Actions = state.Actions | ActionsTaken.Trigger, AttacksLeft = null };
+        var progress = new RollInProgress(RollStage.InjuryRoll, e.Model, Martyrdom: true, MartyrClose: e.Close);
+        return spent with { InProgress = NextBlastRoll(spent, progress, e.Hit) };
+    }
+
+    // Why the model cannot trigger its Martyrdom Device now (Decide's check, in the rules' words), or null.
+    internal static string? MartyrdomRefusal(MatchState state, ModelState model) =>
+        state.Setup?.ProfileOf(model.Id)?.Martyrdom != true ? "Only a model with a Martyrdom Device can take a Trigger Martyrdom Device ACTION."
+        : model.MartyrdomSpent ? "The Martyrdom Device has already detonated; it cannot be used again."
+        : model.Position is null || model.Status != ModelStatus.Standing ? "A Down model cannot take a Trigger Martyrdom Device ACTION."
+        : null;
+
+    // A Glorious Deed is announced right after the event that completed it, in the order they were completed, and gives
+    // its seat 1 Victory Point (pp. 149-150; counted at once, U96).
+    private static MatchState OnDeedCompleted(MatchState state, GloriousDeedCompleted e)
+    {
+        Require(state.Deeds.Owed is [var owed, ..] && owed == new CompletedDeed(e.Deed, e.Seat, e.Model), "No such Glorious Deed was just completed.");
+        var seat = state.SeatFor(e.Seat);
+        var next = TurnRules.WithSeat(state, e.Seat, seat with { VictoryPoints = seat.VictoryPoints + Deeds.VictoryPoints });
+        return next with { Deeds = state.Deeds with { Owed = state.Deeds.Owed.RemoveAt(0), Completed = state.Deeds.Completed.Add(state.Deeds.Owed[0]) } };
     }
 
     // Some states leave exactly one event that can come next, because the rules give nobody a choice: the match is
@@ -93,6 +216,16 @@ public static class Reducer
     // SeatState.MustFlee) and the roll-off result.
     private static void RequireFollowUp(MatchState state, GameEvent e)
     {
+        if (!state.Deeds.Owed.IsEmpty)
+        {
+            Require(e is GloriousDeedCompleted, "A Glorious Deed was just completed; it is announced before anything else happens.");
+            return;
+        }
+        if (!state.MarkersOwed.IsDefaultOrEmpty)
+        {
+            Require(e is BloodMarkersPlaced, "BLOOD MARKERS are owed to the enemies near a Crown of Hellfire or Damned Pact; they are placed before anything else happens.");
+            return;
+        }
         if (TerminalReason(state) is { } reason)
         {
             Require(e is MatchEnded ended && ended.Reason == reason, $"The match is over ({reason}); only the end of the match can follow.");
@@ -106,16 +239,60 @@ public static class Reducer
                 RollOffPurpose.DeploymentZone => e is PhaseEntered { Phase: Phase.Deployment }
                     || e is DecisionRequested { Kind: DecisionKind.ChooseDeploymentZone },
                 RollOffPurpose.DeploymentOrder => e is DeploymentOrderSet,
+                RollOffPurpose.Roles => e is PhaseEntered { Phase: Phase.Deployment }
+                    || e is DecisionRequested { Kind: DecisionKind.ChooseAttacker },
                 _ => e is InitiativeDetermined,
             };
             Require(uses, $"The {rollOff.Purpose} roll-off has to be used before anything else happens.");
             return;
         }
 
+        if (LengthRollOwed(state))
+        {
+            Require(e is GameLengthRolled, "At the end of Turn 4 the attacker rolls for the game's length.");
+            return;
+        }
+
+        if (state.MineStop is { } stop)
+        {
+            // A halted move: the marker is revealed, a live one detonates, then the model carries on (p. 162).
+            var next = !stop.Revealed ? e is MineRevealed : stop.Live ? e is MineExploded : e is MoveResumed;
+            Require(next, "A move halted at a Mine Marker: the marker is revealed, a live mine detonates, and the model carries on.");
+            return;
+        }
+
         if (state.MustEndActivation)
         {
+            // Roster stage R5k (U116): first the player of a model with a Talisman left is asked whether it uses one.
+            if (state.Pending is { Kind: DecisionKind.UseTalisman })
+            {
+                Require(e is TalismanUsed used && used.Model == state.ActiveModel
+                    || e is ActivationEnded { Reason: ActivationEndReason.RiskyFailure } declined && declined.Model == state.ActiveModel,
+                    "After a failed Risky roll the model either uses a Talisman or its activation ends.");
+                return;
+            }
+            if (TalismanReady(state, state.ActiveModel))
+            {
+                Require(e is DecisionRequested { Kind: DecisionKind.UseTalisman } asked && asked.Seat == state.FindModel(state.ActiveModel!.Value)!.Seat,
+                    "A model with a Talisman left is asked whether it uses one after a failed Risky roll.");
+                return;
+            }
             Require(e is ActivationEnded { Reason: ActivationEndReason.RiskyFailure } lost && lost.Model == state.ActiveModel,
                 "A failed Risky roll ends the activation at once.");
+            return;
+        }
+
+        if (state.ReloadEnds)
+        {
+            Require(e is ActivationEnded { Reason: ActivationEndReason.Reload } reloaded && reloaded.Model == state.ActiveModel,
+                "An attack with a RELOAD weapon ends the activation once its ACTION is done.");
+            return;
+        }
+
+        if (FreeAttackDue(state) is { } due)
+        {
+            Require(e is MeleeAttackDeclared { FreeFight: true } next && next.Attacker == due.Attacker,
+                "A free attack's CLEAVE attacks are made one after another.");
             return;
         }
 
@@ -141,7 +318,7 @@ public static class Reducer
         }
 
         if (state.Phase == Phase.Activation && state.ActiveModel is { } active && state.Pending is null && state.InProgress is null
-            && state.Retreat is null && Board.ScenarioOf(state) is not null && state.FindModel(active) is { } model && model.Status != ModelStatus.Standing)
+            && state.Retreat is null && state.MineStop is null && Board.ScenarioOf(state) is not null && state.FindModel(active) is { } model && model.Status != ModelStatus.Standing)
         {
             if (state.Actions == ActionsTaken.None && !state.MovementHalved)
             {
@@ -154,6 +331,13 @@ public static class Reducer
                 Require(e is ActivationEnded { Reason: ActivationEndReason.TakenDown } down && down.Model == active,
                     "A model taken Down during its own activation ends it.");
             }
+            return;
+        }
+
+        if (state.InProgress is { Stage: RollStage.Scatter } && state.Pending is null)
+        {
+            // Roster stage R4c (U103): a missed SCATTER attack scatters at once, or misses when it has nowhere to land.
+            Require(e is DecisionRequested { Kind: DecisionKind.ChooseScatterPoint } or ScatterMissed, "A missed SCATTER attack scatters at once.");
             return;
         }
 
@@ -182,7 +366,7 @@ public static class Reducer
         {
             return OutcomeReason.AllEnemiesOutOfAction;
         }
-        if (state.Phase == Phase.Morale && state.TurnEnded && state.Turn >= state.Setup!.TurnLimit)
+        if (state.Phase == Phase.Morale && state.TurnEnded && state.Turn >= state.FinalTurn && !LengthRollOwed(state))
         {
             return scenario is null ? OutcomeReason.FinalTurnComplete : OutcomeReason.VictoryPoints;
         }
@@ -198,7 +382,8 @@ public static class Reducer
         {
             return null;
         }
-        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll && actor.BloodMarkers > 0)
+        if (progress.Stage is RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll or RollStage.SelfRoll && actor.BloodMarkers > 0
+            && !(progress.Stage == RollStage.ShotRoll && ShotsIgnoreMarkers(state, actor.Id)))
         {
             return new PendingDecision(DecisionKind.SpendMarkersOnSuccessRoll, actor.Seat.Opponent());
         }
@@ -223,7 +408,11 @@ public static class Reducer
         switch (e.Purpose)
         {
             case RollOffPurpose.DeploymentZone:
-                Require(state.Phase == Phase.PreGame && state.Pending is null, "The deployment-zone roll-off comes first, before Deployment.");
+                Require(state.Phase == Phase.PreGame && state.Pending is null && !TrenchWarfare.Is(state.Setup), "The deployment-zone roll-off comes first, before Deployment.");
+                break;
+            case RollOffPurpose.Roles:
+                Require(state.Phase == Phase.PreGame && state.Pending is null && TrenchWarfare.Is(state.Setup) && state.Attacker is null,
+                    "In Trench Warfare the roles roll-off comes first, before Deployment.");
                 break;
             case RollOffPurpose.DeploymentOrder:
                 Require(state.Phase == Phase.Deployment && state.Pending is null && state.One.ZoneId is not null && state.DeploymentFirst is null
@@ -251,6 +440,11 @@ public static class Reducer
                 Require(state.RollOff == new RollOffResult(RollOffPurpose.DeploymentZone, e.Seat), "The winner of the deployment-zone roll-off chooses the zone.");
                 state = state with { RollOff = null };
                 break;
+            case DecisionKind.ChooseAttacker:
+                Require(state.Phase == Phase.Deployment && state.Attacker is null && state.One.ZoneId is null, "The roles are chosen once, at the start of Deployment.");
+                Require(state.RollOff == new RollOffResult(RollOffPurpose.Roles, e.Seat), "The winner of the roles roll-off chooses who attacks.");
+                state = state with { RollOff = null };
+                break;
             case DecisionKind.ChooseFirstActivation:
                 Require(state.Phase == Phase.Initiative && state.InitiativeHolder == e.Seat && state.FirstActivator is null,
                     "Only the Initiative holder chooses who activates first.");
@@ -266,9 +460,10 @@ public static class Reducer
                 break;
             case DecisionKind.SpendMarkersOnSuccessRoll:
                 var rolling = state.InProgress;
-                Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll, MarkersAsked: false }
+                Require(rolling is { Stage: RollStage.DashRoll or RollStage.ShotRoll or RollStage.FightRoll or RollStage.ClimbRoll or RollStage.TreatRoll or RollStage.SelfRoll, MarkersAsked: false }
                     && state.FindModel(rolling.Actor) is { BloodMarkers: > 0 } holder
                     && holder.Seat.Opponent() == e.Seat, "Only the rolling model's opponent may spend its markers, once, before a Success Roll.");
+                Require(!(rolling!.Stage == RollStage.ShotRoll && ShotsIgnoreMarkers(state, rolling.Actor)), "No BLOOD MARKERS are spent on the Ranged Attacks of a model with Absolute Faith.");
                 state = state with { InProgress = rolling! with { MarkersAsked = true } };
                 break;
             case DecisionKind.SpendMarkersOnInjuryRoll:
@@ -279,10 +474,28 @@ public static class Reducer
                     && state.FindModel(victim) is { BloodMarkers: > 0 }, "Only the attacker may spend the target's markers, once, before an Injury Roll.");
                 state = state with { InProgress = injuring! with { MarkersAsked = true } };
                 break;
+            case DecisionKind.ChooseScatterPoint:
+                // Roster stage R4c (U103): the attacker's opponent picks where a missed SCATTER attack lands, when it can land.
+                var scattering = state.InProgress;
+                Require(scattering is { Stage: RollStage.Scatter } && state.FindModel(scattering.Actor) is { } thrower && thrower.Seat.Opponent() == e.Seat
+                    && Board.ScatterPoints(state, scattering).Count > 0, "The attacker's opponent picks where a missed SCATTER attack lands, when it can land somewhere.");
+                break;
+            case DecisionKind.LayMines:
+                Require(TrenchWarfare.Is(state.Setup) && state.Phase == Phase.Deployment && state.Attacker is { } attacking && attacking.Opponent() == e.Seat
+                    && !state.MinesLaid && state.DeploymentFirst is null, "The defender sets up the Mine Markers once, after the roles are chosen and before deployment.");
+                break;
             case DecisionKind.FreeFight:
                 Require(state.Retreat is { Closed: false } retreat && state.InProgress is null && state.Phase == Phase.Activation
                     && state.FindModel(retreat.Model) is { } retreater && retreater.Seat.Opponent() == e.Seat
                     && Board.FreeFighters(state, retreat).Count > 0, "Free attacks are offered to the opponent of a retreating model while someone can still attack.");
+                break;
+            case DecisionKind.UseTalisman:
+                Require(state.MustEndActivation && TalismanReady(state, state.ActiveModel) && state.FindModel(state.ActiveModel!.Value)!.Seat == e.Seat,
+                    "Only the player of an active model with a Talisman left is asked, after its failed Risky roll.");
+                break;
+            case DecisionKind.CarryOnCharge:
+                Require(state.InProgress is { Stage: RollStage.ChargeCarryOn } carrying && state.FindModel(carrying.Actor) is { } charging && charging.Seat == e.Seat,
+                    "Only the charging model's player is asked whether its charge carries on.");
                 break;
             case DecisionKind.ChooseFriendlyTarget:
                 Require(state.InProgress is { Stage: RollStage.TargetChoice } choosing
@@ -309,6 +522,13 @@ public static class Reducer
     {
         Require(state.Phase == Phase.Deployment && state.Pending is null && state.One.ZoneId is not null && state.DeploymentFirst is null,
             "Deployment order is set once, after the zones are chosen.");
+        // Trench Warfare: the attacker deploys first (p. 162).
+        if (state.Attacker is { } attacker)
+        {
+            Require(state.RollOff is null && e.First == attacker, "In Trench Warfare the attacker deploys first.");
+            Require(state.MinesLaid, "In Trench Warfare the defender sets up the Mine Markers before deployment.");
+            return state with { DeploymentFirst = e.First };
+        }
         // The warband with more models deploys first; equal warbands roll off and the winner starts (p. 152, R7).
         var one = TurnRules.WarbandSize(state, Seat.One);
         var two = TurnRules.WarbandSize(state, Seat.Two);
@@ -337,7 +557,9 @@ public static class Reducer
         {
             Require(e.Position is { } at && Board.CheckPlacement(state, e.Seat, model!, at).IsLegal, "A model must be set up at a legal point in its zone.");
         }
-        return TurnRules.WithModel(state, model! with { Deployed = true, Position = e.Position }) with { LastDeployer = e.Seat };
+        // Roster stage R5f (U110): a model with a Shovel set up on Open terrain is dug in there.
+        var dug = e.Position is { } start && state.Setup!.ProfileOf(e.Model)!.DigsIn && Board.OnOpenTerrain(state, start) ? e.Position : null;
+        return TurnRules.WithModel(state, model! with { Deployed = true, Position = e.Position, DugInAt = dug }) with { LastDeployer = e.Seat };
     }
 
     private static MatchState OnPhaseEntered(MatchState state, PhaseEntered e)
@@ -346,7 +568,7 @@ public static class Reducer
         switch ((state.Phase, e.Phase))
         {
             case (Phase.PreGame, Phase.Deployment):
-                Require(state.RollOff is { Purpose: RollOffPurpose.DeploymentZone }, "Deployment starts after the deployment-zone roll-off.");
+                Require(state.RollOff is { Purpose: RollOffPurpose.DeploymentZone or RollOffPurpose.Roles }, "Deployment starts after the deployment-zone (or roles) roll-off.");
                 break;
             case (Phase.Initiative, Phase.Activation):
                 Require(state.FirstActivator is not null, "Nobody has chosen who activates first.");
@@ -363,7 +585,7 @@ public static class Reducer
     private static MatchState OnTurnStarted(MatchState state, TurnStarted e)
     {
         Require(e.Turn == state.Turn + 1, "Turns count up by one.");
-        Require(e.Turn <= state.Setup!.TurnLimit, "The match has no more turns.");
+        Require(e.Turn <= state.FinalTurn, "The match has no more turns.");
         if (state.Phase == Phase.Deployment)
         {
             Require(state.Turn == 0 && state.Models.All(m => m.Deployed) && state.Pending is null, "Deployment is not finished.");
@@ -422,6 +644,8 @@ public static class Reducer
             ActiveModel = e.Model,
             LastActivator = e.Seat,
             Actions = ActionsTaken.None,
+            Aiming = false,
+            CounterCharging = false,
             MovementHalved = false,
         };
     }
@@ -430,7 +654,9 @@ public static class Reducer
     {
         Require(state.Phase == Phase.Activation && state.ActiveModel == e.Model, "That model is not the one activating.");
         Require(Enum.IsDefined(e.Reason), "Unknown end reason.");
-        Require(state.InProgress is null && state.Pending is null && state.Retreat is null, "An action is still being resolved.");
+        // A Talisman's player may let the activation end instead of using one (roster stage R5k).
+        var declined = state.Pending is { Kind: DecisionKind.UseTalisman } && e.Reason == ActivationEndReason.RiskyFailure;
+        Require(state.InProgress is null && (state.Pending is null || declined) && state.Retreat is null && state.MineStop is null, "An action is still being resolved.");
         if (e.Reason == ActivationEndReason.TakenDown)
         {
             Require(state.FindModel(e.Model)!.Status != ModelStatus.Standing, "An activation ends as taken Down only when the model is Down or Out of Action.");
@@ -439,7 +665,11 @@ public static class Reducer
         {
             Require(state.MustEndActivation, "An activation ends for a failed Risky roll only after one.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false };
+        if (e.Reason == ActivationEndReason.Reload)
+        {
+            Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
+        }
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -467,6 +697,7 @@ public static class Reducer
         Require(e.ModelsDownOrOut == TurnRules.DownOrOut(state, e.Seat)
             && e.WarbandSize == TurnRules.WarbandSize(state, e.Seat)
             && e.WasShaken == state.SeatFor(e.Seat).Shaken, "Counts do not match the state.");
+        Require(e.Check.NetDice == TurnRules.LeaderDice(state, e.Seat) && !e.Check.Risky, "The Morale Check's dice do not match the state.");
         var failed = e.Check.Outcome == Dice.SuccessOutcome.Failure;
         var seat = state.SeatFor(e.Seat) with
         {
@@ -516,7 +747,8 @@ public static class Reducer
             && TurnRules.MoraleRemaining(state).Count == 0 && !state.One.Fled && !state.Two.Fled,
             "The turn cannot end yet.");
         Require(Board.ScenarioOf(state) is not { ObjectiveIds.Length: > 0 } || state.ScoredTurn == state.Turn, "The turn's Objectives have not been scored.");
-        return state with { TurnEnded = true };
+        Require(!TrenchWarfare.Is(state.Setup) || state.ScoredTurn == state.Turn, "The turn's trench sections have not been scored.");
+        return state with { TurnEnded = true, ChargedThisTurn = [] };
     }
 
     private static MatchState OnMatchEnded(MatchState state, MatchEnded e)
@@ -538,7 +770,7 @@ public static class Reducer
                     "A winner by elimination needs a warband with no models left on the battlefield.");
                 break;
             case OutcomeReason.VictoryPoints:
-                Require(scenario is not null && state.Phase == Phase.Morale && state.TurnEnded && state.Turn == state.Setup!.TurnLimit
+                Require(scenario is not null && state.Phase == Phase.Morale && state.TurnEnded && state.Turn == state.FinalTurn
                     && !state.One.Fled && !state.Two.Fled && e.Winner == WinnerByPoints(state),
                     "The winner must be the warband with more Victory Points once the final turn is complete.");
                 break;
@@ -571,18 +803,22 @@ public static class Reducer
             && state.Actions == ActionsTaken.None && !state.MovementHalved && state.InProgress is null, "A model stands up only at the start of its activation.");
         var model = state.FindModel(e.Model)!;
         Require(model.Status == ModelStatus.Down && model.Position is not null, "Only a Down model on the table stands up.");
-        return TurnRules.WithModel(state, model with { Status = ModelStatus.Standing }) with { MovementHalved = true };
+        // Roster stage R6c (U119): Frightening Speed keeps its Movement whole.
+        var quick = state.Setup!.ProfileOf(e.Model)!.QuickToRise;
+        Require(e.Quick == quick, "A model's Movement is halved when it stands up, unless it has Frightening Speed.");
+        return TurnRules.WithModel(state, model with { Status = ModelStatus.Standing }) with { MovementHalved = !quick };
     }
 
     private static MatchState OnDashDeclared(MatchState state, DashDeclared e)
     {
         var model = Active(state, e.Model, "A Dash");
         Require(state.InProgress is null && !state.Actions.HasFlag(ActionsTaken.Dash), "A Dash can be taken once per activation.");
+        Require(ActionLimits.MoveExcluded(state, e.Model) is null, ActionLimits.HeavyText);
         Require(Board.CheckMove(state, model, e.Path).IsLegal, "A Dash must follow a legal path.");
         return state with
         {
             Actions = state.Actions | ActionsTaken.Dash,
-            InProgress = new RollInProgress(RollStage.DashRoll, e.Model, DashPath: e.Path),
+            InProgress = new RollInProgress(RollStage.DashRoll, e.Model, BonusDice: DashDice(state, model), DashPath: e.Path),
         };
     }
 
@@ -594,17 +830,302 @@ public static class Reducer
         return state with
         {
             InProgress = e.Check.Outcome == SuccessOutcome.Failure ? null : progress with { Stage = RollStage.DashMove },
-            MustEndActivation = e.Check.Outcome == SuccessOutcome.Failure,
+            MustEndActivation = e.Check.Outcome == SuccessOutcome.Failure && RiskyEnds(state, e.Model),
         };
+    }
+
+    // Roster stage R5h (U113): a Medi-kit's Treat ACTION (p. 84), once per activation, on the model itself or a friendly
+    // model within 1": remove 1 BLOOD MARKER from one that has any, or stand up a Down friend.
+    private static MatchState OnTreatDeclared(MatchState state, TreatDeclared e)
+    {
+        var model = Active(state, e.Model, "A Treat");
+        Require(Enum.IsDefined(e.Choice), "Unknown Treat choice.");
+        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Treat), "A Treat ACTION can be taken once per activation.");
+        Require(state.Setup!.ProfileOf(e.Model)!.Treats, "Only a model with a Medi-kit can take a Treat ACTION.");
+        Require(TreatRefusal(state, model, e.Target, e.Choice) is null, "That model cannot be treated that way.");
+        return state with
+        {
+            Actions = state.Actions | ActionsTaken.Treat,
+            InProgress = new RollInProgress(RollStage.TreatRoll, e.Model, Target: e.Target, BonusDice: TreatDice(state, e.Model), TreatStandUp: e.Choice == TreatChoice.StandUp),
+        };
+    }
+
+    private static MatchState OnTreatRolled(MatchState state, TreatRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.TreatRoll } p && p.Actor == e.Model && p.Target == e.Target && state.Pending is null
+            && p.TreatStandUp == (e.Choice == TreatChoice.StandUp), "No such Treat roll is waiting.");
+        var progress = state.InProgress!;
+        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice, "A Treat is a Risky Success Roll with the spent markers as penalty dice.");
+        var failed = e.Check.Outcome == SuccessOutcome.Failure;
+        var target = state.FindModel(e.Target)!;
+        // The opponent may have spent the model's own last marker; then there is nothing left to remove.
+        var treated = !failed && TreatRefusal(state, state.FindModel(e.Model)!, e.Target, e.Choice) is null;
+        Require(e.Treated == treated, "A successful Treat roll carries out its choice when it still can, and only then.");
+        var next = state with { InProgress = null, MustEndActivation = failed && RiskyEnds(state, e.Model) };
+        return !treated ? next : TurnRules.WithModel(next, e.Choice == TreatChoice.StandUp
+            ? target with { Status = ModelStatus.Standing }
+            : target with { BloodMarkers = target.BloodMarkers - 1 });
+    }
+
+    // Why a Treat on that target with that choice is not possible now, or null (the rules' own words; Decide's check).
+    internal static string? TreatRefusal(MatchState state, ModelState medic, ModelId targetId, TreatChoice choice)
+    {
+        var target = state.FindModel(targetId);
+        if (target is null || target.Seat != medic.Seat || target.Position is null || target.Status == ModelStatus.OutOfAction)
+        {
+            return "A Treat ACTION treats the model itself or a friendly model on the battlefield.";
+        }
+        if (target.Id != medic.Id && !(Board.BodyOf(state, medic) is { } from && Board.BodyOf(state, target) is { } to && Measure.IsWithin(from, to, TreatReach)))
+        {
+            return "A Treat ACTION treats the model itself or a friendly model within 1\".";
+        }
+        return choice switch
+        {
+            TreatChoice.RemoveMarker when target.BloodMarkers == 0 => "That model has no BLOOD MARKER to remove.",
+            TreatChoice.StandUp when target.Id == medic.Id || target.Status != ModelStatus.Down => "A Treat stands up only a Down friendly model.",
+            _ => null,
+        };
+    }
+
+    private static readonly Length TreatReach = Length.FromInches(1);
+
+    // Roster stage R6b (U118): an Aim or Fortify ACTION, once per activation each, by a model whose unit has it.
+    // Roster stage R6e (U121): Enforced Orthodoxy and Laying on of Hands (on a friend within 6", its Target) the same way.
+    private static MatchState OnSelfActionDeclared(MatchState state, SelfActionDeclared e)
+    {
+        var model = Active(state, e.Model, "That ACTION");
+        Require(Enum.IsDefined(e.Action), "Unknown ACTION.");
+        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(SelfActionFlag(e.Action)), "That ACTION can be taken once per activation.");
+        Require(HasSelfAction(state.Setup!.ProfileOf(e.Model)!, e.Action), "Only a model whose unit has it can take that ACTION.");
+        Require(e.Action == SelfActionKind.LayingOnHands
+            ? e.Target is { } target && HandsRefusal(state, model, target) is null
+            : e.Target is null, "A Laying on of Hands needs a friend within 6\" with a BLOOD MARKER; no other ACTION has a target.");
+        return state with
+        {
+            Actions = state.Actions | SelfActionFlag(e.Action),
+            InProgress = new RollInProgress(RollStage.SelfRoll, e.Model, Target: e.Target, BonusDice: SelfActionBonus(state.Setup!.ProfileOf(e.Model)!, e.Action), SelfAction: e.Action),
+        };
+    }
+
+    private static MatchState OnSelfActionRolled(MatchState state, SelfActionRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.SelfRoll } p && p.Actor == e.Model && p.SelfAction == e.Action && p.Target == e.Target && state.Pending is null, "No such ACTION roll is waiting.");
+        var progress = state.InProgress!;
+        var model = state.FindModel(e.Model)!;
+        Require(e.Check.Risky == SelfActionRisky(state, model, e.Action) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
+            "The ACTION's Success Roll is Risky (Laying on of Hands only for a Shaken warband), with the spent markers as penalty dice.");
+        var stood = e.Succeeded && e.Action == SelfActionKind.EnforcedOrthodoxy ? OrthodoxyStands(state, model) : [];
+        var removed = e.Succeeded && e.Action == SelfActionKind.LayingOnHands ? HandsRemove(state, e.Target!.Value, e.Check) : 0;
+        Require(e.StoodUp.SequenceEqual(stood) && e.Removed == removed, "The ACTION's result must be what the rules give.");
+        var next = state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure && RiskyEnds(state, e.Model) };
+        if (!e.Succeeded)
+        {
+            return next;
+        }
+        switch (e.Action)
+        {
+            case SelfActionKind.Aim:
+                return next with { Aiming = true };
+            case SelfActionKind.Fortify:
+                // COVER until it moves, as a dug-in Shovel's (Undig ends both).
+                return TurnRules.WithModel(next, model with { DugInAt = model.Position });
+            case SelfActionKind.EnforcedOrthodoxy:
+                return next with { Models = [.. next.Models.Select(m => stood.Contains(m.Id) ? m with { Status = ModelStatus.Standing } : m)] };
+            default:
+                var target = next.FindModel(e.Target!.Value)!;
+                return TurnRules.WithModel(next, target with { BloodMarkers = target.BloodMarkers - removed });
+        }
+    }
+
+    internal static ActionsTaken SelfActionFlag(SelfActionKind action) => action switch
+    {
+        SelfActionKind.Aim => ActionsTaken.Aim,
+        SelfActionKind.Fortify => ActionsTaken.Fortify,
+        SelfActionKind.EnforcedOrthodoxy => ActionsTaken.Orthodoxy,
+        _ => ActionsTaken.LayingOnHands,
+    };
+
+    internal static bool HasSelfAction(ModelProfile profile, SelfActionKind action) => action switch
+    {
+        SelfActionKind.Aim => profile.Aims,
+        SelfActionKind.Fortify => profile.Fortifies,
+        SelfActionKind.EnforcedOrthodoxy => profile.EnforcesOrthodoxy,
+        _ => profile.LaysOnHands,
+    };
+
+    // The roll's bonus dice: Aim +2, Enforced Orthodoxy +1, Laying on of Hands +1 with Holy Water of Lalibela (an ACTION
+    // that can remove BLOOD MARKERS, Warbands p. 76).
+    internal static int SelfActionBonus(ModelProfile profile, SelfActionKind action) => action switch
+    {
+        SelfActionKind.Aim => AimDice,
+        SelfActionKind.EnforcedOrthodoxy => 1,
+        SelfActionKind.LayingOnHands => profile.HealingWaters ? 1 : 0,
+        _ => 0,
+    };
+
+    // Every one of these ACTIONS is Risky but Laying on of Hands, a plain Success Roll (Risky for a Shaken warband, p. 50).
+    internal static bool SelfActionRisky(MatchState state, ModelState model, SelfActionKind action) =>
+        action != SelfActionKind.LayingOnHands || state.IsShaken(model.Seat);
+
+    // Roster stage R6e (U121): the Down friendly models on the battlefield within 8" of an Enforced Orthodoxy, in order.
+    internal static ImmutableArray<ModelId> OrthodoxyStands(MatchState state, ModelState model) =>
+        Board.BodyOf(state, model) is { } body
+            ? [.. state.Models.Where(m => m.Seat == model.Seat && m.Id != model.Id && m.Status == ModelStatus.Down && Board.BodyOf(state, m) is { } friend && Measure.IsWithin(body, friend, OrthodoxyReach)).Select(m => m.Id)]
+            : [];
+
+    private static readonly Length OrthodoxyReach = Length.FromInches(8);
+
+    // Why a Laying on of Hands on that target is not possible now, or null.
+    internal static string? HandsRefusal(MatchState state, ModelState healer, ModelId targetId)
+    {
+        var target = state.FindModel(targetId);
+        if (target is null || target.Seat != healer.Seat || target.Position is null || target.Status == ModelStatus.OutOfAction)
+        {
+            return "A Laying on of Hands ACTION is taken on the model itself or a friendly model on the battlefield.";
+        }
+        if (target.Id != healer.Id && !(Board.BodyOf(state, healer) is { } from && Board.BodyOf(state, target) is { } to && Measure.IsWithin(from, to, HandsReach)))
+        {
+            return "A Laying on of Hands ACTION is taken on the model itself or a friendly model within 6\".";
+        }
+        return target.BloodMarkers == 0 ? "That model has no BLOOD MARKER to remove." : null;
+    }
+
+    private static readonly Length HandsReach = Length.FromInches(6);
+
+    // A successful Laying on of Hands removes 1 BLOOD MARKER, 3 on a Critical Success, at most what the target has left.
+    internal static int HandsRemove(MatchState state, ModelId target, SuccessRollResult check) =>
+        Math.Min(state.FindModel(target)!.BloodMarkers, check.Outcome == SuccessOutcome.CriticalSuccess ? 3 : 1);
+
+    // Roster stage R6b (U118): +2 DICE on the Aim roll, and on the model's Ranged Attacks once it succeeded.
+    internal const int AimDice = 2;
+
+    internal static int AimedDice(MatchState state, ModelId shooter) => state.Aiming && state.ActiveModel == shooter ? AimDice : 0;
+
+    // Roster stage R5h (U113): Holy Water of Lalibela's +1 DICE to the Treat roll (an ACTION that can remove BLOOD MARKERS).
+    // Roster stage R6a (U117): +2 DICE more for an Expert Medic.
+    internal static int TreatDice(MatchState state, ModelId model) => state.Setup?.ProfileOf(model) is { } p ? (p.HealingWaters ? 1 : 0) + (p.ExpertMedic ? 2 : 0) : 0;
+
+    // Roster stage R6a (U117): Finish the Fallen, +1 INJURY DICE to a Melee Attack's Injury Roll at a Down target that is
+    // neither CULT nor DEMONIC.
+    internal static int FinishDice(MatchState state, RollInProgress progress, ModelId target) =>
+        state.Setup?.ProfileOf(progress.Actor)?.FinishesTheFallen == true && state.FindModel(target) is { Status: ModelStatus.Down }
+        && (state.Setup.ProfileOf(target)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) == 0 ? 1 : 0;
+
+    // Roster stage R6a (U117): Absolute Faith, no BLOOD MARKERS spent for -DICE on the model's Ranged Attacks.
+    internal static bool ShotsIgnoreMarkers(MatchState state, ModelId model) => state.Setup?.ProfileOf(model)?.ShotsIgnoreMarkers == true;
+
+    // Towers stage T6 (p. 39, U75, U76): a Move or Dash that climbs a tower's side. A Move is taken here; a Dash has
+    // already succeeded its own roll and reached its move.
+    private static MatchState OnSideClimbDeclared(MatchState state, SideClimbDeclared e)
+    {
+        var model = Active(state, e.Model, "A climb");
+        Require(Enum.IsDefined(e.Kind), "Unknown move kind.");
+        if (e.Kind == MoveKind.Move)
+        {
+            Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
+                "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.");
+            Require(ActionLimits.MoveExcluded(state, e.Model) is null, ActionLimits.HeavyText);
+        }
+        else
+        {
+            Require(state.InProgress is { Stage: RollStage.DashMove } p && p.Actor == e.Model && p.DashPath.SequenceEqual(e.Path),
+                "A Dash climbs only after its own roll succeeded, along the declared path.");
+        }
+        Require(Board.CheckMove(state, model, e.Path) is { IsLegal: true, SideClimb: not null }, "A climb must be part of a legal move that climbs a tower's side.");
+        var action = e.Kind == MoveKind.Move ? ActionsTaken.Move : ActionsTaken.Dash;
+        return state with
+        {
+            Actions = state.Actions | action,
+            InProgress = new RollInProgress(RollStage.ClimbRoll, e.Model, BonusDice: ClimbDice(state, e.Model), DashPath: e.Path, ClimbAction: action),
+        };
+    }
+
+    private static MatchState OnSideClimbRolled(MatchState state, SideClimbRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.ClimbRoll } p && p.Actor == e.Model && state.Pending is null, "No climb roll is waiting.");
+        var progress = state.InProgress!;
+        Require(e.Check.Risky && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice, "A climb is a Risky Success Roll with the spent markers as penalty dice.");
+        if (e.Check.Outcome != SuccessOutcome.Failure)
+        {
+            return state with { InProgress = progress with { Stage = RollStage.ClimbMove } };
+        }
+        // Failed: the model moves only as far as the climb's start, if it is not there already, and then stops.
+        var stops = ClimbStopPath(state, progress).Length > 0;
+        return state with
+        {
+            InProgress = stops ? progress with { Stage = RollStage.ClimbStop } : null,
+            MustEndActivation = !stops && RiskyEnds(state, e.Model),
+        };
+    }
+
+    // Roster stage R5d (U108): a failed Risky roll ends the activation, unless the model keeps going (the Supreme
+    // Pontiff's Crucifix).
+    internal static bool RiskyEnds(MatchState state, ModelId model) => state.Setup?.ProfileOf(model)?.KeepsGoingAfterRisky != true;
+
+    // Roster stage R5k (U116): the model would lose its activation to a failed Risky roll, is Standing, and has a Talisman
+    // it has not used yet, so its player is asked first. A Down or Out of Action model loses its activation anyway.
+    internal static bool TalismanReady(MatchState state, ModelId? model) =>
+        model is { } id && RiskyEnds(state, id) && state.FindModel(id) is { Status: ModelStatus.Standing } bearer
+        && bearer.TalismansUsed < (state.Setup?.ProfileOf(id)?.Talismans ?? 0);
+
+    // A failed Risky roll surely ends the activation: no Crucifix and no Talisman left to use. RELOAD ends it otherwise.
+    private static bool RiskyStops(MatchState state, ModelId model) => RiskyEnds(state, model) && !TalismanReady(state, model);
+
+    // Roster stage R5k (U116): the model uses a Talisman, so its failed Risky roll does not end the activation; RELOAD
+    // still does, when the attack was made with a RELOAD weapon.
+    private static MatchState OnTalismanUsed(MatchState state, TalismanUsed e)
+    {
+        Require(state.Pending is { Kind: DecisionKind.UseTalisman } && state.ActiveModel == e.Model && state.MustEndActivation,
+            "A Talisman is used only when its player is asked, after the model's failed Risky roll.");
+        var model = state.FindModel(e.Model)!;
+        return TurnRules.WithModel(state, model with { TalismansUsed = model.TalismansUsed + 1 }) with { Pending = null, MustEndActivation = false };
+    }
+
+    // Roster stage R5d (U108): a Dash roll's bonus dice: +1 within 4" of a friendly Musical Instrument (the dashing
+    // model's own included); a climb roll's: the model's Mountaineer Kit.
+    // Roster stage R6c (U119): +1 more for Agile, and +1 for Frightening Speed, Loping Dash or Mad Dash.
+    internal static int DashDice(MatchState state, ModelState model) => FanfareDice(state, model) + OwnDashDice(state.Setup!.ProfileOf(model.Id)!);
+
+    internal static int OwnDashDice(ModelProfile profile) => (profile.Agile ? 1 : 0) + (profile.SwiftDash ? 1 : 0);
+
+    internal static int FanfareDice(MatchState state, ModelState model) =>
+        Board.BodyOf(state, model) is { } body && state.Models.Any(m => m.Seat == model.Seat && m.Position is not null
+            && state.Setup!.ProfileOf(m.Id)!.Fanfare && (m.Id == model.Id || Board.BodyOf(state, m) is { } other && Measure.IsWithin(body, other, FanfareReach))) ? 1 : 0;
+
+    private static readonly Length FanfareReach = Length.FromInches(4);
+
+    internal static int ClimbDice(MatchState state, ModelId model) => state.Setup!.ProfileOf(model) is { } p ? p.ClimbDice + (p.Agile ? 1 : 0) : 0;
+
+    // The part of a climbing move before the climb: where a failed climb leaves the model (may be empty).
+    internal static ImmutableArray<Point2> ClimbStopPath(MatchState state, RollInProgress progress)
+    {
+        var model = state.FindModel(progress.Actor)!;
+        var at = Board.CheckMove(state, model, progress.DashPath).SideClimb!.Value;
+        return progress.DashPath.Take(at).ToImmutableArray();
     }
 
     private static MatchState OnModelMoved(MatchState state, ModelMoved e)
     {
         var model = Active(state, e.Model, "A move");
+        if (state.InProgress is { Stage: RollStage.ClimbMove or RollStage.ClimbStop } climb && climb.Actor == e.Model)
+        {
+            var expected = climb.Stage == RollStage.ClimbMove ? climb.DashPath : ClimbStopPath(state, climb);
+            Require(e.Kind == (climb.ClimbAction == ActionsTaken.Move ? MoveKind.Move : MoveKind.Dash) && expected.SequenceEqual(e.Path),
+                "A climbing move follows its roll: the whole path on a Success, only up to the climb on a Failure.");
+            var climbed = Board.CheckMove(state, model, e.Path);
+            Require(climbed.IsLegal && climbed.Cost == e.Cost, "The move must follow a legal path at the recorded cost.");
+            var climbedTo = TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
+            {
+                InProgress = null,
+                MustEndActivation = climb.Stage == RollStage.ClimbStop && RiskyEnds(state, e.Model),
+            };
+            return HaltAtMine(state, climbedTo, e.Model, e.Path);
+        }
         if (e.Kind == MoveKind.Move)
         {
             Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
                 "A model can take a Move or a Charge or a Retreat ACTION, but not more than one.");
+            Require(ActionLimits.MoveExcluded(state, e.Model) is null, ActionLimits.HeavyText);
         }
         else
         {
@@ -612,11 +1133,13 @@ public static class Reducer
         }
         var check = Board.CheckMove(state, model, e.Path);
         Require(check.IsLegal && check.Cost == e.Cost, "The move must follow a legal path at the recorded cost.");
-        return TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
+        Require(check.SideClimb is null, "A move that climbs a tower's side needs its Risky Success Roll first.");
+        var after = TurnRules.WithModel(state, model with { Position = e.Path[^1] }) with
         {
             Actions = e.Kind == MoveKind.Move ? state.Actions | ActionsTaken.Move : state.Actions,
             InProgress = null,
         };
+        return HaltAtMine(state, after, e.Model, e.Path);
     }
 
     private static MatchState OnMarkersSpent(MatchState state, MarkersSpent e)
@@ -633,8 +1156,14 @@ public static class Reducer
         }
         else if (state.Pending.Kind == DecisionKind.SpendMarkersOnInjuryRoll)
         {
-            Require(e.Purpose == MarkerSpendPurpose.RaiseInjuryRoll && e.Model == rolling.Target, "Those markers belong to the target.");
-            next = state with { InProgress = rolling with { BonusDice = rolling.BonusDice + e.Count } };
+            Require(e.Purpose is MarkerSpendPurpose.RaiseInjuryRoll or MarkerSpendPurpose.Bloodbath && e.Model == rolling.Target, "Those markers belong to the target.");
+            // U123: a Bloodbath Roll's markers are its price, not INJURY DICE; the roll keeps one more die instead.
+            Require(e.Purpose != MarkerSpendPurpose.Bloodbath || TurnSequence.BloodbathCost(state) == e.Count,
+                "A Bloodbath Roll spends exactly 6 of the target's Blood Markers (3 if it is Down).");
+            next = state with
+            {
+                InProgress = e.Purpose == MarkerSpendPurpose.Bloodbath ? rolling with { Bloodbath = true } : rolling with { BonusDice = rolling.BonusDice + e.Count },
+            };
         }
         else
         {
@@ -646,38 +1175,199 @@ public static class Reducer
     private static MatchState OnRangedAttackDeclared(MatchState state, RangedAttackDeclared e)
     {
         var attacker = Active(state, e.Attacker, "A Ranged Attack");
-        Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Shoot | ActionsTaken.Charge | ActionsTaken.Fight)) == 0,
-            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION.");
+        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Shoot)
+            && ActionLimits.ShootExcluded(state, e.Attacker, e.Weapon) is null,
+            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION (unless ASSAULT) or, with a HEAVY weapon, a move.");
         var target = state.FindModel(e.Target);
         Require(target is not null, "Unknown target.");
-        var facts = Board.Assess(state, attacker, target!);
+        var facts = Board.Assess(state, attacker, target!, e.Weapon);
         Require(facts.IsLegal, "The attack is not legal here.");
         Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId
-            && facts.AttackerLevel == e.AttackerLevel && facts.TargetLevel == e.TargetLevel, "The declared modifiers do not match the positions.");
+            && facts.AttackerLevel == e.AttackerLevel && facts.TargetLevel == e.TargetLevel && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
         Require(facts.IntoMelee == e.IntoMelee, "A target within 1\" of a friendly model needs the D6 that decides who is shot, and no other does.");
+        // The declared facts with the weapon's keywords and the attacker's own dice (roster stages R1, R2).
+        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, e.InCover, e.Elevated, state.Setup.ProfileOf(e.Target),
+            Whispers(state, state.FindModel(e.Target)!), AimedDice(state, e.Attacker));
         return state with
         {
             Actions = state.Actions | ActionsTaken.Shoot,
-            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, 0, e.PenaltyDice),
+            ShotWeapon = e.Weapon,
+            InProgress = new RollInProgress(e.IntoMelee ? RollStage.TargetRoll : RollStage.ShotRoll, e.Attacker, e.Target, bonus, penalty, InjuryDiceLater: later, Weapon: e.Weapon),
         };
     }
 
     private static MatchState OnRangedSuccessRolled(MatchState state, RangedSuccessRolled e)
     {
         Require(state.InProgress is { Stage: RollStage.ShotRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No attack roll is waiting.");
-        var progress = state.InProgress!;
-        var attacker = state.FindModel(e.Attacker)!;
-        Require(e.Check.Risky == state.IsShaken(attacker.Seat) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
-            "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken.");
-        if (e.Check.Outcome == SuccessOutcome.Failure)
-        {
-            return state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure };
-        }
-        // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE").
-        var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
+        return AfterShotRoll(state, e.Check);
+    }
+
+    // Roster stage R5a (U105): a Ranged Attack with a BLAST weapon at a point (p. 53). Its dice are those of any Ranged
+    // Attack (the weapon's keywords, the model's own dice, Long Range); a point has no cover and no height to shoot at.
+    private static MatchState OnPointAttackDeclared(MatchState state, PointAttackDeclared e)
+    {
+        var attacker = Active(state, e.Attacker, "A Ranged Attack");
+        Require(state.InProgress is null && state.Retreat is null && !state.Actions.HasFlag(ActionsTaken.Shoot)
+            && ActionLimits.ShootExcluded(state, e.Attacker, e.Weapon) is null,
+            "A Shoot ACTION can be taken once per activation, and not with a Charge or Fight ACTION (unless ASSAULT) or, with a HEAVY weapon, a move.");
+        var facts = Board.AssessPoint(state, attacker, e.At, e.Weapon);
+        Require(facts.IsLegal, "The attack is not legal here.");
+        Require(facts.LongRange == e.LongRange, "The declared Long Range does not match the positions.");
+        var (bonus, penalty, later) = AttackDice.Shot(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Ranged, e.Weapon), e.LongRange, false, false, aim: AimedDice(state, e.Attacker));
         return state with
         {
-            InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = critical ? 1 : 0, PenaltyDice = 0, Critical = critical, MarkersAsked = false },
+            Actions = state.Actions | ActionsTaken.Shoot,
+            ShotWeapon = e.Weapon,
+            InProgress = new RollInProgress(RollStage.ShotRoll, e.Attacker, null, bonus, penalty, InjuryDiceLater: later, Weapon: e.Weapon) { BlastAt = e.At },
+        };
+    }
+
+    private static MatchState OnPointSuccessRolled(MatchState state, PointSuccessRolled e)
+    {
+        Require(state.InProgress is { Stage: RollStage.ShotRoll, Target: null } p && p.Actor == e.Attacker && p.BlastAt == e.At && state.Pending is null,
+            "No attack roll at that point is waiting.");
+        return AfterShotRoll(state, e.Check);
+    }
+
+    // Roster stage R5a (U105): the models the blast at the aimed point hits, worked out again from the positions; then
+    // the first one's Injury Roll. No model was the attack's target, so a Critical Success adds no dice to any of them.
+    private static MatchState OnPointBlastHit(MatchState state, PointBlastHit e)
+    {
+        Require(state.InProgress is { Stage: RollStage.Blast, Target: null } p && p.Actor == e.Attacker && p.BlastAt == e.At && state.Pending is null,
+            "No blast at that point is waiting.");
+        var progress = state.InProgress!;
+        Require(Board.BlastHitsAt(state, state.FindModel(e.Attacker)!, e.At, progress.Weapon).SequenceEqual(e.Hit),
+            "The blast must hit exactly the models within its radius of the point that see it, and the friends of those beside them.");
+        return e.Hit.IsEmpty
+            ? AttackOver(state, progress)
+            : state with { InProgress = NextBlastRoll(state, progress with { Aimed = null, Critical = false }, e.Hit) };
+    }
+
+    // A Ranged Attack's Success Roll, at a model or (R5a) at a point: a miss, a scatter, a blast or the Injury Roll.
+    private static MatchState AfterShotRoll(MatchState state, SuccessRollResult check)
+    {
+        var progress = state.InProgress!;
+        var attacker = state.FindModel(progress.Actor)!;
+        var profile = AttackProfile(state, progress);
+        Require(check.Risky == AttackDice.Risky(profile, AttackKind.Ranged, state.IsShaken(attacker.Seat)) && check.NetDice == progress.BonusDice - progress.PenaltyDice,
+            "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
+        if (check.Outcome == SuccessOutcome.Failure && profile.RangedWeaponBlast > 0 && (profile.RangedWeaponKeywords & WeaponKeywords.Scatter) != 0)
+        {
+            // Roster stage R4c (U103): SCATTER: the attack scatters (7 - the roll)" instead of missing (p. 57); a failed
+            // Risky roll still ends the activation, once the attack is over.
+            return state with
+            {
+                InProgress = progress with
+                {
+                    Stage = RollStage.Scatter,
+                    ScatterInches = SuccessRoll.SuccessFrom - check.Dice.Total,
+                    RiskyEnds = check.RiskyFailure && RiskyEnds(state, progress.Actor),
+                    BonusDice = 0,
+                    PenaltyDice = 0,
+                    MarkersAsked = false,
+                },
+            };
+        }
+        if (check.Outcome == SuccessOutcome.Failure)
+        {
+            var ends = check.RiskyFailure && RiskyEnds(state, progress.Actor);
+            return state with { InProgress = null, MustEndActivation = ends, ReloadEnds = !(ends && RiskyStops(state, progress.Actor)) && ActionLimits.Reloads(profile, AttackKind.Ranged) };
+        }
+        // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE"),
+        // +2 with CRITICAL; the weapon's own INJURY DICE and SHOTGUN's -1 at Long Range (roster stages R1, R2).
+        var critical = check.Outcome == SuccessOutcome.CriticalSuccess;
+        if (profile.RangedWeaponBlast > 0)
+        {
+            // Roster stage R4b (U102): a BLAST attack: who it hits comes next (BlastHit), then their Injury Rolls.
+            return state with { InProgress = progress with { Stage = RollStage.Blast, BonusDice = 0, PenaltyDice = 0, Critical = critical, MarkersAsked = false } };
+        }
+        var (bonus, penalty) = AttackDice.InjuryDice(profile, AttackKind.Ranged, critical, meleeOnDownTarget: false, progress.InjuryDiceLater, state.Setup!.ProfileOf(progress.Target!.Value)!);
+        return state with
+        {
+            InProgress = progress with { Stage = RollStage.InjuryRoll, BonusDice = bonus, PenaltyDice = penalty, Critical = critical, MarkersAsked = false },
+        };
+    }
+
+    // Roster stage R4b (U102): the models a BLAST attack hits, worked out again from the positions; then the first
+    // one's Injury Roll.
+    private static MatchState OnBlastHit(MatchState state, BlastHit e)
+    {
+        Require(state.InProgress is { Stage: RollStage.Blast } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No blast is waiting.");
+        var progress = state.InProgress!;
+        var expected = Board.BlastHits(state, state.FindModel(e.Attacker)!, state.FindModel(e.Target)!, progress.Weapon);
+        Require(expected.SequenceEqual(e.Hit), "The blast must hit exactly the models within its radius that see its target, and the friends of those beside them.");
+        return state with { InProgress = NextBlastRoll(state, progress with { Aimed = e.Target }, e.Hit) };
+    }
+
+    // Roster stage R4c (U103): the opponent put the scattered attack at a point it may land at; the blast there hits
+    // exactly the models listed, worked out again from the positions; then the first one's Injury Roll.
+    private static MatchState OnAttackScattered(MatchState state, AttackScattered e)
+    {
+        Require(state.InProgress is { Stage: RollStage.Scatter } p && p.Actor == e.Attacker && p.Target == e.Target
+            && state.Pending is { Kind: DecisionKind.ChooseScatterPoint }, "No scattered attack is waiting for its point.");
+        var progress = state.InProgress!;
+        var attacker = state.FindModel(e.Attacker)!;
+        Require(state.Pending!.Seat == attacker.Seat.Opponent(), "The attacker's opponent picks where the attack scatters to.");
+        Require(e.Inches == progress.ScatterInches, "The attack scatters 7 minus its Success Roll in inches.");
+        Require(Board.CanScatterTo(state, progress, e.At), "The attack must scatter exactly that far, to a point on the battlefield in Line of Sight of its target.");
+        Require(Board.BlastHitsAt(state, attacker, e.At, progress.Weapon).SequenceEqual(e.Hit),
+            "The blast must hit exactly the models within its radius of the point that see it, and the friends of those beside them.");
+        var landed = state with { Pending = null };
+        return e.Hit.IsEmpty
+            ? AttackOver(landed, progress)
+            : landed with { InProgress = NextBlastRoll(landed, progress with { Aimed = e.Target, BlastAt = e.At, Critical = false }, e.Hit) };
+    }
+
+    // Roster stage R4c (U103): the scattered attack has nowhere to land, so it misses (p. 57).
+    private static MatchState OnScatterMissed(MatchState state, ScatterMissed e)
+    {
+        Require(state.InProgress is { Stage: RollStage.Scatter } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null,
+            "No scattered attack is waiting.");
+        var progress = state.InProgress!;
+        Require(e.Inches == progress.ScatterInches, "The attack scatters 7 minus its Success Roll in inches.");
+        Require(Board.ScatterPoints(state, progress).Count == 0, "A scattered attack misses only when it has nowhere to land.");
+        return AttackOver(state, progress);
+    }
+
+    // A Ranged Attack is over: a failed Risky roll ends the activation now (a scattered attack's, U103), else RELOAD does.
+    private static MatchState AttackOver(MatchState state, RollInProgress progress) => state with
+    {
+        InProgress = null,
+        MustEndActivation = state.MustEndActivation || progress.RiskyEnds,
+        ReloadEnds = !(progress.RiskyEnds && RiskyStops(state, progress.Actor)) && !progress.FreeFight && ActionLimits.Reloads(AttackProfile(state, progress), progress.Kind),
+    };
+
+    // The next model a blast hit: its Injury Roll, with a Critical Success's extra dice only for the model the attack
+    // was aimed at (p. 53), friendly fire for the attacker's own models (no markers spent on them, U52).
+    private static RollInProgress NextBlastRoll(MatchState state, RollInProgress progress, ImmutableArray<ModelId> queue)
+    {
+        var victim = queue[0];
+        if (progress.Martyrdom)
+        {
+            // Roster stage R5j (U115): +1 INJURY DICE within 1" and the INJURY DICE the target takes (Holy Smoke); the
+            // bearer's own roll is always 4D6 added together.
+            var (more, fewer) = victim == progress.Actor ? (0, 0)
+                : AttackDice.With(progress.MartyrClose.Contains(victim) ? 1 : 0, 0, AttackDice.TakenDice(state.Setup!.ProfileOf(victim)!, WeaponKeywords.None));
+            return progress with
+            {
+                Target = victim,
+                BlastQueue = queue.RemoveAt(0),
+                FriendlyFire = state.FindModel(victim)!.Seat == state.FindModel(progress.Actor)!.Seat,
+                BonusDice = more,
+                PenaltyDice = fewer,
+                MarkersAsked = false,
+            };
+        }
+        var (bonus, penalty) = AttackDice.InjuryDice(AttackProfile(state, progress), AttackKind.Ranged, progress.Critical && victim == progress.Aimed, meleeOnDownTarget: false, progress.InjuryDiceLater, state.Setup!.ProfileOf(victim)!);
+        return progress with
+        {
+            Stage = RollStage.InjuryRoll,
+            Target = victim,
+            BlastQueue = queue.RemoveAt(0),
+            FriendlyFire = state.FindModel(victim)!.Seat == state.FindModel(progress.Actor)!.Seat,
+            BonusDice = bonus,
+            PenaltyDice = penalty,
+            MarkersAsked = false,
         };
     }
 
@@ -687,40 +1377,141 @@ public static class Reducer
         var progress = state.InProgress!;
         var attacker = state.FindModel(e.Attacker)!;
         var target = state.FindModel(e.Target)!;
-        Require(target.Id != attacker.Id && (target.Seat == attacker.Seat) == progress.FriendlyFire,
-            "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one.");
-        var profile = state.Setup!.ProfileOf(e.Attacker)!;
-        var weapon = progress.Kind == AttackKind.Melee ? profile.MeleeInjuryModifier : profile.RangedInjuryModifier;
-        var armour = state.Setup.ProfileOf(e.Target)!.Armour;
+        Require((target.Id != attacker.Id || progress.Aimed is not null || progress.BlastAt is not null || progress.Martyrdom) && (target.Seat == attacker.Seat) == progress.FriendlyFire,
+            "An attack injures an enemy model, unless a shot into melee was forced onto a friendly one or a blast hits it.");
+        // Roster stage R5j (U115): a Martyrdom Device's bearer rolls 4D6 added together; every other roll keeps two or three.
+        Require(e.Bloodbath == progress.Bloodbath, "A Bloodbath Roll is made only when its Blood Markers were spent for it.");
+        var profile = AttackProfile(state, progress);
         Require(e.Injury.NetDice == progress.BonusDice - progress.PenaltyDice
-            && e.Injury.Modifier == InjuryRoll.CombineModifiers([weapon, armour])
+            && e.Injury.Modifier == InjuryRoll.CombineModifiers(AttackDice.InjuryModifiers(profile, state.Setup!.ProfileOf(e.Target)!, progress.Kind))
             && e.Injury.TargetAlreadyDown == (target.Status == ModelStatus.Down), "The Injury Roll must match the dice, modifiers and state of the target.");
+        // Roster stage R5 (U104): a DEADLY weapon's Injury Rolls keep three dice, every other one two; a Martyrdom Device's
+        // bearer rolls 4D6 added together (U115); a Bloodbath Roll keeps one more (U123).
+        Require(e.Injury.Dice.Kept.Count == InjuryRoll.KeptFor((profile.AttackKeywords(progress.Kind) & WeaponKeywords.Deadly) != 0,
+                progress.Martyrdom && target.Id == attacker.Id, progress.Bloodbath),
+            "A DEADLY weapon's Injury Roll is 3D6, any other is 2D6; a Martyrdom Device's bearer rolls 4D6; a Bloodbath Roll keeps one more.");
 
-        var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.Injury.BloodMarkers);
-        var hurt = e.Injury.Outcome switch
+        // Roster stage R4a: SHRAPNEL, GAS and FIRE put extra BLOOD MARKERS on the target (U101).
+        Require(e.ExtraMarkers == AttackDice.ExtraMarkers(profile, progress.Kind, state.Setup!.ProfileOf(e.Target)!), "The extra BLOOD MARKERS must be the weapon's SHRAPNEL, GAS and FIRE.");
+        Require(e.Tough == ToughSaves(state, target, e.Injury.Outcome), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
+        Require(e.Spared == MementoSaves(state, target, e.Injury.Outcome), "Memento Mori turns the model's first Out of Action result into No Effect, and nothing else.");
+        Require(e.Warded == Wards(state, target, e.ResultMarkers + e.ExtraMarkers), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
+        var markers = Math.Min(BloodMarkers.Max, target.BloodMarkers + e.PlacedMarkers);
+        var hurt = Hurt(target, e.Result, markers, e.Tough || e.Spared) with { WardSpent = target.WardSpent || e.Warded };
+        // A blast's next model (U102), once this one is rolled for.
+        if (!progress.BlastQueue.IsDefaultOrEmpty)
         {
-            InjuryOutcome.OutOfAction => target with { Status = ModelStatus.OutOfAction, Position = null, BloodMarkers = markers },
-            InjuryOutcome.Down => target with { Status = ModelStatus.Down, BloodMarkers = markers },
-            _ => target with { BloodMarkers = markers },
-        };
-        return TurnRules.WithModel(state, hurt) with { InProgress = null };
+            var after = TurnRules.WithModel(state, hurt);
+            return after with { InProgress = NextBlastRoll(after, progress, progress.BlastQueue) };
+        }
+        // RELOAD: the attacker's activation ends now its ACTION is done (not after a free attack, which is not its own); a
+        // scattered attack's failed Risky roll ends it instead (U103).
+        return AttackOver(TurnRules.WithModel(state, hurt), progress);
     }
+
+    // Roster stage R5b (U106): TOUGH turns the first Out of Action result a model suffers into a Down result (p. 57).
+    internal static bool ToughSaves(MatchState state, ModelState model, InjuryOutcome outcome) =>
+        outcome == InjuryOutcome.OutOfAction && !model.ToughSpent && state.Setup!.ProfileOf(model.Id)! is { MementoMori: false } p && p.Traits.HasFlag(ModelTraits.Tough);
+
+    // Roster stage R6c (U119): Memento Mori turns the first Out of Action result into No Effect; ToughSpent records it,
+    // as such a model is never TOUGH.
+    internal static bool MementoSaves(MatchState state, ModelState model, InjuryOutcome outcome) =>
+        outcome == InjuryOutcome.OutOfAction && !model.ToughSpent && state.Setup!.ProfileOf(model.Id)!.MementoMori;
+
+    // Roster stage R5g (U112): the BLOOD MARKERS an event owes. A Crown of Hellfire's bearer that ends an activation on
+    // the battlefield, or a Damned Pact's bearer taken Out of Action by an Injury Roll or a mine (measured from where it
+    // stood before it was removed), owes 1 to each enemy model on the battlefield within 1" of it, except a NEGATE FIRE
+    // model (Warbands p. 150, p. 83).
+    private static MatchState Burns(MatchState before, GameEvent e, MatchState after)
+    {
+        var source = e switch
+        {
+            ActivationEnded a when after.Setup?.ProfileOf(a.Model)?.BurnsAtActivationEnd == true => after.FindModel(a.Model),
+            InjuryRolled { Result: InjuryOutcome.OutOfAction } i => TakenOut(before, i.Target),
+            MineExploded { Result: InjuryOutcome.OutOfAction } m => TakenOut(before, m.Model),
+            _ => null,
+        };
+        if (source is null || Board.BodyOf(before, source) is not { } body)
+        {
+            return after;
+        }
+        var targets = after.Models
+            .Where(m => m.Seat != source.Seat && m.Position is not null && m.Status != ModelStatus.OutOfAction
+                && !after.Setup!.ProfileOf(m.Id)!.Negates.HasFlag(WeaponKeywords.Fire)
+                && Board.BodyOf(after, m) is { } other && Measure.IsWithin(body, other, BurnReach))
+            .Select(m => m.Id).ToImmutableArray();
+        return targets.IsEmpty ? after : after with { MarkersOwed = after.MarkersOwed.Add(new OwedMarkers(source.Id, targets)) };
+    }
+
+    private static ModelState? TakenOut(MatchState before, ModelId model) =>
+        before.FindModel(model) is { Status: not ModelStatus.OutOfAction, Position: not null } m && before.Setup?.ProfileOf(model)?.BurnsWhenTakenOut == true ? m : null;
+
+    private static readonly Length BurnReach = Length.FromInches(1);
+
+    // Roster stage R5g (U112): the owed BLOOD MARKERS are placed, one on each target, in the order they were owed; a
+    // Sacrificial Lamb keeps the first one placed on its model off (U109).
+    private static MatchState OnBloodMarkersPlaced(MatchState state, BloodMarkersPlaced e)
+    {
+        Require(state.MarkersOwed is [var owed, ..] && owed.Source == e.Source && owed.Targets.SequenceEqual(e.Targets), "No such BLOOD MARKERS are owed.");
+        var warded = e.Targets.Where(t => Wards(state, state.FindModel(t)!, 1)).ToList();
+        Require(e.Warded.SequenceEqual(warded), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
+        var next = state with { MarkersOwed = state.MarkersOwed.RemoveAt(0) };
+        foreach (var id in e.Targets)
+        {
+            var model = next.FindModel(id)!;
+            next = TurnRules.WithModel(next, e.Warded.Contains(id)
+                ? model with { WardSpent = true }
+                : model with { BloodMarkers = Math.Min(BloodMarkers.Max, model.BloodMarkers + 1) });
+        }
+        return next;
+    }
+
+    // Roster stage R5e (U109): a model with a sacrificed Lamb ignores the first BLOOD MARKER placed on it.
+    internal static bool Wards(MatchState state, ModelState model, int placed) =>
+        placed > 0 && !model.WardSpent && state.Setup!.ProfileOf(model.Id)!.WardedByBlood;
+
+    // Roster stage R5e (U109): -1 DICE to a Ranged Attack at a model that has the Urn of the Bitter Ashes or is within 3"
+    // of a model that has it (friend or enemy; a Down bearer too).
+    internal static bool Whispers(MatchState state, ModelState target) =>
+        Board.BodyOf(state, target) is { } body && state.Models.Any(m => m.Position is not null && state.Setup!.ProfileOf(m.Id)!.SinisterWhispers
+            && (m.Id == target.Id || Board.BodyOf(state, m) is { } urn && Measure.IsWithin(body, urn, UrnReach)));
+
+    private static readonly Length UrnReach = Length.FromInches(3);
+
+    // The model after an Injury Roll's result, with its BLOOD MARKERS (and TOUGH or Memento Mori spent when it saved the model).
+    private static ModelState Hurt(ModelState model, InjuryOutcome result, int markers, bool tough) => result switch
+    {
+        InjuryOutcome.OutOfAction => model with { Status = ModelStatus.OutOfAction, Position = null, BloodMarkers = markers },
+        InjuryOutcome.Down => model with { Status = ModelStatus.Down, BloodMarkers = markers, ToughSpent = model.ToughSpent || tough },
+        _ => model with { BloodMarkers = markers, ToughSpent = model.ToughSpent || tough },
+    };
 
     // ---- M4 Slice B: Charge, Retreat, Fight, shooting into melee ----
 
     private static MatchState OnChargeDeclared(MatchState state, ChargeDeclared e)
     {
         var charger = Active(state, e.Model, "A Charge");
-        Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat | ActionsTaken.Shoot)) == 0,
-            "A Charge is one of Move, Charge or Retreat, and cannot follow a Shoot ACTION.");
+        var profile = state.Setup!.ProfileOf(e.Model)!;
+        Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0
+            && ActionLimits.MeleeExcluded(state, e.Model, ActionsTaken.Charge) is null,
+            "A Charge is one of Move, Charge or Retreat, and cannot follow a Shoot ACTION (unless ASSAULT, and never with a HEAVY ranged weapon).");
         var target = state.FindModel(e.Target);
         Require(target is not null && Board.AssessCharge(state, charger, target) is null, "The charge is not legal here.");
-        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(RollStage.ChargeRoll, e.Model, e.Target) };
+        // HEAVY battlekit: no Charge Bonus, so the charge moves at once (roster stage R2b, p. 55).
+        var stage = profile.NoChargeBonus ? RollStage.ChargeMove : RollStage.ChargeRoll;
+        // Roster stage R3: BLOCK needs to know who charged this turn (p. 53); only matches with BLOCK keep the list.
+        var charged = Board.TracksCharges(state.Setup) && !state.ChargedThisTurn.Contains(e.Model) ? state.ChargedThisTurn.Add(e.Model) : state.ChargedThisTurn;
+        // Roster stage R6c (U119): Counter-Charge, when the Charge is the activation's first ACTION.
+        var counter = profile.CounterCharge && state.Actions == ActionsTaken.None;
+        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(stage, e.Model, e.Target), ChargedThisTurn = charged, CounterCharging = state.CounterCharging || counter };
     }
 
     private static MatchState OnChargeRolled(MatchState state, ChargeRolled e)
     {
         Require(state.InProgress is { Stage: RollStage.ChargeRoll } p && p.Actor == e.Model && p.Target == e.Target && state.Pending is null, "No Charge Bonus is waiting.");
+        // Roster stage R6a (U117): Shock Charge rolls 2D6 and keeps the highest.
+        Require(state.Setup!.ProfileOf(e.Model)!.ExtraChargeDie ? e.Dropped is >= 1 and <= 6 && e.Dropped <= e.Die : e.Dropped == 0,
+            "The Charge Bonus is one D6, or the highest of two with Shock Charge.");
         return state with { InProgress = state.InProgress! with { Stage = RollStage.ChargeMove, ChargeDie = e.Die } };
     }
 
@@ -732,7 +1523,35 @@ public static class Reducer
         var plan = Board.PlanCharge(state, charger, state.FindModel(e.Target)!, progress.ChargeDie);
         Require(plan.Path.SequenceEqual(e.Path) && plan.Cost == e.Cost && plan.Reached == e.Reached, "The charge move must be the one the rules plan from the Charge Bonus.");
         var moved = e.Path.IsEmpty ? charger : charger with { Position = e.Path[^1] };
-        return TurnRules.WithModel(state, moved) with { InProgress = null };
+        var after = HaltAtMine(state, TurnRules.WithModel(state, moved) with { InProgress = null }, e.Model, e.Path);
+        // U124: a charge that stopped in contact and can carry on to within 1" of another enemy waits for its player's
+        // choice, keeping the legs (not if a Mine Marker halted it on the way).
+        return plan.CarryOn.IsEmpty || after.MineStop is not null
+            ? after
+            : after with { InProgress = progress with { Stage = RollStage.ChargeCarryOn, DashPath = plan.CarryOn } };
+    }
+
+    private static MatchState OnChargeCarriedOn(MatchState state, ChargeCarriedOn e)
+    {
+        // The decision is pending, so not Active(): the charger is the active model, still on the table.
+        Require(state.Phase == Phase.Activation && state.ActiveModel == e.Model && state.FindModel(e.Model) is { Position: not null }, "Only the charging model carries on.");
+        var charger = state.FindModel(e.Model)!;
+        Require(state.Pending is { Kind: DecisionKind.CarryOnCharge } && state.InProgress is { Stage: RollStage.ChargeCarryOn } p && p.Actor == e.Model
+            && p.Target == e.Target && p.DashPath.SequenceEqual(e.Path) && e.Cost == CarryOnCost(state, charger, e.Path),
+            "A charge carries on only when its player chooses to, along the legs the rules planned with the charge move.");
+        var after = TurnRules.WithModel(state, charger with { Position = e.Path[^1] }) with { InProgress = null, Pending = null };
+        return HaltAtMine(state, after, e.Model, e.Path);
+    }
+
+    // What a carry-on's legs cost from where the charge stopped (difficult ground counts double, p. 35).
+    internal static Length CarryOnCost(MatchState state, ModelState charger, ImmutableArray<Point2> path) =>
+        Movement.Cost(Board.ScenarioOf(state)!.Battlefield, Board.BodyOf(state, charger)!, path);
+
+    private static MatchState OnChargeStopped(MatchState state, ChargeStopped e)
+    {
+        Require(state.Pending is { Kind: DecisionKind.CarryOnCharge } && state.ActiveModel == e.Model && state.InProgress is { Stage: RollStage.ChargeCarryOn } p && p.Actor == e.Model,
+            "A charge stops in contact only when its player is asked whether it carries on.");
+        return state with { InProgress = null, Pending = null };
     }
 
     private static MatchState OnRetreatDeclared(MatchState state, RetreatDeclared e)
@@ -740,6 +1559,7 @@ public static class Reducer
         var retreater = Active(state, e.Model, "A Retreat");
         Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Move | ActionsTaken.Charge | ActionsTaken.Retreat)) == 0,
             "A Retreat is one of Move, Charge or Retreat.");
+        Require(ActionLimits.MoveExcluded(state, e.Model) is null, ActionLimits.HeavyText);
         Require(Board.CheckRetreat(state, retreater, e.Path) is null, "A retreat must follow a legal path and end more than 1\" from every enemy.");
         return state with { Actions = state.Actions | ActionsTaken.Retreat, Retreat = new RetreatInProgress(e.Model, e.Path, []) };
     }
@@ -763,11 +1583,9 @@ public static class Reducer
             Require(retreater.Status == ModelStatus.Standing && e.Path.SequenceEqual(retreat.Path) && Board.CheckRetreat(state, retreater, e.Path) is null
                 && Board.RetreatCost(state, retreater, e.Path) == e.Cost, "A standing model finishes its retreat along the declared path at the recorded cost.");
             retreater = retreater with { Position = e.Path[^1] };
+            return HaltAtMine(state, TurnRules.WithModel(state, retreater) with { Retreat = null }, e.Model, e.Path);
         }
-        else
-        {
-            Require(retreater.Status != ModelStatus.Standing, "Only a model taken Down or Out of Action by a free attack stays where it is.");
-        }
+        Require(retreater.Status != ModelStatus.Standing, "Only a model taken Down or Out of Action by a free attack stays where it is.");
         return TurnRules.WithModel(state, retreater) with { Retreat = null };
     }
 
@@ -776,56 +1594,131 @@ public static class Reducer
         var attacker = state.FindModel(e.Attacker);
         var target = state.FindModel(e.Target);
         Require(attacker is not null && target is not null, "Unknown model.");
+        var owned = state.Setup!.ProfileOf(e.Attacker)!;
+        Require(ModelProfile.IsActionAttack(e.Weapon) ? owned.Has(AttackKind.Melee, e.Weapon) && !e.FreeFight && !e.OffHand : e.Weapon < owned.Weapons(AttackKind.Melee), "The model has no such Melee Weapon.");
+        Require(e.Block == Board.Blocks(state, e.Attacker, e.Target), "BLOCK applies exactly when the target has it and the attacker charged this turn.");
+        Require(e.Fear == Board.Fears(state, e.Attacker, e.Target), "FEAR applies exactly when the target has it and the attacker has neither FEAR nor NEGATE FEAR.");
+        var left = state.AttacksLeft is { Next.Length: > 0 } l && l.Attacker == e.Attacker && l.Free == e.FreeFight ? l : null;
+        ImmutableArray<MeleeAttackSlot> rest;
         if (!e.FreeFight)
         {
             var fighter = Active(state, e.Attacker, "A Fight");
-            Require(state.InProgress is null && state.Retreat is null && (state.Actions & (ActionsTaken.Fight | ActionsTaken.Shoot)) == 0,
-                "A Fight ACTION is taken once per activation and not after a Shoot ACTION.");
-            var facts = Board.AssessMelee(state, fighter, target!);
+            Require(state.InProgress is null && state.Retreat is null, "A Melee Attack waits for the last action to finish.");
+            // Roster stage R5i (U114): a Grind to Dust ACTION, once per activation; it ends a Fight's attacks still to come.
+            // Roster stage R6d (U120): a Trample ACTION the same.
+            if (ModelProfile.IsActionAttack(e.Weapon))
+            {
+                var taken = ActionAttackFlag(e.Weapon);
+                Require(!state.Actions.HasFlag(taken), "A Grind to Dust or Trample ACTION is taken once per activation.");
+                var grind = Board.AssessMelee(state, fighter, target!, e.Weapon);
+                Require(grind.Refusal is null && grind.CoverTerrainId == e.DefendedObstacleId, "The Grind to Dust or Trample attack is not legal here, or its modifiers do not match the positions.");
+                var (grindBonus, grindPenalty) = MeleeDice(state, e);
+                return state with
+                {
+                    Actions = state.Actions | taken,
+                    AttacksLeft = null,
+                    InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, grindBonus, grindPenalty, Kind: AttackKind.Melee, Weapon: e.Weapon),
+                };
+            }
+            if (left is null)
+            {
+                Require(!state.Actions.HasFlag(ActionsTaken.Fight) && ActionLimits.MeleeExcluded(state, e.Attacker, ActionsTaken.Fight) is null,
+                    "A Fight ACTION is taken once per activation and not after a Shoot ACTION (unless ASSAULT).");
+                Require(!e.OffHand, "A Fight's first attack is not made with the Off-Hand weapon.");
+                rest = AttacksAfterFirst(owned, e.Weapon, free: false);
+            }
+            else
+            {
+                Require(left.Next[0] == new MeleeAttackSlot(e.Weapon, e.OffHand), "The Fight's next Melee Attack is made with the next weapon in turn.");
+                rest = left.Next.RemoveAt(0);
+            }
+            var facts = Board.AssessMelee(state, fighter, target!, e.Weapon);
             Require(facts.Refusal is null && facts.CoverTerrainId == e.DefendedObstacleId, "The Melee Attack is not legal here, or its modifiers do not match the positions.");
+            var (bonus, penalty) = MeleeDice(state, e);
             return state with
             {
                 Actions = state.Actions | ActionsTaken.Fight,
-                InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, 0, e.PenaltyDice, Kind: AttackKind.Melee),
+                AttacksLeft = rest.IsEmpty ? null : new MeleeAttacksLeft(e.Attacker, false, rest),
+                InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, bonus, penalty, Kind: AttackKind.Melee, Weapon: e.Weapon, OffHand: e.OffHand),
             };
         }
 
         var retreat = state.Retreat;
-        Require(state.Phase == Phase.Activation && retreat is { Closed: false } && state.InProgress is null && retreat.Model == e.Target
-            && state.Pending == new PendingDecision(DecisionKind.FreeFight, target!.Seat.Opponent()), "A free attack answers the offer made to the opponent of a retreating model.");
-        Require(Board.FreeFighters(state, retreat!).Any(m => m.Id == e.Attacker), "That model cannot make a free attack.");
-        var free = Board.AssessMelee(state, attacker!, target!);
+        Require(!e.OffHand, "A free attack is made with one weapon.");
+        if (left is null)
+        {
+            Require(state.Phase == Phase.Activation && retreat is { Closed: false } && state.InProgress is null && retreat.Model == e.Target
+                && state.Pending == new PendingDecision(DecisionKind.FreeFight, target!.Seat.Opponent()), "A free attack answers the offer made to the opponent of a retreating model.");
+            Require(Board.FreeFighters(state, retreat!).Any(m => m.Id == e.Attacker), "That model cannot make a free attack.");
+            rest = AttacksAfterFirst(owned, e.Weapon, free: true);
+        }
+        else
+        {
+            Require(FreeAttackDue(state) == left && retreat!.Model == e.Target && left.Next[0] == new MeleeAttackSlot(e.Weapon, false),
+                "A free attack's next CLEAVE attack follows at once, with the same weapon, against the retreating model.");
+            rest = left.Next.RemoveAt(0);
+        }
+        var free = Board.AssessMelee(state, attacker!, target!, e.Weapon);
         Require(free.Refusal is null && free.CoverTerrainId == e.DefendedObstacleId, "The free attack is not legal here, or its modifiers do not match the positions.");
+        var (freeBonus, freePenalty) = MeleeDice(state, e);
         return state with
         {
             Pending = null,
-            Retreat = retreat! with { Fought = retreat!.Fought.Add(e.Attacker) },
-            InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, 0, e.PenaltyDice, Kind: AttackKind.Melee, FreeFight: true),
+            Retreat = left is null ? retreat! with { Fought = retreat!.Fought.Add(e.Attacker) } : retreat,
+            AttacksLeft = rest.IsEmpty ? null : new MeleeAttacksLeft(e.Attacker, true, rest),
+            InProgress = new RollInProgress(RollStage.FightRoll, e.Attacker, e.Target, freeBonus, freePenalty, Kind: AttackKind.Melee, FreeFight: true, Weapon: e.Weapon),
         };
     }
+
+    // A Melee Attack's Success Roll dice: the declared penalty and the attacker's own dice with that weapon (roster
+    // stages R1, R3).
+    private static (int Bonus, int Penalty) MeleeDice(MatchState state, MeleeAttackDeclared e) =>
+        AttackDice.With(CounterDice(state, e.Attacker) + HordeDice(state, e.Attacker, e.Weapon), e.PenaltyDice, AttackDice.OwnDice(state.Setup!.ProfileOf(e.Attacker)!.Using(AttackKind.Melee, e.Weapon), AttackKind.Melee));
+
+    // Roster stage R6c (U119): +1 DICE to the active model's Melee Attacks after a Counter-Charge this activation.
+    internal static int CounterDice(MatchState state, ModelId attacker) => state.CounterCharging && state.ActiveModel == attacker ? 1 : 0;
+
+    // Roster stage R6d (U120): the ACTIONS taken by a Grind to Dust or a Trample attack.
+    internal static ActionsTaken ActionAttackFlag(int weapon) => weapon == ModelProfile.TrampleWeapon ? ActionsTaken.Trample : ActionsTaken.Grind;
+
+    // Roster stage R6d (U120): Overwhelming Horde, +1 DICE on its attacks without a weapon (weapon 0) for each other
+    // friendly model on the battlefield within 3" (Down ones too, as for the other auras).
+    internal static int HordeDice(MatchState state, ModelId attacker, int weapon) =>
+        weapon == 0 && state.Setup!.ProfileOf(attacker)!.Horde && state.FindModel(attacker) is { } model && Board.BodyOf(state, model) is { } body
+            ? state.Models.Count(m => m.Seat == model.Seat && m.Id != model.Id && m.Position is not null && m.Status != ModelStatus.OutOfAction && Board.BodyOf(state, m) is { } other && Measure.IsWithin(body, other, HordeReach))
+            : 0;
+
+    private static readonly Length HordeReach = Length.FromInches(3);
 
     private static MatchState OnMeleeSuccessRolled(MatchState state, MeleeSuccessRolled e)
     {
         Require(state.InProgress is { Stage: RollStage.FightRoll } p && p.Actor == e.Attacker && p.Target == e.Target && state.Pending is null, "No Melee Attack roll is waiting.");
         var progress = state.InProgress!;
         var attacker = state.FindModel(e.Attacker)!;
-        Require(e.Check.Risky == state.IsShaken(attacker.Seat) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
-            "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken.");
+        var fighter = AttackProfile(state, progress);
+        Require(e.Check.Risky == AttackDice.Risky(fighter, AttackKind.Melee, state.IsShaken(attacker.Seat)) && e.Check.NetDice == progress.BonusDice - progress.PenaltyDice,
+            "The roll must carry the declared and spent dice, and be Risky exactly when the warband is Shaken or the weapon is RISKY.");
         if (e.Check.Outcome == SuccessOutcome.Failure)
         {
             // Only the active model has an activation to lose; a free attack that fails simply misses (U49).
-            return state with { InProgress = null, MustEndActivation = e.Check.RiskyFailure && !progress.FreeFight };
+            return state with
+            {
+                InProgress = null,
+                MustEndActivation = e.Check.RiskyFailure && !progress.FreeFight && RiskyEnds(state, progress.Actor),
+                ReloadEnds = !progress.FreeFight && !(e.Check.RiskyFailure && RiskyStops(state, progress.Actor)) && ActionLimits.Reloads(fighter, AttackKind.Melee),
+            };
         }
         // +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
         var critical = e.Check.Outcome == SuccessOutcome.CriticalSuccess;
         var onDownTarget = state.FindModel(e.Target)!.Status == ModelStatus.Down;
+        var (bonus, penalty) = AttackDice.InjuryDice(fighter, AttackKind.Melee, critical, onDownTarget, FinishDice(state, progress, e.Target), state.Setup!.ProfileOf(e.Target)!);
         return state with
         {
             InProgress = progress with
             {
                 Stage = RollStage.InjuryRoll,
-                BonusDice = (critical ? 1 : 0) + (onDownTarget ? 1 : 0),
-                PenaltyDice = 0,
+                BonusDice = bonus,
+                PenaltyDice = penalty,
                 Critical = critical,
                 MarkersAsked = false,
             },
@@ -847,8 +1740,9 @@ public static class Reducer
         var victim = state.FindModel(e.Victim);
         var intended = Board.BodyOf(state, state.FindModel(progress.Target!.Value)!)!;
         Require(victim is not null && Board.FriendsNear(state, shooter, intended).Any(m => m.Id == e.Victim), "The shot must be aimed at one of the shooter's own models within 1\" of the target.");
-        var facts = Board.ForcedShotFacts(state, shooter, victim!);
-        Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId, "The declared modifiers do not match the positions.");
+        var facts = Board.ForcedShotFacts(state, shooter, victim!, progress.Weapon);
+        Require(facts.LongRange == e.LongRange && facts.InCover == e.InCover && facts.CoverTerrainId == e.CoverTerrainId && facts.Elevated == e.Elevated, "The declared modifiers do not match the positions.");
+        var (bonus, penalty, later) = AttackDice.Shot(AttackProfile(state, progress), e.LongRange, e.InCover, e.Elevated, state.Setup!.ProfileOf(e.Victim), Whispers(state, victim!), AimedDice(state, e.Attacker));
         return state with
         {
             Pending = null,
@@ -857,8 +1751,9 @@ public static class Reducer
                 Stage = RollStage.ShotRoll,
                 Target = e.Victim,
                 FriendlyFire = true,
-                BonusDice = 0,
-                PenaltyDice = (e.LongRange ? 1 : 0) + (e.InCover ? 1 : 0),
+                BonusDice = bonus,
+                PenaltyDice = penalty,
+                InjuryDiceLater = later,
                 MarkersAsked = false,
             },
         };
@@ -879,6 +1774,138 @@ public static class Reducer
             One = state.One with { VictoryPoints = one },
             Two = state.Two with { VictoryPoints = two },
             ScoredTurn = state.Turn,
+        };
+    }
+
+    // ---- Trench Warfare (trench-maps stage S6) ----
+
+    // The end of Turn 4 of Trench Warfare, before the attacker's game-length roll.
+    internal static bool LengthRollOwed(MatchState state) =>
+        TrenchWarfare.Is(state.Setup) && state.Phase == Phase.Morale && state.TurnEnded && state.Turn == TrenchWarfare.LengthRollTurn
+        && state.LastTurn is null && !state.One.Fled && !state.Two.Fled;
+
+    private static MatchState OnAttackerChosen(MatchState state, AttackerChosen e)
+    {
+        Require(state.Pending == new PendingDecision(DecisionKind.ChooseAttacker, e.Seat), "No choice of attacker is pending for that seat.");
+        Require(Enum.IsDefined(e.Attacker), "Unknown seat.");
+        var zones = state.Setup!.ZoneIds;
+        var defenderZone = TrenchWarfare.DefenderZone(Board.ScenarioOf(state)!.Battlefield);
+        Require(defenderZone is not null && zones.Contains(defenderZone), "The map has no trench lines in a deployment zone.");
+        var attackerZone = zones[0] == defenderZone ? zones[1] : zones[0];
+        var next = TurnRules.WithSeat(state, e.Attacker, state.SeatFor(e.Attacker) with { ZoneId = attackerZone });
+        next = TurnRules.WithSeat(next, e.Attacker.Opponent(), next.SeatFor(e.Attacker.Opponent()) with { ZoneId = defenderZone });
+        return next with { Pending = null, Attacker = e.Attacker };
+    }
+
+    private static MatchState OnTrenchesScored(MatchState state, TrenchesScored e)
+    {
+        Require(TrenchWarfare.Is(state.Setup) && state.Attacker is not null && state.Phase == Phase.Morale && !state.TurnEnded && state.Pending is null
+            && TurnRules.MoraleRemaining(state).Count == 0 && e.Turn == state.Turn && state.ScoredTurn < state.Turn, "Trench sections are scored once, at the end of a turn.");
+        Require(Board.TrenchResults(state).SequenceEqual(e.Results), "The scores must match who is in each trench section.");
+        var attacker = state.Attacker!.Value;
+        var defending = e.Results.Sum(r => r.DefenderPoints);
+        var attacking = e.Results.Sum(r => r.AttackerPoints);
+        var next = TurnRules.WithSeat(state, attacker, state.SeatFor(attacker) with { VictoryPoints = state.SeatFor(attacker).VictoryPoints + attacking });
+        next = TurnRules.WithSeat(next, attacker.Opponent(), next.SeatFor(attacker.Opponent()) with { VictoryPoints = next.SeatFor(attacker.Opponent()).VictoryPoints + defending });
+        return next with { ScoredTurn = state.Turn };
+    }
+
+    private static MatchState OnGameLengthRolled(MatchState state, GameLengthRolled e)
+    {
+        Require(LengthRollOwed(state), "The game-length roll is made once, at the end of Turn 4.");
+        Require(e.Seat == state.Attacker, "The attacker rolls for the game's length.");
+        Require(e.Die is >= 1 and <= 6, "A D6 is 1 to 6.");
+        Require(e.LastTurn == (e.Die <= TrenchWarfare.EndsOnOrBelow ? TrenchWarfare.LengthRollTurn : TrenchWarfare.TurnLimit),
+            "On a 1 or 2 the game ends now; on a 3 or more it ends after Turn 5.");
+        return state with { LastTurn = e.LastTurn };
+    }
+
+    // ---- Trench Warfare's Mine Markers (p. 162, U93) ----
+
+    private static MatchState OnMinesLaid(MatchState state, MinesLaid e)
+    {
+        Require(state.Pending == new PendingDecision(DecisionKind.LayMines, e.Seat), "No Mine Markers are waiting on that seat.");
+        Require(Board.MinePlacementArea(state) is { } area
+            && Mines.Problem(Board.ScenarioOf(state)!.Battlefield, area, [.. e.Markers.Select(m => m.At)]) is null,
+            "The Mine Markers must be set up legally within the Mine Placement Area.");
+        return state with
+        {
+            Pending = null,
+            Mines = e.Markers,
+            MinesLaid = true,
+            Duds = e.Duds,
+            DudsKnown = !e.Duds.IsEmpty,
+        };
+    }
+
+    // A move event halted by a Mine Marker: the model stops at the first halt instead of the end of its path, and the
+    // rest of the move waits in MineStop. Before is the state the move started from.
+    private static MatchState HaltAtMine(MatchState before, MatchState after, ModelId id, ImmutableArray<Point2> path)
+    {
+        if (after.Mines.IsEmpty || path.IsDefaultOrEmpty)
+        {
+            return after;
+        }
+        var stops = Board.MineStops(before, before.FindModel(id)!, path);
+        if (stops.IsEmpty)
+        {
+            return after;
+        }
+        var moved = after.FindModel(id)!;
+        return TurnRules.WithModel(after, moved with { Position = stops[0].At }) with
+        {
+            MineStop = new MineStop(id, path, stops, EndsActivation: after.MustEndActivation),
+            MustEndActivation = false,
+        };
+    }
+
+    private static MatchState OnMineRevealed(MatchState state, MineRevealed e)
+    {
+        Require(state.MineStop is { Revealed: false } stop && stop.Model == e.Model && stop.Current.Marker == e.Marker && state.Pending is null,
+            "Only the Mine Marker the model halted at is revealed.");
+        Require(!state.DudsKnown || e.Live == !state.Duds.Contains(e.Marker), "A dud is revealed as a dud and a live mine as live.");
+        return state with
+        {
+            Mines = [.. state.Mines.Where(m => m.Id != e.Marker)],
+            MineStop = state.MineStop! with { Revealed = true, Live = e.Live },
+        };
+    }
+
+    private static MatchState OnMineExploded(MatchState state, MineExploded e)
+    {
+        Require(state.MineStop is { Revealed: true, Live: true } stop && stop.Model == e.Model && stop.Current.Marker == e.Marker && state.Pending is null,
+            "Only a live mine that was just revealed detonates.");
+        var model = state.FindModel(e.Model)!;
+        var armour = state.Setup!.ProfileOf(e.Model)!.Armour;
+        Require(e.Injury.NetDice == 0 && !e.Injury.Deadly && e.Injury.Modifier == InjuryRoll.CombineModifiers([armour]) && e.Injury.TargetAlreadyDown == (model.Status == ModelStatus.Down),
+            "A mine's Injury Roll has no extra dice and no weapon modifier, only the model's armour.");
+        Require(e.Negated == state.Setup!.ProfileOf(e.Model)!.Negates.HasFlag(WeaponKeywords.Shrapnel), "A mine adds its SHRAPNEL Blood Marker unless the model has NEGATE SHRAPNEL.");
+        Require(e.Tough == ToughSaves(state, model, e.Injury.Outcome), "TOUGH turns the model's first Out of Action result into Down, and nothing else.");
+        Require(e.Spared == MementoSaves(state, model, e.Injury.Outcome), "Memento Mori turns the model's first Out of Action result into No Effect, and nothing else.");
+        Require(e.Warded == Wards(state, model, e.ResultMarkers + e.ExtraMarkers()), "The Sacrificial Lamb keeps off the first BLOOD MARKER placed on the model, and only that one.");
+        var markers = Math.Min(BloodMarkers.Max, model.BloodMarkers + e.PlacedMarkers);
+        var hurt = Hurt(model, e.Result, markers, e.Tough || e.Spared) with { WardSpent = model.WardSpent || e.Warded };
+        // Taken Down or Out of Action: the move is over (and so is the activation, p. 49). Otherwise it carries on.
+        return TurnRules.WithModel(state, hurt) with
+        {
+            MineStop = hurt.Status == ModelStatus.Standing ? state.MineStop! with { Live = false } : null,
+        };
+    }
+
+    private static MatchState OnMoveResumed(MatchState state, MoveResumed e)
+    {
+        Require(state.MineStop is { Revealed: true, Live: false } stop && stop.Model == e.Model && state.Pending is null && state.Phase == Phase.Activation,
+            "A halted move carries on only once its Mine Marker has been dealt with.");
+        var halted = state.MineStop!;
+        var model = state.FindModel(e.Model)!;
+        Require(model.Status == ModelStatus.Standing, "Only a standing model carries on.");
+        var next = halted.Index + 1 < halted.Stops.Length ? halted.Stops[halted.Index + 1] : null;
+        Require(Mines.Between(halted.Path, halted.Current, next).SequenceEqual(e.Path), "The model carries on along the rest of its path.");
+        var at = next?.At ?? halted.Path[^1];
+        return TurnRules.WithModel(state, model with { Position = at }) with
+        {
+            MineStop = next is null ? null : halted with { Index = halted.Index + 1, Revealed = false, Live = false },
+            MustEndActivation = next is null && halted.EndsActivation,
         };
     }
 

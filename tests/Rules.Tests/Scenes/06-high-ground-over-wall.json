@@ -42,13 +42,13 @@
   "expect": {
     "attackerLevel": "High",
     "targetLevel": "Ground",
-    "visibility": "Full",
-    "visible": 5,
-    "total": 5,
+    "visibility": "None",
+    "visible": 0,
+    "total": 9,
     "cover": false,
     "coverBy": null
   },
   "status": "provisional",
-  "basis": "U17 high ground, U19 own platform, U20 sees over ground Walls (XCOM-style abstraction), U22",
-  "ruling": "The same layout as scene 3, but the high-ground attacker sees over the ground wall, so sight is Full and the wall does not give cover."
+  "basis": "U17 high ground, U19 own platform, U77 (replaces the U20 shortcut)",
+  "ruling": "The same layout as scene 3 with the attacker on a 3\" platform. Its eye at 4.1\" still cannot see down behind a 3\" wall the target stands against, so there is no line of sight. (Before L2: Full 5/5, because high ground saw over every ground wall.)"
 }

@@ -104,7 +104,8 @@ public class ForgedLogTests
                 }
             }
         }
-        Assert.Equal(Enum.GetValues<RollOffPurpose>().ToHashSet(), purposes);
+        // The Roles roll-off is only in Trench Warfare (stage S6); Server.Tests.TrenchWarfareTests forges it the same way.
+        Assert.Equal(Enum.GetValues<RollOffPurpose>().Where(p => p != RollOffPurpose.Roles).ToHashSet(), purposes);
         Assert.True(ties >= 2, $"only {ties} tied roll-offs were checked");
     }
 
@@ -377,7 +378,8 @@ public class ForgedLogTests
     {
         var log = Log(RangedShakenSeed);
         var recovered = IndexOf(log, e => e is WarbandRecovered);
-        var check = Assert.IsType<MoraleCheckRolled>(log[recovered - 1]);
+        // The check comes just before, or before the Glorious Deed it completed (Hold Your Ground, U96).
+        var check = Assert.IsType<MoraleCheckRolled>(log[..recovered].Last(e => e is not GloriousDeedCompleted));
         Assert.True(check.WasShaken);
         Refused(Without(log, recovered), "a passed check by a Shaken warband with no recovery");
     }

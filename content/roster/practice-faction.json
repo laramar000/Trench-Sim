@@ -1,0 +1,330 @@
+{
+ "format": 1,
+ "rulesVersion": "1.0.2",
+ "id": "practice",
+ "name": "Practice Company",
+ "alignment": "faithful",
+ "budgetDucats": 700,
+ "note": "Invented practice data for the roster builder until the real lists are entered (stage 4). Not from any book.",
+ "source": {
+  "book": "practice",
+  "version": "1.0.2",
+  "page": 1
+ },
+ "status": "unverified",
+ "naming": "keep",
+ "models": [
+  {
+   "id": "practice-captain",
+   "name": "Captain",
+   "cost": {
+    "amount": 60,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 1,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "kitAccess": "armoury",
+   "min": 1,
+   "max": 1,
+   "keywords": [
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "LEADER"
+    }
+   ],
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep"
+  },
+  {
+   "id": "practice-marksman",
+   "name": "Marksman",
+   "cost": {
+    "amount": 45,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 2,
+   "melee": -1,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "kitAccess": "armoury",
+   "max": 2,
+   "keywords": [
+    {
+     "id": "ELITE"
+    }
+   ],
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep"
+  },
+  {
+   "id": "practice-soldier",
+   "name": "Soldier",
+   "cost": {
+    "amount": 25,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 0,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "kitAccess": "armoury",
+   "prices": [
+    {
+     "kit": "practice-rifle",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     }
+    }
+   ],
+   "upgrades": [
+    {
+     "id": "practice-scout",
+     "name": "Scout",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 2,
+     "keywords": [
+      {
+       "id": "INFILTRATOR"
+      }
+     ]
+    }
+   ],
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep"
+  },
+  {
+   "id": "practice-bruiser",
+   "name": "Bruiser",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 2,
+   "armour": -1,
+   "baseMm": [
+    40
+   ],
+   "kitAccess": "listed",
+   "keywords": [
+    {
+     "id": "STRONG"
+    }
+   ],
+   "listed": [
+    "practice-maul",
+    "practice-club",
+    "practice-coat",
+    "practice-helmet"
+   ],
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep"
+  }
+ ],
+ "armoury": [
+  {
+   "kit": "practice-rifle",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "unverified"
+  },
+  {
+   "kit": "practice-pistol",
+   "cost": {
+    "amount": 6,
+    "currency": "ducats"
+   },
+   "status": "unverified"
+  },
+  {
+   "kit": "practice-carbine",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "unverified"
+  },
+  {
+   "kit": "practice-bayonet",
+   "cost": {
+    "amount": 2,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "needsBayonetLug",
+    "shieldCombo"
+   ],
+   "status": "unverified"
+  },
+  {
+   "kit": "practice-club",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "status": "unverified"
+  },
+  {
+   "kit": "practice-maul",
+   "cost": {
+    "amount": 12,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "unverified"
+  },
+  {
+   "kit": "practice-grenade",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "status": "unverified"
+  },
+  {
+   "kit": "practice-shield",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "unverified"
+  },
+  {
+   "kit": "practice-coat",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "unverified"
+  },
+  {
+   "kit": "practice-helmet",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "headgear"
+   ],
+   "status": "unverified"
+  },
+  {
+   "kit": "practice-mask",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "headgear"
+   ],
+   "status": "unverified"
+  }
+ ],
+ "variants": [
+  {
+   "id": "practice-raiders",
+   "name": "Practice Raiders",
+   "removeModels": [
+    "practice-marksman"
+   ],
+   "addModels": [
+    {
+     "id": "practice-raider",
+     "name": "Raider",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "kitAccess": "armoury",
+     "max": 3,
+     "source": {
+      "book": "practice",
+      "version": "1.0.2",
+      "page": 1
+     },
+     "status": "unverified",
+     "naming": "keep"
+    }
+   ],
+   "modelCosts": [
+    {
+     "model": "practice-soldier",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     }
+    }
+   ],
+   "removeArmoury": [
+    "practice-carbine"
+   ],
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep"
+  }
+ ]
+}
