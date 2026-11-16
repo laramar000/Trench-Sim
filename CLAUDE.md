@@ -371,3 +371,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Infantry, Bombard Witch, Barbed Wire Banshee (references for most are in that message, not in the repo).
   The art folder is 42.7 MB with it, so `AssetManifest.MaxTotalBytes` went from 40 to 64 MB (not asked of the owner first;
   each further painted figure adds about 1.8 MB, so the limit or the texture sizes need a decision before long).
+- Done (2026-11-16): Heretic Priest, the owner's choice after the Trooper (`heretic_priest()`, `units/heretic-priest.glb`,
+  class B 32 mm, catalog height 1.55", test row 2,800 triangles, 22 figures now, art folder about 45 MB of the 64 MB
+  limit). Still to build for the Heretics: Night Commando, Chorister, Assault Beast, Wretched, Brand-Sworn Heavy
+  Infantry, Bombard Witch, Barbed Wire Banshee.
