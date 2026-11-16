@@ -6941,19 +6941,21 @@ def heretic_trooper():
 def heretic_priest():
     # Heretic Priest (2026-11-16, second figure of the Heretics, class B, 32 mm): an original figure on the owner's
     # Heretic references, not a copy of any miniature or artwork. Painted PSX look: a tall blade-shaped iron mitre closed
-    # over the whole head (a vision slit, a breathing grille, a brass brow band and front strip; no face, no head under
-    # it) with two great horns sweeping out and up (Helmet); a rust-red cuirass with a brass roundel, dark cloth sleeves,
-    # rust vambraces and gauntlets, a gorget, steel leg armour (all painted on the body); a long dark coat skirt open at
-    # the front, its hem ragged (Robe); rust pauldrons with a spike each (Chest); a mantle round the shoulders in the seat
-    # colour (Accent). Striding, the right arm thrust out with a ritual knife (Weapon2), the left planting a tall staff
-    # topped by an iron ring with a red-hot arrow driven down through it (Weapon); a chained book and a skull on the belt
-    # (Hip).
+    # over the whole head (its only opening an inverted cross, lit red from inside, blood under it; a brass brow band and
+    # front strip; no face, no head under it) with two great horns sweeping out and up and fire at its tip (Helmet); a
+    # rust-red cuirass with a brass roundel, dark cloth sleeves, rust vambraces, bloodied gauntlets, a gorget, steel leg
+    # armour (all painted on the body); a long black coat skirt open at the front, flames painted up from its ragged hem
+    # and a ringed star on its back (Robe); rust pauldrons with a spike each and fangs of plate hanging from the rim
+    # (Chest); a mantle round the shoulders in the seat colour (Accent). Striding, the right arm thrust out raising an
+    # inverted cross of charred wood bound in wire (Weapon2), the left planting a tall staff topped by an iron ring with
+    # a red-hot five-point star in it, point down (Weapon); a chained book, a brass triangle with an eye and a padlock
+    # under it on the belt (Hip). More heretical since 2026-11-16 on the owner's word and further references.
     global BODY_BUDGET, TEX_SIZES, PAINT; BODY_BUDGET = 1000
     TEX_SIZES = {"Body": 1024, "Robe": 1024, "Helmet": 512, "Chest": 512, "Weapon": 512, "Weapon2": 512, "Hip": 512}
     from mathutils import noise as _nz
     import bmesh as _bm
     import random as _random
-    for k_ in ("mitre", "pauldron", "horn", "greave", "ember"): M.setdefault(k_, mat(k_, "7a7c80", 0.3, 18))   # told apart when painted
+    for k_ in ("mitre", "pauldron", "horn", "greave", "ember", "fang", "sigil", "lock", "cross"): M.setdefault(k_, mat(k_, "7a7c80", 0.3, 18))   # told apart when painted
     def pose(r):
         legs(r, L=(0.13, -0.26, 8), R=(-0.14, 0.2, 28), heel={"R": 0.05})
         human.aim(r, "spine03", P(0, -0.08, 1.42))
@@ -6978,6 +6980,10 @@ def heretic_priest():
         sphere(tuple(SH[sx]), 1, "pauldron", (0.12, 0.13, 0.07), seg=8, rings=4)
         bpy.ops.mesh.primitive_cone_add(vertices=5, radius1=0.022, radius2=0.0, depth=0.1, location=tuple(SH[sx] + Vector((0.03 * sx, 0, 0.1))))
         add(bpy.context.object, "iron")
+        for fa in (-55, 0, 55):   # fangs of plate hanging from the rim
+            bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=0.034, radius2=0.0, depth=0.17, rotation=(math.pi, 0, 0),
+                                            location=tuple(SH[sx] + Vector((0.115 * sx * math.cos(math.radians(fa)), 0.125 * math.sin(math.radians(fa)), -0.1))))
+            add(bpy.context.object, "fang")
     module("Hip")
     def on_robe(x_, z_, d_):   # a point on the coat skirt at height z_, seen from outside along d_
         o_ = Vector((x_, 0, z_)) - d_ * 0.9; ok_, at_, *_ = robe.ray_cast(o_, d_)
@@ -6986,8 +6992,12 @@ def heretic_priest():
     box(tuple(BOOK), (0.036, 0.066, 0.085), "leather", rot=(0, 0, math.radians(17)))
     bar(BOOK + Vector((0.012, 0.004, 0.042)), Vector((-0.165, 0.03, 0.97)), 0.005, "iron", sides=3)
     ok_, SK, *_ = human_.ray_cast(Vector((0.0, -1.0, 0.9)), Vector((0, 1, 0)))
-    SK = (SK if ok_ else Vector((0, -0.12, 0.9))) + Vector((0, -0.05, 0))                  # a skull hung at the coat's opening
-    sphere(tuple(SK), 0.046, "bone", (0.85, 0.95, 1.05), seg=8, rings=6)
+    SK = (SK if ok_ else Vector((0, -0.12, 0.9))) + Vector((0, -0.022, 0))                 # a brass triangle, point down, at the coat's opening
+    bpy.ops.mesh.primitive_cylinder_add(vertices=3, radius=0.066, depth=0.014, location=tuple(SK), rotation=(-math.pi / 2, 0, 0))
+    add(bpy.context.object, "sigil")
+    LK = SK + Vector((0, 0, -0.105))                                                       # a padlock on a chain under it
+    box(tuple(LK), (0.044, 0.018, 0.048), "lock")
+    bar(SK + Vector((0, 0, -0.06)), LK + Vector((0, 0, 0.02)), 0.005, "iron", sides=3)
     module("Helmet")
     # the mitre: one shell over the whole head, round at the chin and the brow, then flattening front to back into a
     # tall blade
@@ -7009,27 +7019,32 @@ def heretic_priest():
         b_ = centre + fb["ax"] * (0.07 * sx) + fb["up"] * 0.05
         chain([b_, b_ + fb["ax"] * (0.1 * sx) - fb["up"] * 0.01, b_ + fb["ax"] * (0.19 * sx) + fb["up"] * 0.06 + fb["fwd"] * 0.02,
                b_ + fb["ax"] * (0.22 * sx) + fb["up"] * 0.2 + fb["fwd"] * 0.05], [0.032, 0.028, 0.019, 0.005], "horn", subdiv=1)
+    AP = centre + fb["up"] * APEX   # fire at the mitre's tip
+    for dx_, dz_, r_f, d_f in ((0, 0.05, 0.032, 0.18), (0.03, 0.0, 0.022, 0.11), (-0.028, 0.005, 0.02, 0.09)):
+        bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=r_f, radius2=0.0, depth=d_f, location=tuple(AP + fb["ax"] * dx_ + Vector((0, 0, dz_))))
+        add(bpy.context.object, "ember")
     module("Weapon")
-    # the staff, planted: a dark shaft through the left fist, an iron ring at its head with an arrow driven down through
+    # the staff, planted: a dark shaft through the left fist, an iron ring at its head with a five-point star in it
     fl, _ = FISTS["L"]
     low, high = Vector((fl.x + 0.02, fl.y - 0.05, 0.03 + GROUND)), Vector((fl.x - 0.02, fl.y + 0.03, 2.0))
     sd = (high - low).normalized()
     bar(low, high, 0.017, "wood", sides=5)
-    RC = high + sd * 0.11; RR = 0.1                                                         # the ring's centre and radius
+    RC = high + sd * 0.15; RR = 0.14                                                        # the ring's centre and radius
     side = Vector((1, 0, 0))
-    bpy.ops.mesh.primitive_torus_add(major_radius=RR, minor_radius=0.011, major_segments=10, minor_segments=3, location=tuple(RC), rotation=(math.pi / 2, 0, 0))
+    bpy.ops.mesh.primitive_torus_add(major_radius=RR, minor_radius=0.012, major_segments=10, minor_segments=3, location=tuple(RC), rotation=(math.pi / 2, 0, 0))
     add(bpy.context.object, "iron")
-    bar(RC + Vector((0, 0, RR + 0.05)), RC - Vector((0, 0, RR)), 0.016, "ember", sides=4)   # the arrow's shaft, its tail above the ring
-    for sx in (-1, 1): bar(RC - Vector((0, 0, RR - 0.01)), RC + side * (0.07 * sx) - Vector((0, 0, RR - 0.08)), 0.015, "ember", sides=4)   # its barbs
+    SPK = [RC + side * (RR * math.cos(math.radians(-90 + 72 * k))) + Vector((0, 0, RR * math.sin(math.radians(-90 + 72 * k)))) for k in range(5)]
+    for k in range(5): bar(SPK[k], SPK[(k + 2) % 5], 0.014, "ember", sides=3)               # the star, its point down
     module("Weapon2")
-    fr, fdr = FISTS["R"]; kd = (fdr + Vector((0, 0, -0.25))).normalized()                    # the knife, point forward and down
-    bar(fr - kd * 0.05, fr + kd * 0.05, 0.012, "leather", sides=4)
-    kb = bar(fr + kd * 0.05, fr + kd * 0.22, 0.03, "iron", sides=4); kb.scale = (1, 0.25, 1)
+    fr, fdr = FISTS["R"]; cu = (Vector((0, 0, 1)) + fdr * 0.25).normalized()                # an inverted cross, raised: the long arm up
+    CA, CB, CX = fr - cu * 0.07, fr + cu * 0.4, fr + cu * 0.095
+    bar(CA, CB, 0.022, "cross", sides=4)
+    bar(CX - Vector((0.13, 0, 0)), CX + Vector((0.13, 0, 0)), 0.022, "cross", sides=4)
     module("Body")
 
     # ---- the paint ----
-    C = psx_palette(**{**WW1, **KIT, **dict(plate="46484c", plated="282a2e", platel="6c6e74", robe="30353e", robed="191c22",
-                    robel="474e5a", boot="2a241d", bootl="463c30", helm="5e3018", helmd="3a1c0e", helml="7c4426",
+    C = psx_palette(**{**WW1, **KIT, **dict(plate="46484c", plated="282a2e", platel="6c6e74", robe="201d21", robed="100f12",
+                    robel="34303a", cross="2a1c12", crossl="45301f", boot="2a241d", bootl="463c30", helm="5e3018", helmd="3a1c0e", helml="7c4426",
                     hornc="a89a7a", hornd="5e5440", hornl="cfc2a0", ember="c42a14", emberl="ff8c3a", emberd="7a160a")})
     def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
     nz_ = NECK.z
@@ -7044,6 +7059,13 @@ def heretic_priest():
     def glyph(qx, qz, w_, k=1.0):   # the mark: an arrow driven downward, a dot each side
         return (abs(qx) < w_ and -0.03 * k < qz < 0.034 * k) or (-0.032 * k < qz < -0.008 * k and abs(abs(qx) - (qz + 0.032 * k)) < w_ * 0.9) \
             or math.hypot(abs(qx) - 0.02 * k, qz - 0.012 * k) < w_
+    SP5 = [Vector((math.cos(math.radians(-90 + 72 * k)), math.sin(math.radians(-90 + 72 * k)), 0)) for k in range(5)]
+    def star(qx, qz, R, w):   # a five-point star, its point down, in a ring
+        r_ = math.hypot(qx, qz)
+        if r_ > R * 1.2 + w: return False
+        if abs(r_ - R * 1.13) < w: return True
+        q = Vector((qx, qz, 0))
+        return any(segd(q, SP5[k] * R, SP5[(k + 2) % 5] * R)[0] < w for k in range(5))
     def belt(x, y, z, n, ao, p):   # the leather belt over the coat's top, a brass buckle at the front
         if z < 0.96 or z > 1.026: return C["ink"]
         if y < 0 and abs(x) < 0.026:
@@ -7054,12 +7076,12 @@ def heretic_priest():
         base = m.split(".")[0]; x, y, z = p.x, p.y, p.z; s_ = n.dot(PSX_LIGHT)
         if base == "robe":
             if z > 0.955: return belt(x, y, z, n, ao, p)
-            h_ = z - hem(p); BZ = 0.36   # a border at a fixed height: rust-red between two ink lines, a row of pale studs
-            if h_ > 0.03 and abs(z - BZ) < 0.026:
-                if abs(z - BZ) > 0.02: return C["ink"]
-                a_ = math.degrees(math.atan2(x, -y))
-                if math.hypot((((a_ + 180) / 12) % 1.0 - 0.5) * 0.05, z - BZ) < 0.007: return C["bonel"]
-                return lit(C["helm"], n, ao, p=p)
+            h_ = z - hem(p); a_ = math.degrees(math.atan2(x, -y))   # flames painted up from the hem, in pointed tongues
+            T = 0.05 + 0.17 * (1 - abs(((a_ + 180) / 24) % 1.0 * 2 - 1)) * (0.65 + 0.45 * _nz.noise(Vector((a_ * 0.09, 3, 0))))
+            if 0.028 < h_ < T:
+                f_ = h_ / T
+                return C["emberl"] if f_ < 0.3 else (C["ember"] if f_ < 0.68 else C["emberd"])
+            if y > 0 and star(x, z - 0.68, 0.105, 0.008): return C["ember"] if _nz.noise(p * 40) > -0.45 else C["emberd"]   # the star on the back
             return psx_robe(C, "robe", p, n, ao, hem, blood=0.35)
         if base == "boots":   # sabatons: dark plate in lames, a dark sole, mud
             if z < 0.02: return lit(C["sole"], n, ao, p=p)
@@ -7084,7 +7106,9 @@ def heretic_priest():
             if min((p - FISTS[s][0]).length for s in FISTS) < 0.08:   # gauntlets: rust, a knuckle line
                 s = "L" if (p - FISTS["L"][0]).length < (p - FISTS["R"][0]).length else "R"; fc, fd = FISTS[s]
                 al = (p - fc).dot(fd)
-                return C["ink"] if abs(al - 0.012) < 0.004 or abs(al + 0.028) < 0.004 else rusty(n, ao, p)
+                if abs(al - 0.012) < 0.004 or abs(al + 0.028) < 0.004: return C["ink"]
+                if _nz.noise(p * 24) > -0.15: return C["blood"] if _nz.noise(p * 50) > 0 else C["bloodd"]   # wet to the wrists
+                return rusty(n, ao, p)
             sd_, al, ad = psx_arm(p)
             if ad < 0.075 and (abs(x) > 0.16 or y < -0.16 or z > 1.41) and z > 1.0:   # the arms: cloth sleeves, rust vambraces
                 if al > 1.22:
@@ -7101,7 +7125,7 @@ def heretic_priest():
                 if r_ < 0.062:
                     if r_ > 0.054: return C["ink"]
                     if r_ > 0.044: return C["brassl"] if s_ > 0.3 else C["brass"]
-                    if glyph(q.x, q.z, 0.0055): return C["ink"]
+                    if star(q.x, q.z, 0.034, 0.0045): return C["ink"]
                     return C["brassl"] if s_ > 0.55 else C["brass"]
                 if abs(x) < 0.004: return lit(C["helmd"], n, ao, p=p)
             if z < 1.19:   # faulds, each drooping to the middle
@@ -7115,8 +7139,9 @@ def heretic_priest():
             q = p - centre; a, u, f = q.dot(fb["ax"]), q.dot(fb["up"]), q.dot(fb["fwd"])
             if u < -0.135: return C["ink"]
             if f > 0.02:
-                if abs(a) < 0.05 and abs(u - 0.02) < 0.011: return C["ink"] if abs(u - 0.02) < 0.008 else lit(C["platel"] if u > 0.02 else C["plated"], n, ao, metal=True, p=p)   # the vision slit
-                if abs(a) < 0.028 and -0.1 < u < -0.03 and (a * 90) % 1.0 < 0.34 and (u * 90) % 1.0 < 0.42: return C["ink"]   # the breathing grille
+                # the only opening: an inverted cross, lit from inside
+                if (abs(a) < 0.008 and -0.098 < u < 0.048) or (abs(a) < 0.04 and abs(u + 0.05) < 0.008): return C["emberl"] if abs(a) < 0.004 or abs(u + 0.05) < 0.004 else C["ember"]
+                if (abs(a) < 0.013 and -0.103 < u < 0.053) or (abs(a) < 0.045 and abs(u + 0.05) < 0.013): return C["ink"]
                 if u > 0.1 and abs(a) < 0.022:   # the brass strip up the front, the mark on it
                     if abs(a) > 0.017: return C["ink"]
                     if glyph(a, u - 0.24, 0.0045, 0.8): return C["ink"]
@@ -7126,7 +7151,7 @@ def heretic_priest():
                 return C["brassl"] if (math.atan2(a, f) * 14 / (2 * math.pi)) % 1.0 < 0.3 or s_ > 0.55 else C["brass"]
             if f < -0.02 and abs(a) < 0.004: return C["ink"]   # the seam up the back
             if u > 0.1 and abs(f) < 0.006 and abs(a) > 0.02: return lit(C["platel"], n, ao, metal=True, p=p)   # the blade's edge
-            if 0 < 0.009 - u < 0.06 and f > 0 and _nz.noise(Vector((a * 80, 0, u * 12))) > 0.35: return lit(C["rust"], n, ao, p=p)   # rust weeping from the slit
+            if -0.135 < u < -0.06 and abs(a) < 0.05 and f > 0 and _nz.noise(Vector((a * 80, 0, u * 12))) > 0.2: return C["bloodd"]   # blood weeping from the cross
             return steel(C["plate"], n, ao, p, rust=0.38)
         if base == "horn":   # ridged horn, dark at the root, pale at the tip
             t = (p - centre).length
@@ -7138,6 +7163,24 @@ def heretic_priest():
             if q.z < -0.028: return lit(C["helml"], n, ao, p=p)
             if abs(q.z + 0.012) < 0.006 and (math.atan2(q.y, q.x) * 10 / (2 * math.pi)) % 1.0 < 0.3: return C["metall"]
             return rusty(n, ao, p, 0.58)
+        if base == "fang": return C["ink"] if n.z > 0.5 else rusty(n, ao, p, 0.5)
+        if base == "sigil":   # the brass triangle: an ink edge, an open eye with a red iris
+            q = p - SK
+            if n.y > -0.5: return C["brass"] if n.y < 0.5 else C["ink"]
+            e_ = math.hypot(q.x / 0.03, (q.z - 0.012) / 0.014)
+            if e_ < 1.0:
+                r_ = math.hypot(q.x, q.z - 0.012)
+                return C["ink"] if r_ < 0.004 or e_ > 0.8 else (C["ember"] if r_ < 0.01 else C["bonel"])
+            if q.z > 0.026 or abs(q.x) > 0.049 - (0.026 - q.z) * 0.577: return C["ink"]
+            return C["brassl"] if s_ > 0.3 else C["brass"]
+        if base == "lock":   # the padlock: dark iron, a brass keyhole plate
+            q = p - LK
+            if n.y < -0.5 and abs(q.x) < 0.011 and abs(q.z) < 0.014: return C["ink"] if abs(q.x) < 0.003 and abs(q.z) < 0.008 else C["brass"]
+            return steel(C["plate"], n, ao, p, rust=0.3)
+        if base == "cross":   # charred wood, cracks still glowing, wire bound round the joint
+            if (p - CX).length < 0.045 and ((p - CX).dot(Vector((1, 0, 1)).normalized()) * 90) % 1.0 < 0.3: return lit(C["ironl"], n, ao, metal=True, p=p)
+            if _nz.noise(Vector((p.x * 60, p.y * 60, p.z * 14))) > 0.42: return C["ember"]
+            return lit(C["crossl"] if _nz.noise(p * 30) > 0.25 else C["cross"], n, ao, p=p)
         if base == "ember":   # the arrow, red-hot: bright along its middle, dark scale at the edges
             return C["emberl"] if s_ > 0.0 and _nz.noise(p * 50) > -0.3 else (C["ember"] if _nz.noise(p * 70) > -0.55 else C["emberd"])
         if base == "wood":   # the staff: a leather grip at the fist, iron bands, a shod foot
@@ -7145,21 +7188,11 @@ def heretic_priest():
             if abs(t - tf) < 0.09: return C["ink"] if ((t - tf) * 60) % 1.0 < 0.2 else lit(C["leather"], n, ao, p=p)
             if t < 0.08 or any(abs(t - tb) < 0.014 for tb in (0.6, 1.62, 1.9)): return lit(C["ironl"] if s_ > 0.4 else C["iron"], n, ao, metal=True, p=p)
             return psx_kit(C, base, p, n, ao)
-        if base == "bone" and (p - SK).length < 0.08:   # the skull: sockets, nose and teeth to the front
-            q = p - SK
-            if q.y < -0.01:
-                if min(math.hypot(q.x - ex, q.z - 0.008) for ex in (-0.016, 0.016)) < 0.011: return C["ink"]
-                if abs(q.x) < 0.005 - (q.z + 0.02) * 0.3 and -0.02 < q.z < -0.006: return C["ink"]
-                if q.z < -0.03 and (q.x * 110) % 1.0 < 0.3: return C["ink"]
-            return psx_kit(C, "bone", p, n, ao)
         if base == "leather" and (p - BOOK).length < 0.09:   # the book: page edges, brass corners
             q = p - BOOK
             if abs(q.z) > 0.036 and abs(n.z) > 0.5: return C["parchment"] if (q.y * 200) % 1.0 > 0.25 else C["parchmentd"]
             if abs(q.z) > 0.03 and abs(q.y) > 0.022 and abs(n.x) > 0.5: return C["brassl"] if s_ > 0.3 else C["brass"]
             return lit(C["leatherl"] if s_ > 0.6 else C["leather"], n, ao, p=p)
-        if base == "iron" and segd(p, fr, fr + kd * 0.22)[0] < 0.04:   # the knife: a bright edge, old blood toward the point
-            if (p - fr).dot(kd) > 0.13 and _nz.noise(p * 50) > -0.2: return C["blood"] if _nz.noise(p * 25) > 0 else C["bloodd"]
-            return lit(C["ironl"], n, ao, metal=True, p=p)
         r = psx_kit(C, base, p, n, ao)
         return r if r is not None else lit(C.get(base, C["cloth"]), n, ao, p=p)
     PAINT = paint

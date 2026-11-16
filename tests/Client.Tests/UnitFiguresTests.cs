@@ -94,7 +94,7 @@ public class UnitFiguresTests
     // Standard-bearer 1,700 (a waved pennant) and the Combat Medic 1,600 (a folded apron). Dynamic poses (2026-11-12): the
     // Castigator and the Trench Cleric 2,400 (their bodies reduce a little differently in the new stances).
     // Heretic Trooper 2,000 (class A, 2026-11-13, the first Heretic figure: its hose, canister, plaque and shawl solid).
-    // Heretic Priest 2,800 (class B, 2026-11-16, drawn 1.55" with the tall mitre and the staff above it; its horns are 500 of them).
+    // Heretic Priest 2,800 (class B, 2026-11-16, drawn 1.58" with the tall mitre and the staff above it; its horns are 500 of them).
     public static TheoryData<string, int, int, float> Figures => new()
     {
         { "units/rifleman.glb", 1600, 1024, 0.9f }, { "units/skirmisher.glb", 1600, 1024, 0.9f }, { "units/shield.glb", 1700, 1024, 0.9f },

@@ -372,6 +372,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   The art folder is 42.7 MB with it, so `AssetManifest.MaxTotalBytes` went from 40 to 64 MB (not asked of the owner first;
   each further painted figure adds about 1.8 MB, so the limit or the texture sizes need a decision before long).
 - Done (2026-11-16): Heretic Priest, the owner's choice after the Trooper (`heretic_priest()`, `units/heretic-priest.glb`,
-  class B 32 mm, catalog height 1.55", test row 2,800 triangles, 22 figures now, art folder about 45 MB of the 64 MB
+  class B 32 mm, catalog height 1.58", test row 2,800 triangles, 22 figures now, art folder about 45 MB of the 64 MB
   limit). Still to build for the Heretics: Night Commando, Chorister, Assault Beast, Wretched, Brand-Sworn Heavy
   Infantry, Bombard Witch, Barbed Wire Banshee.
+  Reworked the same day: the owner said it "needs to look more heretical" and sent eight more Priest references. Now a
+  ringed five-point star (point down) on the staff and on the coat's back, an inverted cross raised in the right hand
+  and cut as the mitre's only opening, fire at the mitre's tip, a brass triangle with an eye and a padlock on the
+  belt, fanged pauldrons, bloodied gauntlets, a black coat with painted flames. These are common occult signs, not the
+  setting's own marks. 2,752 triangles.
