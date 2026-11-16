@@ -25,6 +25,7 @@
     "unit:Mechanized Heavy Infantry": { "file": "units/mechanized-heavy-infantry.glb", "height": 1.45 },
     "unit:Combat Medic": { "file": "units/combat-medic.glb", "height": 1.11 },
     "unit:Holy Warrior": { "file": "units/holy-warrior.glb", "height": 1.62 },
+    "unit:Heretic Trooper": { "file": "units/heretic-trooper.glb", "height": 1.15 },
     "ground": "ground/mud.png",
     "terrain:Low": "terrain/rubble.png",
     "terrain:Cover": "terrain/burlap.png",

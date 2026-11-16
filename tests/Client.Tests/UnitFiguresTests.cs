@@ -59,9 +59,10 @@ public class UnitFiguresTests
         Assert.Contains("Mechanized Heavy Infantry", known);
         Assert.Contains("Combat Medic", known);
         Assert.Contains("Holy Warrior", known);
+        Assert.Contains("Heretic Trooper", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
         Assert.All(units, u => Assert.Contains(u, known));
-        Assert.Equal(20, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.Equal(21, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -91,6 +92,7 @@ public class UnitFiguresTests
     // Detail pass (2026-11-12): every body, coat and robe texture is 1,024 px (the other modules stay 512 px); the
     // Standard-bearer 1,700 (a waved pennant) and the Combat Medic 1,600 (a folded apron). Dynamic poses (2026-11-12): the
     // Castigator and the Trench Cleric 2,400 (their bodies reduce a little differently in the new stances).
+    // Heretic Trooper 2,000 (class A, 2026-11-13, the first Heretic figure: its hose, canister, plaque and shawl solid).
     public static TheoryData<string, int, int, float> Figures => new()
     {
         { "units/rifleman.glb", 1600, 1024, 0.9f }, { "units/skirmisher.glb", 1600, 1024, 0.9f }, { "units/shield.glb", 1700, 1024, 0.9f },
@@ -104,6 +106,7 @@ public class UnitFiguresTests
         { "units/combat-engineer.glb", 3300, 1024, 0.9f },
         { "units/mechanized-heavy-infantry.glb", 4500, 1024, 1.1f }, { "units/combat-medic.glb", 1600, 1024, 0.9f },
         { "units/holy-warrior.glb", 2700, 1024, 0.9f },
+        { "units/heretic-trooper.glb", 2000, 1024, 0.9f },
     };
 
     [Theory]

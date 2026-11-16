@@ -81,6 +81,7 @@ drawn 1.65" tall for the cap and cross.
 Painted from the start (2026-11-10), within their class limits: Mechanized Heavy Infantry (class C, 3,934 triangles, drawn
 1.6"), Combat Medic (class A, 1,283 triangles; the roster gives it a 25 mm base) and Holy Warrior (class B, 2,422
 triangles, drawn 1.55"). With them every Principality unit has its figure (20 figures in all).
+Heretics (2026-11-13): the Heretic Trooper is the first (class A, 1,940 triangles, drawn 1.15"), on the owner's references: a rust-red steel helm, a gas mask with a hose to a red belt canister, rust-red chest lames and a breast plaque, a dark slate uniform, pale leg wraps; the seat colour is a ragged shawl over the left shoulder and back. Its pose throws a stick grenade. Review renders without a window: `tools/art/render_turnaround.py`.
 Detail pass (2026-11-10): Mechanized Heavy Infantry 4,402 triangles with a 512 px body texture (class C, inside the file
 size limit) and 256 px modules; Combat Medic 1,459 (short split tunic and apron instead of the greatcoat); Holy Warrior 2,662.
 Texture sizes (2026-11-11, the owner: clean fine detail): every figure's body and every module texture is 512 px (the file-size limit in `UnitFiguresTests` is doubled to match); older text above giving 128 or 256 px is superseded.

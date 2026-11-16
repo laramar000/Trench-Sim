@@ -363,3 +363,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   0.93). UI check `unit-figures` now expects each unit's catalog height, not 1.2. `psx_showcase.gd` draws figures at
   their catalog heights. Godot windows: open them on the second monitor (`--screen 1`), the owner plays on the first. `psx_showcase.gd`: `PSX_YAW=<degrees>` turns the
   figures. Budgets: Castigator and Trench Cleric 2,400.
+- Done (2026-11-13): Heretic Trooper, the first Heretic figure (`heretic_trooper()` in `tools/art/make_figures.py`,
+  `units/heretic-trooper.glb`, catalog `unit:Heretic Trooper` height 1.15", test row 2,000 triangles, 21 figures now). The
+  owner sent Heretic references on 2026-11-13 (trooper: rust helm, gas mask and hose, rust chest plates and plaque,
+  dark uniform, pale leg wraps, shawl, belt skull and red canister) and chose the Trooper as the next figure. Still to
+  build for the Heretics: Heretic Priest, Night Commando, Chorister, Assault Beast, Wretched, Brand-Sworn Heavy
+  Infantry, Bombard Witch, Barbed Wire Banshee (references for most are in that message, not in the repo).
+  The art folder is 42.7 MB with it, so `AssetManifest.MaxTotalBytes` went from 40 to 64 MB (not asked of the owner first;
+  each further painted figure adds about 1.8 MB, so the limit or the texture sizes need a decision before long).
