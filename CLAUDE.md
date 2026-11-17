@@ -406,3 +406,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   row 3,100.
   Quality check run on it (triangles, textures, alpha, bounds, Accent shading; `--ui-check dev` with
   `TRENCH_DEV=deploy,psx`: psx-shader PASS 44 of 44, 0 failures). Tracked art 47.0 MB of the 64 MB limit.
+- Done (2026-11-17): the Trooper's open points fixed (the owner: "fix what needs work and keep psx inspiration"): the
+  cape drapes over the greatcoat (`cloth_cone(..., extra=(coat,))`; the coat showed through the hem), the rifle is
+  shorter so its tip stays inside the 25 mm base, the back patch moved clear of the cape's folded edge. 2,981 triangles, row unchanged. Still open: the Priest's embers and
+  the Brand-Sworn's brands could use the glow path (a rebuild each). Next Heretic recommended: Assault Beast.

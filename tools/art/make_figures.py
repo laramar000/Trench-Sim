@@ -6824,7 +6824,7 @@ def heretic_trooper():
     # and over the chest
     def scarf(a, z): a = math.remainder(a, 2 * math.pi); return z > NECK.z - 0.075 or a > 0.9 or a < -2.5
     cape = cloth_cone(NECK.x, NECK.y + 0.015, NECK.z + 0.05, 0.6, 0.085, 0.3, "accent", sy=0.9, keep=scarf, ragged=0.16, rnd=_random.Random(1917),
-                      tris=300, mono=False, thick=0.02, segs=32)
+                      tris=300, mono=False, thick=0.02, segs=32, extra=(coat,))   # over the greatcoat: it showed through the hem
     # the cape's marks, in its baked shading (the owner, 2026-11-16: "add more details to cape"): mud up from the hem,
     # the shadows of its folds, stains, and the turns of the scarf round the neck
     nz0 = NECK.z
@@ -6889,7 +6889,7 @@ def heretic_trooper():
     box(tuple(EF + Vector((0, 0, -0.012))), (0.04, 0.03, 0.07), "effigy")
     module("Chest")
     # a field sign stitched to the cape's back: a rag of pale linen, the mark daubed on it
-    PA, PZ, pa_, pz_ = 2.37, 1.13, 0.32, 0.1   # its centre (angle, height), half its width (angle) and height
+    PA, PZ, pa_, pz_ = 2.2, 1.13, 0.27, 0.1   # its centre (angle, height), half its width (angle) and height: clear of the fold at the cape's back edge
     grid = [[on_cape(PA + pa_ * (i - 1.5) / 1.5, PZ + pz_ * (j - 2) / 2) for i in range(4)] for j in range(5)]
     if all(q_ is not None for row_ in grid for q_ in row_):
         me = bpy.data.meshes.new("patch"); me.from_pydata([tuple(q_) for row_ in grid for q_ in row_], [], [(j * 4 + i, j * 4 + i + 1, (j + 1) * 4 + i + 1, (j + 1) * 4 + i) for j in range(4) for i in range(3)])
@@ -6911,8 +6911,8 @@ def heretic_trooper():
         add(bpy.context.object, "iron")
     module("Weapon")
     RH, hl = FISTS["R"][0], FISTS["L"][0]; d = (hl - RH).normalized()
-    butt, muz = RH - d * 0.24, hl + d * 0.36; tip = muz + d * 0.19
-    ww1_rifle(RH, hl, back=0.24, ahead=0.36, bayonet=0.19)
+    butt, muz = RH - d * 0.24, hl + d * 0.31; tip = muz + d * 0.15
+    ww1_rifle(RH, hl, back=0.24, ahead=0.31, bayonet=0.15)   # its tip inside the 25 mm base
     module("Weapon2")
     # the blade, hung bare at the right hip: a heavy chopper, its edge bellied, its back cut into saw teeth
     BF = surf(Vector((-1.0, 0.03, 0.97)), Vector((1, 0, 0)), 0.03); bd = Vector((-0.1, 0.3, -0.95)).normalized()
