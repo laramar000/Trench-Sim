@@ -27,6 +27,7 @@
     "unit:Holy Warrior": { "file": "units/holy-warrior.glb", "height": 1.62 },
     "unit:Heretic Trooper": { "file": "units/heretic-trooper.glb", "height": 1.15 },
     "unit:Heretic Priest": { "file": "units/heretic-priest.glb", "height": 1.58 },
+    "unit:Brand-Sworn Heavy Infantry": { "file": "units/brand-sworn-heavy-infantry.glb", "height": 1.58 },
     "ground": "ground/mud.png",
     "terrain:Low": "terrain/rubble.png",
     "terrain:Cover": "terrain/burlap.png",

@@ -61,9 +61,10 @@ public class UnitFiguresTests
         Assert.Contains("Holy Warrior", known);
         Assert.Contains("Heretic Trooper", known);
         Assert.Contains("Heretic Priest", known);
+        Assert.Contains("Brand-Sworn Heavy Infantry", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
         Assert.All(units, u => Assert.Contains(u, known));
-        Assert.Equal(22, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.Equal(23, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -95,6 +96,7 @@ public class UnitFiguresTests
     // Castigator and the Trench Cleric 2,400 (their bodies reduce a little differently in the new stances).
     // Heretic Trooper 2,000 (class A, 2026-11-13, the first Heretic figure: its hose, canister, plaque and shawl solid).
     // Heretic Priest 2,800 (class B, 2026-11-16, drawn 1.58" with the tall mitre and the staff above it; its horns are 500 of them).
+    // Brand-Sworn Heavy Infantry 2,300 (class B, 2026-11-16, drawn 1.58" with the great axe raised above the helm).
     public static TheoryData<string, int, int, float> Figures => new()
     {
         { "units/rifleman.glb", 1600, 1024, 0.9f }, { "units/skirmisher.glb", 1600, 1024, 0.9f }, { "units/shield.glb", 1700, 1024, 0.9f },
@@ -109,6 +111,7 @@ public class UnitFiguresTests
         { "units/mechanized-heavy-infantry.glb", 4500, 1024, 1.1f }, { "units/combat-medic.glb", 1600, 1024, 0.9f },
         { "units/holy-warrior.glb", 2700, 1024, 0.9f },
         { "units/heretic-trooper.glb", 2000, 1024, 0.9f }, { "units/heretic-priest.glb", 2800, 1024, 0.9f },
+        { "units/brand-sworn-heavy-infantry.glb", 2300, 1024, 0.9f },
     };
 
     [Theory]

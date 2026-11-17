@@ -380,3 +380,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   and cut as the mitre's only opening, fire at the mitre's tip, a brass triangle with an eye and a padlock on the
   belt, fanged pauldrons, bloodied gauntlets, a black coat with painted flames. These are common occult signs, not the
   setting's own marks. 2,752 triangles.
+- Done (2026-11-16): Brand-Sworn Heavy Infantry (`brand_sworn()`, `units/brand-sworn-heavy-infantry.glb`, class B
+  32 mm, catalog height 1.58" with its raised axe, test row 2,300 triangles, 23 figures now, art folder about 45 MB of
+  the 64 MB limit). The owner said "Yes, next figure" without naming one; this was Claude's recommendation. Still to
+  build for the Heretics: Night Commando, Chorister, Assault Beast, Wretched, Bombard Witch, Barbed Wire Banshee.
