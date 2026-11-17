@@ -400,3 +400,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   together", "the proportions are weird"): built in the head's frame (`FACE_BOX`) and sized from the head, no longer
   level and twice the head's width. Catalog height 1.10" (was 1.14"). A helm on a tilted head belongs in the head's
   frame for every later figure.
+- Done (2026-11-16): the Trooper's mask and cape (the owner: "Add more details to cape. Fix gas mask. Give a quality
+  check"): solid eyepieces and muzzle, painted face piece and straps; cape with `ACCENT_PAINT` marks (new hook in
+  `accent_shading`: a figure's factor on the Accent's baked grey) and a stitched linen patch. 2,981 triangles, test
+  row 3,100.
+  Quality check run on it (triangles, textures, alpha, bounds, Accent shading; `--ui-check dev` with
+  `TRENCH_DEV=deploy,psx`: psx-shader PASS 44 of 44, 0 failures). Tracked art 47.0 MB of the 64 MB limit.

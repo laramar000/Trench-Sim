@@ -101,6 +101,7 @@ NECK = None
 FISTS = {}   # with mitts: each gloved fist's centre and its forearm's direction, so a weapon sits in the hand
 BODY_BUDGET = None   # a figure of a larger class sets its body's triangle budget (docs/art-pipeline.md section 3)
 TEX_SIZES = None   # and its texture sizes by module name; else 128 for the body and 64 for each module
+ACCENT_PAINT = None   # a figure's marks on its Accent parts: f(point) -> a factor on the baked grey shading (dirt, folds, wrap lines)
 PAINT = None   # a figure painted by hand (PSX style, the Combat Engineer 2026-11-10): paint(material, point, normal, ao, tx, ty) -> sRGB, per texel
 HEAD_SEGS, HEAD_RINGS = 14, 11   # the low-poly head: about 280 triangles
 def head_frame(eyes, headp, headtop):
@@ -6795,13 +6796,14 @@ def heretic_trooper():
     # Then, the owner: a faceless black-coated shock trooper with burning eyes, "but WW1": a long black greatcoat open at
     # the front (Robe), the lenses burning amber with their glow on the mask, a blackened helm, hunched over the rifle in
     # both hands again, the saw-backed blade hung at the right hip (Weapon2); no pistol.
-    global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
+    global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS, ACCENT_PAINT
     BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Robe": 512, "Helmet": 512, "Weapon": 512, "Weapon2": 512, "Chest": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     import bmesh as _bm
     import random as _random
     M.setdefault("effigy", mat("effigy", "c8b8a0", 0.6, 0))
-    for k_ in ("pauldron", "sawblade"): M.setdefault(k_, mat(k_, "7a7c80", 0.3, 18))
+    for k_ in ("pauldron", "sawblade", "eyepiece"): M.setdefault(k_, mat(k_, "7a7c80", 0.3, 18))
+    for k_ in ("muzzle", "patch"): M.setdefault(k_, mat(k_, "4a4a44", 0.8, 0))
     def pose(r):
         legs(r, L=(0.16, -0.28, 10), R=(-0.18, 0.24, 34), drop=0.06, heel={"R": 0.05})
         human.aim(r, "spine03", P(0.0, -0.16, 1.4))                       # hunched over the rifle
@@ -6821,11 +6823,33 @@ def heretic_trooper():
     # the scarf and cape: a thick ring round the neck, then over the left shoulder and down the back, open on the right
     # and over the chest
     def scarf(a, z): a = math.remainder(a, 2 * math.pi); return z > NECK.z - 0.075 or a > 0.9 or a < -2.5
-    cloth_cone(NECK.x, NECK.y + 0.015, NECK.z + 0.05, 0.6, 0.085, 0.3, "accent", sy=0.9, keep=scarf, ragged=0.16, rnd=_random.Random(1917),
-               tris=210, mono=False, thick=0.02)
+    cape = cloth_cone(NECK.x, NECK.y + 0.015, NECK.z + 0.05, 0.6, 0.085, 0.3, "accent", sy=0.9, keep=scarf, ragged=0.16, rnd=_random.Random(1917),
+                      tris=300, mono=False, thick=0.02, segs=32)
+    # the cape's marks, in its baked shading (the owner, 2026-11-16: "add more details to cape"): mud up from the hem,
+    # the shadows of its folds, stains, and the turns of the scarf round the neck
+    nz0 = NECK.z
+    def cape_marks(p):
+        k = 0.7 + 0.3 * sstep((p.z - 0.62) / 0.3)                                         # mud and wet, dark at the hem
+        k *= 1 - 0.26 * max(0.0, _nz.noise(Vector((p.x * 13, p.y * 13, p.z * 1.6))))       # folds, running down
+        if _nz.noise(p * 8 + Vector((3, 1, 7))) > 0.42: k *= 0.82                         # stains
+        if p.z > nz0 - 0.09 and math.sin((p.z - nz0) * 2 * math.pi / 0.045) < -0.2: k *= 0.8    # the scarf's turns
+        return k
+    ACCENT_PAINT = cape_marks
+    def on_cape(a_, z_, out=0.026):   # a point on the cape's outside at that angle (0 the front, +pi/2 the left) and height
+        u_ = Vector((math.sin(a_), -math.cos(a_), 0)); ok, at_, *_ = cape.ray_cast(Vector((NECK.x, NECK.y + 0.015, z_)) + u_, -u_)
+        return at_ + u_ * out if ok else None
     fb = FACE_BOX; MC = fb["mid"] - fb["fwd"] * 0.048 - fb["up"] * 0.02   # the mask's centre, as ww1_painted_mask()
     mask = ww1_painted_mask()   # leaves the Helmet module current; its last part is the filter drum
     dn = (fb["fwd"] * 0.85 - fb["up"] * 0.5).normalized(); DRUM = Vector(MODULES["Helmet"][-1].location) + dn * 0.05   # the drum's open end
+    # the mask given form (the owner, 2026-11-16: "fix gas mask": it was flat paint on a ball, its lenses wider than the
+    # face): two solid eyepieces set in the face piece, toed out, and a rubber muzzle the drum screws into
+    head_ = MODULES["Helmet"][0]; MUZ = DRUM - dn * 0.1
+    sphere(tuple(MUZ), 1, "muzzle", (0.05, 0.05, 0.05), seg=8, rings=5)
+    EYES = []
+    for sg in (-1, 1):
+        ok_, at_, *_ = head_.ray_cast(MC + fb["ax"] * (sg * 0.036) + fb["up"] * 0.03 + fb["fwd"] * 0.4, -fb["fwd"])
+        ed = (fb["fwd"] + fb["ax"] * (sg * 0.3)).normalized(); e0 = (at_ if ok_ else MC + fb["ax"] * (sg * 0.036) + fb["up"] * 0.03 + fb["fwd"] * 0.05)
+        bar(e0 - ed * 0.014, e0 + ed * 0.02, 0.03, "eyepiece", sides=8); EYES.append((e0 + ed * 0.02, ed))
     # the helm: a dome, a short peak over the eyes, the skirt flared and low over the ears and the nape. Built in the
     # head's own frame and sized from the head (the owner, 2026-11-16: "make the helmet and the head look more natural
     # together", "the proportions are weird": it was level over a bowed head and twice the head's width).
@@ -6864,6 +6888,18 @@ def heretic_trooper():
     sphere(tuple(EF + Vector((0, 0, 0.04))), 0.026, "effigy", seg=6, rings=4)
     box(tuple(EF + Vector((0, 0, -0.012))), (0.04, 0.03, 0.07), "effigy")
     module("Chest")
+    # a field sign stitched to the cape's back: a rag of pale linen, the mark daubed on it
+    PA, PZ, pa_, pz_ = 2.37, 1.13, 0.32, 0.1   # its centre (angle, height), half its width (angle) and height
+    grid = [[on_cape(PA + pa_ * (i - 1.5) / 1.5, PZ + pz_ * (j - 2) / 2) for i in range(4)] for j in range(5)]
+    if all(q_ is not None for row_ in grid for q_ in row_):
+        me = bpy.data.meshes.new("patch"); me.from_pydata([tuple(q_) for row_ in grid for q_ in row_], [], [(j * 4 + i, j * 4 + i + 1, (j + 1) * 4 + i + 1, (j + 1) * 4 + i) for j in range(4) for i in range(3)])
+        bm = _bm.new(); bm.from_mesh(me)
+        for f_ in bm.faces:   # facing out from the neck's axis
+            c_ = f_.calc_center_median()
+            if f_.normal.dot(Vector((c_.x - NECK.x, c_.y - NECK.y, 0))) < 0: f_.normal_flip()
+        bm.to_mesh(me); bm.free(); me.update()
+        po = bpy.data.objects.new("patch", me); scn.collection.objects.link(po); add(po, "patch")
+    else: print("PATCH missed the cape")
     HOSE = hose([DRUM - dn * 0.02, DRUM + dn * 0.05 + Vector((0.02, 0, -0.03)), front(0.07, 1.33, 0.03), front(0.1, 1.2, 0.028),
                  front(0.125, 1.1, 0.03), CAN + Vector((0, 0, 0.09))], 0.019, "rubber", sides=5)
     PL = front(-0.095, 1.325, 0.014)                                                       # the tall plaque, high on the right breast
@@ -6894,7 +6930,7 @@ def heretic_trooper():
                                            robe="23282e", robed="121418", robel="363d46", helmk="33312e", helmkl="4d4a45",
                                            puttee="6e654f", putteed="443d2e", pale="8c8268", effigy="c8b8a0", effigyd="8e8068", webbing="3e2f24", webbingd="241a12",
                                            webbingl="574333", cloth="4a4238", clothd="2e2922", clothl="5f5648",
-                                           hood="2e2c2a", mask="34342f", maskd="1e1e1b", lens="ff8c1a", lensd="e86a0a", lensl="ffe08a",
+                                           hood="403c34", hoodd="2b2822", mask="232523", maskd="131413", maskl="5a5e56", linen="9a9078", linend="6e6652", lens="ff8c1a", lensd="e86a0a", lensl="ffe08a",
                                            helm="5e3018", helmd="3a1c0e", helml="7c4426", can="7a2018", canl="a03426", rubber="2e302c")})
     def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
     def glyph(qx, qz, w_):   # the trooper's mark: an arrow driven downward, a dot each side
@@ -6907,13 +6943,48 @@ def heretic_trooper():
             if _nz.noise(p * 55) > k_: return lt(C["metal"])
             if runs and _nz.noise(Vector((x * 40, y * 40, z * 8))) > 0.42: return lt(C["helmd"])
             return lt(C["helml"] if s_ > 0.6 else C["helm"])
-        if base == "hood":   # the lenses' glow thrown on the mask round them
-            q = p - MC
-            if q.dot(fb["fwd"]) > -0.01:
-                dd = min(math.hypot(q.dot(fb["ax"]) - ex, q.dot(fb["up"]) - 0.03) for ex in (-0.041, 0.041))
-                if 0.037 <= dd < 0.056: return C["mask"].lerp(C["lens"], 0.6 * (1 - (dd - 0.037) / 0.019))
-        r = mask(C, base, p, n, ao)
-        if r is not None: return (*r, 1.0) if any(r is C[k_] for k_ in ("lens", "lensd", "lensl")) else r   # the lenses glow (four values: the bake)
+        if base == "eyepiece":   # an iron ring round burning glass (four values: the bake marks the texel as glowing)
+            e1, ed = min(EYES, key=lambda e_: (p - e_[0]).length); q = p - e1; r_ = (q - ed * q.dot(ed)).length
+            if n.dot(ed) > 0.6:
+                if r_ > 0.0235: return lt(C["metall"] if q.dot(fb["up"]) > 0 else C["metal"], metal=True)
+                if r_ > 0.0195: return C["ink"]
+                g_ = q - fb["up"] * 0.008 + fb["ax"] * 0.007
+                if (g_ - ed * g_.dot(ed)).length < 0.0055: return (*C["lensl"], 1.0)
+                return (*(C["lensd"] if q.dot(fb["up"]) < -0.006 else C["lens"]), 1.0)
+            return C["ink"] if q.dot(ed) < -0.027 else lt(C["iron"] if s_ > 0.2 else C["irond"], metal=True)
+        if base == "muzzle":   # black rubber, a seam down its middle, a pale worn rim where the drum screws in
+            q = p - MUZ; t_ = q.dot(dn)
+            if t_ > 0.03: return C["ink"] if t_ < 0.036 else lt(C["metal"], metal=True)
+            if abs(q.dot(fb["ax"])) < 0.004: return C["ink"]
+            return lt(C["maskl"] if s_ > 0.75 else (C["mask"] if s_ > 0.0 else C["maskd"]))
+        if base == "patch":   # pale linen, frayed dark at the edge, stitched on with black thread, the mark's arrow daubed in ink (no dots: with them it read as a face)
+            pu = math.remainder(math.atan2(x - NECK.x, -(y - NECK.y - 0.015)) - PA, 2 * math.pi) / pa_; pv = (z - PZ) / pz_
+            m_ = max(abs(pu), abs(pv))
+            if m_ > 0.93: return lt(C["linend"])
+            if m_ > 0.8 and m_ < 0.86 and (((pu if abs(pv) > abs(pu) else pv) * 4.5) % 1.0) < 0.55: return C["ink"]
+            if (abs(pu) < 0.13 and -0.38 < pv < 0.5) or (-0.48 < pv < -0.1 and abs(abs(pu) - (pv + 0.48) * 0.8) < 0.12): return C["ink"] if _nz.noise(p * 60) > -0.5 else lt(C["linend"])
+            if _nz.noise(p * 30) > 0.4: return lt(C["linend"])
+            return lt(C["linen"])
+        if base == "hood":   # the hood of proofed canvas, the black rubber face piece on it, the straps that hold it
+            q = p - MC; a, u, f = q.dot(fb["ax"]), q.dot(fb["up"]), q.dot(fb["fwd"])
+            if f > -0.01:
+                dd = min(math.hypot(a - ex, u - 0.03) for ex in (-0.036, 0.036))
+                e = (a / 0.088) ** 2 + ((u + 0.015) / 0.122) ** 2
+                if e < 1.0:
+                    if dd < 0.03: return C["ink"]                                            # under an eyepiece
+                    if dd < 0.05: return C["mask"].lerp(C["lens"], 0.65 * (1 - (dd - 0.03) / 0.02))   # the lenses' glow thrown on the rubber
+                    if e > 0.9: return C["ink"]
+                    if e > 0.8: return lt(C["maskl"])                                        # its rolled edge
+                    if abs(a) < 0.004 and u < -0.03: return C["ink"]
+                    return lt(C["maskd"] if math.sin(a * 220 + u * 60) > 0.8 and abs(a) > 0.045 else C["mask"])
+            for su in (0.04, -0.06):   # the straps round the head, a buckle on each side
+                if abs(u - su) < 0.012 and f < 0.035:
+                    if abs(f + 0.02) < 0.009 and abs(u - su) < 0.009: return C["brassl"] if s_ > 0.2 else C["brass"]
+                    return C["ink"] if abs(u - su) > 0.008 else lt(C["leatherl"] if s_ > 0.5 else C["leather"])
+            if abs(a) < 0.003 and f < 0: return lt(C["hoodd"])                               # the hood's seam down the back
+            return lt(C["hoodd"] if _nz.noise(Vector((p.x * 30, p.y * 30, p.z * 90))) > 0.35 else C["hood"])
+        r = mask(C, base, p, n, ao)   # the filter drum
+        if r is not None: return r
         if base == "robe":   # the greatcoat: a turned front edge with a worn lip, folds, blood and mud to the hem
             a_ = abs(math.degrees(math.atan2(x, -y)))
             if a_ < 21 and z - HEM(p) > 0.03: return C["ink"] if a_ > 19.4 else lt(C["robel"])
@@ -7731,6 +7802,7 @@ def accent_shading():
     for l in me.loops:
         s = me.corner_normals[l.index].vector.dot(PSX_LIGHT); v = me.vertices[l.vertex_index]
         k = (1.0 if s > 0.62 else (0.86 if s > 0.0 else 0.7)) * (1 - 0.45 * occ[l.vertex_index]) * (1 + 0.05 * _nz.noise(v.co * 20))
+        if ACCENT_PAINT is not None: k *= ACCENT_PAINT(v.co)
         col.data[l.index].color = (min(1.0, k) ** 2.2,) * 3 + (1.0,)   # linear, as glTF stores it
     me.color_attributes.active_color = col
 accent_shading()
