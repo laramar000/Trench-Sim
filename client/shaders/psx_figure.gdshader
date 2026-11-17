@@ -1,6 +1,7 @@
 shader_type spatial;
 // PlayStation-style figures (decoration only): vertices snap to a coarse screen grid (the wobble), textures are mapped
 // affine (no perspective correction, the warp), colour is cut to few steps with an ordered dither. Lit as usual.
+// A texel whose alpha is under 0.75 glows (a lit lens, an ember): drawn at its own colour, unlit and ungraded.
 
 uniform sampler2D albedo_tex : source_color, filter_nearest;
 uniform vec4 albedo_colour : source_color = vec4(1.0);
@@ -10,6 +11,7 @@ uniform float dither = 0.35;
 uniform float grime_dark = 0.62;      // grimdark grade: brightness
 uniform float grime_desat = 0.55;     // grimdark grade: how much colour drains toward grey
 uniform vec3 grime_tint : source_color = vec3(1.0, 0.93, 0.82);   // dirty warm cast           // 0 off, 1 full ordered dither
+uniform float glow = 1.0;             // brightness of the glowing texels
 
 varying vec3 affine;
 
@@ -34,7 +36,9 @@ void fragment() {
 	float grey = dot(tex.rgb, vec3(0.3, 0.59, 0.11));
 	vec3 graded = mix(tex.rgb, vec3(grey), grime_desat) * grime_tint * grime_dark;
 	vec3 c = graded + bayer4(FRAGCOORD.xy) * dither / colour_steps;
-	ALBEDO = floor(c * colour_steps + 0.5) / colour_steps;
+	float lit = step(0.75, tex.a);   // 0 on a glowing texel
+	ALBEDO = floor(c * colour_steps + 0.5) / colour_steps * lit;
+	EMISSION = tex.rgb * glow * (1.0 - lit);
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
 }

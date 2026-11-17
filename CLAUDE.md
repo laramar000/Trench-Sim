@@ -391,3 +391,12 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   owner: a black-coated shock trooper with burning eyes, "but WW1": a long black greatcoat, amber lenses, a blackened
   helm, hunched over the rifle in both hands again, the blade at the hip, no pistol. Catalog height 1.14" (was 1.15"),
   test row 2,800 (was 2,000), 2,721 triangles.
+- Done (2026-11-16): glowing texels (the owner: "Yes, make them glow", the Trooper's lenses). A figure's painter returns
+  four values for a texel that glows; the bake in `tools/art/make_figures.py` writes its alpha as 0.5;
+  `client/shaders/psx_figure.gdshader` draws alpha under 0.75 at the texel's own colour, unlit and ungraded (`glow`).
+  Only the Heretic Trooper marks texels so far; the Priest's embers and the Brand-Sworn's brands could use it (each
+  needs a rebuild). Not seen in a match, only in `psx_showcase.gd`.
+- Done (2026-11-16): the Trooper's helm refitted (the owner: "make the helmet and the head look more natural
+  together", "the proportions are weird"): built in the head's frame (`FACE_BOX`) and sized from the head, no longer
+  level and twice the head's width. Catalog height 1.10" (was 1.14"). A helm on a tilted head belongs in the head's
+  frame for every later figure.

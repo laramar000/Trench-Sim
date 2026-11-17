@@ -6826,16 +6826,21 @@ def heretic_trooper():
     fb = FACE_BOX; MC = fb["mid"] - fb["fwd"] * 0.048 - fb["up"] * 0.02   # the mask's centre, as ww1_painted_mask()
     mask = ww1_painted_mask()   # leaves the Helmet module current; its last part is the filter drum
     dn = (fb["fwd"] * 0.85 - fb["up"] * 0.5).normalized(); DRUM = Vector(MODULES["Helmet"][-1].location) + dn * 0.05   # the drum's open end
-    # the helm: a dome, a short peak over the eyes, the skirt flared and low over the ears and the nape
-    hc = Vector((hp.x, hp.y + 0.002, top.z - 0.075))
+    # the helm: a dome, a short peak over the eyes, the skirt flared and low over the ears and the nape. Built in the
+    # head's own frame and sized from the head (the owner, 2026-11-16: "make the helmet and the head look more natural
+    # together", "the proportions are weird": it was level over a bowed head and twice the head's width).
+    hd = [MODULES["Helmet"][0].matrix_world @ v.co - fb["mid"] for v in MODULES["Helmet"][0].data.vertices]   # the head, from eye level
+    hw = max(abs(q.dot(fb["ax"])) for q in hd); f0, f1 = min(q.dot(fb["fwd"]) for q in hd), max(q.dot(fb["fwd"]) for q in hd)
+    hd_, topu = (f1 - f0) / 2, max(q.dot(fb["up"]) for q in hd)   # half its depth, its crown above the eyes
+    hc = fb["mid"] + fb["fwd"] * ((f0 + f1) / 2) + fb["up"] * 0.008   # the painter's origin: the crease is 0.062 above it
     n_ = 14; hv = []
-    for j, (dz, r_) in enumerate(((0.0, 0.162), (0.062, 0.128), (0.118, 0.114), (0.158, 0.07))):
+    for j, (du, gap, k_) in enumerate(((-0.053, 0.042, 1.0), (0.062, 0.018, 1.0), (0.062 + (topu - 0.05) * 0.6, 0.018, 0.85), (topu + 0.012, 0.018, 0.5))):
         for k in range(n_):
             th = 2 * math.pi * k / n_; side_ = min(1.0, max(0.0, (abs(math.remainder(th, 2 * math.pi)) - math.radians(48)) / math.radians(30)))   # 0 at the front, 1 from the ears back
-            z_ = dz + (0.034 - 0.088 * side_ if j == 0 else 0.0)
-            rr = r_ * (0.97 if j == 0 and side_ < 1 else 1.0)
-            hv.append((hc.x + rr * math.sin(th), hc.y - rr * 1.1 * math.cos(th), hc.z + z_))
-    hv.append((hc.x, hc.y, hc.z + 0.176))
+            u_ = du + (0.097 * (1 - side_) if j == 0 else 0.0)                    # the rim: at the brow in front, low from the ears back
+            g_ = gap - (0.012 * (1 - side_) if j == 0 else 0.0)                   # the peak short, the skirt flared
+            hv.append(tuple(hc + fb["ax"] * ((hw + g_) * k_ * math.sin(th)) + fb["fwd"] * ((hd_ + g_) * k_ * math.cos(th)) + fb["up"] * u_))
+    hv.append(tuple(hc + fb["up"] * (topu + 0.027)))
     hf = [(j * n_ + k, j * n_ + (k + 1) % n_, (j + 1) * n_ + (k + 1) % n_, (j + 1) * n_ + k) for j in range(3) for k in range(n_)]
     hf += [(3 * n_ + k, 3 * n_ + (k + 1) % n_, 4 * n_) for k in range(n_)]
     me = bpy.data.meshes.new("helm"); me.from_pydata(hv, [], hf); me.validate()
@@ -6908,19 +6913,19 @@ def heretic_trooper():
                 dd = min(math.hypot(q.dot(fb["ax"]) - ex, q.dot(fb["up"]) - 0.03) for ex in (-0.041, 0.041))
                 if 0.037 <= dd < 0.056: return C["mask"].lerp(C["lens"], 0.6 * (1 - (dd - 0.037) / 0.019))
         r = mask(C, base, p, n, ao)
-        if r is not None: return r
+        if r is not None: return (*r, 1.0) if any(r is C[k_] for k_ in ("lens", "lensd", "lensl")) else r   # the lenses glow (four values: the bake)
         if base == "robe":   # the greatcoat: a turned front edge with a worn lip, folds, blood and mud to the hem
             a_ = abs(math.degrees(math.atan2(x, -y)))
             if a_ < 21 and z - HEM(p) > 0.03: return C["ink"] if a_ > 19.4 else lt(C["robel"])
             return psx_robe(C, "robe", p, n, ao, HEM, blood=0.3)
         if base == "helmet":   # rust, a dark rolled rim, a vent lug each side, the mark daubed pale on the front
-            q = p - hc; th = math.atan2(q.x, -q.y)
-            if n.z < -0.3: return lt(C["helmd"])
-            if abs(th) < 0.5 and 0.07 < q.z < 0.15 and glyph(th * 0.12 / 1.1, (q.z - 0.108) / 1.1, 0.0045): return C["pale"] if _nz.noise(p * 70) > -0.35 else lt(C["helm"])
+            q = p - hc; th = math.atan2(q.dot(fb["ax"]), q.dot(fb["fwd"])); q = Vector((q.dot(fb["ax"]), -q.dot(fb["fwd"]), q.dot(fb["up"])))   # in the head's frame
+            if n.dot(fb["up"]) < -0.3: return lt(C["helmd"])
+            if abs(th) < 0.5 and 0.085 < q.z < 0.132 and glyph(th * 0.1 / 0.55, (q.z - 0.109) / 0.55, 0.007): return C["pale"] if _nz.noise(p * 70) > -0.35 else lt(C["helm"])
             if abs(abs(th) - 1.45) < 0.09 and abs(q.z - 0.075) < 0.011: return C["ink"] if math.hypot((abs(th) - 1.45) * 0.12, q.z - 0.075) > 0.007 else C["metall"]
             if abs(q.z - 0.064) < 0.004 and abs(th) > 0.9: return lt(C["helmd"])   # the crease where the skirt flares
-            wz = q.z - 0.048 - 0.006 * math.sin(th * 9)   # barbed wire wound round the crown, twice
-            for w0 in (0.0, 0.016):
+            wz = q.z - 0.069 - 0.004 * math.sin(th * 9)   # barbed wire wound round the crown above the crease, twice
+            for w0 in (0.0, 0.012):
                 if abs(wz - w0) < 0.0035: return C["ironl"] if (th * 7 + w0 * 40) % 1.0 < 0.22 else C["ink"]
             if 1.9 < th < 2.6 and abs(((q.z - 0.06 - (th - 1.9) * 0.09) / 0.02) % 1.0 - 0.5) < 0.1 and 0.07 < q.z < 0.14: return C["metall"]   # three claw scores, bright
             if _nz.noise(p * 55) > 0.62: return lt(C["metal"])                       # blackened steel, chipped, rust running down it
@@ -7679,10 +7684,12 @@ for name, o in OBJS.items():
                         for sx in range(SS):
                             r_ = at(tx + (sx + 0.5) / SS, ty + (sy + 0.5) / SS, 0.0)
                             if r_ is None: continue
-                            s_ = acc.setdefault(t, [0.0, 0.0, 0.0, 0])
-                            s_[0] += r_[0]; s_[1] += r_[1]; s_[2] += r_[2]; s_[3] += 1
+                            s_ = acc.setdefault(t, [0.0, 0.0, 0.0, 0, 0])
+                            s_[0] += r_[0]; s_[1] += r_[1]; s_[2] += r_[2]; s_[3] += 1; s_[4] += len(r_) > 3
                     if t not in acc and out_[t] is None: out_[t] = at(tx + 0.5, ty + 0.5, -0.05)
-        for t, s_ in acc.items(): out_[t] = (s_[0] / s_[3], s_[1] / s_[3], s_[2] / s_[3])
+        # a painter marks a texel that glows by returning four values (2026-11-16, the Heretic Trooper's lenses): the
+        # texel's alpha is then 0.5, and the client's figure shader draws it at its own colour, unlit and ungraded
+        for t, s_ in acc.items(): out_[t] = (s_[0] / s_[3], s_[1] / s_[3], s_[2] / s_[3]) + ((1.0,) if s_[4] * 2 > s_[3] else ())
         for _ in range(4):
             grow = {}
             for t in range(size * size):
@@ -7695,6 +7702,7 @@ for name, o in OBJS.items():
             if c is None: continue
             dz = (BAYER[(t // size % 4) * 4 + t % 4] / 16 - 0.47) / 31
             px[t * 4:t * 4 + 3] = [round(max(0.0, min(1.0, c[k] + dz)) * 31) / 31 for k in range(3)]
+            if len(c) > 3: px[t * 4 + 3] = 0.5
     img.pixels = px; img.pack()
     m = bpy.data.materials.new(f"{role}{name}"); m.use_nodes = True; b = m.node_tree.nodes["Principled BSDF"]
     b.inputs["Roughness"].default_value = 1.0
