@@ -424,4 +424,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (rows raised: Shield 1,900, War Prophet 2,100, Brand-Sworn 2,400); the Accent has a 512 px grey texture
   (`accent_cloth()`, cloth parts use material `accentcloth`), multiplied with the seat colour in `Visuals.PaintAccent`.
   All 23 figures rebuilt. Not seen in a live match.
+- 2026-11-17: Assault Beast built (`assault_beast()`, `units/assault-beast.glb`, catalog height 1.25", test row 2,800, 24 figures
+  now), on the owner's references for mood only (the owner asked to copy the miniature's signature look; declined, an
+  original design in the same mood). Shown to the owner for review. Still to build for the Heretics: Night Commando,
+  Chorister, Wretched, Bombard Witch, Barbed Wire Banshee.
   Next Heretic recommended: Assault Beast (references needed from the owner).

@@ -62,9 +62,10 @@ public class UnitFiguresTests
         Assert.Contains("Heretic Trooper", known);
         Assert.Contains("Heretic Priest", known);
         Assert.Contains("Brand-Sworn Heavy Infantry", known);
+        Assert.Contains("Assault Beast", known);
         var units = Catalog.Entries.Keys.Where(k => k.StartsWith("unit:", StringComparison.Ordinal)).Select(k => k["unit:".Length..]).ToList();
         Assert.All(units, u => Assert.Contains(u, known));
-        Assert.Equal(23, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
+        Assert.Equal(24, Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal)).Select(e => e.Value).Distinct().Count());
     }
 
     // The figures are read at run time, so the editor never imports them: an import would write their textures out as
@@ -102,6 +103,7 @@ public class UnitFiguresTests
     // Brand-Sworn Heavy Infantry 2,400 (class B, 2026-11-16, drawn 1.58" with the great axe raised above the helm).
     // 2026-11-17, every sphere pauldron became curved plates down the posed arm (arm_plates): Shield 1,700 -> 1,900,
     // War Prophet 2,000 -> 2,100, Brand-Sworn 2,300 -> 2,400, Heretic Priest 2,800 -> 3,100 (the Heretic Trooper's 3,100 holds).
+    // Assault Beast 3,000 (class D, 50 mm, 2026-11-17, drawn 1.25" hunched; long, so its width is up to 1.8 at the file's 1.2 tall).
     public static TheoryData<string, int, int, float> Figures => new()
     {
         { "units/rifleman.glb", 1600, 1024, 0.9f }, { "units/skirmisher.glb", 1600, 1024, 0.9f }, { "units/shield.glb", 1900, 1024, 0.9f },
@@ -117,6 +119,7 @@ public class UnitFiguresTests
         { "units/holy-warrior.glb", 2700, 1024, 0.9f },
         { "units/heretic-trooper.glb", 3100, 1024, 0.9f }, { "units/heretic-priest.glb", 3100, 1024, 0.9f },
         { "units/brand-sworn-heavy-infantry.glb", 2400, 1024, 0.9f },
+        { "units/assault-beast.glb", 3000, 1024, 1.8f },
     };
 
     [Theory]

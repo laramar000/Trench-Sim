@@ -7652,6 +7652,247 @@ def brand_sworn():
         return r if r is not None else lit(C.get(base, C["cloth"]), n, ao, p=p)
     PAINT = paint
 
+def assault_beast():
+    # Assault Beast (2026-11-17, a Heretic war-beast, class D, 50 mm): on the owner's references (a hunched, armoured
+    # war-wolf), the mood and the kind of creature only; its helm, plates and pose are this project's own, not a copy of
+    # any miniature or artwork. Painted PSX look. A hunched, long-armed beast crouched low on its toes, the spine and neck
+    # thrust forward: the left claw planted ahead, knuckle-walking, the right raised and reaching. Dark matted fur over the
+    # back and shoulders, raw red hide on the limbs (painted, Body); a long riveted iron muzzle-helm over the whole head,
+    # straight and squared, with an open iron lower jaw, teeth along both edges, two short brow spikes and a plate on
+    # each cheek (Helmet); breathing hoses from under the helm into a spiked iron collar with a broken chain (Chest);
+    # curved rust plates on the shoulders, forearms and thighs (Chest, Hip); a ridge of fur tufts down the spine (Back);
+    # long claws on hands and feet; a torn cloth in the seat colour down the back, seen from above (Accent).
+    global BODY_BUDGET, TEX_SIZES, PAINT, TWIST, LOOK, WARP
+    BODY_BUDGET = 1800; TWIST, LOOK = 0, 0
+    TEX_SIZES = {"Body": 1024, "Helmet": 512, "Chest": 512, "Hip": 512, "Back": 512}
+    from mathutils import noise as _nz
+    import bmesh as _bm
+    import random as _random
+    for k_, c_ in (("fur", "2e3038"), ("hide", "8a3a30"), ("muzzle", "5e3018"), ("jaw", "4a2614"), ("tooth", "c8bca0"), ("claw", "2a2420"),
+                   ("bplate", "5e3018"), ("collar", "3a3a3c"), ("tuft", "2e3038"), ("chain", "3a3a3c")):
+        M.setdefault(k_, mat(k_, c_, 0.3, 18))   # told apart when painted
+    def pose(r):
+        legs(r, L=(0.22, 0.04, 24), R=(-0.21, 0.26, 32), drop=0.22, heel={"L": 0.11, "R": 0.13})   # crouched on its toes, the haunches up
+        human.aim(r, "spine03", P(0, -0.6, 1.02))                           # the back thrust forward, near level
+        human.aim(r, "neck01", P(0, -0.95, 0.92))                           # the neck out ahead of it
+        human.reach(r, "L", P(0.33, -0.5, 0.42), P(0.3, -0.66, 0.06))       # the left claw planted ahead (drawn longer after painting)
+        human.reach(r, "R", P(-0.36, -0.55, 0.98), P(-0.3, -0.9, 0.9))      # the right raised, reaching
+    hands, hp, top = human_body(pose, coat=False, dress={"foot": "hide", "shin": "hide", "thigh": "hide", "torso": "fur"}, head=None,
+                                mitts="hide", shape="male-young-maxmuscle-minweight")
+    rnd = _random.Random(1871)
+    human_ = bpy.data.objects["human"]
+    for v in human_.data.vertices:   # the hunched bulk of the shoulders and the back under the fur
+        if v.co.z > 0.75 and v.co.y > -0.25: v.co += v.normal * 0.02
+    human_.data.update(); bpy.context.view_layer.update()
+    toeless_feet("hide")
+    human_.data.update(); bpy.context.view_layer.update()
+    def surf(o_, d_, obs=None, out=0.0):   # the first hit on the body (or obs) from o_ along d_, `out` back off it
+        best = None
+        for ob in (obs or [human_]):
+            ok, at, *_ = ob.ray_cast(o_, d_)
+            if ok and (best is None or (at - o_).length < (best - o_).length): best = at
+        return None if best is None else best - d_.normalized() * out
+    # the torn cloth in the seat colour, hung from the collar down the back
+    BACKN = surf(NECK + Vector((0, 0.5, 0.25)), Vector((0, -1, -0.5)).normalized()) or NECK
+    cloth_panel([BACKN + Vector((0.11, 0.02, 0.0)), BACKN + Vector((-0.11, 0.02, 0.0))], 0.42, "accent", out=Vector((0, 0.45, 0.9)).normalized(),
+                cols=4, rows=6, ragged=0.08, rnd=rnd, tris=60, bend=1.0)
+    # ---- the muzzle-helm, in the head's own frame: along F from the back of the skull to the snout ----
+    module("Helmet")
+    F = (HEAD_AXIS * 0.35 + Vector((0, -1, -0.2))).normalized(); X = F.cross(Vector((0, 0, 1))).normalized(); U = X.cross(F).normalized()
+    H0 = NECK + HEAD_AXIS * 0.05 - F * 0.02
+    SEC = [(0.0, 0.125, 0.115, 0.0), (0.12, 0.12, 0.11, 0.0), (0.26, 0.085, 0.08, -0.012), (0.4, 0.055, 0.055, -0.03), (0.5, 0.03, 0.035, -0.045)]   # along, half-width, half-height, drop
+    def ring(t, hw, hh, dz, n=8):   # a squared ring: corners cut, flat on top
+        pts = []
+        for k in range(n):
+            a_ = 2 * math.pi * (k + 0.5) / n; cx, cy = math.cos(a_), math.sin(a_)
+            sx_, sy_ = (abs(cx) ** 0.5) * (1 if cx >= 0 else -1), (abs(cy) ** 0.5) * (1 if cy >= 0 else -1)
+            pts.append(H0 + F * t + X * (hw * sx_) + U * (hh * sy_ + dz))
+        return pts
+    hv = []
+    for t, hw, hh, dz in SEC: hv += ring(t, hw, hh, dz)
+    hv.append(H0 + F * 0.53 + U * -0.04)   # the snout's blunt tip
+    nS = len(SEC)
+    hf = [(j * 8 + k, j * 8 + (k + 1) % 8, (j + 1) * 8 + (k + 1) % 8, (j + 1) * 8 + k) for j in range(nS - 1) for k in range(8)]
+    hf += [((nS - 1) * 8 + k, (nS - 1) * 8 + (k + 1) % 8, nS * 8) for k in range(8)]
+    hf.append(tuple(reversed(range(8))))   # closed at the back of the skull
+    me = bpy.data.meshes.new("muzzle"); me.from_pydata([tuple(v) for v in hv], [], hf); me.validate()
+    bm = _bm.new(); bm.from_mesh(me); _bm.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(me); bm.free(); me.update()
+    mz = bpy.data.objects.new("muzzle", me); scn.collection.objects.link(mz); add(mz, "muzzle")
+    # the lower jaw: an iron trough under the snout, hinged at the back and dropped open
+    J0 = H0 + F * 0.1 - U * 0.1; JD = (F - U * 0.28).normalized(); JX = X; JU = JX.cross(JD).normalized()
+    jv = []
+    for t, hw, d_ in ((0.0, 0.085, 0.05), (0.18, 0.07, 0.045), (0.34, 0.045, 0.035), (0.42, 0.022, 0.02)):
+        for k, (a_, b_) in enumerate(((-1, 0), (-0.8, -1), (0.8, -1), (1, 0))):
+            jv.append(J0 + JD * t + JX * (hw * a_) + JU * (d_ * b_))
+    jf = [(j * 4 + k, j * 4 + k + 1, (j + 1) * 4 + k + 1, (j + 1) * 4 + k) for j in range(3) for k in range(3)]
+    me = bpy.data.meshes.new("jaw"); me.from_pydata([tuple(v) for v in jv], [], jf)
+    jo = bpy.data.objects.new("jaw", me); scn.collection.objects.link(jo); sm = jo.modifiers.new("sol", "SOLIDIFY"); sm.thickness = 0.014; add(jo, "jaw")
+    TEETH, CHAINS = [], []   # the teeth as a chainsaw's: dense raked steel cutters on a chain along every jaw edge (the owner, 2026-11-17)
+    for sx in (-1, 1):
+        rims = [(lambda t: J0 + JD * t + JX * ((0.085 + (0.022 - 0.085) * t / 0.42) * sx * 0.93), (JU * 0.6 + JD * 0.8).normalized()),   # the jaw's rim, cutters raked forward
+                (lambda t: H0 + F * (t + 0.1) + X * ((0.12 + (0.04 - 0.12) * (t + 0.1) / 0.45) * sx * 0.88) - U * (0.1 - 0.06 * (t + 0.1) / 0.5), (-U * 0.6 + F * 0.8).normalized())]   # the helm's lower edge
+        for at, rk in rims:
+            a0, a1 = at(0.03), at(0.38); CHAINS.append((a0, a1)); bar(a0, a1, 0.009, "chain", sides=5)
+            for k in range(14):
+                b0 = at(0.04 + 0.026 * k); TEETH.append(b0)
+                bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=0.009, radius2=0.0, depth=0.036, location=tuple(b0 + rk * 0.017), rotation=rk.to_track_quat('Z', 'Y').to_euler())
+                add(bpy.context.object, "tooth")
+    for sx in (-1, 1):   # two short brow spikes, raked back
+        sp = (U * 0.8 - F * 0.6).normalized(); at_ = H0 + F * 0.12 + X * (0.07 * sx) + U * 0.11
+        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.02, radius2=0.0, depth=0.1, location=tuple(at_ + sp * 0.045), rotation=sp.to_track_quat('Z', 'Y').to_euler())
+        add(bpy.context.object, "collar")
+    CHEEK = []
+    for sx in (-1, 1):   # a riveted plate on each cheek
+        c_ = H0 + F * 0.17 + X * (0.118 * sx) - U * 0.01; CHEEK.append(c_)
+        o_ = box(tuple(c_), (0.016, 0.11, 0.075), "muzzle"); o_.rotation_mode = 'QUATERNION'; o_.rotation_quaternion = Matrix((X, F, U)).transposed().to_quaternion()
+    HK = 0.72   # the helm is built large and shrunk about the neck after painting (WARP), so its paint stays put
+    # ---- the collar, the chain, the hoses ----
+    module("Chest")
+    CN = NECK - HEAD_AXIS * 0.01
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.12, minor_radius=0.025, major_segments=12, minor_segments=4, location=tuple(CN))
+    o_ = bpy.context.object; o_.rotation_mode = 'QUATERNION'; o_.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(HEAD_AXIS); add(o_, "collar")
+    cx_ = HEAD_AXIS.cross(Vector((1, 0, 0))).normalized(); cy_ = HEAD_AXIS.cross(cx_).normalized()
+    for k in range(6):   # spikes round it
+        a_ = 2 * math.pi * k / 6; u_ = cx_ * math.cos(a_) + cy_ * math.sin(a_)
+        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.014, radius2=0.0, depth=0.06, location=tuple(CN + u_ * 0.16), rotation=u_.to_track_quat('Z', 'Y').to_euler())
+        add(bpy.context.object, "collar")
+    lk = CN - cy_ * 0.14 + Vector((0, 0, -0.02)); dl = Vector((0.15, -0.3, -1)).normalized()   # the broken chain: four links hanging
+    for k in range(4):
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.02, minor_radius=0.006, major_segments=6, minor_segments=3, location=tuple(lk + dl * (0.032 * k)),
+                                         rotation=(math.pi / 2 if k % 2 else 0, 0, 0.3))
+        add(bpy.context.object, "collar")
+    HOSES = []
+    for sx in (-1, 1):   # breathing hoses: from under the helm into the collar
+        a0 = H0 + (F * 0.06 + X * (0.07 * sx) - U * 0.1) * HK   # under the helm as WARP shrinks it
+        HOSES.append(hose([a0, a0 - U * 0.08 + F * 0.03, CN + X * (0.1 * sx) - cy_ * 0.08 + Vector((0, 0, -0.04)), CN + X * (0.09 * sx) - cy_ * 0.02], 0.016, "rubber", sides=5))
+    # ---- the plates: shoulders (arm_plates), forearms and thighs (curved plates along them) ----
+    PLS = arm_plates("L", ["bplate"], room=0.02, scale=1.1) + arm_plates("R", ["bplate"], room=0.02, scale=1.1)
+    SHELLS = []
+    for s in ("L", "R"):   # a plate along the top of each forearm
+        e_, w_ = JOINTS[f"lowerarm01.{s}"], FISTS[s][0] - FISTS[s][1] * 0.05; d_ = (w_ - e_).normalized()
+        SHELLS.append(psx_shell(e_ + d_ * 0.03, d_, 0.055, (w_ - e_).length * 0.8, "bplate", ang=80, rows=2, taper=0.9, n=6)[1])
+    module("Hip")
+    for s in ("L", "R"):   # a plate over each thigh
+        h_, k_ = JOINTS[f"upperleg01.{s}"], JOINTS[f"lowerleg01.{s}"]; d_ = (k_ - h_).normalized()
+        SHELLS.append(psx_shell(h_ + d_ * 0.08, d_, 0.095, (k_ - h_).length * 0.6, "bplate", ang=75, rows=2, taper=0.9, n=6)[1])
+    # ---- the claws, the fur ridge ----
+    module("Chest")
+    CLAWS = []
+    for s in ("L", "R"):   # four long claws on each hand
+        fc, fd = FISTS[s]; side = fd.cross(Vector((0, 0, 1))).normalized()
+        for k in range(4):
+            cd = (fd + side * (0.45 * (k - 1.5) / 1.5) - Vector((0, 0, 0.35))).normalized(); b0 = fc + fd * 0.03 + side * (0.016 * (k - 1.5))
+            bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.018, radius2=0.0, depth=0.16, location=tuple(b0 + cd * 0.07), rotation=cd.to_track_quat('Z', 'Y').to_euler())
+            add(bpy.context.object, "claw"); CLAWS.append((b0, cd))   # long and thick enough to read at the table
+    for s, sx in (("L", 1), ("R", -1)):   # three on each foot
+        fj = JOINTS[f"foot.{s}"]
+        sole = min(v.co.z for v in human_.data.vertices if (v.co.xy - fj.xy).length < 0.2 and v.co.z < fj.z)   # the foot's own lowest point
+        front = min(v.co.y for v in human_.data.vertices if (v.co.xy - fj.xy).length < 0.2 and v.co.z < sole + 0.05)   # the foot's front edge
+        toe = Vector((fj.x + 0.01 * sx, front + 0.012, sole + 0.011))   # on the ground at the toes, not below it or ahead of it
+        for k in range(3):
+            cd = Vector((0.25 * (k - 1), -1, 0.0)).normalized(); b0 = toe + Vector((0.025 * (k - 1), 0, 0))
+            bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=0.01, radius2=0.0, depth=0.07, location=tuple(b0 + cd * 0.03), rotation=cd.to_track_quat('Z', 'Y').to_euler())
+            add(bpy.context.object, "claw"); CLAWS.append((b0, cd))
+    module("Back")
+    for k in range(9):   # a ridge of fur tufts down the spine, from the neck to the hips
+        t = k / 8; q_ = NECK.lerp(HIPS + Vector((0, 0.02, 0.05)), t)
+        at_ = surf(q_ + Vector((0, 0.35, 0.5)), Vector((0, -0.35, -0.5)).normalized())
+        if at_ is None: continue
+        up_ = (Vector((0, 0.5, 0.9)) + Vector((rnd.uniform(-0.25, 0.25), 0, 0))).normalized(); ht = 0.09 + 0.05 * math.sin(math.pi * t)
+        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.04, radius2=0.0, depth=ht, location=tuple(at_ + up_ * (ht * 0.4)), rotation=up_.to_track_quat('Z', 'Y').to_euler())
+        add(bpy.context.object, "tuft")
+    module("Body")
+    print("BEAST hand L", round(FISTS["L"][0].z, 3), "R", round(FISTS["R"][0].z, 3), "ground", round(GROUND, 3))
+    AJ = {s: (JOINTS[f"upperarm01.{s}"], JOINTS[f"lowerarm01.{s}"], FISTS[s][0]) for s in ("L", "R")}
+    def warp(name, p):   # after painting: the helm shrunk about the neck; the arms drawn out long, the claws and plates with them
+        if name == "Helmet": return H0 + (p - H0) * HK
+        if name not in ("Body", "Chest"): return p
+        s, al, ad = psx_arm(p)
+        if ad > 0.16 or al <= 0.0: return p
+        j0, j1, j2 = AJ[s]
+        q = p + (j1 - j0).normalized() * (0.07 * min(al, 1.0)) + (j2 - j1).normalized() * (0.13 * min(max(al - 1.0, 0.0), 1.0))
+        return Vector((q.x, q.y, max(q.z, GROUND + 0.001)))   # the planted claws splay on the ground, not through it
+    WARP = warp
+
+    # ---- the paint ----
+    C = psx_palette(**{**WW1, **KIT, **dict(fur="2e3038", furd="17181e", furl="4c5060", hide="6e2a22", hided="401410", hidel="8e3e32",
+                    vein="3e1410", claw="2a2420", helm="5e3018", helmd="3a1c0e", helml="7c4426", rubber="2a2622", collar="3a3a3c", collarl="62625e")})
+    def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
+    def rusty(n, ao, p, k_=0.6):   # rust-red iron, chipped to bare metal, dark runs
+        if _nz.noise(p * 55) > k_: return lit(C["metal"], n, ao, metal=True, p=p)
+        if _nz.noise(Vector((p.x * 36, p.y * 36, p.z * 6))) > 0.45: return lit(C["helmd"], n, ao, p=p)
+        return lit(C["helml"] if n.dot(PSX_LIGHT) > 0.6 else C["helm"], n, ao, p=p)
+    def gore(p, k=0.0):   # blood, thick and dark, run down in streaks (round blobs read as spots)
+        if _nz.noise(Vector((p.x * 22, p.y * 22, p.z * 5)) + Vector((7, 3, 1))) > 0.55 - k: return C["blood"] if _nz.noise(p * 70) > 0 else C["bloodd"]
+        return None
+    def paint(m, p, n, ao, tx, ty):
+        base = m.split(".")[0]; x, y, z = p.x, p.y, p.z; s_ = n.dot(PSX_LIGHT)
+        if base in ("fur", "hide"):   # the body: matted fur over the back, shoulders and neck, raw hide on the limbs
+            sd_, al, ad = psx_arm(p)
+            furry = (base == "fur" and not (ad < 0.075 and al > 0.6)) or (z > 0.6 + GROUND and n.dot(Vector((0, 0.5, 0.86))) > 0.35 and ad > 0.06)
+            if furry:
+                st = _nz.noise(Vector((x * 70, y * 70, z * 12)))   # strands, combed down and back
+                if st > 0.3: return lit(C["furl"], n, ao, p=p)
+                if st < -0.35: return C["furd"]
+                g_ = gore(p, -0.1)
+                return g_ if g_ is not None else lit(C["fur"], n, ao, p=p)
+            if _nz.noise(Vector((x * 26, y * 26, z * 60))) > 0.48: return C["vein"]   # veins and sinew down the limbs
+            g_ = gore(p, 0.05 + (0.2 if min((p - FISTS[s][0]).length for s in FISTS) < 0.12 else 0.0))   # wettest on the claws' hands
+            if g_ is not None: return g_
+            if z < 0.15 + GROUND and _nz.noise(p * 40) > 0.1: return lit(C["mud"], n, ao, p=p)
+            return lit(C["hidel"] if s_ > 0.6 else (C["hide"] if s_ > -0.1 else C["hided"]), n, ao, p=p)
+        if base in ("muzzle", "jaw"):   # rust iron: rivet rows along the seams, a ridge down the top, blood round the teeth
+            q = p - H0; t, a, u = q.dot(F), q.dot(X), q.dot(U)
+            if base == "muzzle" and any((p - c_).length < 0.07 for c_ in CHEEK):   # a cheek plate: a dark rim, four rivets
+                c_ = min(CHEEK, key=lambda c: (p - c).length); e_ = p - c_
+                ef, eu = e_.dot(F), e_.dot(U)
+                if abs(ef) > 0.048 or abs(eu) > 0.032: return C["ink"]
+                if math.hypot(abs(ef) - 0.038, abs(eu) - 0.024) < 0.006: return C["metall"]
+                return rusty(n, ao, p, 0.62)
+            if base == "muzzle" and abs(a) < 0.008 and n.dot(U) > 0.4: return lit(C["helml"], n, ao, p=p)   # the ridge
+            if base == "muzzle" and n.dot(U) > 0.3 and abs(((t - 0.04) / 0.11) % 1.0) < 0.06: return C["ink"]   # its plates' seams
+            if abs(abs(a) - 0.06 + t * 0.07) < 0.006 and (t * 45) % 1.0 < 0.3: return C["metall"]   # rivets down each side
+            if u < -0.04 or base == "jaw":
+                g_ = gore(p, 0.2)
+                if g_ is not None: return g_
+            return rusty(n, ao, p, 0.58)
+        if base == "tooth":   # a chainsaw's cutters: ground bright steel, dark at the root, blood caught in them
+            b0 = min(TEETH, key=lambda b: (p - b).length)
+            if (p - b0).length < 0.006: return C["ink"]
+            if _nz.noise(p * 60) > 0.35: return C["blood"] if _nz.noise(p * 90) > 0 else C["bloodd"]
+            return lit(C["metall"] if s_ > 0.2 else C["metal"], n, ao, metal=True, p=p)
+        if base == "chain":   # the chain the cutters ride on: dark links, oil and blood
+            a0, a1 = min(CHAINS, key=lambda c: segd(p, c[0], c[1])[0]); t = segd(p, a0, a1)[1] * (a1 - a0).length
+            if (t * 38.0) % 1.0 < 0.25: return C["ink"]
+            if _nz.noise(p * 50) > 0.4: return C["bloodd"]
+            return lit(C["collarl"] if s_ > 0.5 else C["collar"], n, ao, metal=True, p=p)
+        if base == "claw":   # black horn, worn pale at the edge, blood up from the tips
+            b0, cd = min(CLAWS, key=lambda c: (p - c[0]).length); t = (p - b0).dot(cd)
+            if t > 0.08 and _nz.noise(p * 50) > -0.2: return C["blood"] if _nz.noise(p * 80) > 0 else C["bloodd"]
+            return lit(C["bonel"] if s_ > 0.5 else C["claw"], n, ao, p=p)
+        if base == "bplate":   # rust plates: a dark rolled rim, a light edge, rivets
+            r_ = plate_rim(p, PLS) if plate_at(p, PLS)[4] < 0.02 else None
+            if r_ is None:
+                for fr_ in SHELLS:
+                    t, a = fr_(p)
+                    if -0.05 < t < 1.05 and abs(a) < 82:
+                        if t > 0.9 or t < 0.05 or abs(a) > 66: r_ = "ink" if t > 0.96 or t < 0.02 or abs(a) > 74 else "edge"
+                        elif abs(t - 0.5) < 0.06 and (a / 20) % 1.0 < 0.3: r_ = "rivet"
+                        break
+            if r_ is not None: return C["ink"] if r_ == "ink" else (lit(C["helml"], n, ao, p=p) if r_ == "edge" else C["metall"])
+            g_ = gore(p, -0.15)
+            return g_ if g_ is not None else rusty(n, ao, p, 0.6)
+        if base == "collar":   # black iron, a worn bright edge
+            return lit(C["collarl"] if s_ > 0.6 else C["collar"], n, ao, metal=True, p=p)
+        if base == "rubber":   # the hoses, ribbed
+            return C["ink"] if ((p.x * 0.6 + p.y + p.z * 1.2) * 80) % 1.0 < 0.3 else lit(C["rubber"], n, ao, p=p)
+        if base == "tuft":   # fur tufts: dark at the root, the tips lighter, matted with blood
+            if _nz.noise(p * 40) > 0.4: return C["bloodd"]
+            return lit(C["furl"] if _nz.noise(Vector((x * 60, y * 60, z * 20))) > 0.1 else C["fur"], n, ao, p=p)
+        r = psx_kit(C, base, p, n, ao)
+        return r if r is not None else lit(C.get(base, C["cloth"]), n, ao, p=p)
+    PAINT = paint
+
 def pilgrim():
     # Pilgrim (an original figure, not used by any unit): a tall pointed iron hood over the whole head (eye slit,
     # riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud, a rope belt with a rosary, a
@@ -7698,7 +7939,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant, "blind-marksman": blind_marksman, "trench-cleric": trench_cleric, "combat-engineer": combat_engineer, "mechanized-heavy-infantry": mechanized_heavy_infantry, "combat-medic": combat_medic, "holy-warrior": holy_warrior, "heretic-trooper": heretic_trooper, "heretic-priest": heretic_priest, "brand-sworn-heavy-infantry": brand_sworn}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant, "blind-marksman": blind_marksman, "trench-cleric": trench_cleric, "combat-engineer": combat_engineer, "mechanized-heavy-infantry": mechanized_heavy_infantry, "combat-medic": combat_medic, "holy-warrior": holy_warrior, "heretic-trooper": heretic_trooper, "heretic-priest": heretic_priest, "brand-sworn-heavy-infantry": brand_sworn, "assault-beast": assault_beast}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o
