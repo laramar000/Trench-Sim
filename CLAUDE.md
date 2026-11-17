@@ -394,8 +394,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - Done (2026-11-16): glowing texels (the owner: "Yes, make them glow", the Trooper's lenses). A figure's painter returns
   four values for a texel that glows; the bake in `tools/art/make_figures.py` writes its alpha as 0.5;
   `client/shaders/psx_figure.gdshader` draws alpha under 0.75 at the texel's own colour, unlit and ungraded (`glow`).
-  Only the Heretic Trooper marks texels so far; the Priest's embers and the Brand-Sworn's brands could use it (each
-  needs a rebuild). Not seen in a match, only in `psx_showcase.gd`.
+  Only the Heretic Trooper marked texels at first; the Priest's embers and the Brand-Sworn's brands followed on
+  2026-11-17. Not seen in a match, only in `psx_showcase.gd`.
 - Done (2026-11-16): the Trooper's helm refitted (the owner: "make the helmet and the head look more natural
   together", "the proportions are weird"): built in the head's frame (`FACE_BOX`) and sized from the head, no longer
   level and twice the head's width. Catalog height 1.10" (was 1.14"). A helm on a tilted head belongs in the head's
@@ -408,5 +408,20 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   `TRENCH_DEV=deploy,psx`: psx-shader PASS 44 of 44, 0 failures). Tracked art 47.0 MB of the 64 MB limit.
 - Done (2026-11-17): the Trooper's open points fixed (the owner: "fix what needs work and keep psx inspiration"): the
   cape drapes over the greatcoat (`cloth_cone(..., extra=(coat,))`; the coat showed through the hem), the rifle is
-  shorter so its tip stays inside the 25 mm base, the back patch moved clear of the cape's folded edge. 2,981 triangles, row unchanged. Still open: the Priest's embers and
-  the Brand-Sworn's brands could use the glow path (a rebuild each). Next Heretic recommended: Assault Beast.
+  shorter so its tip stays inside the 25 mm base, the back patch moved clear of the cape's folded edge. 2,981 triangles, row unchanged. Pushed 1043046.
+- Done (2026-11-17, the owner: "Go ahead. No mistakes"): glow on the Priest (mitre fire, staff star, mitre cross slit,
+  charred-cross cracks, belt eye) and the Brand-Sworn (all brands, helm slots); painted coat flames stay paint. Both
+  rebuilt with no other change (same triangles and bounds); checked in `psx_showcase.gd` against the old builds.
+  Then the Priest's shoulders (the owner: "Shoulders on the priest need a quality check", then "the pauldrons look like
+  whoopy cushions"): the squashed-sphere pauldrons at fixed points became three `psx_shell` plates a side along each
+  posed upper arm (`JOINTS["upperarm01.*"]`), sized from the mantle's stand-off so it flares out below them; spike and
+  fangs kept; mantle unchanged. 3,024 triangles, test row 2,800 -> 3,100 (class B allows 4,500). Pauldrons on a raised
+  arm belong in the arm's frame for every later figure; a squashed sphere reads as a cushion.
+- 2026-11-17, the owner: "Make sure their clothing sits naturally and correctly on their body no floating" (every
+  figure) and "all the cloaks need to have more definition": `settle()` (before scaling) moves every loose piece that
+  touches nothing onto its nearest neighbour (47 found on 23 figures, none left); `arm_plates()`/`plate_at()`/
+  `plate_point()`/`plate_rim()` replace the sphere pauldrons of the Shield, War Prophet, Heretic Trooper and Brand-Sworn
+  (rows raised: Shield 1,900, War Prophet 2,100, Brand-Sworn 2,400); the Accent has a 512 px grey texture
+  (`accent_cloth()`, cloth parts use material `accentcloth`), multiplied with the seat colour in `Visuals.PaintAccent`.
+  All 23 figures rebuilt. Not seen in a live match.
+  Next Heretic recommended: Assault Beast (references needed from the owner).

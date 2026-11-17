@@ -7,7 +7,7 @@ namespace Client.Tests;
 // Graphics stage G3: the original figures (client/assets/units, made by tools/art/make_figures.py): modelled low-poly
 // bodies with small PS1-style textures. Every model type the test content has gets a figure, no entry names a type the
 // content (or the faction lists) does not have, and each figure is small, 1.2" tall, fits inside the smallest base and
-// has the untextured "Accent" part the client paints with the seat colour. The Trench Pilgrim (2026-11-03) is the
+// has the "Accent" part the client paints with the seat colour (times its own grey texture since 2026-11-17). The Trench Pilgrim (2026-11-03) is the
 // template of docs/art-pipeline.md: a modular figure, one node and one texture per module, class A budget.
 public class UnitFiguresTests
 {
@@ -97,14 +97,17 @@ public class UnitFiguresTests
     // Heretic Trooper 3,100 (class A, 2026-11-13, the first Heretic figure: its hose, canister, plaque and cape solid;
     // 2,000 until the reworks of 2026-11-16, whose helm, scarf, long cape, greatcoat, blade and pauldron took it to 2,721,
     // then the solid eyepieces and muzzle of its mask, the fuller cape and its stitched patch to 2,981).
-    // Heretic Priest 2,800 (class B, 2026-11-16, drawn 1.58" with the tall mitre and the staff above it; its horns are 500 of them).
-    // Brand-Sworn Heavy Infantry 2,300 (class B, 2026-11-16, drawn 1.58" with the great axe raised above the helm).
+    // Heretic Priest 3,100 (class B, 2026-11-16, drawn 1.58" with the tall mitre and the staff above it; its horns are 500 of them;
+    // 2,800 until 2026-11-17, when its pauldrons became three curved plates a side).
+    // Brand-Sworn Heavy Infantry 2,400 (class B, 2026-11-16, drawn 1.58" with the great axe raised above the helm).
+    // 2026-11-17, every sphere pauldron became curved plates down the posed arm (arm_plates): Shield 1,700 -> 1,900,
+    // War Prophet 2,000 -> 2,100, Brand-Sworn 2,300 -> 2,400, Heretic Priest 2,800 -> 3,100 (the Heretic Trooper's 3,100 holds).
     public static TheoryData<string, int, int, float> Figures => new()
     {
-        { "units/rifleman.glb", 1600, 1024, 0.9f }, { "units/skirmisher.glb", 1600, 1024, 0.9f }, { "units/shield.glb", 1700, 1024, 0.9f },
+        { "units/rifleman.glb", 1600, 1024, 0.9f }, { "units/skirmisher.glb", 1600, 1024, 0.9f }, { "units/shield.glb", 1900, 1024, 0.9f },
         { "units/standard.glb", 1700, 1024, 0.9f }, { "units/trench-pilgrim.glb", 1300, 1024, 0.9f },
         { "units/stigmatic-nun.glb", 1400, 1024, 0.9f }, { "units/ecclesiastic-prisoner.glb", 1600, 1024, 0.9f },
-        { "units/war-prophet.glb", 2000, 1024, 0.9f }, { "units/castigator.glb", 2400, 1024, 0.9f },
+        { "units/war-prophet.glb", 2100, 1024, 0.9f }, { "units/castigator.glb", 2400, 1024, 0.9f },
         { "units/reliquary-walker.glb", 7000, 1024, 1.1f }, { "units/sanctified-giant.glb", 4900, 1024, 1.1f },
         { "units/yeoman.glb", 1500, 1024, 0.9f }, { "units/shock-trooper.glb", 2000, 1024, 0.9f },
         { "units/lieutenant.glb", 2900, 1024, 0.9f }, { "units/blind-marksman.glb", 2300, 1024, 0.9f },
@@ -112,8 +115,8 @@ public class UnitFiguresTests
         { "units/combat-engineer.glb", 3300, 1024, 0.9f },
         { "units/mechanized-heavy-infantry.glb", 4500, 1024, 1.1f }, { "units/combat-medic.glb", 1600, 1024, 0.9f },
         { "units/holy-warrior.glb", 2700, 1024, 0.9f },
-        { "units/heretic-trooper.glb", 3100, 1024, 0.9f }, { "units/heretic-priest.glb", 2800, 1024, 0.9f },
-        { "units/brand-sworn-heavy-infantry.glb", 2300, 1024, 0.9f },
+        { "units/heretic-trooper.glb", 3100, 1024, 0.9f }, { "units/heretic-priest.glb", 3100, 1024, 0.9f },
+        { "units/brand-sworn-heavy-infantry.glb", 2400, 1024, 0.9f },
     };
 
     [Theory]
@@ -139,7 +142,7 @@ public class UnitFiguresTests
             .Sum(p => (p.TryGetProperty("indices", out var i) ? accessors[i.GetInt32()] : accessors[p.GetProperty("attributes").GetProperty("POSITION").GetInt32()]).GetProperty("count").GetInt32() / 3);
         Assert.InRange(triangles, 1, budget);
         var images = root.GetProperty("images").EnumerateArray().ToList();
-        Assert.InRange(images.Count, 1, 8);
+        Assert.InRange(images.Count, 1, 10);
         int Be(int at) => (bytes[at] << 24) | (bytes[at + 1] << 16) | (bytes[at + 2] << 8) | bytes[at + 3];
         foreach (var image in images)
         {
@@ -151,10 +154,11 @@ public class UnitFiguresTests
             Assert.InRange(Be(png + 20), 1, texture);
         }
         Assert.All(root.GetProperty("samplers").EnumerateArray(), s => Assert.Equal(9728, s.GetProperty("magFilter").GetInt32()));
-        // The accent stays untextured, so the seat colour the client paints is the only colour it has.
+        // The accent's texture is grey (its folds, seams, hems and wear, 2026-11-17: before, it was flat), so the seat
+        // colour the client multiplies it with stays the only colour it has.
         var accent = root.GetProperty("nodes").EnumerateArray().First(n => n.TryGetProperty("name", out var name) && name.GetString() == "Accent");
         Assert.All(root.GetProperty("meshes")[accent.GetProperty("mesh").GetInt32()].GetProperty("primitives").EnumerateArray(),
-            p => Assert.False(p.GetProperty("attributes").TryGetProperty("TEXCOORD_0", out _)));
+            p => Assert.True(p.GetProperty("attributes").TryGetProperty("TEXCOORD_0", out _)));
         // Its baked shading is in its vertex colours, which the client multiplies with the seat colour (2026-11-12).
         Assert.All(root.GetProperty("meshes")[accent.GetProperty("mesh").GetInt32()].GetProperty("primitives").EnumerateArray(),
             p => Assert.True(p.GetProperty("attributes").TryGetProperty("COLOR_0", out _)));

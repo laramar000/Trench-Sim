@@ -70,7 +70,7 @@ M = {k: mat(k, *v) for k, v in {
  "coat": ("5a5040",), "trousers": ("4a4436",), "skin": ("d6ae8c", 0.04), "helmet": ("4c5048",),
  "leather": ("4a3020",), "wood": ("6a4a2c", 0.3, 8), "metal": ("3a3a3c",), "iron": ("55555a", 0.35, 20),
  "boots": ("2a2420",), "dark": ("141210", 0.05), "brass": ("8a6a2a", 0.1), "bone": ("c8bca0", 0.15),
- "cloth": ("3e3a34",), "hood": ("5e5646", 0.18), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0),
+ "cloth": ("3e3a34",), "hood": ("5e5646", 0.18), "glow": ("e0b050", 0.05), "accent": ("d0d0d0", 0.0), "accentcloth": ("d0d0d0", 0.0),
  "robe": ("3e3428", 0.3), "rags": ("6a5c46", 0.3), "rope": ("7e6c48", 0.2, 60), "blood": ("4e1610", 0.2),
  "mannequin": ("cfc4b0", 0.03), "stone": ("7a7468", 0.3, 16)}.items()}   # the mannequin head: smooth pale plaster, no face (2026-11-03)
 M.update({"habit": spattered("habit", "d8d0bc", spots=0.36, scale=7.0), "plate": mat("plate", "7a7c80", 0.3, 18),
@@ -124,7 +124,7 @@ CUR = "Body"
 def module(name):
     global CUR; CUR = name; MODULES.setdefault(name, [])
 def add(o, m):
-    o.data.materials.append(M[m]); MODULES["Accent" if m == "accent" else CUR].append(o); return o
+    o.data.materials.append(M[m]); MODULES["Accent" if m in ("accent", "accentcloth") else CUR].append(o); return o
 def skin(verts, edges, radii, m, subdiv=1):
     me = bpy.data.meshes.new("s"); me.from_pydata(verts, edges, [])
     o = bpy.data.objects.new("s", me); scn.collection.objects.link(o)
@@ -213,7 +213,7 @@ def cloth_cone(cx, cy, z_top, z_bot, r_top, r_bot, m, sy=0.8, keep=None, ragged=
         bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=stand[1], location=tuple(stand[0])); st_ = bpy.context.object; col.append(st_)
     drape(o, [at[i] for i in range(segs) if i in at], col, frames=frames, tris=tris, thick=thick)
     if stand is not None: bpy.data.objects.remove(st_)
-    return add(o, m)
+    return add(o, "accentcloth" if m == "accent" else m)   # seat-colour cloth: painted as cloth (accent_cloth)
 def cloth_panel(top, length, m, out=Vector((0, -1, 0)), extra=(), cols=6, rows=10, ragged=0.0, rnd=None, tris=40, thick=0.008, frames=50, bend=0.3):
     # A hanging panel (tabard, flap) from its top edge (a list of points), laid out in front of the body and of `extra`
     # (along `out`), then hung from that edge by drape().
@@ -233,7 +233,7 @@ def cloth_panel(top, length, m, out=Vector((0, -1, 0)), extra=(), cols=6, rows=1
     o = bpy.data.objects.new("panel", me); scn.collection.objects.link(o)
     drape(o, list(range(cols + 1)), col, frames=frames, tris=tris, thick=thick, bend=bend)
     for v in o.data.vertices: v.co += out * 0.016   # clear of the thickness the cloth under it grew outward
-    return add(o, m)
+    return add(o, "accentcloth" if m == "accent" else m)
 FRONT = lambda w: (lambda a, z: abs(math.remainder(a, 2 * math.pi)) > math.radians(w))   # keep(): open at the front
 
 
@@ -617,7 +617,7 @@ def rifleman():
     me.from_pydata([tuple(q + nrm * s * 0.024) for q in ring for s in (-1, 1)], [], [(2 * i, 2 * ((i + 1) % K), 2 * ((i + 1) % K) + 1, 2 * i + 1) for i in range(K)])
     o = bpy.data.objects.new("sash", me); scn.collection.objects.link(o); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.008
     for f in me.polygons: f.use_smooth = True
-    add(o, "accent")
+    add(o, "accentcloth")
     C = generic_palette(olive="5e6440", olived="3c4029", olivel="7a8058", enamel="3e4a3a", patch="7a2a1e", tinl="70726c")
     def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
     gen = generic_detail(C, coat_o, patch=("R", "bar", "patch"), stripes="L", hc=hc)
@@ -717,7 +717,7 @@ def skirmisher():
     me = bpy.data.meshes.new("cape"); me.from_pydata(verts, [], [(j * K + i, j * K + (i + 1) % K, (j + 1) * K + (i + 1) % K, (j + 1) * K + i) for j in range(2) for i in range(K)])
     o = bpy.data.objects.new("cape", me); scn.collection.objects.link(o); o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012
     for f in me.polygons: f.use_smooth = True
-    add(o, "accent")
+    add(o, "accentcloth")
     # detail pass (2026-11-10): a brass clasp closing the cape at the throat
     cf = Vector(verts[K // 2]).lerp(Vector(verts[K + K // 2]), 0.45); co_ = (cf - (NECK + ax * -0.02)); co_ = (co_ - ax * co_.dot(ax)).normalized()
     CLASP = cf + co_ * 0.012
@@ -897,12 +897,11 @@ def shield():
     c = Vector((hp.x, hp.y, top.z - 0.09))
     bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.125, depth=0.32, location=tuple(c - Vector((0, 0, 0.03)))); add(bpy.context.object, "iron")   # down onto the shoulders: no gap at the neck
     sphere(tuple(c + Vector((0, 0, 0.13))), 0.125, "iron", (1, 1, 0.35), seg=12, rings=4)
-    pads = [Vector((0.2 * s, 0, 1.38)) for s in (-1, 1)]
-    for q in pads: sphere(tuple(q), 0.1, "iron", (1.1, 1.1, 0.7), seg=8, rings=5)
+    pads = arm_plates("L", ["iron"]) + arm_plates("R", ["iron"])   # the pauldrons: three lames down each posed arm
     module("Shield")
     hl = hands["L"]; sc = Vector((hl.x, hl.y - 0.07, 0.85))
     box(tuple(sc), (0.42, 0.04, 0.78), "wood")
-    box((hl.x, hl.y - 0.095, 0.87), (0.36, 0.012, 0.7), "accent")
+    box((hl.x, hl.y - 0.095, 0.87), (0.36, 0.012, 0.7), "accentcloth")
     for bz in (0.6, 1.14): box((hl.x, hl.y - 0.105, bz), (0.37, 0.012, 0.04), "iron")   # two iron bands and a boss: no emblem, it stands in for several units
     sphere((hl.x, hl.y - 0.1, 0.87), 0.05, "iron", (1, 0.55, 1), seg=8, rings=4)
     # detail pass (2026-11-10): a vertical strap between the bands, a flange under the boss, iron corner brackets
@@ -956,22 +955,19 @@ def shield():
                 if r_ is not None: return r_
             if _nz.noise(p * 24) > 0.5: return lit(C["rust"] if _nz.noise(p * 70) > 0 else C["rustd"], n, ao, False, p)
             return lit(iron(n) if q.y < 0 else C["iron"], n, ao, True, p)   # the back kept readable, not black
-        for pd in pads:   # the pauldrons: three lames down the arm, a rivet at each end, a buckled strap over the top
-            e = p - pd
-            if e.length < 0.13:
-                if n.z < -0.6: return C["dark"]
-                sgn = 1 if pd.x > 0 else -1
-                if n.z > 0.45 and abs(e.y) < 0.014:
-                    if abs(e.y) > 0.01: return C["ink"]
-                    if abs(e.x * sgn + 0.025) < 0.011: return C["ink"] if abs(e.x * sgn + 0.025) > 0.007 else C["brassl"]   # the buckle
-                    return lit(C["leatherl"] if n.dot(PSX_LIGHT) > 0.5 else C["leather"], n, ao, p=p)
-                k = (e.z + 0.07) / 0.035
-                if k % 1.0 < 0.14: return C["ink"]
-                r_ = psx_dot(p, [pd + Vector((0, sy * 0.105, 0.03)) for sy in (-1, 1)], C, 0.008, m="brass")
-                if r_ is not None: return r_
-                if k % 1.0 > 0.8 and n.dot(PSX_LIGHT) > -0.3: return lit(C["ironl"], n, ao, True, p)   # each lame's worn lower edge
-                if _nz.noise(p * 26 + Vector((4, 0, 0))) > 0.55: return lit(C["rust"], n, ao, False, p)
-                return lit(iron(n), n, ao, True, p)
+        pl_, t_, a_, ins_, off_ = plate_at(p, pads)
+        if off_ < 0.02 and -0.1 < t_ < 1.1:   # the pauldrons: three lames down the arm, a rivet at each end, a buckled strap over the top
+            if ins_: return C["dark"]
+            if abs(a_) * math.pi / 180 * pl_[4] < 0.014 and (pl_ is pads[0] or pl_ is pads[3]):   # the strap along the top plate, its buckle
+                if abs(a_) * math.pi / 180 * pl_[4] > 0.01: return C["ink"]
+                if abs(t_ - 0.35) < 0.1: return C["ink"] if abs(t_ - 0.35) > 0.064 else C["brassl"]
+                return lit(C["leatherl"] if n.dot(PSX_LIGHT) > 0.5 else C["leather"], n, ao, p=p)
+            r_ = plate_rim(p, pads)
+            if r_ == "ink": return C["ink"]
+            if r_ == "rivet": return C["brassl"]
+            if r_ == "edge" and n.dot(PSX_LIGHT) > -0.3: return lit(C["ironl"], n, ao, True, p)   # each lame's worn lower edge
+            if _nz.noise(p * 26 + Vector((4, 0, 0))) > 0.55: return lit(C["rust"], n, ao, False, p)
+            return lit(iron(n), n, ao, True, p)
         return None
     def board(base, p, n, ao):
         if base != "wood" or (p - sc).length > 0.5 or abs(p.x - sc.x) > 0.23: return None
@@ -1126,7 +1122,7 @@ def standard():
                    [(j * (NU + 1) + i, j * (NU + 1) + i + 1, (j + 1) * (NU + 1) + i + 1, (j + 1) * (NU + 1) + i) for j in range(NV) for i in range(NU)])
     for f in me.polygons: f.use_smooth = True
     o = bpy.data.objects.new("pennant", me); scn.collection.objects.link(o)
-    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(o, "accent")
+    o.modifiers.new("sol", "SOLIDIFY").thickness = 0.012; add(o, "accentcloth")
     L = tip - Vector((0.42, 0, 0)); lc = L - Vector((0, 0, 0.27))
     bar(L - Vector((0, 0, 0.05)), L - Vector((0, 0, 0.2)), 0.004, "metal", sides=3)
     box(tuple(lc), (0.07, 0.07, 0.1), "glow")
@@ -3681,8 +3677,8 @@ def stigmatic_nun():
     hem = min(v.co.z for v in skirt.data.vertices)
     # shoulder tabs in the seat colour, seen from above
     for x in (-0.17, 0.17):
-        box((x, -0.02, 1.43), (0.09, 0.12, 0.012), "accent", rot=(0, 0.35 if x > 0 else -0.35, 0))
-        box((x * 1.06, -0.075, 1.38), (0.085, 0.012, 0.1), "accent")
+        box((x, -0.02, 1.43), (0.09, 0.12, 0.012), "accentcloth", rot=(0, 0.35 if x > 0 else -0.35, 0))
+        box((x * 1.06, -0.075, 1.38), (0.085, 0.012, 0.1), "accentcloth")
     module("Helmet")
     head_ = next(o for o in MODULES["Body"] if o.name.startswith("Sphere") and o.data.materials[0].name == "mannequin")
     MODULES["Body"].remove(head_); MODULES["Helmet"].append(head_)   # the masked head alone: its own texture, room for the mask
@@ -3937,7 +3933,7 @@ def ecclesiastic_prisoner():
     sphere(tuple(centre), 0.128, "rust", (1, 1.05, 1.02), seg=10, rings=6)
     # a cloth band in the seat colour bound round the helm's rim: the top of the figure, so the camera above sees it
     bpy.ops.mesh.primitive_torus_add(major_radius=0.122, minor_radius=0.018, major_segments=10, minor_segments=3, location=tuple(centre - fb["up"] * 0.075))
-    o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(fb["up"]); add(o, "accent")
+    o = bpy.context.object; o.rotation_mode = 'QUATERNION'; o.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(fb["up"]); add(o, "accentcloth")
     for d_ in (fb["up"], (fb["up"] + fb["fwd"]).normalized(), (fb["up"] + fb["ax"]).normalized(), (fb["up"] - fb["ax"]).normalized(),
                (fb["fwd"] + fb["ax"] * 0.9).normalized(), (fb["fwd"] - fb["ax"] * 0.9).normalized()):
         bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.016, radius2=0.0, depth=0.06, location=tuple(centre + d_ * 0.15))
@@ -4160,11 +4156,10 @@ def war_prophet():
             pn = cloth_panel([(x - 0.06, y_top, 1.0), (x + 0.06, y_top, 1.0)], 0.5, "accent", out=out, extra=[robe], cols=1, rows=4, tris=None, bend=30.0)
             if out.y < 0: fronts.append((x, pn))
     module("Chest")
-    # pauldrons of two lames on each shoulder (the cuirass and the scroll are painted on the body)
-    for x in (-1, 1):
-        for i, (z, sc) in enumerate(((1.47, 1.0), (1.41, 0.92))):
-            # the top lame in the seat colour, a heraldic shoulder the camera above looks straight down on
-            sphere((0.2 * x, -0.0, z), 1, "accent" if i == 0 else "pauldron", (0.11 * sc, 0.12 * sc, 0.06), seg=8, rings=4)
+    # pauldrons of two lames on each shoulder (the cuirass and the scroll are painted on the body): the top lame in the seat
+    # colour, a heraldic shoulder the camera above looks straight down on; plates down the posed arms (arm_plates)
+    PLW = []
+    for s_ in ("L", "R"): PLW += arm_plates(s_, ["accent", "pauldron"], plates=((0.012, 0.0, 0.11), (0.0, 0.06, 0.12)), room=0.02)[1:]
     module("Hip")
     for x, pn in fronts:   # a bone cross on each front panel, lying on it
         ok_, at_, *_ = pn.ray_cast(Vector((x, -0.8, 0.8)), Vector((0, 1, 0)))
@@ -4215,7 +4210,7 @@ def war_prophet():
         bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=0.04, radius2=0.018, depth=0.06, location=(0.2 * x, post_y, 1.66)); add(bpy.context.object, "iron")
         sphere((0.2 * x, post_y, 1.624), 0.012, "brass", seg=5, rings=3)                                   # the bell's clapper (detail pass)
         bar((0.2 * x, post_y, 1.69), (0.2 * x, post_y, 1.74), 0.004, "iron", sides=3)                        # and its hanger
-        box((0.27 * x, post_y + 0.01, 1.6), (0.035, 0.008, 0.2), "accent")
+        box((0.27 * x, post_y + 0.01, 1.6), (0.035, 0.008, 0.2), "accentcloth")
     # detail pass (2026-11-10): the frame's iron corner braces and a reliquary box at the cross's heart
     for x in (-1, 1):
         bar((0.012 * x, post_y + 0.02, 1.64), (0.11 * x, post_y + 0.02, 1.725), 0.008, "iron", sides=3)
@@ -4332,10 +4327,8 @@ def war_prophet():
                 if rv is not None: return rv
             return steel(C["plate"], n, ao, p, rust=0.35)
         if base == "pauldron":   # the lower lame: an ink rim, a light edge above it, a row of brass rivets
-            sx = 1 if x > 0 else -1; q = p - Vector((0.2 * sx, 0, 1.41))
-            if q.z < -0.038: return C["ink"]
-            if q.z < -0.028: return lit(C["platel"], n, ao, metal=True, p=p)
-            if abs(q.z + 0.012) < 0.006 and (math.atan2(q.y, q.x) * 10 / (2 * math.pi)) % 1.0 < 0.3: return C["brassl"]
+            r_ = plate_rim(p, PLW)
+            if r_ is not None: return C["ink"] if r_ == "ink" else (lit(C["platel"], n, ao, metal=True, p=p) if r_ == "edge" else C["brassl"])
             return steel(C["platel"] if n.z > 0.6 else C["plate"], n, ao, p)
         if base == "brass":   # the horns: an ink rim at the mouth, a dark throat, a band
             for mo, hx in horns:
@@ -5506,7 +5499,7 @@ def sanctified_giant():
     me = bpy.data.meshes.new("hood"); me.from_pydata(verts, [], faces); me.validate()
     hood = bpy.data.objects.new("hood", me); scn.collection.objects.link(hood)
     bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=R * 0.9, location=tuple(centre)); stand = bpy.context.object
-    drape(hood, pins, [stand, human_], frames=50, tris=320, thick=0.008); add(hood, "accent")
+    drape(hood, pins, [stand, human_], frames=50, tris=320, thick=0.008); add(hood, "accentcloth")
     bpy.data.objects.remove(stand)
     face = centre + fb["fwd"] * 0.112
     bar(face - fb["up"] * 0.14, face + fb["up"] * 0.22, 0.022, "iron", sides=4)               # the long upright, above the crown
@@ -5823,6 +5816,55 @@ def psx_shell(c, d, r, L, m, ang=105, rows=3, taper=0.88, n=7, thick=0.012):
     def frame(p):
         q = p - c; t = q.dot(d) / L; return t, math.degrees(math.atan2(q.dot(side), q.dot(up)))
     return o, frame
+def arm_plates(s_, mats, plates=((0.012, 0.0, 0.11), (0.006, 0.05, 0.12), (0.0, 0.1, 0.12)), room=0.015, cloth=(), scale=1.0):
+    # Pauldrons as curved plates down a posed upper arm (2026-11-17, the owner: "the pauldrons look like whoopy cushions",
+    # "make the pauldrons sit more naturally on the shoulder"; squashed spheres at fixed points floated off raised arms):
+    # along between the shoulder line and the upper arm, from over the shoulder's top; the arc fitted to the body under it
+    # with `room` to spare, its centre dropped for the least mean gap (kept a curve, not a flat sheet). Each plate (extra
+    # radius, start, length; times `scale` along the arm) lies lower down the arm, the first outermost, in mats[k] (the
+    # last repeats). Cloth in `cloth` that rises through them is pressed in under them (its solidify, 0.01, grows outward).
+    # Returns each plate as (start, along, side, up, radius, length, half arc in degrees), for plate_at() and plate_point().
+    human_ = bpy.data.objects["human"]; sx = 1 if s_ == "L" else -1; j0 = JOINTS[f"upperarm01.{s_}"]
+    ad = ((JOINTS[f"lowerarm01.{s_}"] - j0).normalized() + Vector((sx, 0, -0.15))).normalized()
+    sd = ad.cross(Vector((0, 0, 1))).normalized(); up = sd.cross(ad).normalized()   # psx_shell's own frame
+    o0 = j0 + up * 0.025 - ad * 0.07; pts = []   # the body under the plates, in that frame: (across, up)
+    for t_ in (0.0, 0.05, 0.1, 0.15, 0.2):
+        for a_ in (-70, -45, -20, 0, 20, 45, 70):
+            u_ = sd * math.sin(math.radians(a_)) + up * math.cos(math.radians(a_)); o_ = o0 + ad * (t_ * scale)
+            ok_, at_, *_ = human_.ray_cast(o_ + u_ * 0.5, -u_)
+            if ok_ and 0 < (at_ - o_).dot(u_) < 0.15: pts.append(((at_ - o0).dot(sd), (at_ - o0).dot(up)))   # not the head or neck beyond
+    def arc(h): return max(math.hypot(x_, y_ + h) for x_, y_ in pts) + room
+    h = min((k_ * 0.01 for k_ in range(5)), key=lambda h_: arc(h_) - sum(math.hypot(x_, y_ + h_) for x_, y_ in pts) / len(pts))
+    r0 = arc(h); a0 = min(100.0, max(math.degrees(math.atan2(abs(x_), y_ + h)) for x_, y_ in pts) + 6); oc = o0 - up * h; out = []
+    for k, (dr, t0, L_) in enumerate(plates):
+        c_ = oc + ad * (t0 * scale)
+        psx_shell(c_, ad, r0 + dr, L_ * scale, mats[min(k, len(mats) - 1)], ang=a0 + 2 * k, rows=2 if k == 0 else 1, taper=1.0, n=7)
+        out.append((c_, ad, sd, up, r0 + dr, L_ * scale, a0 + 2 * k))
+    for cl in cloth:
+        mw_ = cl.matrix_world; mi_ = mw_.inverted()
+        for v in cl.data.vertices:
+            w = mw_ @ v.co
+            for c_, d_, sd_, up_, r_, L_, an_ in out:
+                t_ = (w - c_).dot(d_); rd = w - c_ - d_ * t_
+                if -0.05 < t_ < L_ + 0.02 and abs(math.degrees(math.atan2(rd.dot(sd_), rd.dot(up_)))) < an_ + 15 and rd.length > r_ - 0.024:
+                    w = c_ + d_ * t_ + rd.normalized() * (r_ - 0.024)
+            v.co = mi_ @ w
+        cl.data.update()
+    return out
+def plate_at(p, PL):   # the plate p lies on: (plate, t 0..1 along it, degrees from its top, on its inside, how far off it)
+    def off(s_):
+        q_ = p - s_[0]; t_ = q_.dot(s_[1]); return abs((q_ - s_[1] * t_).length - s_[4]) + max(0.0, -t_, t_ - s_[5])
+    pl = min(PL, key=off); q = p - pl[0]; t = q.dot(pl[1]); rd = q - pl[1] * t
+    return pl, t / pl[5], math.degrees(math.atan2(rd.dot(pl[2]), rd.dot(pl[3]))), rd.length < pl[4] - 0.006, off(pl)
+def plate_point(pl, t, a, out=0.0):   # a point on a plate (t along it, a degrees from its top), `out` off it, and that outward way
+    u = pl[2] * math.sin(math.radians(a)) + pl[3] * math.cos(math.radians(a))
+    return pl[0] + pl[1] * (pl[5] * t) + u * (pl[4] + out), u
+def plate_rim(p, PL):   # what every plate shares: "ink" (its inside, its rim's dark lip), "edge" (the rolled rim), "rivet" or None
+    pl, t, a, ins, _ = plate_at(p, PL)
+    if ins: return "ink"
+    if t > 0.84 or abs(a) > pl[6] - 10: return "ink" if t > 0.94 or abs(a) > pl[6] - 3 else "edge"
+    if abs(t - 0.62) < 0.07 and (a / 24) % 1.0 < 0.3: return "rivet"
+    return None
 def hose(pts, r, m="rubber", sides=6):   # a flexible pipe through pts, smoothed (Catmull-Rom), as short bars
     pts = [Vector(p) for p in pts]; out = []
     for i in range(len(pts) - 1):
@@ -6610,7 +6652,7 @@ def holy_warrior():
         o = bpy.data.objects.new("tabard", me); scn.collection.objects.link(o)
         for p_ in me.polygons: p_.use_smooth = True
         s_ = o.modifiers.new("sol", "SOLIDIFY"); s_.thickness = 0.008; s_.use_rim = False
-        add(o, "accent")
+        add(o, "accentcloth")
     module("Body")
     print(f"HW c0={c0} zs={zs:.3f} hb={hb0:.3f}-{hb1:.3f} guard={gz:.3f} fists={[FISTS[s][0] for s in FISTS]}")
 
@@ -6835,7 +6877,7 @@ def heretic_trooper():
         if p.z > nz0 - 0.09 and math.sin((p.z - nz0) * 2 * math.pi / 0.045) < -0.2: k *= 0.8    # the scarf's turns
         return k
     ACCENT_PAINT = cape_marks
-    def on_cape(a_, z_, out=0.026):   # a point on the cape's outside at that angle (0 the front, +pi/2 the left) and height
+    def on_cape(a_, z_, out=0.014):   # a point just off the cape's outside (0.026 stood the patch off it) at that angle (0 the front, +pi/2 the left) and height
         u_ = Vector((math.sin(a_), -math.cos(a_), 0)); ok, at_, *_ = cape.ray_cast(Vector((NECK.x, NECK.y + 0.015, z_)) + u_, -u_)
         return at_ + u_ * out if ok else None
     fb = FACE_BOX; MC = fb["mid"] - fb["fwd"] * 0.048 - fb["up"] * 0.02   # the mask's centre, as ww1_painted_mask()
@@ -6904,10 +6946,10 @@ def heretic_trooper():
                  front(0.125, 1.1, 0.03), CAN + Vector((0, 0, 0.09))], 0.019, "rubber", sides=5)
     PL = front(-0.095, 1.325, 0.014)                                                       # the tall plaque, high on the right breast
     box(tuple(PL), (0.085, 0.022, 0.15), "plate", rot=(0.14, 0, 0.05))
-    SHR = JOINTS["upperarm01.R"] + Vector((-0.03, 0, 0.045))                               # a rust pauldron on the sword shoulder, two spikes
-    sphere(tuple(SHR), 1, "pauldron", (0.115, 0.12, 0.075), seg=8, rings=4)
-    for oy in (-0.05, 0.05):
-        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.02, radius2=0.0, depth=0.09, location=tuple(SHR + Vector((-0.04, oy, 0.085))))
+    PLR = arm_plates("R", ["pauldron"], plates=((0.012, 0.0, 0.11), (0.0, 0.06, 0.11)), room=0.02, cloth=(cape,))   # a rust pauldron on the right shoulder, two spikes (the scarf pressed in under it)
+    for sa in (-28, 28):
+        at_, u_ = plate_point(PLR[0], 0.55, sa, 0.04)
+        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.02, radius2=0.0, depth=0.09, location=tuple(at_), rotation=u_.to_track_quat('Z', 'Y').to_euler())
         add(bpy.context.object, "iron")
     module("Weapon")
     RH, hl = FISTS["R"][0], FISTS["L"][0]; d = (hl - RH).normalized()
@@ -7043,10 +7085,8 @@ def heretic_trooper():
             if t > 0.4 and _nz.noise(p * 26) > 0.15: return C["bloodd"]
             return lt(C["irond"] if _nz.noise(p * 45) > 0.2 else C["iron"], metal=True)
         if base == "pauldron":   # rust, a dark rolled rim, a light edge above it, rivets round it
-            q = p - SHR
-            if q.z < -0.045: return C["ink"]
-            if q.z < -0.032: return lt(C["helml"])
-            if abs(q.z + 0.015) < 0.006 and (math.atan2(q.y, q.x) * 10 / (2 * math.pi)) % 1.0 < 0.3: return C["metall"]
+            r_ = plate_rim(p, PLR)
+            if r_ is not None: return C["ink"] if r_ == "ink" else (lt(C["helml"]) if r_ == "edge" else C["metall"])
             return rusty(0.58)
         if base in ("wood", "metal", "iron") and segd(p, butt, tip)[0] < 0.06:   # the rifle
             t = (p - RH).dot(d)
@@ -7127,17 +7167,22 @@ def heretic_priest():
     robe = cloth_cone(0, 0, 0.98, 0.2, 0.18, 0.27, "robe", sy=0.84, keep=FRONT(20), ragged=0.09, rnd=rnd, tris=220, thick=0.012, rows=10)
     hem = hem_line(robe)
     # the mantle in the seat colour, round the shoulders under the pauldrons
-    cloth_cone(NECK.x, NECK.y, NECK.z + 0.01, NECK.z - 0.27, 0.1, 0.31, "accent", sy=0.84, ragged=0.05, rnd=rnd, tris=80, thick=0.01)
+    mantle = cloth_cone(NECK.x, NECK.y, NECK.z + 0.01, NECK.z - 0.27, 0.1, 0.31, "accent", sy=0.84, ragged=0.05, rnd=rnd, tris=80, thick=0.01)
     module("Chest")
-    SH = {sx: Vector((0.2 * sx, 0.0, 1.475)) for sx in (-1, 1)}
-    for sx in (-1, 1):
-        sphere(tuple(SH[sx]), 1, "pauldron", (0.12, 0.13, 0.07), seg=8, rings=4)
-        bpy.ops.mesh.primitive_cone_add(vertices=5, radius1=0.022, radius2=0.0, depth=0.1, location=tuple(SH[sx] + Vector((0.03 * sx, 0, 0.1))))
-        add(bpy.context.object, "iron")
-        for fa in (-55, 0, 55):   # fangs of plate hanging from the rim
-            bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=0.034, radius2=0.0, depth=0.17, rotation=(math.pi, 0, 0),
-                                            location=tuple(SH[sx] + Vector((0.115 * sx * math.cos(math.radians(fa)), 0.125 * math.sin(math.radians(fa)), -0.1))))
+    # the pauldrons: three curved plates down each upper arm (psx_shell), the top one widest, a spike on it and fangs
+    # hanging from the lowest lame's rim (the owner, 2026-11-17: "Shoulders on the priest need a quality check", then "the
+    # pauldrons look like whoopy cushions": they were squashed spheres, first at fixed points off the raised arms)
+    PL = []   # each plate, for its painted rim and rivets (arm_plates)
+    for s_ in ("R", "L"):
+        pl = arm_plates(s_, ["pauldron"], room=0.03, cloth=(mantle,)); PL += pl   # room for the mantle, pressed in under them
+        fd = (pl[-1][1] + Vector((0, 0, -0.7))).normalized()
+        for fa in (-50, 0, 50):   # fangs of plate hanging from the lowest lame's rim
+            rim, _ = plate_point(pl[-1], 1.0, fa)
+            bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=0.026, radius2=0.0, depth=0.12, location=tuple(rim + fd * 0.06), rotation=fd.to_track_quat('Z', 'Y').to_euler())
             add(bpy.context.object, "fang")
+        at_, u_ = plate_point(pl[0], 0.64, 0, 0.04); sp = (u_ + pl[0][1] * 0.25).normalized()   # the spike, standing on the top plate
+        bpy.ops.mesh.primitive_cone_add(vertices=5, radius1=0.02, radius2=0.0, depth=0.09, location=tuple(at_), rotation=sp.to_track_quat('Z', 'Y').to_euler())
+        add(bpy.context.object, "iron")
     module("Hip")
     def on_robe(x_, z_, d_):   # a point on the coat skirt at height z_, seen from outside along d_
         o_ = Vector((x_, 0, z_)) - d_ * 0.9; ok_, at_, *_ = robe.ray_cast(o_, d_)
@@ -7294,7 +7339,7 @@ def heretic_priest():
             if u < -0.135: return C["ink"]
             if f > 0.02:
                 # the only opening: an inverted cross, lit from inside
-                if (abs(a) < 0.008 and -0.098 < u < 0.048) or (abs(a) < 0.04 and abs(u + 0.05) < 0.008): return C["emberl"] if abs(a) < 0.004 or abs(u + 0.05) < 0.004 else C["ember"]
+                if (abs(a) < 0.008 and -0.098 < u < 0.048) or (abs(a) < 0.04 and abs(u + 0.05) < 0.008): return (*(C["emberl"] if abs(a) < 0.004 or abs(u + 0.05) < 0.004 else C["ember"]), 1.0)   # glowing (four values)
                 if (abs(a) < 0.013 and -0.103 < u < 0.053) or (abs(a) < 0.045 and abs(u + 0.05) < 0.013): return C["ink"]
                 if u > 0.1 and abs(a) < 0.022:   # the brass strip up the front, the mark on it
                     if abs(a) > 0.017: return C["ink"]
@@ -7311,11 +7356,9 @@ def heretic_priest():
             t = (p - centre).length
             if (t * 70) % 1.0 < 0.2: return lit(C["hornd"], n, ao, p=p)
             return lit(C["hornl"] if t > 0.26 and s_ > 0.2 else (C["hornc"] if t > 0.17 else C["hornd"].lerp(C["hornc"], 0.5)), n, ao, p=p)
-        if base == "pauldron":   # rust, a dark rolled rim, a light edge above it, rivets round it
-            sx = 1 if x > 0 else -1; q = p - SH[sx]
-            if q.z < -0.04: return C["ink"]
-            if q.z < -0.028: return lit(C["helml"], n, ao, p=p)
-            if abs(q.z + 0.012) < 0.006 and (math.atan2(q.y, q.x) * 10 / (2 * math.pi)) % 1.0 < 0.3: return C["metall"]
+        if base == "pauldron":   # rust plate: the inside dark, a dark rolled rim with a light edge above it, a row of rivets
+            r_ = plate_rim(p, PL)
+            if r_ is not None: return C["ink"] if r_ == "ink" else (lit(C["helml"], n, ao, p=p) if r_ == "edge" else C["metall"])
             return rusty(n, ao, p, 0.58)
         if base == "fang": return C["ink"] if n.z > 0.5 else rusty(n, ao, p, 0.5)
         if base == "sigil":   # the brass triangle: an ink edge, an open eye with a red iris
@@ -7324,7 +7367,7 @@ def heretic_priest():
             e_ = math.hypot(q.x / 0.03, (q.z - 0.012) / 0.014)
             if e_ < 1.0:
                 r_ = math.hypot(q.x, q.z - 0.012)
-                return C["ink"] if r_ < 0.004 or e_ > 0.8 else (C["ember"] if r_ < 0.01 else C["bonel"])
+                return C["ink"] if r_ < 0.004 or e_ > 0.8 else ((*C["ember"], 1.0) if r_ < 0.01 else C["bonel"])   # the iris glowing
             if q.z > 0.026 or abs(q.x) > 0.049 - (0.026 - q.z) * 0.577: return C["ink"]
             return C["brassl"] if s_ > 0.3 else C["brass"]
         if base == "lock":   # the padlock: dark iron, a brass keyhole plate
@@ -7333,10 +7376,11 @@ def heretic_priest():
             return steel(C["plate"], n, ao, p, rust=0.3)
         if base == "cross":   # charred wood, cracks still glowing, wire bound round the joint
             if (p - CX).length < 0.045 and ((p - CX).dot(Vector((1, 0, 1)).normalized()) * 90) % 1.0 < 0.3: return lit(C["ironl"], n, ao, metal=True, p=p)
-            if _nz.noise(Vector((p.x * 60, p.y * 60, p.z * 14))) > 0.42: return C["ember"]
+            if _nz.noise(Vector((p.x * 60, p.y * 60, p.z * 14))) > 0.42: return (*C["ember"], 1.0)   # glowing
             return lit(C["crossl"] if _nz.noise(p * 30) > 0.25 else C["cross"], n, ao, p=p)
         if base == "ember":   # the arrow, red-hot: bright along its middle, dark scale at the edges
-            return C["emberl"] if s_ > 0.0 and _nz.noise(p * 50) > -0.3 else (C["ember"] if _nz.noise(p * 70) > -0.55 else C["emberd"])
+            if s_ > 0.0 and _nz.noise(p * 50) > -0.3: return (*C["emberl"], 1.0)   # glowing; the dark scale lit as a surface
+            return (*C["ember"], 1.0) if _nz.noise(p * 70) > -0.55 else C["emberd"]
         if base == "wood":   # the staff: a leather grip at the fist, iron bands, a shod foot
             t = (p - low).dot(sd); tf = (fl - low).dot(sd)
             if abs(t - tf) < 0.09: return C["ink"] if ((t - tf) * 60) % 1.0 < 0.2 else lit(C["leather"], n, ao, p=p)
@@ -7387,11 +7431,11 @@ def brand_sworn():
     # the half-skirt in the seat colour, round the back of the hips
     cloth_cone(0, 0, 1.0, 0.42, 0.22, 0.31, "accent", sy=0.85, keep=FRONT(75), ragged=0.1, rnd=rnd, tris=130, thick=0.012)
     module("Chest")
-    SH = {sx: JOINTS["upperarm01." + ("L" if sx > 0 else "R")] + Vector((0.03 * sx, 0, 0.05)) for sx in (-1, 1)}
-    for sx in (-1, 1):   # great round pauldrons, three spikes on each
-        sphere(tuple(SH[sx]), 1, "pauldron", (0.16, 0.17, 0.1), seg=8, rings=5)
-        for ox, oy in ((0.1, 0.0), (0.03, -0.11), (0.03, 0.11)):   # the outer one taller
-            bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.022, radius2=0.0, depth=0.1, location=tuple(SH[sx] + Vector((ox * sx, oy, 0.1))))
+    PLS = {sx: arm_plates("L" if sx > 0 else "R", ["pauldron"], room=0.03, scale=1.25) for sx in (-1, 1)}   # great pauldrons of three plates
+    for sx in (-1, 1):   # three spikes on each, one out over the arm, two on the shoulder
+        for st, sa in ((0.7, 0), (0.3, -45), (0.3, 45)):
+            at_, u_ = plate_point(PLS[sx][0], st, sa, 0.045)
+            bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.022, radius2=0.0, depth=0.1, location=tuple(at_), rotation=u_.to_track_quat('Z', 'Y').to_euler())
             add(bpy.context.object, "iron")
     COPS = []
     for s in ("L", "R"):   # knee cops
@@ -7405,7 +7449,7 @@ def brand_sworn():
     ok_, SK, *_ = human_.ray_cast(Vector((0.2, -1.0, 0.97)), Vector((0, 1, 0)))
     SK = (SK if ok_ else Vector((0.2, -0.14, 0.97))) + Vector((0, -0.05, 0))               # a skull at the belt, on the left hip
     sphere(tuple(SK), 0.05, "bone", (0.85, 0.95, 1.05), seg=8, rings=6)
-    SK2 = SH[1] + Vector((0.1, 0, 0.13))                                                   # another spitted on the left pauldron's outer spike
+    SK2, _ = plate_point(PLS[1][0], 0.7, 0, 0.1)                                            # another spitted on the left pauldron's outer spike
     sphere(tuple(SK2), 0.045, "bone", (0.85, 0.95, 1.05), seg=8, rings=5)
     module("Back")
     ok_, BK, *_ = human_.ray_cast(Vector((0.0, 1.0, 1.26)), Vector((0, -1, 0)))
@@ -7474,7 +7518,7 @@ def brand_sworn():
         return (abs(qx) < w_ and -0.03 * k < qz < 0.034 * k) or (-0.032 * k < qz < -0.008 * k and abs(abs(qx) - (qz + 0.032 * k)) < w_ * 0.9) \
             or math.hypot(abs(qx) - 0.02 * k, qz - 0.012 * k) < w_
     def brand(qx, qz, w_, k):   # the mark burned in: glowing, in scorched metal; None off it
-        if glyph(qx, qz, w_, k): return C["emberl"] if _nz.noise(Vector((qx * 90, qz * 90, 0))) > -0.1 else C["ember"]
+        if glyph(qx, qz, w_, k): return (*(C["emberl"] if _nz.noise(Vector((qx * 90, qz * 90, 0))) > -0.1 else C["ember"]), 1.0)   # glowing (four values)
         if glyph(qx, qz, w_ * 2.3, k): return C["scorch"]
         return None
     def belt(x, y, z, n, ao, p):   # the leather belt, a brass buckle at the front
@@ -7540,7 +7584,7 @@ def brand_sworn():
                 if abs(a) < 0.066 and -0.09 < u < 0.04:   # the face: a steel plate, five upright slots lit from inside
                     k = ((a + 0.066) / 0.0264) % 1.0
                     if abs(a) > 0.06 or u > 0.034 or u < -0.084: return C["ink"]
-                    if abs(k - 0.5) < 0.26 and -0.07 < u < 0.02: return C["emberl"] if abs(k - 0.5) < 0.1 else C["ember"]
+                    if abs(k - 0.5) < 0.26 and -0.07 < u < 0.02: return (*(C["emberl"] if abs(k - 0.5) < 0.1 else C["ember"]), 1.0)   # glowing
                     if abs(k - 0.5) < 0.36 and -0.076 < u < 0.026: return C["ink"]
                     return steel(C["plated"], n, ao, p, rust=0.5)
                 if abs(a) < 0.075 and abs(u - 0.052) < 0.011: return steel(C["platel"], n, ao, p, rust=0.6)   # the brow ridge
@@ -7554,12 +7598,11 @@ def brand_sworn():
             if abs(u + 0.03) < 0.004: return C["ink"]         # the joint round the middle
             return rusty(n, ao, p, 0.6, runs=True)
         if base == "pauldron":   # rust, a dark rolled rim, a light edge above it, rivets round it, the mark branded on top
-            sx = 1 if x > 0 else -1; q = p - SH[sx]
-            if q.z < -0.06: return C["ink"]
-            if q.z < -0.045: return lit(C["helml"], n, ao, p=p)
-            if abs(q.z + 0.025) < 0.007 and (math.atan2(q.y, q.x) * 10 / (2 * math.pi)) % 1.0 < 0.3: return C["metall"]
-            if n.z > 0.45:
-                b_ = brand(q.x, -q.y, 0.008, 1.7)
+            r_ = plate_rim(p, PLS[-1] + PLS[1])
+            if r_ is not None: return C["ink"] if r_ == "ink" else (lit(C["helml"], n, ao, p=p) if r_ == "edge" else C["metall"])
+            pl_, t_, a_, _, _ = plate_at(p, PLS[-1] + PLS[1])
+            if n.z > 0.45 and any(pl_ is PLS[k][0] for k in (-1, 1)):   # on the top plate
+                b_ = brand((t_ - 0.5) * pl_[5] * (1 if x > 0 else -1), math.radians(a_) * pl_[4], 0.008, 1.7)
                 if b_ is not None: return b_
             return rusty(n, ao, p, 0.58, runs=True)
         if base == "cop":   # steel, a brass boss
@@ -7681,12 +7724,61 @@ scn.render.engine = 'CYCLES'; scn.cycles.device = 'CPU'; scn.render.bake.margin 
 if GROUND > 0:   # the leg landmarks the painters read, lowered as the painted leg points are (legs_down, below)
     for k_ in JOINTS:
         if k_.startswith(("lowerleg", "foot")): JOINTS[k_] = JOINTS[k_] - Vector((0, 0, GROUND * (1 - sstep((JOINTS[k_].z - 0.5) / 0.4))))
+# The seat-colour parts' own definition (2026-11-17, the owner: "all the cloaks need to have more definition in them.
+# right now they are just flat red or blue"): a grey texture the client multiplies with the seat colour (and with the
+# Accent's baked shading in its vertex colours), so the colour stays the seat's and only its light and dark are painted.
+# Cloth (its material "accentcloth": draped, a sash, a pennant, a tabard) gets folds down its hang, weave, stitched seams, a
+# turned and stitched hem, a frayed edge, stains, blood and mud low down; a solid part (a helmet, a plate, a cap) grain,
+# scuffs and grime. Kept light: 1.0 is the plain seat colour.
+HEM = None
+def accent_cloth(m, p, n, ao, tx, ty):
+    from mathutils import noise as nz
+    if not m.startswith("accentcloth"):   # a solid part
+        g = 0.95 * (1 + 0.035 * nz.noise(p * 140))
+        if nz.noise(p * 30 + Vector((5, 2, 9))) > 0.55: g *= 0.8                       # scuffs
+        if nz.noise(Vector((p.x * 40, p.y * 40, p.z * 6))) > 0.5: g *= 0.86             # grime run down it
+        return (g, g, g)
+    f = nz.noise(Vector((p.x * 16, p.y * 16, p.z * 2.2)))                               # folds, long down the hang
+    g = 0.88 + 0.22 * f                                                                  # the troughs dark, the ridges lit
+    if -0.06 < f < 0.0: g *= 0.7                                                         # the crease at the bottom of a fold
+    elif f > 0.35: g = 1.0                                                               # light caught on the ridge
+    g *= 1 + 0.04 * nz.noise(p * 150)                                                    # weave
+    a_ = (math.atan2(p.x, -p.y) * 0.2 / 0.2) % 1.0                                       # panels sewn together down the hang (closer, a shoulder cape read as a web)
+    if abs(a_ - 0.5) < 0.035: g *= 0.62
+    elif abs(a_ - 0.5) < 0.07 and (p.z * 140) % 1.0 < 0.45: g *= 0.72                   # their stitching
+    d = HEM.find(p)[2] if HEM is not None else 1.0
+    if d < 0.006: g *= 0.5                                                               # the frayed edge
+    elif d < 0.03:                                                                       # the turned hem, stitched
+        g *= 0.78
+        if abs(d - 0.022) < 0.0025 and ((p.x + p.y + p.z) * 170) % 1.0 < 0.5: g *= 0.55
+    if nz.noise(p * 9 + Vector((3, 7, 1))) > 0.5: g *= 0.82                              # stains
+    if nz.noise(p * 45) > 0.62: g *= 0.55                                                # blood
+    k_ = max(0.0, (0.6 - p.z) / 0.45)
+    if k_ > 0 and nz.noise(p * Vector((14, 14, 8)) + Vector((2, 7, 1))) > 0.5 - k_ * 0.4: g *= 0.62   # mud up from the ground
+    g = max(0.3, min(1.0, g)); return (g, g, g)
 for name, o in OBJS.items():
-    if name == "Accent":
-        continue
     only(o)
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris()
-    size = (TEX_SIZES or {}).get(name, 512 if name == "Body" else 256)   # one 128x128 texture for the body, 64x64 for each module (larger classes more)
+    if name == "Accent":   # the cloth's edges, for its hems: open edges, and the sharp rim of a cloth solidified with one
+        from collections import Counter
+        from mathutils.kdtree import KDTree
+        bpy.ops.object.mode_set(mode='OBJECT'); me_ = o.data
+        cl_ = {i_ for i_, m_ in enumerate(me_.materials) if m_.name.startswith("accentcloth")}
+        fk_ = {}
+        for p_ in me_.polygons:
+            if p_.material_index in cl_:
+                for k in p_.edge_keys: fk_.setdefault(k, []).append(p_.normal)
+        pts_ = []
+        for (a0, b0), ns_ in fk_.items():
+            if len(ns_) == 1 or ns_[0].dot(ns_[1]) < 0.17:   # open, or folded sharper than 80 degrees: a rim (not a lofted cape's rings)
+                va, vb = me_.vertices[a0].co, me_.vertices[b0].co; n_ = max(1, int((vb - va).length / 0.004))
+                pts_ += [va.lerp(vb, i_ / n_) for i_ in range(n_ + 1)]
+        if pts_:
+            HEM = KDTree(len(pts_))
+            for i_, q_ in enumerate(pts_): HEM.insert(q_, i_)
+            HEM.balance()
+        bpy.ops.object.mode_set(mode='EDIT')
+    size = (TEX_SIZES or {}).get(name, 512 if name in ("Body", "Accent") else 256)   # one 128x128 texture for the body, 64x64 for each module (larger classes more)
     if os.environ.get("FIG_FAST"): size = 64
     # packed tight (2026-11-12): the default packing left half the texture empty, so painted lines fell under a texel
     bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.03)
@@ -7731,7 +7823,8 @@ for name, o in OBJS.items():
         srgb = [((e0[c] + e1[c]) / 2) ** (1 / 2.2) for c in range(3)]
         rgb = [(round(s ** (1 / 2.2) * 31) / 31) ** 2.2 for s in srgb]
         for t in holes: px[t * 4:t * 4 + 3] = rgb
-    if PAINT is not None and not os.environ.get("FIG_FAST"):   # painted: each texel coloured from the surface point it maps to, then grown 4 texels past each island (FIG_FAST: a quick unpainted build, to check a pose)
+    paint_ = accent_cloth if name == "Accent" else PAINT
+    if paint_ is not None and not os.environ.get("FIG_FAST"):   # painted: each texel coloured from the surface point it maps to, then grown 4 texels past each island (FIG_FAST: a quick unpainted build, to check a pose)
         # each texel is the mean of SS x SS samples inside its faces (2026-11-12): a line thinner than a texel stays a
         # whole, softer line, not a row of dashes; a texel with no sample inside any face takes one from just outside
         V, names, out_ = o.data.vertices, [m_.name for m_ in o.data.materials], [None] * (size * size)
@@ -7747,7 +7840,7 @@ for name, o in OBJS.items():
                 if min(l1, l2, l3) < tol: return None
                 pt = vs[0] * l1 + vs[1] * l2 + vs[2] * l3
                 if legs_down: pt.z -= GROUND * (1 - sstep((pt.z - 0.5) / 0.4))   # a legs() stance: the legs painted as if the feet stood on the plain floor
-                return PAINT(mn, pt, (ns[0] * l1 + ns[1] * l2 + ns[2] * l3).normalized(), ao[t * 4], tx, ty)
+                return paint_(mn, pt, (ns[0] * l1 + ns[1] * l2 + ns[2] * l3).normalized(), ao[t * 4], tx, ty)
             for ty in range(max(0, int(min(a.y, b.y, c.y))), min(size, int(max(a.y, b.y, c.y)) + 1)):
                 for tx in range(max(0, int(min(a.x, b.x, c.x))), min(size, int(max(a.x, b.x, c.x)) + 1)):
                     t = ty * size + tx
@@ -7780,10 +7873,8 @@ for name, o in OBJS.items():
     tn = m.node_tree.nodes.new("ShaderNodeTexImage"); tn.image = img; tn.interpolation = 'Closest'
     m.node_tree.links.new(tn.outputs["Color"], b.inputs["Base Color"])
     o.data.materials.clear(); o.data.materials.append(m)
-# Accent: one flat material, untextured
-while A.data.uv_layers: A.data.uv_layers.remove(A.data.uv_layers[0])
-A.data.materials.clear(); am = bpy.data.materials.new("Accent"); am.use_nodes = True; A.data.materials.append(am)
-only(A); bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT'); bpy.ops.mesh.quads_convert_to_tris(); bpy.ops.object.mode_set(mode='OBJECT')
+# Accent: its grey texture (above), the seat colour the client's
+only(A)
 # Its shading is in its vertex colours (2026-11-12), which the client multiplies with the seat colour: the hard light
 # bands of psx_lit, darker where other parts stand close (rays cast from each vertex), so it is no longer one flat patch.
 def accent_shading():
@@ -7831,6 +7922,53 @@ if WARP is not None:
 if TWIST or LOOK: dynamic_warp()
 # scale to the game's 1.2 tall, feet at 0, centred
 ALL = list(OBJS.values())
+def settle(k):
+    # Nothing floats (2026-11-17, the owner: "Make sure their clothing sits naturally and correctly on their body no
+    # floating"): each loose piece of a part (a strap, a pouch, a bell, a cloth with its solidified twin shell) that
+    # touches nothing within 0.008 is moved straight toward the nearest other piece until 0.002 short of it (in the
+    # game's units, the figure 1.2 tall; k turns them into the build's). A move shorter than the gap cannot push it into
+    # anything; its painted texture goes with it. The body never moves. Run before the scaling, so the height stays 1.2.
+    from mathutils.bvhtree import BVHTree
+    gap, short = 0.008 * k, 0.002 * k
+    groups = []   # (object, vertex indices)
+    for o in ALL:
+        me = o.data; nb = [[] for _ in me.vertices]
+        for e in me.edges: a, b = e.vertices; nb[a].append(b); nb[b].append(a)
+        seen = [False] * len(me.vertices); comps = []
+        for s0 in range(len(me.vertices)):
+            if seen[s0]: continue
+            st, c = [s0], []; seen[s0] = True
+            while st:
+                i = st.pop(); c.append(i)
+                for j in nb[i]:
+                    if not seen[j]: seen[j] = True; st.append(j)
+            comps.append(c)
+        cen = [sum((me.vertices[i].co for i in c), Vector()) / len(c) for c in comps]; used = set()
+        for i, c in enumerate(comps):   # a cloth's two shells (solidify without a rim) move as one piece
+            if i in used: continue
+            g = list(c)
+            for j in range(i + 1, len(comps)):
+                if j not in used and len(comps[j]) == len(c) and (cen[i] - cen[j]).length < 0.02 * k: g += comps[j]; used.add(j); break
+            groups.append((o, g))
+    def tree(o, g):
+        gs = set(g); m = {i: k for k, i in enumerate(g)}
+        return BVHTree.FromPolygons([o.data.vertices[i].co.copy() for i in g], [[m[i] for i in p.vertices] for p in o.data.polygons if p.vertices[0] in gs])
+    trees = [tree(o, g) for o, g in groups]; moved = 0
+    for k, (o, g) in enumerate(groups):
+        if o is B: continue
+        best, to = 9.0, None
+        for j, tr in enumerate(trees):
+            if j == k: continue
+            for i in g:
+                h = tr.find_nearest(o.data.vertices[i].co, best)
+                if h[0] is not None and h[3] < best: best, to = h[3], h[0] - o.data.vertices[i].co
+        if to is not None and best >= gap:
+            d = to.normalized() * (best - short)
+            for i in g: o.data.vertices[i].co += d
+            trees[k] = tree(o, g); moved += 1; print(f"SETTLE {o.name} {len(g)} verts moved {(best - short) / k:.3f}")
+    for o in ALL: o.data.update()
+    print(f"SETTLE {moved} pieces moved")
+settle((max((o.matrix_world @ v.co).z for o in ALL for v in o.data.vertices) - min((o.matrix_world @ v.co).z for o in ALL for v in o.data.vertices)) / 1.2)
 low = min((o.matrix_world @ v.co).z for o in ALL for v in o.data.vertices)
 for o in ALL:
     for v in o.data.vertices: v.co.z -= low

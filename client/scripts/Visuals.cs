@@ -198,12 +198,25 @@ public sealed class Visuals
 
     // Graphics stage G3: the parts of a figure named "Accent..." (its sash, a pennant) are drawn with the given material,
     // so the seat colour and the activated wash are the client's, never baked into the art. Returns how many parts.
+    // A part with its own grey texture (folds, seams, hems and wear, tools/art/make_figures.py, 2026-11-17) keeps it,
+    // sampled nearest and multiplied with the seat colour: only its light and dark are painted, never a colour.
     public static int PaintAccent(Node3D figure, Material material)
     {
         var painted = 0;
         foreach (var mesh in figure.FindChildren("Accent*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
         {
-            mesh.MaterialOverride = material;
+            var own = mesh.Mesh?.GetSurfaceCount() > 0 ? mesh.Mesh.SurfaceGetMaterial(0) as BaseMaterial3D : null;
+            if (material is StandardMaterial3D seat && own?.AlbedoTexture is { } grey)
+            {
+                var textured = (StandardMaterial3D)seat.Duplicate();
+                textured.AlbedoTexture = grey;
+                textured.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
+                mesh.MaterialOverride = textured;
+            }
+            else
+            {
+                mesh.MaterialOverride = material;
+            }
             painted++;
         }
         return painted;

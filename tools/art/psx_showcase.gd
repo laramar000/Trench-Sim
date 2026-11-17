@@ -44,12 +44,16 @@ func _initialize() -> void:
 							sm.set_shader_parameter("albedo_tex", m.albedo_texture)
 							sm.set_shader_parameter("albedo_colour", m.albedo_color)
 							mesh.set_surface_override_material(i, sm)
-			# The client paints parts named "Accent*" flat in the seat colour (Visuals.PaintAccent); do the same.
-			var seat := StandardMaterial3D.new()
-			seat.albedo_color = Color(0.22, 0.28, 0.4)
-			seat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			seat.vertex_color_use_as_albedo = true
+			# The client paints parts named "Accent*" in the seat colour, times their own grey texture (Visuals.PaintAccent); do the same.
 			for mesh in fig.find_children("Accent*", "MeshInstance3D", true, false):
+				var seat := StandardMaterial3D.new()
+				seat.albedo_color = Color(0.22, 0.28, 0.4)
+				seat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				seat.vertex_color_use_as_albedo = true
+				var own = mesh.mesh.surface_get_material(0) if mesh.mesh and mesh.mesh.get_surface_count() > 0 else null
+				if own is BaseMaterial3D and own.albedo_texture:
+					seat.albedo_texture = own.albedo_texture
+					seat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 				mesh.material_override = seat
 			var tall := 1.2
 			for e in entries.values():
