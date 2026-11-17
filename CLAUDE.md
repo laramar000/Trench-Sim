@@ -384,3 +384,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   32 mm, catalog height 1.58" with its raised axe, test row 2,300 triangles, 23 figures now, art folder about 45 MB of
   the 64 MB limit). The owner said "Yes, next figure" without naming one; this was Claude's recommendation. Still to
   build for the Heretics: Night Commando, Chorister, Assault Beast, Wretched, Bombard Witch, Barbed Wire Banshee.
+- Done (2026-11-16): Heretic Trooper reworked on the owner's word ("do a full rework if needed") and twelve more
+  references: helm with a peak and flared skirt, scarf and cape (seat colour), braces, taller plaque, thick pale leg
+  wraps, a fuller body in grey-blue, the rifle in both hands. Catalog height 1.18" (was 1.15"), test row 2,200 (was
+  2,000), 2,106 triangles.
