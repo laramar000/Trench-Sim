@@ -94,8 +94,8 @@ public class UnitFiguresTests
     // Detail pass (2026-11-12): every body, coat and robe texture is 1,024 px (the other modules stay 512 px); the
     // Standard-bearer 1,700 (a waved pennant) and the Combat Medic 1,600 (a folded apron). Dynamic poses (2026-11-12): the
     // Castigator and the Trench Cleric 2,400 (their bodies reduce a little differently in the new stances).
-    // Heretic Trooper 2,200 (class A, 2026-11-13, the first Heretic figure: its hose, canister, plaque and cape solid;
-    // 2,000 until the rework of 2026-11-16, whose helm and scarf took it to 2,106).
+    // Heretic Trooper 2,400 (class A, 2026-11-13, the first Heretic figure: its hose, canister, plaque and cape solid;
+    // 2,000 until the reworks of 2026-11-16, whose helm, scarf, long cape, blade, pistol and pauldron took it to 2,308).
     // Heretic Priest 2,800 (class B, 2026-11-16, drawn 1.58" with the tall mitre and the staff above it; its horns are 500 of them).
     // Brand-Sworn Heavy Infantry 2,300 (class B, 2026-11-16, drawn 1.58" with the great axe raised above the helm).
     public static TheoryData<string, int, int, float> Figures => new()
@@ -111,7 +111,7 @@ public class UnitFiguresTests
         { "units/combat-engineer.glb", 3300, 1024, 0.9f },
         { "units/mechanized-heavy-infantry.glb", 4500, 1024, 1.1f }, { "units/combat-medic.glb", 1600, 1024, 0.9f },
         { "units/holy-warrior.glb", 2700, 1024, 0.9f },
-        { "units/heretic-trooper.glb", 2200, 1024, 0.9f }, { "units/heretic-priest.glb", 2800, 1024, 0.9f },
+        { "units/heretic-trooper.glb", 2400, 1024, 0.9f }, { "units/heretic-priest.glb", 2800, 1024, 0.9f },
         { "units/brand-sworn-heavy-infantry.glb", 2300, 1024, 0.9f },
     };
 

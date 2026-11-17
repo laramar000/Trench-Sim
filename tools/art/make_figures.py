@@ -6786,22 +6786,25 @@ def heretic_trooper():
     # and a ribbed hose down the left chest to a red canister on the belt (Chest, Hip). Rust-red lames painted over the
     # tunic's chest under two leather braces, a tall solid plaque with the mark high on the right breast (Chest). A thick
     # scarf round the neck falling as a ragged cape over the left shoulder and the back, in the seat colour (Accent).
-    # Advancing, the rifle in both hands, its bayonet forward (Weapon); a skull and a bound pale effigy on the belt (Hip);
-    # barbed wire wound round the right forearm, old blood and mud painted.
+    # Braced wide, a jagged saw-backed blade raised in the right hand (Weapon), a pistol with a drum under it levelled in
+    # the left (Weapon2); a rust pauldron with two spikes on the sword shoulder (Chest); a skull and a bound pale effigy on
+    # the belt (Hip); barbed wire wound round the right forearm and the helm, old blood and mud painted.
     # Reworked 2026-11-16 on the owner's word and twelve more references (the first version threw a stick grenade under a
-    # bowl-shaped helm, thin in the leg and the neck).
+    # bowl-shaped helm, thin in the leg and the neck). The same day, the owner: "more cool and edgy": the blade and
+    # pistol instead of the rifle in both hands, a near-black uniform, lenses lit red, the pauldron, a longer torn cape.
     global BODY_BUDGET, TEX_SIZES, PAINT, HEAD_SEGS, HEAD_RINGS
-    BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Weapon": 512, "Chest": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
+    BODY_BUDGET = 820; TEX_SIZES = {"Body": 1024, "Helmet": 512, "Weapon": 512, "Weapon2": 512, "Chest": 512, "Hip": 512}; HEAD_SEGS, HEAD_RINGS = 12, 9
     from mathutils import noise as _nz
     import bmesh as _bm
     import random as _random
     M.setdefault("effigy", mat("effigy", "c8b8a0", 0.6, 0))
+    for k_ in ("pauldron", "sawblade"): M.setdefault(k_, mat(k_, "7a7c80", 0.3, 18))
     def pose(r):
-        legs(r, L=(0.13, -0.27, 8), R=(-0.15, 0.24, 30), drop=0.03, heel={"R": 0.06})
-        human.aim(r, "spine03", P(0.0, -0.1, 1.42))
-        human.reach(r, "R", P(-0.33, 0.1, 1.2), P(-0.2, -0.12, 1.12))     # the right hand at the rifle's grip, by the hip
-        human.reach(r, "L", P(0.3, -0.18, 1.2), P(0.06, -0.42, 1.24))     # the left under its fore-end, ahead
-    global TWIST, LOOK; TWIST, LOOK = -10, 0   # no head turn: the mask's hose runs from the head to the belt
+        legs(r, L=(0.17, -0.3, 10), R=(-0.19, 0.24, 36), drop=0.05, heel={"R": 0.06})
+        human.aim(r, "spine03", P(0.02, -0.08, 1.42))
+        human.reach(r, "R", P(-0.4, 0.04, 1.5), P(-0.43, -0.04, 1.78))    # the blade raised high, right
+        human.reach(r, "L", P(0.36, -0.08, 1.3), P(0.46, -0.36, 1.42))    # the pistol levelled ahead and out, left
+    global TWIST, LOOK; TWIST, LOOK = -14, 0   # no head turn: the mask's hose runs from the head to the belt
     hands, hp, top = human_body(pose, dress=WW1_DRESS, head="hood", mitts="leather", shape="male-young-averagemuscle-averageweight")
     human_ = bpy.data.objects["human"]
     for v in human_.data.vertices:   # the shins thick with wraps
@@ -6811,8 +6814,8 @@ def heretic_trooper():
     # the scarf and cape: a thick ring round the neck, then over the left shoulder and down the back, open on the right
     # and over the chest
     def scarf(a, z): a = math.remainder(a, 2 * math.pi); return z > NECK.z - 0.075 or a > 0.9 or a < -2.5
-    cloth_cone(NECK.x, NECK.y + 0.015, NECK.z + 0.05, 0.86, 0.085, 0.27, "accent", sy=0.9, keep=scarf, ragged=0.09, rnd=_random.Random(1917),
-               tris=170, mono=False, thick=0.02)
+    cloth_cone(NECK.x, NECK.y + 0.015, NECK.z + 0.05, 0.6, 0.085, 0.3, "accent", sy=0.9, keep=scarf, ragged=0.16, rnd=_random.Random(1917),
+               tris=210, mono=False, thick=0.02)
     fb = FACE_BOX
     mask = ww1_painted_mask()   # leaves the Helmet module current; its last part is the filter drum
     dn = (fb["fwd"] * 0.85 - fb["up"] * 0.5).normalized(); DRUM = Vector(MODULES["Helmet"][-1].location) + dn * 0.05   # the drum's open end
@@ -6853,15 +6856,36 @@ def heretic_trooper():
                  front(0.125, 1.1, 0.03), CAN + Vector((0, 0, 0.09))], 0.015, "rubber", sides=5)
     PL = front(-0.095, 1.325, 0.014)                                                       # the tall plaque, high on the right breast
     box(tuple(PL), (0.085, 0.022, 0.15), "plate", rot=(0.14, 0, 0.05))
+    SHR = JOINTS["upperarm01.R"] + Vector((-0.03, 0, 0.045))                               # a rust pauldron on the sword shoulder, two spikes
+    sphere(tuple(SHR), 1, "pauldron", (0.115, 0.12, 0.075), seg=8, rings=4)
+    for oy in (-0.05, 0.05):
+        bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.02, radius2=0.0, depth=0.09, location=tuple(SHR + Vector((-0.04, oy, 0.085))))
+        add(bpy.context.object, "iron")
     module("Weapon")
-    RH, hl = FISTS["R"][0], FISTS["L"][0]; d = (hl - RH).normalized()
-    butt, muz = RH - d * 0.24, hl + d * 0.36; tip = muz + d * 0.19
-    ww1_rifle(RH, hl, back=0.24, ahead=0.36, bayonet=0.19)
+    # the blade, raised: a heavy chopper, its edge bellied, its back cut into saw teeth
+    BF = FISTS["R"][0]; bd = Vector((0.28, -0.3, 0.91)).normalized()
+    be = Vector((-1, -0.35, 0.1)); be = (be - bd * be.dot(bd)).normalized()                # the way its edge faces: out
+    st = [(0.075, -0.014, 0.02), (0.14, -0.03, 0.03), (0.2, -0.012, 0.036), (0.27, -0.034, 0.044), (0.34, -0.014, 0.05),
+          (0.41, -0.036, 0.054), (0.48, -0.014, 0.05), (0.55, -0.03, 0.036), (0.64, 0.004, 0.006)]   # along it, its back, its edge
+    bv = [tuple(BF + bd * t_ + be * e_) for t_, eb, ee in st for e_ in (eb, ee)]
+    me = bpy.data.meshes.new("saw"); me.from_pydata(bv, [], [(2 * k, 2 * k + 1, 2 * k + 3, 2 * k + 2) for k in range(len(st) - 1)])
+    bo = bpy.data.objects.new("saw", me); scn.collection.objects.link(bo)
+    sm = bo.modifiers.new("sol", "SOLIDIFY"); sm.thickness = 0.012; sm.offset = 0; add(bo, "sawblade")
+    bar(BF - bd * 0.07, BF + bd * 0.07, 0.013, "leather", sides=4)
+    bar(BF + bd * 0.07 - be * 0.045, BF + bd * 0.07 + be * 0.055, 0.011, "iron", sides=4)
+    module("Weapon2")
+    # the pistol, levelled: a long barrel, a drum hung under the grip
+    PF, pfd = FISTS["L"]; pa = Vector((pfd.x, pfd.y, 0.05)).normalized(); ps = pa.cross(Vector((0, 0, 1))).normalized()
+    bar(PF + Vector((0, 0, 0.04)) - pa * 0.06, PF + Vector((0, 0, 0.04)) + pa * 0.13, 0.025, "metal", sides=4)
+    bar(PF + Vector((0, 0, 0.045)) + pa * 0.13, PF + Vector((0, 0, 0.045)) + pa * 0.31, 0.012, "metal", sides=4)
+    DR = PF + Vector((0, 0, -0.1)) + pa * 0.02
+    bar(DR - ps * 0.018, DR + ps * 0.018, 0.058, "iron", sides=8)
+    bar(PF + Vector((0, 0, -0.05)), DR, 0.012, "metal", sides=4)
     module("Body")
-    C = psx_palette(**{**WW1, **KIT, **dict(tunic="48525a", tunicd="2c3339", tunicl="606c76", breeches="404850", breechesd="272c32",
+    C = psx_palette(**{**WW1, **KIT, **dict(tunic="2e343b", tunicd="1a1e23", tunicl="444c56", breeches="282d33", breechesd="16191d",
                                            puttee="9a8c70", putteed="62583f", pale="b4a888", effigy="c8b8a0", effigyd="8e8068", webbing="3e2f24", webbingd="241a12",
                                            webbingl="574333", cloth="4a4238", clothd="2e2922", clothl="5f5648",
-                                           hood="2e2c2a", mask="34342f", maskd="1e1e1b", lens="6e7e84", lensd="3a464a", lensl="d0dcde",
+                                           hood="2e2c2a", mask="34342f", maskd="1e1e1b", lens="b02414", lensd="5a100a", lensl="ff8c3a",
                                            helm="5e3018", helmd="3a1c0e", helml="7c4426", can="7a2018", canl="a03426", rubber="2e302c")})
     def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
     def glyph(qx, qz, w_):   # the trooper's mark: an arrow driven downward, a dot each side
@@ -6882,6 +6906,10 @@ def heretic_trooper():
             if abs(th) < 0.5 and 0.07 < q.z < 0.15 and glyph(th * 0.12 / 1.1, (q.z - 0.108) / 1.1, 0.0045): return C["pale"] if _nz.noise(p * 70) > -0.35 else lt(C["helm"])
             if abs(abs(th) - 1.45) < 0.09 and abs(q.z - 0.075) < 0.011: return C["ink"] if math.hypot((abs(th) - 1.45) * 0.12, q.z - 0.075) > 0.007 else C["metall"]
             if abs(q.z - 0.064) < 0.004 and abs(th) > 0.9: return lt(C["helmd"])   # the crease where the skirt flares
+            wz = q.z - 0.048 - 0.006 * math.sin(th * 9)   # barbed wire wound round the crown, twice
+            for w0 in (0.0, 0.016):
+                if abs(wz - w0) < 0.0035: return C["ironl"] if (th * 7 + w0 * 40) % 1.0 < 0.22 else C["ink"]
+            if 1.9 < th < 2.6 and abs(((q.z - 0.06 - (th - 1.9) * 0.09) / 0.02) % 1.0 - 0.5) < 0.1 and 0.07 < q.z < 0.14: return C["metall"]   # three claw scores, bright
             return rusty()
         if base == "effigy":   # pale wax, red thread wound round it, two ink stitches for a face
             q = p - EF
@@ -6914,19 +6942,25 @@ def heretic_trooper():
                 if abs(q.x) < 0.005 - (q.z + 0.02) * 0.3 and -0.02 < q.z < -0.006: return C["ink"]
                 if q.z < -0.03 and (q.x * 110) % 1.0 < 0.3: return C["ink"]
             return psx_kit(C, "bone", p, n, ao)
-        if base in ("wood", "metal", "iron") and segd(p, butt, tip)[0] < 0.06:   # the rifle
-            t = (p - RH).dot(d)
-            if base == "wood":
-                if (p - butt).dot(d) < 0.016: return C["brassl"] if s_ > 0.3 else C["brass"]                   # the butt plate
-                for tb in (0.4, (muz - RH).dot(d) - 0.13):                                                  # barrel bands
-                    if abs(t - tb) < 0.011: return C["ink"] if abs(t - tb) > 0.008 else lt(C["metall"], metal=True)
-                if abs(t + 0.13) < 0.004: return C["woodd"]                                                 # the stock's joint
-                return psx_kit(C, base, p, n, ao)
-            if base == "iron":   # the bayonet: a bright edge, old blood toward the point
-                tt = (p - muz).dot(d)
-                if tt > 0.1 and _nz.noise(p * 60) > -0.1: return C["blood"] if _nz.noise(p * 25) > 0 else C["bloodd"]
-                return lt(C["ironl"], metal=True)
-            return None
+        if base == "sawblade":   # black iron, a ground bright edge, wet blood up half of it
+            q = p - BF; t = q.dot(bd); e = q.dot(be)
+            ee = 0.02 + 0.034 * math.sin(min(1.0, max(0.0, (t - 0.075) / 0.5)) * math.pi * 0.75)
+            if e > ee - 0.016:
+                if t > 0.25 and _nz.noise(p * 34) > -0.25: return C["blood"] if _nz.noise(p * 60) > 0 else C["bloodd"]
+                return lt(C["metall"], metal=True)
+            if e > ee - 0.021: return C["ink"]
+            if t > 0.4 and _nz.noise(p * 26) > 0.15: return C["bloodd"]
+            return lt(C["irond"] if _nz.noise(p * 45) > 0.2 else C["iron"], metal=True)
+        if base == "pauldron":   # rust, a dark rolled rim, a light edge above it, rivets round it
+            q = p - SHR
+            if q.z < -0.045: return C["ink"]
+            if q.z < -0.032: return lt(C["helml"])
+            if abs(q.z + 0.015) < 0.006 and (math.atan2(q.y, q.x) * 10 / (2 * math.pi)) % 1.0 < 0.3: return C["metall"]
+            return rusty(0.58)
+        if base == "iron" and (p - DR).length < 0.075:   # the drum: a dark rim, spokes pressed in its faces
+            q = p - DR; r_ = (q - ps * q.dot(ps)).length
+            if abs(n.dot(ps)) > 0.7: return C["ink"] if r_ > 0.047 or (r_ > 0.015 and (math.atan2(q.z, q.dot(pa)) * 6 / (2 * math.pi)) % 1.0 < 0.18) else lt(C["metall"] if r_ < 0.015 else C["metal"], metal=True)
+            return lt(C["irond"], metal=True)
         if base == "tunic":
             sd, al, ad = psx_arm(p)
             on_arm = ad < 0.075 and (abs(x) > 0.16 or y < -0.16 or z > 1.41) and z > 1.0
