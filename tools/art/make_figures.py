@@ -7655,8 +7655,8 @@ def brand_sworn():
 def assault_beast():
     # Assault Beast (2026-11-17, a Heretic war-beast, class D, 50 mm): on the owner's references (a hunched, armoured
     # war-wolf), the mood and the kind of creature only; its helm, plates and pose are this project's own, not a copy of
-    # any miniature or artwork. Painted PSX look. A hunched, long-armed beast crouched low on its toes, the spine and neck
-    # thrust forward: the left claw planted ahead, knuckle-walking, the right raised and reaching. Dark matted fur over the
+    # any miniature or artwork. Painted PSX look. A hunched, long-armed beast on all fours, crouched on its toes, the spine and
+    # neck thrust forward, both claws planted, the right a stride ahead (the owner, 2026-11-17: "posing on all 4s"). Dark matted fur over the
     # back and shoulders, raw red hide on the limbs (painted, Body); a long riveted iron muzzle-helm over the whole head,
     # straight and squared, with an open iron lower jaw, teeth along both edges, two short brow spikes and a plate on
     # each cheek (Helmet); breathing hoses from under the helm into a spiked iron collar with a broken chain (Chest);
@@ -7673,10 +7673,10 @@ def assault_beast():
         M.setdefault(k_, mat(k_, c_, 0.3, 18))   # told apart when painted
     def pose(r):
         legs(r, L=(0.22, 0.04, 24), R=(-0.21, 0.26, 32), drop=0.22, heel={"L": 0.11, "R": 0.13})   # crouched on its toes, the haunches up
-        human.aim(r, "spine03", P(0, -0.6, 1.02))                           # the back thrust forward, near level
+        human.aim(r, "spine03", P(0, -0.6, 0.94))                           # the back thrust forward, level (on all fours, the owner, 2026-11-17)
         human.aim(r, "neck01", P(0, -0.95, 0.92))                           # the neck out ahead of it
-        human.reach(r, "L", P(0.33, -0.5, 0.42), P(0.3, -0.66, 0.06))       # the left claw planted ahead (drawn longer after painting)
-        human.reach(r, "R", P(-0.36, -0.55, 0.98), P(-0.3, -0.9, 0.9))      # the right raised, reaching
+        human.reach(r, "L", P(0.33, -0.46, 0.42), P(0.28, -0.6, 0.06))      # the left claw planted (drawn longer after painting)
+        human.reach(r, "R", P(-0.33, -0.56, 0.42), P(-0.28, -0.74, 0.06))   # the right planted a stride ahead of it
     hands, hp, top = human_body(pose, coat=False, dress={"foot": "hide", "shin": "hide", "thigh": "hide", "torso": "fur"}, head=None,
                                 mitts="hide", shape="male-young-maxmuscle-minweight")
     rnd = _random.Random(1871)
@@ -7781,7 +7781,8 @@ def assault_beast():
     for s in ("L", "R"):   # four long claws on each hand
         fc, fd = FISTS[s]; side = fd.cross(Vector((0, 0, 1))).normalized()
         for k in range(4):
-            cd = (fd + side * (0.45 * (k - 1.5) / 1.5) - Vector((0, 0, 0.35))).normalized(); b0 = fc + fd * 0.03 + side * (0.016 * (k - 1.5))
+            fw = Vector((fd.x, fd.y, 0)).normalized() if fd.xy.length > 0.2 else Vector((0, -1, 0))   # along the ground: the hands are planted
+            cd = (fw + side * (0.45 * (k - 1.5) / 1.5) - Vector((0, 0, 0.15))).normalized(); b0 = fc + fd * 0.03 + side * (0.016 * (k - 1.5))
             bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.018, radius2=0.0, depth=0.16, location=tuple(b0 + cd * 0.07), rotation=cd.to_track_quat('Z', 'Y').to_euler())
             add(bpy.context.object, "claw"); CLAWS.append((b0, cd))   # long and thick enough to read at the table
     for s, sx in (("L", 1), ("R", -1)):   # three on each foot
@@ -7807,10 +7808,14 @@ def assault_beast():
     def warp(name, p):   # after painting: the helm shrunk about the neck; the arms drawn out long, the claws and plates with them
         if name == "Helmet": return H0 + (p - H0) * HK
         if name not in ("Body", "Chest"): return p
-        s, al, ad = psx_arm(p)
+        q0 = p
+        if name == "Chest":   # a claw moves whole, by its base's stretch (its tip may lie nearer the other arm)
+            for b0, cd in CLAWS[:8]:
+                if segd(p, b0, b0 + cd * 0.16)[0] < 0.03: q0 = b0; break
+        s, al, ad = psx_arm(q0)
         if ad > 0.16 or al <= 0.0: return p
         j0, j1, j2 = AJ[s]
-        q = p + (j1 - j0).normalized() * (0.07 * min(al, 1.0)) + (j2 - j1).normalized() * (0.13 * min(max(al - 1.0, 0.0), 1.0))
+        q = p + (j1 - j0).normalized() * (0.07 * min(al, 1.0)) + (j2 - j1).normalized() * (0.19 * min(max(al - 1.0, 0.0), 1.0))
         return Vector((q.x, q.y, max(q.z, GROUND + 0.001)))   # the planted claws splay on the ground, not through it
     WARP = warp
 
