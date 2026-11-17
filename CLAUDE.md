@@ -387,6 +387,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - Done (2026-11-16): Heretic Trooper reworked on the owner's word ("do a full rework if needed") and twelve more
   references: helm with a peak and flared skirt, scarf and cape (seat colour), braces, taller plaque, thick pale leg
   wraps, a fuller body. Then, the owner: "needs to look more cool and edgy": a saw-backed blade raised and a drum
-  pistol levelled (no rifle), near-black uniform, red-lit lenses, a spiked pauldron, a longer torn cape. Catalog
-  height 1.54" with the raised blade (was 1.15"; the body's scale is unchanged), test row 2,400 (was 2,000), 2,308
-  triangles.
+  pistol levelled (no rifle), near-black uniform, red-lit lenses, a spiked pauldron, a longer torn cape. Then, the
+  owner: a black-coated shock trooper with burning eyes, "but WW1": a long black greatcoat, amber lenses, a blackened
+  helm, hunched over the rifle in both hands again, the blade at the hip, no pistol. Catalog height 1.14" (was 1.15"),
+  test row 2,800 (was 2,000), 2,721 triangles.
