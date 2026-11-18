@@ -8190,13 +8190,13 @@ def night_commando():
     hd = [human_.matrix_world @ v.co - fb["mid"] for v in human_.data.vertices if (human_.matrix_world @ v.co - fb["mid"]).length < 0.16]
     hw = max([abs(q.dot(fb["ax"])) for q in hd] or [0.08]); hdp = max([abs(q.dot(fb["fwd"])) for q in hd] or [0.1])
     RX, RF = (hw + 0.02) * 1.12, (hdp * 0.62 + 0.02) * 1.1   # large, as the references'
-    rings = [(-0.12, 0.92, 0.95, 0.0), (-0.05, 1.0, 1.0, 0.0), (0.04, 1.02, 1.06, -0.02), (0.11, 0.95, 1.16, -0.05), (0.17, 0.8, 1.2, -0.09), (0.21, 0.55, 1.05, -0.13)]   # up, across, front-back, set back
+    rings = [(-0.12, 0.92, 0.95, 0.0), (-0.05, 1.0, 1.0, 0.0), (0.03, 1.02, 1.04, -0.01), (0.085, 0.96, 1.06, -0.025), (0.13, 0.8, 0.98, -0.045), (0.158, 0.5, 0.72, -0.06)]   # a rounded dome, a little swept back (the owner: "why is the head so long", "shorten it")   # up, across, front-back, set back
     n_ = 12; hv = []
     for u_, kx, kf, bk in rings:
         for k in range(n_):
             th = 2 * math.pi * k / n_
             hv.append(hc + fb["ax"] * (RX * kx * math.sin(th)) + fb["fwd"] * (RF * kf * math.cos(th) + bk) + fb["up"] * u_)
-    hv.append(hc + fb["up"] * 0.23 - fb["fwd"] * 0.19)   # the crown's tip, far back
+    hv.append(hc + fb["up"] * 0.168 - fb["fwd"] * 0.07)
     nR = len(rings)
     hf = [(j * n_ + k, j * n_ + (k + 1) % n_, (j + 1) * n_ + (k + 1) % n_, (j + 1) * n_ + k) for j in range(nR - 1) for k in range(n_)]
     hf += [((nR - 1) * n_ + k, (nR - 1) * n_ + (k + 1) % n_, nR * n_) for k in range(n_)]
@@ -8216,9 +8216,7 @@ def night_commando():
         f_ = front(u_) + 0.004; bar(hc + fb["ax"] * -0.048 + fb["up"] * u_ + fb["fwd"] * (f_ - 0.01), hc + fb["ax"] * 0.048 + fb["up"] * u_ + fb["fwd"] * (f_ - 0.01), 0.006, "grille", sides=4)
     for o in [o for o in MODULES["Body"] if o is not human_ and o.data.materials and o.data.materials[0].name.startswith("hood")]:
         MODULES["Body"].remove(o); bpy.data.objects.remove(o)   # no head under the helm
-    # ---- the seat-colour neck curtain, hung from the helm's back ----
-    HB = hc - fb["fwd"] * (RF * 1.05 + 0.02)   # the back of the helm, over the nape (the head is thrust out: lower would be the throat)
-    cloth_panel([HB + fb["ax"] * 0.085, HB - fb["ax"] * 0.085], 0.22, "accent", out=BN, extra=(ho,), cols=4, rows=4, ragged=0.05, rnd=rnd, tris=36, bend=1.0)
+    HB = hc - fb["fwd"] * (RF * 1.05 + 0.02)   # the back of the helm, where the hoses go in
     # ---- the back plate, the canisters, the needles, the hoses ----
     module("Back")
     BK = surf(NECK.lerp(HIPS, 0.3) + BN * 0.5, -BN) or NECK.lerp(HIPS, 0.3) + BN * 0.12
@@ -8331,7 +8329,7 @@ def night_commando():
                 if u < -0.03:
                     b_ = blood(p, 0.2)
                     if b_ is not None: return b_
-            if abs(a) < 0.008 and u > 0.05: return lit(C["bronzel"], n, ao, metal=True, p=p)   # the ridge
+            if abs(a) < 0.008 and u > 0.04: return lit(C["bronzel"], n, ao, metal=True, p=p)   # the ridge
             th = (math.atan2(a, f) * 8 / (2 * math.pi)) % 1.0
             if f < 0.02 and min(th, 1 - th) < 0.03: return C["ink"]   # seams round the sides and back
             if f < 0.02 and min(th, 1 - th) < 0.07 and (u * 40) % 1.0 < 0.3: return C["metall"]   # their rivets
