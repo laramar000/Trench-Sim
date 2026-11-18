@@ -431,3 +431,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-17: Wretched built (`wretched()`, `units/wretched.glb`, catalog height 1.11", test row 2,900, 25 figures now), the
   owner's choice, on their references for mood only. Approved by the owner ("Yes, next figure", 2026-11-17). Still to
   build for the Heretics: Night Commando, Chorister, Bombard Witch, Barbed Wire Banshee (owner picks; references needed).
+- 2026-11-17: Night Commando built (`night_commando()`, `units/night-commando.glb`, class B 32 mm, catalog height 1.05",
+  test row 3,100, 26 figures now), the owner's choice, on their references for mood only. Shown to the owner for review.
+  Still to build for the Heretics: Chorister, Bombard Witch, Barbed Wire Banshee.
