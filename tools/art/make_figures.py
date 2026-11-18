@@ -8144,15 +8144,46 @@ def night_commando():
         for j in range(3):
             fr_ = psx_shell(h_ + d_ * (0.05 + L_ * 0.26 * j), d_, 0.1 - 0.008 * j, L_ * 0.3, "bronze", ang=95, rows=1, taper=0.95, n=7)[1]
             SHELLS.append(fr_); TASSET.append(fr_)
-    # ---- the pauldrons (Chest), two round bosses on each ----
+    # ---- the pauldrons (Chest): a domed cap over each shoulder, fitted to it by ray casting, two lames down the arm, a boss ----
+    # (the owner, 2026-11-17: "pauldrons look bad"; arm_plates' plates, drawn out along the shoulder line, stood off the
+    # shoulder as flat slabs on these hanging arms)
     module("Chest")
-    PLS = arm_plates("L", ["bronze"], room=0.025, scale=1.35) + arm_plates("R", ["bronze"], room=0.025, scale=1.35)
-    BOSS = []
-    for pl in (PLS[0], PLS[3]):
-        for t_, a_ in ((0.3, -30), (0.3, 30)):
-            at_, u_ = plate_point(pl, t_, a_, 0.006); BOSS.append(at_)
-            bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.028, depth=0.016, location=tuple(at_))
-            o_ = bpy.context.object; o_.rotation_mode = 'QUATERNION'; o_.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(u_); add(o_, "bronze")
+    DOMES, BOSS = [], []
+    TH = (0, 16, 32, 48, 62, 76); NPH = 12
+    def fit(c_, u_, room_, near=0.2):   # how far out along u_ from c_ the body reaches, plus room_ (near: rays from inside this)
+        ok_, at_, *_ = human_.ray_cast(c_ + u_ * near, -u_)
+        d_ = (at_ - c_).dot(u_) if ok_ else 0.0
+        return max(d_, 0.03) + room_
+    for s, sx in (("L", 1), ("R", -1)):
+        j0, j1 = JOINTS[f"upperarm01.{s}"], JOINTS[f"lowerarm01.{s}"]; ad = (j1 - j0).normalized()
+        pole = (Vector((sx * 0.55, 0, 0.8)) + ad * 0.3).normalized(); c_ = j0 - pole * 0.015 + Vector((-sx * 0.02, 0, 0))
+        e1 = pole.cross(Vector((0, 1, 0))).normalized(); e2 = pole.cross(e1).normalized()
+        dirs = [[(pole * math.cos(math.radians(th)) + (e1 * math.cos(2 * math.pi * k / NPH) + e2 * math.sin(2 * math.pi * k / NPH)) * math.sin(math.radians(th)))
+                 for k in range(NPH)] for th in TH[1:]]
+        raw = [[fit(c_, u, 0.018) for u in ring] for ring in dirs]
+        rad = [r[:] for r in raw]
+        for _ in range(3):   # smoothed round each ring and down the rings, never inside the body
+            rad = [[max(raw[j][k], 0.5 * rad[j][k] + 0.25 * (rad[j][k - 1] + rad[j][(k + 1) % NPH])) for k in range(NPH)] for j in range(len(rad))]
+            rad = [[max(raw[j][k], 0.6 * rad[j][k] + 0.4 * rad[max(j - 1, 0)][k]) for k in range(NPH)] for j in range(len(rad))]
+        r0 = max(fit(c_, pole, 0.018), max(rad[0]))
+        vs = [tuple(c_ + pole * r0)] + [tuple(c_ + dirs[j][k] * rad[j][k]) for j in range(len(dirs)) for k in range(NPH)]
+        fs = [(0, 1 + k, 1 + (k + 1) % NPH) for k in range(NPH)]
+        fs += [(1 + j * NPH + k, 1 + (j + 1) * NPH + k, 1 + (j + 1) * NPH + (k + 1) % NPH, 1 + j * NPH + (k + 1) % NPH) for j in range(len(dirs) - 1) for k in range(NPH)]
+        me = bpy.data.meshes.new("dome"); me.from_pydata(vs, [], fs); me.validate()
+        bm = _bm.new(); bm.from_mesh(me); _bm.ops.recalc_face_normals(bm, faces=bm.faces)
+        if bm.faces[0].normal.dot(bm.faces[0].calc_center_median() - c_) < 0: _bm.ops.reverse_faces(bm, faces=bm.faces)
+        bm.to_mesh(me); bm.free()
+        for p_ in me.polygons: p_.use_smooth = True
+        o_ = bpy.data.objects.new("dome", me); scn.collection.objects.link(o_); sm = o_.modifiers.new("sol", "SOLIDIFY"); sm.thickness = 0.012; sm.offset = 1.0; add(o_, "bronze")
+        DOMES.append((c_, pole))
+        b_ = c_ + pole * (r0 + 0.004); BOSS.append(b_)   # the boss on its crown
+        bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.026, depth=0.016, location=tuple(b_))
+        o_ = bpy.context.object; o_.rotation_mode = 'QUATERNION'; o_.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(pole); add(o_, "bronze")
+        L_ = (j1 - j0).length; sd = ad.cross(Vector((0, 0, 1))).normalized(); up = sd.cross(ad).normalized()
+        for t0, ln in ((0.2, 0.24), (0.4, 0.24)):   # two lames down the outside of the upper arm, tucked under the cap and each other
+            a0 = j0 + ad * (L_ * t0)
+            r_ = max(fit(a0 + ad * (L_ * ln * 0.5), sd * math.sin(math.radians(a)) + up * math.cos(math.radians(a)), 0.016, 0.3) for a in (-80, -40, 0, 40, 80))
+            SHELLS.append(psx_shell(a0, ad, r_ + (0.006 if t0 < 0.3 else 0.0), L_ * ln, "bronze", ang=100, rows=1, taper=0.97, n=7)[1])
     # ---- the helm: closed, sweeping far back over the skull, in the head's own frame ----
     module("Helmet")
     fb = FACE_BOX; hc = fb["mid"] + fb["up"] * 0.01
@@ -8193,8 +8224,14 @@ def night_commando():
     BK = surf(NECK.lerp(HIPS, 0.3) + BN * 0.5, -BN) or NECK.lerp(HIPS, 0.3) + BN * 0.12
     PK = BK + BN * 0.035
     pk = box(tuple(PK), (0.17, 0.05, 0.2), "bronze"); pk.rotation_mode = 'QUATERNION'; pk.rotation_quaternion = Matrix((XX, BN, TU)).transposed().to_quaternion()
-    PB = PK - TU * 0.1 + BN * 0.01   # a torn seat-colour cloth from under the back plate over the hunched back (it faces up: read from above)
-    cloth_panel([PB + XX * 0.085, PB - XX * 0.085], 0.24, "accent", out=BN, extra=(pk,), cols=4, rows=5, ragged=0.06, rnd=rnd, tris=44, bend=1.0)
+    PB = (surf(PK - TU * 0.08 + BN * 0.3, -BN) or PK - TU * 0.08) + BN * 0.012   # a torn seat-colour cloth pinned on the back under the back plate, lying over the hunched back (it faces up: read from above)
+    cv = []   # laid on the back, not hung: each row cast onto the body down the torso (a hung cloth stood off the hunched back)
+    for j in range(6):
+        for i in range(5):
+            q_ = PB + XX * (0.085 - 0.0425 * i) * (1 - 0.15 * j / 5) - TU * (0.24 * j / 5 + (rnd.uniform(0.0, 0.05) if j == 5 else 0.0))
+            cv.append(tuple(surf(q_ + BN * 0.3, -BN, 0.012) or q_))   # 0.012 off the back
+    me = bpy.data.meshes.new("backcloth"); me.from_pydata(cv, [], [(j * 5 + i, (j + 1) * 5 + i, (j + 1) * 5 + i + 1, j * 5 + i + 1) for j in range(5) for i in range(4)])   # facing out
+    bc = bpy.data.objects.new("backcloth", me); scn.collection.objects.link(bc); bc.modifiers.new("sol", "SOLIDIFY").thickness = 0.008; add(bc, "accentcloth")   # grown in toward the back
     CAN, NEEDLES = [], []
     for sx in (-1, 1):   # two canisters raked up and back over the shoulders
         c0 = PK + BN * 0.045 + XX * (0.055 * sx) + TU * 0.03; cd = (TU * 0.75 + BN * 0.5 + XX * (0.12 * sx)).normalized()
@@ -8306,7 +8343,13 @@ def night_commando():
             if any((p - b_).length < 0.032 for b_ in BOSS):   # a boss: a bright rim, a dark centre
                 d_ = min((p - b_).length for b_ in BOSS)
                 return C["ink"] if d_ < 0.007 else (lit(C["bronzel"], n, ao, metal=True, p=p) if d_ > 0.021 else bronze(n, ao, p, 0.7))
-            r_ = plate_rim(p, PLS) if plate_at(p, PLS)[4] < 0.02 else rim(SHELLS, p)
+            dc, dp = min(DOMES, key=lambda d: (p - d[0]).length); q = p - dc
+            if q.length < 0.2 and n.dot(q.normalized()) > 0.2:   # a shoulder cap: a rolled rim round its edge, a ring of rivets
+                th = math.degrees(q.angle(dp)) if q.length > 1e-6 else 0.0
+                e1 = dp.cross(Vector((0, 1, 0))).normalized(); ph = math.atan2(q.dot(dp.cross(e1)), q.dot(e1))
+                r_ = ("ink" if th > 74 else "edge") if th > 69 else ("rivet" if abs(th - 56) < 2.5 and (ph * 12 / (2 * math.pi)) % 1.0 < 0.25 else None)
+                if r_ is None and abs(th - 30) < 1.5: r_ = "ink"   # a raised band round the crown
+            else: r_ = rim(SHELLS, p, 100)
             if r_ is not None: return C["ink"] if r_ == "ink" else (lit(C["bronzel"], n, ao, metal=True, p=p) if r_ == "edge" else C["metall"])
             if (p - PK).length < 0.16:   # the back plate: a riveted border
                 q = p - PK

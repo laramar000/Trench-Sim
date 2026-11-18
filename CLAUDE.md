@@ -432,7 +432,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   owner's choice, on their references for mood only. Approved by the owner ("Yes, next figure", 2026-11-17). Still to
   build for the Heretics: Night Commando, Chorister, Bombard Witch, Barbed Wire Banshee (owner picks; references needed).
 - 2026-11-17: Night Commando built (`night_commando()`, `units/night-commando.glb`, class B 32 mm, catalog height 1.4",
-  test row 3,400, 26 figures now), the owner's choice, on their references. Reworked on the owner's word ("no eyes much
+  test row 3,700, 26 figures now), the owner's choice, on their references. Reworked on the owner's word ("no eyes much
   bulkier and taller. get as close to references as possible"): eyeless helm, bulkier body, tall stance, thigh lames, long
-  mail skirt, larger pauldrons (the miniature's own sculpt not copied). Shown to the owner for review.
+  mail skirt, larger pauldrons (the miniature's own sculpt not copied). Then (the owner: "pauldrons look bad . remember to
+  always do a quality check on the clothing being flush and fitting naturally on all models"): domed shoulder caps fitted
+  by ray casting, the back cloth laid on the back. Standing rule: before showing any figure, check every piece of kit sits
+  flush (floats check plus close renders of shoulders, waist and back from front, side, back). Shown to the owner for review.
   Still to build for the Heretics: Chorister, Bombard Witch, Barbed Wire Banshee.
