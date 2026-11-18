@@ -7898,6 +7898,192 @@ def assault_beast():
         return r if r is not None else lit(C.get(base, C["cloth"]), n, ao, p=p)
     PAINT = paint
 
+def wretched():
+    # Wretched (2026-11-17, Heretic line troop, class A, 25 mm): on the owner's references (scourged penitent slaves in
+    # chains and rusted iron), the mood only; the helm, harness and pose are this project's own, not a copy of any
+    # miniature or artwork. Painted PSX look. A gaunt, pale body, flayed and scourged, blood run down from the lash marks
+    # (Body); a tall closed bucket helm of rust iron, flat-topped, a ridge down its face and a cross of breathing holes,
+    # no face and no head under it (Helmet); chains wound crosswise over the bare torso and round the waist, padlocked at
+    # the breastbone (Chest); rust bracers and greaves strapped on (Chest, Hip); a short sackcloth apron with an iron
+    # plate on it and two chains hanging (Robe, Hip); bare feet; a seat-colour rag knotted over the left shoulder, seen
+    # from above (Accent). Lurching forward, a nail-studded club held low in the right hand, the left clawing (Weapon).
+    global BODY_BUDGET, TEX_SIZES, PAINT, TWIST, LOOK
+    BODY_BUDGET = 1000; TWIST, LOOK = 10, 0
+    TEX_SIZES = {"Body": 1024, "Robe": 512, "Helmet": 512, "Chest": 512, "Hip": 512, "Weapon": 512}
+    from mathutils import noise as _nz
+    import bmesh as _bm
+    import random as _random
+    for k_, c_ in (("flesh", "b49484"), ("bucket", "5e3018"), ("chain", "3a3a3c"), ("lock", "3a3a3c"), ("bracer", "5e3018"), ("sack", "6a5c46"),
+                   ("apronplate", "5e3018"), ("nail", "55555a")):
+        M.setdefault(k_, mat(k_, c_, 0.3, 18))   # told apart when painted
+    def pose(r):
+        legs(r, L=(0.13, -0.24, 10), R=(-0.12, 0.2, 24), drop=0.05, heel={"R": 0.05})   # a lurching stride
+        human.aim(r, "spine03", P(0.0, -0.13, 1.42))                            # stooped forward
+        human.reach(r, "R", P(-0.3, 0.06, 1.08), P(-0.25, 0.12, 0.86))          # the club low and back
+        human.reach(r, "L", P(0.3, -0.18, 1.12), P(0.24, -0.38, 1.12))          # the left clawing ahead
+    hands, hp, top = human_body(pose, coat=False, head=None, mitts="flesh", shape="male-young-averagemuscle-minweight", tris=1100,
+                                dress={"foot": "flesh", "shin": "flesh", "thigh": "flesh", "torso": "flesh", "hand": "flesh"})   # bare to the skin
+    rnd = _random.Random(1666)
+    human_ = bpy.data.objects["human"]
+    def surf(o_, d_, out=0.0):   # the body's surface seen from o_ along d_, `out` off it
+        ok, at, *_ = human_.ray_cast(o_, d_.normalized())
+        return None if not ok else at - d_.normalized() * out
+    def wrap(z0, z1, a0, a1, n=10, out=0.012, sy=1.0):   # points round the torso from angle a0 at height z0 to a1 at z1 (0 = front, + = the left)
+        pts = []
+        for k in range(n + 1):
+            t = k / n; a = math.radians(a0 + (a1 - a0) * t); z = z0 + (z1 - z0) * t; u = Vector((math.sin(a), -math.cos(a) * sy, 0))
+            at = surf(Vector((0, 0, z)) + u * 0.6, -u, out)   # `out` back toward the outside
+            if at is not None and at.xy.length < 0.2: pts.append(at)   # the torso, not an arm held out
+        return pts
+    # ---- the apron: sackcloth from the waist at the front ----
+    module("Robe")
+    W0 = surf(Vector((0, -0.6, 0.98)), Vector((0, 1, 0))) or Vector((0, -0.12, 0.98))
+    apron = cloth_panel([W0 + Vector((0.1, -0.02, 0)), W0 + Vector((-0.1, -0.02, 0))], 0.34, "sack", cols=4, rows=6, ragged=0.05, rnd=rnd, tris=50, bend=1.0)
+    module("Hip")
+    ok_, AP, *_ = apron.ray_cast(Vector((0, -0.8, 0.86)), Vector((0, 1, 0)))
+    AP = (AP if ok_ else W0 + Vector((0, -0.03, -0.12))) + Vector((0, -0.014, 0))
+    box(tuple(AP), (0.11, 0.012, 0.13), "apronplate")                        # an iron plate on it
+    HANG = []
+    for sx in (-1, 1):   # two chains hanging from the waist, either side of the apron
+        h0 = surf(Vector((0.13 * sx, -0.6, 0.97)), Vector((0, 1, 0)), 0.012) or Vector((0.13 * sx, -0.1, 0.97))
+        pts = [h0, h0 + Vector((0.01 * sx, -0.02, -0.08)), h0 + Vector((0.005 * sx, -0.03, -0.18)), h0 + Vector((0.0, -0.02, -0.26))]
+        HANG.append(pts); hose(pts, 0.009, "chain", sides=4)
+    # ---- the greaves (Hip) and the bracers (Chest): curved rust plates strapped on ----
+    SHELLS = []
+    for s in ("L", "R"):
+        k_, a_ = JOINTS[f"lowerleg01.{s}"], JOINTS[f"foot.{s}"]; d_ = (a_ - k_).normalized()
+        SHELLS.append(psx_shell(k_ + d_ * 0.04 - Vector((0, 0.01, 0)), d_, 0.058, (a_ - k_).length * 0.72, "bracer", ang=110, rows=2, taper=0.85, n=7)[1])
+    module("Chest")
+    for s in ("L", "R"):
+        e_, w_ = JOINTS[f"lowerarm01.{s}"], FISTS[s][0] - FISTS[s][1] * 0.05; d_ = (w_ - e_).normalized()
+        SHELLS.append(psx_shell(e_ + d_ * 0.05, d_, 0.045, (w_ - e_).length * 0.72, "bracer", ang=120, rows=2, taper=0.9, n=7)[1])
+    # ---- the chains round the torso, the padlock ----
+    CHAINS = []
+    for pts in (wrap(1.4, 1.02, 40, 400, n=10), wrap(1.4, 1.02, -40, -400, n=10), wrap(1.0, 1.0, 0, 360, n=9, out=0.014)):   # crosswise, twice, and round the waist
+        if len(pts) > 3: CHAINS.append(pts); hose(pts, 0.015, "chain", sides=3)
+    LK = surf(Vector((0, -0.6, 1.24)), Vector((0, 1, 0)), 0.03) or Vector((0, -0.14, 1.24))   # the padlock at the breastbone
+    box(tuple(LK), (0.05, 0.022, 0.045), "lock")
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.016, minor_radius=0.005, major_segments=8, minor_segments=3, location=tuple(LK + Vector((0, 0, 0.03))), rotation=(math.pi / 2, 0, 0))
+    add(bpy.context.object, "lock")
+    # ---- the rag in the seat colour, knotted over the left shoulder ----
+    SHL = JOINTS["upperarm01.L"]
+    ta = surf(Vector((0.06, 0.0, 1.8)), Vector((0, 0, -1)), 0.012) or Vector((0.06, 0.0, NECK.z))       # along the top of the left shoulder, neck to arm
+    tb = surf(Vector((SHL.x + 0.03, 0.0, 1.8)), Vector((0, 0, -1)), 0.012) or SHL + Vector((0.03, 0, 0.05))
+    cloth_panel([ta + Vector((0, 0.02, 0)), tb + Vector((0, 0.02, 0))], 0.22, "accent", out=Vector((0, 0.8, 0.6)).normalized(), cols=4, rows=4, ragged=0.07, rnd=rnd, tris=36, bend=1.0)   # hung down the back
+    # ---- the helm: a tall closed bucket over the head, in the head's own frame ----
+    module("Helmet")
+    fb = FACE_BOX; hc = fb["mid"] + fb["up"] * 0.01
+    hd = [human_.matrix_world @ v.co - fb["mid"] for v in human_.data.vertices if (human_.matrix_world @ v.co - fb["mid"]).length < 0.16]
+    hw = max([abs(q.dot(fb["ax"])) for q in hd] or [0.08]); hdp = max([abs(q.dot(fb["fwd"])) for q in hd] or [0.1])
+    n_ = 12; rings = [(-0.24, 1.12), (-0.06, 1.04), (0.08, 1.0), (0.13, 0.92)]   # height above the eyes, size: down over the neck onto the shoulders
+    hv = []
+    for u_, k_ in rings:
+        for k in range(n_):
+            th = 2 * math.pi * k / n_
+            hv.append(hc + fb["ax"] * ((hw + 0.02) * k_ * math.sin(th)) + fb["fwd"] * ((hdp * 0.62 + 0.02) * k_ * math.cos(th)) + fb["up"] * u_)
+    hv.append(hc + fb["up"] * 0.135)
+    hf = [(j * n_ + k, j * n_ + (k + 1) % n_, (j + 1) * n_ + (k + 1) % n_, (j + 1) * n_ + k) for j in range(3) for k in range(n_)]
+    hf += [(3 * n_ + k, 3 * n_ + (k + 1) % n_, 4 * n_) for k in range(n_)]
+    me = bpy.data.meshes.new("bucket"); me.from_pydata([tuple(v) for v in hv], [], hf); me.validate()
+    bm = _bm.new(); bm.from_mesh(me); _bm.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(me); bm.free(); me.update()
+    bo = bpy.data.objects.new("bucket", me); scn.collection.objects.link(bo); bo.modifiers.new("sol", "SOLIDIFY").thickness = 0.01; add(bo, "bucket")
+    HF = hc + fb["fwd"] * (hdp * 0.62 + 0.022)   # the helm's face
+    nr = box(tuple(HF + fb["fwd"] * 0.006 - fb["up"] * 0.06), (0.016, 0.014, 0.28), "bucket")   # the ridge down its face
+    nr.rotation_mode = 'QUATERNION'; nr.rotation_quaternion = Matrix((fb["ax"], fb["fwd"], fb["up"])).transposed().to_quaternion()
+    for o in [o for o in MODULES["Body"] if o is not human_ and o.data.materials and o.data.materials[0].name.startswith("hood")]:
+        MODULES["Body"].remove(o); bpy.data.objects.remove(o)   # no head under the helm
+    # ---- the club, held low in the right fist ----
+    module("Weapon")
+    fc, fd = FISTS["R"]; cdir = (fd * 0.3 + Vector((0.05, 0.5, -0.45))).normalized()
+    c0, c1 = fc - cdir * 0.08, fc + cdir * 0.5
+    bar(c0, fc + cdir * 0.28, 0.018, "wood", sides=6); bar(fc + cdir * 0.28, c1, 0.032, "wood", sides=6)   # the haft, thickening to the head
+    side = cdir.cross(Vector((0, 0, 1))).normalized(); up2 = side.cross(cdir).normalized(); NAILS = []
+    for k in range(10):   # nails driven through the head
+        t = 0.32 + 0.016 * k; a = k * 2.4; u = side * math.cos(a) + up2 * math.sin(a); b0 = fc + cdir * t + u * 0.03; NAILS.append(b0)
+        bpy.ops.mesh.primitive_cone_add(vertices=3, radius1=0.006, radius2=0.0, depth=0.04, location=tuple(b0 + u * 0.016), rotation=u.to_track_quat('Z', 'Y').to_euler())
+        add(bpy.context.object, "nail")
+    module("Body")
+
+    # ---- the paint ----
+    C = psx_palette(**{**WW1, **KIT, **dict(flesh="b49484", fleshd="7e5e54", fleshl="d0b4a4", scar="7a3a30", helm="5e3018", helmd="3a1c0e",
+                    helml="7c4426", sack="6a5c46", sackd="45391f", sackl="85765a", collar="3a3a3c", collarl="62625e")})
+    def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
+    def rusty(n, ao, p, k_=0.6):   # rust iron, chipped, dark runs
+        if _nz.noise(p * 55) > k_: return lit(C["metal"], n, ao, metal=True, p=p)
+        if _nz.noise(Vector((p.x * 36, p.y * 36, p.z * 6))) > 0.45: return lit(C["helmd"], n, ao, p=p)
+        return lit(C["helml"] if n.dot(PSX_LIGHT) > 0.6 else C["helm"], n, ao, p=p)
+    def blood(p, k=0.0):   # blood run down in streaks
+        if _nz.noise(Vector((p.x * 24, p.y * 24, p.z * 5)) + Vector((2, 9, 4))) > 0.5 - k: return C["blood"] if _nz.noise(p * 70) > 0 else C["bloodd"]
+        return None
+    def links(p, pts):   # a chain's links along a run of points: dark gaps, worn bright tops
+        i_ = min(range(len(pts) - 1), key=lambda k: segd(p, pts[k], pts[k + 1])[0]); d, t = segd(p, pts[i_], pts[i_ + 1])
+        L_ = (i_ + t) * (pts[i_ + 1] - pts[i_]).length
+        return d, (L_ * 42) % 1.0
+    def paint(m, p, n, ao, tx, ty):
+        base = m.split(".")[0]; x, y, z = p.x, p.y, p.z; s_ = n.dot(PSX_LIGHT)
+        if base == "flesh":   # the bare body: pale, flayed, lash marks across the back and chest, blood run from them
+            if z < 0.07 + GROUND and _nz.noise(p * 40) > -0.2: return lit(C["mud"], n, ao, p=p)   # bare feet in mud
+            lash = y > 0.02 and 0.95 < z < 1.45 and abs(((z + x * 0.6 + 0.02 * _nz.noise(p * 12)) * 22) % 1.0 - 0.5) < 0.05 and _nz.noise(p * 9 + Vector((5, 5, 5))) > -0.1   # the back, scourged
+            if lash: return C["scar"] if _nz.noise(p * 30) > -0.3 else C["bloodd"]
+            b_ = blood(p, 0.08 if 0.9 < z < 1.5 else -0.1)
+            if b_ is not None: return b_
+            if _nz.noise(p * 7 + Vector((3, 1, 2))) > 0.48: return lit(C["fleshd"].lerp(C["scar"], 0.4), n, ao, p=p)   # bruises
+            return lit(C["fleshl"] if s_ > 0.62 else (C["flesh"] if s_ > -0.1 else C["fleshd"]), n, ao, grime=0.2, p=p)
+        if base == "bucket":   # the helm: rust, a riveted band round the rim, a cross of breathing holes, blood down it
+            q = p - hc; a, u, f = q.dot(fb["ax"]), q.dot(fb["up"]), q.dot(fb["fwd"])
+            if u > 0.125 and n.dot(fb["up"]) > 0.5: return rusty(n, ao, p, 0.55)
+            if abs(u + 0.225) < 0.014 or abs(u - 0.1) < 0.012:   # the bands, riveted
+                if abs(abs(u + 0.225) - 0.012) < 0.003 or abs(abs(u - 0.1) - 0.01) < 0.003: return C["ink"]
+                return C["metall"] if (math.atan2(a, f) * 12 / (2 * math.pi)) % 1.0 < 0.25 else lit(C["helmd"], n, ao, p=p)
+            if f > 0.04:
+                for ha, hu in ((0, 0.02), (-0.025, 0.0), (0.025, 0.0), (0, -0.025), (0, -0.05), (-0.05, 0.0), (0.05, 0.0)):   # the cross of holes
+                    if math.hypot(a - ha, u - hu) < 0.0075: return C["ink"]
+                if u < -0.02:
+                    b_ = blood(p, 0.15)
+                    if b_ is not None: return b_
+            return rusty(n, ao, p, 0.6)
+        if base in ("chain", "lock"):   # dark iron links, bright where worn, blood in them
+            if base == "lock":
+                if (p - LK).length < 0.03 and n.dot(Vector((0, -1, 0))) > 0.6 and abs(x - LK.x) < 0.004 and -0.012 < z - LK.z < 0.004: return C["ink"]   # the keyhole
+                return lit(C["collarl"] if s_ > 0.5 else C["collar"], n, ao, metal=True, p=p)
+            best = min((links(p, pts) for pts in CHAINS + HANG), key=lambda r: r[0])
+            if best[1] < 0.22: return C["ink"]
+            if _nz.noise(p * 50) > 0.45: return C["bloodd"]
+            return lit(C["collarl"] if s_ > 0.4 and best[1] > 0.6 else C["collar"], n, ao, metal=True, p=p)
+        if base == "bracer":   # rust plates: a dark rim, a light edge, two straps across, rivets
+            for fr_ in SHELLS:
+                t, a = fr_(p)
+                if -0.05 < t < 1.05 and abs(a) < 124:
+                    if t > 0.92 or t < 0.04 or abs(a) > 104: return C["ink"] if t > 0.97 or t < 0.015 or abs(a) > 112 else lit(C["helml"], n, ao, p=p)
+                    if min(abs(t - 0.28), abs(t - 0.72)) < 0.06: return C["ink"] if min(abs(t - 0.28), abs(t - 0.72)) > 0.045 else lit(C["leather"], n, ao, p=p)
+                    if abs(t - 0.5) < 0.05 and (a / 30) % 1.0 < 0.3: return C["metall"]
+                    break
+            b_ = blood(p, -0.1)
+            return b_ if b_ is not None else rusty(n, ao, p, 0.6)
+        if base == "apronplate":   # an iron plate: a dark rim, four rivets, a scratched arrow (the Heretic mark)
+            q = p - AP
+            if abs(q.x) > 0.048 or abs(q.z) > 0.058: return C["ink"]
+            if math.hypot(abs(q.x) - 0.038, abs(q.z) - 0.048) < 0.006: return C["metall"]
+            if (abs(q.x) < 0.004 and -0.03 < q.z < 0.03) or (-0.03 < q.z < -0.01 and abs(abs(q.x) - (q.z + 0.03)) < 0.004): return C["metall"]
+            return rusty(n, ao, p, 0.62)
+        if base == "sack":   # sackcloth: a coarse weave, a frayed hem, blood and mud low down
+            if (int(x * 180) + int(z * 180)) % 2 == 0 and _nz.noise(p * 90) > 0.2: return lit(C["sackd"], n, ao, p=p)
+            b_ = blood(p, 0.05)
+            if b_ is not None: return b_
+            return lit(C["sackl"] if s_ > 0.6 else C["sack"], n, ao, grime=0.3, p=p)
+        if base == "nail":   # iron nails, dark with blood
+            return C["bloodd"] if _nz.noise(p * 60) > 0.1 else lit(C["metall"], n, ao, metal=True, p=p)
+        if base == "wood":   # the club: dark wood, a rag grip at the fist, blood on the head
+            t = (p - fc).dot(cdir)
+            if abs(t) < 0.06: return C["ink"] if ((t + (p - fc).dot(up2) * 0.3) * 70) % 1.0 < 0.2 else lit(C["leather"], n, ao, p=p)
+            if t > 0.3:
+                b_ = blood(p, 0.25)
+                if b_ is not None: return b_
+            return psx_kit(C, base, p, n, ao)
+        r = psx_kit(C, base, p, n, ao)
+        return r if r is not None else lit(C.get(base, C["cloth"]), n, ao, p=p)
+    PAINT = paint
+
 def pilgrim():
     # Pilgrim (an original figure, not used by any unit): a tall pointed iron hood over the whole head (eye slit,
     # riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud, a rope belt with a rosary, a
@@ -7944,7 +8130,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant, "blind-marksman": blind_marksman, "trench-cleric": trench_cleric, "combat-engineer": combat_engineer, "mechanized-heavy-infantry": mechanized_heavy_infantry, "combat-medic": combat_medic, "holy-warrior": holy_warrior, "heretic-trooper": heretic_trooper, "heretic-priest": heretic_priest, "brand-sworn-heavy-infantry": brand_sworn, "assault-beast": assault_beast}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant, "blind-marksman": blind_marksman, "trench-cleric": trench_cleric, "combat-engineer": combat_engineer, "mechanized-heavy-infantry": mechanized_heavy_infantry, "combat-medic": combat_medic, "holy-warrior": holy_warrior, "heretic-trooper": heretic_trooper, "heretic-priest": heretic_priest, "brand-sworn-heavy-infantry": brand_sworn, "assault-beast": assault_beast, "wretched": wretched}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o

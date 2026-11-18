@@ -427,6 +427,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-17: Assault Beast built (`assault_beast()`, `units/assault-beast.glb`, catalog height 1.25", test row 2,800, 24 figures
   now), on the owner's references for mood only (the owner asked to copy the miniature's signature look; declined, an
   original design in the same mood). Chainsaw teeth and an all-fours pose on the owner's word. Approved by the owner
-  ("Yes, next figure", 2026-11-17). Still to build for the Heretics: Night Commando,
-  Chorister, Wretched, Bombard Witch, Barbed Wire Banshee.
+  ("Yes, next figure", 2026-11-17).
+- 2026-11-17: Wretched built (`wretched()`, `units/wretched.glb`, catalog height 1.11", test row 2,900, 25 figures now), the
+  owner's choice, on their references for mood only. Shown to the owner for review. Still to build for the Heretics: Night
+  Commando, Chorister, Bombard Witch, Barbed Wire Banshee.
   Next Heretic recommended: Assault Beast (references needed from the owner).
