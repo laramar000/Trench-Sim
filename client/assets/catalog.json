@@ -31,6 +31,7 @@
     "unit:Assault Beast": { "file": "units/assault-beast.glb", "height": 1.25 },
     "unit:Wretched": { "file": "units/wretched.glb", "height": 1.11 },
     "unit:Night Commando": { "file": "units/night-commando.glb", "height": 1.4 },
+    "unit:Chorister": { "file": "units/chorister.glb", "height": 1.24 },
     "ground": "ground/mud.png",
     "terrain:Low": "terrain/rubble.png",
     "terrain:Cover": "terrain/burlap.png",

@@ -8386,6 +8386,250 @@ def night_commando():
         return r if r is not None else lit(C.get(base, C["cloth"]), n, ao, p=p)
     PAINT = paint
 
+def chorister():
+    # Chorister (2026-11-17, Heretic elite, class B, 32 mm): on the owner's references (a headless cantor in a dark cassock,
+    # a blood sigil rising from the neck, a severed head held out), the mood only; the sigil, the kit and the pose are this
+    # project's own, not a copy of any miniature or artwork. Painted PSX look. Headless: the neck a raw stump, and out of it
+    # a branching sigil of blood, curling tendrils, faintly lit (Helmet); a long dark cassock to the ground, torn and
+    # muddied at the hem (Robe, painted on above the waist); bandaged arms and hands (Body); a short shoulder cape in the
+    # seat colour (Accent); an inverted cross on a cord over it (Chest); a rope belt hung with brass discs and a noose
+    # (Hip); the left arm held out to the side, a severed head hanging from its fist by the hair, blood running from it
+    # (Weapon2); a bloody knife held low in the right (Weapon).
+    global BODY_BUDGET, TEX_SIZES, PAINT, TWIST, LOOK
+    BODY_BUDGET = 1000; TWIST, LOOK = 6, 0
+    TEX_SIZES = {"Body": 1024, "Robe": 1024, "Helmet": 512, "Chest": 512, "Hip": 512, "Weapon": 256, "Weapon2": 512}
+    from mathutils import noise as _nz
+    import random as _random
+    for k_, c_ in (("cassock", "2a2c30"), ("wrap", "b8ab8a"), ("sigil", "a0140c"), ("hair", "2a2018"), ("gore", "6a0c08"), ("trophy", "b49a84"),
+                   ("disc", "8a6a2a"), ("rope", "8a7450"), ("blade", "55555a"), ("brasscross", "8a6a2a")):
+        M.setdefault(k_, mat(k_, c_, 0.3, 18))   # told apart when painted
+    def pose(r):
+        legs(r, L=(0.12, -0.12, 10), R=(-0.12, 0.12, 22), heel={"R": 0.03})   # standing, half a step
+        human.aim(r, "spine03", P(0.0, -0.05, 1.45))                           # a slight stoop
+        human.reach(r, "L", P(0.38, -0.02, 1.3), P(0.6, -0.08, 1.24))          # the left arm held out to the side, the head hanging from it
+        human.reach(r, "R", P(-0.24, 0.0, 1.12), P(-0.27, -0.12, 0.93))        # the knife held low
+    hands, hp, top = human_body(pose, coat=False, head=None, mitts="wrap", shape="male-young-averagemuscle-minweight", tris=1000,
+                                dress={"foot": "cassock", "shin": "cassock", "thigh": "cassock", "torso": "cassock", "hand": "wrap"})
+    rnd = _random.Random(1789)
+    human_ = bpy.data.objects["human"]
+    for v in human_.data.vertices:   # a wool cassock's fullness over the chest and waist, so its skirt starts flush (no ledge)
+        sd_, al_, ad_ = psx_arm(v.co)
+        if not (ad_ < 0.09 and al_ > 0.1) and 0.85 < v.co.z < NECK.z - 0.04: v.co += v.normal * (0.022 * sstep((v.co.z - 0.85) / 0.12))
+    human_.data.update(); bpy.context.view_layer.update()
+    toeless_feet("cassock")
+    human_.data.update(); bpy.context.view_layer.update()
+    for o in [o for o in MODULES["Body"] if o is not human_ and o.data.materials and o.data.materials[0].name.startswith("hood")]:
+        MODULES["Body"].remove(o); bpy.data.objects.remove(o)   # no head
+    def tube(pts, r0, r1, m, sides=3, sub=2):   # a light tapered tube through pts (Catmull-Rom), its rings carried along it
+        import bmesh as _bm
+        pts = [Vector(q) for q in pts]; sm = []
+        for i in range(len(pts) - 1):
+            p0, p1, p2, p3 = pts[max(i - 1, 0)], pts[i], pts[i + 1], pts[min(i + 2, len(pts) - 1)]
+            for k in range(sub):
+                t = k / sub; sm.append(0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t))
+        sm.append(pts[-1]); n_ = len(sm); vs = []
+        d0 = (sm[1] - sm[0]).normalized(); nn = d0.orthogonal().normalized()
+        for i, q in enumerate(sm):
+            d = (sm[min(i + 1, n_ - 1)] - sm[max(i - 1, 0)]).normalized(); nn = (nn - d * nn.dot(d)).normalized(); bn = d.cross(nn)
+            r = r0 + (r1 - r0) * i / (n_ - 1)
+            vs += [tuple(q + (nn * math.cos(2 * math.pi * k / sides) + bn * math.sin(2 * math.pi * k / sides)) * r) for k in range(sides)]
+        fs = [(i * sides + k, i * sides + (k + 1) % sides, (i + 1) * sides + (k + 1) % sides, (i + 1) * sides + k) for i in range(n_ - 1) for k in range(sides)]
+        fs.append(tuple(range((n_ - 1) * sides, n_ * sides)))   # the tip closed
+        me = bpy.data.meshes.new("tube"); me.from_pydata(vs, [], fs); me.validate()
+        bm = _bm.new(); bm.from_mesh(me); _bm.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(me); bm.free()
+        o = bpy.data.objects.new("tube", me); scn.collection.objects.link(o); return add(o, m)
+    def cast(obs, o_, d_, out=0.0):   # the nearest hit on any of obs from o_ along d_, `out` back toward o_
+        best = None; d_ = d_.normalized()
+        for ob in obs:
+            ok, at, *_ = ob.ray_cast(o_, d_)
+            if ok and (best is None or (at - o_).length < (best - o_).length): best = at
+        return None if best is None else best - d_ * out
+    # ---- the cassock, to the ground, and the shoulder cape in the seat colour ----
+    module("Robe")
+    robe = cloth_cone(0, 0, 0.98, GROUND + 0.03, 0.15, 0.26, "robe", sy=0.84, ragged=0.05, rnd=rnd, tris=240, thick=0.012, rows=10)
+    hem = hem_line(robe)
+    # the shoulder cape: each vertex cast along a ray toward a point above the neck, so it lies over the shoulders and chest
+    # as one smooth sheet (a draped cone either stood off them like a lampshade or crumpled round the neck)
+    O_ = NECK + Vector((0, 0, 0.3)); NA, PH, DROP = 18, (12, 24, 36), (0.018, 0.04, 0.045, 0.045, 0.035)
+    LIFT = (0.02, 0.008, 0.0)   # sloping down from a collar at the neck (flat, it read as a box)
+    rows_ = []
+    for ph in PH:   # over the shoulders: the first surface seen from above the neck
+        row = []
+        for k in range(NA):
+            az = 2 * math.pi * k / NA
+            d_ = (Vector((math.sin(az), -math.cos(az) * 0.9, 0)) * math.sin(math.radians(ph)) - Vector((0, 0, math.cos(math.radians(ph))))).normalized()
+            at_ = cast([human_], O_, d_, 0.012); at_ = at_ if at_ is not None else O_ + d_ * 0.32
+            u = Vector((at_.x - NECK.x, at_.y - NECK.y, 0))
+            if u.length > 0.2:   # no further out than the shoulder (a ray along the raised arm ran out to the hand)
+                top_ = Vector((NECK.x, NECK.y, O_.z)) + u.normalized() * 0.2
+                at_ = cast([human_], top_, Vector((0, 0, -1)), -0.012) if cast([human_], top_, Vector((0, 0, -1))) is not None else top_ - Vector((0, 0, 0.3))
+            row.append(at_ + Vector((0, 0, LIFT[len(rows_)])))
+        rows_.append(row)
+    for jd, dz in enumerate(DROP):   # then hanging straight down from the row above, just clear of the chest, back and arms
+        row = []
+        for k, q0 in enumerate(rows_[-1]):
+            az = 2 * math.pi * k / NA
+            dz_ = (dz + (rnd.uniform(-0.012, 0.01) if jd == len(DROP) - 1 else 0.0)) * max(0.1, min(1.0, 1.7 * (1 - max(0.0, math.sin(az)))))   # short over the raised left arm: it ends on the shoulder
+            q = q0 - Vector((0, 0, dz_))
+            ax_ = Vector((NECK.x, NECK.y, q.z)); u = Vector((q.x - NECK.x, q.y - NECK.y, 0)); r_ = u.length; u.normalize()
+            h_ = cast([human_], ax_ + u * 0.6, -u)   # clear of the torso and the hanging right arm (not a limb far out)
+            if h_ is not None and (h_ - ax_).length < 0.27: r_ = max(r_, (h_ - ax_).length + 0.012)
+            row.append(ax_ + u * (r_ + (0.008 if jd == 0 else 0.0)))   # the first row a little out: a rounded shoulder edge
+        rows_.append(row)
+    cv_ = [tuple(q) for row in rows_ for q in row]; PH = rows_
+    me = bpy.data.meshes.new("cape"); me.from_pydata(cv_, [], [(j * NA + k, (j + 1) * NA + k, (j + 1) * NA + (k + 1) % NA, j * NA + (k + 1) % NA) for j in range(len(PH) - 1) for k in range(NA)])
+    import bmesh as _bm2
+    bm = _bm2.new(); bm.from_mesh(me); _bm2.ops.recalc_face_normals(bm, faces=bm.faces)
+    if bm.faces[0].normal.dot(bm.faces[0].calc_center_median() - NECK) < 0: _bm2.ops.reverse_faces(bm, faces=bm.faces)
+    bm.to_mesh(me); bm.free()
+    for p_ in me.polygons: p_.use_smooth = True
+    cape = bpy.data.objects.new("cape", me); scn.collection.objects.link(cape); cape.modifiers.new("sol", "SOLIDIFY").thickness = 0.008; add(cape, "accentcloth")   # grown in toward the body
+    # ---- the inverted cross on its cord, over the cape (Chest) ----
+    module("Chest")
+    CR = cast([cape, human_], Vector((0, -0.8, NECK.z - 0.09)), Vector((0, 1, 0)), 0.014) or Vector((0, -0.14, NECK.z - 0.09))   # wholly on the cape, above its hem
+    CRU, CRD = CR + Vector((0, 0, 0.045)), CR - Vector((0, 0.004, 0.06))   # the long arm up, the cross-bar low: inverted
+    bar(CRU, CRD, 0.009, "brasscross", sides=4); CRX = CR - Vector((0, 0.002, 0.035))
+    bar(CRX - Vector((0.032, 0, 0)), CRX + Vector((0.032, 0, 0)), 0.009, "brasscross", sides=4)
+    CORD = []
+    for sx in (-1, 1):   # its cord, from round the neck down over the cape
+        c0 = cast([cape, human_], Vector((0.05 * sx, -0.6, NECK.z + 0.005)), Vector((0, 1, 0)), 0.006) or NECK + Vector((0.05 * sx, -0.06, 0))
+        cm = cast([cape, human_], Vector((0.03 * sx, -0.6, (c0.z + CRU.z) / 2)), Vector((0, 1, 0)), 0.006) or (c0 + CRU) / 2
+        pts = [c0, cm, CRU + Vector((0.004 * sx, 0, 0.004))]; CORD.append(pts); tube(pts, 0.004, 0.004, "rope", sides=3, sub=2)
+    # ---- the rope belt, the discs, the noose (Hip): laid on the cassock ----
+    module("Hip")
+    BZ = 0.95; BELT = []
+    for k in range(17):
+        a = 2 * math.pi * k / 16; u = Vector((math.sin(a), -math.cos(a), 0))
+        BELT.append(cast([robe], Vector((0, 0, BZ)) + u * 0.6, -u, 0.01) or Vector((0, 0, BZ)) + u * 0.2)
+    tube(BELT, 0.011, 0.011, "rope", sides=4, sub=1)
+    DISCS = []
+    for a_ in (-62, -30, 18, 44, 70):   # brass discs hung on the belt, round the front and sides
+        a = math.radians(a_); u = Vector((math.sin(a), -math.cos(a), 0))
+        at_ = cast([robe], Vector((0, 0, BZ - 0.035)) + u * 0.6, -u, 0.012) or Vector((0, 0, BZ - 0.035)) + u * 0.2
+        bpy.ops.mesh.primitive_cylinder_add(vertices=6, radius=0.024, depth=0.008, location=tuple(at_))
+        o_ = bpy.context.object; o_.rotation_mode = 'QUATERNION'; o_.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(u); add(o_, "disc")
+        DISCS.append((at_, u))
+    NOOSE = []   # the noose: a rope down the cassock's front from the belt, its loop at the bottom
+    for z_ in (BZ - 0.01, BZ - 0.09, BZ - 0.17, BZ - 0.24):
+        u = Vector((0.12, -1, 0)).normalized()
+        NOOSE.append(cast([robe], Vector((0, 0, z_)) + u * 0.6, -u, 0.012) or Vector((0.02, -0.2, z_)))
+    tube(NOOSE, 0.008, 0.008, "rope", sides=3, sub=2)
+    NL = NOOSE[-1] - Vector((0, 0, 0.04)); un = (NOOSE[-1] - Vector((0, 0, NOOSE[-1].z))).normalized()
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.038, minor_radius=0.007, major_segments=8, minor_segments=3, location=tuple(NL))
+    o_ = bpy.context.object; o_.rotation_mode = 'QUATERNION'; o_.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(un); add(o_, "rope")
+    for k in range(3):   # the hangman's coils above the loop
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.012, minor_radius=0.005, major_segments=6, minor_segments=3, location=tuple(NOOSE[-1] + Vector((0, 0, 0.006 + 0.012 * k))))
+        add(bpy.context.object, "rope")
+    for o_ in [o for o in MODULES["Hip"]]:   # the noose's loop and coils lie on the cassock, not inside its flare
+        o_.location += un * 0.004
+    # ---- the sigil: branching tendrils of blood out of the neck (Helmet) ----
+    module("Helmet")
+    U, X, B = Vector((0, 0, 1)), Vector((1, 0, 0)), Vector((0, 1, 0))
+    S0 = NECK + HEAD_AXIS * 0.035
+    def S(x, b, u): return S0 + X * x + B * b + U * u
+    STRANDS = [   # (points, radius at the root, at the tip): the stem, two arms, a low bar, a curl behind
+        ([S(0, 0, -0.01), S(0.005, 0, 0.1), S(-0.008, 0, 0.2), S(0, 0, 0.29), S(0.03, 0, 0.33), S(0.055, 0, 0.31), S(0.05, 0, 0.28)], 0.02, 0.007),
+        ([S(0, 0, 0.09), S(0.07, 0, 0.12), S(0.12, 0, 0.17), S(0.125, 0, 0.24), S(0.095, 0, 0.27), S(0.08, 0, 0.25)], 0.015, 0.006),
+        ([S(0, 0, 0.14), S(-0.07, 0, 0.145), S(-0.11, 0, 0.1), S(-0.135, 0, 0.13), S(-0.13, 0, 0.21), S(-0.105, 0, 0.23)], 0.015, 0.006),
+        ([S(-0.06, 0, 0.045), S(0, 0, 0.05), S(0.065, 0, 0.042), S(0.075, 0, 0.012)], 0.012, 0.006),
+        ([S(0, 0, 0.18), S(0, 0.05, 0.21), S(0.01, 0.075, 0.26), S(-0.01, 0.06, 0.29)], 0.013, 0.005),
+    ]
+    SIG = []
+    for pts, r0, r1 in STRANDS:
+        n_ = len(pts); tube(pts, r0, r1, "sigil", sides=4, sub=2); SIG += [(pts[k], pts[k + 1]) for k in range(n_ - 1)]
+    RG = S(-0.06, 0, 0.27)   # a small ring at the right arm's tip
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.022, minor_radius=0.006, major_segments=8, minor_segments=3, location=tuple(RG), rotation=(math.pi / 2, 0, 0))
+    add(bpy.context.object, "sigil"); SIG.append((RG, RG))
+    # ---- the severed head, hanging from the left fist by its hair (Weapon2) ----
+    module("Weapon2")
+    fl, fdl = FISTS["L"]; HC = fl - Vector((0, 0, 0.17))
+    sphere(tuple(HC), 0.066, "trophy", scale=(0.92, 1.0, 1.22), seg=8, rings=6)
+    HAIR = []
+    for k in range(5):   # the hair, gathered in the fist, down to the crown
+        a = 2 * math.pi * k / 5; o2 = Vector((math.cos(a) * 0.045, math.sin(a) * 0.045, 0))
+        pts = [fl + o2 * 0.2, fl - Vector((0, 0, 0.05)) + o2 * 0.6, HC + Vector((0, 0, 0.07)) + o2 * 0.85]; HAIR.append(pts)
+        tube(pts, 0.01, 0.016, "hair", sides=3, sub=2)
+    DRIP = []
+    for k, (dx, dy, L_) in enumerate(((0.01, -0.01, 0.12), (-0.02, 0.01, 0.07))):   # blood running from its neck
+        d0 = HC + Vector((dx, dy, -0.075)); pts = [d0, d0 - Vector((0, 0, L_ * 0.5)), d0 - Vector((0, 0, L_))]; DRIP.append(pts)
+        tube(pts, 0.014, 0.005, "gore", sides=3, sub=2)
+    # ---- the knife, held low in the right fist (Weapon) ----
+    module("Weapon")
+    fr, fdr = FISTS["R"]; kd = (fdr * 0.35 + Vector((0, -0.45, -0.8))).normalized(); ks = kd.cross(Vector((0, 0, 1))).normalized(); kw = ks.cross(kd).normalized()
+    bar(fr - kd * 0.05, fr + kd * 0.035, 0.011, "wood", sides=5)
+    KB0 = fr + kd * 0.035
+    kb = box(tuple(KB0 + kd * 0.075), (0.006, 0.026, 0.15), "blade"); kb.rotation_mode = 'QUATERNION'; kb.rotation_quaternion = Matrix((ks, kw, kd)).transposed().to_quaternion()
+    bpy.ops.mesh.primitive_cone_add(vertices=4, radius1=0.018, radius2=0.0, depth=0.05, location=tuple(KB0 + kd * 0.175), rotation=kd.to_track_quat('Z', 'Y').to_euler())
+    o_ = bpy.context.object; o_.scale = (0.35, 1.0, 1.0); add(o_, "blade")
+    module("Body")
+
+    # ---- the paint ----
+    C = psx_palette(**{**WW1, **KIT, **dict(cassock="1c1d22", cassockd="0e0f12", cassockl="2e3038", wrap="a89a78", wrapd="6e624a", wrapl="cbbd98",
+                    sigil="8a100a", sigill="e0281c", stump="5a1410", trophy="a08a72", trophyd="6a5646", hair="20180f", hairl="3a2c1c",
+                    disc="7a5c22", discl="b08a3a", rope="7a6646", roped="4a3c26", blade="55555a", bladel="9a9a96")})
+    def lit(c, n, ao, metal=False, grime=0.0, p=None): return psx_lit(c, n, ao, metal, grime, p, C["mud"])
+    def blood(p, k=0.0):   # blood run down in streaks
+        if _nz.noise(Vector((p.x * 24, p.y * 24, p.z * 5)) + Vector((3, 6, 2))) > 0.52 - k: return C["blood"] if _nz.noise(p * 70) > 0 else C["bloodd"]
+        return None
+    def cloth(c, cd, cl, n, ao, p, s_):   # dark wool: weave, worn holes, grime
+        if (int(p.x * 200) + int(p.z * 200)) % 2 == 0 and _nz.noise(p * 90) > 0.3: return lit(cd, n, ao, p=p)
+        if _nz.noise(p * 14 + Vector((4, 4, 4))) > 0.62: return C["ink"]   # a moth-eaten hole
+        return lit(cl if s_ > 0.62 else (c if s_ > -0.1 else cd), n, ao, p=p)
+    def paint(m, p, n, ao, tx, ty):
+        base = m.split(".")[0]; x, y, z = p.x, p.y, p.z; s_ = n.dot(PSX_LIGHT)
+        if base in ("cassock", "wrap"):
+            sd_, al, ad = psx_arm(p)
+            if base == "wrap" or (ad < 0.075 and al > 0.12):   # bandages wound round the arms and hands: diagonal wraps, dirt, blood at the hands
+                fd_ = min((p - FISTS[s][0]).length for s in FISTS)
+                if fd_ < 0.09:
+                    b_ = blood(p, 0.3)
+                    if b_ is not None: return b_
+                t_ = (al * 7.0 + (p - JOINTS[f"upperarm01.{sd_}"]).dot(Vector((0, 1, 0))) * 6.0) % 1.0
+                if t_ < 0.12: return lit(C["wrapd"], n, ao, p=p)
+                if _nz.noise(p * 25) > 0.45: return lit(C["wrapd"].lerp(C["mud"], 0.5), n, ao, p=p)
+                return lit(C["wrapl"] if s_ > 0.6 else C["wrap"], n, ao, grime=0.2, p=p)
+            if z > NECK.z - 0.035 and (p - NECK).length < 0.09 and n.z > 0.2:   # the stump: raw, wet
+                return C["stump"] if _nz.noise(p * 60) > -0.2 else C["bloodd"]
+            b_ = blood(p, 0.1 if (z > NECK.z - 0.25 and y < 0) else -0.15)   # blood run down the front from the neck
+            return b_ if b_ is not None else cloth(C["cassock"], C["cassockd"], C["cassockl"], n, ao, p, s_)
+        if base == "robe":   # the cassock's skirt: long folds, blood thickening to the ragged hem, mud caked along it (psx_robe)
+            return psx_robe(C, "cassock", p, n, ao, hem, blood=0.3)
+        if base == "sigil":   # blood, wet and dark, lit from within along its middle (four values: glowing)
+            if _nz.noise(p * 70) > -0.15 and s_ > -0.4: return (*(C["sigill"] if _nz.noise(p * 120) > 0.2 else C["sigil"]), 1.0)
+            return C["bloodd"]
+        if base in ("trophy",):   # the head: grey-yellow skin, the eyes sunk dark, the mouth open in a scream, blood from the neck
+            q = p - HC; fw = -q.y
+            if fw > 0.04:
+                for ex in (-0.028, 0.028):
+                    if math.hypot(q.x - ex, q.z - 0.02) < 0.016: return C["ink"]
+                if abs(q.x) < 0.02 and -0.065 < q.z < -0.02: return C["ink"] if abs(q.x) < 0.014 and -0.06 < q.z < -0.026 else C["bloodd"]
+            if q.z < -0.05:
+                b_ = blood(p, 0.35)
+                if b_ is not None: return b_
+            return lit(C["trophy"] if s_ > -0.1 else C["trophyd"], n, ao, grime=0.3, p=p)
+        if base == "hair":
+            return lit(C["hairl"] if _nz.noise(Vector((x * 120, y * 120, z * 20))) > 0.2 else C["hair"], n, ao, p=p)
+        if base == "gore":
+            return C["blood"] if _nz.noise(p * 80) > -0.2 else C["bloodd"]
+        if base in ("disc", "brasscross"):   # tarnished brass: a dark ring and a cut mark on each disc, verdigris
+            if base == "disc":
+                c0, u = min(DISCS, key=lambda d: (p - d[0]).length); q = p - c0
+                if n.dot(u) > 0.6:
+                    r_ = (q - u * q.dot(u)).length
+                    if 0.016 < r_ < 0.019: return C["ink"]
+                    w_ = u.cross(Vector((0, 0, 1))).normalized()
+                    if r_ < 0.013 and (abs(q.dot(w_)) < 0.0025 or abs(q.z + 0.004) < 0.0025): return C["ink"]   # a cross cut in it
+            if _nz.noise(p * 40) > 0.5: return lit(C["verd"] if "verd" in C else C["discl"], n, ao, p=p)
+            return lit(C["discl"] if s_ > 0.55 else C["disc"], n, ao, metal=True, p=p)
+        if base == "rope":   # hemp: a twist down it
+            return lit(C["roped"], n, ao, p=p) if ((x * 0.7 + y * 0.7 + z) * 140) % 1.0 < 0.3 else lit(C["rope"], n, ao, grime=0.3, p=p)
+        if base == "blade":   # a steel blade, a bright edge, blood thick on it
+            if _nz.noise(p * 45) > -0.25: return C["blood"] if _nz.noise(p * 80) > 0 else C["bloodd"]
+            return lit(C["bladel"] if s_ > 0.3 else C["blade"], n, ao, metal=True, p=p)
+        r = psx_kit(C, base, p, n, ao)
+        return r if r is not None else lit(C.get(base, C["cloth"]), n, ao, p=p)
+    PAINT = paint
+
 def pilgrim():
     # Pilgrim (an original figure, not used by any unit): a tall pointed iron hood over the whole head (eye slit,
     # riveted rim, a cross) on a ragged sackcloth hood, a long torn robe caked in mud, a rope belt with a rosary, a
@@ -8432,7 +8676,7 @@ def pilgrim():
     bar(hl - Vector((0, 0, 0.1)), hl + Vector((0, 0, 0.3)), 0.022, "iron", sides=4)
     bar(hl + Vector((-0.12, 0, 0.17)), hl + Vector((0.12, 0, 0.17)), 0.022, "iron", sides=4)
 
-{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant, "blind-marksman": blind_marksman, "trench-cleric": trench_cleric, "combat-engineer": combat_engineer, "mechanized-heavy-infantry": mechanized_heavy_infantry, "combat-medic": combat_medic, "holy-warrior": holy_warrior, "heretic-trooper": heretic_trooper, "heretic-priest": heretic_priest, "brand-sworn-heavy-infantry": brand_sworn, "assault-beast": assault_beast, "wretched": wretched, "night-commando": night_commando}[role]()
+{"rifleman": rifleman, "skirmisher": skirmisher, "shield": shield, "standard": standard, "pilgrim": pilgrim, "trench-pilgrim": trench_pilgrim, "stigmatic-nun": stigmatic_nun, "ecclesiastic-prisoner": ecclesiastic_prisoner, "war-prophet": war_prophet, "castigator": castigator, "reliquary-walker": reliquary_walker, "sanctified-giant": sanctified_giant, "yeoman": yeoman, "shock-trooper": shock_trooper, "lieutenant": lieutenant, "blind-marksman": blind_marksman, "trench-cleric": trench_cleric, "combat-engineer": combat_engineer, "mechanized-heavy-infantry": mechanized_heavy_infantry, "combat-medic": combat_medic, "holy-warrior": holy_warrior, "heretic-trooper": heretic_trooper, "heretic-priest": heretic_priest, "brand-sworn-heavy-infantry": brand_sworn, "assault-beast": assault_beast, "wretched": wretched, "night-commando": night_commando, "chorister": chorister}[role]()
 def join(objs, name):
     for o in objs:
         bpy.context.view_layer.objects.active = o

@@ -440,4 +440,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   and its neck curtain dropped. Standing rule: before showing any figure, check every piece of kit sits
   flush (floats check plus close renders of shoulders, waist and back from front, side, back). Approved by the owner
   ("Yes, next figure", 2026-11-17).
-  Still to build for the Heretics: Chorister, Bombard Witch, Barbed Wire Banshee.
+- 2026-11-17: Chorister built (`chorister()`, `units/chorister.glb`, class B 32 mm, catalog height 1.24", test row 3,300,
+  27 figures now), the owner's choice, on their references for mood only. Shown to the owner for review. Still to build
+  for the Heretics: Bombard Witch, Barbed Wire Banshee.
