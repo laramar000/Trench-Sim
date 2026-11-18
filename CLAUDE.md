@@ -438,5 +438,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   always do a quality check on the clothing being flush and fitting naturally on all models"): domed shoulder caps fitted
   by ray casting, the back cloth laid on the back; then the helm shortened to a rounded dome ("why is the head so long")
   and its neck curtain dropped. Standing rule: before showing any figure, check every piece of kit sits
-  flush (floats check plus close renders of shoulders, waist and back from front, side, back). Shown to the owner for review.
+  flush (floats check plus close renders of shoulders, waist and back from front, side, back). Approved by the owner
+  ("Yes, next figure", 2026-11-17).
   Still to build for the Heretics: Chorister, Bombard Witch, Barbed Wire Banshee.
