@@ -8090,7 +8090,7 @@ def night_commando():
     # project's own, not a copy of any miniature or artwork. Painted PSX look. Crouched low and wide to spring, hunched
     # forward, the head thrust out, both long arms hanging ready. Bare grey arms, blood up to the elbows, clawed bare
     # feet, a bronze cuirass of lames painted on (Body); a closed bronze helm sweeping far back over the skull, riveted
-    # seams, two small red lenses and a barred grille at the mouth (Helmet); curved bronze pauldrons with round bosses
+    # seams, no eyes, a barred grille at the mouth (the owner, 2026-11-17: "no eyes") (Helmet); curved bronze pauldrons with round bosses
     # (Chest); bronze greaves (Hip); a hanging mail skirt front and back (Robe); a back plate with two glowing chemical
     # canisters, hoses up into the helm and three long needles raked back (Back); four long blade claws on each hand
     # (Weapon); a short seat-colour neck curtain hung from the helm's back, seen from above (Accent).
@@ -8104,15 +8104,21 @@ def night_commando():
                    ("mail", "4a4a4c"), ("vial", "55555a"), ("needle", "55555a"), ("blade", "3a3a3e"), ("claw", "2a2420")):
         M.setdefault(k_, mat(k_, c_, 0.3, 18))   # told apart when painted
     def pose(r):
-        legs(r, L=(0.2, -0.14, 26), R=(-0.2, 0.14, 32), drop=0.18, heel={"R": 0.05})   # crouched low and wide, ready to spring
-        human.aim(r, "spine03", P(0.0, -0.42, 1.22))                            # hunched forward
-        human.aim(r, "neck01", P(0.0, -0.46, 1.55))                          # the head thrust out
-        human.reach(r, "L", P(0.34, -0.18, 1.05), P(0.3, -0.36, 0.8))          # both arms hanging forward, ready
-        human.reach(r, "R", P(-0.34, -0.1, 1.08), P(-0.36, -0.3, 0.82))
-    hands, hp, top = human_body(pose, coat=False, head=None, mitts="skin", shape="male-young-maxmuscle-minweight", tris=1100,
+        legs(r, L=(0.17, -0.13, 20), R=(-0.17, 0.15, 28), drop=0.07, heel={"R": 0.05})   # tall, knees bent, ready to spring (the owner: "much bulkier and taller")
+        human.aim(r, "spine03", P(0.0, -0.3, 1.34))                            # hunched forward
+        human.aim(r, "neck01", P(0.0, -0.38, 1.62))                          # the head thrust out
+        human.reach(r, "L", P(0.36, -0.16, 1.1), P(0.34, -0.32, 0.8))          # both arms hanging forward, ready
+        human.reach(r, "R", P(-0.36, -0.08, 1.12), P(-0.38, -0.26, 0.82))
+    hands, hp, top = human_body(pose, coat=False, head=None, mitts="skin", shape="male-young-maxmuscle-averageweight", tris=1100,
                                 dress={"foot": "skin", "shin": "legging", "thigh": "legging", "torso": "cuirass", "hand": "skin"})
     rnd = _random.Random(1917)
     human_ = bpy.data.objects["human"]
+    for v in human_.data.vertices:   # bulk: a heavy chest and back under the cuirass, thick arms and thighs (the owner: "much bulkier")
+        sd_, al_, ad_ = psx_arm(v.co)
+        if ad_ < 0.09 and al_ > 0.15: v.co += v.normal * 0.014
+        elif v.co.z > HIPS.z + 0.05: v.co += v.normal * (0.035 * sstep((v.co.z - HIPS.z - 0.05) / 0.2))
+        elif v.co.z > GROUND + 0.35: v.co += v.normal * 0.016
+    human_.data.update(); bpy.context.view_layer.update()
     toeless_feet("skin")
     human_.data.update(); bpy.context.view_layer.update()
     def surf(o_, d_, out=0.0, ob=None):   # the first hit on the body (or ob) from o_ along d_, `out` back off it
@@ -8124,7 +8130,7 @@ def night_commando():
     MAIL = []
     for sy in (-1, 1):
         w0 = surf(Vector((0, 0.6 * sy, 0.98)), Vector((0, -sy, 0))) or Vector((0, 0.12 * sy, 0.98))
-        MAIL.append(cloth_panel([w0 + Vector((0.12, 0.02 * sy, 0)), w0 + Vector((-0.12, 0.02 * sy, 0))], 0.36, "mail", out=Vector((0, sy, 0)),
+        MAIL.append(cloth_panel([w0 + Vector((0.14, 0.02 * sy, 0)), w0 + Vector((-0.14, 0.02 * sy, 0))], 0.5, "mail", out=Vector((0, sy, 0)),
                                 cols=5, rows=6, ragged=0.05, rnd=rnd, tris=60, bend=1.0))
     # ---- the greaves (Hip): curved bronze plates down the shins ----
     module("Hip")
@@ -8132,28 +8138,34 @@ def night_commando():
     for s in ("L", "R"):
         k_, a_ = JOINTS[f"lowerleg01.{s}"], JOINTS[f"foot.{s}"]; d_ = (a_ - k_).normalized()
         SHELLS.append(psx_shell(k_ - d_ * 0.02 - Vector((0, 0.012, 0)), d_, 0.06, (a_ - k_).length * 0.8, "bronze", ang=110, rows=2, taper=0.85, n=7)[1])
+    TASSET = []
+    for s in ("L", "R"):   # tassets: bronze lames down the front and outside of each thigh, under the mail
+        h_, k_ = JOINTS[f"upperleg01.{s}"], JOINTS[f"lowerleg01.{s}"]; d_ = (k_ - h_).normalized(); L_ = (k_ - h_).length
+        for j in range(3):
+            fr_ = psx_shell(h_ + d_ * (0.05 + L_ * 0.26 * j), d_, 0.1 - 0.008 * j, L_ * 0.3, "bronze", ang=95, rows=1, taper=0.95, n=7)[1]
+            SHELLS.append(fr_); TASSET.append(fr_)
     # ---- the pauldrons (Chest), two round bosses on each ----
     module("Chest")
-    PLS = arm_plates("L", ["bronze"], room=0.02) + arm_plates("R", ["bronze"], room=0.02)
+    PLS = arm_plates("L", ["bronze"], room=0.025, scale=1.35) + arm_plates("R", ["bronze"], room=0.025, scale=1.35)
     BOSS = []
     for pl in (PLS[0], PLS[3]):
         for t_, a_ in ((0.3, -30), (0.3, 30)):
             at_, u_ = plate_point(pl, t_, a_, 0.006); BOSS.append(at_)
-            bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.022, depth=0.014, location=tuple(at_))
+            bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.028, depth=0.016, location=tuple(at_))
             o_ = bpy.context.object; o_.rotation_mode = 'QUATERNION'; o_.rotation_quaternion = Vector((0, 0, 1)).rotation_difference(u_); add(o_, "bronze")
     # ---- the helm: closed, sweeping far back over the skull, in the head's own frame ----
     module("Helmet")
     fb = FACE_BOX; hc = fb["mid"] + fb["up"] * 0.01
     hd = [human_.matrix_world @ v.co - fb["mid"] for v in human_.data.vertices if (human_.matrix_world @ v.co - fb["mid"]).length < 0.16]
     hw = max([abs(q.dot(fb["ax"])) for q in hd] or [0.08]); hdp = max([abs(q.dot(fb["fwd"])) for q in hd] or [0.1])
-    RX, RF = hw + 0.02, hdp * 0.62 + 0.02
-    rings = [(-0.12, 0.92, 0.95, 0.0), (-0.05, 1.0, 1.0, 0.0), (0.03, 1.02, 1.06, -0.02), (0.09, 0.95, 1.18, -0.055), (0.135, 0.8, 1.22, -0.095), (0.165, 0.55, 1.05, -0.135)]   # up, across, front-back, set back
+    RX, RF = (hw + 0.02) * 1.12, (hdp * 0.62 + 0.02) * 1.1   # large, as the references'
+    rings = [(-0.12, 0.92, 0.95, 0.0), (-0.05, 1.0, 1.0, 0.0), (0.04, 1.02, 1.06, -0.02), (0.11, 0.95, 1.16, -0.05), (0.17, 0.8, 1.2, -0.09), (0.21, 0.55, 1.05, -0.13)]   # up, across, front-back, set back
     n_ = 12; hv = []
     for u_, kx, kf, bk in rings:
         for k in range(n_):
             th = 2 * math.pi * k / n_
             hv.append(hc + fb["ax"] * (RX * kx * math.sin(th)) + fb["fwd"] * (RF * kf * math.cos(th) + bk) + fb["up"] * u_)
-    hv.append(hc + fb["up"] * 0.18 - fb["fwd"] * 0.19)   # the crown's tip, far back
+    hv.append(hc + fb["up"] * 0.23 - fb["fwd"] * 0.19)   # the crown's tip, far back
     nR = len(rings)
     hf = [(j * n_ + k, j * n_ + (k + 1) % n_, (j + 1) * n_ + (k + 1) % n_, (j + 1) * n_ + k) for j in range(nR - 1) for k in range(n_)]
     hf += [((nR - 1) * n_ + k, (nR - 1) * n_ + (k + 1) % n_, nR * n_) for k in range(n_)]
@@ -8275,13 +8287,9 @@ def night_commando():
             if ((z * 40 + x * 6) % 1.0) < 0.14: return C["leggingd"]
             if z < 0.15 + GROUND and _nz.noise(p * 40) > 0.0: return lit(C["mud"], n, ao, p=p)
             return lit(C["leggingl"] if s_ > 0.6 else C["legging"], n, ao, grime=0.3, p=p)
-        if base == "helm":   # bronze: riveted seams up from the rim, a ridge over the crown, two red lenses, the grille's dark mouth
+        if base == "helm":   # bronze: riveted seams up from the rim, a ridge over the crown, a blank face, the grille's dark mouth
             q = p - hc; a, u, f = q.dot(fb["ax"]), q.dot(fb["up"]), q.dot(fb["fwd"])
             if f > 0.0:
-                for sx in (-1, 1):
-                    d_ = math.hypot(a - 0.032 * sx, u + 0.0)
-                    if d_ < 0.012: return (*(C["lensl"] if d_ < 0.005 else C["lens"]), 1.0)   # glowing (four values)
-                    if d_ < 0.017: return C["metall"] if s_ > 0.2 else C["ink"]
                 if abs(a) < 0.05 and -0.12 < u < -0.03: return C["ink"]   # behind the grille
                 if u < -0.03:
                     b_ = blood(p, 0.2)
@@ -8295,9 +8303,9 @@ def night_commando():
         if base == "grille":   # dark iron bars, worn bright
             return lit(C["metall"] if s_ > 0.4 else C["metal"], n, ao, metal=True, p=p)
         if base == "bronze":   # pauldrons, bosses, greaves, the back plate
-            if any((p - b_).length < 0.026 for b_ in BOSS):   # a boss: a bright rim, a dark centre
+            if any((p - b_).length < 0.032 for b_ in BOSS):   # a boss: a bright rim, a dark centre
                 d_ = min((p - b_).length for b_ in BOSS)
-                return C["ink"] if d_ < 0.006 else (lit(C["bronzel"], n, ao, metal=True, p=p) if d_ > 0.016 else bronze(n, ao, p, 0.7))
+                return C["ink"] if d_ < 0.007 else (lit(C["bronzel"], n, ao, metal=True, p=p) if d_ > 0.021 else bronze(n, ao, p, 0.7))
             r_ = plate_rim(p, PLS) if plate_at(p, PLS)[4] < 0.02 else rim(SHELLS, p)
             if r_ is not None: return C["ink"] if r_ == "ink" else (lit(C["bronzel"], n, ao, metal=True, p=p) if r_ == "edge" else C["metall"])
             if (p - PK).length < 0.16:   # the back plate: a riveted border
