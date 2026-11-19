@@ -1493,7 +1493,8 @@ public partial class BoardView : SubViewportContainer
         {
             return true;
         }
-        if (ModeKey(key.Keycode) is { } mode)
+        // ? (Shift+slash) opens the key sheet (Main), so it is not the slash key's Puppet mode.
+        if (key.Unicode != '?' && ModeKey(key.Keycode) is { } mode)
         {
             StartPreview(mode);
             return true;
