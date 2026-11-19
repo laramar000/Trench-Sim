@@ -1496,8 +1496,11 @@ public partial class BoardView : SubViewportContainer
         // ? (Shift+slash) opens the key sheet (Main), so it is not the slash key's Puppet mode.
         if (key.Unicode != '?' && ModeKey(key.Keycode) is { } mode)
         {
-            StartPreview(mode);
-            return true;
+            // G is also the scenario card's key (Main): when Hide is not on offer it falls through to that.
+            if (StartPreview(mode) || mode != InteractionMode.Hide)
+            {
+                return true;
+            }
         }
         if (Interaction.Mode != InteractionMode.None && HandlePreviewKey(key))
         {
