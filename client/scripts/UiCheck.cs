@@ -5527,13 +5527,16 @@ public partial class UiCheck : Node
     }
 
     // Animation stage A1 (board-animation-resilience): a made-up update played through the battlefield (PlayForCheck; never
-    // in play): one of this window's models glides 3" back to where the server has it while it shoots an enemy, which is
+    // in play): one of this window's models glides 3" back to where the server has it (in 2 s) while it shoots an enemy, which is
     // hit and flinches. While it plays, the model is drawn off its spot; selecting it redraws its nodes and it stays where
     // the glide has it; the terrain and a model the update does not touch keep their nodes; the tracer is drawn. Finishing
     // at once (as a command sent does) puts both back on the server's positions with nothing left playing, and with
     // Animations Off the same shot plays nothing. Nothing is sent and the server's state is never touched.
     private async Task AnimationResilienceCheck(BoardView board)
     {
+        // Start from a quiet battlefield; the made-up update is shorter than Choreography.MaxSeconds, so a server update
+        // arriving meanwhile is played after it rather than showing it all at once.
+        await Until(() => !board.Gliding ? "idle" : null, 5, "check-idle");
         if (board.Scene is not { } scene || scene.Models.FirstOrDefault(m => m.Yours) is not { } mover
             || scene.Models.FirstOrDefault(m => !m.Yours) is not { } target)
         {
@@ -5555,11 +5558,11 @@ public partial class UiCheck : Node
         var flinches = board.FlinchesStarted;
         var plan = new Choreography([],
         [
-            new Beat(0, BeatKind.Glide, 0, 3.0, mover.Id, Motion: new Motion(mover.Id, [new TablePoint(mover.X, mover.Y)]), From: new TablePoint(mover.X + 3, mover.Y)),
+            new Beat(0, BeatKind.Glide, 0, 2.0, mover.Id, Motion: new Motion(mover.Id, [new TablePoint(mover.X, mover.Y)]), From: new TablePoint(mover.X + 3, mover.Y)),
             new Beat(0, BeatKind.MuzzleFlash, 0, Choreography.FlashSeconds, mover.Id, target.Id, Hit: true),
             new Beat(0, BeatKind.Tracer, Choreography.TracerDelay, Choreography.TracerSeconds, mover.Id, target.Id, Hit: true),
             new Beat(0, BeatKind.HitPuff, Choreography.ImpactAt, Choreography.HitPuffSeconds, target.Id, mover.Id, Hit: true),
-            new Beat(0, BeatKind.Flinch, Choreography.ImpactAt, 3.0, target.Id, mover.Id, Hit: true),
+            new Beat(0, BeatKind.Flinch, Choreography.ImpactAt, 1.8, target.Id, mover.Id, Hit: true),
         ]);
         board.PlayForCheck(plan);
         await Frames(3);
