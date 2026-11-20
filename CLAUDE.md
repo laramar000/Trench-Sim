@@ -262,3 +262,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (`Choreography`, `Motion.Charging/Reached`); `BoardView`: `_facing` (kept across redraws, cleared on a new match),
   `_figures`, `Knock` (flinch + lunge), `FigureTurn`, `Lean`, `PlayStrike`; UI checks `board-animation-resilience` (turn,
   lean, hover) and optional `board-melee-sequence` (pvp-a). Next: A3 only when Jason asks.
+  Checks (Linux, xvfb): essentials 2,253/0; full UI runner 425 PASS, 0 FAIL (board-melee-sequence: 3 blows, 8 lunges,
+  5 charge impacts); gvt-a reruns after the check fixes 29/0 and 27/0. Animating frame mean 0.64-0.83 ms (A1 0.56-0.75);
+  the 0.78-0.83 runs include the check's own hover while its made-up update plays (0.74 with that hover left out); one
+  run had a single 277 ms stall in an animating frame, not seen again. Hover marks a model without redrawing it.
