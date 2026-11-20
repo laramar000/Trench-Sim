@@ -214,6 +214,13 @@ public partial class BoardView : SubViewportContainer
     // preview is kept while it still fits the match (Interaction.Update).
     public void Show(BoardScene? scene, MatchState? state = null, Seat? seat = null, IReadOnlyList<LogLine>? log = null)
     {
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        ShowTimed(scene, state, seat, log);
+        _times.Show(System.Diagnostics.Stopwatch.GetTimestamp() - started);
+    }
+
+    private void ShowTimed(BoardScene? scene, MatchState? state, Seat? seat, IReadOnlyList<LogLine>? log)
+    {
         var first = _scene is null && scene is not null;
         // Where each model was drawn before this update: a model the server moved travels from there (improvement 3).
         var before = _scene?.Models.ToDictionary(m => m.Id, m => new Vector2((float)m.X, (float)m.Y)) ?? [];
@@ -903,6 +910,20 @@ public partial class BoardView : SubViewportContainer
     }
 
     public override void _Process(double delta)
+    {
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        var busy = Gliding;
+        ProcessFrame();
+        _times.Frame(System.Diagnostics.Stopwatch.GetTimestamp() - started, busy);
+    }
+
+    // Animation stage A0: what the battlefield's own work costs per frame (idle, and while something is animating) and per
+    // update from the server, measured with no allocation, so a change can be compared with the numbers before it.
+    private readonly BoardTimes _times = new();
+
+    public BoardTimes Times => _times;
+
+    private void ProcessFrame()
     {
         PlaceStrip();
         if (_turnBanner.Visible)
@@ -3020,7 +3041,16 @@ public partial class BoardView : SubViewportContainer
         _terrainKey = null;
     }
 
+    // Animation stage A0: every redraw is counted (terrain built, models drawn), apart for redraws while something animates.
     private void Rebuild()
+    {
+        var terrain = TerrainBuilds;
+        var models = ModelsDrawn;
+        RebuildParts();
+        _times.Rebuilt(TerrainBuilds - terrain, ModelsDrawn - models, Gliding);
+    }
+
+    private void RebuildParts()
     {
         // Performance: a model is drawn again only when what it is drawn from changed (ModelKey); the others keep their
         // nodes. Everything else in _content (rings on objectives, zone labels, mines, links) is drawn again.
@@ -3928,4 +3958,72 @@ public partial class BoardView : SubViewportContainer
         NoDepthTest = noDepth,
         ShadingMode = noDepth ? BaseMaterial3D.ShadingModeEnum.Unshaded : BaseMaterial3D.ShadingModeEnum.PerPixel,
     };
+}
+
+// Animation stage A0: the battlefield's own time per frame and per server update (Stopwatch ticks summed, the slowest
+// kept), split into frames where nothing is animating and frames where something is, and how often it redrew the terrain
+// and models (apart while something animates). Counting only: two clock reads per frame, no allocation.
+public sealed class BoardTimes
+{
+    private long _idle, _idleMax, _busy, _busyMax, _show, _showMax;
+
+    // Redraws: terrain layers built and models drawn, all and while something animates.
+    public int TerrainBuilds { get; private set; }
+
+    public int BusyTerrainBuilds { get; private set; }
+
+    public int ModelDraws { get; private set; }
+
+    public int BusyModelDraws { get; private set; }
+
+    public void Rebuilt(int terrain, int models, bool busy)
+    {
+        TerrainBuilds += terrain;
+        ModelDraws += models;
+        if (busy)
+        {
+            BusyTerrainBuilds += terrain;
+            BusyModelDraws += models;
+        }
+    }
+
+    public int IdleFrames { get; private set; }
+
+    public int BusyFrames { get; private set; }
+
+    public int Shows { get; private set; }
+
+    public void Frame(long ticks, bool busy)
+    {
+        if (busy)
+        {
+            BusyFrames++;
+            _busy += ticks;
+            _busyMax = Math.Max(_busyMax, ticks);
+        }
+        else
+        {
+            IdleFrames++;
+            _idle += ticks;
+            _idleMax = Math.Max(_idleMax, ticks);
+        }
+    }
+
+    public void Show(long ticks)
+    {
+        Shows++;
+        _show += ticks;
+        _showMax = Math.Max(_showMax, ticks);
+    }
+
+    private static double Ms(long ticks) => ticks * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+
+    private static string Mean(long sum, int count) => count == 0 ? "-" : (Ms(sum) / count).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Max(long ticks) => Ms(ticks).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    public override string ToString() =>
+        $"idle frames {IdleFrames} mean {Mean(_idle, IdleFrames)} ms max {Max(_idleMax)} ms; animating frames {BusyFrames} mean {Mean(_busy, BusyFrames)} ms max {Max(_busyMax)} ms; " +
+        $"updates {Shows} mean {Mean(_show, Shows)} ms max {Max(_showMax)} ms; terrain builds {TerrainBuilds} ({BusyTerrainBuilds} while animating); " +
+        $"models drawn {ModelDraws} ({BusyModelDraws} while animating)";
 }

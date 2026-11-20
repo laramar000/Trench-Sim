@@ -3112,6 +3112,10 @@ public partial class UiCheck : Node
         var ended = Lines(LogText()).LastOrDefault(l => l.Contains("MATCH ENDED", StringComparison.Ordinal)) ?? "";
         Check("hotseat-full-match", MatchOver() && ended.Length > 0,
             $"{(ended.Length > 0 ? ended : "no MATCH ENDED")}; {actions} clicks and placements by both seats in this window; {Lines(LogText()).Count} events{(refusals.Count == 0 ? "" : "; " + string.Join(" | ", refusals))}");
+        if (Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } timed)
+        {
+            FrameTimeCheck(timed);
+        }
         // The final state hash this window shows, for the runner to compare with the server's signed record.
         var result = MatchOver() ? await Until(() => Section("RESULT OF THE MATCH") is { Length: > 0 } r ? r : null, 30, "hotseat-result") ?? "" : "";
         var hash = result.Split('\n').FirstOrDefault(l => l.StartsWith("Final state hash: ", StringComparison.Ordinal))?[18..] is { Length: 64 } h && h.All(char.IsAsciiHexDigitLower) ? h : null;
@@ -5499,6 +5503,10 @@ public partial class UiCheck : Node
             }
         }
         EffectEndCheck(board);
+        if (_role == "gvt-a")
+        {
+            FrameTimeCheck(board);
+        }
         var twice = shown.GroupBy(r => r.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         var compared = shown.Count(r => logged.ContainsKey(r.Seq));
         Check("pvp-dice-shown-once-as-logged", shown.Count > 0 && compared > 0 && problems.Count == 0 && twice.Count == 0,
@@ -5511,6 +5519,15 @@ public partial class UiCheck : Node
         {
             Check("pvp-dice-stacked", _diceStacks.All(s => s.EndsWith("in order", StringComparison.Ordinal)), string.Join(" / ", _diceStacks.Distinct().Take(6)));
         }
+    }
+
+    // Animation stage A0 (board-frame-time): the battlefield's own time per frame, idle and while animating, and per server
+    // update over a whole match, for comparing a change with the numbers before it (software rendering is slow, so the
+    // numbers are compared on the same machine, never against a fixed limit). It fails only when nothing was measured.
+    private void FrameTimeCheck(BoardView board)
+    {
+        var times = board.Times;
+        Check("board-frame-time", times.IdleFrames > 0 && times.Shows > 0, times.ToString());
     }
 
     // Graphics stage G5 (event-effects): each shot and blow this window saw as it happened played its effects (a flash at

@@ -6,6 +6,7 @@
 # Client.Core tests send every action through a real server). Any other check a run did not report makes the verdict INCOMPLETE. One check id per line, as in the runner's summary.md.
 # "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide, and the
 # placement previews are checked by whichever seat deploys first.
+# Animation stage A0 adds board-frame-time (hotseat, gvt-a): the battlefield's own time per frame, idle and while animating, and per server update, and how often it redrew the terrain and the models (apart while animating), over the match, reported for comparison; it fails only when nothing was measured.
 godot-version
 client-build-Debug
 client-build-Release
@@ -246,6 +247,7 @@ hotseat: hotseat-leave-enter
 hotseat: hotseat-turn-banner
 hotseat: hotseat-bar-seat-letter
 hotseat: hotseat-full-match
+hotseat: board-frame-time
 hotseat: hotseat-log-draws-dice
 hotseat: hotseat-server-stopped
 hotseat: online-roster-type-server
@@ -418,6 +420,7 @@ gvt-a: pvp-nothing-to-send
 gvt-a: pvp-labels-show-blood
 gvt-a: pvp-dice-shown-once-as-logged
 gvt-a: event-effects
+gvt-a: board-frame-time
 gvt-a: pvp-panel-follows-state
 gvt-a: hud-objectives-now
 gvt-a: hud-on-battlefield
