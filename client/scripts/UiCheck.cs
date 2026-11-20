@@ -5533,8 +5533,8 @@ public partial class UiCheck : Node
     // Animation stage A1 (board-animation-resilience): a made-up update played through the battlefield (PlayForCheck; never
     // in play): one of this window's models glides 3" back to where the server has it (over 20 s), turning and leaning (stage
     // A2), while it shoots an enemy, which is
-    // hit and flinches. While it plays, the model is drawn off its spot; selecting it, then pointing at it, redraws its
-    // nodes and it stays where the glide has it, still leaning; once finished it faces the target, upright, and keeps that
+    // hit and flinches. While it plays, the model is drawn off its spot; selecting it redraws its nodes and pointing at it
+    // marks it, and either way it stays where the glide has it, still leaning; once finished it faces the target, upright, and keeps that
     // facing when drawn again; the terrain and a model the update does not touch keep their nodes; the tracer is drawn. Finishing
     // at once (as a command sent does) puts both back on the server's positions with nothing left playing, and with
     // Animations Off the same shot plays nothing. Nothing is sent and the server's state is never touched.
@@ -5598,7 +5598,7 @@ public partial class UiCheck : Node
         var redrawn = !board.NodeIdsOf(mover.Id).SequenceEqual(moverNodes);
         var awayAfter = Off(mover.Id, mover);
         var leanAfterSelect = board.FacingOf(mover.Id)?.Lean ?? 0;
-        // Pointing at it redraws it too (hovered); it keeps its glide and lean.
+        // Pointing at it (hovered: a ring and a larger id, not a redraw) keeps its glide and lean.
         var filter = board.MouseFilter;
         board.MouseFilter = Control.MouseFilterEnum.Stop;
         var hoverNodes = board.NodeIdsOf(mover.Id).ToList();
@@ -5633,7 +5633,7 @@ public partial class UiCheck : Node
         // Finished: it faces the target, upright; drawn again (selected), it still faces the target.
         var faced = board.FacingOf(mover.Id);
         var facingNodes = board.NodeIdsOf(mover.Id).ToList();
-        board.Select(target.Id);
+        board.Select(board.Selected?.Id == mover.Id ? target.Id : mover.Id);
         await Step(1);
         var facedAgain = board.FacingOf(mover.Id);
         var facingKept = !board.NodeIdsOf(mover.Id).SequenceEqual(facingNodes) && faced is { } f && facedAgain is { } g
@@ -5651,7 +5651,7 @@ public partial class UiCheck : Node
         board.Select(selected);
         await Frames(1);
         Check("board-animation-resilience", awayBefore > 0.5f && redrawn && awayAfter > 0.3f && leanAfterSelect > 0.004f
-            && hovered && hoverRedrawn && awayHovered > 0.3f && leanHovered > 0.004f && facingKept && tracerDrawn && cutBy.Length == 0 && farKept && terrainKept && playing && finished && offQuiet,
+            && hovered && awayHovered > 0.3f && leanHovered > 0.004f && facingKept && tracerDrawn && cutBy.Length == 0 && farKept && terrainKept && playing && finished && offQuiet,
             $"{mover.Id.Value} drawn {awayBefore:0.00}\" off its spot; selected: nodes redrawn {redrawn}, still {awayAfter:0.00}\" off, leaning {leanAfterSelect:0.000} rad; "
             + $"hovered {hovered}: nodes redrawn {hoverRedrawn}, still {awayHovered:0.00}\" off, leaning {leanHovered:0.000} rad; finished facing {faced} (wanted yaw {wantedYaw:0.000}), drawn again {facedAgain}: kept {facingKept}; tracer and flinch drawn {tracerDrawn}; "
             + $"{far.Id.Value} kept its nodes {farKept}; terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}; finished at once: {moverRest:0.000}\" and {targetRest:0.000}\" "
