@@ -3966,6 +3966,13 @@ public partial class BoardView : SubViewportContainer
         return axisX ? new Vector3(stretch, 1, 1) : new Vector3(1, 1, stretch);
     }
 
+    // A ring on the ground: the torus pressed flat, and depth-tested, so the model stands in front of its own ring and is never covered.
+    private static Vector3 FlatRing(ModelShape model)
+    {
+        var scale = OvalScale(model);
+        return new Vector3(scale.X, 0.1f, scale.Z);
+    }
+
     private static Vector3 OvalScale(ModelShape model) => OvalScale(model.Radius, model.HalfSpan, model.AxisX);
 
     private void DrawModel(ModelShape model, bool choosable)
@@ -4033,17 +4040,17 @@ public partial class BoardView : SubViewportContainer
             // The model activating now: a cyan ring outside the selection ring.
             if (model.Look == UnitLook.Active)
             {
-                BaseRing(model, standing, 0.4f, 0.6f, _highContrast ? Colors.White : new Color(0.3f, 0.95f, 1f));
+                BaseRing(model, standing, 0.4f, 0.52f, _highContrast ? Colors.White : new Color(0.3f, 0.95f, 1f));
             }
             if (selected)
             {
-                // A ring on the ground around the selected base, drawn through walls so it is never hidden.
+                // A flat ring on the ground around the selected base; the model stands in front of it (it was a tube drawn over the model).
                 var ring = new MeshInstance3D
                 {
-                    Mesh = new TorusMesh { InnerRadius = (float)model.Radius + 0.1f, OuterRadius = (float)model.Radius + 0.35f },
-                    Scale = OvalScale(model),
+                    Mesh = new TorusMesh { InnerRadius = (float)model.Radius + 0.1f, OuterRadius = (float)model.Radius + 0.2f },
+                    Scale = FlatRing(model),
                     Position = new Vector3((float)model.X, standing + 0.05f, (float)model.Y),
-                    MaterialOverride = Paint(_highContrast ? Colors.Yellow : new Color(1f, 0.85f, 0.2f), noDepth: true),
+                    MaterialOverride = Paint(_highContrast ? Colors.Yellow : new Color(1f, 0.85f, 0.2f), flat: true),
                 };
                 _content.AddChild(ring);
             }
@@ -4247,9 +4254,9 @@ public partial class BoardView : SubViewportContainer
         _content.AddChild(new MeshInstance3D
         {
             Mesh = new TorusMesh { InnerRadius = (float)model.Radius + inner, OuterRadius = (float)model.Radius + outer },
-            Scale = OvalScale(model),
+            Scale = FlatRing(model),
             Position = new Vector3((float)model.X, standing + 0.04f, (float)model.Y),
-            MaterialOverride = Paint(colour, noDepth: true),
+            MaterialOverride = Paint(colour, flat: true),
         });
     }
 
@@ -4399,11 +4406,11 @@ public partial class BoardView : SubViewportContainer
             OutlineRenderPriority = 9,
         };
 
-    private static StandardMaterial3D Paint(Color colour, bool noDepth = false) => new()
+    private static StandardMaterial3D Paint(Color colour, bool noDepth = false, bool flat = false) => new()
     {
         AlbedoColor = colour,
         Transparency = colour.A < 1 ? BaseMaterial3D.TransparencyEnum.Alpha : BaseMaterial3D.TransparencyEnum.Disabled,
         NoDepthTest = noDepth,
-        ShadingMode = noDepth ? BaseMaterial3D.ShadingModeEnum.Unshaded : BaseMaterial3D.ShadingModeEnum.PerPixel,
+        ShadingMode = noDepth || flat ? BaseMaterial3D.ShadingModeEnum.Unshaded : BaseMaterial3D.ShadingModeEnum.PerPixel,
     };
 }
