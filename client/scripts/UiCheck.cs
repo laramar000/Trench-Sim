@@ -5552,6 +5552,14 @@ public partial class UiCheck : Node
             Check("board-animation-resilience", false, "no third model to keep its nodes");
             return;
         }
+        // Plain frames: Frames and Until wait for the battlefield to stop animating, which this check must not do.
+        async Task Step(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
         float Off(Rules.Core.State.ModelId id, ModelShape at) => board.DrawnAt(id) is { } d ? new Vector2((float)at.X, (float)at.Y).DistanceTo(d) : -1;
         var terrain = board.TerrainBuilds;
         var farNodes = board.NodeIdsOf(far.Id).ToList();
@@ -5569,22 +5577,25 @@ public partial class UiCheck : Node
         var clock = System.Diagnostics.Stopwatch.StartNew();
         board.PlayForCheck(plan);
         var playingAtOnce = board.Gliding;
-        await Frames(1);
+        await Step(1);
         var firstLook = clock.ElapsedMilliseconds;
         var cutBy = string.Join(",", board.FinishedEarly.Skip(finishedBefore));
         var awayBefore = Off(mover.Id, mover);
         var moverNodes = board.NodeIdsOf(mover.Id).ToList();
         board.Select(selected == mover.Id ? null : mover.Id);
-        await Frames(1);
+        await Step(1);
         var redrawn = !board.NodeIdsOf(mover.Id).SequenceEqual(moverNodes);
         var awayAfter = Off(mover.Id, mover);
-        await Until(() => board.TracersDrawn > tracers && board.FlinchesStarted > flinches ? "ok" : null, 3, "check-tracer");
+        for (var i = 0; i < 60 && !(board.TracersDrawn > tracers && board.FlinchesStarted > flinches); i++)
+        {
+            await Step(1);
+        }
         var tracerDrawn = board.TracersDrawn > tracers && board.FlinchesStarted > flinches;
         var farKept = board.NodeIdsOf(far.Id).SequenceEqual(farNodes) && farNodes.Count > 0;
         var terrainKept = board.TerrainBuilds == terrain;
         var playing = board.Gliding;
         board.FinishAnimations();
-        await Frames(1);
+        await Step(1);
         var moverRest = Off(mover.Id, mover);
         var targetRest = Off(target.Id, target);
         var finished = !board.Gliding && moverRest is >= 0 and < 0.01f && targetRest is >= 0 and < 0.01f;
@@ -5593,7 +5604,7 @@ public partial class UiCheck : Node
         var offTracers = board.TracersDrawn;
         var shot = new LogLine(0, "", null, Models: [mover.Id, target.Id]) { Effects = [new(EffectKind.MuzzleFlash, mover.Id), new(EffectKind.HitPuff, target.Id)] };
         board.PlayForCheck(Choreography.Of([shot], _ => null, board.Animation));
-        await Frames(2);
+        await Step(2);
         var offQuiet = !board.Gliding && board.TracersDrawn == offTracers;
         board.Animation = speed;
         board.Select(selected);
