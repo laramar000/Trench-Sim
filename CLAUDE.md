@@ -270,3 +270,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   `Tipped` (figure tips backwards over its feet, settles over its base), casualty figures (`CasualtyFigure`, in `_effects`,
   freed when gone or on FinishAnimations); UI checks `board-casualty-resilience` (gvt-a), optional `board-casualty-sequence`
   (pvp-a, gvt-a). Next: A4 only when Jason asks.
+  Checks (Linux, xvfb): essentials 2,255/0; full UI runner 426 PASS, 0 FAIL; gvt-a run 29/0 with board-casualty-sequence
+  5 changes (2 falls, 2 rises, 1 going figure, none left); animating frame mean 0.63-0.71 ms, terrain builds while
+  animating 0. The pvp melee match took no model Down, so board-casualty-sequence did not report there (optional).
