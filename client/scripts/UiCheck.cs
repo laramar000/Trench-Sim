@@ -5506,6 +5506,7 @@ public partial class UiCheck : Node
         if (_role == "gvt-a")
         {
             FrameTimeCheck(board);
+            ShotSequenceCheck(board);
         }
         var twice = shown.GroupBy(r => r.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         var compared = shown.Count(r => logged.ContainsKey(r.Seq));
@@ -5519,6 +5520,15 @@ public partial class UiCheck : Node
         {
             Check("pvp-dice-stacked", _diceStacks.All(s => s.EndsWith("in order", StringComparison.Ordinal)), string.Join(" / ", _diceStacks.Distinct().Take(6)));
         }
+    }
+
+    // Animation stage A1 (board-shot-sequence): every shot this window saw live came due as a tracer beat, once (drawn, or
+    // shown at once when a command was sent meanwhile), and some were drawn; the battlefield is no longer playing anything.
+    private void ShotSequenceCheck(BoardView board)
+    {
+        var shots = board.EffectLines.Count(l => !l.Replayed && l.Count == 2);
+        Check("board-shot-sequence", shots > 0 && board.TracerBeats == shots && board.TracersDrawn > 0 && !board.Gliding,
+            $"{shots} shots seen live, {board.TracerBeats} tracer beats, {board.TracersDrawn} drawn (last {board.LastTracer}), {board.FlinchesStarted} flinches; still playing: {board.Gliding}");
     }
 
     // Animation stage A0 (board-frame-time): the battlefield's own time per frame, idle and while animating, and per server

@@ -1,6 +1,6 @@
 # Hand-over for the next Claude session (Trenches / Trench-Sim)
 
-Written 2026-10-31, last updated 2026-11-01, so a new session can carry on with no other history. Read this file, then `docs/` as needed.
+Written 2026-10-31, last updated 2026-11-20, so a new session can carry on with no other history. Read this file, then `docs/` as needed.
 
 ## What this is
 
@@ -243,3 +243,15 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-03: owner said "Merge the plans". m7-client (which holds m0-setup to m6-records, PRs #1-#11) took in
   docs-known-gaps, main (#13, #14: SessionStart hooks; .claude/settings.json now has both the dotnet permissions and
   the hooks) and claude/pensive-planck-ep84pj; essentials passed; main was fast-forwarded to it (no force-push).
+- 2026-11-20 (cloud session, branch `claude/adoring-hamilton-s5yohc`): animation plan approved, Jason chose "1" (an
+  event's dice box, notes and sound come on its beat; the combat log stays immediate). Stages: A0 baseline timing, A1
+  foundation + shot sequence, A2 facing/melee lunge/charge lean, A3 Down topple + Out of Action fade, A4 explosions and
+  grenades, A5 feedback pulses. Done: A0 (`BoardTimes`, UI check `board-frame-time`) and A1 (`Client.Core/Choreography.cs`:
+  each update's lines and beats in order, at most 2.5 s, Full/Fast/Off; `BoardView` "animation (stage A1)": due queue,
+  glides measured from rest so they queue, flinches, pooled puffs and tracers, `FinishAnimations` on any send, seat change,
+  Esc or catch-up; auto-end waits for playback; Menu "Animations", setting `anim=`; tests `ChoreographyTests`, UI check
+  `board-shot-sequence`). Next: A2, only when Jason asks. Known gap until A3: a Down model lies down and an Out of Action
+  model disappears when the update arrives, before the shot lands.
+  Cloud setup used: .NET 10 via dotnet-install.sh into ~/.dotnet (builds.dotnet.microsoft.com answered); the SessionStart
+  hook installs Godot 4.4.1 without .NET, which cannot run this client: Godot 4.7.2 mono for Linux was downloaded from
+  the GitHub release (SHA-512 checked) into the session scratchpad for the UI checks.
