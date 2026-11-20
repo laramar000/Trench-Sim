@@ -5527,15 +5527,16 @@ public partial class UiCheck : Node
     }
 
     // Animation stage A1 (board-animation-resilience): a made-up update played through the battlefield (PlayForCheck; never
-    // in play): one of this window's models glides 3" back to where the server has it (in 2 s) while it shoots an enemy, which is
+    // in play): one of this window's models glides 3" back to where the server has it (over 20 s) while it shoots an enemy, which is
     // hit and flinches. While it plays, the model is drawn off its spot; selecting it redraws its nodes and it stays where
     // the glide has it; the terrain and a model the update does not touch keep their nodes; the tracer is drawn. Finishing
     // at once (as a command sent does) puts both back on the server's positions with nothing left playing, and with
     // Animations Off the same shot plays nothing. Nothing is sent and the server's state is never touched.
     private async Task AnimationResilienceCheck(BoardView board)
     {
-        // Start from a quiet battlefield; the made-up update is shorter than Choreography.MaxSeconds, so a server update
-        // arriving meanwhile is played after it rather than showing it all at once.
+        // Start from a quiet battlefield in this window's own activation (the server sends nothing until it is asked). The
+        // made-up update lasts 20 s, so a slow software-rendered frame (0.7 s seen on Linux) cannot end it before the
+        // check looks; the check ends it itself with FinishAnimations. Anything that cut it short is named in the detail.
         await Until(() => !board.Gliding ? "idle" : null, 5, "check-idle");
         if (board.Scene is not { } scene || scene.Models.FirstOrDefault(m => m.Yours) is not { } mover
             || scene.Models.FirstOrDefault(m => !m.Yours) is not { } target)
@@ -5558,17 +5559,17 @@ public partial class UiCheck : Node
         var flinches = board.FlinchesStarted;
         var plan = new Choreography([],
         [
-            new Beat(0, BeatKind.Glide, 0, 2.0, mover.Id, Motion: new Motion(mover.Id, [new TablePoint(mover.X, mover.Y)]), From: new TablePoint(mover.X + 3, mover.Y)),
+            new Beat(0, BeatKind.Glide, 0, 20.0, mover.Id, Motion: new Motion(mover.Id, [new TablePoint(mover.X, mover.Y)]), From: new TablePoint(mover.X + 3, mover.Y)),
             new Beat(0, BeatKind.MuzzleFlash, 0, Choreography.FlashSeconds, mover.Id, target.Id, Hit: true),
             new Beat(0, BeatKind.Tracer, Choreography.TracerDelay, Choreography.TracerSeconds, mover.Id, target.Id, Hit: true),
             new Beat(0, BeatKind.HitPuff, Choreography.ImpactAt, Choreography.HitPuffSeconds, target.Id, mover.Id, Hit: true),
-            new Beat(0, BeatKind.Flinch, Choreography.ImpactAt, 1.8, target.Id, mover.Id, Hit: true),
+            new Beat(0, BeatKind.Flinch, Choreography.ImpactAt, 20.0, target.Id, mover.Id, Hit: true),
         ]);
         var finishedBefore = board.FinishedEarly.Count;
         var clock = System.Diagnostics.Stopwatch.StartNew();
         board.PlayForCheck(plan);
         var playingAtOnce = board.Gliding;
-        await Frames(3);
+        await Frames(1);
         var firstLook = clock.ElapsedMilliseconds;
         var cutBy = string.Join(",", board.FinishedEarly.Skip(finishedBefore));
         var awayBefore = Off(mover.Id, mover);
@@ -5597,7 +5598,7 @@ public partial class UiCheck : Node
         board.Animation = speed;
         board.Select(selected);
         await Frames(1);
-        Check("board-animation-resilience", awayBefore > 0.5f && redrawn && awayAfter > 0.3f && tracerDrawn && farKept && terrainKept && playing && finished && offQuiet,
+        Check("board-animation-resilience", awayBefore > 0.5f && redrawn && awayAfter > 0.3f && tracerDrawn && cutBy.Length == 0 && farKept && terrainKept && playing && finished && offQuiet,
             $"{mover.Id.Value} drawn {awayBefore:0.00}\" off its spot; selected: nodes redrawn {redrawn}, still {awayAfter:0.00}\" off; tracer and flinch drawn {tracerDrawn}; "
             + $"{far.Id.Value} kept its nodes {farKept}; terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}; finished at once: {moverRest:0.000}\" and {targetRest:0.000}\" "
             + $"from the server's spots, still playing {board.Gliding}; Off plays nothing {offQuiet}; playing right after PlayForCheck {playingAtOnce}, cut short by [{cutBy}], first look after {firstLook} ms");
