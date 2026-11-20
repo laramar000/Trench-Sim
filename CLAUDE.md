@@ -255,3 +255,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Cloud setup used: .NET 10 via dotnet-install.sh into ~/.dotnet (builds.dotnet.microsoft.com answered); the SessionStart
   hook installs Godot 4.4.1 without .NET, which cannot run this client: Godot 4.7.2 mono for Linux was downloaded from
   the GitHub release (SHA-512 checked) into the session scratchpad for the UI checks.
+  Checks run here (Linux, xvfb, opengl3): essentials A0 2,241/0 and A1 2,251/0; full UI runner on A1 421 PASS, 0 FAIL;
+  A0 vs A1 board-frame-time (gvt-a, same machine): idle frame mean 0.47/0.25 ms, animating 0.71/0.74 ms, update 19.2/16.4
+  ms, terrain builds while animating 0 in both. Not run: Windows (owner's Test Center).
