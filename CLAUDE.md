@@ -279,3 +279,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   stage A4" (pooled grenades, `Streak`, `PlayExplosion`, `PlayMarker`, `Run`/`StopEffects` so a skip stops every effect;
   MaxEffects 96); UI checks `board-blast-effects` (gvt-a), optional `board-blast-sequence` (pvp-a, gvt-a, abilities).
   Next: A5 only when Jason asks.
+  Checks (Linux, xvfb): essentials 2,259/0; full UI runner 426 PASS, 0 FAIL (board-blast-effects; abilities'
+  board-blast-sequence PASS: 2 explosions, 2 bursts, recorded in abilities.log; the Linux runner now also lists it in its
+  summary, tools/UiCheck/Program.cs); gvt-a run 31/0; animating frame mean 0.63-0.67 ms, terrain builds while animating 0.

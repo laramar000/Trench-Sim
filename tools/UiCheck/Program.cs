@@ -461,7 +461,8 @@ public static class Program
             {
                 foreach (var line in File.ReadAllLines(log))
                 {
-                    var check = Regex.Match(line, @"CHECK (abilities-\S+) (PASS|FAIL) ?(.*)$");
+                    // Animation stage A4: board-blast-sequence (its grenades and blasts) is reported from this window too.
+                    var check = Regex.Match(line, @"CHECK (abilities-\S+|board-blast-sequence) (PASS|FAIL) ?(.*)$");
                     if (check.Success)
                     {
                         Record($"abilities: {check.Groups[1].Value}", check.Groups[2].Value, check.Groups[3].Value);
