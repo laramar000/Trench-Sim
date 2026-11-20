@@ -5578,9 +5578,10 @@ public partial class UiCheck : Node
             new Beat(0, BeatKind.Tracer, Choreography.TracerDelay, Choreography.TracerSeconds, mover.Id, target.Id, Hit: true),
             new Beat(0, BeatKind.HitPuff, Choreography.ImpactAt, Choreography.HitPuffSeconds, target.Id, mover.Id, Hit: true),
             new Beat(0, BeatKind.Flinch, Choreography.ImpactAt, 20.0, target.Id, mover.Id, Hit: true),
-            // Stage A2: it turns to face the target (over 20 s) and leans forward (10 s: in over 3 s, held, out).
+            // Stage A2: it turns to face the target (over 20 s) and leans forward: a 20 s lean started 6 s before, so it is
+            // fully tilted from the first frame (eased in over its first 30%) until 9 s from now, at any frame rate.
             new Beat(0, BeatKind.Turn, 0, 20.0, mover.Id, target.Id, Hit: true),
-            new Beat(0, BeatKind.Lean, 0, 10.0, mover.Id, target.Id, Hit: true),
+            new Beat(0, BeatKind.Lean, -6.0, 20.0, mover.Id, target.Id, Hit: true),
         ]);
         var wantedYaw = Mathf.Atan2((float)(target.X - mover.X), (float)(target.Y - mover.Y));
         static float AngleGap(float a, float b) => Math.Abs(Mathf.Wrap(a - b, -Mathf.Pi, Mathf.Pi));
@@ -5650,8 +5651,8 @@ public partial class UiCheck : Node
         board.Animation = speed;
         board.Select(selected);
         await Frames(1);
-        Check("board-animation-resilience", awayBefore > 0.5f && redrawn && awayAfter > 0.3f && leanAfterSelect > 0.004f
-            && hovered && awayHovered > 0.3f && leanHovered > 0.004f && facingKept && tracerDrawn && cutBy.Length == 0 && farKept && terrainKept && playing && finished && offQuiet,
+        Check("board-animation-resilience", awayBefore > 0.5f && redrawn && awayAfter > 0.3f && leanAfterSelect > 0.1f
+            && hovered && awayHovered > 0.3f && leanHovered > 0.1f && facingKept && tracerDrawn && cutBy.Length == 0 && farKept && terrainKept && playing && finished && offQuiet,
             $"{mover.Id.Value} drawn {awayBefore:0.00}\" off its spot; selected: nodes redrawn {redrawn}, still {awayAfter:0.00}\" off, leaning {leanAfterSelect:0.000} rad; "
             + $"hovered {hovered}: nodes redrawn {hoverRedrawn}, still {awayHovered:0.00}\" off, leaning {leanHovered:0.000} rad; finished facing {faced} (wanted yaw {wantedYaw:0.000}), drawn again {facedAgain}: kept {facingKept}; tracer and flinch drawn {tracerDrawn}; "
             + $"{far.Id.Value} kept its nodes {farKept}; terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}; finished at once: {moverRest:0.000}\" and {targetRest:0.000}\" "
