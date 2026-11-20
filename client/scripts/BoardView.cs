@@ -2391,6 +2391,11 @@ public partial class BoardView : SubViewportContainer
             {
                 StatusLines.Add((line.Seq, line.Changes.Count, line.Replayed));
             }
+            // Animation stage A4: the explosions and marker bursts each event has (for the UI check).
+            if (line.Fx.Blasts.Count > 0 || line.Fx.Markers.Count > 0)
+            {
+                FxLines.Add((line.Seq, line.Fx.Blasts.Count, line.Fx.Markers.Count, line.Replayed));
+            }
         }
         _lastSeq = newest;
         if (fresh.Count > 0)
@@ -2511,10 +2516,43 @@ public partial class BoardView : SubViewportContainer
                 }
                 break;
             case BeatKind.Tracer:
-                TracerBeats += beat.Seq > 0 ? 1 : 0;
+                // (A tracer at a point, stage A4, is not a shot at a model.)
+                TracerBeats += beat.Seq > 0 && beat.Other is not null ? 1 : 0;
                 if (draw)
                 {
                     PlayTracer(beat);
+                }
+                break;
+            case BeatKind.Lob:
+                // Animation stage A4: a grenade thrown at a model plays its throw in place of the shot's flash and tracer.
+                if (beat.Seq > 0 && beat.Other is not null)
+                {
+                    TracerBeats++;
+                    EffectsPlayed.Add((beat.Seq, new EffectCue(EffectKind.MuzzleFlash, beat.Model)));
+                }
+                if (draw)
+                {
+                    PlayLob(beat);
+                }
+                break;
+            case BeatKind.Explosion or BeatKind.MineBlast or BeatKind.MartyrBlast:
+                BlastBeats += beat.Seq > 0 ? 1 : 0;
+                if (draw)
+                {
+                    PlayExplosion(beat);
+                }
+                break;
+            case BeatKind.Scatter or BeatKind.Dust:
+                if (draw)
+                {
+                    PlayScatterOrDust(beat);
+                }
+                break;
+            case BeatKind.Shrapnel or BeatKind.Gas or BeatKind.Fire:
+                MarkerBeats += beat.Seq > 0 ? 1 : 0;
+                if (draw)
+                {
+                    PlayMarker(beat);
                 }
                 break;
             case BeatKind.MuzzleFlash or BeatKind.HitPuff or BeatKind.DirtPuff:
@@ -2540,6 +2578,8 @@ public partial class BoardView : SubViewportContainer
         {
             FinishedEarly.Add(caller);
         }
+        // Animation stage A4: every effect still showing (puffs, tracers, grenades, explosions) goes at once too.
+        StopEffects();
         _taken.Clear();
         _queue.TakeAll(Now, _taken);
         RunTaken(draw: false);
@@ -2628,6 +2668,9 @@ public partial class BoardView : SubViewportContainer
     // Animation stage A3: every event with status changes this window took in (its number, how many, caught up or not).
     public List<(int Seq, int Count, bool Replayed)> StatusLines { get; } = [];
 
+    // Animation stage A4: every event with explosions or marker bursts this window took in.
+    public List<(int Seq, int Blasts, int Markers, bool Replayed)> FxLines { get; } = [];
+
     public int EffectsShowing => _effectsShowing;
 
     private int _effectsShowing;
@@ -2665,8 +2708,8 @@ public partial class BoardView : SubViewportContainer
     }
 
     // Animation stage A1: effect squares are kept and used again (one unit square shared by all, a paint each), at most
-    // MaxEffects showing at once; one beyond that is not drawn.
-    public const int MaxEffects = 48;
+    // MaxEffects showing at once (96 since stage A4, for explosions); one beyond that is not drawn.
+    public const int MaxEffects = 96;
 
     private static readonly QuadMesh UnitQuad = new() { Size = Vector2.One };
     private readonly List<(MeshInstance3D Node, StandardMaterial3D Paint)> _freePuffs = [];
@@ -2703,12 +2746,12 @@ public partial class BoardView : SubViewportContainer
         tween.TweenProperty(puff.Node, "position", from + drift, seconds);
         tween.TweenProperty(puff.Node, "scale", Vector3.One * (size + grow), seconds);
         tween.TweenProperty(puff.Paint, "albedo_color:a", 0f, seconds);
-        tween.Chain().TweenCallback(Callable.From(() =>
+        Run(tween, () =>
         {
             puff.Node.Visible = false;
             _effectsShowing--;
             _freePuffs.Add(puff);
-        }));
+        });
     }
 
     // Animation stage A1: a tracer, a short bright streak from the shooter's muzzle to the target's body (a hit), or past
@@ -2730,22 +2773,43 @@ public partial class BoardView : SubViewportContainer
 
     private void PlayTracer(Beat beat)
     {
-        if (!_effects.IsInsideTree() || beat.Other is not { } target || !Where(beat.Model, out var shooter, out _) || !Where(target, out var aim, out var radius) || _effectsShowing >= MaxEffects)
+        if (!Where(beat.Model, out var shooter, out _))
         {
             return;
         }
         var from = shooter + new Vector3(0, 0.85f, 0);
-        var to = aim + new Vector3(0, 0.7f, 0);
-        var flat = new Vector3(to.X - from.X, 0, to.Z - from.Z);
-        if (flat.Length() < 0.1f)
+        if (beat.Other is { } target && Where(target, out var aim, out var radius))
+        {
+            var to = aim + new Vector3(0, 0.7f, 0);
+            var flat = new Vector3(to.X - from.X, 0, to.Z - from.Z);
+            if (flat.Length() < 0.1f)
+            {
+                return;
+            }
+            var along = flat.Normalized();
+            if (!beat.Hit)
+            {
+                var side = new Vector3(-along.Z, 0, along.X) * (beat.Seq % 2 == 0 ? 1 : -1);
+                to = aim + side * (radius + 0.6f) + along * 1.5f + new Vector3(0, 0.05f, 0);
+            }
+            Streak(from, to, beat.Seconds, beat.Hit);
+        }
+        else if (beat.At is { } point)
+        {
+            // Stage A4: an attack at a point: the tracer goes to the ground there.
+            Streak(from, Ground(point) + new Vector3(0, 0.05f, 0), beat.Seconds, beat.Hit);
+        }
+    }
+
+    // The ground (a tower's deck, a trench's floor) at a table point.
+    private Vector3 Ground(TablePoint at) => new((float)at.X, (float)LevelAt(at.X, at.Y), (float)at.Y);
+
+    // A short bright streak flying from one point to another (a tracer, a scattered attack skimming the ground).
+    private void Streak(Vector3 from, Vector3 to, double seconds, bool hit)
+    {
+        if (!_effects.IsInsideTree() || _effectsShowing >= MaxEffects || from.DistanceTo(to) < 0.1f)
         {
             return;
-        }
-        var along = flat.Normalized();
-        if (!beat.Hit)
-        {
-            var side = new Vector3(-along.Z, 0, along.X) * (beat.Seq % 2 == 0 ? 1 : -1);
-            to = aim + side * (radius + 0.6f) + along * 1.5f + new Vector3(0, 0.05f, 0);
         }
         var tracer = _freeTracers.Count > 0 ? _freeTracers[^1] : null;
         if (tracer is null)
@@ -2759,17 +2823,250 @@ public partial class BoardView : SubViewportContainer
         }
         _effectsShowing++;
         TracersDrawn++;
-        LastTracer = (from, to, beat.Hit);
+        LastTracer = (from, to, hit);
         tracer.Visible = true;
-        tracer.LookAtFromPosition(from, to, Vector3.Up);
+        tracer.LookAtFromPosition(from, to, Math.Abs((to - from).Normalized().Dot(Vector3.Up)) > 0.99f ? Vector3.Forward : Vector3.Up);
         var tween = tracer.CreateTween();
-        tween.TweenProperty(tracer, "position", to, beat.Seconds);
-        tween.TweenCallback(Callable.From(() =>
+        tween.TweenProperty(tracer, "position", to, seconds);
+        Run(tween, () =>
         {
             tracer.Visible = false;
             _effectsShowing--;
             _freeTracers.Add(tracer);
+        });
+    }
+
+    // ---- animation stage A4: grenades, explosions, scatter, markers ----
+
+    // Every effect still showing, with what puts its node back; StopEffects ends them all at once (a skip).
+    private sealed class Running(Tween tween, Action release)
+    {
+        public Tween Tween { get; } = tween;
+        public Action Release { get; } = release;
+    }
+
+    private readonly List<Running> _running = [];
+
+    private void Run(Tween tween, Action release)
+    {
+        var running = new Running(tween, release);
+        _running.Add(running);
+        tween.Chain().TweenCallback(Callable.From(() =>
+        {
+            if (_running.Remove(running))
+            {
+                release();
+            }
         }));
+    }
+
+    private void StopEffects()
+    {
+        if (_running.Count == 0)
+        {
+            return;
+        }
+        var all = _running.ToList();
+        _running.Clear();
+        foreach (var running in all)
+        {
+            if (GodotObject.IsInstanceValid(running.Tween))
+            {
+                running.Tween.Kill();
+            }
+            running.Release();
+        }
+        EffectsStopped += all.Count;
+    }
+
+    // How many effects a skip ended early, how many grenades, explosions and marker bursts were drawn, and the last
+    // grenade's and explosion's points (for the UI check); how many explosion and marker beats of the match came due.
+    public int EffectsStopped { get; private set; }
+
+    public int LobsDrawn { get; private set; }
+
+    public (Vector3 From, Vector3 To)? LastLob { get; private set; }
+
+    public int ExplosionsDrawn { get; private set; }
+
+    public (Vector3 At, float Radius, BeatKind Kind)? LastExplosion { get; private set; }
+
+    public int MarkersDrawn { get; private set; }
+
+    public int BlastBeats { get; private set; }
+
+    public int MarkerBeats { get; private set; }
+
+    private static readonly BoxMesh GrenadeMesh = new() { Size = new Vector3(0.14f, 0.14f, 0.14f) };
+    private static readonly StandardMaterial3D GrenadePaint = new() { AlbedoColor = new Color(0.16f, 0.16f, 0.14f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
+    private readonly List<MeshInstance3D> _freeGrenades = [];
+
+    // A grenade lobbed in an arc from the thrower's hand to the target's body (beside it on a miss) or to the ground at a
+    // point; it lands at the end of the beat, where the server's blast (its next event) goes off.
+    private void PlayLob(Beat beat)
+    {
+        if (!_effects.IsInsideTree() || _effectsShowing >= MaxEffects || !Where(beat.Model, out var thrower, out _))
+        {
+            return;
+        }
+        var from = thrower + new Vector3(0, 0.95f, 0);
+        Vector3 to;
+        if (beat.Other is { } target && Where(target, out var aim, out var radius))
+        {
+            to = aim + new Vector3(0, 0.5f, 0);
+            var flat = new Vector3(to.X - from.X, 0, to.Z - from.Z);
+            if (!beat.Hit && flat.Length() > 0.1f)
+            {
+                var along = flat.Normalized();
+                var side = new Vector3(-along.Z, 0, along.X) * (beat.Seq % 2 == 0 ? 1 : -1);
+                to = aim + side * (radius + 0.8f) + new Vector3(0, 0.07f, 0);
+            }
+        }
+        else if (beat.At is { } point)
+        {
+            to = Ground(point) + new Vector3(0, 0.07f, 0);
+        }
+        else
+        {
+            return;
+        }
+        var grenade = _freeGrenades.Count > 0 ? _freeGrenades[^1] : null;
+        if (grenade is null)
+        {
+            grenade = new MeshInstance3D { Mesh = GrenadeMesh, MaterialOverride = GrenadePaint };
+            _effects.AddChild(grenade);
+        }
+        else
+        {
+            _freeGrenades.RemoveAt(_freeGrenades.Count - 1);
+        }
+        _effectsShowing++;
+        LobsDrawn++;
+        LastLob = (from, to);
+        var apex = 1f + 0.12f * new Vector2(to.X - from.X, to.Z - from.Z).Length();
+        grenade.Position = from;
+        grenade.Visible = true;
+        var tween = grenade.CreateTween();
+        tween.TweenMethod(Callable.From<float>(p =>
+        {
+            grenade.Position = from.Lerp(to, p) + new Vector3(0, 4 * apex * p * (1 - p), 0);
+            grenade.Rotation = new Vector3(p * 9f, p * 5f, 0);
+        }), 0f, 1f, beat.Seconds);
+        Run(tween, () =>
+        {
+            grenade.Visible = false;
+            _effectsShowing--;
+            _freeGrenades.Add(grenade);
+        });
+    }
+
+    // An explosion at a point (a weapon's BLAST, a Mine, a Martyrdom Device): a pale flash, a fireball (for a mine, a
+    // column of earth), smoke rolling out to about the blast's radius and a few clods of debris. Flat PS1-style squares
+    // like every effect, about 16 of them; display only (the models it hit are the server's).
+    private void PlayExplosion(Beat beat)
+    {
+        if (beat.At is not { } point)
+        {
+            return;
+        }
+        var at = Ground(point);
+        var r = (float)Math.Clamp(beat.Size, 0.75, 6);
+        ExplosionsDrawn++;
+        LastExplosion = (at, (float)beat.Size, beat.Kind);
+        var seconds = (float)beat.Seconds;
+        var mine = beat.Kind == BeatKind.MineBlast;
+        var martyr = beat.Kind == BeatKind.MartyrBlast;
+        var smoke = new Color(0.22f, 0.2f, 0.18f);
+        var earth = new Color(0.42f, 0.33f, 0.22f);
+        Puff(at + new Vector3(0, 0.6f, 0), Vector3.Zero, r * (martyr ? 1.1f : 0.8f), r * 0.6f, new Color(1f, 0.93f, 0.72f), seconds * 0.17f);
+        var fire = mine ? 0 : martyr ? 6 : 4;
+        for (var i = 0; i < fire; i++)
+        {
+            var angle = i * Mathf.Tau / fire;
+            var out_ = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * r * 0.25f;
+            Puff(at + new Vector3(0, 0.35f, 0) + out_, out_ + new Vector3(0, 0.6f, 0), 0.45f * Mathf.Sqrt(r), 0.4f, martyr ? new Color(0.95f, 0.35f, 0.1f) : new Color(1f, 0.55f, 0.15f), seconds * 0.5f);
+        }
+        if (mine)
+        {
+            for (var i = 0; i < 6; i++)
+            {
+                var angle = i * Mathf.Tau / 6;
+                Puff(at + new Vector3(Mathf.Cos(angle) * 0.2f, 0.2f, Mathf.Sin(angle) * 0.2f), new Vector3(Mathf.Cos(angle) * 0.3f, 1.3f, Mathf.Sin(angle) * 0.3f), 0.4f, 0.3f, earth, seconds * 0.6f);
+            }
+        }
+        var ring = martyr ? 8 : 6;
+        for (var i = 0; i < ring; i++)
+        {
+            var angle = i * Mathf.Tau / ring + 0.3f;
+            var dir = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
+            Puff(at + dir * r * 0.3f + new Vector3(0, 0.2f, 0), dir * r * 0.5f + new Vector3(0, 0.5f, 0), 0.6f, 0.8f, smoke, seconds * 1.1f);
+        }
+        for (var i = 0; i < 5; i++)
+        {
+            var angle = i * 1.9f;
+            var dir = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
+            Puff(at + new Vector3(0, 0.3f, 0), dir * r * 0.8f + new Vector3(0, 0.9f, 0), 0.12f, 0f, mine ? earth : new Color(0.12f, 0.11f, 0.1f), seconds * 0.55f);
+        }
+    }
+
+    // A scattered attack skims the ground from where it was aimed to where it landed (the explosion follows), or dust
+    // where an attack at a point fell short.
+    private void PlayScatterOrDust(Beat beat)
+    {
+        if (beat.At is not { } point)
+        {
+            return;
+        }
+        var at = Ground(point);
+        if (beat.Kind == BeatKind.Scatter && beat.From is { } aimed)
+        {
+            var from = Ground(aimed) + new Vector3(0, 0.15f, 0);
+            Streak(from, at + new Vector3(0, 0.15f, 0), beat.Seconds, false);
+            Puff(from, new Vector3(0, 0.4f, 0), 0.4f, 0.4f, new Color(0.58f, 0.49f, 0.37f), (float)beat.Seconds * 2);
+            return;
+        }
+        for (var i = 0; i < 5; i++)
+        {
+            var side = new Vector3(Mathf.Cos(i * 1.3f), 0, Mathf.Sin(i * 1.3f)) * 0.35f;
+            Puff(at + side + new Vector3(0, 0.12f, 0), new Vector3(0, 0.5f, 0), 0.35f, 0.4f, new Color(0.58f, 0.49f, 0.37f), (float)beat.Seconds);
+        }
+    }
+
+    // The burst of a marker put on a model: SHRAPNEL dark shards flying off it, GAS a slow sickly cloud round it, FIRE
+    // flames licking up it.
+    private void PlayMarker(Beat beat)
+    {
+        if (!Where(beat.Model, out var at, out var radius))
+        {
+            return;
+        }
+        MarkersDrawn++;
+        var seconds = (float)beat.Seconds;
+        switch (beat.Kind)
+        {
+            case BeatKind.Shrapnel:
+                for (var i = 0; i < 6; i++)
+                {
+                    var dir = new Vector3(Mathf.Cos(i * 1.05f), 0.3f, Mathf.Sin(i * 1.05f));
+                    Puff(at + new Vector3(0, 0.6f, 0), dir * 0.7f, 0.1f, 0f, new Color(0.3f, 0.3f, 0.32f), seconds);
+                }
+                Puff(at + new Vector3(0, 0.6f, 0), Vector3.Zero, 0.25f, 0.15f, new Color(1f, 0.9f, 0.6f), seconds * 0.4f);
+                break;
+            case BeatKind.Gas:
+                for (var i = 0; i < 3; i++)
+                {
+                    var side = new Vector3(Mathf.Cos(i * 2.1f), 0, Mathf.Sin(i * 2.1f)) * (radius + 0.1f);
+                    Puff(at + side + new Vector3(0, 0.4f, 0), new Vector3(0, 0.4f, 0) + side * 0.3f, 0.6f, 0.9f, new Color(0.55f, 0.62f, 0.3f), seconds);
+                }
+                break;
+            default:
+                for (var i = 0; i < 4; i++)
+                {
+                    var side = new Vector3(Mathf.Cos(i * 1.6f), 0, Mathf.Sin(i * 1.6f)) * radius * 0.5f;
+                    Puff(at + side + new Vector3(0, 0.2f + 0.15f * i, 0), new Vector3(0, 0.7f, 0), 0.3f, 0.1f, i % 2 == 0 ? new Color(1f, 0.6f, 0.15f) : new Color(1f, 0.85f, 0.3f), seconds * (0.7f + 0.1f * i));
+                }
+                break;
+        }
     }
 
     // Animation stage A2: where a blow lands (Strike: a brief pale flash with two sparks, between the bodies) or a charge
@@ -3070,7 +3367,17 @@ public partial class BoardView : SubViewportContainer
 
     private void StartTurn(Beat beat, double start)
     {
-        if (beat.Other is not { } target || !Where(target, out var aim, out _))
+        Vector3 aim;
+        if (beat.Other is { } target && Where(target, out var model, out _))
+        {
+            aim = model;
+        }
+        else if (beat.At is { } point)
+        {
+            // Stage A4: turning to a point (an attack at a point).
+            aim = Ground(point);
+        }
+        else
         {
             return;
         }

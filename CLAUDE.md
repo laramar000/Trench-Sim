@@ -273,3 +273,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Checks (Linux, xvfb): essentials 2,255/0; full UI runner 426 PASS, 0 FAIL; gvt-a run 29/0 with board-casualty-sequence
   5 changes (2 falls, 2 rises, 1 going figure, none left); animating frame mean 0.63-0.71 ms, terrain builds while
   animating 0. The pvp melee match took no model Down, so board-casualty-sequence did not report there (optional).
+- 2026-11-20, Jason: "Proceed with A4: Battlefield Effects" (only A4). Done: `BattleEffectsTracker`/`LogLine.Fx` (blasts from
+  BlastHit/PointBlastHit/AttackScattered/Martyrdom/mines, grenade thrown, attack at a point, SHRAPNEL/GAS/FIRE bursts;
+  `ResolutionLog.AttackAt`); beats Lob/Explosion/MineBlast/MartyrBlast/Scatter/Dust/Shrapnel/Gas/Fire; `BoardView` "animation
+  stage A4" (pooled grenades, `Streak`, `PlayExplosion`, `PlayMarker`, `Run`/`StopEffects` so a skip stops every effect;
+  MaxEffects 96); UI checks `board-blast-effects` (gvt-a), optional `board-blast-sequence` (pvp-a, gvt-a, abilities).
+  Next: A5 only when Jason asks.

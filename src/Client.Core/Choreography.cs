@@ -42,13 +42,28 @@ public enum BeatKind
     Fall,
     Rise,
     Casualty,
+
+    // Animation stage A4: a grenade lobbed in an arc (Model throws at Other, or at At); an explosion at At, Size inches
+    // across in radius (a weapon's BLAST, a Mine, a Martyrdom Device); a scattered attack's flight from where it was aimed
+    // (From) to where it landed (At); dust where an attack at a point fell short (At); and the burst of a SHRAPNEL, GAS or
+    // FIRE marker on a model.
+    Lob,
+    Explosion,
+    MineBlast,
+    MartyrBlast,
+    Scatter,
+    Dust,
+    Shrapnel,
+    Gas,
+    Fire,
 }
 
 // One thing the battlefield draws for an event, Start seconds after the update arrived, for Seconds. Model is the model it
 // happens to (the shooter of a flash or tracer, the target of a puff or flinch, the model that glides); Other is the model
 // at the far end (the target of a tracer, the attacker a flinch moves away from). Hit says whether the roll counted as
 // passed (a tracer that hits ends on its target). Motion and From are a glide's path and the point it starts from.
-public sealed record Beat(int Seq, BeatKind Kind, double Start, double Seconds, ModelId Model, ModelId? Other = null, bool Hit = false, Motion? Motion = null, TablePoint? From = null)
+public sealed record Beat(int Seq, BeatKind Kind, double Start, double Seconds, ModelId Model, ModelId? Other = null, bool Hit = false, Motion? Motion = null, TablePoint? From = null,
+    TablePoint? At = null, double Size = 0)
 {
     public double End => Start + Seconds;
 
@@ -57,7 +72,8 @@ public sealed record Beat(int Seq, BeatKind Kind, double Start, double Seconds, 
         or BeatKind.Fall or BeatKind.Rise or BeatKind.Casualty;
 
     // Effects drawn once, that fade on their own (an update is not busy while they fade).
-    public bool FadesOnItsOwn => Kind is BeatKind.HitPuff or BeatKind.DirtPuff or BeatKind.Strike or BeatKind.Impact;
+    public bool FadesOnItsOwn => Kind is BeatKind.HitPuff or BeatKind.DirtPuff or BeatKind.Strike or BeatKind.Impact
+        or BeatKind.Explosion or BeatKind.MineBlast or BeatKind.MartyrBlast or BeatKind.Dust or BeatKind.Shrapnel or BeatKind.Gas or BeatKind.Fire;
 }
 
 // When an event's own line is shown (its dice, notes and sound), seconds after the update arrived. The combat log does not
@@ -105,6 +121,18 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
     // What follows waits for the fall (not the sink).
     public const double FallSeconds = 0.45;
     public const double SinkSeconds = 0.5;
+
+    // Animation stage A4: a grenade's flight, a scattered attack's flight, the pause after an explosion before the Injury
+    // Rolls it causes are read, and how long each effect shows (they fade on their own; what follows does not wait).
+    public const double LobSeconds = 0.45;
+    public const double ScatterSeconds = 0.3;
+    public const double BlastHold = 0.35;
+    public const double ThrownSettle = 0.05;
+    public const double ExplosionSeconds = 0.9;
+    public const double DustSeconds = 0.6;
+    public const double ShrapnelSeconds = 0.35;
+    public const double GasSeconds = 1.2;
+    public const double FireSeconds = 0.7;
 
     // One update plays for at most this long; a longer one is played faster to fit.
     public const double MaxSeconds = 2.5;
@@ -192,10 +220,72 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
             // A caught-up event plays no effects (as before this stage); its line is shown in its place.
             if (line.Replayed || line.Effects.Count == 0)
             {
-                cues.Add(new(line, t));
-                if (!line.Replayed && line.Changes.Count > 0)
+                if (line.Replayed)
                 {
-                    t = Falls(line, t, beats);
+                    cues.Add(new(line, t));
+                    continue;
+                }
+                // Stage A4: an attack at a point: the attacker turns to it, then fires (flash and tracer) or throws.
+                if (line.Fx.Aim is { } aim)
+                {
+                    var fire = t + TurnSeconds;
+                    beats.Add(new(line.Seq, BeatKind.Turn, t, TurnSeconds, aim.Attacker, Hit: aim.Hit, At: aim.At));
+                    double down;
+                    if (line.Fx.Thrown)
+                    {
+                        beats.Add(new(line.Seq, BeatKind.Lob, fire, LobSeconds, aim.Attacker, Hit: aim.Hit, At: aim.At));
+                        down = fire + LobSeconds;
+                    }
+                    else
+                    {
+                        beats.Add(new(line.Seq, BeatKind.MuzzleFlash, fire, FlashSeconds, aim.Attacker, Hit: aim.Hit, At: aim.At));
+                        beats.Add(new(line.Seq, BeatKind.Tracer, fire + TracerDelay, TracerSeconds, aim.Attacker, Hit: aim.Hit, At: aim.At));
+                        down = fire + ImpactAt;
+                    }
+                    if (!aim.Hit)
+                    {
+                        beats.Add(new(line.Seq, BeatKind.Dust, down, DustSeconds, aim.Attacker, At: aim.At));
+                    }
+                    faced.Remove(aim.Attacker);
+                    cues.Add(new(line, down));
+                    t = down + ThrownSettle;
+                    continue;
+                }
+                // Stage A4: explosions (a scattered attack first flies to where it landed); the line comes with the first.
+                var at = t;
+                if (line.Fx.Blasts.Count > 0)
+                {
+                    var go = t;
+                    var first = -1.0;
+                    foreach (var blast in line.Fx.Blasts)
+                    {
+                        if (blast.From is { } aimed)
+                        {
+                            beats.Add(new(line.Seq, BeatKind.Scatter, go, ScatterSeconds, line.Models?.FirstOrDefault() ?? default, From: aimed, At: blast.At, Size: blast.Radius));
+                            go += ScatterSeconds;
+                        }
+                        var kind = blast.Style switch { BlastStyle.Mine => BeatKind.MineBlast, BlastStyle.Martyrdom => BeatKind.MartyrBlast, _ => BeatKind.Explosion };
+                        beats.Add(new(line.Seq, kind, go, ExplosionSeconds, line.Models?.FirstOrDefault() ?? default, At: blast.At, Size: blast.Radius));
+                        first = first < 0 ? go : first;
+                    }
+                    at = first;
+                    t = go + BlastHold;
+                }
+                cues.Add(new(line, at));
+                // Stage A4: the burst of each SHRAPNEL, GAS or FIRE marker the event put on a model, with its line.
+                foreach (var marker in line.Fx.Markers)
+                {
+                    var (kind, seconds) = marker.Style switch
+                    {
+                        MarkerStyle.Gas => (BeatKind.Gas, GasSeconds),
+                        MarkerStyle.Fire => (BeatKind.Fire, FireSeconds),
+                        _ => (BeatKind.Shrapnel, ShrapnelSeconds),
+                    };
+                    beats.Add(new(line.Seq, kind, at, seconds, marker.Model));
+                }
+                if (line.Changes.Count > 0)
+                {
+                    t = Math.Max(t, Falls(line, at, beats));
                 }
                 continue;
             }
@@ -210,7 +300,13 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
             var attacker = flash?.At ?? line.Models?.FirstOrDefault(m => m != puff.At);
             var strikeAt = attacker is { } a ? Turn(line.Seq, a, puff.At, t, hit) : t;
             double landed;
-            if (flash is not null)
+            if (flash is not null && line.Fx.Thrown)
+            {
+                // Stage A4: a grenade is lobbed in an arc; it lands at the end of its flight.
+                beats.Add(new(line.Seq, BeatKind.Lob, strikeAt, LobSeconds, flash.At, puff.At, hit));
+                landed = strikeAt + LobSeconds;
+            }
+            else if (flash is not null)
             {
                 beats.Add(new(line.Seq, BeatKind.MuzzleFlash, strikeAt, FlashSeconds, flash.At, puff.At, hit));
                 beats.Add(new(line.Seq, BeatKind.Tracer, strikeAt + TracerDelay, TracerSeconds, flash.At, puff.At, hit));
@@ -233,7 +329,8 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
                 beats.Add(new(line.Seq, BeatKind.Flinch, landed, FlinchSeconds, puff.At, by, hit));
             }
             cues.Add(new(line, landed));
-            t = landed + AfterImpact;
+            // A grenade's blast (its next event) goes off where it lands, without the pause after a shot.
+            t = landed + (line.Fx.Thrown ? ThrownSettle : AfterImpact);
         }
         var plan = new Choreography(cues, beats);
         var scale = (speed == AnimationSpeed.Fast ? 0.5 : 1) * Math.Min(1, MaxSeconds / Math.Max(plan.Length, 1e-9));

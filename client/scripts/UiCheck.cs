@@ -1223,6 +1223,7 @@ public partial class UiCheck : Node
                 {
                     await AnimationResilienceCheck(board);
                     await CasualtyResilienceCheck(board);
+                    await BlastEffectsCheck(board);
                 }
                 // Performance: the move redrew the models that changed, not the terrain; every model is drawn where the
                 // server has it, and an enemy that did not change kept the nodes it was drawn with.
@@ -3715,6 +3716,11 @@ public partial class UiCheck : Node
     private void AbilityChecks(List<string> ended)
     {
         Check("abilities-rosters-play-to-the-end", ended.Count == 2 && ended.All(e => e.Length > 0), string.Join(" | ", ended));
+        // Animation stage A4: these rosters throw grenades and fire BLAST guns.
+        if (Controls<BoardView>().FirstOrDefault() is { } fxBoard)
+        {
+            BlastSequenceCheck(fxBoard);
+        }
         var keys = AbilityKeys.Select(k => (k.Mode, k.Key, Result: _abilityKeyResults.TryGetValue(k.Mode, out var r) ? r : "never offered")).ToList();
         Check("abilities-action-keys", keys.All(k => k.Result == ""), string.Join("; ", keys.Select(k => $"{k.Key} {k.Mode}: {(k.Result == "" ? "ok" : k.Result)}")));
         // A Treat needs a friend with a BLOOD MARKER or Down within 1": when the dice gave none, Treat is NOT TESTED, not
@@ -5520,6 +5526,7 @@ public partial class UiCheck : Node
         if (_role is "pvp-a" or "gvt-a")
         {
             CasualtySequenceCheck(board);
+            BlastSequenceCheck(board);
         }
         var twice = shown.GroupBy(r => r.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         var compared = shown.Count(r => logged.ContainsKey(r.Seq));
@@ -5772,6 +5779,98 @@ public partial class UiCheck : Node
         Check("board-casualty-sequence", started == changes && board.CasualtyNodes == 0 && board.GhostsShowing == 0 && board.HeldStanding == 0 && !board.Gliding,
             $"{changes} status changes seen live; {board.FallsStarted} falls, {board.RisesStarted} rises, {board.CasualtiesStarted} going figures "
             + $"({board.GhostsFreed} freed); casualty figures left {board.CasualtyNodes}, held standing {board.HeldStanding}, still playing {board.Gliding}");
+    }
+
+    // Animation stage A4 (board-blast-effects): a made-up update played through the battlefield (PlayForCheck; never in
+    // play; nothing is sent and the server's state is never touched): one of this window's models lobs a grenade at an
+    // enemy, a weapon's blast, a mine and a Martyrdom Device go off at three points between them, an attack scatters from
+    // the first point to the second with dust where it fell, and the enemy gets SHRAPNEL, GAS and FIRE bursts (each over
+    // 20 s, so a slow frame cannot end them). While it plays, the grenade flies from the thrower's hand to the enemy, the
+    // last explosion is at its point and radius, every burst is drawn, no more than MaxEffects squares show, and the
+    // terrain and an untouched model keep their nodes. Finishing at once (as a command sent does) stops every effect and
+    // leaves nothing showing; with Animations Off the same explosions and bursts play nothing.
+    private async Task BlastEffectsCheck(BoardView board)
+    {
+        await Until(() => !board.Gliding && board.EffectsShowing == 0 ? "idle" : null, 5, "blast-idle");
+        async Task Step(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+        if (board.Scene is not { } scene || scene.Models.FirstOrDefault(m => m.Yours) is not { } thrower
+            || scene.Models.FirstOrDefault(m => !m.Yours) is not { } enemy)
+        {
+            Check("board-blast-effects", false, "no model of each seat on the battlefield");
+            return;
+        }
+        var selected = board.Selected?.Id;
+        var untouched = scene.Models.FirstOrDefault(m => m.Id != thrower.Id && m.Id != enemy.Id && m.Id != selected);
+        var untouchedNodes = untouched is null ? [] : board.NodeIdsOf(untouched.Id).ToList();
+        var terrain = board.TerrainBuilds;
+        TablePoint Between(double f) => new(thrower.X + (enemy.X - thrower.X) * f, thrower.Y + (enemy.Y - thrower.Y) * f);
+        var (p1, p2, p3) = (Between(0.3), Between(0.5), Between(0.7));
+        var (lobs, explosions, markers, stopped) = (board.LobsDrawn, board.ExplosionsDrawn, board.MarkersDrawn, board.EffectsStopped);
+        var plan = new Choreography([],
+        [
+            new Beat(0, BeatKind.Lob, 0, 20.0, thrower.Id, enemy.Id, Hit: true),
+            new Beat(0, BeatKind.Explosion, 0, 20.0, thrower.Id, At: p1, Size: 2),
+            new Beat(0, BeatKind.MineBlast, 0, 20.0, thrower.Id, At: p2, Size: 1),
+            new Beat(0, BeatKind.MartyrBlast, 0, 20.0, thrower.Id, At: p3, Size: 3),
+            new Beat(0, BeatKind.Scatter, 0, 20.0, thrower.Id, From: p1, At: p2, Size: 2),
+            new Beat(0, BeatKind.Dust, 0, 20.0, thrower.Id, At: p1),
+            new Beat(0, BeatKind.Shrapnel, 0, 20.0, enemy.Id),
+            new Beat(0, BeatKind.Gas, 0, 20.0, enemy.Id),
+            new Beat(0, BeatKind.Fire, 0, 20.0, enemy.Id),
+        ]);
+        board.PlayForCheck(plan);
+        await Step(1);
+        var showing = board.EffectsShowing;
+        var lob = board.LastLob;
+        var lobOk = board.LobsDrawn == lobs + 1 && lob is { } l && new Vector2(l.From.X, l.From.Z).DistanceTo(new Vector2((float)thrower.X, (float)thrower.Y)) < 0.05f
+            && new Vector2(l.To.X, l.To.Z).DistanceTo(new Vector2((float)enemy.X, (float)enemy.Y)) < 0.05f;
+        var last = board.LastExplosion;
+        var blastOk = board.ExplosionsDrawn == explosions + 3 && last is { } x && x.Kind == BeatKind.MartyrBlast && Math.Abs(x.Radius - 3) < 0.001f
+            && new Vector2(x.At.X, x.At.Z).DistanceTo(new Vector2((float)p3.X, (float)p3.Y)) < 0.01f;
+        var markersOk = board.MarkersDrawn == markers + 3;
+        var untouchedKept = untouched is null || board.NodeIdsOf(untouched.Id).SequenceEqual(untouchedNodes);
+        var terrainKept = board.TerrainBuilds == terrain;
+        board.FinishAnimations();
+        await Step(1);
+        var cleaned = board.EffectsShowing == 0 && board.EffectsStopped > stopped && !board.Gliding;
+        var speed = board.Animation;
+        board.Animation = AnimationSpeed.Off;
+        var fx = new LogLine(0, "", null, Models: [thrower.Id, enemy.Id])
+        {
+            Fx = new BattleFx(false, null, [new BlastCue(BlastStyle.Weapon, p1, 2)], [new MarkerCue(enemy.Id, MarkerStyle.Gas)]),
+        };
+        board.PlayForCheck(Choreography.Of([fx], _ => null, board.Animation));
+        await Step(2);
+        var offQuiet = board.EffectsShowing == 0 && board.ExplosionsDrawn == explosions + 3 && !board.Gliding;
+        board.Animation = speed;
+        await Frames(1);
+        Check("board-blast-effects", showing > 20 && showing <= BoardView.MaxEffects && lobOk && blastOk && markersOk && untouchedKept && terrainKept && cleaned && offQuiet,
+            $"{showing} effect squares showing (at most {BoardView.MaxEffects}); grenade {lob} from {thrower.Id.Value} at ({thrower.X:0.0}, {thrower.Y:0.0}) to {enemy.Id.Value} at ({enemy.X:0.0}, {enemy.Y:0.0}): {lobOk}; "
+            + $"explosions drawn {board.ExplosionsDrawn - explosions}, last {last} (wanted MartyrBlast at {p3}, radius 3): {blastOk}; marker bursts {board.MarkersDrawn - markers}; "
+            + $"{untouched?.Id.Value ?? "no other model"} kept its nodes {untouchedKept}; terrain builds {terrain} -> {board.TerrainBuilds}; finished at once: showing {board.EffectsShowing}, "
+            + $"stopped {board.EffectsStopped - stopped}, still playing {board.Gliding}; Off plays nothing {offQuiet}");
+    }
+
+    // Animation stage A4 (board-blast-sequence, optional: only when the window saw explosions or marker bursts live):
+    // every explosion and burst of an event seen live came due once (drawn, or shown at once by a command sent meanwhile),
+    // and at the end nothing is still showing.
+    private void BlastSequenceCheck(BoardView board)
+    {
+        var live = board.FxLines.Where(l => !l.Replayed).ToList();
+        if (live.Count == 0)
+        {
+            return;
+        }
+        var (blasts, markers) = (live.Sum(l => l.Blasts), live.Sum(l => l.Markers));
+        Check("board-blast-sequence", board.BlastBeats == blasts && board.MarkerBeats == markers && board.EffectsShowing == 0 && !board.Gliding,
+            $"{live.Count} events seen live with {blasts} explosions and {markers} marker bursts; {board.BlastBeats} explosion and {board.MarkerBeats} burst beats came due "
+            + $"({board.ExplosionsDrawn} explosions and {board.MarkersDrawn} bursts drawn, {board.LobsDrawn} grenades thrown); still showing {board.EffectsShowing}, playing {board.Gliding}");
     }
 
     // Animation stage A1 (board-shot-sequence): every shot this window saw live came due as a tracer beat, once (drawn, or

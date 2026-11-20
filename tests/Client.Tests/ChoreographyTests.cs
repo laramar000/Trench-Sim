@@ -194,7 +194,8 @@ public class ChoreographyTests
                 }
             }
         }
-        Assert.All(Enum.GetValues<BeatKind>(), k => Assert.True(seen.GetValueOrDefault(k) > 0, $"{k}: {string.Join(", ", seen)}"));
+        // Stage A4's kinds (grenades, blasts, markers) need armed models: BattleEffectsTests covers them.
+        Assert.All(Enum.GetValues<BeatKind>().Where(k => k < BeatKind.Lob), k => Assert.True(seen.GetValueOrDefault(k) > 0, $"{k}: {string.Join(", ", seen)}"));
         Assert.True(waitedForAMove > 0, "no shot or blow came after a move in the same update");
         Assert.True(charges > 0 && reachedCharges > 0 && blows > 0, $"charges {charges}, reached {reachedCharges}, blows {blows}");
     }

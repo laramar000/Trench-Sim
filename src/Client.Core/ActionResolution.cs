@@ -110,6 +110,10 @@ public sealed class ResolutionLog
 
     public IReadOnlyList<ActionResolution> Actions => [.. _actions.Select(a => a.Build())];
 
+    // Animation stage A4: the kind and weapon of the attack the event with this number belongs to (null and 0 outside one).
+    public (AttackKind? Kind, int Weapon) AttackAt(int seq) =>
+        _owner.TryGetValue(seq, out var first) && _actions.FirstOrDefault(a => a.Seq == first) is { } action ? (action.Kind, action.Weapon) : (null, 0);
+
     // The action the event with this number belongs to, or null.
     public ActionResolution? ActionAt(int seq) => _owner.TryGetValue(seq, out var first) ? _actions.First(a => a.Seq == first).Build() : null;
 
