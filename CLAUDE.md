@@ -28,7 +28,7 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - `tools/TestCenter` one-click test menu (Windows `Test Trench Sim.cmd`, Linux `./test-trench-sim.sh`);
   `tools/UiCheck` UI-check runner (Linux needs xvfb; Windows `tools/UiCheck/Run-WindowsUiCheck.ps1`).
 - Docs: `docs/client.md` (every client feature with its tests), `docs/roster.md`, `docs/testing.md`,
-  `docs/interpretations.md` (rules readings U1-U168), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
+  `docs/interpretations.md` (rules readings U1-U169), `docs/known-gaps.md`, `docs/line-of-sight.md`, `docs/maps.md`,
   `docs/protocol.md`, `docs/records.md`.
 
 ## How to test (cut to the essentials, owner's request 2026-10-31)
@@ -253,8 +253,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
      Done since: Puppet Master client (slash key, R9a) and Arise and be Healed! (R12, U137; engine and CLI) and Charm of Acedia (R13, U138) and the free spells Black Heart and Blood Magic (R14, U139: cast ahead, no new decision stage), Shadow-walker and Call of the Flesh (R15, U140), Blessing of the Serpent Moon, Oracle Beast Cloak and Too Proud to Fall (R16, U141). Still unfinished: the
      other abilities that place or move INFECTION/BLESSING MARKERS (listed in U135), "counts as charging" for a Loudspeakers
      move into 1".
-  6. Field Shrine stage 2 (attacks and blasts remove it: Shoot, FightModel and the blast sweep must accept a shrine as a target;
-     design in `docs/design-carry-on-and-field-shrine.md` section B) and stage 3 (client piece, click placement, roster); benched.
+  6. Field Shrine stage 2 part done (2026-11-20, owner: "do the rest of the to do list"; U169): ranged attacks (`ShootPoint` at the shrine's centre) and blasts remove it, with `ShrineAttackTests`. Left: melee on a shrine (own command and events), client click/piece, narration, stage 3 (client piece, click placement, roster). Design in `docs/design-carry-on-and-field-shrine.md` section B.
   7. Scenario IV zone depth and the camera check (map dimensions, `docs/map-dimensions.md`): needs the book's value, which is
      not in the repo; no 48" map shipped.
   8. Godot/Windows run for everything built since 17a9099/e917e6b: log dice, keys I V Y Z G H B K W comma full-stop, Trample on

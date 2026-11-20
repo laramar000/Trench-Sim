@@ -130,6 +130,32 @@ internal static class Board
         return null;
     }
 
+    // Field Shrine stage 2 (U128): a Field Shrine can be attacked as if it were an enemy model, by either side. A ranged attack at a
+    // shrine is aimed at the point of its centre (a point attack that needs no BLAST weapon).
+    public static ShrineState? ShrineAtPoint(MatchState state, Point2 at) =>
+        state.Shrines.IsDefaultOrEmpty ? null : state.Shrines.FirstOrDefault(h => h.At == at);
+
+    // The shrines a blast centred there removes: those whose base it reaches (from the ground the shrine stands on) and that the
+    // point can see; none for a weapon without BLAST.
+    public static ImmutableArray<ShrineState> ShrinesInBlast(MatchState state, ModelState attacker, Point2 centre, int weapon)
+    {
+        var radius = BlastRadius(state, attacker, weapon);
+        if (radius == 0 || state.Shrines.IsDefaultOrEmpty || ScenarioOf(state) is not { } scenario)
+        {
+            return [];
+        }
+        var battlefield = scenario.Battlefield;
+        var point = new ModelBody("point", centre, HeightSight.PointRadius);
+        var height = SightHeights.StandingHeight(battlefield, point, Elevation.Of(battlefield, point));
+        var reach = Length.FromInches(radius);
+        return [.. state.Shrines.Where(h =>
+        {
+            var body = new ModelBody("shrine-" + h.Carrier.Value, h.At, ShrineState.Radius, Towers.ElevationAt(battlefield, h.At));
+            return Geometry.Blast.Reaches(centre, height, body, SightHeights.StandingHeight(battlefield, body, Elevation.Of(battlefield, body)), reach)
+                && HeightSight.SeesPoint(battlefield, body, centre);
+        })];
+    }
+
     // The Morale half test counts each shrine of the seat as 3 more models that are not Down or Out of Action, up to 9 (p. 82).
     public static int ShrineMoraleBonus(MatchState state, Seat seat) =>
         Math.Min(ShrineState.MaxBonus, ShrineState.MoraleBonus * state.Shrines.Count(h => h.Seat == seat));
@@ -531,9 +557,9 @@ internal static class Board
             return Refuse(ReasonCode.NoRangedWeapon, NoSuchGun(weapon));
         }
         var profile = owned.Using(AttackKind.Ranged, weapon);
-        if (profile.RangedWeaponBlast == 0)
+        if (profile.RangedWeaponBlast == 0 && ShrineAtPoint(state, at) is null)
         {
-            return Refuse(ReasonCode.NotACandidate, "Only a BLAST weapon may be aimed at a point.", RefBlast);
+            return Refuse(ReasonCode.NotACandidate, "Only a BLAST weapon may be aimed at a point (or a Field Shrine's centre).", RefBlast);
         }
         if (IsEngaged(state, attacker))
         {

@@ -1725,9 +1725,10 @@ public static class Reducer
         var progress = state.InProgress!;
         Require(Board.BlastHitsAt(state, state.FindModel(e.Attacker)!, e.At, progress.Weapon).SequenceEqual(e.Hit),
             "The blast must hit exactly the models within its radius of the point that see it, and the friends of those beside them.");
+        var cleared = ClearShrines(state, state.FindModel(e.Attacker)!, e.At, progress.Weapon);
         return e.Hit.IsEmpty
-            ? AttackOver(state, progress)
-            : state with { InProgress = NextBlastRoll(state, progress with { Aimed = null, Critical = false }, e.Hit) };
+            ? AttackOver(cleared, progress)
+            : cleared with { InProgress = NextBlastRoll(cleared, progress with { Aimed = null, Critical = false }, e.Hit) };
     }
 
     // A Ranged Attack's Success Roll, at a model or (R5a) at a point: a miss, a scatter, a blast or the Injury Roll.
@@ -1763,6 +1764,11 @@ public static class Reducer
         // Critical Success: +1 INJURY DICE on the Injury Roll (confirmed ruling; the print on pp. 44-45 says "+1 DICE"),
         // +2 with CRITICAL; the weapon's own INJURY DICE and SHOTGUN's -1 at Long Range (roster stages R1, R2).
         var critical = check.Outcome == SuccessOutcome.CriticalSuccess;
+        if (progress.Target is null && profile.RangedWeaponBlast == 0 && progress.BlastAt is { } shrineAt && Board.ShrineAtPoint(state, shrineAt) is { } shrine)
+        {
+            // Field Shrine stage 2 (U128): a hit on a shrine removes it, with no Injury Roll.
+            return AttackOver(state with { Shrines = state.Shrines.Remove(shrine) }, progress);
+        }
         if (profile.RangedWeaponBlast > 0)
         {
             // Roster stage R4b (U102): a BLAST attack: who it hits comes next (BlastHit), then their Injury Rolls.
@@ -1783,7 +1789,8 @@ public static class Reducer
         var progress = state.InProgress!;
         var expected = Board.BlastHits(state, state.FindModel(e.Attacker)!, state.FindModel(e.Target)!, progress.Weapon);
         Require(expected.SequenceEqual(e.Hit), "The blast must hit exactly the models within its radius that see its target, and the friends of those beside them.");
-        return state with { InProgress = NextBlastRoll(state, progress with { Aimed = e.Target }, e.Hit) };
+        var cleared = ClearShrines(state, state.FindModel(e.Attacker)!, Board.BodyOf(state, state.FindModel(e.Target)!)!.Centre, progress.Weapon);
+        return cleared with { InProgress = NextBlastRoll(cleared, progress with { Aimed = e.Target }, e.Hit) };
     }
 
     // Roster stage R4c (U103): the opponent put the scattered attack at a point it may land at; the blast there hits
@@ -1799,7 +1806,7 @@ public static class Reducer
         Require(Board.CanScatterTo(state, progress, e.At), "The attack must scatter exactly that far, to a point on the battlefield in Line of Sight of its target.");
         Require(Board.BlastHitsAt(state, attacker, e.At, progress.Weapon).SequenceEqual(e.Hit),
             "The blast must hit exactly the models within its radius of the point that see it, and the friends of those beside them.");
-        var landed = state with { Pending = null };
+        var landed = ClearShrines(state with { Pending = null }, attacker, e.At, progress.Weapon);
         return e.Hit.IsEmpty
             ? AttackOver(landed, progress)
             : landed with { InProgress = NextBlastRoll(landed, progress with { Aimed = e.Target, BlastAt = e.At, Critical = false }, e.Hit) };
@@ -1814,6 +1821,13 @@ public static class Reducer
         Require(e.Inches == progress.ScatterInches, "The attack scatters 7 minus its Success Roll in inches.");
         Require(Board.ScatterPoints(state, progress).Count == 0, "A scattered attack misses only when it has nowhere to land.");
         return AttackOver(state, progress);
+    }
+
+    // Field Shrine stage 2 (U128): every shrine a blast centred there reaches and that the point sees is removed, with no Injury Roll.
+    private static MatchState ClearShrines(MatchState state, ModelState attacker, Point2 centre, int weapon)
+    {
+        var gone = Board.ShrinesInBlast(state, attacker, centre, weapon);
+        return gone.IsEmpty ? state : state with { Shrines = state.Shrines.RemoveRange(gone) };
     }
 
     // A Ranged Attack is over: a failed Risky roll ends the activation now (a scattered attack's, U103), else RELOAD does.
