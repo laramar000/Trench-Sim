@@ -6,7 +6,7 @@
 # Client.Core tests send every action through a real server). Any other check a run did not report makes the verdict INCOMPLETE. One check id per line, as in the runner's summary.md.
 # "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide, and the
 # placement previews are checked by whichever seat deploys first.
-# Animation stage A0 adds board-frame-time (hotseat, gvt-a): the battlefield's own time per frame, idle and while animating, and per server update, and how often it redrew the terrain and the models (apart while animating), over the match, reported for comparison; it fails only when nothing was measured. Animation stage A1 adds board-shot-sequence (gvt-a: every shot seen live came due as a tracer beat once, drawn or shown at once by a command sent meanwhile, some were drawn, and nothing is still playing at the end).
+# Animation stage A0 adds board-frame-time (hotseat, gvt-a): the battlefield's own time per frame, idle and while animating, and per server update, and how often it redrew the terrain and the models (apart while animating), over the match, reported for comparison; it fails only when nothing was measured. Animation stage A1 adds board-shot-sequence (gvt-a: every shot seen live came due as a tracer beat once, drawn or shown at once by a command sent meanwhile, some were drawn, and nothing is still playing at the end) and board-animation-resilience (gvt-a: a made-up glide and hit played through the battlefield survive a redraw of the gliding model, leave the terrain and an untouched model's nodes alone, finish at once onto the server's positions, and play nothing with Animations Off).
 godot-version
 client-build-Debug
 client-build-Release
@@ -422,6 +422,7 @@ gvt-a: pvp-dice-shown-once-as-logged
 gvt-a: event-effects
 gvt-a: board-frame-time
 gvt-a: board-shot-sequence
+gvt-a: board-animation-resilience
 gvt-a: pvp-panel-follows-state
 gvt-a: hud-objectives-now
 gvt-a: hud-on-battlefield

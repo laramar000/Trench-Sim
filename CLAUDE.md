@@ -247,10 +247,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   event's dice box, notes and sound come on its beat; the combat log stays immediate). Stages: A0 baseline timing, A1
   foundation + shot sequence, A2 facing/melee lunge/charge lean, A3 Down topple + Out of Action fade, A4 explosions and
   grenades, A5 feedback pulses. Done: A0 (`BoardTimes`, UI check `board-frame-time`) and A1 (`Client.Core/Choreography.cs`:
-  each update's lines and beats in order, at most 2.5 s, Full/Fast/Off; `BoardView` "animation (stage A1)": due queue,
+  each update's lines and beats in order, at most 2.5 s, Full/Fast/Off; `PlaybackQueue`: chains updates, TakeDue/TakeAll; `BoardView` "animation (stage A1)": due queue,
   glides measured from rest so they queue, flinches, pooled puffs and tracers, `FinishAnimations` on any send, seat change,
-  Esc or catch-up; auto-end waits for playback; Menu "Animations", setting `anim=`; tests `ChoreographyTests`, UI check
-  `board-shot-sequence`). Next: A2, only when Jason asks. Known gap until A3: a Down model lies down and an Out of Action
+  Esc or catch-up; auto-end waits for playback; Menu "Animations", setting `anim=`; tests `ChoreographyTests`, `PlaybackQueueTests`, UI
+  checks `board-shot-sequence`, `board-animation-resilience`). A0 also counts terrain builds and model draws. Next: A2, only when Jason asks. Known gap until A3: a Down model lies down and an Out of Action
   model disappears when the update arrives, before the shot lands.
   Cloud setup used: .NET 10 via dotnet-install.sh into ~/.dotnet (builds.dotnet.microsoft.com answered); the SessionStart
   hook installs Godot 4.4.1 without .NET, which cannot run this client: Godot 4.7.2 mono for Linux was downloaded from

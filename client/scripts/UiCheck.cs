@@ -1219,6 +1219,10 @@ public partial class UiCheck : Node
                     && Near(new TablePoint(g.To.X, g.To.Y), shape.X, shape.Y) && Near(new TablePoint(g.From.X, g.From.Y), preview.Path[0].At.X, preview.Path[0].At.Y)
                     && g.Seconds is >= BoardView.GlideMinSeconds and <= BoardView.GlideMaxSeconds && !board.Gliding && drawn is { } d && Near(new TablePoint(d.X, d.Y), shape.X, shape.Y),
                     $"glides {glides} -> {board.GlidesStarted}; last {last}; drawn at {drawn}; server ({shape.X}, {shape.Y})");
+                if (_role == "gvt-a")
+                {
+                    await AnimationResilienceCheck(board);
+                }
                 // Performance: the move redrew the models that changed, not the terrain; every model is drawn where the
                 // server has it, and an enemy that did not change kept the nodes it was drawn with.
                 var drawnScene = board.Scene!;
@@ -5520,6 +5524,75 @@ public partial class UiCheck : Node
         {
             Check("pvp-dice-stacked", _diceStacks.All(s => s.EndsWith("in order", StringComparison.Ordinal)), string.Join(" / ", _diceStacks.Distinct().Take(6)));
         }
+    }
+
+    // Animation stage A1 (board-animation-resilience): a made-up update played through the battlefield (PlayForCheck; never
+    // in play): one of this window's models glides 3" back to where the server has it while it shoots an enemy, which is
+    // hit and flinches. While it plays, the model is drawn off its spot; selecting it redraws its nodes and it stays where
+    // the glide has it; the terrain and a model the update does not touch keep their nodes; the tracer is drawn. Finishing
+    // at once (as a command sent does) puts both back on the server's positions with nothing left playing, and with
+    // Animations Off the same shot plays nothing. Nothing is sent and the server's state is never touched.
+    private async Task AnimationResilienceCheck(BoardView board)
+    {
+        if (board.Scene is not { } scene || scene.Models.FirstOrDefault(m => m.Yours) is not { } mover
+            || scene.Models.FirstOrDefault(m => !m.Yours) is not { } target)
+        {
+            Check("board-animation-resilience", false, "no model of each seat on the battlefield");
+            return;
+        }
+        var selected = board.Selected?.Id;
+        var far = scene.Models.Where(m => m.Id != mover.Id && m.Id != target.Id && m.Id != selected)
+            .OrderByDescending(m => Math.Abs(m.X - mover.X) + Math.Abs(m.Y - mover.Y)).FirstOrDefault();
+        if (far is null)
+        {
+            Check("board-animation-resilience", false, "no third model to keep its nodes");
+            return;
+        }
+        float Off(Rules.Core.State.ModelId id, ModelShape at) => board.DrawnAt(id) is { } d ? new Vector2((float)at.X, (float)at.Y).DistanceTo(d) : -1;
+        var terrain = board.TerrainBuilds;
+        var farNodes = board.NodeIdsOf(far.Id).ToList();
+        var tracers = board.TracersDrawn;
+        var flinches = board.FlinchesStarted;
+        var plan = new Choreography([],
+        [
+            new Beat(0, BeatKind.Glide, 0, 3.0, mover.Id, Motion: new Motion(mover.Id, [new TablePoint(mover.X, mover.Y)]), From: new TablePoint(mover.X + 3, mover.Y)),
+            new Beat(0, BeatKind.MuzzleFlash, 0, Choreography.FlashSeconds, mover.Id, target.Id, Hit: true),
+            new Beat(0, BeatKind.Tracer, Choreography.TracerDelay, Choreography.TracerSeconds, mover.Id, target.Id, Hit: true),
+            new Beat(0, BeatKind.HitPuff, Choreography.ImpactAt, Choreography.HitPuffSeconds, target.Id, mover.Id, Hit: true),
+            new Beat(0, BeatKind.Flinch, Choreography.ImpactAt, 3.0, target.Id, mover.Id, Hit: true),
+        ]);
+        board.PlayForCheck(plan);
+        await Frames(3);
+        var awayBefore = Off(mover.Id, mover);
+        var moverNodes = board.NodeIdsOf(mover.Id).ToList();
+        board.Select(selected == mover.Id ? null : mover.Id);
+        await Frames(1);
+        var redrawn = !board.NodeIdsOf(mover.Id).SequenceEqual(moverNodes);
+        var awayAfter = Off(mover.Id, mover);
+        await Until(() => board.TracersDrawn > tracers && board.FlinchesStarted > flinches ? "ok" : null, 3, "check-tracer");
+        var tracerDrawn = board.TracersDrawn > tracers && board.FlinchesStarted > flinches;
+        var farKept = board.NodeIdsOf(far.Id).SequenceEqual(farNodes) && farNodes.Count > 0;
+        var terrainKept = board.TerrainBuilds == terrain;
+        var playing = board.Gliding;
+        board.FinishAnimations();
+        await Frames(1);
+        var moverRest = Off(mover.Id, mover);
+        var targetRest = Off(target.Id, target);
+        var finished = !board.Gliding && moverRest is >= 0 and < 0.01f && targetRest is >= 0 and < 0.01f;
+        var speed = board.Animation;
+        board.Animation = AnimationSpeed.Off;
+        var offTracers = board.TracersDrawn;
+        var shot = new LogLine(0, "", null, Models: [mover.Id, target.Id]) { Effects = [new(EffectKind.MuzzleFlash, mover.Id), new(EffectKind.HitPuff, target.Id)] };
+        board.PlayForCheck(Choreography.Of([shot], _ => null, board.Animation));
+        await Frames(2);
+        var offQuiet = !board.Gliding && board.TracersDrawn == offTracers;
+        board.Animation = speed;
+        board.Select(selected);
+        await Frames(1);
+        Check("board-animation-resilience", awayBefore > 0.5f && redrawn && awayAfter > 0.3f && tracerDrawn && farKept && terrainKept && playing && finished && offQuiet,
+            $"{mover.Id.Value} drawn {awayBefore:0.00}\" off its spot; selected: nodes redrawn {redrawn}, still {awayAfter:0.00}\" off; tracer and flinch drawn {tracerDrawn}; "
+            + $"{far.Id.Value} kept its nodes {farKept}; terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}; finished at once: {moverRest:0.000}\" and {targetRest:0.000}\" "
+            + $"from the server's spots, still playing {board.Gliding}; Off plays nothing {offQuiet}");
     }
 
     // Animation stage A1 (board-shot-sequence): every shot this window saw live came due as a tracer beat, once (drawn, or

@@ -2395,12 +2395,11 @@ public partial class BoardView : SubViewportContainer
 
     private static double Now => Time.GetTicksMsec() / 1000.0;
 
-    // What is still to be shown, in time order: an event's line (its dice, notes and sound) or a beat drawn once (a flash, a
-    // tracer, a puff). Glides and flinches move models instead (_glides, _flinches).
-    private readonly record struct Due(double At, LogLine? Line, Beat? Beat);
-
-    private readonly List<Due> _due = [];
-    private double _queueEnd;
+    // What is still to be shown (PlaybackQueue: lines and one-off beats in time order); glides and flinches move models
+    // instead (_glides, _flinches). The lists are kept and used again, so a frame allocates nothing.
+    private readonly PlaybackQueue _queue = new();
+    private readonly List<PlaybackQueue.Item> _taken = [];
+    private readonly List<Beat> _moves = [];
     private Seat? _seatShown;
     private readonly Dictionary<ModelId, (Vector3 At, float Radius)> _lastSeen = [];
 
@@ -2409,44 +2408,50 @@ public partial class BoardView : SubViewportContainer
     private void Play(Choreography plan)
     {
         var now = Now;
-        if (_queueEnd - now > Choreography.MaxSeconds)
+        if (_queue.Behind(now) > Choreography.MaxSeconds)
         {
             FinishAnimations();
         }
-        var start = Math.Max(now, _queueEnd);
-        var due = new List<(double At, int Order, Due Item)>();
-        foreach (var cue in plan.Lines)
+        _moves.Clear();
+        _queue.Add(plan, now, _moves);
+        foreach (var move in _moves)
         {
-            due.Add((start + cue.At, due.Count, new Due(start + cue.At, cue.Line, null)));
-        }
-        foreach (var beat in plan.Beats)
-        {
-            switch (beat.Kind)
+            if (move.Kind == BeatKind.Glide)
             {
-                case BeatKind.Glide:
-                    StartGlide(beat, start + beat.Start);
-                    break;
-                case BeatKind.Flinch:
-                    StartFlinch(beat, start + beat.Start);
-                    break;
-                default:
-                    due.Add((start + beat.Start, due.Count, new Due(start + beat.Start, null, beat)));
-                    break;
+                StartGlide(move, move.Start);
+            }
+            else
+            {
+                StartFlinch(move, move.Start);
             }
         }
-        _due.AddRange(due.OrderBy(d => d.At).ThenBy(d => d.Order).Select(d => d.Item));
-        _queueEnd = Math.Max(_queueEnd, start + plan.Length);
         RunDue(now, draw: true);
     }
 
-    // Shows everything due by now, in order; with draw false (finishing at once), the lines are shown and the beats are
-    // counted but not drawn.
+    // For the UI check only (never in play): plays a made-up update; its beats (event number 0) are not counted as the
+    // match's.
+    public void PlayForCheck(Choreography plan) => Play(plan);
+
+    // The instance ids of the nodes a model is drawn with now (for the UI check: a redraw gives new ones).
+    public IReadOnlyList<ulong> NodeIdsOf(ModelId id) => _modelNodes.TryGetValue(id, out var nodes) ? [.. nodes.Select(n => n.Node.GetInstanceId())] : [];
+
+    // Shows everything due by now, in order. RunTaken with draw false (finishing at once) shows the lines and counts the
+    // beats without drawing them.
     private void RunDue(double now, bool draw)
     {
-        var taken = 0;
-        while (taken < _due.Count && _due[taken].At <= now)
+        if (_queue.Count == 0)
         {
-            var item = _due[taken++];
+            return;
+        }
+        _taken.Clear();
+        _queue.TakeDue(now, _taken);
+        RunTaken(draw);
+    }
+
+    private void RunTaken(bool draw)
+    {
+        foreach (var item in _taken)
+        {
             if (item.Line is { } line)
             {
                 Dice.Feed.Add(line, DiceTray.Now);
@@ -2461,10 +2466,7 @@ public partial class BoardView : SubViewportContainer
                 RunBeat(beat, draw);
             }
         }
-        if (taken > 0)
-        {
-            _due.RemoveRange(0, taken);
-        }
+        _taken.Clear();
     }
 
     private void RunBeat(Beat beat, bool draw)
@@ -2472,7 +2474,7 @@ public partial class BoardView : SubViewportContainer
         switch (beat.Kind)
         {
             case BeatKind.Tracer:
-                TracerBeats++;
+                TracerBeats += beat.Seq > 0 ? 1 : 0;
                 if (draw)
                 {
                     PlayTracer(beat);
@@ -2484,7 +2486,10 @@ public partial class BoardView : SubViewportContainer
                 {
                     PlayEffect(cue);
                 }
-                EffectsPlayed.Add((beat.Seq, cue));
+                if (beat.Seq > 0)
+                {
+                    EffectsPlayed.Add((beat.Seq, cue));
+                }
                 break;
         }
     }
@@ -2494,7 +2499,9 @@ public partial class BoardView : SubViewportContainer
     // never waits for an animation and never acts on a picture that is behind the server.
     public void FinishAnimations()
     {
-        RunDue(double.MaxValue, draw: false);
+        _taken.Clear();
+        _queue.TakeAll(Now, _taken);
+        RunTaken(draw: false);
         if (_glides.Count > 0 || _flinches.Count > 0)
         {
             _pose.Clear();
@@ -2510,7 +2517,6 @@ public partial class BoardView : SubViewportContainer
             _flinches.Clear();
             SetPoses();
         }
-        _queueEnd = Now;
     }
 
     // Where a model is drawn from for an effect: the table, or (taken off it) where it was last drawn.
@@ -2820,7 +2826,7 @@ public partial class BoardView : SubViewportContainer
 
     // Whether the battlefield is still playing what the server resolved: a model travelling or flinching, or a line or
     // effect still to show (the UI check waits for this before it measures the drawing; the auto-end waits for it).
-    public bool Gliding => _glides.Count > 0 || _flinches.Count > 0 || _due.Count > 0;
+    public bool Gliding => _glides.Count > 0 || _flinches.Count > 0 || _queue.Count > 0;
 
     // The point of a model the see-through walls keep visible (Godot units: x, height, table y; for the UI check).
     public Vector3? BodyAt(ModelId id) => _modelNodes.TryGetValue(id, out var nodes) && nodes.Count > 0 ? nodes[0].Node.Position : null;
