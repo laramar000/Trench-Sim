@@ -2497,8 +2497,12 @@ public partial class BoardView : SubViewportContainer
     // Shows at once everything still playing: lines still due are shown, beats are not drawn, every model is put back on
     // the server's position. Sending a command, a change of the seat shown, Esc and a catch-up all do this, so the player
     // never waits for an animation and never acts on a picture that is behind the server.
-    public void FinishAnimations()
+    public void FinishAnimations([System.Runtime.CompilerServices.CallerMemberName] string caller = "")
     {
+        if (Gliding && FinishedEarly.Count < 50)
+        {
+            FinishedEarly.Add(caller);
+        }
         _taken.Clear();
         _queue.TakeAll(Now, _taken);
         RunTaken(draw: false);
@@ -2518,6 +2522,9 @@ public partial class BoardView : SubViewportContainer
             SetPoses();
         }
     }
+
+    // Who finished playback early while something was still playing (for the UI check; at most 50 kept).
+    public List<string> FinishedEarly { get; } = [];
 
     // Where a model is drawn from for an effect: the table, or (taken off it) where it was last drawn.
     private bool Where(ModelId id, out Vector3 at, out float radius)

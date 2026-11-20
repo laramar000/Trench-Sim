@@ -5564,8 +5564,13 @@ public partial class UiCheck : Node
             new Beat(0, BeatKind.HitPuff, Choreography.ImpactAt, Choreography.HitPuffSeconds, target.Id, mover.Id, Hit: true),
             new Beat(0, BeatKind.Flinch, Choreography.ImpactAt, 1.8, target.Id, mover.Id, Hit: true),
         ]);
+        var finishedBefore = board.FinishedEarly.Count;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         board.PlayForCheck(plan);
+        var playingAtOnce = board.Gliding;
         await Frames(3);
+        var firstLook = clock.ElapsedMilliseconds;
+        var cutBy = string.Join(",", board.FinishedEarly.Skip(finishedBefore));
         var awayBefore = Off(mover.Id, mover);
         var moverNodes = board.NodeIdsOf(mover.Id).ToList();
         board.Select(selected == mover.Id ? null : mover.Id);
@@ -5595,7 +5600,7 @@ public partial class UiCheck : Node
         Check("board-animation-resilience", awayBefore > 0.5f && redrawn && awayAfter > 0.3f && tracerDrawn && farKept && terrainKept && playing && finished && offQuiet,
             $"{mover.Id.Value} drawn {awayBefore:0.00}\" off its spot; selected: nodes redrawn {redrawn}, still {awayAfter:0.00}\" off; tracer and flinch drawn {tracerDrawn}; "
             + $"{far.Id.Value} kept its nodes {farKept}; terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}; finished at once: {moverRest:0.000}\" and {targetRest:0.000}\" "
-            + $"from the server's spots, still playing {board.Gliding}; Off plays nothing {offQuiet}");
+            + $"from the server's spots, still playing {board.Gliding}; Off plays nothing {offQuiet}; playing right after PlayForCheck {playingAtOnce}, cut short by [{cutBy}], first look after {firstLook} ms");
     }
 
     // Animation stage A1 (board-shot-sequence): every shot this window saw live came due as a tracer beat, once (drawn, or
