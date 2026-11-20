@@ -1222,6 +1222,7 @@ public partial class UiCheck : Node
                 if (_role == "gvt-a")
                 {
                     await AnimationResilienceCheck(board);
+                    await CasualtyResilienceCheck(board);
                 }
                 // Performance: the move redrew the models that changed, not the terrain; every model is drawn where the
                 // server has it, and an enemy that did not change kept the nodes it was drawn with.
@@ -5516,6 +5517,10 @@ public partial class UiCheck : Node
         {
             MeleeSequenceCheck(board);
         }
+        if (_role is "pvp-a" or "gvt-a")
+        {
+            CasualtySequenceCheck(board);
+        }
         var twice = shown.GroupBy(r => r.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         var compared = shown.Count(r => logged.ContainsKey(r.Seq));
         Check("pvp-dice-shown-once-as-logged", shown.Count > 0 && compared > 0 && problems.Count == 0 && twice.Count == 0,
@@ -5672,6 +5677,101 @@ public partial class UiCheck : Node
         Check("board-melee-sequence", board.StrikeBeats == blows && board.LungesStarted >= blows && board.TurnsStarted > 0 && !board.Gliding,
             $"{blows} blows seen live, {board.StrikeBeats} strikes, {board.LungesStarted} lunges, {board.TurnsStarted} turns, {board.LeansStarted} charge leans, "
             + $"{board.ImpactBeats} charge impacts, {board.FlinchesStarted} flinches; still playing: {board.Gliding}");
+    }
+
+    // Animation stage A3 (board-casualty-resilience): a made-up update played through the battlefield (PlayForCheck; never
+    // in play; nothing is sent and the server's state is never touched). One of this window's models falls (a 20 s fall
+    // already 70% through), an enemy rises (half way), and another enemy is drawn as an Out of Action figure going. While it
+    // plays, the falling and rising figures are tipped and the casualty figure shows; selecting the faller redraws its
+    // nodes and it stays tipped; the terrain and an untouched model keep their nodes. Finishing at once (as a command sent
+    // does) puts both upright (the server has them standing), frees the casualty figure and holds no model standing, and
+    // with Animations Off the same fall plays nothing.
+    private async Task CasualtyResilienceCheck(BoardView board)
+    {
+        await Until(() => !board.Gliding ? "idle" : null, 5, "casualty-idle");
+        async Task Step(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+        var standing = board.Scene?.Models.Where(m => m.Status == Rules.Core.State.ModelStatus.Standing).ToList() ?? [];
+        var faller = standing.FirstOrDefault(m => m.Yours);
+        var enemies = standing.Where(m => !m.Yours).ToList();
+        if (faller is null || enemies.Count < 2)
+        {
+            Check("board-casualty-resilience", false, $"needs a standing model of this window and two standing enemies: {standing.Count} standing");
+            return;
+        }
+        var riser = enemies[0];
+        var casualty = enemies[1];
+        var selected = board.Selected?.Id;
+        var untouched = board.Scene!.Models.FirstOrDefault(m => m.Id != faller.Id && m.Id != riser.Id && m.Id != casualty.Id && m.Id != selected);
+        var untouchedNodes = untouched is null ? [] : board.NodeIdsOf(untouched.Id).ToList();
+        var terrain = board.TerrainBuilds;
+        var finishedBefore = board.FinishedEarly.Count;
+        var plan = new Choreography([],
+        [
+            new Beat(0, BeatKind.Fall, -14.0, 20.0, faller.Id, riser.Id),
+            new Beat(0, BeatKind.Rise, -10.0, 20.0, riser.Id),
+            new Beat(0, BeatKind.Casualty, 0, 20.0, casualty.Id, faller.Id, Hit: true),
+        ]);
+        board.PlayForCheck(plan);
+        await Step(1);
+        var fallTilt = board.TiltOf(faller.Id)?.Tilt ?? -1;
+        var riseTilt = board.TiltOf(riser.Id)?.Tilt ?? -1;
+        var ghosts = board.CasualtyNodes;
+        var fallerNodes = board.NodeIdsOf(faller.Id).ToList();
+        board.Select(selected == faller.Id ? riser.Id : faller.Id);
+        await Step(1);
+        var redrawn = !board.NodeIdsOf(faller.Id).SequenceEqual(fallerNodes);
+        var fallTiltAfter = board.TiltOf(faller.Id)?.Tilt ?? -1;
+        var untouchedKept = untouched is null || board.NodeIdsOf(untouched.Id).SequenceEqual(untouchedNodes);
+        var terrainKept = board.TerrainBuilds == terrain;
+        var playing = board.Gliding;
+        var cutBy = string.Join(",", board.FinishedEarly.Skip(finishedBefore));
+        board.FinishAnimations();
+        await Step(1);
+        var fallerAfter = board.TiltOf(faller.Id);
+        var riserAfter = board.TiltOf(riser.Id);
+        var upright = fallerAfter is { } fa && riserAfter is { } ra && fa.Tilt < 0.01f && ra.Tilt < 0.01f && Math.Abs(fa.Scale - 1) < 0.01f && Math.Abs(ra.Scale - 1) < 0.01f;
+        var cleaned = board.CasualtyNodes == 0 && board.GhostsShowing == 0 && board.HeldStanding == 0 && !board.Gliding;
+        var speed = board.Animation;
+        board.Animation = AnimationSpeed.Off;
+        var down = new LogLine(0, "", null, Models: [riser.Id, faller.Id])
+        {
+            Changes = [new StatusChange(faller.Id, Rules.Core.State.ModelStatus.Standing, Rules.Core.State.ModelStatus.Down)],
+        };
+        board.PlayForCheck(Choreography.Of([down], _ => null, board.Animation));
+        await Step(2);
+        var offQuiet = !board.Gliding && board.TiltOf(faller.Id) is { Tilt: < 0.01f } && board.CasualtyNodes == 0;
+        board.Animation = speed;
+        board.Select(selected);
+        await Frames(1);
+        Check("board-casualty-resilience", fallTilt is > 0.3f and < 1.5f && riseTilt is > 0.1f and < 1.5f && ghosts == 1 && redrawn && fallTiltAfter > 0.3f
+            && untouchedKept && terrainKept && playing && cutBy.Length == 0 && upright && cleaned && offQuiet,
+            $"{faller.Id.Value} falling, tipped {fallTilt:0.00} rad; {riser.Id.Value} rising, tipped {riseTilt:0.00} rad; casualty figures {ghosts}; "
+            + $"selected: nodes redrawn {redrawn}, still tipped {fallTiltAfter:0.00} rad; {untouched?.Id.Value ?? "no other model"} kept its nodes {untouchedKept}; "
+            + $"terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}, cut short by [{cutBy}]; finished at once: {faller.Id.Value} {fallerAfter}, "
+            + $"{riser.Id.Value} {riserAfter}, upright {upright}; casualty figures left {board.CasualtyNodes}, held standing {board.HeldStanding}, still playing {board.Gliding}; "
+            + $"Off plays nothing {offQuiet}");
+    }
+
+    // Animation stage A3 (board-casualty-sequence, optional: only when the match took models Down, stood them up or put
+    // them Out of Action while this window watched): every such change seen live started its fall, rise or going figure,
+    // and at the end no casualty figure is left and no model is still drawn standing until its fall.
+    private void CasualtySequenceCheck(BoardView board)
+    {
+        var changes = board.StatusLines.Where(l => !l.Replayed).Sum(l => l.Count);
+        if (changes == 0)
+        {
+            return;
+        }
+        var started = board.FallsStarted + board.RisesStarted + board.CasualtiesStarted;
+        Check("board-casualty-sequence", started == changes && board.CasualtyNodes == 0 && board.GhostsShowing == 0 && board.HeldStanding == 0 && !board.Gliding,
+            $"{changes} status changes seen live; {board.FallsStarted} falls, {board.RisesStarted} rises, {board.CasualtiesStarted} going figures "
+            + $"({board.GhostsFreed} freed); casualty figures left {board.CasualtyNodes}, held standing {board.HeldStanding}, still playing {board.Gliding}");
     }
 
     // Animation stage A1 (board-shot-sequence): every shot this window saw live came due as a tracer beat, once (drawn, or

@@ -35,6 +35,13 @@ public enum BeatKind
 
     // Where a charge strikes home: dust kicked up between charger (Other) and target (Model).
     Impact,
+
+    // Animation stage A3: a model taken Down falls over backwards, away from the model that downed it (Other, when the
+    // event names one); a model standing up rises the other way; a model put Out of Action falls (unless already Down),
+    // then sinks and fades away.
+    Fall,
+    Rise,
+    Casualty,
 }
 
 // One thing the battlefield draws for an event, Start seconds after the update arrived, for Seconds. Model is the model it
@@ -46,7 +53,8 @@ public sealed record Beat(int Seq, BeatKind Kind, double Start, double Seconds, 
     public double End => Start + Seconds;
 
     // Beats that move or turn a model for a while (the battlefield poses it each frame) rather than draw an effect once.
-    public bool PosesModel => Kind is BeatKind.Glide or BeatKind.Flinch or BeatKind.Turn or BeatKind.Lunge or BeatKind.Lean;
+    public bool PosesModel => Kind is BeatKind.Glide or BeatKind.Flinch or BeatKind.Turn or BeatKind.Lunge or BeatKind.Lean
+        or BeatKind.Fall or BeatKind.Rise or BeatKind.Casualty;
 
     // Effects drawn once, that fade on their own (an update is not busy while they fade).
     public bool FadesOnItsOwn => Kind is BeatKind.HitPuff or BeatKind.DirtPuff or BeatKind.Strike or BeatKind.Impact;
@@ -60,7 +68,9 @@ public sealed record LineCue(LogLine Line, double At);
 // what follows waits for it to arrive; a shot is a flash at the shooter, a tracer to the target, then the hit or the miss
 // (a puff, and a flinch when it hit) with the roll's dice and notes. Stage A2: the attacker first turns to face its target;
 // a blow in melee is a lunge landing at its peak with a strike; a charge turns, glides in faster leaning forward, and one
-// that reaches drives into contact with an impact and a flinch (its line, with "REACHED", comes on the impact). Everything comes from the events (the server's
+// that reaches drives into contact with an impact and a flinch (its line, with "REACHED", comes on the impact). Stage A3:
+// a model taken Down falls with its line, one standing up rises, one put Out of Action falls (Hit: it was standing), sinks
+// and fades; what follows waits for the fall. Everything comes from the events (the server's
 // results, the rules' verdicts on the rolls as EffectCues reads them); nothing here decides or changes an outcome.
 // Display only, and timing only: the state the battlefield and every check use is always the server's latest.
 public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Beat> Beats)
@@ -90,6 +100,11 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
     public const double ChargeInchesPerSecond = 36;
     public const double ChargeMinSeconds = 0.25;
     public const double ChargeMaxSeconds = 0.6;
+
+    // Animation stage A3: a fall and a rise take FallSeconds; an Out of Action model then sinks and fades for SinkSeconds.
+    // What follows waits for the fall (not the sink).
+    public const double FallSeconds = 0.45;
+    public const double SinkSeconds = 0.5;
 
     // One update plays for at most this long; a longer one is played faster to fit.
     public const double MaxSeconds = 2.5;
@@ -178,6 +193,10 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
             if (line.Replayed || line.Effects.Count == 0)
             {
                 cues.Add(new(line, t));
+                if (!line.Replayed && line.Changes.Count > 0)
+                {
+                    t = Falls(line, t, beats);
+                }
                 continue;
             }
             var puff = line.Effects.FirstOrDefault(e => e.Kind is EffectKind.HitPuff or EffectKind.DirtPuff);
@@ -221,6 +240,35 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
         return scale >= 1 ? plan : new(
             [.. cues.Select(c => c with { At = c.At * scale })],
             [.. beats.Select(b => b with { Start = b.Start * scale, Seconds = b.Seconds * scale })]);
+    }
+
+    // Animation stage A3: the falls, rises and removals of one event, all starting with its line; returns when what
+    // follows may start (after the falls and rises; an Out of Action model goes on sinking meanwhile).
+    private static double Falls(LogLine line, double at, List<Beat> beats)
+    {
+        var next = at;
+        foreach (var change in line.Changes)
+        {
+            var by = line.Models?.FirstOrDefault(m => m != change.Model);
+            ModelId? other = by is { } m && m != default ? m : null;
+            switch (change)
+            {
+                case { From: ModelStatus.Standing, To: ModelStatus.Down }:
+                    beats.Add(new(line.Seq, BeatKind.Fall, at, FallSeconds, change.Model, other));
+                    next = Math.Max(next, at + FallSeconds);
+                    break;
+                case { From: ModelStatus.Down, To: ModelStatus.Standing }:
+                    beats.Add(new(line.Seq, BeatKind.Rise, at, FallSeconds, change.Model, other));
+                    next = Math.Max(next, at + FallSeconds);
+                    break;
+                case { To: ModelStatus.OutOfAction }:
+                    var falls = change.From == ModelStatus.Standing;
+                    beats.Add(new(line.Seq, BeatKind.Casualty, at, (falls ? FallSeconds : 0) + SinkSeconds, change.Model, other, falls));
+                    next = Math.Max(next, at + (falls ? FallSeconds : 0));
+                    break;
+            }
+        }
+        return next;
     }
 
     private static double PathLength(TablePoint from, IReadOnlyList<TablePoint> path)

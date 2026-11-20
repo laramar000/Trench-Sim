@@ -228,6 +228,7 @@ public partial class BoardView : SubViewportContainer
         foreach (var model in _scene?.Models ?? [])
         {
             _lastSeen[model.Id] = (new Vector3((float)model.X, (float)model.Standing, (float)model.Y), (float)model.Radius);
+            _lastShapes[model.Id] = model;
         }
         if (seat != _seatShown)
         {
@@ -2385,6 +2386,11 @@ public partial class BoardView : SubViewportContainer
             {
                 EffectLines.Add((line.Seq, line.Effects.Count, line.Replayed));
             }
+            // Animation stage A3: the status changes each event made (for the UI check).
+            if (line.Changes.Count > 0)
+            {
+                StatusLines.Add((line.Seq, line.Changes.Count, line.Replayed));
+            }
         }
         _lastSeq = newest;
         if (fresh.Count > 0)
@@ -2407,6 +2413,8 @@ public partial class BoardView : SubViewportContainer
     private readonly List<Beat> _moves = [];
     private Seat? _seatShown;
     private readonly Dictionary<ModelId, (Vector3 At, float Radius)> _lastSeen = [];
+    // Animation stage A3: each model as it was last drawn (an Out of Action model is drawn again from this as it goes).
+    private readonly Dictionary<ModelId, ModelShape> _lastShapes = [];
 
     // Plays one update after what is still playing; an update arriving with more than Choreography.MaxSeconds still to
     // play first shows all of that at once, so the battlefield is never long behind the server.
@@ -2431,6 +2439,12 @@ public partial class BoardView : SubViewportContainer
                     break;
                 case BeatKind.Lean:
                     StartLean(move, move.Start);
+                    break;
+                case BeatKind.Fall or BeatKind.Rise:
+                    StartFall(move, move.Start);
+                    break;
+                case BeatKind.Casualty:
+                    StartCasualty(move, move.Start);
                     break;
                 default:
                     StartKnock(move, move.Start);
@@ -2529,6 +2543,29 @@ public partial class BoardView : SubViewportContainer
         _taken.Clear();
         _queue.TakeAll(Now, _taken);
         RunTaken(draw: false);
+        // Animation stage A3: falls end lying (drawn from the server's status), rises upright, casualties are gone.
+        if (_falls.Count > 0 || _ghosts.Count > 0)
+        {
+            foreach (var ghost in _ghosts)
+            {
+                FreeGhost(ghost);
+            }
+            _ghosts.Clear();
+            foreach (var fall in _falls)
+            {
+                if (!fall.Rising)
+                {
+                    _held.Remove(fall.Model);
+                }
+            }
+            var upright = _falls.Where(f => f.Rising || _scene?.Find(f.Model) is { Status: ModelStatus.Standing }).Select(f => f.Model).ToList();
+            _falls.Clear();
+            Rebuild();
+            foreach (var id in upright)
+            {
+                Upright(id);
+            }
+        }
         if (_glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0)
         {
             _pose.Clear();
@@ -2587,6 +2624,9 @@ public partial class BoardView : SubViewportContainer
     public List<(int Seq, int Count, bool Replayed)> EffectLines { get; } = [];
 
     public List<(int Seq, EffectCue Cue)> EffectsPlayed { get; } = [];
+
+    // Animation stage A3: every event with status changes this window took in (its number, how many, caught up or not).
+    public List<(int Seq, int Count, bool Replayed)> StatusLines { get; } = [];
 
     public int EffectsShowing => _effectsShowing;
 
@@ -2919,7 +2959,33 @@ public partial class BoardView : SubViewportContainer
 
     // Whether the battlefield is still playing what the server resolved: a model travelling or flinching, or a line or
     // effect still to show (the UI check waits for this before it measures the drawing; the auto-end waits for it).
-    public bool Gliding => _glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0 || _queue.Count > 0;
+    public bool Gliding => _glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0 || _falls.Count > 0 || _ghosts.Count > 0 || _queue.Count > 0;
+
+    // The casualty figures in the battlefield now (for the UI check: none once they have gone).
+    public int CasualtyNodes => _effects.GetChildren().Count(c => c.Name.ToString().StartsWith("Casualty", StringComparison.Ordinal) && !c.IsQueuedForDeletion());
+
+    // Animation stage A3: how many falls, rises and casualties of the match were started (made-up ones for the UI check
+    // are not counted), how many Out of Action figures are still
+    // showing as they go, how many models are still drawn standing until their fall, and how many casualty figures were
+    // freed (for the UI check).
+    public int FallsStarted { get; private set; }
+
+    public int RisesStarted { get; private set; }
+
+    public int CasualtiesStarted { get; private set; }
+
+    public int GhostsShowing => _ghosts.Count;
+
+    public int GhostsFreed { get; private set; }
+
+    public int HeldStanding => _held.Count;
+
+    // How far a model's figure leans from upright now (radians; 0 standing, about pi/2 lying in a fall), and its scale;
+    // null when the model has no figure (for the UI check).
+    public (float Tilt, float Scale)? TiltOf(ModelId id) =>
+        _figures.TryGetValue(id, out var figure) && IsInstanceValid(figure)
+            ? (figure.Basis.Y.Normalized().AngleTo(Vector3.Up), figure.Basis.Y.Length())
+            : null;
 
     // How many turns, lunges and leans were started, and how many strikes and charge impacts of the match came due (for
     // the UI check).
@@ -3022,6 +3088,191 @@ public partial class BoardView : SubViewportContainer
         TurnsStarted++;
     }
 
+    // Animation stage A3: a fall (or a rise) of a model's figure: it tips backwards over its feet, away from the model
+    // that downed it, turning first to face that model, and settles lying over its base (a rise is the same, backwards).
+    // A falling model is drawn standing until its fall ends (_held), then lying, as the server's status has it.
+    private sealed record FallTrack(ModelId Model, double Start, double Seconds, bool Rising, float FromYaw, float ToYaw, float LyingScale);
+
+    // An Out of Action model drawn again as it goes (its figure and base, not in the scene): it falls (unless it was Down),
+    // then sinks and fades, and is freed.
+    private sealed record CasualtyFigure(Node3D Root, Node3D Holder, List<GeometryInstance3D> Meshes, double Start, double FallSeconds, double SinkSeconds, bool Falls,
+        float Yaw, float LyingScale, float Height);
+
+    // A standing figure is drawn this tall (the plain body's height, as DrawModel draws it); lying, its centre is this high.
+    private const float StandingTall = 1.2f;
+    private const float LyingCentre = 0.15f;
+
+    private readonly List<FallTrack> _falls = [];
+    private readonly List<CasualtyFigure> _ghosts = [];
+    private readonly Dictionary<ModelId, ModelStatus> _held = [];
+    private readonly Dictionary<ModelId, (Basis Basis, Vector3 Offset)> _fallen = [];
+    private bool _fallEnded;
+    private readonly List<ModelId> _endedFalls = [];
+
+    // How much smaller a figure lying across its base is than standing (it lies within the base, as DrawModel fits it).
+    private static float LyingScale(double radius) => Math.Min(1f, (float)(2 * radius * 0.95) / StandingTall);
+
+    // The facing towards the model that downed it, or the facing it has.
+    private float FallYaw(ModelId id, ModelId? by, Vector3 at)
+    {
+        if (by is { } other && Where(other, out var from, out _) && new Vector2(from.X - at.X, from.Z - at.Z).Length() > 0.01f)
+        {
+            var was = FacingNow(id);
+            var to = FacingTo(at.X, at.Z, from.X, from.Z);
+            return was + Mathf.Wrap(to - was, -Mathf.Pi, Mathf.Pi);
+        }
+        return FacingNow(id);
+    }
+
+    private void StartFall(Beat beat, double start)
+    {
+        if (!Where(beat.Model, out var at, out var radius))
+        {
+            return;
+        }
+        var rising = beat.Kind == BeatKind.Rise;
+        var from = FacingNow(beat.Model);
+        var to = rising ? from : FallYaw(beat.Model, beat.Other, at);
+        _facing[beat.Model] = Mathf.Wrap(to, -Mathf.Pi, Mathf.Pi);
+        _falls.Add(new FallTrack(beat.Model, start, beat.Seconds, rising, from, to, LyingScale(radius)));
+        if (rising)
+        {
+            RisesStarted += beat.Seq > 0 ? 1 : 0;
+            return;
+        }
+        // Drawn standing until the fall ends (its label, base and blood drops are drawn as they were).
+        if (_scene?.Find(beat.Model) is { Status: ModelStatus.Down })
+        {
+            _held[beat.Model] = ModelStatus.Standing;
+            Rebuild();
+        }
+        FallsStarted += beat.Seq > 0 ? 1 : 0;
+    }
+
+    private void StartCasualty(Beat beat, double start)
+    {
+        // As it was last drawn (in play it has just left the table; the UI check plays one on a model still there).
+        if ((_scene?.Find(beat.Model) ?? (_lastShapes.TryGetValue(beat.Model, out var last) ? last : null)) is not { } shape || !_effects.IsInsideTree())
+        {
+            return;
+        }
+        // The beat's time is a fall (when it was standing) then the sink, both played faster together when the update is.
+        var scale = beat.Seconds / ((beat.Hit ? Choreography.FallSeconds : 0) + Choreography.SinkSeconds);
+        var falls = beat.Hit;
+        var fallSeconds = falls ? Choreography.FallSeconds * scale : 0;
+        var sinkSeconds = Choreography.SinkSeconds * scale;
+        var fallStart = start;
+        // Taken Down and then Out of Action in one update: the figure falls at its fall, then goes.
+        if (_falls.FindIndex(f => f.Model == beat.Model && !f.Rising) is >= 0 and var pending)
+        {
+            fallStart = _falls[pending].Start;
+            fallSeconds = _falls[pending].Seconds;
+            falls = true;
+            sinkSeconds += Math.Max(0, start - (fallStart + fallSeconds));
+            _falls.RemoveAt(pending);
+            _held.Remove(beat.Model);
+        }
+        var at = new Vector3((float)shape.X, (float)shape.Standing, (float)shape.Y);
+        var yaw = FallYaw(beat.Model, beat.Other, at);
+        var root = new Node3D { Name = $"Casualty{shape.Id.Value}", Position = at };
+        var holder = new Node3D { Position = new Vector3(0, StandingTall / 2, 0), Rotation = new Vector3(0, yaw, 0) };
+        var colour = BodyColour(shape);
+        Node3D body;
+        if (!_highContrast && Visuals.Model(shape.Type is { } type ? VisualCatalog.UnitKey(type) : VisualCatalog.DefaultUnitKey, VisualCatalog.DefaultUnitKey) is { } figure)
+        {
+            Visuals.FitOnBase(figure, new Vector3(0, -StandingTall / 2, 0), (float)shape.Radius, StandingTall);
+            Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
+            body = figure;
+        }
+        else
+        {
+            body = new MeshInstance3D
+            {
+                Mesh = new CylinderMesh { TopRadius = (float)shape.Radius, BottomRadius = (float)shape.Radius, Height = StandingTall, RadialSegments = 24 },
+                MaterialOverride = Paint(colour),
+            };
+        }
+        holder.AddChild(body);
+        root.AddChild(holder);
+        root.AddChild(new MeshInstance3D
+        {
+            Mesh = new CylinderMesh { TopRadius = (float)shape.Radius, BottomRadius = (float)shape.Radius, Height = 0.05f, RadialSegments = 16 },
+            Position = new Vector3(0, 0.025f, 0),
+            MaterialOverride = Paint(new Color(0.10f, 0.10f, 0.11f)),
+        });
+        _effects.AddChild(root);
+        var meshes = root.FindChildren("*", "GeometryInstance3D", true, false).OfType<GeometryInstance3D>().ToList();
+        var ghost = new CasualtyFigure(root, holder, meshes, fallStart, fallSeconds, sinkSeconds, falls, yaw, LyingScale(shape.Radius), StandingTall);
+        _ghosts.Add(ghost);
+        PoseGhost(ghost, Now);
+        CasualtiesStarted += beat.Seq > 0 ? 1 : 0;
+    }
+
+    private void FreeGhost(CasualtyFigure ghost)
+    {
+        if (IsInstanceValid(ghost.Root))
+        {
+            ghost.Root.GetParent()?.RemoveChild(ghost.Root);
+            ghost.Root.QueueFree();
+        }
+        GhostsFreed++;
+    }
+
+    // The pose of a figure tipped backwards by p (0 standing, 1 lying) about its feet, facing yaw: its basis, and the
+    // offset of its centre from where it stands upright (it ends lying over its base, its centre LyingCentre up).
+    private static (Basis Basis, Vector3 Offset) Tipped(float p, float yaw, float lyingScale)
+    {
+        var back = -new Vector3(Mathf.Sin(yaw), 0, Mathf.Cos(yaw));
+        var axis = Vector3.Up.Cross(back).Normalized();
+        var tip = new Basis(axis, Mathf.Pi / 2 * p);
+        var scale = Mathf.Lerp(1f, lyingScale, p);
+        var basis = tip * new Basis(Vector3.Up, yaw).Scaled(Vector3.One * scale);
+        var half = StandingTall / 2;
+        var offset = tip * new Vector3(0, half * scale, 0) - new Vector3(0, half, 0) - back * (half * scale * p) + new Vector3(0, LyingCentre * p, 0);
+        return (basis, offset);
+    }
+
+    // Puts a casualty figure where it is now: falling, then sinking and fading. False once it has gone.
+    private bool PoseGhost(CasualtyFigure ghost, double now)
+    {
+        if (!IsInstanceValid(ghost.Root))
+        {
+            return false;
+        }
+        var fallT = !ghost.Falls || ghost.FallSeconds <= 0 ? 1f : (float)Math.Clamp((now - ghost.Start) / ghost.FallSeconds, 0, 1);
+        var p = ghost.Falls ? fallT * fallT : 1f;
+        var (basis, offset) = Tipped(p, ghost.Yaw, ghost.LyingScale);
+        ghost.Holder.Basis = basis;
+        ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0) + offset;
+        var sinkStart = ghost.Start + (ghost.Falls ? ghost.FallSeconds : 0);
+        var q = (float)Math.Clamp((now - sinkStart) / ghost.SinkSeconds, 0, 1);
+        foreach (var mesh in ghost.Meshes)
+        {
+            if (IsInstanceValid(mesh))
+            {
+                mesh.Transparency = q;
+            }
+        }
+        ghost.Holder.Position += new Vector3(0, -0.4f * q, 0);
+        return now < sinkStart + ghost.SinkSeconds;
+    }
+
+    // Puts a figure back upright, facing as it was left, at its rest (after a rise or when finishing at once).
+    private void Upright(ModelId id)
+    {
+        if (_figures.TryGetValue(id, out var figure) && IsInstanceValid(figure) && _modelNodes.TryGetValue(id, out var nodes))
+        {
+            figure.Basis = new Basis(Vector3.Up, FacingNow(id));
+            foreach (var (node, rest) in nodes)
+            {
+                if (node == figure)
+                {
+                    figure.Position = rest;
+                }
+            }
+        }
+    }
+
     private void StartLean(Beat beat, double start)
     {
         _leans.Add(new Lean(beat.Model, start, beat.Seconds));
@@ -3042,7 +3293,7 @@ public partial class BoardView : SubViewportContainer
     // starts, so it does not jump ahead of the picture); a flinch adds its knock.
     private void ApplyPoses()
     {
-        if (_glides.Count == 0 && _knocks.Count == 0 && _turns.Count == 0 && _leans.Count == 0)
+        if (_glides.Count == 0 && _knocks.Count == 0 && _turns.Count == 0 && _leans.Count == 0 && _falls.Count == 0 && _ghosts.Count == 0)
         {
             return;
         }
@@ -3111,6 +3362,56 @@ public partial class BoardView : SubViewportContainer
                 _leans.RemoveAt(i--);
             }
         }
+        // Animation stage A3: falls and rises tip the figure (a fall still to start holds it upright, a rise still to start
+        // holds it lying); a fall that ends lets the model be drawn lying, a rise that ends puts it upright.
+        _fallen.Clear();
+        _fallEnded = false;
+        _endedFalls.Clear();
+        for (var i = 0; i < _falls.Count; i++)
+        {
+            var fall = _falls[i];
+            var t = (float)Math.Clamp((now - fall.Start) / fall.Seconds, 0, 1);
+            if (now - fall.Start >= fall.Seconds)
+            {
+                _falls.RemoveAt(i--);
+                if (fall.Rising)
+                {
+                    _fallen[fall.Model] = (new Basis(Vector3.Up, fall.ToYaw), Vector3.Zero);
+                }
+                else
+                {
+                    _held.Remove(fall.Model);
+                    _fallEnded = true;
+                    _endedFalls.Add(fall.Model);
+                }
+                continue;
+            }
+            var p = fall.Rising ? (1 - t) * (1 - t) : t * t;
+            var turn = Mathf.Clamp(t / 0.3f, 0, 1);
+            var yaw = fall.Rising ? fall.ToYaw : Mathf.Lerp(fall.FromYaw, fall.ToYaw, turn * turn * (3 - 2 * turn));
+            _fallen[fall.Model] = Tipped(p, yaw, fall.LyingScale);
+        }
+        for (var i = 0; i < _ghosts.Count; i++)
+        {
+            if (!PoseGhost(_ghosts[i], now))
+            {
+                FreeGhost(_ghosts[i]);
+                _ghosts.RemoveAt(i--);
+            }
+        }
+        if (_fallEnded)
+        {
+            // Drawn lying now, as the server's status has it (only the models whose drawing changed are drawn again); one
+            // the server has standing again is put upright.
+            Rebuild();
+            foreach (var id in _endedFalls)
+            {
+                if (_scene?.Find(id) is { Status: ModelStatus.Standing })
+                {
+                    Upright(id);
+                }
+            }
+        }
         SetPoses();
     }
 
@@ -3149,9 +3450,23 @@ public partial class BoardView : SubViewportContainer
         }
         foreach (var (id, (pitch, yaw)) in _turned)
         {
-            if (_figures.TryGetValue(id, out var figure) && IsInstanceValid(figure))
+            if (!_fallen.ContainsKey(id) && _figures.TryGetValue(id, out var figure) && IsInstanceValid(figure))
             {
                 figure.Rotation = new Vector3(pitch, yaw, 0);
+            }
+        }
+        foreach (var (id, (basis, offset)) in _fallen)
+        {
+            if (_figures.TryGetValue(id, out var figure) && IsInstanceValid(figure) && _modelNodes.TryGetValue(id, out var nodes))
+            {
+                figure.Basis = basis;
+                foreach (var (node, rest) in nodes)
+                {
+                    if (node == figure)
+                    {
+                        figure.Position = rest + _pose.GetValueOrDefault(id) + offset;
+                    }
+                }
             }
         }
         // Labels moved (turns and leans move none): place them again next frame.
@@ -3573,7 +3888,9 @@ public partial class BoardView : SubViewportContainer
             foreach (var model in now.Models)
             {
                 var selected = model.Id == _selected;
-                keys[model.Id] = new ModelKey(model, selected, model.Id == _hovered, model.Yours && !selected && Interaction.CanChoose(model.Id), look);
+                // Animation stage A3: a model about to fall is drawn standing until its fall ends.
+                var drawn = _held.TryGetValue(model.Id, out var held) ? model with { Status = held } : model;
+                keys[model.Id] = new ModelKey(drawn, selected, model.Id == _hovered, model.Yours && !selected && Interaction.CanChoose(model.Id), look);
             }
         }
         var kept = new HashSet<Node>();
@@ -3683,7 +4000,7 @@ public partial class BoardView : SubViewportContainer
             }
             var firstNode = _content.GetChildCount();
             var fromArt = _figuresFromArt;
-            DrawModel(model, keys[model.Id].Choosable);
+            DrawModel(keys[model.Id].Shape, keys[model.Id].Choosable);
             var nodes = Enumerable.Range(firstNode, _content.GetChildCount() - firstNode).Select(i => _content.GetChild(i)).ToList();
             // Everything just drawn for this model (body, rings, id), so a glide can carry it along its path.
             _modelNodes[model.Id] = [.. nodes.OfType<Node3D>().Select(n => (n, n.Position))];

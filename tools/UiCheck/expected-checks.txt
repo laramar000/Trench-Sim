@@ -6,7 +6,7 @@
 # Client.Core tests send every action through a real server). Any other check a run did not report makes the verdict INCOMPLETE. One check id per line, as in the runner's summary.md.
 # "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide, and the
 # placement previews are checked by whichever seat deploys first.
-# Animation stage A0 adds board-frame-time (hotseat, gvt-a): the battlefield's own time per frame, idle and while animating, and per server update, and how often it redrew the terrain and the models (apart while animating), over the match, reported for comparison; it fails only when nothing was measured. Animation stage A1 adds board-shot-sequence (gvt-a: every shot seen live came due as a tracer beat once, drawn or shown at once by a command sent meanwhile, some were drawn, and nothing is still playing at the end) and board-animation-resilience (gvt-a: a made-up glide and hit played through the battlefield survive a redraw of the gliding model, leave the terrain and an untouched model's nodes alone, finish at once onto the server's positions, and play nothing with Animations Off). Animation stage A2 adds turns and a lean to that made-up update (the lean survives a redraw on selection and the hover mark, and once finished the model faces its target and keeps that facing when drawn again) and the optional board-melee-sequence (pvp-a, when the match has blows in melee: every blow seen live came due as a strike once, with a lunge, attackers turned, nothing still playing).
+# Animation stage A0 adds board-frame-time (hotseat, gvt-a): the battlefield's own time per frame, idle and while animating, and per server update, and how often it redrew the terrain and the models (apart while animating), over the match, reported for comparison; it fails only when nothing was measured. Animation stage A1 adds board-shot-sequence (gvt-a: every shot seen live came due as a tracer beat once, drawn or shown at once by a command sent meanwhile, some were drawn, and nothing is still playing at the end) and board-animation-resilience (gvt-a: a made-up glide and hit played through the battlefield survive a redraw of the gliding model, leave the terrain and an untouched model's nodes alone, finish at once onto the server's positions, and play nothing with Animations Off). Animation stage A2 adds turns and a lean to that made-up update (the lean survives a redraw on selection and the hover mark, and once finished the model faces its target and keeps that facing when drawn again) and the optional board-melee-sequence (pvp-a, when the match has blows in melee: every blow seen live came due as a strike once, with a lunge, attackers turned, nothing still playing). Animation stage A3 adds board-casualty-resilience (gvt-a: a made-up fall, rise and Out of Action figure played through the battlefield: tipped while playing, the fall survives a redraw on selection, the terrain and an untouched model keep their nodes, finishing at once leaves both upright with the casualty figure freed and no model held standing, Off plays nothing) and the optional board-casualty-sequence (pvp-a, gvt-a, when the match had status changes: every change seen live started its fall, rise or going figure, and none is left at the end).
 godot-version
 client-build-Debug
 client-build-Release
@@ -409,6 +409,8 @@ gvt-a: pvp-type-server
 gvt-a: pvp-choose-scenario
 optional gvt-a: pvp-preview-dice
 optional pvp-a: board-melee-sequence
+optional pvp-a: board-casualty-sequence
+optional gvt-a: board-casualty-sequence
 gvt-a: board-move-glides
 gvt-a: board-redraws-changed-parts
 gvt-a: pvp-create-enter
@@ -424,6 +426,7 @@ gvt-a: event-effects
 gvt-a: board-frame-time
 gvt-a: board-shot-sequence
 gvt-a: board-animation-resilience
+gvt-a: board-casualty-resilience
 gvt-a: pvp-panel-follows-state
 gvt-a: hud-objectives-now
 gvt-a: hud-on-battlefield

@@ -250,8 +250,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   each update's lines and beats in order, at most 2.5 s, Full/Fast/Off; `PlaybackQueue`: chains updates, TakeDue/TakeAll; `BoardView` "animation (stage A1)": due queue,
   glides measured from rest so they queue, flinches, pooled puffs and tracers, `FinishAnimations` on any send, seat change,
   Esc or catch-up; auto-end waits for playback; Menu "Animations", setting `anim=`; tests `ChoreographyTests`, `PlaybackQueueTests`, UI
-  checks `board-shot-sequence`, `board-animation-resilience`). A0 also counts terrain builds and model draws. Next: A2, only when Jason asks. Known gap until A3: a Down model lies down and an Out of Action
-  model disappears when the update arrives, before the shot lands.
+  checks `board-shot-sequence`, `board-animation-resilience`). A0 also counts terrain builds and model draws.
   Cloud setup used: .NET 10 via dotnet-install.sh into ~/.dotnet (builds.dotnet.microsoft.com answered); the SessionStart
   hook installs Godot 4.4.1 without .NET, which cannot run this client: Godot 4.7.2 mono for Linux was downloaded from
   the GitHub release (SHA-512 checked) into the session scratchpad for the UI checks.
@@ -266,3 +265,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   5 charge impacts); gvt-a reruns after the check fixes 29/0 and 27/0. Animating frame mean 0.64-0.83 ms (A1 0.56-0.75);
   the 0.78-0.83 runs include the check's own hover while its made-up update plays (0.74 with that hover left out); one
   run had a single 277 ms stall in an animating frame, not seen again. Hover marks a model without redrawing it.
+- 2026-11-20, Jason: "Proceed with A3: Down and Out of Action animations" (only A3). Done: `StatusTracker`/`LogLine.Changes`;
+  Fall/Rise/Casualty beats; `BoardView`: `_held` (a falling model drawn standing until its fall ends), `FallTrack` +
+  `Tipped` (figure tips backwards over its feet, settles over its base), casualty figures (`CasualtyFigure`, in `_effects`,
+  freed when gone or on FinishAnimations); UI checks `board-casualty-resilience` (gvt-a), optional `board-casualty-sequence`
+  (pvp-a, gvt-a). Next: A4 only when Jason asks.

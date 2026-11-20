@@ -21,6 +21,7 @@ public class ChoreographyTests
         foreach (var (_, log) in ClientCoreTests.Matches.Value)
         {
             var state = MatchState.None;
+            var statuses = new StatusTracker();
             for (var i = 0; i < log.Count; i += size)
             {
                 var before = state.Models.Where(m => m.Position is not null).ToDictionary(m => m.Id, m => TablePoint.Of(m.Position!.Value));
@@ -29,7 +30,7 @@ public class ChoreographyTests
                 foreach (var (e, k) in events.Select((e, k) => (e, k)))
                 {
                     state = Reducer.Apply(state, e);
-                    lines.Add(new LogLine(i + k + 1, "", null, Motion: Motions.Of(e, state), Models: EventModels.Of(e)) { Effects = EffectCues.Of(e) });
+                    lines.Add(new LogLine(i + k + 1, "", null, Motion: Motions.Of(e, state), Models: EventModels.Of(e)) { Effects = EffectCues.Of(e), Changes = statuses.Next(state) });
                 }
                 yield return (lines, events, before);
             }
@@ -46,6 +47,7 @@ public class ChoreographyTests
         var charges = 0;
         var reachedCharges = 0;
         var blows = 0;
+        var statusBeats = new Dictionary<BeatKind, int>();
         foreach (var size in new[] { 3, 8 })
         {
             foreach (var (lines, events, before) in Updates(size))
@@ -130,7 +132,29 @@ public class ChoreographyTests
                     }
                     if (line.Effects.Count == 0)
                     {
-                        Assert.Empty(mine);
+                        // Stage A3: one beat per status change, starting with the line; what follows waits for a fall or
+                        // a rise (an Out of Action model sinks meanwhile).
+                        Assert.Equal(line.Changes.Count, mine.Count);
+                        foreach (var (change, b) in line.Changes.Zip(mine))
+                        {
+                            var kind = change switch
+                            {
+                                { From: ModelStatus.Standing, To: ModelStatus.Down } => BeatKind.Fall,
+                                { From: ModelStatus.Down, To: ModelStatus.Standing } => BeatKind.Rise,
+                                _ => BeatKind.Casualty,
+                            };
+                            Assert.Equal((kind, change.Model), (b.Kind, b.Model));
+                            Assert.Equal(at, b.Start, 9);
+                            Assert.True(b.Other is null || b.Other != change.Model, b.ToString());
+                            var falls = kind != BeatKind.Casualty || change.From == ModelStatus.Standing;
+                            Assert.Equal(kind == BeatKind.Casualty && falls, kind == BeatKind.Casualty && b.Hit);
+                            var fallEnd = b.Start + (falls ? b.Seconds - (kind == BeatKind.Casualty ? b.Seconds * Choreography.SinkSeconds / (Choreography.FallSeconds + Choreography.SinkSeconds) : 0) : 0);
+                            foreach (var later in plan.Lines.Where(c => c.Line.Seq > line.Seq))
+                            {
+                                Assert.True(later.At >= fallEnd - Eps, $"[{later.Line.Seq}] at {later.At} before the fall of [{line.Seq}] ends at {fallEnd}");
+                            }
+                            statusBeats[kind] = statusBeats.GetValueOrDefault(kind) + 1;
+                        }
                         continue;
                     }
                     // A shot or a blow: the rules' verdict on the roll decides hit or miss; the flash and tracer come
