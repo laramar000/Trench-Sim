@@ -2,9 +2,9 @@ namespace Client.Core;
 
 // Animation stage A1: what the battlefield still has to play, in time order (seconds on the caller's clock). Each update's
 // choreography is put after what is still playing; lines (an event's dice, notes and sound) and one-off beats (a flash, a
-// tracer, a puff) come due at their time; glides and flinches are handed back at once with their absolute start, as they
-// move models from then on. TakeAll shows everything at once (a command sent, a change of seat, Esc, a catch-up). Display
-// timing only: nothing here reads or changes the match.
+// tracer, a puff) come due at their time; beats that pose a model (glides, flinches, and since stage A2 turns, lunges and
+// leans) are handed back at once with their absolute start, as they move models from then on. TakeAll shows everything at
+// once (a command sent, a change of seat, Esc, a catch-up). Display timing only: nothing here reads or changes the match.
 public sealed class PlaybackQueue
 {
     public readonly record struct Item(double At, LogLine? Line, Beat? Beat);
@@ -20,8 +20,8 @@ public sealed class PlaybackQueue
     // How far the queue is behind the clock: what is still to play, in seconds.
     public double Behind(double now) => Math.Max(0, End - now);
 
-    // Puts the update after what is still playing (or now, if nothing is) and returns when it starts. Glides and flinches
-    // are added to moves with their Start made absolute; everything else waits in the queue.
+    // Puts the update after what is still playing (or now, if nothing is) and returns when it starts. Beats that pose a
+    // model are added to moves with their Start made absolute; everything else waits in the queue.
     public double Add(Choreography plan, double now, List<Beat> moves)
     {
         ArgumentNullException.ThrowIfNull(plan);
@@ -34,7 +34,7 @@ public sealed class PlaybackQueue
         }
         foreach (var beat in plan.Beats)
         {
-            if (beat.Kind is BeatKind.Glide or BeatKind.Flinch)
+            if (beat.PosesModel)
             {
                 moves.Add(beat with { Start = start + beat.Start });
             }

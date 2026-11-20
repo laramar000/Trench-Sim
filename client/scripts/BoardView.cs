@@ -234,6 +234,11 @@ public partial class BoardView : SubViewportContainer
             _seatShown = seat;
             FinishAnimations();
         }
+        // Animation stage A2: a new match's figures face the middle again.
+        if (first)
+        {
+            _facing.Clear();
+        }
         _scene = scene;
         if (_scene?.Find(_selected) is null)
         {
@@ -2396,7 +2401,7 @@ public partial class BoardView : SubViewportContainer
     private static double Now => Time.GetTicksMsec() / 1000.0;
 
     // What is still to be shown (PlaybackQueue: lines and one-off beats in time order); glides and flinches move models
-    // instead (_glides, _flinches). The lists are kept and used again, so a frame allocates nothing.
+    // instead (_glides, _knocks, _turns, _leans). The lists are kept and used again, so a frame allocates nothing.
     private readonly PlaybackQueue _queue = new();
     private readonly List<PlaybackQueue.Item> _taken = [];
     private readonly List<Beat> _moves = [];
@@ -2416,13 +2421,20 @@ public partial class BoardView : SubViewportContainer
         _queue.Add(plan, now, _moves);
         foreach (var move in _moves)
         {
-            if (move.Kind == BeatKind.Glide)
+            switch (move.Kind)
             {
-                StartGlide(move, move.Start);
-            }
-            else
-            {
-                StartFlinch(move, move.Start);
+                case BeatKind.Glide:
+                    StartGlide(move, move.Start);
+                    break;
+                case BeatKind.Turn:
+                    StartTurn(move, move.Start);
+                    break;
+                case BeatKind.Lean:
+                    StartLean(move, move.Start);
+                    break;
+                default:
+                    StartKnock(move, move.Start);
+                    break;
             }
         }
         RunDue(now, draw: true);
@@ -2473,6 +2485,17 @@ public partial class BoardView : SubViewportContainer
     {
         switch (beat.Kind)
         {
+            case BeatKind.Strike or BeatKind.Impact:
+                if (beat.Seq > 0)
+                {
+                    StrikeBeats += beat.Kind == BeatKind.Strike ? 1 : 0;
+                    ImpactBeats += beat.Kind == BeatKind.Impact ? 1 : 0;
+                }
+                if (draw)
+                {
+                    PlayStrike(beat);
+                }
+                break;
             case BeatKind.Tracer:
                 TracerBeats += beat.Seq > 0 ? 1 : 0;
                 if (draw)
@@ -2506,19 +2529,31 @@ public partial class BoardView : SubViewportContainer
         _taken.Clear();
         _queue.TakeAll(Now, _taken);
         RunTaken(draw: false);
-        if (_glides.Count > 0 || _flinches.Count > 0)
+        if (_glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0)
         {
             _pose.Clear();
+            _turned.Clear();
             foreach (var glide in _glides)
             {
                 _pose[glide.Model] = Vector3.Zero;
             }
-            foreach (var flinch in _flinches)
+            foreach (var knock in _knocks)
             {
-                _pose[flinch.Model] = Vector3.Zero;
+                _pose[knock.Model] = Vector3.Zero;
+            }
+            // Turned to their final facing, upright.
+            foreach (var turn in _turns)
+            {
+                _turned[turn.Model] = (0, turn.To);
+            }
+            foreach (var lean in _leans)
+            {
+                _turned[lean.Model] = (0, _turned.TryGetValue(lean.Model, out var t) ? t.Yaw : FacingNow(lean.Model));
             }
             _glides.Clear();
-            _flinches.Clear();
+            _knocks.Clear();
+            _turns.Clear();
+            _leans.Clear();
             SetPoses();
         }
     }
@@ -2697,6 +2732,37 @@ public partial class BoardView : SubViewportContainer
         }));
     }
 
+    // Animation stage A2: where a blow lands (Strike: a brief pale flash with two sparks, between the bodies) or a charge
+    // strikes home (Impact: dust kicked up round the point of contact, and a smaller flash). The point is on the target's
+    // base edge towards the attacker. Pooled squares like every effect; display only.
+    private void PlayStrike(Beat beat)
+    {
+        if (beat.Other is not { } attacker || !Where(beat.Model, out var at, out var radius) || !Where(attacker, out var from, out _))
+        {
+            return;
+        }
+        var toward = new Vector3(from.X - at.X, 0, from.Z - at.Z);
+        toward = toward.Length() < 0.01f ? Vector3.Forward : toward.Normalized();
+        var contact = at + toward * radius;
+        var side = new Vector3(-toward.Z, 0, toward.X);
+        if (beat.Kind == BeatKind.Strike)
+        {
+            var seconds = (float)Choreography.StrikeSeconds;
+            Puff(contact + new Vector3(0, 0.8f, 0), Vector3.Zero, 0.35f, 0.3f, new Color(1f, 0.95f, 0.82f), seconds);
+            Puff(contact + new Vector3(0, 0.85f, 0), side * 0.5f + new Vector3(0, 0.25f, 0), 0.12f, 0f, new Color(1f, 0.85f, 0.5f), seconds * 2);
+            Puff(contact + new Vector3(0, 0.75f, 0), -side * 0.5f + new Vector3(0, 0.3f, 0), 0.12f, 0f, new Color(1f, 0.85f, 0.5f), seconds * 2);
+            return;
+        }
+        var dust = (float)Choreography.ImpactSeconds;
+        for (var i = 0; i < 6; i++)
+        {
+            var angle = i * Mathf.Tau / 6;
+            var out_ = (side * Mathf.Cos(angle) + toward * Mathf.Sin(angle) * 0.5f) * 0.7f;
+            Puff(contact + new Vector3(0, 0.12f, 0), out_ + new Vector3(0, 0.35f, 0), 0.35f, 0.45f, new Color(0.58f, 0.49f, 0.37f), dust);
+        }
+        Puff(contact + new Vector3(0, 0.7f, 0), Vector3.Zero, 0.3f, 0.2f, new Color(1f, 0.95f, 0.82f), (float)Choreography.StrikeSeconds);
+    }
+
     // ---- see-through walls (XCOM-style UX) ----
 
     // In the angled view, a wall or other tall piece between the camera and a model (as drawn, also while it travels) is
@@ -2772,7 +2838,7 @@ public partial class BoardView : SubViewportContainer
         // QoL H2: worked out again only when the camera has moved or a model is travelling (or after a redraw), not every
         // frame.
         var key = (_camera.GlobalTransform, _topDown);
-        if (_glides.Count == 0 && _flinches.Count == 0 && _seeThroughKey == key)
+        if (_glides.Count == 0 && _knocks.Count == 0 && _seeThroughKey == key)
         {
             return;
         }
@@ -2807,13 +2873,33 @@ public partial class BoardView : SubViewportContainer
     // on) follow each other.
     private sealed record Glide(ModelId Model, Vector2[] Points, float[] Lengths, float Total, double Start, double Seconds, float[] Heights, Vector2 Rest, float RestHeight);
 
-    // A hit model's flinch: a short knock away from its attacker and back to rest, never off the server's position.
-    private sealed record Flinch(ModelId Model, double Start, double Seconds, Vector3 Away);
+    // A knock: a short push of a model along Dir and back to rest, never off the server's position: a hit model's flinch
+    // away from its attacker (peaking half way), or since stage A2 an attacker's lunge at its target (peaking at the blow).
+    private sealed record Knock(ModelId Model, double Start, double Seconds, Vector3 Dir, float Peak);
+
+    // Animation stage A2: a turn of a model's figure from one facing to another, and a charger's lean (a tilt forward of
+    // its figure). Facing is the figure's yaw about the vertical; only the figure turns, never its base or label.
+    private sealed record FigureTurn(ModelId Model, double Start, double Seconds, float From, float To);
+
+    private sealed record Lean(ModelId Model, double Start, double Seconds);
 
     public const float FlinchInches = 0.35f;
+    public const float LungeInches = 0.4f;
+    public const float LeanDegrees = 14f;
+
+    // Each model's facing as the last turn left it (display only, never the rules'): a figure drawn again (selected,
+    // hovered, a new state) is drawn facing this way. Without one, a figure faces the middle of the battlefield.
+    private readonly Dictionary<ModelId, float> _facing = [];
+
+    // Each model's figure holder (the node that turns and leans), when it is drawn with art.
+    private readonly Dictionary<ModelId, Node3D> _figures = [];
+    private readonly List<FigureTurn> _turns = [];
+    private readonly List<Lean> _leans = [];
+    // Each turning or leaning model's lean and facing this frame (used again every frame).
+    private readonly Dictionary<ModelId, (float Pitch, float Yaw)> _turned = [];
 
     private readonly List<Glide> _glides = [];
-    private readonly List<Flinch> _flinches = [];
+    private readonly List<Knock> _knocks = [];
     private readonly Dictionary<ModelId, List<(Node3D Node, Vector3 At)>> _modelNodes = [];
     // Each model's offset from its rest this frame (used again every frame: no allocation while models move).
     private readonly Dictionary<ModelId, Vector3> _pose = [];
@@ -2833,7 +2919,24 @@ public partial class BoardView : SubViewportContainer
 
     // Whether the battlefield is still playing what the server resolved: a model travelling or flinching, or a line or
     // effect still to show (the UI check waits for this before it measures the drawing; the auto-end waits for it).
-    public bool Gliding => _glides.Count > 0 || _flinches.Count > 0 || _queue.Count > 0;
+    public bool Gliding => _glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0 || _queue.Count > 0;
+
+    // How many turns, lunges and leans were started, and how many strikes and charge impacts of the match came due (for
+    // the UI check).
+    public int TurnsStarted { get; private set; }
+
+    public int LungesStarted { get; private set; }
+
+    public int LeansStarted { get; private set; }
+
+    public int StrikeBeats { get; private set; }
+
+    public int ImpactBeats { get; private set; }
+
+    // The facing a model's figure is drawn with now (its yaw, radians) and the facing the last turn left it, and its lean
+    // now (for the UI check); null when the model has no figure.
+    public (float Yaw, float Wanted, float Lean)? FacingOf(ModelId id) =>
+        _figures.TryGetValue(id, out var figure) && IsInstanceValid(figure) ? (figure.Rotation.Y, FacingNow(id), figure.Rotation.X) : null;
 
     // The point of a model the see-through walls keep visible (Godot units: x, height, table y; for the UI check).
     public Vector3? BodyAt(ModelId id) => _modelNodes.TryGetValue(id, out var nodes) && nodes.Count > 0 ? nodes[0].Node.Position : null;
@@ -2869,9 +2972,9 @@ public partial class BoardView : SubViewportContainer
         }
     }
 
-    private void StartFlinch(Beat beat, double start)
+    private void StartKnock(Beat beat, double start)
     {
-        if (beat.Other is not { } attacker || !Where(beat.Model, out var at, out _) || !Where(attacker, out var from, out _))
+        if (beat.Other is not { } other || !Where(beat.Model, out var at, out _) || !Where(other, out var from, out _))
         {
             return;
         }
@@ -2880,8 +2983,49 @@ public partial class BoardView : SubViewportContainer
         {
             return;
         }
-        _flinches.Add(new Flinch(beat.Model, start, beat.Seconds, away.Normalized() * FlinchInches));
+        if (beat.Kind == BeatKind.Lunge)
+        {
+            _knocks.Add(new Knock(beat.Model, start, beat.Seconds, -away.Normalized() * LungeInches, (float)(Choreography.LungePeak / Choreography.LungeSeconds)));
+            LungesStarted++;
+            return;
+        }
+        _knocks.Add(new Knock(beat.Model, start, beat.Seconds, away.Normalized() * FlinchInches, 0.5f));
         FlinchesStarted++;
+    }
+
+    // The facing from one table point to another (the yaw the figure holder is drawn with).
+    private static float FacingTo(float fromX, float fromY, float toX, float toY) => Mathf.Atan2(toX - fromX, toY - fromY);
+
+    // The facing a model's figure has after the turns started so far: the last turn's, or the middle of the battlefield.
+    private float FacingNow(ModelId id) =>
+        _facing.TryGetValue(id, out var yaw) ? yaw
+        : _scene?.Find(id) is { } model ? FacingTo((float)model.X, (float)model.Y, (float)(_scene.Width / 2), (float)(_scene.Depth / 2))
+        : 0;
+
+    private void StartTurn(Beat beat, double start)
+    {
+        if (beat.Other is not { } target || !Where(target, out var aim, out _))
+        {
+            return;
+        }
+        var from = beat.From is { } origin ? new Vector3((float)origin.X, 0, (float)origin.Y) : Where(beat.Model, out var at, out _) ? at : (Vector3?)null;
+        if (from is not { } f || new Vector2(aim.X - f.X, aim.Z - f.Z).Length() < 0.01f)
+        {
+            return;
+        }
+        var was = FacingNow(beat.Model);
+        var to = FacingTo(f.X, f.Z, aim.X, aim.Z);
+        // The short way round.
+        to = was + Mathf.Wrap(to - was, -Mathf.Pi, Mathf.Pi);
+        _facing[beat.Model] = Mathf.Wrap(to, -Mathf.Pi, Mathf.Pi);
+        _turns.Add(new FigureTurn(beat.Model, start, beat.Seconds, was, to));
+        TurnsStarted++;
+    }
+
+    private void StartLean(Beat beat, double start)
+    {
+        _leans.Add(new Lean(beat.Model, start, beat.Seconds));
+        LeansStarted++;
     }
 
     // The height a base centred at this table point stands at: a tower's height inside its footprint, a trench's floor
@@ -2898,7 +3042,7 @@ public partial class BoardView : SubViewportContainer
     // starts, so it does not jump ahead of the picture); a flinch adds its knock.
     private void ApplyPoses()
     {
-        if (_glides.Count == 0 && _flinches.Count == 0)
+        if (_glides.Count == 0 && _knocks.Count == 0 && _turns.Count == 0 && _leans.Count == 0)
         {
             return;
         }
@@ -2920,15 +3064,51 @@ public partial class BoardView : SubViewportContainer
                 _pose[glide.Model] = GlideOffset(glide, (float)Math.Max(t, 0));
             }
         }
-        for (var i = 0; i < _flinches.Count; i++)
+        for (var i = 0; i < _knocks.Count; i++)
         {
-            var flinch = _flinches[i];
-            var t = (now - flinch.Start) / flinch.Seconds;
-            var knock = t is > 0 and < 1 ? flinch.Away * Mathf.Sin((float)t * Mathf.Pi) : Vector3.Zero;
-            _pose[flinch.Model] = _pose.GetValueOrDefault(flinch.Model) + knock;
+            var knock = _knocks[i];
+            var t = (float)((now - knock.Start) / knock.Seconds);
+            // Out to the peak (eased out), then back to rest (eased in).
+            var push = t is <= 0 or >= 1 ? 0f
+                : t < knock.Peak ? Mathf.Sin(Mathf.Pi / 2 * t / knock.Peak)
+                : Mathf.Cos(Mathf.Pi / 2 * (t - knock.Peak) / (1 - knock.Peak));
+            _pose[knock.Model] = _pose.GetValueOrDefault(knock.Model) + knock.Dir * push;
             if (t >= 1)
             {
-                _flinches.RemoveAt(i--);
+                _knocks.RemoveAt(i--);
+            }
+        }
+        // Animation stage A2: per model, the turn playing now is the earliest not finished (one still to start holds the
+        // figure at its old facing); a lean tilts it forward, eased in over its first 30% and out over its last 25%.
+        _turned.Clear();
+        _posed.Clear();
+        for (var i = 0; i < _turns.Count; i++)
+        {
+            var turn = _turns[i];
+            var t = (float)((now - turn.Start) / turn.Seconds);
+            if (t >= 1)
+            {
+                _turns.RemoveAt(i--);
+                _turned.TryAdd(turn.Model, (0, turn.To));
+                continue;
+            }
+            if (_posed.Add(turn.Model))
+            {
+                var eased = Math.Max(t, 0);
+                eased = eased * eased * (3 - 2 * eased);
+                _turned[turn.Model] = (0, Mathf.Lerp(turn.From, turn.To, eased));
+            }
+        }
+        for (var i = 0; i < _leans.Count; i++)
+        {
+            var lean = _leans[i];
+            var t = (float)((now - lean.Start) / lean.Seconds);
+            var tilt = t is <= 0 or >= 1 ? 0f : t < 0.3f ? t / 0.3f : t > 0.75f ? (1 - t) / 0.25f : 1f;
+            var yaw = _turned.TryGetValue(lean.Model, out var turned) ? turned.Yaw : FacingNow(lean.Model);
+            _turned[lean.Model] = (Mathf.DegToRad(LeanDegrees) * tilt, yaw);
+            if (t >= 1)
+            {
+                _leans.RemoveAt(i--);
             }
         }
         SetPoses();
@@ -2967,8 +3147,18 @@ public partial class BoardView : SubViewportContainer
                 }
             }
         }
-        // Labels moved: place them again next frame.
-        _labelsPlaced = "";
+        foreach (var (id, (pitch, yaw)) in _turned)
+        {
+            if (_figures.TryGetValue(id, out var figure) && IsInstanceValid(figure))
+            {
+                figure.Rotation = new Vector3(pitch, yaw, 0);
+            }
+        }
+        // Labels moved (turns and leans move none): place them again next frame.
+        if (_pose.Count > 0)
+        {
+            _labelsPlaced = "";
+        }
     }
 
     public void AddNote(UnitNote note)
@@ -3395,6 +3585,7 @@ public partial class BoardView : SubViewportContainer
                 continue;
             }
             _drawnModels.Remove(id);
+            _figures.Remove(id);
             _bodyColours.Remove(id);
             _eligibleRings.Remove(id);
             _idLabels.Remove(id);
@@ -3496,6 +3687,11 @@ public partial class BoardView : SubViewportContainer
             var nodes = Enumerable.Range(firstNode, _content.GetChildCount() - firstNode).Select(i => _content.GetChild(i)).ToList();
             // Everything just drawn for this model (body, rings, id), so a glide can carry it along its path.
             _modelNodes[model.Id] = [.. nodes.OfType<Node3D>().Select(n => (n, n.Position))];
+            // Animation stage A2: the figure holder, which turns and leans (the plain body has none).
+            if (nodes.OfType<Node3D>().FirstOrDefault(n => n.Name == $"Figure{model.Id.Value}") is { } figure)
+            {
+                _figures[model.Id] = figure;
+            }
             _drawnModels[model.Id] = new DrawnModel(keys[model.Id], nodes, _figuresFromArt > fromArt);
             ModelsDrawn++;
         }
@@ -3867,8 +4063,9 @@ public partial class BoardView : SubViewportContainer
                 {
                     Name = $"Figure{model.Id.Value}",
                     Position = new Vector3((float)model.X, standing + tall / 2, (float)model.Y),
-                    // Decoration only: each figure faces the middle of the battlefield.
-                    Rotation = new Vector3(0, Mathf.Atan2((float)(_scene!.Width / 2 - model.X), (float)(_scene.Depth / 2 - model.Y)), 0),
+                    // Decoration only: each figure faces the middle of the battlefield until it turns to a target (stage A2,
+                    // _facing), and keeps that facing when drawn again.
+                    Rotation = new Vector3(0, FacingNow(model.Id), 0),
                 };
                 Node3D shape = figure;
                 if (model.Status != ModelStatus.Standing)

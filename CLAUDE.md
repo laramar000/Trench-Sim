@@ -258,3 +258,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Checks run here (Linux, xvfb, opengl3): essentials A0 2,241/0 and A1 2,251/0; full UI runner on A1 421 PASS, 0 FAIL;
   A0 vs A1 board-frame-time (gvt-a, same machine): idle frame mean 0.47/0.25 ms, animating 0.71/0.74 ms, update 19.2/16.4
   ms, terrain builds while animating 0 in both. Not run: Windows (owner's Test Center).
+- 2026-11-20, Jason: "Proceed with A2: melee and facing animations" (only A2). Done: Turn/Lunge/Lean/Strike/Impact beats
+  (`Choreography`, `Motion.Charging/Reached`); `BoardView`: `_facing` (kept across redraws, cleared on a new match),
+  `_figures`, `Knock` (flinch + lunge), `FigureTurn`, `Lean`, `PlayStrike`; UI checks `board-animation-resilience` (turn,
+  lean, hover) and optional `board-melee-sequence` (pvp-a). Next: A3 only when Jason asks.

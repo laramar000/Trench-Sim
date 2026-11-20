@@ -5512,6 +5512,10 @@ public partial class UiCheck : Node
             FrameTimeCheck(board);
             ShotSequenceCheck(board);
         }
+        if (_role == "pvp-a")
+        {
+            MeleeSequenceCheck(board);
+        }
         var twice = shown.GroupBy(r => r.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         var compared = shown.Count(r => logged.ContainsKey(r.Seq));
         Check("pvp-dice-shown-once-as-logged", shown.Count > 0 && compared > 0 && problems.Count == 0 && twice.Count == 0,
@@ -5527,9 +5531,11 @@ public partial class UiCheck : Node
     }
 
     // Animation stage A1 (board-animation-resilience): a made-up update played through the battlefield (PlayForCheck; never
-    // in play): one of this window's models glides 3" back to where the server has it (over 20 s) while it shoots an enemy, which is
-    // hit and flinches. While it plays, the model is drawn off its spot; selecting it redraws its nodes and it stays where
-    // the glide has it; the terrain and a model the update does not touch keep their nodes; the tracer is drawn. Finishing
+    // in play): one of this window's models glides 3" back to where the server has it (over 20 s), turning and leaning (stage
+    // A2), while it shoots an enemy, which is
+    // hit and flinches. While it plays, the model is drawn off its spot; selecting it, then pointing at it, redraws its
+    // nodes and it stays where the glide has it, still leaning; once finished it faces the target, upright, and keeps that
+    // facing when drawn again; the terrain and a model the update does not touch keep their nodes; the tracer is drawn. Finishing
     // at once (as a command sent does) puts both back on the server's positions with nothing left playing, and with
     // Animations Off the same shot plays nothing. Nothing is sent and the server's state is never touched.
     private async Task AnimationResilienceCheck(BoardView board)
@@ -5572,7 +5578,12 @@ public partial class UiCheck : Node
             new Beat(0, BeatKind.Tracer, Choreography.TracerDelay, Choreography.TracerSeconds, mover.Id, target.Id, Hit: true),
             new Beat(0, BeatKind.HitPuff, Choreography.ImpactAt, Choreography.HitPuffSeconds, target.Id, mover.Id, Hit: true),
             new Beat(0, BeatKind.Flinch, Choreography.ImpactAt, 20.0, target.Id, mover.Id, Hit: true),
+            // Stage A2: it turns to face the target (over 20 s) and leans forward (10 s: in over 3 s, held, out).
+            new Beat(0, BeatKind.Turn, 0, 20.0, mover.Id, target.Id, Hit: true),
+            new Beat(0, BeatKind.Lean, 0, 10.0, mover.Id, target.Id, Hit: true),
         ]);
+        var wantedYaw = Mathf.Atan2((float)(target.X - mover.X), (float)(target.Y - mover.Y));
+        static float AngleGap(float a, float b) => Math.Abs(Mathf.Wrap(a - b, -Mathf.Pi, Mathf.Pi));
         var finishedBefore = board.FinishedEarly.Count;
         var clock = System.Diagnostics.Stopwatch.StartNew();
         board.PlayForCheck(plan);
@@ -5586,6 +5597,27 @@ public partial class UiCheck : Node
         await Step(1);
         var redrawn = !board.NodeIdsOf(mover.Id).SequenceEqual(moverNodes);
         var awayAfter = Off(mover.Id, mover);
+        var leanAfterSelect = board.FacingOf(mover.Id)?.Lean ?? 0;
+        // Pointing at it redraws it too (hovered); it keeps its glide and lean.
+        var filter = board.MouseFilter;
+        board.MouseFilter = Control.MouseFilterEnum.Stop;
+        var hoverNodes = board.NodeIdsOf(mover.Id).ToList();
+        var hovered = false;
+        if (board.ScreenOf(mover.X, mover.Y, mover.Standing + 0.6) is { } local)
+        {
+            var global = board.GetGlobalTransformWithCanvas() * local;
+            for (var i = 0; i < 30 && board.Hovered?.Id != mover.Id; i++)
+            {
+                Input.ParseInputEvent(new InputEventMouseMotion { Position = global, GlobalPosition = global });
+                await Step(1);
+            }
+            await Step(1);
+            hovered = board.Hovered?.Id == mover.Id;
+        }
+        var hoverRedrawn = !board.NodeIdsOf(mover.Id).SequenceEqual(hoverNodes);
+        var awayHovered = Off(mover.Id, mover);
+        var leanHovered = board.FacingOf(mover.Id)?.Lean ?? 0;
+        board.MouseFilter = filter;
         for (var i = 0; i < 60 && !(board.TracersDrawn > tracers && board.FlinchesStarted > flinches); i++)
         {
             await Step(1);
@@ -5598,6 +5630,15 @@ public partial class UiCheck : Node
         await Step(1);
         var moverRest = Off(mover.Id, mover);
         var targetRest = Off(target.Id, target);
+        // Finished: it faces the target, upright; drawn again (selected), it still faces the target.
+        var faced = board.FacingOf(mover.Id);
+        var facingNodes = board.NodeIdsOf(mover.Id).ToList();
+        board.Select(target.Id);
+        await Step(1);
+        var facedAgain = board.FacingOf(mover.Id);
+        var facingKept = !board.NodeIdsOf(mover.Id).SequenceEqual(facingNodes) && faced is { } f && facedAgain is { } g
+            && AngleGap(f.Yaw, wantedYaw) < 0.02f && AngleGap(f.Wanted, wantedYaw) < 0.02f && Math.Abs(f.Lean) < 0.001f
+            && AngleGap(g.Yaw, wantedYaw) < 0.02f && Math.Abs(g.Lean) < 0.001f;
         var finished = !board.Gliding && moverRest is >= 0 and < 0.01f && targetRest is >= 0 and < 0.01f;
         var speed = board.Animation;
         board.Animation = AnimationSpeed.Off;
@@ -5609,10 +5650,27 @@ public partial class UiCheck : Node
         board.Animation = speed;
         board.Select(selected);
         await Frames(1);
-        Check("board-animation-resilience", awayBefore > 0.5f && redrawn && awayAfter > 0.3f && tracerDrawn && cutBy.Length == 0 && farKept && terrainKept && playing && finished && offQuiet,
-            $"{mover.Id.Value} drawn {awayBefore:0.00}\" off its spot; selected: nodes redrawn {redrawn}, still {awayAfter:0.00}\" off; tracer and flinch drawn {tracerDrawn}; "
+        Check("board-animation-resilience", awayBefore > 0.5f && redrawn && awayAfter > 0.3f && leanAfterSelect > 0.004f
+            && hovered && hoverRedrawn && awayHovered > 0.3f && leanHovered > 0.004f && facingKept && tracerDrawn && cutBy.Length == 0 && farKept && terrainKept && playing && finished && offQuiet,
+            $"{mover.Id.Value} drawn {awayBefore:0.00}\" off its spot; selected: nodes redrawn {redrawn}, still {awayAfter:0.00}\" off, leaning {leanAfterSelect:0.000} rad; "
+            + $"hovered {hovered}: nodes redrawn {hoverRedrawn}, still {awayHovered:0.00}\" off, leaning {leanHovered:0.000} rad; finished facing {faced} (wanted yaw {wantedYaw:0.000}), drawn again {facedAgain}: kept {facingKept}; tracer and flinch drawn {tracerDrawn}; "
             + $"{far.Id.Value} kept its nodes {farKept}; terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}; finished at once: {moverRest:0.000}\" and {targetRest:0.000}\" "
             + $"from the server's spots, still playing {board.Gliding}; Off plays nothing {offQuiet}; playing right after PlayForCheck {playingAtOnce}, cut short by [{cutBy}], first look after {firstLook} ms");
+    }
+
+    // Animation stage A2 (board-melee-sequence, optional: only when the match had blows in melee): every blow this window
+    // saw live came due as a strike once (drawn, or shown at once when a command was sent meanwhile), there was at least a
+    // lunge per blow (charges that reach add theirs), attackers turned to their targets, and nothing is still playing.
+    private void MeleeSequenceCheck(BoardView board)
+    {
+        var blows = board.EffectLines.Count(l => !l.Replayed && l.Count == 1);
+        if (blows == 0)
+        {
+            return;
+        }
+        Check("board-melee-sequence", board.StrikeBeats == blows && board.LungesStarted >= blows && board.TurnsStarted > 0 && !board.Gliding,
+            $"{blows} blows seen live, {board.StrikeBeats} strikes, {board.LungesStarted} lunges, {board.TurnsStarted} turns, {board.LeansStarted} charge leans, "
+            + $"{board.ImpactBeats} charge impacts, {board.FlinchesStarted} flinches; still playing: {board.Gliding}");
     }
 
     // Animation stage A1 (board-shot-sequence): every shot this window saw live came due as a tracer beat, once (drawn, or
