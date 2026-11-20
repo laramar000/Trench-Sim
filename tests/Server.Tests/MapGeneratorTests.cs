@@ -285,7 +285,7 @@ public class MapGeneratorTests
 
     private const string PinnedClaim = "sha256:0e6a5244390ec730eb543425c3651f031faccb09d51d91cf9b4324e8f65048cb";
     private const string PinnedTrenchWarfare = "sha256:3959b1d4e771657e0b3da3735c28864ec44e8eaa6c3a1ea21b0de2dabff2a2f5";
-    private const string PinnedBattleground = "sha256:569b1612e72df7beaf9b5038ef2405c9a49206e1853e8c250bb494b9321f7601";
+    private const string PinnedBattleground = "sha256:135e0bb050d387b490e1408691d340bbe8e7692d10f7600b4819eddd9085ffcb";
 
     private const string PinnedRuins = "sha256:fb35e17da65e7c66deaa58d55f75932b69ae4f1b128f7ac3063cf0d027df7a26";
 

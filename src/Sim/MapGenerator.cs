@@ -312,7 +312,7 @@ public static class MapGenerator
     private static readonly Dictionary<string, double[]> WallHeights = new()
     {
         ["church"] = [6], ["house"] = [4.5, 6], ["courtyard"] = [3, 4.5], ["silo"] = [4.5, 6], ["corner"] = [3, 4.5], ["bunker"] = [3],
-        ["stairs"] = [3, 4.5], ["steep"] = [4.5], ["longwall"] = [3, 4.5],
+        ["stairs"] = [3, 4.5], ["steep"] = [4.5], ["diagonal"] = [3, 4.5], ["longwall"] = [3, 4.5],
     };
 
     private static TerrainBlock Rough(string id, Footprint f) => new(id, f, TerrainProfile.Low, TerrainKind.Difficult);
@@ -716,13 +716,15 @@ public static class MapGenerator
             : Compose(random, x, y, [(0, 0, a, b), (a, 1, a + c, b - 1), (1, b, a - 1, b + c)]);
     }
 
-    // The shapes a screen across the table takes: a long angled stair-stepped wall (shallow or steep), a straight broken wall, a
+    // The shapes a screen across the table takes: a long angled stair-stepped wall (shallow, steep or a 45-degree diagonal of 1" or 1.5" steps), a straight broken wall, a
     // church, a ruined house, a courtyard. Each is tall wall, so each cuts the sight across the middle.
     private static readonly (string Name, Func<MapRandom, int, int, Footprint> Shape)[] ScreenShapes =
     [
         ("stairs", (r, x, y) => Compose(r, x, y, Stairs(r.Between(3, 5), r.Between(3, 5), r.Between(1, 2)))),
         ("steep", (r, x, y) => Compose(r, x, y, Stairs(r.Between(3, 4), r.Between(2, 3), r.Between(3, 4)))),
         ("stairs", (r, x, y) => Compose(r, x, y, Stairs(r.Between(4, 6), r.Between(3, 4), r.Between(1, 2)))),
+        ("diagonal", (r, x, y) => Compose(r, x, y, Stairs(r.Between(5, 8), 2, 2))),
+        ("diagonal", (r, x, y) => Compose(r, x, y, Stairs(r.Between(4, 6), 3, 3))),
         ("longwall", (r, x, y) => Footprint.Of(R(x, y, x + r.Between(1, 2), y + r.Between(14, 26)))),
         ("church", Church),
         ("church", Church),
