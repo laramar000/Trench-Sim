@@ -228,8 +228,8 @@ public partial class BoardView : SubViewportContainer
         foreach (var model in _scene?.Models ?? [])
         {
             _lastSeen[model.Id] = (new Vector3((float)model.X, (float)model.Standing, (float)model.Y), (float)model.Radius);
-            _lastShapes[model.Id] = model;
         }
+        _lastDrawn.Remember(_scene);
         // A change of the seat shown (hot-seat, by hand or following the turn) does not cut playback short: both seats see
         // the same events with the same numbers, so what is playing is still right. A new match is finished in Main.Attach.
         SeatSwitch? switched = null;
@@ -2437,7 +2437,36 @@ public partial class BoardView : SubViewportContainer
     private readonly List<Beat> _moves = [];
     private readonly Dictionary<ModelId, (Vector3 At, float Radius)> _lastSeen = [];
     // Animation stage A3: each model as it was last drawn (an Out of Action model is drawn again from this as it goes).
-    private readonly Dictionary<ModelId, ModelShape> _lastShapes = [];
+    private readonly LastDrawn _lastDrawn = new();
+
+    // Audit item R1: a new match (Main.Attach: hot-seat, host, join, rejoin, rematch) starts from nothing the last one
+    // left: whatever was still playing is shown at once, then the last drawn places and shapes, the facings, the table
+    // drawn (so the first update is drawn as a new match: its facings start afresh and the camera fits its table), the
+    // events already seen (so the match's events so far are caught up at once, as for the first match), the selection and
+    // the seat shown are forgotten. Nothing here is the match's state; the next Show draws the new match from the server's.
+    public void NewMatch()
+    {
+        FinishAnimations();
+        _lastSeen.Clear();
+        _lastDrawn.Clear();
+        _facing.Clear();
+        _scene = null;
+        _lastSeq = -1;
+        _selected = null;
+        _lastActive = null;
+        _seatSeen = null;
+        NewMatches++;
+    }
+
+    // For the UI check (audit item R1): how often a new match was started, the models whose last drawn place or shape is
+    // remembered, one remembered shape, and how many facings are kept.
+    public int NewMatches { get; private set; }
+
+    public IReadOnlyCollection<ModelId> RememberedModels => [.. _lastDrawn.Models.Union(_lastSeen.Keys)];
+
+    public ModelShape? RememberedShape(ModelId id) => _lastDrawn.TryGet(id, out var shape) ? shape : null;
+
+    public int FacingCount => _facing.Count;
 
     // Plays one update after what is still playing; an update arriving with more than Choreography.MaxSeconds still to
     // play first shows all of that at once, so the battlefield is never long behind the server.
@@ -3677,7 +3706,7 @@ public partial class BoardView : SubViewportContainer
         var from = FacingNow(beat.Model);
         var to = rising ? from : FallYaw(beat.Model, beat.Other, at);
         _facing[beat.Model] = Mathf.Wrap(to, -Mathf.Pi, Mathf.Pi);
-        var height = (_scene?.Find(beat.Model) ?? (_lastShapes.TryGetValue(beat.Model, out var seen) ? seen : null)) is { } shape ? StandingHeight(shape) : StandingTall;
+        var height = (_scene?.Find(beat.Model) ?? (_lastDrawn.TryGet(beat.Model, out var seen) ? seen : null)) is { } shape ? StandingHeight(shape) : StandingTall;
         // The standing figure (the holder's first child when drawn standing; a rising model is drawn standing too).
         var figure = _figures.TryGetValue(beat.Model, out var holder) && IsInstanceValid(holder) && holder.GetChildCount() > 0 && holder.GetChild(0) is Node3D standing
             && standing.Name != "Lying" ? standing : null;
@@ -3700,7 +3729,7 @@ public partial class BoardView : SubViewportContainer
     private void StartCasualty(Beat beat, double start)
     {
         // As it was last drawn (in play it has just left the table; the UI check plays one on a model still there).
-        if ((_scene?.Find(beat.Model) ?? (_lastShapes.TryGetValue(beat.Model, out var last) ? last : null)) is not { } shape || !_effects.IsInsideTree())
+        if ((_scene?.Find(beat.Model) ?? (_lastDrawn.TryGet(beat.Model, out var last) ? last : null)) is not { } shape || !_effects.IsInsideTree())
         {
             return;
         }

@@ -522,8 +522,9 @@ public partial class Main : Control
         MoveMenu(_matchMenu, 0, true);
         SetMenu(false);
         _shown = -1;
-        // Animation stage A1: a new match shows at once whatever the last one was still playing.
-        _board.FinishAnimations();
+        // Animation stage A1: a new match shows at once whatever the last one was still playing; audit item R1: and the
+        // battlefield forgets what it remembered of the last match (places, shapes, facings, table, events seen).
+        _board.NewMatch();
         Render(controller.Snapshot());
         FocusDefault();
         if (!_gapsShown)

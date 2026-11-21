@@ -253,6 +253,7 @@ hotseat: hotseat-log-draws-dice
 hotseat: hotseat-server-stopped
 hotseat: online-roster-type-server
 hotseat: online-roster-match
+hotseat: board-new-match-reset
 hotseat-record-verifies
 hotseat-mines-exit
 hotseat-mines: mines-choose-scenario

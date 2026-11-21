@@ -3028,6 +3028,10 @@ public partial class UiCheck : Node
             {
                 problems.Add("You play: the saved roster could not be chosen");
             }
+            // Audit item R1: what the battlefield remembers of the hot-seat match just left, before this new match starts.
+            var memoryBoard = Controls<BoardView>().FirstOrDefault();
+            var newMatches = memoryBoard?.NewMatches ?? 0;
+            var oldShapes = memoryBoard?.RememberedModels.Select(id => memoryBoard.RememberedShape(id)).OfType<ModelShape>().ToList() ?? [];
             await Press(ButtonNamed(Main.HostText), Key.Enter, null);
             var hosted = await Until(() => Label("Match code ") is { } l && l.Text.Contains("Seat One [A]", StringComparison.Ordinal) ? l.Text : null, 30, "online-roster-hosted");
             var code = main.MatchCode;
@@ -3054,6 +3058,8 @@ public partial class UiCheck : Node
                 {
                     steps.Add($"the window shows {Seats()}");
                 }
+                await Frames(5);
+                NewMatchResetCheck(Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()), newMatches, oldShapes);
                 await Press(ButtonNamed("Leave"), Key.Enter, null);
                 await Until(() => main.ScreenShown == "menu" ? "ok" : null, 10, "online-roster-left");
             }
@@ -3074,6 +3080,30 @@ public partial class UiCheck : Node
             }
         }
         Check("online-roster-match", problems.Count == 0, problems.Count == 0 ? string.Join("; ", steps) : string.Join("; ", problems));
+    }
+
+    // Audit item R1 (board-new-match-reset): the battlefield starts a new match from nothing the last one left. After the
+    // hot-seat match (Leave), this window hosts a match with two saved rosters: other warbands, so other bases, types and
+    // places under the same ids (a1, b1, ...). Once it shows, the battlefield started a new match once, remembers only
+    // models of this match's table, each with this match's type and base (none of the hot-seat match's), keeps no facing
+    // (nothing has turned in this match yet), and plays nothing, with no casualty figure left.
+    private void NewMatchResetCheck(BoardView? board, int newMatchesBefore, List<ModelShape> oldShapes)
+    {
+        if (board?.Scene is not { } scene)
+        {
+            Check("board-new-match-reset", false, "no battlefield shown for the roster match");
+            return;
+        }
+        var remembered = board.RememberedModels.ToList();
+        var stale = remembered.Where(id => scene.Find(id) is not { } now
+            || board.RememberedShape(id) is { } shape && (shape.Type != now.Type || shape.Radius != now.Radius || shape.Seat != now.Seat)).Select(id => id.Value).ToList();
+        var oldLeft = oldShapes.Where(o => board.RememberedShape(o.Id) is { } shape && shape == o).Select(o => o.Id.Value).ToList();
+        var started = board.NewMatches - newMatchesBefore;
+        Check("board-new-match-reset", started == 1 && stale.Count == 0 && oldLeft.Count == 0 && board.FacingCount == 0 && !board.Gliding && board.CasualtyNodes == 0,
+            $"new matches started {started}; the hot-seat match left {oldShapes.Count} remembered models ({string.Join(", ", oldShapes.Take(4).Select(o => $"{o.Id.Value} {o.Type} r{o.Radius:0.00}"))}); "
+            + $"now {remembered.Count} remembered, {scene.Models.Count} on this table ({string.Join(", ", scene.Models.Take(4).Select(m => $"{m.Id.Value} {m.Type} r{m.Radius:0.00}"))}); "
+            + $"not of this table or not as it draws them: [{string.Join(", ", stale)}]; the hot-seat match's own still remembered: [{string.Join(", ", oldLeft)}]; "
+            + $"facings kept {board.FacingCount}; playing {board.Gliding}; casualty figures {board.CasualtyNodes}");
     }
 
     // Whether a server answers at the address (a WebSocket connection is accepted).

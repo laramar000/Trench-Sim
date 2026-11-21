@@ -542,3 +542,21 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Performance (gvt-a board-frame-time): animating frame mean 0.55 ms, max 8.4 ms (A5 baseline 0.50-0.51 ms, max
   6.4-6.7 ms; earlier runs on this machine ranged 0.49-0.83 ms); terrain builds while animating 0. Not seen: a real
   mine casualty in a live window (dice), Windows. Next: only when Jason asks (R1, T1 and the rest not started).
+- 2026-11-21, Jason: "Implement audit item R1" only. Done: every new match comes in through `Main.Attach` (hot-seat,
+  host, join, rejoin of a saved seat, rematch; an in-match reconnect does not), which now calls `BoardView.NewMatch`:
+  FinishAnimations as before, then clears `_lastSeen`, `LastDrawn` (new Client.Core class, was `_lastShapes`), `_facing`,
+  the drawn table (`_scene = null`, so the first update takes the existing `first` path: facings afresh, camera fits the
+  new table), `_lastSeq = -1` (the match's events so far are caught up, as for a first match), the selection,
+  `_lastActive` and the hook's seat. Found while doing it: after Leave the old `_scene` stayed, so the new match's first
+  Show copied the old models back into the caches and took "where models were" from the old table; `_facing` was only
+  cleared when the new match's first screen had no battlefield. Hooks: `NewMatches`, `RememberedModels`,
+  `RememberedShape`, `FacingCount`. Tests `LastDrawnTests` (ranged then melee match: within a match a model leaving the
+  table keeps its last shape; after the clearing nothing of the first match is remembered, even under shared ids;
+  without it the first match leaks). UI check `board-new-match-reset` (hotseat, in the online roster match after the
+  hot-seat match): with the old behaviour put back it FAILs (all 8 hot-seat models still remembered); with the fix PASS.
+  Checks (Linux, xvfb): essentials 2,291/0; hotseat group 42/0; full UI runner 435 PASS, 0 FAIL (incl. rematch-creates,
+  pvp-b-rejoin, reopen, board-casualty-mid-move; abilities-switch-keeps-playback reported this time: 2 switches while
+  playing, 0 cut short). Performance (gvt-a board-frame-time): animating mean 0.59 ms, max 6.1 ms (B2 run 0.55/8.4, A5
+  0.50-0.51/6.4-6.7; range on this machine 0.49-0.83); terrain builds while animating 0. Gap: the roster match's table had
+  no models placed yet when checked, so different positions across matches are covered by `LastDrawnTests` only; the
+  camera now refits on every new match (the existing first-match path). Not run: Windows. Next: only when Jason asks.
