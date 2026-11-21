@@ -134,6 +134,12 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
     public const double GasSeconds = 1.2;
     public const double FireSeconds = 0.7;
 
+    // Animation stage A5: several explosions of one event go off this far apart, so each can be read.
+    public const double BlastStagger = 0.15;
+
+    // A move's first leg shorter than this does not turn the model (a shuffle, not a march).
+    public const double FaceTravelInches = 0.2;
+
     // One update plays for at most this long; a longer one is played faster to fit.
     public const double MaxSeconds = 2.5;
 
@@ -152,7 +158,10 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
         ArgumentNullException.ThrowIfNull(drawnAt);
         if (speed == AnimationSpeed.Off)
         {
-            return new([.. lines.Select(l => new LineCue(l, 0))], []);
+            // Stage A5: Off draws every result at once, and every model still ends facing the way it would with the
+            // animation (an instant turn: the attacker to its target, a moving model along its way, a downed model to
+            // the model that downed it), so Full, Fast and Off leave the same picture.
+            return new([.. lines.Select(l => new LineCue(l, 0))], OffFacings(lines, drawnAt));
         }
         var cues = new List<LineCue>();
         var beats = new List<Beat>();
@@ -190,6 +199,12 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
                 {
                     var seconds = Math.Clamp(length / GlideInchesPerSecond, GlideMinSeconds, GlideMaxSeconds);
                     cues.Add(new(line, t));
+                    // Stage A5: it turns to face its way as it sets off (no extra time), so it marches rather than slides.
+                    if (TravelPoint(from, motion.Path) is { } way)
+                    {
+                        beats.Add(new(line.Seq, BeatKind.Turn, t, Math.Min(TurnSeconds, seconds), motion.Model, From: from, At: way));
+                        faced.Remove(motion.Model);
+                    }
                     beats.Add(new(line.Seq, BeatKind.Glide, t, seconds, motion.Model, Motion: motion, From: from));
                     t += seconds;
                     continue;
@@ -257,6 +272,7 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
                 {
                     var go = t;
                     var first = -1.0;
+                    var last = t;
                     foreach (var blast in line.Fx.Blasts)
                     {
                         if (blast.From is { } aimed)
@@ -267,9 +283,12 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
                         var kind = blast.Style switch { BlastStyle.Mine => BeatKind.MineBlast, BlastStyle.Martyrdom => BeatKind.MartyrBlast, _ => BeatKind.Explosion };
                         beats.Add(new(line.Seq, kind, go, ExplosionSeconds, line.Models?.FirstOrDefault() ?? default, At: blast.At, Size: blast.Radius));
                         first = first < 0 ? go : first;
+                        last = go;
+                        // Stage A5: the next one goes off a moment later.
+                        go += BlastStagger;
                     }
                     at = first;
-                    t = go + BlastHold;
+                    t = last + BlastHold;
                 }
                 cues.Add(new(line, at));
                 // Stage A4: the burst of each SHRAPNEL, GAS or FIRE marker the event put on a model, with its line.
@@ -366,6 +385,64 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
             }
         }
         return next;
+    }
+
+    // The point a move heads for first (its first leg, if long enough; else its end), or null for a shuffle.
+    private static TablePoint? TravelPoint(TablePoint from, IReadOnlyList<TablePoint> path)
+    {
+        foreach (var p in path)
+        {
+            if (Math.Sqrt((p.X - from.X) * (p.X - from.X) + (p.Y - from.Y) * (p.Y - from.Y)) >= FaceTravelInches)
+            {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    // Stage A5: the instant turns Off plays (zero seconds), in event order: each attacker to its target (or point), each
+    // moving model along its way, each downed model to the model that downed it. Nothing moves or shows.
+    private static List<Beat> OffFacings(IReadOnlyList<LogLine> lines, Func<ModelId, TablePoint?> drawnAt)
+    {
+        var turns = new List<Beat>();
+        var reached = new Dictionary<ModelId, TablePoint>();
+        foreach (var line in lines)
+        {
+            if (line.Replayed)
+            {
+                continue;
+            }
+            if (line.Motion is { Path.Count: > 0 } motion && (reached.TryGetValue(motion.Model, out var was) ? was : drawnAt(motion.Model)) is { } from)
+            {
+                reached[motion.Model] = motion.Path[^1];
+                if (motion.Charging is { } target)
+                {
+                    turns.Add(new(line.Seq, BeatKind.Turn, 0, 0, motion.Model, target, motion.Reached, From: from));
+                }
+                else if (TravelPoint(from, motion.Path) is { } way)
+                {
+                    turns.Add(new(line.Seq, BeatKind.Turn, 0, 0, motion.Model, From: from, At: way));
+                }
+                continue;
+            }
+            if (line.Fx.Aim is { } aim)
+            {
+                turns.Add(new(line.Seq, BeatKind.Turn, 0, 0, aim.Attacker, Hit: aim.Hit, At: aim.At));
+            }
+            if (line.Effects.FirstOrDefault(e => e.Kind is EffectKind.HitPuff or EffectKind.DirtPuff) is { } puff
+                && (line.Effects.FirstOrDefault(e => e.Kind == EffectKind.MuzzleFlash)?.At ?? line.Models?.FirstOrDefault(m => m != puff.At)) is { } attacker)
+            {
+                turns.Add(new(line.Seq, BeatKind.Turn, 0, 0, attacker, puff.At, puff.Kind == EffectKind.HitPuff));
+            }
+            foreach (var change in line.Changes)
+            {
+                if (change is { From: ModelStatus.Standing, To: ModelStatus.Down } && line.Models?.FirstOrDefault(m => m != change.Model) is { } by && by != default)
+                {
+                    turns.Add(new(line.Seq, BeatKind.Turn, 0, 0, change.Model, by));
+                }
+            }
+        }
+        return turns;
     }
 
     private static double PathLength(TablePoint from, IReadOnlyList<TablePoint> path)

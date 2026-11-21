@@ -76,14 +76,15 @@ public class PlaybackQueueTests
         var queue = new PlaybackQueue();
         var moves = new List<Beat>();
         queue.Add(Plan(AnimationSpeed.Full, Move(1)), 10, moves);
-        var glide = Assert.Single(moves);
-        Assert.Equal(10, glide.Start, 9);
+        // Stage A5: the model turns along its way as it sets off, then glides.
+        Assert.Equal([BeatKind.Turn, BeatKind.Glide], moves.Select(m => m.Kind));
+        Assert.All(moves, m => Assert.Equal(10, m.Start, 9));
         Assert.Equal(10 + Choreography.GlideMaxSeconds, queue.End, 9);
         // The next update arrives while the model still travels: its shot waits for the end of the move.
         var start = queue.Add(Plan(AnimationSpeed.Full, Shot(2, hit: true)), 10.1, moves);
         Assert.Equal(10 + Choreography.GlideMaxSeconds, start, 9);
-        Assert.Equal(start, moves[1].Start, 9);
-        Assert.Equal(start + Choreography.TurnSeconds + Choreography.ImpactAt, moves[2].Start, 9);
+        Assert.Equal(start, moves[2].Start, 9);
+        Assert.Equal(start + Choreography.TurnSeconds + Choreography.ImpactAt, moves[3].Start, 9);
         var taken = new List<PlaybackQueue.Item>();
         queue.TakeDue(start - 0.001, taken);
         Assert.Equal(["line 1"], taken.Select(Describe));
@@ -110,12 +111,13 @@ public class PlaybackQueueTests
     }
 
     [Fact]
-    public void OffQueuesEveryLineDueAtOnceAndNoBeats()
+    public void OffQueuesEveryLineDueAtOnceAndOnlyInstantTurns()
     {
         var queue = new PlaybackQueue();
         var moves = new List<Beat>();
         queue.Add(Plan(AnimationSpeed.Off, Move(1), Shot(2, hit: true), Injury(3)), 5, moves);
-        Assert.Empty(moves);
+        // Stage A5: only instant turns (the mover along its way, the shooter to its target), all at once.
+        Assert.Equal([(BeatKind.Turn, A, 5.0, 0.0), (BeatKind.Turn, A, 5.0, 0.0)], moves.Select(m => (m.Kind, m.Model, m.Start, m.Seconds)));
         var taken = new List<PlaybackQueue.Item>();
         queue.TakeDue(5, taken);
         Assert.Equal(["line 1", "line 2", "line 3"], taken.Select(Describe));

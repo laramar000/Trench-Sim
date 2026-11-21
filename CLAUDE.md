@@ -282,3 +282,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Checks (Linux, xvfb): essentials 2,259/0; full UI runner 426 PASS, 0 FAIL (board-blast-effects; abilities'
   board-blast-sequence PASS: 2 explosions, 2 bursts, recorded in abilities.log; the Linux runner now also lists it in its
   summary, tools/UiCheck/Program.cs); gvt-a run 31/0; animating frame mean 0.63-0.67 ms, terrain builds while animating 0.
+- 2026-11-21, Jason: "Proceed with A5: Animation Polish & Battlefield Feedback" (only A5; wait for approval after). Done:
+  blast rings (`BoardView.BlastRing`) + `Choreography.BlastStagger`; see-through dust/smoke/gas (`SmokeAlpha`) and fewer
+  squares when busy; moves turn along their way (`TravelPoint`); Off plays instant turns (`OffFacings`) so Full/Fast/Off
+  end alike; a skip hurries effects (`HurrySeconds`, `StopEffects` speeds tweens up). Stage plan A0-A5 complete; next stage
+  only when Jason approves.

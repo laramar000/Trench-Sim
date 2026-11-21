@@ -2701,7 +2701,7 @@ public partial class BoardView : SubViewportContainer
                 for (var i = 0; i < 5; i++)
                 {
                     var side = new Vector3(Mathf.Cos(i * 1.3f), 0, Mathf.Sin(i * 1.3f)) * (radius + 0.35f);
-                    Puff(at + side + new Vector3(0, 0.15f, 0), new Vector3(0, 0.6f, 0), 0.4f, 0.5f, new Color(0.58f, 0.49f, 0.37f), (float)Choreography.DirtPuffSeconds);
+                    Puff(at + side + new Vector3(0, 0.15f, 0), new Vector3(0, 0.6f, 0), 0.4f, 0.5f, Dust, (float)Choreography.DirtPuffSeconds);
                 }
                 break;
         }
@@ -2751,7 +2751,7 @@ public partial class BoardView : SubViewportContainer
             puff.Node.Visible = false;
             _effectsShowing--;
             _freePuffs.Add(puff);
-        });
+        }, seconds);
     }
 
     // Animation stage A1: a tracer, a short bright streak from the shooter's muzzle to the target's body (a hit), or past
@@ -2833,23 +2833,28 @@ public partial class BoardView : SubViewportContainer
             tracer.Visible = false;
             _effectsShowing--;
             _freeTracers.Add(tracer);
-        });
+        }, seconds);
     }
 
     // ---- animation stage A4: grenades, explosions, scatter, markers ----
 
     // Every effect still showing, with what puts its node back; StopEffects ends them all at once (a skip).
-    private sealed class Running(Tween tween, Action release)
+    private sealed class Running(Tween tween, Action release, double end)
     {
         public Tween Tween { get; } = tween;
         public Action Release { get; } = release;
+        public double End { get; } = end;
     }
+
+    // Animation stage A5: a skip hurries every effect still showing to finish within this long (rather than cutting it
+    // off mid-frame), so the battlefield settles smoothly and still at once.
+    public const double HurrySeconds = 0.2;
 
     private readonly List<Running> _running = [];
 
-    private void Run(Tween tween, Action release)
+    private void Run(Tween tween, Action release, double seconds)
     {
-        var running = new Running(tween, release);
+        var running = new Running(tween, release, Now + seconds);
         _running.Add(running);
         tween.Chain().TweenCallback(Callable.From(() =>
         {
@@ -2866,20 +2871,18 @@ public partial class BoardView : SubViewportContainer
         {
             return;
         }
-        var all = _running.ToList();
-        _running.Clear();
-        foreach (var running in all)
+        var now = Now;
+        foreach (var running in _running)
         {
-            if (GodotObject.IsInstanceValid(running.Tween))
+            if (GodotObject.IsInstanceValid(running.Tween) && running.Tween.IsValid())
             {
-                running.Tween.Kill();
+                running.Tween.SetSpeedScale((float)Math.Max(1, (running.End - now) / HurrySeconds));
             }
-            running.Release();
         }
-        EffectsStopped += all.Count;
+        EffectsStopped += _running.Count;
     }
 
-    // How many effects a skip ended early, how many grenades, explosions and marker bursts were drawn, and the last
+    // How many effects a skip hurried, how many grenades, explosions and marker bursts were drawn, and the last
     // grenade's and explosion's points (for the UI check); how many explosion and marker beats of the match came due.
     public int EffectsStopped { get; private set; }
 
@@ -2957,7 +2960,62 @@ public partial class BoardView : SubViewportContainer
             grenade.Visible = false;
             _effectsShowing--;
             _freeGrenades.Add(grenade);
-        });
+        }, beat.Seconds);
+    }
+
+    // Animation stage A5: dust, smoke and gas are drawn see-through (at most SmokeAlpha), so they never hide a model.
+    private const float SmokeAlpha = 0.55f;
+    private static readonly Color Dust = new(0.58f, 0.49f, 0.37f, SmokeAlpha);
+
+    // A blast ring: a thin ring on the ground spreading out to the blast's radius (the server's, in inches) and fading, so
+    // the area an explosion covered can be read at a glance; drawn through walls like the selection ring.
+    private static readonly TorusMesh UnitRing = new() { InnerRadius = 0.95f, OuterRadius = 1f, Rings = 32, RingSegments = 4 };
+    private readonly List<(MeshInstance3D Node, StandardMaterial3D Paint)> _freeRings = [];
+
+    public int RingsDrawn { get; private set; }
+
+    public (Vector3 At, float Radius)? LastRing { get; private set; }
+
+    private void BlastRing(Vector3 at, float radius, Color colour, float seconds)
+    {
+        if (!_effects.IsInsideTree() || _effectsShowing >= MaxEffects || radius <= 0)
+        {
+            return;
+        }
+        (MeshInstance3D Node, StandardMaterial3D Paint) ring;
+        if (_freeRings.Count > 0)
+        {
+            ring = _freeRings[^1];
+            _freeRings.RemoveAt(_freeRings.Count - 1);
+        }
+        else
+        {
+            var paint = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                NoDepthTest = true,
+            };
+            ring = (new MeshInstance3D { Mesh = UnitRing, MaterialOverride = paint }, paint);
+            _effects.AddChild(ring.Node);
+        }
+        _effectsShowing++;
+        RingsDrawn++;
+        LastRing = (at, radius);
+        ring.Paint.AlbedoColor = colour with { A = 0.85f };
+        ring.Node.Position = at + new Vector3(0, 0.06f, 0);
+        ring.Node.Scale = new Vector3(radius * 0.3f, 1, radius * 0.3f);
+        ring.Node.Visible = true;
+        var spread = seconds * 0.3f;
+        var tween = ring.Node.CreateTween();
+        tween.TweenProperty(ring.Node, "scale", new Vector3(radius, 1, radius), spread).SetTrans(Tween.TransitionType.Quad).SetEase(Tween.EaseType.Out);
+        tween.TweenProperty(ring.Paint, "albedo_color:a", 0f, seconds - spread);
+        Run(tween, () =>
+        {
+            ring.Node.Visible = false;
+            _effectsShowing--;
+            _freeRings.Add(ring);
+        }, seconds);
     }
 
     // An explosion at a point (a weapon's BLAST, a Mine, a Martyrdom Device): a pale flash, a fireball (for a mine, a
@@ -2976,8 +3034,8 @@ public partial class BoardView : SubViewportContainer
         var seconds = (float)beat.Seconds;
         var mine = beat.Kind == BeatKind.MineBlast;
         var martyr = beat.Kind == BeatKind.MartyrBlast;
-        var smoke = new Color(0.22f, 0.2f, 0.18f);
-        var earth = new Color(0.42f, 0.33f, 0.22f);
+        var smoke = new Color(0.22f, 0.2f, 0.18f, SmokeAlpha);
+        var earth = new Color(0.42f, 0.33f, 0.22f, SmokeAlpha);
         Puff(at + new Vector3(0, 0.6f, 0), Vector3.Zero, r * (martyr ? 1.1f : 0.8f), r * 0.6f, new Color(1f, 0.93f, 0.72f), seconds * 0.17f);
         var fire = mine ? 0 : martyr ? 6 : 4;
         for (var i = 0; i < fire; i++)
@@ -2994,14 +3052,18 @@ public partial class BoardView : SubViewportContainer
                 Puff(at + new Vector3(Mathf.Cos(angle) * 0.2f, 0.2f, Mathf.Sin(angle) * 0.2f), new Vector3(Mathf.Cos(angle) * 0.3f, 1.3f, Mathf.Sin(angle) * 0.3f), 0.4f, 0.3f, earth, seconds * 0.6f);
             }
         }
-        var ring = martyr ? 8 : 6;
+        // Stage A5: with many effects already showing, an explosion draws less (no debris, half the smoke), so several
+        // together stay readable and within MaxEffects; its blast ring always shows.
+        var busy = _effectsShowing > MaxEffects / 2;
+        BlastRing(at, (float)beat.Size, martyr ? new Color(1f, 0.55f, 0.3f) : mine ? new Color(0.85f, 0.7f, 0.5f) : new Color(1f, 0.9f, 0.7f), seconds);
+        var ring = (martyr ? 8 : 6) / (busy ? 2 : 1);
         for (var i = 0; i < ring; i++)
         {
             var angle = i * Mathf.Tau / ring + 0.3f;
             var dir = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
             Puff(at + dir * r * 0.3f + new Vector3(0, 0.2f, 0), dir * r * 0.5f + new Vector3(0, 0.5f, 0), 0.6f, 0.8f, smoke, seconds * 1.1f);
         }
-        for (var i = 0; i < 5; i++)
+        for (var i = 0; i < (busy ? 0 : 5); i++)
         {
             var angle = i * 1.9f;
             var dir = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
@@ -3022,13 +3084,13 @@ public partial class BoardView : SubViewportContainer
         {
             var from = Ground(aimed) + new Vector3(0, 0.15f, 0);
             Streak(from, at + new Vector3(0, 0.15f, 0), beat.Seconds, false);
-            Puff(from, new Vector3(0, 0.4f, 0), 0.4f, 0.4f, new Color(0.58f, 0.49f, 0.37f), (float)beat.Seconds * 2);
+            Puff(from, new Vector3(0, 0.4f, 0), 0.4f, 0.4f, Dust, (float)beat.Seconds * 2);
             return;
         }
         for (var i = 0; i < 5; i++)
         {
             var side = new Vector3(Mathf.Cos(i * 1.3f), 0, Mathf.Sin(i * 1.3f)) * 0.35f;
-            Puff(at + side + new Vector3(0, 0.12f, 0), new Vector3(0, 0.5f, 0), 0.35f, 0.4f, new Color(0.58f, 0.49f, 0.37f), (float)beat.Seconds);
+            Puff(at + side + new Vector3(0, 0.12f, 0), new Vector3(0, 0.5f, 0), 0.35f, 0.4f, Dust, (float)beat.Seconds);
         }
     }
 
@@ -3056,7 +3118,7 @@ public partial class BoardView : SubViewportContainer
                 for (var i = 0; i < 3; i++)
                 {
                     var side = new Vector3(Mathf.Cos(i * 2.1f), 0, Mathf.Sin(i * 2.1f)) * (radius + 0.1f);
-                    Puff(at + side + new Vector3(0, 0.4f, 0), new Vector3(0, 0.4f, 0) + side * 0.3f, 0.6f, 0.9f, new Color(0.55f, 0.62f, 0.3f), seconds);
+                    Puff(at + side + new Vector3(0, 0.4f, 0), new Vector3(0, 0.4f, 0) + side * 0.3f, 0.6f, 0.9f, new Color(0.55f, 0.62f, 0.3f, SmokeAlpha), seconds);
                 }
                 break;
             default:
@@ -3095,7 +3157,7 @@ public partial class BoardView : SubViewportContainer
         {
             var angle = i * Mathf.Tau / 6;
             var out_ = (side * Mathf.Cos(angle) + toward * Mathf.Sin(angle) * 0.5f) * 0.7f;
-            Puff(contact + new Vector3(0, 0.12f, 0), out_ + new Vector3(0, 0.35f, 0), 0.35f, 0.45f, new Color(0.58f, 0.49f, 0.37f), dust);
+            Puff(contact + new Vector3(0, 0.12f, 0), out_ + new Vector3(0, 0.35f, 0), 0.35f, 0.45f, Dust, dust);
         }
         Puff(contact + new Vector3(0, 0.7f, 0), Vector3.Zero, 0.3f, 0.2f, new Color(1f, 0.95f, 0.82f), (float)Choreography.StrikeSeconds);
     }
@@ -3643,7 +3705,8 @@ public partial class BoardView : SubViewportContainer
         for (var i = 0; i < _turns.Count; i++)
         {
             var turn = _turns[i];
-            var t = (float)((now - turn.Start) / turn.Seconds);
+            // (Off's turns take no time: done once started.)
+            var t = turn.Seconds > 0 ? (float)((now - turn.Start) / turn.Seconds) : now >= turn.Start ? 1f : -1f;
             if (t >= 1)
             {
                 _turns.RemoveAt(i--);

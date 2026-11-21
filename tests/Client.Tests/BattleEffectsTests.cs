@@ -256,6 +256,7 @@ public class BattleEffectsTests
         Assert.Equal(land + Choreography.ThrownSettle, lobbed.Beats[3].Start, 9);
         Assert.Equal(lobbed.Beats[3].End, lobbed.Beats[4].Start, 9);
         Assert.Equal([land, lobbed.Beats[4].Start], lobbed.Lines.Select(c => c.At));
-        Assert.Empty(Choreography.Of([thrown], _ => null, AnimationSpeed.Off).Beats);
+        // Off: only the instant turn to the point (stage A5); nothing flies or shows.
+        Assert.Equal([(BeatKind.Turn, 0.0)], Choreography.Of([thrown], _ => null, AnimationSpeed.Off).Beats.Select(b => (b.Kind, b.Seconds)));
     }
 }

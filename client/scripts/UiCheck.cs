@@ -5787,8 +5787,9 @@ public partial class UiCheck : Node
     // the first point to the second with dust where it fell, and the enemy gets SHRAPNEL, GAS and FIRE bursts (each over
     // 20 s, so a slow frame cannot end them). While it plays, the grenade flies from the thrower's hand to the enemy, the
     // last explosion is at its point and radius, every burst is drawn, no more than MaxEffects squares show, and the
-    // terrain and an untouched model keep their nodes. Finishing at once (as a command sent does) stops every effect and
-    // leaves nothing showing; with Animations Off the same explosions and bursts play nothing.
+    // terrain and an untouched model keep their nodes; each explosion draws its blast ring (stage A5). Finishing at once
+    // (as a command sent does) hurries every effect to its end, leaving nothing showing a moment later; with Animations
+    // Off the same explosions and bursts play nothing.
     private async Task BlastEffectsCheck(BoardView board)
     {
         await Until(() => !board.Gliding && board.EffectsShowing == 0 ? "idle" : null, 5, "blast-idle");
@@ -5811,7 +5812,7 @@ public partial class UiCheck : Node
         var terrain = board.TerrainBuilds;
         TablePoint Between(double f) => new(thrower.X + (enemy.X - thrower.X) * f, thrower.Y + (enemy.Y - thrower.Y) * f);
         var (p1, p2, p3) = (Between(0.3), Between(0.5), Between(0.7));
-        var (lobs, explosions, markers, stopped) = (board.LobsDrawn, board.ExplosionsDrawn, board.MarkersDrawn, board.EffectsStopped);
+        var (lobs, explosions, markers, stopped, rings) = (board.LobsDrawn, board.ExplosionsDrawn, board.MarkersDrawn, board.EffectsStopped, board.RingsDrawn);
         var plan = new Choreography([],
         [
             new Beat(0, BeatKind.Lob, 0, 20.0, thrower.Id, enemy.Id, Hit: true),
@@ -5834,11 +5835,22 @@ public partial class UiCheck : Node
         var blastOk = board.ExplosionsDrawn == explosions + 3 && last is { } x && x.Kind == BeatKind.MartyrBlast && Math.Abs(x.Radius - 3) < 0.001f
             && new Vector2(x.At.X, x.At.Z).DistanceTo(new Vector2((float)p3.X, (float)p3.Y)) < 0.01f;
         var markersOk = board.MarkersDrawn == markers + 3;
+        // Stage A5: each explosion draws its blast ring, the last at its point with the server's radius.
+        var ring = board.LastRing;
+        var ringsOk = board.RingsDrawn == rings + 3 && ring is { } rg && Math.Abs(rg.Radius - 3) < 0.001f
+            && new Vector2(rg.At.X, rg.At.Z).DistanceTo(new Vector2((float)p3.X, (float)p3.Y)) < 0.01f;
         var untouchedKept = untouched is null || board.NodeIdsOf(untouched.Id).SequenceEqual(untouchedNodes);
         var terrainKept = board.TerrainBuilds == terrain;
+        // Stage A5: finishing at once hurries every effect to its end within BoardView.HurrySeconds (not cut off): the
+        // battlefield is clear a moment later (within 2 s here, at the slow frames of software rendering).
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         board.FinishAnimations();
-        await Step(1);
-        var cleaned = board.EffectsShowing == 0 && board.EffectsStopped > stopped && !board.Gliding;
+        while (board.EffectsShowing > 0 && clock.ElapsedMilliseconds < 4000)
+        {
+            await Step(1);
+        }
+        var settled = clock.ElapsedMilliseconds;
+        var cleaned = board.EffectsShowing == 0 && board.EffectsStopped > stopped && !board.Gliding && settled <= 2000;
         var speed = board.Animation;
         board.Animation = AnimationSpeed.Off;
         var fx = new LogLine(0, "", null, Models: [thrower.Id, enemy.Id])
@@ -5850,11 +5862,11 @@ public partial class UiCheck : Node
         var offQuiet = board.EffectsShowing == 0 && board.ExplosionsDrawn == explosions + 3 && !board.Gliding;
         board.Animation = speed;
         await Frames(1);
-        Check("board-blast-effects", showing > 20 && showing <= BoardView.MaxEffects && lobOk && blastOk && markersOk && untouchedKept && terrainKept && cleaned && offQuiet,
+        Check("board-blast-effects", showing > 20 && showing <= BoardView.MaxEffects && lobOk && blastOk && markersOk && ringsOk && untouchedKept && terrainKept && cleaned && offQuiet,
             $"{showing} effect squares showing (at most {BoardView.MaxEffects}); grenade {lob} from {thrower.Id.Value} at ({thrower.X:0.0}, {thrower.Y:0.0}) to {enemy.Id.Value} at ({enemy.X:0.0}, {enemy.Y:0.0}): {lobOk}; "
             + $"explosions drawn {board.ExplosionsDrawn - explosions}, last {last} (wanted MartyrBlast at {p3}, radius 3): {blastOk}; marker bursts {board.MarkersDrawn - markers}; "
-            + $"{untouched?.Id.Value ?? "no other model"} kept its nodes {untouchedKept}; terrain builds {terrain} -> {board.TerrainBuilds}; finished at once: showing {board.EffectsShowing}, "
-            + $"stopped {board.EffectsStopped - stopped}, still playing {board.Gliding}; Off plays nothing {offQuiet}");
+            + $"blast rings {board.RingsDrawn - rings}, last {ring}: {ringsOk}; {untouched?.Id.Value ?? "no other model"} kept its nodes {untouchedKept}; terrain builds {terrain} -> {board.TerrainBuilds}; "
+            + $"finished at once: hurried {board.EffectsStopped - stopped}, clear after {settled} ms, showing {board.EffectsShowing}, still playing {board.Gliding}; Off plays nothing {offQuiet}");
     }
 
     // Animation stage A4 (board-blast-sequence, optional: only when the window saw explosions or marker bursts live):

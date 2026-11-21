@@ -48,6 +48,7 @@ public class ChoreographyTests
         var reachedCharges = 0;
         var blows = 0;
         var statusBeats = new Dictionary<BeatKind, int>();
+        var turnsAlongTheWay = 0;
         foreach (var size in new[] { 3, 8 })
         {
             foreach (var (lines, events, before) in Updates(size))
@@ -83,7 +84,14 @@ public class ChoreographyTests
                             if (motion.Charging is not { } target)
                             {
                                 Assert.Equal(at, glide.Start, 9);
-                                Assert.DoesNotContain(mine, b => b.Kind != BeatKind.Glide);
+                                // Stage A5: at most a turn along its way as it sets off, within the glide.
+                                Assert.DoesNotContain(mine, b => b.Kind is not (BeatKind.Glide or BeatKind.Turn));
+                                if (mine.SingleOrDefault(b => b.Kind == BeatKind.Turn) is { } face)
+                                {
+                                    Assert.Equal((motion.Model, glide.Start, (TablePoint?)from), (face.Model, face.Start, face.From));
+                                    Assert.True(face.At is not null && face.Other is null && face.End <= glide.End + Eps, face.ToString());
+                                    turnsAlongTheWay++;
+                                }
                             }
                             else
                             {
@@ -197,7 +205,7 @@ public class ChoreographyTests
         // Stage A4's kinds (grenades, blasts, markers) need armed models: BattleEffectsTests covers them.
         Assert.All(Enum.GetValues<BeatKind>().Where(k => k < BeatKind.Lob), k => Assert.True(seen.GetValueOrDefault(k) > 0, $"{k}: {string.Join(", ", seen)}"));
         Assert.True(waitedForAMove > 0, "no shot or blow came after a move in the same update");
-        Assert.True(charges > 0 && reachedCharges > 0 && blows > 0, $"charges {charges}, reached {reachedCharges}, blows {blows}");
+        Assert.True(charges > 0 && reachedCharges > 0 && blows > 0 && turnsAlongTheWay > 0, $"charges {charges}, reached {reachedCharges}, blows {blows}, turns along the way {turnsAlongTheWay}");
     }
 
     [Fact]
@@ -210,7 +218,8 @@ public class ChoreographyTests
             var off = Choreography.Of(lines, At(before), AnimationSpeed.Off);
             Assert.Equal(full.Length / 2, fast.Length, 9);
             Assert.Equal(full.Beats.Select(b => (b.Seq, b.Kind, b.Model)), fast.Beats.Select(b => (b.Seq, b.Kind, b.Model)));
-            Assert.Empty(off.Beats);
+            // Stage A5: Off shows nothing moving; it only turns models at once (zero-second turns).
+            Assert.All(off.Beats, b => Assert.True(b.Kind == BeatKind.Turn && b.Seconds == 0 && b.Start == 0, b.ToString()));
             Assert.Equal(lines.Select(l => l.Seq), off.Lines.Select(c => c.Line.Seq));
             Assert.All(off.Lines, c => Assert.Equal(0, c.At));
         }
@@ -270,5 +279,50 @@ public class ChoreographyTests
         var plan = Choreography.Of([charge], id => id == a ? new TablePoint(0, 0) : null);
         Assert.Equal([BeatKind.Turn, BeatKind.Glide, BeatKind.Lean], plan.Beats.Select(x => x.Kind));
         Assert.Equal(plan.Beats[1].End, plan.Lines.Single().At, 9);
+    }
+
+    // Animation stage A5: Full, Fast and Off leave the same picture: over the simulated matches, every model ends an
+    // update facing the same way (the last model or point it turned to, a downed model to the model that downed it).
+    [Fact]
+    public void OffLeavesEveryModelFacingAsFullDoes()
+    {
+        static Dictionary<ModelId, (ModelId? Model, TablePoint? Point)> Final(Choreography plan)
+        {
+            var facing = new Dictionary<ModelId, (ModelId?, TablePoint?)>();
+            foreach (var b in plan.Beats.Select((b, i) => (b, i)).OrderBy(x => x.b.Start).ThenBy(x => x.i).Select(x => x.b))
+            {
+                if (b.Kind == BeatKind.Turn || b.Kind == BeatKind.Fall && b.Other is not null)
+                {
+                    facing[b.Model] = (b.Other, b.At);
+                }
+            }
+            return facing;
+        }
+        var compared = 0;
+        foreach (var (lines, _, before) in Updates(8))
+        {
+            var full = Final(Choreography.Of(lines, At(before)));
+            var off = Final(Choreography.Of(lines, At(before), AnimationSpeed.Off));
+            Assert.Equal(full.OrderBy(f => f.Key.Value), off.OrderBy(f => f.Key.Value));
+            compared += full.Count;
+        }
+        Assert.True(compared > 100, compared.ToString());
+    }
+
+    // Animation stage A5: several explosions of one event go off one after another, BlastStagger apart; the line comes
+    // with the first and what follows waits for the last.
+    [Fact]
+    public void SeveralExplosionsOfOneEventGoOffOneAfterAnother()
+    {
+        var a = new ModelId("a1");
+        var blasts = new LogLine(1, "", null, Models: [a])
+        {
+            Fx = new BattleFx(false, null, [new BlastCue(BlastStyle.Weapon, new TablePoint(5, 5), 2), new BlastCue(BlastStyle.Weapon, new TablePoint(9, 5), 2)], []),
+        };
+        var after = new LogLine(2, "", null, Models: [a]);
+        var plan = Choreography.Of([blasts, after], _ => null);
+        var booms = plan.Beats.Where(b => b.Kind == BeatKind.Explosion).ToList();
+        Assert.Equal([0, Choreography.BlastStagger], booms.Select(b => b.Start));
+        Assert.Equal([0, Choreography.BlastStagger + Choreography.BlastHold], plan.Lines.Select(c => c.At));
     }
 }
