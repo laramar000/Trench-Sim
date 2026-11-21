@@ -496,3 +496,5 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   date order) and `BoardView.DrawModel` (catalog height `figureTall` + A2 facing `FacingNow`). A3 adapted: falls, rises and
   casualty figures use each figure's catalog height (`StandingHeight`, `FallTrack.Height`, `Tipped(height)`); the casualty
   figure sinks 0.5" below the ground as it fades (`psx_figure.gdshader` writes no ALPHA, so the fade may not apply to it).
+  Checks after the merge (Linux, xvfb): essentials 2,285/0 (m7-client's figure tests added 24); full UI runner 428 PASS,
+  0 FAIL (unit-figures, board-casualty-resilience, board-blast-effects); animating frame mean 0.49 ms, max 6.1 ms.
