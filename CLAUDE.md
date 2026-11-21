@@ -508,3 +508,17 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   try found the model's Move and Dash unregistered, `MARK auto-end-not-finished`; untouched code, match-dependent); rerun
   (--skip-build) 425 PASS, 0 FAIL with it PASS, the four build steps not run there (PASS in the first run). Casualty
   figure half sunk: fade 0.50, its model's own figure 1. Animating frame mean 0.50-0.51 ms, max 6.4-6.7 ms (merge 0.49/6.1).
+- 2026-11-21, Jason: animation audit (no code), then "Implement Stage 1 (B1)" only. Done: a change of the seat shown in
+  hot-seat (following the turn or F2) no longer calls `FinishAnimations` (`BoardView.Show`); a new match finishes the
+  last one's playback in `Main.Attach`; commands, Esc and catch-up unchanged. Hooks for the checks: `BoardView.SeatSwitches`,
+  `FollowedTurn` (set by `Main._Process` when `HotSeat.FollowIfNeeded` switched). New UI checks `hotseat-switch-keeps-playback`
+  (hotseat: a made-up shot playing when F2 switches the seat through HotSeat.Switch and Main's redraw plays all its beats;
+  with the old finish put back it FAILs: 3 beats shown at once, cut by ShowTimed) and `abilities-switch-keeps-playback`
+  (abilities: every switch following the turn while playing plays on, at least one with an action). The hotseat group's
+  full match only ends activations (no attacks, 0 animating frames), so real switches are checked in the abilities group.
+  Checks (Linux, xvfb): essentials 2,285/0; hotseat group 41 PASS, 0 FAIL; abilities 19 PASS, 1 NOT TESTED (scatter, dice),
+  real switches there: 78 following the turn, 1 while playing (a charge's blow and fall), 0 cut short. Not seen: the race
+  itself (one seat drawing an update a frame before the other gets it) never came up in these runs, a live hot-seat match
+  by eye, Windows. Not run: the full UI runner, hotseat-record-verifies (runner only). Next: B2 only when Jason asks.
+  Jason also asked for a "fast animations toggle in the settings": Settings already has "Animations: Full / Fast / Off"
+  (the same control as the in-match Menu, saved as `anim=`); asked whether a separate toggle is wanted.

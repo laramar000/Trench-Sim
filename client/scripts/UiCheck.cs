@@ -2959,8 +2959,7 @@ public partial class UiCheck : Node
             $"before F2: {shown}; after: {switched}; {Label("Match code ")?.Text}");
         await Frames(30);
         Check("hotseat-f2-kept", HotControlled() == switched, $"after 30 frames: {HotControlled()}");
-        await KeyPress(Key.F2);
-        await Frames(5);
+        await SwitchMidShotStep();
 
         await HotSeatFullMatch();
 
@@ -3169,6 +3168,43 @@ public partial class UiCheck : Node
         }
     }
 
+    // Audit item B1 (2026-11-21): a change of the seat shown while a shot is playing lets it play on. A made-up shot (seq 0,
+    // so no counter of real events moves) between two models on the table starts 0.5 s from now; F2 then switches the
+    // seat at once through HotSeat.Switch and Main's redraw, the same path a switch following the turn takes. The shot
+    // must be playing at the switch, play every beat on its time (flash, tracer, hit), draw its tracer, be cut short by
+    // nobody, and leave the battlefield still. Before B1 the switch showed it at once.
+    private async Task SwitchMidShotStep()
+    {
+        var shown = HotControlled();
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        if (board?.Scene?.Models is not { Count: > 1 } models)
+        {
+            Check("hotseat-switch-keeps-playback", false, "no battlefield with two models to shoot between");
+            return;
+        }
+        var (a, b) = (models[0], models[1]);
+        var shot = new LogLine(0, "", null, Models: [a.Id, b.Id])
+        {
+            Effects = [new(EffectKind.MuzzleFlash, a.Id), new(EffectKind.HitPuff, b.Id)],
+        };
+        var plan = Choreography.Of([shot], id => id == a.Id ? new TablePoint(a.X, a.Y) : id == b.Id ? new TablePoint(b.X, b.Y) : null);
+        var switches = board.SeatSwitches.Count;
+        var tracers = board.TracersDrawn;
+        // Beats only (no line for the dice tray), 0.5 s from now, so the shot is surely still to play at the switch.
+        board.PlayForCheck(new Choreography([], [.. plan.Beats.Select(beat => beat with { Start = beat.Start + 0.5 })]));
+        Input.ParseInputEvent(new InputEventKey { Keycode = Key.F2, PhysicalKeycode = Key.F2, Pressed = true });
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        Input.ParseInputEvent(new InputEventKey { Keycode = Key.F2, PhysicalKeycode = Key.F2, Pressed = false });
+        await Until(() => !board.Gliding && HotControlled() != shown ? "still" : null, 8, "switch-mid-shot");
+        var record = board.SeatSwitches.Count > switches ? board.SeatSwitches[^1] : null;
+        Check("hotseat-switch-keeps-playback", record is { PlayingBefore: true, CutBy: null, AtOnce: 0, Done: true } && record.Drawn >= 3
+            && record.Kinds.Contains(BeatKind.Tracer) && board.TracersDrawn == tracers + 1 && HotControlled() != shown,
+            record is null ? $"no change of the seat shown after F2 ({shown} -> {HotControlled()})"
+            : $"{record.From} -> {record.To} by F2 with a made-up shot {(record.PlayingBefore ? "playing" : "not playing")}: {record.Drawn} beats drawn on their time, "
+            + $"{record.AtOnce} shown at once, [{string.Join(" ", record.Kinds.Order())}], tracers drawn {board.TracersDrawn - tracers}, "
+            + $"{(record.CutBy is { } cut ? $"cut short by {cut}" : "cut short by nobody")}, {(record.Done ? "still afterwards" : "never still")}");
+    }
+
     // Stage N5: the whole match in this one window, both seats, following the turn: every choice by a mouse click on
     // the decision card or in the Menu, placements by clicks on the battlefield, until MATCH ENDED. The runner checks the
     // server's record with trench-cli verify.
@@ -3264,6 +3300,36 @@ public partial class UiCheck : Node
             $"{_barSeatSamples} looks at the action bar, each starting with the shown seat's letter" + (_barSeatProblems.Count == 0 ? "" : ": " + string.Join(" | ", _barSeatProblems)));
     }
 
+    // Audit item B1 (2026-11-21, group abilities: its two hot-seat matches shoot, throw, charge and fight; the hotseat
+    // group's match only ends activations): a change of the seat shown no longer cuts playback short. Over both matches, every
+    // switch Main made because the seat follows the turn (HotSeat.FollowIfNeeded) while the battlefield was playing, or
+    // with the update that caused it playing, must play on to its end: no FinishAnimations meanwhile, no beat shown at
+    // once, the battlefield still again afterwards. At least one such switch must have played an action (a shot, blow,
+    // throw, charge or move) after the switch, so the check is about an action that just happened.
+    private static readonly HashSet<BeatKind> ActionBeats =
+    [
+        BeatKind.MuzzleFlash, BeatKind.Tracer, BeatKind.HitPuff, BeatKind.DirtPuff, BeatKind.Lob, BeatKind.Strike,
+        BeatKind.Impact, BeatKind.Lunge, BeatKind.Lean, BeatKind.Glide,
+    ];
+
+    private async Task SwitchPlaybackCheck(BoardView board)
+    {
+        await Until(() => board.Gliding ? null : "still", 8, "switch-playback-end");
+        var followed = board.SeatSwitches.Where(s => s.Followed).ToList();
+        var playing = followed.Where(s => s.PlayingBefore || s.PlayingAfter).ToList();
+        var actions = playing.Where(s => s.Kinds.Overlaps(ActionBeats) && s.Drawn > 0).ToList();
+        var bad = playing.Where(s => s.CutBy is not null || s.AtOnce > 0 || !s.Done).ToList();
+        string Describe(BoardView.SeatSwitch s) =>
+            $"#{s.Seq} {s.From}->{s.To}{(s.PlayingBefore ? " playing before" : "")}{(s.PlayingAfter ? " playing after" : "")}: {s.Drawn} beats drawn, "
+            + $"{s.AtOnce} at once, [{string.Join(" ", s.Kinds.Order())}]{(s.CutBy is { } cut ? $", cut by {cut}" : "")}{(s.Done ? "" : ", never still")}";
+        Write($"MARK seat-switches {board.SeatSwitches.Count} ({followed.Count} following the turn); animation {board.Animation}, effect lines {board.EffectLines.Count(e => !e.Replayed)} live "
+            + $"{board.EffectLines.Count(e => e.Replayed)} caught up, skipped {board.Skipped.Count}, glides {board.GlidesStarted}, tracer beats {board.TracerBeats}: {string.Join(" | ", playing.Select(Describe))}");
+        Check("abilities-switch-keeps-playback", actions.Count > 0 && bad.Count == 0,
+            $"{followed.Count} switches following the turn, {playing.Count} while playing, {actions.Count} playing an action after the switch, "
+            + $"{bad.Count} cut short" + (bad.Count == 0 ? "" : ": " + string.Join(" | ", bad.Take(4).Select(Describe)))
+            + (actions.Count == 0 ? "" : "; e.g. " + string.Join(" | ", actions.Take(3).Select(Describe))));
+    }
+
     // ---- The owner's checklist of 2026-11-02 (group "abilities", docs/manual-test-checklist.md) ----
     //
     // Two hot-seat matches with saved rosters of real faction units that have the R5/R6 ACTIONS, weapons and upgrades:
@@ -3323,10 +3389,18 @@ public partial class UiCheck : Node
                 await KeyPress(Key.Escape);
             }
             ended.Add(await AbilitiesMatch(label));
+            if (Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } still)
+            {
+                await Until(() => still.Gliding ? null : "still", 8, $"abilities-{label}-still");
+            }
             await Press(ButtonNamed("Leave"), Key.Enter, null);
             await Until(() => main.ScreenShown == "menu" ? "ok" : null, 20, $"abilities-{label}-left");
         }
         AbilityChecks(ended);
+        if (Controls<BoardView>().FirstOrDefault() is { } played)
+        {
+            await SwitchPlaybackCheck(played);
+        }
     }
 
     // Saved rosters for the two matches; every one is legal and fully playable (MatchReadinessTests and the probe that
@@ -3389,6 +3463,12 @@ public partial class UiCheck : Node
             await Frames(3);
             ReadAbilityLog(main);
             var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+            // Audit item B1: after a change of the seat shown, watch what the battlefield plays to its end before acting,
+            // as a player would (a command sent would show the rest at once, rightly).
+            if (board is { Gliding: true } && board.SeatSwitches.Count > 0 && !board.SeatSwitches[^1].Done)
+            {
+                await Until(() => board.Gliding ? null : "still", 8, "abilities-switch-playback");
+            }
             var state = main.ServerState;
             var seat = HotControlled();
             if (board is not null && board.Interaction.Available.Contains(InteractionMode.Place) && board.Interaction.Pending is null)

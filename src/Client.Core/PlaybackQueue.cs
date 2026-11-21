@@ -4,7 +4,7 @@ namespace Client.Core;
 // choreography is put after what is still playing; lines (an event's dice, notes and sound) and one-off beats (a flash, a
 // tracer, a puff) come due at their time; beats that pose a model (glides, flinches, and since stage A2 turns, lunges and
 // leans) are handed back at once with their absolute start, as they move models from then on. TakeAll shows everything at
-// once (a command sent, a change of seat, Esc, a catch-up). Display timing only: nothing here reads or changes the match.
+// once (a command sent, Esc, a catch-up, a new match). Display timing only: nothing here reads or changes the match.
 public sealed class PlaybackQueue
 {
     public readonly record struct Item(double At, LogLine? Line, Beat? Beat);

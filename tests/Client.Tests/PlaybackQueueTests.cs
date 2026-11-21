@@ -5,7 +5,7 @@ namespace Client.Tests;
 
 // Animation stage A1: the battlefield's queue of what is still to play. Lines and one-off beats come due in time order at
 // their time; glides and flinches are handed back at once with their absolute start; a second update plays after the
-// first; TakeAll shows everything at once (a command sent, Esc, a change of seat, a catch-up) and leaves nothing playing;
+// first; TakeAll shows everything at once (a command sent, Esc, a catch-up, a new match) and leaves nothing playing;
 // Off queues lines that are all due at once.
 public class PlaybackQueueTests
 {

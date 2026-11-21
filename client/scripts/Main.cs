@@ -212,7 +212,11 @@ public partial class Main : Control
         if (_controller is not null && System.Threading.Interlocked.Exchange(ref _changed, 0) == 1)
         {
             // Hot-seat: show the seat that must act when the shown one has nothing to do (unless switching is by hand).
-            _hotSeat?.FollowIfNeeded();
+            if (_hotSeat?.FollowIfNeeded() == true)
+            {
+                // Stage B1: the redraw after this switch keeps playing what the battlefield is playing (BoardView.Show).
+                _board.FollowedTurn = true;
+            }
             Render(_controller.Snapshot());
         }
         // The line above the HUD only takes room when it says something.
@@ -518,6 +522,8 @@ public partial class Main : Control
         MoveMenu(_matchMenu, 0, true);
         SetMenu(false);
         _shown = -1;
+        // Animation stage A1: a new match shows at once whatever the last one was still playing.
+        _board.FinishAnimations();
         Render(controller.Snapshot());
         FocusDefault();
         if (!_gapsShown)

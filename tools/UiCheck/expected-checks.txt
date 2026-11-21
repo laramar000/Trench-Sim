@@ -243,6 +243,7 @@ hotseat: hotseat-follows-turn
 hotseat: hotseat-whose-move-shown
 hotseat: hotseat-f2-switches
 hotseat: hotseat-f2-kept
+hotseat: hotseat-switch-keeps-playback
 hotseat: hotseat-leave-enter
 hotseat: hotseat-turn-banner
 hotseat: hotseat-bar-seat-letter
@@ -267,6 +268,7 @@ godot-hotseat-mines: engine errors
 hotseat-mines-no-server-left
 abilities-exit
 abilities: abilities-match-1-started
+abilities: abilities-switch-keeps-playback
 abilities: abilities-match-1-to-the-end
 abilities: abilities-match-2-started
 abilities: abilities-match-2-to-the-end

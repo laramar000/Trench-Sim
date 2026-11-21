@@ -230,11 +230,20 @@ public partial class BoardView : SubViewportContainer
             _lastSeen[model.Id] = (new Vector3((float)model.X, (float)model.Standing, (float)model.Y), (float)model.Radius);
             _lastShapes[model.Id] = model;
         }
-        if (seat != _seatShown)
+        // A change of the seat shown (hot-seat, by hand or following the turn) does not cut playback short: both seats see
+        // the same events with the same numbers, so what is playing is still right. A new match is finished in Main.Attach.
+        SeatSwitch? switched = null;
+        if (seat != _seatSeen)
         {
-            _seatShown = seat;
-            FinishAnimations();
+            if (_seatSeen is not null && scene is not null)
+            {
+                switched = new SeatSwitch(_seatSeen, seat, FollowedTurn, Gliding);
+                SeatSwitches.Add(switched);
+                _openSwitch = switched;
+            }
+            _seatSeen = seat;
         }
+        FollowedTurn = false;
         // Animation stage A2: a new match's figures face the middle again.
         if (first)
         {
@@ -260,6 +269,11 @@ public partial class BoardView : SubViewportContainer
         if (log is not null)
         {
             ShowNotes(log, before);
+        }
+        if (switched is not null)
+        {
+            switched.PlayingAfter = Gliding;
+            switched.Seq = _lastSeq;
         }
         Rebuild();
         ApplyPoses();
@@ -931,6 +945,11 @@ public partial class BoardView : SubViewportContainer
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         var busy = Gliding;
         ProcessFrame();
+        if (_openSwitch is { } open && !Gliding)
+        {
+            open.Done = true;
+            _openSwitch = null;
+        }
         _times.Frame(System.Diagnostics.Stopwatch.GetTimestamp() - started, busy);
     }
 
@@ -2416,7 +2435,6 @@ public partial class BoardView : SubViewportContainer
     private readonly PlaybackQueue _queue = new();
     private readonly List<PlaybackQueue.Item> _taken = [];
     private readonly List<Beat> _moves = [];
-    private Seat? _seatShown;
     private readonly Dictionary<ModelId, (Vector3 At, float Radius)> _lastSeen = [];
     // Animation stage A3: each model as it was last drawn (an Out of Action model is drawn again from this as it goes).
     private readonly Dictionary<ModelId, ModelShape> _lastShapes = [];
@@ -2434,6 +2452,7 @@ public partial class BoardView : SubViewportContainer
         _queue.Add(plan, now, _moves);
         foreach (var move in _moves)
         {
+            _openSwitch?.Kinds.Add(move.Kind);
             switch (move.Kind)
             {
                 case BeatKind.Glide:
@@ -2531,6 +2550,12 @@ public partial class BoardView : SubViewportContainer
 
     private void RunBeat(Beat beat, bool draw)
     {
+        if (_openSwitch is { } open)
+        {
+            open.Drawn += draw ? 1 : 0;
+            open.AtOnce += draw ? 0 : 1;
+            open.Kinds.Add(beat.Kind);
+        }
         switch (beat.Kind)
         {
             case BeatKind.Strike or BeatKind.Impact:
@@ -2599,13 +2624,17 @@ public partial class BoardView : SubViewportContainer
     }
 
     // Shows at once everything still playing: lines still due are shown, beats are not drawn, every model is put back on
-    // the server's position. Sending a command, a change of the seat shown, Esc and a catch-up all do this, so the player
-    // never waits for an animation and never acts on a picture that is behind the server.
+    // the server's position. Sending a command, Esc, a catch-up and a new match all do this, so the player never waits
+    // for an animation and never acts on a picture that is behind the server. A change of the seat shown does not.
     public void FinishAnimations([System.Runtime.CompilerServices.CallerMemberName] string caller = "")
     {
         if (Gliding && FinishedEarly.Count < 50)
         {
             FinishedEarly.Add(caller);
+        }
+        if (Gliding && _openSwitch is { } open)
+        {
+            open.CutBy ??= caller;
         }
         // Animation stage A4: every effect still showing (puffs, tracers, grenades, explosions) goes at once too.
         StopEffects();
@@ -2666,6 +2695,33 @@ public partial class BoardView : SubViewportContainer
 
     // Who finished playback early while something was still playing (for the UI check; at most 50 kept).
     public List<string> FinishedEarly { get; } = [];
+
+    // Stage B1 (UI check hotseat-switch-keeps-playback): each change of the seat shown in a match, whether Main switched
+    // because the seat follows the turn, whether something was playing just before and just after it, and what then
+    // happened to that playback until the battlefield was still again: beats drawn on their time or shown at once, the
+    // kinds of beats (queued and posing), and who cut it short, if anyone (FinishAnimations' caller). Display only.
+    public sealed class SeatSwitch(Seat? from, Seat? to, bool followed, bool playingBefore)
+    {
+        public Seat? From { get; } = from;
+        public Seat? To { get; } = to;
+        public bool Followed { get; } = followed;
+        public bool PlayingBefore { get; } = playingBefore;
+        public bool PlayingAfter { get; set; }
+        public int Seq { get; set; }
+        public int Drawn { get; set; }
+        public int AtOnce { get; set; }
+        public HashSet<BeatKind> Kinds { get; } = [];
+        public string? CutBy { get; set; }
+        public bool Done { get; set; }
+    }
+
+    public List<SeatSwitch> SeatSwitches { get; } = [];
+
+    // Set by Main just before the redraw that follows a hot-seat switch to the seat that must act (HotSeat.FollowIfNeeded).
+    public bool FollowedTurn { get; set; }
+
+    private Seat? _seatSeen;
+    private SeatSwitch? _openSwitch;
 
     // Where a model is drawn from for an effect: the table, or (taken off it) where it was last drawn.
     private bool Where(ModelId id, out Vector3 at, out float radius)
