@@ -1223,6 +1223,7 @@ public partial class UiCheck : Node
                 {
                     await AnimationResilienceCheck(board);
                     await CasualtyResilienceCheck(board);
+                    await CasualtyMidMoveCheck(board);
                     await BlastEffectsCheck(board);
                 }
                 // Performance: the move redrew the models that changed, not the terrain; every model is drawn where the
@@ -3305,7 +3306,8 @@ public partial class UiCheck : Node
     // switch Main made because the seat follows the turn (HotSeat.FollowIfNeeded) while the battlefield was playing, or
     // with the update that caused it playing, must play on to its end: no FinishAnimations meanwhile, no beat shown at
     // once, the battlefield still again afterwards. At least one such switch must have played an action (a shot, blow,
-    // throw, charge or move) after the switch, so the check is about an action that just happened.
+    // throw, charge or move) after the switch, so the check is about an action that just happened (optional: not reported
+    // when no switch came while something was playing).
     private static readonly HashSet<BeatKind> ActionBeats =
     [
         BeatKind.MuzzleFlash, BeatKind.Tracer, BeatKind.HitPuff, BeatKind.DirtPuff, BeatKind.Lob, BeatKind.Strike,
@@ -3324,6 +3326,13 @@ public partial class UiCheck : Node
             + $"{s.AtOnce} at once, [{string.Join(" ", s.Kinds.Order())}]{(s.CutBy is { } cut ? $", cut by {cut}" : "")}{(s.Done ? "" : ", never still")}";
         Write($"MARK seat-switches {board.SeatSwitches.Count} ({followed.Count} following the turn); animation {board.Animation}, effect lines {board.EffectLines.Count(e => !e.Replayed)} live "
             + $"{board.EffectLines.Count(e => e.Replayed)} caught up, skipped {board.Skipped.Count}, glides {board.GlidesStarted}, tracer beats {board.TracerBeats}: {string.Join(" | ", playing.Select(Describe))}");
+        // Optional (audit item B2's full run, 2026-11-21: 81 switches, none while playing): bot-played matches may give no
+        // switch with something playing; then nothing is reported (hotseat-switch-keeps-playback always checks it). A
+        // switch that cut playback short always fails.
+        if (actions.Count == 0 && bad.Count == 0)
+        {
+            return;
+        }
         Check("abilities-switch-keeps-playback", actions.Count > 0 && bad.Count == 0,
             $"{followed.Count} switches following the turn, {playing.Count} while playing, {actions.Count} playing an action after the switch, "
             + $"{bad.Count} cut short" + (bad.Count == 0 ? "" : ": " + string.Join(" | ", bad.Take(4).Select(Describe)))
@@ -5978,6 +5987,98 @@ public partial class UiCheck : Node
             + $"terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}, cut short by [{cutBy}]; finished at once: {faller.Id.Value} {fallerAfter}, "
             + $"{riser.Id.Value} {riserAfter}, upright {upright}; casualty figures left {board.CasualtyNodes}, held standing {board.HeldStanding}, still playing {board.Gliding}; "
             + $"half sunk: casualty figure fade {look}, its model's own figure fade {sourceFade}: {fadesOk}; Off plays nothing {offQuiet}");
+    }
+
+    // Audit item B2 (board-casualty-mid-move): a model put Out of Action during its own move goes where the server halted
+    // it. The update is laid out by Choreography.Of from lines shaped as the client builds them from the server's events
+    // for a move halted by a live Mine Marker: the move's Motion ends at the halt (Motions.Cut) and the mine's line names
+    // the status change with the server's last place for the model (StatusChange.At, the halt). It is played through the
+    // battlefield (PlayForCheck; nothing is sent, the server's state is untouched), stretched 20 times and started at a
+    // chosen moment so a slow software frame cannot move it on. Before the move starts the casualty figure stands where the
+    // model starts; half way it is on the way, exactly where the model's own glide draws the model, still upright; half way
+    // through its fall it is at the halt and tipping. Finishing at once half way along frees it and leaves nothing playing,
+    // the model drawn where the server has it; with Animations Off no casualty figure is drawn.
+    private async Task CasualtyMidMoveCheck(BoardView board)
+    {
+        await Until(() => !board.Gliding ? "idle" : null, 5, "mid-move-idle");
+        async Task Step(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+        var scene = board.Scene;
+        var mover = scene?.Models.FirstOrDefault(m => m.Status == Rules.Core.State.ModelStatus.Standing && m.Id != board.Selected?.Id);
+        if (scene is null || mover is null)
+        {
+            Check("board-casualty-mid-move", false, "needs a standing model on the table");
+            return;
+        }
+        var start = new TablePoint(mover.X, mover.Y);
+        var (cx, cy) = (scene.Width / 2 - mover.X, scene.Depth / 2 - mover.Y);
+        var away = Math.Sqrt(cx * cx + cy * cy);
+        var halt = away < 0.5 ? new TablePoint(mover.X + 3, mover.Y) : new TablePoint(mover.X + 3 * cx / away, mover.Y + 3 * cy / away);
+        var move = new LogLine(0, "", null, Motion: new Motion(mover.Id, [halt]), Models: [mover.Id]);
+        var mined = new LogLine(0, "", null, Models: [mover.Id])
+        {
+            Changes = [new StatusChange(mover.Id, Rules.Core.State.ModelStatus.Standing, Rules.Core.State.ModelStatus.OutOfAction, halt)],
+        };
+        var plan = Choreography.Of([move, mined], id => id == mover.Id ? start : null);
+        var glide = plan.Beats.FirstOrDefault(b => b.Kind == BeatKind.Glide);
+        var casualty = plan.Beats.FirstOrDefault(b => b.Kind == BeatKind.Casualty);
+        if (glide is null || casualty is null)
+        {
+            Check("board-casualty-mid-move", false, $"the plan has no glide or no casualty: {string.Join(" ", plan.Beats.Select(b => b.Kind))}");
+            return;
+        }
+        const double k = 20;
+        // The update's beats (no lines: nothing for the dice tray), stretched k times, with `now` at the moment given.
+        Choreography At(double moment) => new([], [.. plan.Beats.Select(b => b with { Start = b.Start * k - moment, Seconds = b.Seconds * k })]);
+        double Flat(Vector3 a, TablePoint p) => Math.Sqrt((a.X - p.X) * (a.X - p.X) + (a.Z - p.Y) * (a.Z - p.Y));
+        var riding = board.CasualtiesRiding;
+        var terrain = board.TerrainBuilds;
+
+        board.PlayForCheck(At(-5));
+        await Step(1);
+        var waiting = board.CasualtyOf(mover.Id);
+        var waitsAtStart = waiting is { } w && Flat(w.At, start) < 0.05 && w.Tilt < 0.05f;
+        board.FinishAnimations();
+        await Step(1);
+
+        board.PlayForCheck(At((glide.Start + glide.Seconds / 2) * k));
+        await Step(1);
+        var half = board.CasualtyOf(mover.Id);
+        var drawn = board.DrawnAt(mover.Id);
+        var length = Math.Sqrt((halt.X - start.X) * (halt.X - start.X) + (halt.Y - start.Y) * (halt.Y - start.Y));
+        var onTheWay = half is { } h && Flat(h.At, start) > 0.3 && Flat(h.At, halt) > 0.3 && Math.Abs(Flat(h.At, start) + Flat(h.At, halt) - length) < 0.05 && h.Tilt < 0.05f;
+        var withItsGlide = half is { } hg && drawn is { } d && Math.Abs(hg.At.X - d.X) < 0.05 && Math.Abs(hg.At.Z - d.Y) < 0.05;
+        var playing = board.Gliding;
+        board.FinishAnimations();
+        await Step(1);
+        var cleaned = board.CasualtyNodes == 0 && board.GhostsShowing == 0 && !board.Gliding
+            && board.DrawnAt(mover.Id) is { } back && Math.Abs(back.X - mover.X) < 0.01 && Math.Abs(back.Y - mover.Y) < 0.01;
+
+        board.PlayForCheck(At((casualty.Start + Choreography.FallSeconds / 2) * k));
+        await Step(1);
+        var falling = board.CasualtyOf(mover.Id);
+        var fallsAtHalt = falling is { } f && Flat(f.At, halt) < 0.05 && f.Tilt is > 0.1f and < 1.5f;
+        board.FinishAnimations();
+        await Step(1);
+        var rode = board.CasualtiesRiding - riding;
+
+        var speed = board.Animation;
+        board.Animation = AnimationSpeed.Off;
+        board.PlayForCheck(Choreography.Of([move, mined], id => id == mover.Id ? start : null, AnimationSpeed.Off));
+        await Step(2);
+        var offQuiet = board.CasualtyNodes == 0 && !board.Gliding;
+        board.Animation = speed;
+        await Frames(1);
+        Check("board-casualty-mid-move", waitsAtStart && onTheWay && withItsGlide && playing && cleaned && fallsAtHalt && rode == 3 && offQuiet && board.TerrainBuilds == terrain,
+            $"{mover.Id.Value} from ({start.X:0.00}, {start.Y:0.00}) halted at ({halt.X:0.00}, {halt.Y:0.00}); before the move: {waiting} at the start {waitsAtStart}; "
+            + $"half way: {half}, on the way {onTheWay}, where its glide draws the model ({drawn}) {withItsGlide}; finished at once half way: none left and the model "
+            + $"where the server has it {cleaned}; half way through the fall: {falling} at the halt {fallsAtHalt}; travelled first {rode} of 3; Off draws none {offQuiet}; "
+            + $"terrain builds {terrain} -> {board.TerrainBuilds}");
     }
 
     // Animation stage A3 (board-casualty-sequence, optional: only when the match took models Down, stood them up or put

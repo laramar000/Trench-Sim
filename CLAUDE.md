@@ -522,3 +522,23 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   by eye, Windows. Not run: the full UI runner, hotseat-record-verifies (runner only). Next: B2 only when Jason asks.
   Jason also asked for a "fast animations toggle in the settings": Settings already has "Animations: Full / Fast / Off"
   (the same control as the in-match Menu, saved as `anim=`); asked whether a separate toggle is wanted.
+- 2026-11-21, Jason: "Implement Stage 2 (B2)" only. Done: a model put Out of Action during its own move (a live Mine
+  Marker halts a Move, Dash, charge or resumed move) goes where the server halted it. The server clears an Out of Action
+  model's position, so `StatusTracker` keeps each model's last place and `StatusChange.At` names it (after the event, or
+  just before it for Out of Action: the halt from `Reducer.HaltAtMine`); `Choreography.Falls` puts it on the Casualty
+  beat (`Beat.At`); `BoardView.StartCasualty` places the casualty figure there and, while the model's glide of the same
+  update plays (it already ends at the halt, `Motions.Cut`), the figure rides it (`CasualtyFigure.Rides/Home`, posed
+  from `_pose`/`_turned` in `PoseGhost`), then falls and dissolves as before. A move halted where the model stood has
+  no glide; it falls there. Hooks: `CasualtyOf`, `CasualtiesRiding`, `LastCasualtyAt`. Tests `CasualtyPlaceTests`
+  (bot-played Trench Warfare, 24 seeds: halts for Moves, Dashes, a charge and resumed moves, Full/Fast/Off, finishing
+  at once mid-move, every other casualty at the server's last place), `StatusChangesTests` (At); UI check
+  `board-casualty-mid-move` (gvt-a: made-up update from engine-shaped lines through `Choreography.Of`, stretched 20x:
+  waits at the start, rides with the glide, falls at the halt, finish-at-once frees it, Off draws none).
+  Also: B1's `abilities-switch-keeps-playback` is now optional (B2's full run had 81 switches, none while playing, so it
+  failed with nothing cut short); a switch that cuts playback still fails; `hotseat-switch-keeps-playback` stays required.
+  Checks (Linux, xvfb): essentials 2,288/0; full UI runner 432 PASS, 2 FAIL (that B1 check and abilities-exit, both
+  from the no-chance case above; board-casualty-mid-move, board-casualty-resilience, hotseat-mines all PASS).
+  After making it optional: abilities group rerun exit 0, 17 PASS, 2 NOT TESTED (dice), again no switch while playing.
+  Performance (gvt-a board-frame-time): animating frame mean 0.55 ms, max 8.4 ms (A5 baseline 0.50-0.51 ms, max
+  6.4-6.7 ms; earlier runs on this machine ranged 0.49-0.83 ms); terrain builds while animating 0. Not seen: a real
+  mine casualty in a live window (dice), Windows. Next: only when Jason asks (R1, T1 and the rest not started).

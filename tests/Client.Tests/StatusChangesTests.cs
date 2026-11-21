@@ -26,7 +26,9 @@ public class StatusChangesTests
                 var changes = tracker.Next(state);
                 var expected = state.Models
                     .Where(m => before.FindModel(m.Id) is { } was && was.Status != m.Status)
-                    .Select(m => new StatusChange(m.Id, before.FindModel(m.Id)!.Status, m.Status)).ToList();
+                    .Select(m => new StatusChange(m.Id, before.FindModel(m.Id)!.Status, m.Status,
+                        // Audit item B2: where the state has it after the event, or (put Out of Action) just before it.
+                        (m.Position ?? before.FindModel(m.Id)!.Position) is { } p ? TablePoint.Of(p) : null)).ToList();
                 Assert.Equal(expected, changes);
                 foreach (var change in changes)
                 {

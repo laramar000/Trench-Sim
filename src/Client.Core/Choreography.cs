@@ -61,7 +61,9 @@ public enum BeatKind
 // One thing the battlefield draws for an event, Start seconds after the update arrived, for Seconds. Model is the model it
 // happens to (the shooter of a flash or tracer, the target of a puff or flinch, the model that glides); Other is the model
 // at the far end (the target of a tracer, the attacker a flinch moves away from). Hit says whether the roll counted as
-// passed (a tracer that hits ends on its target). Motion and From are a glide's path and the point it starts from.
+// passed (a tracer that hits ends on its target). Motion and From are a glide's path and the point it starts from. At is
+// a point the beat happens at (a turn's or an attack's point, an explosion; audit item B2: a casualty's place, the server's
+// last place for the model).
 public sealed record Beat(int Seq, BeatKind Kind, double Start, double Seconds, ModelId Model, ModelId? Other = null, bool Hit = false, Motion? Motion = null, TablePoint? From = null,
     TablePoint? At = null, double Size = 0)
 {
@@ -379,7 +381,8 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
                     break;
                 case { To: ModelStatus.OutOfAction }:
                     var falls = change.From == ModelStatus.Standing;
-                    beats.Add(new(line.Seq, BeatKind.Casualty, at, (falls ? FallSeconds : 0) + SinkSeconds, change.Model, other, falls));
+                    // Audit item B2: where the server's table last had it (a mine halt during its move), not where it was drawn.
+                    beats.Add(new(line.Seq, BeatKind.Casualty, at, (falls ? FallSeconds : 0) + SinkSeconds, change.Model, other, falls, At: change.At));
                     next = Math.Max(next, at + (falls ? FallSeconds : 0));
                     break;
             }

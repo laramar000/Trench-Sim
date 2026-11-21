@@ -3457,6 +3457,13 @@ public partial class BoardView : SubViewportContainer
 
     public int HeldStanding => _held.Count;
 
+    // Audit item B2 (UI check): where a model's casualty figure stands now (its root, on the table) and how far its figure
+    // leans from upright (radians); null when it has none.
+    public (Vector3 At, float Tilt)? CasualtyOf(ModelId id) =>
+        _ghosts.LastOrDefault(g => g.Model == id && IsInstanceValid(g.Root)) is { } ghost
+            ? (ghost.Root.Position, ghost.Holder.Basis.Y.Normalized().AngleTo(Vector3.Up))
+            : null;
+
     // How far a model's figure leans from upright now (radians; 0 standing, about pi/2 lying in a fall), and its scale;
     // null when the model has no figure (for the UI check).
     public (float Tilt, float Scale)? TiltOf(ModelId id) =>
@@ -3583,7 +3590,23 @@ public partial class BoardView : SubViewportContainer
     // An Out of Action model drawn again as it goes (its figure and base, not in the scene): it falls (unless it was Down),
     // then sinks and fades, and is freed.
     private sealed record CasualtyFigure(Node3D Root, Node3D Holder, List<ShaderMaterial> Shaders, List<StandardMaterial3D> Paints, double Start, double FallSeconds,
-        double SinkSeconds, bool Falls, float Yaw, float LyingScale, float Height, float Length);
+        double SinkSeconds, bool Falls, float Yaw, float LyingScale, float Height, float Length)
+    {
+        // Audit item B2: the model it stands for, and (when its own move of the update is still to play) the rest of that
+        // move's glide: the figure is drawn at the glide's point (rest plus the glide's offset) until the glide ends.
+        public ModelId Model { get; init; }
+
+        public Vector3? Rides { get; init; }
+
+        // Where it falls: the server's last place for the model.
+        public Vector3 Home { get; init; }
+    }
+
+    // For the UI check (audit item B2): casualty figures that travelled their model's move first, and where the last one
+    // was put to fall.
+    public int CasualtiesRiding { get; private set; }
+
+    public (ModelId Model, Vector3 At)? LastCasualtyAt { get; private set; }
 
     // A plain body stands this tall (as DrawModel draws it); a figure stands at its catalog height (the art pipeline's,
     // 0.5" to 6"); lying, either one's centre is this high.
@@ -3697,7 +3720,21 @@ public partial class BoardView : SubViewportContainer
             _falls.RemoveAt(pending);
             _held.Remove(beat.Model);
         }
-        var at = new Vector3((float)shape.X, (float)shape.Standing, (float)shape.Y);
+        // Audit item B2: where the server's table last had the model (beat.At, from StatusChange.At): a model hit by a mine
+        // during its own move goes where the server halted it, not where it started. Without one (the UI checks' made-up
+        // casualties), where it was drawn.
+        var at = beat.At is { } server ? new Vector3((float)server.X, (float)LevelAt(server.X, server.Y), (float)server.Y)
+            : new Vector3((float)shape.X, (float)shape.Standing, (float)shape.Y);
+        // And when its own move of this update is still to play or playing (its glide ends at that halt), the casualty
+        // figure travels it first, as the model would have, then falls there.
+        Vector3? rides = null;
+        foreach (var glide in _glides)
+        {
+            if (glide.Model == beat.Model)
+            {
+                rides = new Vector3(glide.Rest.X, glide.RestHeight, glide.Rest.Y);
+            }
+        }
         var yaw = FallYaw(beat.Model, beat.Other, at);
         var root = new Node3D { Name = $"Casualty{shape.Id.Value}", Position = at };
         var tall = StandingHeight(shape);
@@ -3775,7 +3812,17 @@ public partial class BoardView : SubViewportContainer
             }
         }
         var (lyingScale, length) = LyingFit(art, shape.Radius, tall);
-        var ghost = new CasualtyFigure(root, holder, shaders, paints, fallStart, fallSeconds, sinkSeconds, falls, yaw, lyingScale, tall, length);
+        var ghost = new CasualtyFigure(root, holder, shaders, paints, fallStart, fallSeconds, sinkSeconds, falls, yaw, lyingScale, tall, length)
+        {
+            Model = beat.Model,
+            Rides = rides,
+            Home = at,
+        };
+        if (rides is not null)
+        {
+            CasualtiesRiding++;
+        }
+        LastCasualtyAt = (beat.Model, at);
         _ghosts.Add(ghost);
         PoseGhost(ghost, Now);
         CasualtiesStarted += beat.Seq > 0 ? 1 : 0;
@@ -3818,7 +3865,24 @@ public partial class BoardView : SubViewportContainer
         }
         var fallT = !ghost.Falls || ghost.FallSeconds <= 0 ? 1f : (float)Math.Clamp((now - ghost.Start) / ghost.FallSeconds, 0, 1);
         var p = ghost.Falls ? fallT * fallT : 1f;
-        var (basis, offset) = Tipped(p, ghost.Yaw, ghost.LyingScale, ghost.Height, ghost.Length);
+        var yaw = ghost.Yaw;
+        // Audit item B2: still travelling its model's move: at the glide's point, turning along its way as the model would.
+        if (ghost.Rides is { } rest && now < ghost.Start)
+        {
+            if (_pose.TryGetValue(ghost.Model, out var travelled))
+            {
+                ghost.Root.Position = rest + travelled;
+            }
+            if (_turned.TryGetValue(ghost.Model, out var turning))
+            {
+                yaw = turning.Yaw;
+            }
+        }
+        else if (ghost.Rides is not null)
+        {
+            ghost.Root.Position = ghost.Home;
+        }
+        var (basis, offset) = Tipped(p, yaw, ghost.LyingScale, ghost.Height, ghost.Length);
         ghost.Holder.Basis = basis;
         ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0) + offset;
         var sinkStart = ghost.Start + (ghost.Falls ? ghost.FallSeconds : 0);
