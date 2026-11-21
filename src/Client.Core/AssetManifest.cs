@@ -13,7 +13,8 @@ public static class AssetManifest
     public static readonly IReadOnlyList<string> Licences = ["CC0-1.0", "CC-BY-4.0", "OFL-1.1", "Original"];
 
     // All the art together, and any one file.
-    public const long MaxTotalBytes = 40L * 1024 * 1024;
+    // 64 MB since 2026-11-13 (was 40): the 21st figure, the first Heretic, took the folder to 42.7 MB.
+    public const long MaxTotalBytes = 64L * 1024 * 1024;
     public const long MaxFileBytes = 8L * 1024 * 1024;
 
     // Files that are not art: the manifest, the catalog, folder keepers, and what Godot writes beside imported files.

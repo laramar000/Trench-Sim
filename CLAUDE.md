@@ -243,6 +243,206 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-03: owner said "Merge the plans". m7-client (which holds m0-setup to m6-records, PRs #1-#11) took in
   docs-known-gaps, main (#13, #14: SessionStart hooks; .claude/settings.json now has both the dotnet permissions and
   the hooks) and claude/pensive-planck-ep84pj; essentials passed; main was fast-forwarded to it (no force-push).
+- 2026-11-03: art pipeline. `docs/art-pipeline.md` is the owner-approved standard (style, blank mannequin faces, size
+  classes A-F by base with triangle and texture budgets, modules as separate glTF nodes, workflow, checklist, all 55
+  units with bases). Template: Trench Pilgrim (`client/assets/units/trench-pilgrim.glb`, 1,842 triangles; tall
+  capirote with no head under it, gaunt MakeHuman minmuscle-minweight body, seat colour on mantle and capirote band),
+  catalog `unit:Trench Pilgrim`; source `tools/art/blend/trench-pilgrim.blend`; renders `tools/art/render_turnaround.py`.
+  Build: Python 3.13 (winget) with `bpy==5.1.2`, `python tools/art/make_figures.py --figure <name> <units> <makehuman>`
+  (FIG_BLEND=<folder> saves the .blend). The four older figures were not rebuilt (the shared head code changed).
+  Owner's rules for art: one model at a time, shown for approval before the next; ask before commit. Open: per-entry
+  figure height in the catalog (large bases, tall headgear), oval bases; licence warning given (TC community licence
+  excludes video games and AI art); the owner chose to go on.
+- 2026-11-03: second figure, Stigmatic Nun (`units/stigmatic-nun.glb`, 1,847 triangles, approved "good enough"), built
+  on the owner's reference images as cues (white blood-spattered habit and hood, porcelain votive mask with a cross slit
+  chosen from three mock-ups, `NUN_FACE` keeps visor/plate/sallet; fitted plate corset by shrinkwrap; serrated blade and
+  pistol gripped in the fist via `FISTS`). New script pieces: `spattered()` baked blood/mud material, female body
+  shapes (`shape="female-young-..."`), `head=None`. Owner reviews each figure from turnaround and close-ups.
+- 2026-11-03: third figure, Ecclesiastic Prisoner (`units/ecclesiastic-prisoner.glb`, 1,795 triangles, approved), on
+  the owner's reference cues: stooped gaunt body, enclosed spiked iron helm (no head), stocks board, finned bomb on the
+  back. The bomb and chest ropes are placed by ray-casting the posed body (`back_y`), so they rest on it. The 25 mm
+  pilgrims are done; the War Prophet, Castigator (32 mm), Sanctified Giant (40 mm) and Reliquary Walker (60 mm) wait for
+  the per-entry figure height in the client catalog.
+- 2026-11-03: fourth figure, War Prophet (`units/war-prophet.glb`, class B 32 mm, 2,066 triangles, catalog height 1.55",
+  approved). One-piece pointed helm (built from rings, no ledge), cross frame with horns and bells, anti-tank hammer,
+  seat colour on the pauldrons' top lames and tabards. Feet now flat on the ground for every figure (shared foot aim);
+  trench-pilgrim (thinner, taller capirote), stigmatic-nun and ecclesiastic-prisoner were rebuilt with it. Figure tests
+  take each figure's budget by class; `BODY_BUDGET` sets a larger class's body budget in the script. Left: Castigator
+  (32 mm), Sanctified Giant (40 mm), Reliquary Walker (60 mm).
+- 2026-11-03: fifth figure, Castigator (`units/castigator.glb`, class B 32 mm, catalog height 1.5", 3,053 triangles:
+  the owner raised its budget to 3,100 for a detailed gas mask; `UnitFiguresTests` lists budgets per figure, file size
+  limit scales with budget). Gas mask: sealed iron eyepieces (no glass, no rivets: rivets made them read as eyes),
+  mouthpiece angled down, harness straps cut away from the face; no head under it. Left: Sanctified Giant (40 mm),
+  Reliquary Walker (60 mm).
+- 2026-11-03: sixth figure, Reliquary Walker (`units/reliquary-walker.glb`, class E 60 mm, catalog height 2.4", 7,635
+  triangles; the owner raised its budget to 6,000 then 8,000). The owner's references were the shrine walker (Catherine
+  wheel, bonebreaker mace), which in the roster is the Reliquary Walker, not the Sanctified Giant. Hard-surface hull, no
+  head (tabernacle and spire), seat colour on pauldron tops and the spire band; the martyr on the wheel is a posed
+  MakeHuman body (`human_body` called inside the figure, moved to Weapon2, then transformed onto the wheel). New script
+  globals: `TEX_SIZES` (texture size by module; the Walker has 256 px body and Weapon2). `UnitFiguresTests` rows now give
+  budget, largest texture and footprint width. `render_turnaround.py` takes an optional height. Left: Sanctified Giant
+  (40 mm), references still to come from the owner.
+- 2026-11-03: seventh figure, Sanctified Giant (`units/sanctified-giant.glb`, class C 40 mm, catalog height 1.6", 5,043
+  triangles, budget 5,200: the owner allows larger units more). Owner's references were the Communicant: striding,
+  hunched brute, hood with a nailed iron cross (no face, no head), polearm with a chain/bell/skull cluster, skirt split
+  for the striding leg. The hood sits on the skeleton's neck joint (`NECK`, set by `human_body`).
+- 2026-11-03: cloth pass on every Pilgrim figure (the owner: "all of the cloth we've done looks terrible"): `drape()`
+  (Blender cloth sim, pinned edge, self-collision, inside-only smoothing, reduced, solidify outward without a rim),
+  `cloth_cone`, `cloth_panel`. Each figure stays within its budget (War Prophet body 1,150, Castigator body 1,000 to fit).
+- 2026-11-03: Trench Pilgrim rebuilt as a WWI trench soldier (owner's references): tunic, webbing, breeches,
+  puttees, iron capirote base; the robe, tabard and red mantle are gone (seat colour only on the capirote band).
+  The four older generic figures were not rebuilt. All Pilgrim figures are done.
+- 2026-11-03: Principality started (owner chose it next). First figure Yeoman (`units/yeoman.glb`, class A, 2,399
+  triangles, budget 2,400 for the gas mask): shared `ww1_uniform()`/`ww1_webbing()` (also used by the Trench Pilgrim),
+  `ww1_gas_mask()` on the owner's WWI mask references (fogged blank lenses, chin drum, no hose), seat-colour steel
+  helmet. The Castigator's mask is `gas_mask()` (shared, unchanged). Left: Lieutenant, Blind Marksman, Trench Cleric,
+  Shock Trooper, Combat Engineer, Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
+- 2026-11-03: Shock Trooper done (`units/shock-trooper.glb`, class A, 2,698 triangles, budget 2,700). Owner wanted it
+  distinct from the Yeoman: dark grey `assault` kit, knee pads, tall boots, deep seat-colour helmet with an iron brow
+  plate, two-lame chest plate, shoulder plates, spiked trench hammer in a wind-up over the right shoulder.
+  `ww1_uniform(tunic=, band=)` takes materials now. Left: Lieutenant, Blind Marksman, Trench Cleric, Combat Engineer,
+  Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
+- 2026-11-03: Lieutenant done (`units/lieutenant.glb`, class B 32 mm, catalog height 1.5", 3,395 triangles, budget 3,400),
+  on the owner's references: green greatcoat, breastplate with medals, Sam Browne, puttees, curved sword on the shoulder,
+  fist on hip, large oval shield with a patriarchal cross, blank mannequin face (no gas mask). New shared pieces:
+  `sallet(closed=)` (lofted round the head; closed = eye slit, head removed, for the Yeoman and later; open = visor
+  swung up resting on top, head shrunk), `boots()` (lofted laced boots in their own `Boots` node, centred on the leg,
+  body feet removed). Bake: faces covering no texel centre take their material's colour (no black blots). Owner: it is
+  fine to remove hidden body parts up front to stop clipping. Left: Blind Marksman, Trench Cleric, Combat Engineer,
+  Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
+- 2026-11-03: Blind Marksman done (`units/blind-marksman.glb`, class B 32 mm, catalog height 1.25", 2,779 triangles,
+  budget 2,800), on the owner's sniper references: crouched on one knee at rest, a very long rifle held upright with
+  its butt grounded and the muzzle above the hood (brass scope, folded bipod), lofted deep hood (no point), red
+  blindfold on a blank face, cloak pinned at the neck (the back under it removed), seat-colour stole, webbing and
+  pouches. Kneeling: `ww1_uniform(bands=False)` and plain booted feet (`boots()` fits standing feet only). Left: Trench
+  Cleric, Combat Engineer, Mechanized Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
+- 2026-11-04: Trench Cleric done (`units/trench-cleric.glb`, class B 32 mm, catalog height 1.65", 3,978 triangles, budget
+  4,000: the owner raised it), on the owner's references: tall flat-topped seat-colour cap over a blank mannequin face, olive
+  cuirass of lames front and back (`plate()` shrinkwrap, cut behind the sides), boxy pauldrons with seat-colour slabs and
+  plated sleeves, gilt shrine on the left shoulder, rope stole, belt pouches, ray-fitted chain fringe, long pale vestment with
+  prayer strips, open book (Weapon2 node), pistol, a great riveted cross on the back. Left: Combat Engineer, Mechanized
+  Heavy Infantry (40 mm), Combat Medic, Holy Warrior.
+- 2026-11-10: art style change. The owner wants every figure in a PS2-era painted-texture look (clothes, straps, plates and
+  grime painted into a 256 px body texture on a smooth low-poly body; solid shapes only for silhouette: headgear, weapons,
+  packs, pauldrons, big hulls). All 17 figures were converted (`PAINT` bake hook, shared helpers `psx_*`, `ww1_paint`,
+  `toeless_feet`, `KIT`, `JOINTS` in `tools/art/make_figures.py`), budgets in `UnitFiguresTests` lowered to the new counts.
+  Combat Engineer done and registered (`units/combat-engineer.glb`, 2,923 triangles). PSX look in the game:
+  `client/shaders/psx_figure.gdshader` (vertex snap, affine textures, colour steps, grimdark grade), applied in
+  `Visuals.UseNearestFilter`; seat colours drawn on figures are darkened (`BoardView.Grimdark`). Test it before any new figure:
+  `TRENCH_DEV=deploy,psx godot --path client -- --ui-check dev` and `tools/art/psx_showcase.gd`.
+- 2026-11-10: the last three Principality figures done in the painted style and registered (not yet shown to the owner,
+  not committed): Mechanized Heavy Infantry (`units/mechanized-heavy-infantry.glb`, class C 40 mm, height 1.6", 3,934
+  triangles: riveted plate, bucket helm in a gorget, back engine with two exhaust stacks and hoses, water-cooled heavy
+  machine gun, seat colour on the pauldron tops), Combat Medic (`units/combat-medic.glb`, class A 25 mm as the roster
+  gives, 1,283 triangles: peaked cap in the seat colour, greatcoat, armband with a patriarchal cross, vial bandolier,
+  medi-kit bag, medical chest, pistol) and Holy Warrior (`units/holy-warrior.glb`, class B 32 mm, height 1.55", 2,422
+  triangles: sugar-loaf great helm with a brass cross, gilt cross on the cuirass, tabard and pauldron tops in the seat
+  colour, two-handed sword at vigil). New shared helpers `psx_shell` and `hose`. Left: none (20 figures).
+- 2026-11-12: detail pass on all 20 figures (the owner: "1 more passover for detail", "highest quality possible"). The bake
+  in `tools/art/make_figures.py` now packs each UV layout tight (`uv.pack_islands`, the default left half a texture
+  empty), paints every texel as the mean of 3 x 3 samples (thin painted lines no longer break into dashes) and adds grain
+  in `psx_lit`; every Body, Coat and Robe texture is 1,024 px, the other modules 512 px (`UnitFiguresTests` rows 1,024).
+  The Accent carries baked grey shading in its vertex colours (`accent_shading`, exported as COLOR_0); the client
+  multiplies it with the seat colour (`BoardView`: `VertexColorUseAsAlbedo`, still unshaded). Standard-bearer: crossbar,
+  pennant and lantern hang outward from his right, the pennant waved (budget 1,700); Combat Medic: apron folded (1,600).
+  A build takes 3 to 10 minutes a figure; `psx_showcase.gd` also takes full paths to .glb files. The units folder is
+  about 40 MB. Renders (not in git): `ui-check-results/s5/` (`g1`..`g5` all figures, `before`, `after`).
+- 2026-11-12/13: dynamic poses on all 20 figures (the owner: "make all of their posing more dynamic and less static").
+  New in `tools/art/make_figures.py`: `legs(r, L=(x, y, toe), R=..., drop=, heel=)` (stance by inverse kinematics, the
+  ground rises to the feet: `GROUND`; grounded kit adds it), `TWIST` and `LOOK` (shoulders and head turned, a warp of the
+  finished figure, `dynamic_warp`), `WARP` (a figure's own warp: Holy Warrior sword into a high guard, Reliquary Walker
+  stride; its mace no longer hangs below the feet), `FIG_FAST=1` (unpainted build in seconds). The `FIG` line prints
+  `raw=` (metres before scaling) and `feet=` (must be 0). Poses: Rifleman doubling forward, Skirmisher stalking in a
+  crouch, Shield braced with the mace back, Standard striding and looking back, Trench Pilgrim charging, Nun striding
+  with the pistol levelled, Prisoner staggering, War Prophet preaching with a hand raised, Castigator flail swung back,
+  Walker lumbering stride, Giant twisted, Yeoman and Shock Trooper charging, Lieutenant sword thrust up and forward,
+  Blind Marksman head turned (still kneeling), Cleric book high and pistol levelled, Engineer crouched assault,
+  Mechanized wide braced stance, Medic running, Holy Warrior high guard. Catalog heights on one true scale (the owner,
+  2026-11-13: "sizes are all wrong scale properly"): `raw` x 0.70" for every human figure, Giant 1.6" and Mechanized 1.45" (the owner, 2026-11-13, after "bigger", "meet in the middle" and 1.55" for the Mechanized: "reduce size of both large non shrine units", smaller than the Walker and bigger than normal units; lore research: the Anchorite Shrine is 12 to 15 ft in the official lore and machine armour "far smaller", so the Walker stands 1.87 times the Mechanized),
+  1.13 Walker (`client/assets/catalog.json`: every unit entry gives a height; before, human bodies ran from 0.56 to
+  0.93). UI check `unit-figures` now expects each unit's catalog height, not 1.2. `psx_showcase.gd` draws figures at
+  their catalog heights. Godot windows: open them on the second monitor (`--screen 1`), the owner plays on the first. `psx_showcase.gd`: `PSX_YAW=<degrees>` turns the
+  figures. Budgets: Castigator and Trench Cleric 2,400.
+- Done (2026-11-13): Heretic Trooper, the first Heretic figure (`heretic_trooper()` in `tools/art/make_figures.py`,
+  `units/heretic-trooper.glb`, catalog `unit:Heretic Trooper` height 1.15", test row 2,000 triangles, 21 figures now). The
+  owner sent Heretic references on 2026-11-13 (trooper: rust helm, gas mask and hose, rust chest plates and plaque,
+  dark uniform, pale leg wraps, shawl, belt skull and red canister) and chose the Trooper as the next figure. Still to
+  build for the Heretics: Heretic Priest, Night Commando, Chorister, Assault Beast, Wretched, Brand-Sworn Heavy
+  Infantry, Bombard Witch, Barbed Wire Banshee (references for most are in that message, not in the repo).
+  The art folder is 42.7 MB with it, so `AssetManifest.MaxTotalBytes` went from 40 to 64 MB (not asked of the owner first;
+  each further painted figure adds about 1.8 MB, so the limit or the texture sizes need a decision before long).
+- Done (2026-11-16): Heretic Priest, the owner's choice after the Trooper (`heretic_priest()`, `units/heretic-priest.glb`,
+  class B 32 mm, catalog height 1.58", test row 2,800 triangles, 22 figures now, art folder about 45 MB of the 64 MB
+  limit). Still to build for the Heretics: Night Commando, Chorister, Assault Beast, Wretched, Brand-Sworn Heavy
+  Infantry, Bombard Witch, Barbed Wire Banshee.
+  Reworked the same day: the owner said it "needs to look more heretical" and sent eight more Priest references. Now a
+  ringed five-point star (point down) on the staff and on the coat's back, an inverted cross raised in the right hand
+  and cut as the mitre's only opening, fire at the mitre's tip, a brass triangle with an eye and a padlock on the
+  belt, fanged pauldrons, bloodied gauntlets, a black coat with painted flames. These are common occult signs, not the
+  setting's own marks. 2,752 triangles.
+- Done (2026-11-16): Brand-Sworn Heavy Infantry (`brand_sworn()`, `units/brand-sworn-heavy-infantry.glb`, class B
+  32 mm, catalog height 1.58" with its raised axe, test row 2,300 triangles, 23 figures now, art folder about 45 MB of
+  the 64 MB limit). The owner said "Yes, next figure" without naming one; this was Claude's recommendation. Still to
+  build for the Heretics: Night Commando, Chorister, Assault Beast, Wretched, Bombard Witch, Barbed Wire Banshee.
+- Done (2026-11-16): Heretic Trooper reworked on the owner's word ("do a full rework if needed") and twelve more
+  references: helm with a peak and flared skirt, scarf and cape (seat colour), braces, taller plaque, thick pale leg
+  wraps, a fuller body. Then, the owner: "needs to look more cool and edgy": a saw-backed blade raised and a drum
+  pistol levelled (no rifle), near-black uniform, red-lit lenses, a spiked pauldron, a longer torn cape. Then, the
+  owner: a black-coated shock trooper with burning eyes, "but WW1": a long black greatcoat, amber lenses, a blackened
+  helm, hunched over the rifle in both hands again, the blade at the hip, no pistol. Catalog height 1.14" (was 1.15"),
+  test row 2,800 (was 2,000), 2,721 triangles.
+- Done (2026-11-16): glowing texels (the owner: "Yes, make them glow", the Trooper's lenses). A figure's painter returns
+  four values for a texel that glows; the bake in `tools/art/make_figures.py` writes its alpha as 0.5;
+  `client/shaders/psx_figure.gdshader` draws alpha under 0.75 at the texel's own colour, unlit and ungraded (`glow`).
+  Only the Heretic Trooper marked texels at first; the Priest's embers and the Brand-Sworn's brands followed on
+  2026-11-17. Not seen in a match, only in `psx_showcase.gd`.
+- Done (2026-11-16): the Trooper's helm refitted (the owner: "make the helmet and the head look more natural
+  together", "the proportions are weird"): built in the head's frame (`FACE_BOX`) and sized from the head, no longer
+  level and twice the head's width. Catalog height 1.10" (was 1.14"). A helm on a tilted head belongs in the head's
+  frame for every later figure.
+- Done (2026-11-16): the Trooper's mask and cape (the owner: "Add more details to cape. Fix gas mask. Give a quality
+  check"): solid eyepieces and muzzle, painted face piece and straps; cape with `ACCENT_PAINT` marks (new hook in
+  `accent_shading`: a figure's factor on the Accent's baked grey) and a stitched linen patch. 2,981 triangles, test
+  row 3,100.
+  Quality check run on it (triangles, textures, alpha, bounds, Accent shading; `--ui-check dev` with
+  `TRENCH_DEV=deploy,psx`: psx-shader PASS 44 of 44, 0 failures). Tracked art 47.0 MB of the 64 MB limit.
+- Done (2026-11-17): the Trooper's open points fixed (the owner: "fix what needs work and keep psx inspiration"): the
+  cape drapes over the greatcoat (`cloth_cone(..., extra=(coat,))`; the coat showed through the hem), the rifle is
+  shorter so its tip stays inside the 25 mm base, the back patch moved clear of the cape's folded edge. 2,981 triangles, row unchanged. Pushed 1043046.
+- Done (2026-11-17, the owner: "Go ahead. No mistakes"): glow on the Priest (mitre fire, staff star, mitre cross slit,
+  charred-cross cracks, belt eye) and the Brand-Sworn (all brands, helm slots); painted coat flames stay paint. Both
+  rebuilt with no other change (same triangles and bounds); checked in `psx_showcase.gd` against the old builds.
+  Then the Priest's shoulders (the owner: "Shoulders on the priest need a quality check", then "the pauldrons look like
+  whoopy cushions"): the squashed-sphere pauldrons at fixed points became three `psx_shell` plates a side along each
+  posed upper arm (`JOINTS["upperarm01.*"]`), sized from the mantle's stand-off so it flares out below them; spike and
+  fangs kept; mantle unchanged. 3,024 triangles, test row 2,800 -> 3,100 (class B allows 4,500). Pauldrons on a raised
+  arm belong in the arm's frame for every later figure; a squashed sphere reads as a cushion.
+- 2026-11-17, the owner: "Make sure their clothing sits naturally and correctly on their body no floating" (every
+  figure) and "all the cloaks need to have more definition": `settle()` (before scaling) moves every loose piece that
+  touches nothing onto its nearest neighbour (47 found on 23 figures, none left); `arm_plates()`/`plate_at()`/
+  `plate_point()`/`plate_rim()` replace the sphere pauldrons of the Shield, War Prophet, Heretic Trooper and Brand-Sworn
+  (rows raised: Shield 1,900, War Prophet 2,100, Brand-Sworn 2,400); the Accent has a 512 px grey texture
+  (`accent_cloth()`, cloth parts use material `accentcloth`), multiplied with the seat colour in `Visuals.PaintAccent`.
+  All 23 figures rebuilt. Not seen in a live match.
+- 2026-11-17: Assault Beast built (`assault_beast()`, `units/assault-beast.glb`, catalog height 1.25", test row 2,800, 24 figures
+  now), on the owner's references for mood only (the owner asked to copy the miniature's signature look; declined, an
+  original design in the same mood). Chainsaw teeth and an all-fours pose on the owner's word. Approved by the owner
+  ("Yes, next figure", 2026-11-17).
+- 2026-11-17: Wretched built (`wretched()`, `units/wretched.glb`, catalog height 1.11", test row 2,900, 25 figures now), the
+  owner's choice, on their references for mood only. Approved by the owner ("Yes, next figure", 2026-11-17). Still to
+  build for the Heretics: Night Commando, Chorister, Bombard Witch, Barbed Wire Banshee (owner picks; references needed).
+- 2026-11-17: Night Commando built (`night_commando()`, `units/night-commando.glb`, class B 32 mm, catalog height 1.4",
+  test row 3,700, 26 figures now), the owner's choice, on their references. Reworked on the owner's word ("no eyes much
+  bulkier and taller. get as close to references as possible"): eyeless helm, bulkier body, tall stance, thigh lames, long
+  mail skirt, larger pauldrons (the miniature's own sculpt not copied). Then (the owner: "pauldrons look bad . remember to
+  always do a quality check on the clothing being flush and fitting naturally on all models"): domed shoulder caps fitted
+  by ray casting, the back cloth laid on the back; then the helm shortened to a rounded dome ("why is the head so long")
+  and its neck curtain dropped. Standing rule: before showing any figure, check every piece of kit sits
+  flush (floats check plus close renders of shoulders, waist and back from front, side, back). Approved by the owner
+  ("Yes, next figure", 2026-11-17).
+- 2026-11-17: Chorister built (`chorister()`, `units/chorister.glb`, class B 32 mm, catalog height 1.24", test row 3,300,
+  27 figures now), the owner's choice, on their references for mood only. Shown to the owner for review. Still to build
+  for the Heretics: Bombard Witch, Barbed Wire Banshee.
 - 2026-11-20 (cloud session, branch `claude/adoring-hamilton-s5yohc`): animation plan approved, Jason chose "1" (an
   event's dice box, notes and sound come on its beat; the combat log stays immediate). Stages: A0 baseline timing, A1
   foundation + shot sequence, A2 facing/melee lunge/charge lean, A3 Down topple + Out of Action fade, A4 explosions and
@@ -291,3 +491,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   after a skip; abilities board-blast-sequence 2 explosions, 4 bursts); gvt-a run 31/0. Animating frame mean 0.49-0.63 ms
   (A4 0.63-0.67), max 6.4 ms in the full run; one 15.3 ms frame in the separate gvt run, not seen again. Not verified: how
   it looks by eye, Windows.
+- 2026-11-21, Jason chose "1" for PR #15 (claude/adoring-hamilton-s5yohc into m7-client, which had 52 newer commits: the
+  art pipeline's figures): merged m7-client into the branch (no rebase). Conflicts: CLAUDE.md (both sides' notes kept, in
+  date order) and `BoardView.DrawModel` (catalog height `figureTall` + A2 facing `FacingNow`). A3 adapted: falls, rises and
+  casualty figures use each figure's catalog height (`StandingHeight`, `FallTrack.Height`, `Tipped(height)`); the casualty
+  figure sinks 0.5" below the ground as it fades (`psx_figure.gdshader` writes no ALPHA, so the fade may not apply to it).

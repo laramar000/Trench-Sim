@@ -18,11 +18,18 @@ public sealed class VisualCatalog
     // The file types an entry may point at (Godot scenes and glTF models, and textures for the ground).
     public static readonly IReadOnlyList<string> FileTypes = [".glb", ".gltf", ".tscn", ".png"];
 
+    // Art pipeline (docs/art-pipeline.md, 2026-11-03): a unit figure's standing height in inches, when it is not the plain
+    // body's 1.2" (a figure on a larger base, or one with tall headgear). Decoration only, like the rest of the catalog.
+    public const double DefaultFigureHeight = 1.2;
+    public const double MinFigureHeight = 0.5;
+    public const double MaxFigureHeight = 6.0;
+
     private readonly Dictionary<string, string> _entries;
+    private readonly Dictionary<string, double> _heights;
 
-    private VisualCatalog(Dictionary<string, string> entries) => _entries = entries;
+    private VisualCatalog(Dictionary<string, string> entries, Dictionary<string, double> heights) => (_entries, _heights) = (entries, heights);
 
-    public static VisualCatalog Empty { get; } = new([]);
+    public static VisualCatalog Empty { get; } = new([], []);
 
     public IReadOnlyDictionary<string, string> Entries => _entries;
 
@@ -40,16 +47,36 @@ public sealed class VisualCatalog
     // Graphics stage G4: the texture of a tower (a Wall that models climb), drawn as timber rather than stone.
     public const string TowerKey = "terrain:Tower";
 
-    // { "entries": { "unit:default": "units/soldier.glb" } }; paths are relative to client/assets.
+    // { "entries": { "unit:default": "units/soldier.glb" } }; paths are relative to client/assets. A unit entry may instead
+    // be { "file": "units/giant.glb", "height": 1.6 }: the figure's standing height in inches.
     public static VisualCatalog Parse(string json)
     {
         using var doc = JsonDocument.Parse(json);
         var entries = new Dictionary<string, string>(StringComparer.Ordinal);
+        var heights = new Dictionary<string, double>(StringComparer.Ordinal);
         if (doc.RootElement.TryGetProperty("entries", out var list))
         {
             foreach (var entry in list.EnumerateObject())
             {
-                var path = entry.Value.GetString() ?? "";
+                var value = entry.Value;
+                string path;
+                if (value.ValueKind == JsonValueKind.Object)
+                {
+                    path = value.TryGetProperty("file", out var file) && file.ValueKind == JsonValueKind.String ? file.GetString()! : "";
+                    if (value.TryGetProperty("height", out var h))
+                    {
+                        if (!entry.Name.StartsWith("unit:", StringComparison.Ordinal) || h.ValueKind != JsonValueKind.Number
+                            || h.GetDouble() is not (>= MinFigureHeight and <= MaxFigureHeight))
+                        {
+                            throw new FormatException($"The height of {entry.Name} must be a unit's, {MinFigureHeight}\" to {MaxFigureHeight}\".");
+                        }
+                        heights[entry.Name] = h.GetDouble();
+                    }
+                }
+                else
+                {
+                    path = value.ValueKind == JsonValueKind.String ? value.GetString()! : "";
+                }
                 if (Problem(entry.Name, path) is { } problem)
                 {
                     throw new FormatException(problem);
@@ -57,7 +84,7 @@ public sealed class VisualCatalog
                 entries[entry.Name] = path;
             }
         }
-        return new(entries);
+        return new(entries, heights);
     }
 
     // The catalog, or null and why it could not be read (the Godot client keeps to its allowed assemblies, so the JSON
@@ -94,6 +121,20 @@ public sealed class VisualCatalog
             return $"\"{path}\" for {key} is not one of {string.Join(", ", FileTypes)}.";
         }
         return null;
+    }
+
+    // The standing height of the figure the first of the keys with an entry draws (1.2" unless its entry says).
+    public double HeightFor(params string[] keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        foreach (var key in keys)
+        {
+            if (_entries.ContainsKey(key))
+            {
+                return _heights.TryGetValue(key, out var h) ? h : DefaultFigureHeight;
+            }
+        }
+        return DefaultFigureHeight;
     }
 
     // The file for the first of the keys that has an entry, or null (then the plain shape is drawn).

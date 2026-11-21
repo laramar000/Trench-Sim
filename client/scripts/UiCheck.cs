@@ -1654,7 +1654,7 @@ public partial class UiCheck : Node
     }
 
     // Graphics stage G3 (unit-figures): every model is drawn with its figure from the art catalog; the figure stands on
-    // the model's spot, inside its base, 1.2" tall (lying no higher than 0.3" while Down), its accent painted with the
+    // the model's spot, inside its base, as tall as its catalog entry says (lying no higher than 0.3" while Down), its accent painted with the
     // model's body colour (seat, grey wash once activated), on a base drawn at the rules' exact radius.
     private void UnitFiguresCheck(BoardView board)
     {
@@ -1674,7 +1674,9 @@ public partial class UiCheck : Node
             {
                 problems.Add($"{m.Id.Value} outside its base: centre ({centre.X:0.00}, {centre.Z:0.00}) for ({m.X:0.00}, {m.Y:0.00}), half {half.X:0.00} x {half.Z:0.00}, radius {m.Radius:0.00}");
             }
-            if (Math.Abs(f.Box.Position.Y - m.Standing) > 0.02 || (standing ? Math.Abs(f.Box.Size.Y - 1.2) > 0.02 : f.Box.Size.Y > 0.31))
+            // its catalog height (every unit entry gives one since the dynamic poses, 2026-11-13; 1.2" without one)
+            var tall = board.Visuals.Catalog.HeightFor(m.Type is { } type ? Client.Core.VisualCatalog.UnitKey(type) : Client.Core.VisualCatalog.DefaultUnitKey, Client.Core.VisualCatalog.DefaultUnitKey);
+            if (Math.Abs(f.Box.Position.Y - m.Standing) > 0.02 || (standing ? Math.Abs(f.Box.Size.Y - tall) > 0.02 : f.Box.Size.Y > 0.31))
             {
                 problems.Add($"{m.Id.Value} height {f.Box.Size.Y:0.00} from {f.Box.Position.Y:0.00} ({m.Status} at {m.Standing:0.00})");
             }
@@ -1695,6 +1697,27 @@ public partial class UiCheck : Node
         var drawn = board.ArtDrawn;
         Check("unit-figures", models.Count > 0 && problems.Count == 0 && drawn.FromArt == models.Count && drawn.Plain == 0,
             $"{models.Count} models, {drawn.FromArt} figures, {drawn.Plain} plain; {(problems.Count == 0 ? "each inside its base, at its height, accent = body colour, muted sandstone base top with a muted body-colour rim, outlined and in the unit light, base at the rules' radius" : string.Join("; ", problems))}; catalog {board.Visuals.Catalog.Entries.Count} entries; art problems: {string.Join(" / ", board.Visuals.Failures)}");
+    }
+
+    // PSX look (psx-shader): every textured figure surface uses the PSX shader, and close, mid and far shots of a figure are
+    // saved (psx-close, psx-mid, psx-far) for a look at the vertex snap, texture warp and colour steps. Run it before any new
+    // figure goes in: TRENCH_DEV=deploy,psx with `--ui-check dev`.
+    private async Task PsxCheck(BoardView board)
+    {
+        var (shaded, textured) = board.PsxSurfaces();
+        Check("psx-shader", textured > 0 && shaded == textured, $"{shaded} of {textured} textured figure surfaces use psx_figure.gdshader");
+        board.Select(null);
+        var models = board.Scene?.Models.Where(m => m.X > 0).ToList() ?? [];
+        if (models.Count == 0)
+        {
+            return;
+        }
+        foreach (var (name, distance) in new[] { ("psx-portrait", 1.8f), ("psx-close", 3f), ("psx-mid", 7f), ("psx-far", 16f) })
+        {
+            board.CentreOn(models[0].Id, distance);
+            await Frames(10);
+            await Shot(name);
+        }
     }
 
     // Graphics stage G2 (ground-decor): every terrain piece has its texture, and the ground decals are the ones the layout
@@ -2590,6 +2613,9 @@ public partial class UiCheck : Node
                     break;
                 case "figures":
                     UnitFiguresCheck(board);
+                    break;
+                case "psx":
+                    await PsxCheck(board);
                     break;
                 case "decor":
                     GroundDecorCheck(board);

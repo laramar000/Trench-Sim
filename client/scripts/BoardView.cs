@@ -3460,14 +3460,15 @@ public partial class BoardView : SubViewportContainer
     // Animation stage A3: a fall (or a rise) of a model's figure: it tips backwards over its feet, away from the model
     // that downed it, turning first to face that model, and settles lying over its base (a rise is the same, backwards).
     // A falling model is drawn standing until its fall ends (_held), then lying, as the server's status has it.
-    private sealed record FallTrack(ModelId Model, double Start, double Seconds, bool Rising, float FromYaw, float ToYaw, float LyingScale);
+    private sealed record FallTrack(ModelId Model, double Start, double Seconds, bool Rising, float FromYaw, float ToYaw, float LyingScale, float Height);
 
     // An Out of Action model drawn again as it goes (its figure and base, not in the scene): it falls (unless it was Down),
     // then sinks and fades, and is freed.
     private sealed record CasualtyFigure(Node3D Root, Node3D Holder, List<GeometryInstance3D> Meshes, double Start, double FallSeconds, double SinkSeconds, bool Falls,
         float Yaw, float LyingScale, float Height);
 
-    // A standing figure is drawn this tall (the plain body's height, as DrawModel draws it); lying, its centre is this high.
+    // A plain body stands this tall (as DrawModel draws it); a figure stands at its catalog height (the art pipeline's,
+    // 0.5" to 6"); lying, either one's centre is this high.
     private const float StandingTall = 1.2f;
     private const float LyingCentre = 0.15f;
 
@@ -3479,7 +3480,17 @@ public partial class BoardView : SubViewportContainer
     private readonly List<ModelId> _endedFalls = [];
 
     // How much smaller a figure lying across its base is than standing (it lies within the base, as DrawModel fits it).
-    private static float LyingScale(double radius) => Math.Min(1f, (float)(2 * radius * 0.95) / StandingTall);
+    private static float LyingScale(double radius, float height) => Math.Min(1f, (float)(2 * radius * 0.95) / height);
+
+    // How tall a model stands as DrawModel draws it: its figure's catalog height, or the plain body's (high contrast, or
+    // no figure in the catalog).
+    private float StandingHeight(ModelShape model)
+    {
+        var unitKey = model.Type is { } type ? VisualCatalog.UnitKey(type) : VisualCatalog.DefaultUnitKey;
+        return !_highContrast && Visuals.Catalog.PathFor(unitKey, VisualCatalog.DefaultUnitKey) is not null
+            ? (float)Visuals.Catalog.HeightFor(unitKey, VisualCatalog.DefaultUnitKey)
+            : StandingTall;
+    }
 
     // The facing towards the model that downed it, or the facing it has.
     private float FallYaw(ModelId id, ModelId? by, Vector3 at)
@@ -3503,7 +3514,8 @@ public partial class BoardView : SubViewportContainer
         var from = FacingNow(beat.Model);
         var to = rising ? from : FallYaw(beat.Model, beat.Other, at);
         _facing[beat.Model] = Mathf.Wrap(to, -Mathf.Pi, Mathf.Pi);
-        _falls.Add(new FallTrack(beat.Model, start, beat.Seconds, rising, from, to, LyingScale(radius)));
+        var height = (_scene?.Find(beat.Model) ?? (_lastShapes.TryGetValue(beat.Model, out var seen) ? seen : null)) is { } shape ? StandingHeight(shape) : StandingTall;
+        _falls.Add(new FallTrack(beat.Model, start, beat.Seconds, rising, from, to, LyingScale(radius, height), height));
         if (rising)
         {
             RisesStarted += beat.Seq > 0 ? 1 : 0;
@@ -3544,20 +3556,21 @@ public partial class BoardView : SubViewportContainer
         var at = new Vector3((float)shape.X, (float)shape.Standing, (float)shape.Y);
         var yaw = FallYaw(beat.Model, beat.Other, at);
         var root = new Node3D { Name = $"Casualty{shape.Id.Value}", Position = at };
-        var holder = new Node3D { Position = new Vector3(0, StandingTall / 2, 0), Rotation = new Vector3(0, yaw, 0) };
+        var tall = StandingHeight(shape);
+        var holder = new Node3D { Position = new Vector3(0, tall / 2, 0), Rotation = new Vector3(0, yaw, 0) };
         var colour = BodyColour(shape);
         Node3D body;
         if (!_highContrast && Visuals.Model(shape.Type is { } type ? VisualCatalog.UnitKey(type) : VisualCatalog.DefaultUnitKey, VisualCatalog.DefaultUnitKey) is { } figure)
         {
-            Visuals.FitOnBase(figure, new Vector3(0, -StandingTall / 2, 0), (float)shape.Radius, StandingTall);
-            Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
+            Visuals.FitOnBase(figure, new Vector3(0, -tall / 2, 0), (float)shape.Radius, tall);
+            Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, VertexColorUseAsAlbedo = true });
             body = figure;
         }
         else
         {
             body = new MeshInstance3D
             {
-                Mesh = new CylinderMesh { TopRadius = (float)shape.Radius, BottomRadius = (float)shape.Radius, Height = StandingTall, RadialSegments = 24 },
+                Mesh = new CylinderMesh { TopRadius = (float)shape.Radius, BottomRadius = (float)shape.Radius, Height = tall, RadialSegments = 24 },
                 MaterialOverride = Paint(colour),
             };
         }
@@ -3571,7 +3584,7 @@ public partial class BoardView : SubViewportContainer
         });
         _effects.AddChild(root);
         var meshes = root.FindChildren("*", "GeometryInstance3D", true, false).OfType<GeometryInstance3D>().ToList();
-        var ghost = new CasualtyFigure(root, holder, meshes, fallStart, fallSeconds, sinkSeconds, falls, yaw, LyingScale(shape.Radius), StandingTall);
+        var ghost = new CasualtyFigure(root, holder, meshes, fallStart, fallSeconds, sinkSeconds, falls, yaw, LyingScale(shape.Radius, tall), tall);
         _ghosts.Add(ghost);
         PoseGhost(ghost, Now);
         CasualtiesStarted += beat.Seq > 0 ? 1 : 0;
@@ -3589,14 +3602,14 @@ public partial class BoardView : SubViewportContainer
 
     // The pose of a figure tipped backwards by p (0 standing, 1 lying) about its feet, facing yaw: its basis, and the
     // offset of its centre from where it stands upright (it ends lying over its base, its centre LyingCentre up).
-    private static (Basis Basis, Vector3 Offset) Tipped(float p, float yaw, float lyingScale)
+    private static (Basis Basis, Vector3 Offset) Tipped(float p, float yaw, float lyingScale, float height)
     {
         var back = -new Vector3(Mathf.Sin(yaw), 0, Mathf.Cos(yaw));
         var axis = Vector3.Up.Cross(back).Normalized();
         var tip = new Basis(axis, Mathf.Pi / 2 * p);
         var scale = Mathf.Lerp(1f, lyingScale, p);
         var basis = tip * new Basis(Vector3.Up, yaw).Scaled(Vector3.One * scale);
-        var half = StandingTall / 2;
+        var half = height / 2;
         var offset = tip * new Vector3(0, half * scale, 0) - new Vector3(0, half, 0) - back * (half * scale * p) + new Vector3(0, LyingCentre * p, 0);
         return (basis, offset);
     }
@@ -3610,7 +3623,7 @@ public partial class BoardView : SubViewportContainer
         }
         var fallT = !ghost.Falls || ghost.FallSeconds <= 0 ? 1f : (float)Math.Clamp((now - ghost.Start) / ghost.FallSeconds, 0, 1);
         var p = ghost.Falls ? fallT * fallT : 1f;
-        var (basis, offset) = Tipped(p, ghost.Yaw, ghost.LyingScale);
+        var (basis, offset) = Tipped(p, ghost.Yaw, ghost.LyingScale, ghost.Height);
         ghost.Holder.Basis = basis;
         ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0) + offset;
         var sinkStart = ghost.Start + (ghost.Falls ? ghost.FallSeconds : 0);
@@ -3622,7 +3635,8 @@ public partial class BoardView : SubViewportContainer
                 mesh.Transparency = q;
             }
         }
-        ghost.Holder.Position += new Vector3(0, -0.4f * q, 0);
+        // It sinks below the ground as it fades (a figure's own shader may not take the fade; under the ground it is gone).
+        ghost.Holder.Position += new Vector3(0, -0.5f * q, 0);
         return now < sinkStart + ghost.SinkSeconds;
     }
 
@@ -3759,7 +3773,7 @@ public partial class BoardView : SubViewportContainer
             var p = fall.Rising ? (1 - t) * (1 - t) : t * t;
             var turn = Mathf.Clamp(t / 0.3f, 0, 1);
             var yaw = fall.Rising ? fall.ToYaw : Mathf.Lerp(fall.FromYaw, fall.ToYaw, turn * turn * (3 - 2 * turn));
-            _fallen[fall.Model] = Tipped(p, yaw, fall.LyingScale);
+            _fallen[fall.Model] = Tipped(p, yaw, fall.LyingScale, fall.Height);
         }
         for (var i = 0; i < _ghosts.Count; i++)
         {
@@ -4635,6 +4649,27 @@ public partial class BoardView : SubViewportContainer
         paint.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
     }
 
+    // PSX look, for the UI check: the figures' textured surfaces drawn with the PSX shader, and all their textured surfaces.
+    public (int Shaded, int Textured) PsxSurfaces()
+    {
+        int shaded = 0, textured = 0;
+        foreach (var holder in _content.GetChildren().OfType<Node3D>().Where(n => n.Name.ToString().StartsWith("Figure", StringComparison.Ordinal)))
+        {
+            foreach (var mesh in holder.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
+            {
+                for (var i = 0; mesh.Mesh is { } m && i < m.GetSurfaceCount(); i++)
+                {
+                    if (m.SurfaceGetMaterial(i) is BaseMaterial3D { AlbedoTexture: not null })
+                    {
+                        textured++;
+                        shaded += mesh.GetSurfaceOverrideMaterial(i) is ShaderMaterial { Shader.ResourcePath: var p } && p.EndsWith("psx_figure.gdshader", StringComparison.Ordinal) ? 1 : 0;
+                    }
+                }
+            }
+        }
+        return (shaded, textured);
+    }
+
     public (int FromArt, int Plain, bool Ground) ArtDrawn => (_figuresFromArt, _figuresPlain, _groundFromArt);
 
     // Graphics stage G3, for the UI check: how a model's figure is drawn now, or null when it has the plain body. Box: the
@@ -4738,18 +4773,21 @@ public partial class BoardView : SubViewportContainer
         {
             var standing = (float)model.Standing;
             var tall = model.Status == ModelStatus.Standing ? 1.2f : 0.3f;
+            var unitKey = model.Type is { } type ? VisualCatalog.UnitKey(type) : VisualCatalog.DefaultUnitKey;
             var colour = BodyColour(model);
             _bodyColours[model.Id] = colour;
             // Graphics stages G0 and G3: a model is drawn with its figure from the art catalog when it has one (not in high
             // contrast), fitted inside the rules' base and to the plain body's height, standing or (Down) lying; otherwise
             // with the plain body, as always. The figure's holder sits where the plain body would, so everything that
             // follows a model (glides, see-through walls) treats both alike.
-            if (!_highContrast && Visuals.Model(model.Type is { } type ? VisualCatalog.UnitKey(type) : VisualCatalog.DefaultUnitKey, VisualCatalog.DefaultUnitKey) is { } figure)
+            // Art pipeline (2026-11-03): a figure on a larger base, or with tall headgear, stands at its catalog height.
+            var figureTall = model.Status == ModelStatus.Standing ? (float)Visuals.Catalog.HeightFor(unitKey, VisualCatalog.DefaultUnitKey) : tall;
+            if (!_highContrast && Visuals.Model(unitKey, VisualCatalog.DefaultUnitKey) is { } figure)
             {
                 var holder = new Node3D
                 {
                     Name = $"Figure{model.Id.Value}",
-                    Position = new Vector3((float)model.X, standing + tall / 2, (float)model.Y),
+                    Position = new Vector3((float)model.X, standing + figureTall / 2, (float)model.Y),
                     // Decoration only: each figure faces the middle of the battlefield until it turns to a target (stage A2,
                     // _facing), and keeps that facing when drawn again.
                     Rotation = new Vector3(0, FacingNow(model.Id), 0),
@@ -4762,9 +4800,10 @@ public partial class BoardView : SubViewportContainer
                     figure.RotationDegrees = new Vector3(-90, 0, 0);
                     shape.AddChild(figure);
                 }
-                Visuals.FitOnBase(shape, new Vector3(0, -tall / 2, 0), (float)model.Radius, tall);
-                // The seat colour is drawn flat (unshaded), so the side reads the same in light and shade.
-                Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded });
+                Visuals.FitOnBase(shape, new Vector3(0, -figureTall / 2, 0), (float)model.Radius, figureTall);
+                // The seat colour is drawn unshaded, so the side reads the same in light and shade; the figure's own baked
+                // shading (its Accent's vertex colours, tools/art/make_figures.py) darkens it in folds and under other parts.
+                Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, VertexColorUseAsAlbedo = true });
                 // Visual pass Stage 1: the unit light reaches the figure, and a thin outline keeps it apart from the
                 // ground and from the next model (warmer on the selected one).
                 foreach (var mesh in figure.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>().Append(figure as MeshInstance3D).OfType<MeshInstance3D>())
@@ -4863,9 +4902,17 @@ public partial class BoardView : SubViewportContainer
         });
     }
 
+    // Grimdark: the seat colours drawn on the figures (accent, base rim) are drained toward grey and darkened, so blue and red
+    // stay easy to tell apart but never glow. Decoration only; ModelColour (the colour in text and the panels) is unchanged.
+    private static Color Grimdark(Color c)
+    {
+        var grey = 0.3f * c.R + 0.59f * c.G + 0.11f * c.B;
+        return new Color(Mathf.Lerp(c.R, grey, 0.45f) * 0.6f, Mathf.Lerp(c.G, grey, 0.45f) * 0.6f, Mathf.Lerp(c.B, grey, 0.45f) * 0.6f, c.A);
+    }
+
     private Color BodyColour(ModelShape model)
     {
-        var seat = ModelColour(model);
+        var seat = Grimdark(ModelColour(model));
         return model.Look == UnitLook.Activated ? seat.Lerp(new Color(0.5f, 0.5f, 0.5f), ActivatedWash) : seat;
     }
 
@@ -4875,7 +4922,7 @@ public partial class BoardView : SubViewportContainer
 
     public Color? BodyColourOf(ModelId id) => _bodyColours.TryGetValue(id, out var c) ? c : null;
 
-    public Color SeatColourOf(ModelShape model) => ModelColour(model);
+    public Color SeatColourOf(ModelShape model) => Grimdark(ModelColour(model));   // the seat colour as drawn on the figures
 
     public IReadOnlyCollection<ModelId> EligibleRings => _eligibleRings;
 
