@@ -498,3 +498,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   figure sinks 0.5" below the ground as it fades (`psx_figure.gdshader` writes no ALPHA, so the fade may not apply to it).
   Checks after the merge (Linux, xvfb): essentials 2,285/0 (m7-client's figure tests added 24); full UI runner 428 PASS,
   0 FAIL (unit-figures, board-casualty-resilience, board-blast-effects); animating frame mean 0.49 ms, max 6.1 ms.
+- 2026-11-21, Jason: "proceed with A5: Animation Polish & Visual Verification" with the painted figures (A5 only; wait for
+  approval after). Looked at on screen (Linux Compatibility renderer, xvfb; new dev step `anims`, see docs/client.md):
+  fixed the fall-to-lying size jump (`LyingFit`), falls of base-limited figures ending off the base (tip about the feet
+  with the drawn length, `Tipped(..., length)`), Out of Action figures not fading (new `fade` dither in
+  `psx_figure.gdshader`, own material copies, real-looking base that fades), explosions and FIRE hiding models (smaller,
+  see-through, rising). Not looked at: Windows/Vulkan, rises (same code reversed), live matches by eye.

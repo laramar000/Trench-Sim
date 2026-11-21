@@ -2624,6 +2624,9 @@ public partial class UiCheck : Node
                 case "effects":
                     await DevEffects(board);
                     break;
+                case "anims":
+                    await DevAnimations(board);
+                    break;
                 case "theme":
                     UiThemeCheck();
                     break;
@@ -2636,6 +2639,101 @@ public partial class UiCheck : Node
                     break;
             }
         }
+    }
+
+    // Dev only (TRENCH_DEV=deploy,anims; never in the checks): pictures of the animations mid-way, taken on plain frames
+    // (Frames waits for animations to end). For three figures of very different heights (the art catalog swapped so every
+    // model is drawn with one figure), a fall at 50%, 85% and 97% beside the lying drawing it hands over to, and an
+    // Out of Action figure lying, half sunk and 90% gone; then, with the real figures, three explosions with marker bursts
+    // at 10% and 50%, and a charge leaning in. Every beat is made up (PlayForCheck) and stretched to 20 s so a slow
+    // software frame cannot move it on; nothing is sent.
+    private async Task DevAnimations(BoardView board)
+    {
+        if (board.Scene?.Models is not { Count: > 1 } models)
+        {
+            return;
+        }
+        async Task Step(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+        async Task Snap(string name)
+        {
+            await Step(3);
+            var path = System.IO.Path.Combine(_out, $"{++_shots:00}-anim-{name}.png");
+            GetViewport().GetTexture().GetImage().SavePng(path);
+            Write($"SHOT {path}");
+        }
+        var model = models[0];
+        var other = models.FirstOrDefault(m => m.Seat != model.Seat) ?? models[1];
+        var real = board.Visuals.Catalog;
+        board.Select(null);
+        var types = models.Select(m => m.Type).OfType<string>().Distinct().ToList();
+        foreach (var (name, file, height) in new[] { ("short", "units/wretched.glb", 1.11), ("mid", "units/holy-warrior.glb", 1.62), ("tall", "units/reliquary-walker.glb", 2.71) })
+        {
+            var entry = $"{{ \"file\": \"{file}\", \"height\": {height.ToString(System.Globalization.CultureInfo.InvariantCulture)} }}";
+            var json = "{ \"entries\": { \"unit:default\": " + entry + string.Concat(types.Select(t => $", \"unit:{t}\": {entry}")) + " } }";
+            if (VisualCatalog.TryParse(json, out var problem) is not { } catalog)
+            {
+                Write($"DEV anims catalog refused: {problem}");
+                continue;
+            }
+            board.UseArt(catalog);
+            board.CentreOn(model.Id, 4f + (float)height * 2);
+            await Frames(10);
+            await Snap($"{name}-standing");
+            foreach (var t in new[] { 0.5, 0.85, 0.97 })
+            {
+                board.PlayForCheck(new Choreography([], [new Beat(0, BeatKind.Fall, -t * 20, 20, model.Id, other.Id)]));
+                await Snap($"{name}-fall-{(int)(t * 100)}");
+                board.FinishAnimations();
+                await Step(2);
+            }
+            board.ShowStatusForPicture(model.Id, Rules.Core.State.ModelStatus.Down);
+            await Snap($"{name}-lying-drawn");
+            board.ShowStatusForPicture(model.Id, null);
+            // The Out of Action figure: its fall is 45% of the beat, the sink the rest.
+            board.HideForPicture(model.Id, true);
+            var fall = 20 * Choreography.FallSeconds / (Choreography.FallSeconds + Choreography.SinkSeconds);
+            foreach (var (label, at) in new[] { ("lying", fall * 0.999), ("half", fall + (20 - fall) * 0.5), ("ninety", fall + (20 - fall) * 0.9) })
+            {
+                board.PlayForCheck(new Choreography([], [new Beat(0, BeatKind.Casualty, -at, 20, model.Id, other.Id, Hit: true)]));
+                await Snap($"{name}-casualty-{label}");
+                board.FinishAnimations();
+                await Step(2);
+            }
+            board.HideForPicture(model.Id, false);
+        }
+        board.UseArt(real);
+        board.CentreOn(model.Id, 9);
+        await Frames(10);
+        TablePoint Near(double dx, double dy) => new(model.X + dx, model.Y + dy);
+        foreach (var t in new[] { 0.1, 0.5 })
+        {
+            board.PlayForCheck(new Choreography([],
+            [
+                new Beat(0, BeatKind.Explosion, -t * 9, 9, model.Id, At: Near(1.5, 0), Size: 2),
+                new Beat(0, BeatKind.Explosion, -t * 9 + 1.35, 9, model.Id, At: Near(-1.5, 1), Size: 2),
+                new Beat(0, BeatKind.MartyrBlast, -t * 9 + 2.7, 9, model.Id, At: Near(0, -2), Size: 3),
+                new Beat(0, BeatKind.Gas, -t * 12, 12, models[1].Id),
+                new Beat(0, BeatKind.Fire, -t * 7, 7, model.Id),
+            ]));
+            await Snap($"blasts-{(int)(t * 100)}");
+            board.FinishAnimations();
+            await Step(4);
+        }
+        board.PlayForCheck(new Choreography([],
+        [
+            new Beat(0, BeatKind.Glide, -10, 20, model.Id, Motion: new Motion(model.Id, [new TablePoint(model.X, model.Y)]), From: Near(-3, 0)),
+            new Beat(0, BeatKind.Lean, -10, 20, model.Id, other.Id),
+        ]));
+        await Snap("charge-lean");
+        board.FinishAnimations();
+        await Step(2);
+        Write("DEV anims done");
     }
 
     // Dev only: both seats deploy every model and answer who activates first (hints and placements, following the turn),
@@ -5770,6 +5868,17 @@ public partial class UiCheck : Node
         var riserAfter = board.TiltOf(riser.Id);
         var upright = fallerAfter is { } fa && riserAfter is { } ra && fa.Tilt < 0.01f && ra.Tilt < 0.01f && Math.Abs(fa.Scale - 1) < 0.01f && Math.Abs(ra.Scale - 1) < 0.01f;
         var cleaned = board.CasualtyNodes == 0 && board.GhostsShowing == 0 && board.HeldStanding == 0 && !board.Gliding;
+        // Stage A5: half way through its sink the casualty figure is half faded (its own material copies: the shader's
+        // dither and the paints' alpha), and the model it was copied from is still drawn whole.
+        var fallPart = 20 * Choreography.FallSeconds / (Choreography.FallSeconds + Choreography.SinkSeconds);
+        board.PlayForCheck(new Choreography([], [new Beat(0, BeatKind.Casualty, -(fallPart + (20 - fallPart) / 2), 20, casualty.Id, faller.Id, Hit: true)]));
+        await Step(1);
+        var look = board.CasualtyLook;
+        var sourceFade = board.FigureFade(casualty.Id);
+        var fadesOk = look is { } lk && lk.Fade is > 0.3f and < 0.7f && lk.Alpha is > 0.3f and < 0.7f && sourceFade is null or 1f;
+        board.FinishAnimations();
+        await Step(1);
+        fadesOk &= board.CasualtyNodes == 0;
         var speed = board.Animation;
         board.Animation = AnimationSpeed.Off;
         var down = new LogLine(0, "", null, Models: [riser.Id, faller.Id])
@@ -5783,12 +5892,12 @@ public partial class UiCheck : Node
         board.Select(selected);
         await Frames(1);
         Check("board-casualty-resilience", fallTilt is > 0.3f and < 1.5f && riseTilt is > 0.1f and < 1.5f && ghosts == 1 && redrawn && fallTiltAfter > 0.3f
-            && untouchedKept && terrainKept && playing && cutBy.Length == 0 && upright && cleaned && offQuiet,
+            && untouchedKept && terrainKept && playing && cutBy.Length == 0 && upright && cleaned && fadesOk && offQuiet,
             $"{faller.Id.Value} falling, tipped {fallTilt:0.00} rad; {riser.Id.Value} rising, tipped {riseTilt:0.00} rad; casualty figures {ghosts}; "
             + $"selected: nodes redrawn {redrawn}, still tipped {fallTiltAfter:0.00} rad; {untouched?.Id.Value ?? "no other model"} kept its nodes {untouchedKept}; "
             + $"terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}, cut short by [{cutBy}]; finished at once: {faller.Id.Value} {fallerAfter}, "
             + $"{riser.Id.Value} {riserAfter}, upright {upright}; casualty figures left {board.CasualtyNodes}, held standing {board.HeldStanding}, still playing {board.Gliding}; "
-            + $"Off plays nothing {offQuiet}");
+            + $"half sunk: casualty figure fade {look}, its model's own figure fade {sourceFade}: {fadesOk}; Off plays nothing {offQuiet}");
     }
 
     // Animation stage A3 (board-casualty-sequence, optional: only when the match took models Down, stood them up or put

@@ -2459,6 +2459,35 @@ public partial class BoardView : SubViewportContainer
         RunDue(now, draw: true);
     }
 
+    // For the dev pictures only (never in play): draws a model as if it had this status (null: as the server has it), or
+    // hides its nodes, so an animation can be compared with the drawing it ends on.
+    public void ShowStatusForPicture(ModelId id, ModelStatus? status)
+    {
+        if (status is { } shown)
+        {
+            _held[id] = shown;
+        }
+        else
+        {
+            _held.Remove(id);
+        }
+        Rebuild();
+    }
+
+    public void HideForPicture(ModelId id, bool hidden)
+    {
+        if (_modelNodes.TryGetValue(id, out var nodes))
+        {
+            foreach (var (node, _) in nodes)
+            {
+                if (IsInstanceValid(node))
+                {
+                    node.Visible = !hidden;
+                }
+            }
+        }
+    }
+
     // For the UI check only (never in play): plays a made-up update; its beats (event number 0) are not counted as the
     // match's.
     public void PlayForCheck(Choreography plan) => Play(plan);
@@ -2965,6 +2994,9 @@ public partial class BoardView : SubViewportContainer
 
     // Animation stage A5: dust, smoke and gas are drawn see-through (at most SmokeAlpha), so they never hide a model.
     private const float SmokeAlpha = 0.55f;
+
+    // A fireball is drawn see-through too (seen on screen: opaque, it hid the models it was on).
+    private const float FireAlpha = 0.7f;
     private static readonly Color Dust = new(0.58f, 0.49f, 0.37f, SmokeAlpha);
 
     // A blast ring: a thin ring on the ground spreading out to the blast's radius (the server's, in inches) and fading, so
@@ -3036,13 +3068,15 @@ public partial class BoardView : SubViewportContainer
         var martyr = beat.Kind == BeatKind.MartyrBlast;
         var smoke = new Color(0.22f, 0.2f, 0.18f, SmokeAlpha);
         var earth = new Color(0.42f, 0.33f, 0.22f, SmokeAlpha);
-        Puff(at + new Vector3(0, 0.6f, 0), Vector3.Zero, r * (martyr ? 1.1f : 0.8f), r * 0.6f, new Color(1f, 0.93f, 0.72f), seconds * 0.17f);
+        // Stage A5 (seen on screen): a short pale flash, then a small see-through fireball that rises off the models, so the
+        // models in the blast stay readable; the smoke and the blast ring show the area.
+        Puff(at + new Vector3(0, 0.5f, 0), Vector3.Zero, r * (martyr ? 0.7f : 0.5f), r * 0.3f, new Color(1f, 0.93f, 0.72f, 0.85f), seconds * 0.12f);
         var fire = mine ? 0 : martyr ? 6 : 4;
         for (var i = 0; i < fire; i++)
         {
             var angle = i * Mathf.Tau / fire;
             var out_ = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * r * 0.25f;
-            Puff(at + new Vector3(0, 0.35f, 0) + out_, out_ + new Vector3(0, 0.6f, 0), 0.45f * Mathf.Sqrt(r), 0.4f, martyr ? new Color(0.95f, 0.35f, 0.1f) : new Color(1f, 0.55f, 0.15f), seconds * 0.5f);
+            Puff(at + new Vector3(0, 0.3f, 0) + out_, out_ * 0.5f + new Vector3(0, 1.2f, 0), 0.3f * Mathf.Sqrt(r), 0.25f, martyr ? new Color(0.95f, 0.35f, 0.1f, FireAlpha) : new Color(1f, 0.55f, 0.15f, FireAlpha), seconds * 0.45f);
         }
         if (mine)
         {
@@ -3122,10 +3156,12 @@ public partial class BoardView : SubViewportContainer
                 }
                 break;
             default:
-                for (var i = 0; i < 4; i++)
+                // Stage A5 (seen on screen: opaque flames over the body hid the model): small see-through flames round
+                // the base's edge, licking up past the figure.
+                for (var i = 0; i < 5; i++)
                 {
-                    var side = new Vector3(Mathf.Cos(i * 1.6f), 0, Mathf.Sin(i * 1.6f)) * radius * 0.5f;
-                    Puff(at + side + new Vector3(0, 0.2f + 0.15f * i, 0), new Vector3(0, 0.7f, 0), 0.3f, 0.1f, i % 2 == 0 ? new Color(1f, 0.6f, 0.15f) : new Color(1f, 0.85f, 0.3f), seconds * (0.7f + 0.1f * i));
+                    var side = new Vector3(Mathf.Cos(i * 1.26f), 0, Mathf.Sin(i * 1.26f)) * radius * 0.85f;
+                    Puff(at + side + new Vector3(0, 0.12f + 0.08f * i, 0), new Vector3(0, 0.8f, 0), 0.2f, 0.06f, i % 2 == 0 ? new Color(1f, 0.6f, 0.15f, FireAlpha) : new Color(1f, 0.85f, 0.3f, FireAlpha), seconds * (0.7f + 0.08f * i));
                 }
                 break;
         }
@@ -3337,6 +3373,32 @@ public partial class BoardView : SubViewportContainer
 
     public int GhostsFreed { get; private set; }
 
+    // Animation stage A5: how far the first casualty figure has faded (its PS1 shader's fade and its paints' alpha, 1
+    // whole), and the fade a model's own figure is drawn with (1 whole; it must never change); for the UI check.
+    public (float Fade, float Alpha)? CasualtyLook => _ghosts.Count == 0 ? null
+        : (_ghosts[0].Shaders.Count == 0 ? 1f : _ghosts[0].Shaders.Min(m => m.GetShaderParameter("fade").VariantType == Variant.Type.Nil ? 1f : (float)m.GetShaderParameter("fade")),
+           _ghosts[0].Paints.Count == 0 ? 1f : _ghosts[0].Paints.Min(m => m.AlbedoColor.A));
+
+    public float? FigureFade(ModelId id)
+    {
+        if (!_figures.TryGetValue(id, out var figure) || !IsInstanceValid(figure))
+        {
+            return null;
+        }
+        var fade = 1f;
+        foreach (var mesh in figure.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>())
+        {
+            for (var i = 0; mesh.Mesh is { } m && i < m.GetSurfaceCount(); i++)
+            {
+                if ((mesh.GetSurfaceOverrideMaterial(i) ?? m.SurfaceGetMaterial(i)) is ShaderMaterial psx && psx.GetShaderParameter("fade").VariantType != Variant.Type.Nil)
+                {
+                    fade = Math.Min(fade, (float)psx.GetShaderParameter("fade"));
+                }
+            }
+        }
+        return fade;
+    }
+
     public int HeldStanding => _held.Count;
 
     // How far a model's figure leans from upright now (radians; 0 standing, about pi/2 lying in a fall), and its scale;
@@ -3460,12 +3522,12 @@ public partial class BoardView : SubViewportContainer
     // Animation stage A3: a fall (or a rise) of a model's figure: it tips backwards over its feet, away from the model
     // that downed it, turning first to face that model, and settles lying over its base (a rise is the same, backwards).
     // A falling model is drawn standing until its fall ends (_held), then lying, as the server's status has it.
-    private sealed record FallTrack(ModelId Model, double Start, double Seconds, bool Rising, float FromYaw, float ToYaw, float LyingScale, float Height);
+    private sealed record FallTrack(ModelId Model, double Start, double Seconds, bool Rising, float FromYaw, float ToYaw, float LyingScale, float Height, float Length);
 
     // An Out of Action model drawn again as it goes (its figure and base, not in the scene): it falls (unless it was Down),
     // then sinks and fades, and is freed.
-    private sealed record CasualtyFigure(Node3D Root, Node3D Holder, List<GeometryInstance3D> Meshes, double Start, double FallSeconds, double SinkSeconds, bool Falls,
-        float Yaw, float LyingScale, float Height);
+    private sealed record CasualtyFigure(Node3D Root, Node3D Holder, List<ShaderMaterial> Shaders, List<StandardMaterial3D> Paints, double Start, double FallSeconds,
+        double SinkSeconds, bool Falls, float Yaw, float LyingScale, float Height, float Length);
 
     // A plain body stands this tall (as DrawModel draws it); a figure stands at its catalog height (the art pipeline's,
     // 0.5" to 6"); lying, either one's centre is this high.
@@ -3481,6 +3543,28 @@ public partial class BoardView : SubViewportContainer
 
     // How much smaller a figure lying across its base is than standing (it lies within the base, as DrawModel fits it).
     private static float LyingScale(double radius, float height) => Math.Min(1f, (float)(2 * radius * 0.95) / height);
+
+    // Animation stage A5: how much smaller the figure is drawn lying than standing, exactly as DrawModel fits it
+    // (Visuals.FitOnBase: standing to its catalog height, lying on its back to the lying height, both within the base), so a
+    // fall hands over to the lying drawing without a jump. From the figure's own unscaled bounds; the estimate without them.
+    // Also the length the figure is drawn standing (its catalog height, or less for a figure so wide its base limits it,
+    // seen on screen with the Reliquary Walker), which a fall tips over its feet.
+    private static (float Scale, float Length) LyingFit(Node3D? figure, double radius, float height)
+    {
+        if (figure is null || Visuals.Bounds(figure).Size is not { Y: > 0.0001f, Z: > 0.0001f } size)
+        {
+            return (LyingScale(radius, height), height);
+        }
+        float Fit(float up, float across, float along, float tall)
+        {
+            var scale = tall / up;
+            var widest = Math.Max(across, along) * scale;
+            return widest > 2 * radius ? scale * (float)(2 * radius) / widest : scale;
+        }
+        // Lying on its back (turned -90 degrees about X): its depth is the height it lies at, its height lies along.
+        var standing = Fit(size.Y, size.X, size.Z, height);
+        return (Fit(size.Z, size.X, size.Y, LyingCentre * 2) / standing, size.Y * standing);
+    }
 
     // How tall a model stands as DrawModel draws it: its figure's catalog height, or the plain body's (high contrast, or
     // no figure in the catalog).
@@ -3515,7 +3599,11 @@ public partial class BoardView : SubViewportContainer
         var to = rising ? from : FallYaw(beat.Model, beat.Other, at);
         _facing[beat.Model] = Mathf.Wrap(to, -Mathf.Pi, Mathf.Pi);
         var height = (_scene?.Find(beat.Model) ?? (_lastShapes.TryGetValue(beat.Model, out var seen) ? seen : null)) is { } shape ? StandingHeight(shape) : StandingTall;
-        _falls.Add(new FallTrack(beat.Model, start, beat.Seconds, rising, from, to, LyingScale(radius, height), height));
+        // The standing figure (the holder's first child when drawn standing; a rising model is drawn standing too).
+        var figure = _figures.TryGetValue(beat.Model, out var holder) && IsInstanceValid(holder) && holder.GetChildCount() > 0 && holder.GetChild(0) is Node3D standing
+            && standing.Name != "Lying" ? standing : null;
+        var (lying, length) = LyingFit(figure, radius, height);
+        _falls.Add(new FallTrack(beat.Model, start, beat.Seconds, rising, from, to, lying, height, length));
         if (rising)
         {
             RisesStarted += beat.Seq > 0 ? 1 : 0;
@@ -3560,31 +3648,78 @@ public partial class BoardView : SubViewportContainer
         var holder = new Node3D { Position = new Vector3(0, tall / 2, 0), Rotation = new Vector3(0, yaw, 0) };
         var colour = BodyColour(shape);
         Node3D body;
+        Node3D? art = null;
         if (!_highContrast && Visuals.Model(shape.Type is { } type ? VisualCatalog.UnitKey(type) : VisualCatalog.DefaultUnitKey, VisualCatalog.DefaultUnitKey) is { } figure)
         {
             Visuals.FitOnBase(figure, new Vector3(0, -tall / 2, 0), (float)shape.Radius, tall);
             Visuals.PaintAccent(figure, new StandardMaterial3D { AlbedoColor = colour, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, VertexColorUseAsAlbedo = true });
             body = figure;
+            art = figure;
         }
         else
         {
             body = new MeshInstance3D
             {
                 Mesh = new CylinderMesh { TopRadius = (float)shape.Radius, BottomRadius = (float)shape.Radius, Height = tall, RadialSegments = 24 },
-                MaterialOverride = Paint(colour),
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = colour },
             };
         }
         holder.AddChild(body);
         root.AddChild(holder);
-        root.AddChild(new MeshInstance3D
+        // Stage A5: its base drawn as the model's own (dark edge, rim in the body colour, sandstone top), so nothing jumps
+        // when the casualty figure takes the model's place; each part with its own paint, to fade.
+        var r = (float)shape.Radius;
+        var edge = UnitPalette.Rim((colour.R, colour.G, colour.B));
+        var top = UnitPalette.BaseTop;
+        foreach (var (radius, height, paint) in new[]
         {
-            Mesh = new CylinderMesh { TopRadius = (float)shape.Radius, BottomRadius = (float)shape.Radius, Height = 0.05f, RadialSegments = 16 },
-            Position = new Vector3(0, 0.025f, 0),
-            MaterialOverride = Paint(new Color(0.10f, 0.10f, 0.11f)),
-        });
+            (r, 0.05f, new Color(0.10f, 0.10f, 0.11f)),
+            (r - 0.03f, 0.055f, new Color(edge.R, edge.G, edge.B)),
+            (r - UnitPalette.RimWidth, 0.06f, new Color(top.R, top.G, top.B)),
+        })
+        {
+            root.AddChild(new MeshInstance3D
+            {
+                Mesh = new CylinderMesh { TopRadius = radius, BottomRadius = radius, Height = height, RadialSegments = 16 },
+                Position = new Vector3(0, height / 2, 0),
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = paint, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
+            });
+        }
         _effects.AddChild(root);
-        var meshes = root.FindChildren("*", "GeometryInstance3D", true, false).OfType<GeometryInstance3D>().ToList();
-        var ghost = new CasualtyFigure(root, holder, meshes, fallStart, fallSeconds, sinkSeconds, falls, yaw, LyingScale(shape.Radius, tall), tall);
+        // Stage A5: every material of the casualty figure is its own copy, so it can fade without touching the model it
+        // was copied from: the figure's PS1 shader dissolves (fade), every plain paint goes see-through.
+        var shaders = new List<ShaderMaterial>();
+        var paints = new List<StandardMaterial3D>();
+        foreach (var mesh in root.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>().Append(body as MeshInstance3D).OfType<MeshInstance3D>())
+        {
+            if (mesh.MaterialOverride is StandardMaterial3D own)
+            {
+                var copy = (StandardMaterial3D)own.Duplicate();
+                copy.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+                mesh.MaterialOverride = copy;
+                paints.Add(copy);
+                continue;
+            }
+            for (var i = 0; mesh.Mesh is { } m && i < m.GetSurfaceCount(); i++)
+            {
+                switch (mesh.GetSurfaceOverrideMaterial(i) ?? m.SurfaceGetMaterial(i))
+                {
+                    case ShaderMaterial psx:
+                        var dissolve = (ShaderMaterial)psx.Duplicate();
+                        mesh.SetSurfaceOverrideMaterial(i, dissolve);
+                        shaders.Add(dissolve);
+                        break;
+                    case StandardMaterial3D plain:
+                        var seeThrough = (StandardMaterial3D)plain.Duplicate();
+                        seeThrough.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+                        mesh.SetSurfaceOverrideMaterial(i, seeThrough);
+                        paints.Add(seeThrough);
+                        break;
+                }
+            }
+        }
+        var (lyingScale, length) = LyingFit(art, shape.Radius, tall);
+        var ghost = new CasualtyFigure(root, holder, shaders, paints, fallStart, fallSeconds, sinkSeconds, falls, yaw, lyingScale, tall, length);
         _ghosts.Add(ghost);
         PoseGhost(ghost, Now);
         CasualtiesStarted += beat.Seq > 0 ? 1 : 0;
@@ -3602,16 +3737,20 @@ public partial class BoardView : SubViewportContainer
 
     // The pose of a figure tipped backwards by p (0 standing, 1 lying) about its feet, facing yaw: its basis, and the
     // offset of its centre from where it stands upright (it ends lying over its base, its centre LyingCentre up).
-    private static (Basis Basis, Vector3 Offset) Tipped(float p, float yaw, float lyingScale, float height)
+    private static (Basis Basis, Vector3 Offset) Tipped(float p, float yaw, float lyingScale, float height, float length)
     {
+        // The holder's centre is height/2 above the ground (the figure's feet); the figure's body is length long (stage A5:
+        // less than height for a figure its base limits). It tips about its feet, slides back so it ends centred over its
+        // base, and ends lying LyingCentre up, shrunk to the lying drawing's size.
         var back = -new Vector3(Mathf.Sin(yaw), 0, Mathf.Cos(yaw));
         var axis = Vector3.Up.Cross(back).Normalized();
         var tip = new Basis(axis, Mathf.Pi / 2 * p);
         var scale = Mathf.Lerp(1f, lyingScale, p);
         var basis = tip * new Basis(Vector3.Up, yaw).Scaled(Vector3.One * scale);
-        var half = height / 2;
-        var offset = tip * new Vector3(0, half * scale, 0) - new Vector3(0, half, 0) - back * (half * scale * p) + new Vector3(0, LyingCentre * p, 0);
-        return (basis, offset);
+        var feet = new Vector3(0, -height / 2, 0);
+        var centre = feet + new Vector3(0, length / 2, 0);
+        var lands = feet + tip * new Vector3(0, length / 2 * scale, 0) - back * (length / 2 * scale * p) + new Vector3(0, LyingCentre * p, 0);
+        return (basis, lands - basis * centre);
     }
 
     // Puts a casualty figure where it is now: falling, then sinking and fading. False once it has gone.
@@ -3623,20 +3762,21 @@ public partial class BoardView : SubViewportContainer
         }
         var fallT = !ghost.Falls || ghost.FallSeconds <= 0 ? 1f : (float)Math.Clamp((now - ghost.Start) / ghost.FallSeconds, 0, 1);
         var p = ghost.Falls ? fallT * fallT : 1f;
-        var (basis, offset) = Tipped(p, ghost.Yaw, ghost.LyingScale, ghost.Height);
+        var (basis, offset) = Tipped(p, ghost.Yaw, ghost.LyingScale, ghost.Height, ghost.Length);
         ghost.Holder.Basis = basis;
         ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0) + offset;
         var sinkStart = ghost.Start + (ghost.Falls ? ghost.FallSeconds : 0);
         var q = (float)Math.Clamp((now - sinkStart) / ghost.SinkSeconds, 0, 1);
-        foreach (var mesh in ghost.Meshes)
+        // Stage A5: it dissolves (the PS1 shader's dither; the paints' alpha) while settling a little into the mud.
+        foreach (var shader in ghost.Shaders)
         {
-            if (IsInstanceValid(mesh))
-            {
-                mesh.Transparency = q;
-            }
+            shader.SetShaderParameter("fade", 1 - q);
         }
-        // It sinks below the ground as it fades (a figure's own shader may not take the fade; under the ground it is gone).
-        ghost.Holder.Position += new Vector3(0, -0.5f * q, 0);
+        foreach (var paint in ghost.Paints)
+        {
+            paint.AlbedoColor = paint.AlbedoColor with { A = 1 - q };
+        }
+        ghost.Holder.Position += new Vector3(0, -0.2f * q, 0);
         return now < sinkStart + ghost.SinkSeconds;
     }
 
@@ -3773,7 +3913,7 @@ public partial class BoardView : SubViewportContainer
             var p = fall.Rising ? (1 - t) * (1 - t) : t * t;
             var turn = Mathf.Clamp(t / 0.3f, 0, 1);
             var yaw = fall.Rising ? fall.ToYaw : Mathf.Lerp(fall.FromYaw, fall.ToYaw, turn * turn * (3 - 2 * turn));
-            _fallen[fall.Model] = Tipped(p, yaw, fall.LyingScale, fall.Height);
+            _fallen[fall.Model] = Tipped(p, yaw, fall.LyingScale, fall.Height, fall.Length);
         }
         for (var i = 0; i < _ghosts.Count; i++)
         {
