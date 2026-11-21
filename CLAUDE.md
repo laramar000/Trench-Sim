@@ -504,3 +504,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   with the drawn length, `Tipped(..., length)`), Out of Action figures not fading (new `fade` dither in
   `psx_figure.gdshader`, own material copies, real-looking base that fades), explosions and FIRE hiding models (smaller,
   see-through, rising). Not looked at: Windows/Vulkan, rises (same code reversed), live matches by eye.
+  Checks: essentials 2,285/0; full UI runner 428 PASS, 0 FAIL, but pvp-a activation-ends-itself did not report (its one
+  try found the model's Move and Dash unregistered, `MARK auto-end-not-finished`; untouched code, match-dependent); rerun
+  (--skip-build) 425 PASS, 0 FAIL with it PASS, the four build steps not run there (PASS in the first run). Casualty
+  figure half sunk: fade 0.50, its model's own figure 1. Animating frame mean 0.50-0.51 ms, max 6.4-6.7 ms (merge 0.49/6.1).
