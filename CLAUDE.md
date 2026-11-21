@@ -287,3 +287,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   squares when busy; moves turn along their way (`TravelPoint`); Off plays instant turns (`OffFacings`) so Full/Fast/Off
   end alike; a skip hurries effects (`HurrySeconds`, `StopEffects` speeds tweens up). Stage plan A0-A5 complete; next stage
   only when Jason approves.
+  Checks (Linux, xvfb): essentials 2,261/0; full UI runner 430 PASS, 0 FAIL (board-blast-effects with rings, clear 207 ms
+  after a skip; abilities board-blast-sequence 2 explosions, 4 bursts); gvt-a run 31/0. Animating frame mean 0.49-0.63 ms
+  (A4 0.63-0.67), max 6.4 ms in the full run; one 15.3 ms frame in the separate gvt run, not seen again. Not verified: how
+  it looks by eye, Windows.
