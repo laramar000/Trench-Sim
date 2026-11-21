@@ -2,7 +2,7 @@ using System.Text.Json;
 using Match.Protocol;
 using Rules.Core.State;
 
-namespace Match.Cli;
+namespace Match.Client;
 
 // A seat this client holds: enough to rejoin after the process is gone. The token is a secret: it is never printed.
 public sealed record SavedSeat(string Server, string Code, string MatchId, Seat Seat, string Token);

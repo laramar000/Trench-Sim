@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -97,17 +98,35 @@ public static class Wire
             writer.WriteStringValue(value.Value);
     }
 
-    // M3 footprints are rectangles, built only through Footprint.Of: one travels as its rectangle.
+    // A one-rectangle footprint travels as its rectangle, as since M3. Joined parts (trench-maps stage S2) travel as an
+    // array of rectangles, rebuilt and checked through Footprint.Join.
     private sealed class FootprintConverter : JsonConverter<Footprint>
     {
         public override Footprint Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
+            if (reader.TokenType == JsonTokenType.StartArray)
+            {
+                // An ImmutableArray, not Rect[]: an array of a Rules.Core type would be taken for a Rules.Core object.
+                var parts = JsonSerializer.Deserialize<ImmutableArray<Rect>>(ref reader, options);
+                if (parts.IsDefault || parts.Length < 2)
+                {
+                    throw new JsonException("A footprint of one rectangle travels as that rectangle.");
+                }
+                return Construct(() => Footprint.Join(parts));
+            }
             var rect = JsonSerializer.Deserialize<Rect>(ref reader, options);
             return Construct(() => Footprint.Of(rect));
         }
 
-        public override void Write(Utf8JsonWriter writer, Footprint value, JsonSerializerOptions options) =>
-            JsonSerializer.Serialize(writer, value.Bounds, options);
+        public override void Write(Utf8JsonWriter writer, Footprint value, JsonSerializerOptions options)
+        {
+            if (value.IsSingle)
+            {
+                JsonSerializer.Serialize(writer, value.Bounds, options);
+                return;
+            }
+            JsonSerializer.Serialize(writer, value.Parts, options);
+        }
     }
 
     // Enums travel by exact name only: no numbers and no case folding. A [Flags] enum is an array of the names of its set
@@ -309,6 +328,120 @@ public static class Wire
             [(typeof(TerrainBlock), "walkable")] = nameof(TerrainBlock.IsWalkable),
         };
 
+        // Optional fields that are left out when null, so data without them (every match before the towers) is written
+        // exactly as before. Reading already treats an init property as optional.
+        private static readonly HashSet<(Type, string)> OmitWhenNull =
+        [
+            (typeof(TerrainBlock), nameof(TerrainBlock.Climb)),
+            (typeof(TerrainBlock), nameof(TerrainBlock.Depth)),
+            (typeof(CreateMatch), nameof(CreateMatch.Map)),
+            (typeof(CreateMatch), nameof(CreateMatch.Roster)),
+            (typeof(JoinMatch), nameof(JoinMatch.Roster)),
+            (typeof(Welcome), nameof(Welcome.Warbands)),
+            (typeof(MatchRecordBody), nameof(MatchRecordBody.Map)),
+            (typeof(MatchRecordBody), nameof(MatchRecordBody.MapHash)),
+            (typeof(ModelProfile), nameof(ModelProfile.SecondRangedWeapon)),
+            (typeof(ModelProfile), nameof(ModelProfile.SecondMeleeWeapon)),
+            (typeof(ModelProfile), nameof(ModelProfile.Grenade)),
+            (typeof(TakeSelfAction), nameof(TakeSelfAction.Target)),
+            (typeof(SelfActionDeclared), nameof(SelfActionDeclared.Target)),
+            (typeof(SelfActionRolled), nameof(SelfActionRolled.Target)),
+        ];
+
+        // Optional flags left out when false, for the same reason (every match before dual-purpose weapons).
+        private static readonly HashSet<(Type, string)> OmitWhenFalse =
+        [
+            (typeof(ModelProfile), nameof(ModelProfile.RangedAlsoMelee)),
+            (typeof(RangedAttackDeclared), nameof(RangedAttackDeclared.Elevated)),
+            (typeof(FriendlyTargetChosen), nameof(FriendlyTargetChosen.Elevated)),
+            (typeof(ModelProfile), nameof(ModelProfile.Block)),
+            (typeof(MeleeAttackDeclared), nameof(MeleeAttackDeclared.OffHand)),
+            (typeof(MeleeAttackDeclared), nameof(MeleeAttackDeclared.Block)),
+            (typeof(MineExploded), nameof(MineExploded.Negated)),
+            (typeof(MeleeAttackDeclared), nameof(MeleeAttackDeclared.Fear)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.Tough)),
+            (typeof(MineExploded), nameof(MineExploded.Tough)),
+            (typeof(ModelProfile), nameof(ModelProfile.KeepsGoingAfterRisky)),
+            (typeof(ModelProfile), nameof(ModelProfile.Fanfare)),
+            (typeof(ModelProfile), nameof(ModelProfile.BlendsIn)),
+            (typeof(ModelProfile), nameof(ModelProfile.SinisterWhispers)),
+            (typeof(ModelProfile), nameof(ModelProfile.WardedByBlood)),
+            (typeof(ModelProfile), nameof(ModelProfile.HasCover)),
+            (typeof(ModelProfile), nameof(ModelProfile.DigsIn)),
+            (typeof(ModelProfile), nameof(ModelProfile.BurnsAtActivationEnd)),
+            (typeof(ModelProfile), nameof(ModelProfile.BurnsWhenTakenOut)),
+            (typeof(ModelProfile), nameof(ModelProfile.Treats)),
+            (typeof(ModelProfile), nameof(ModelProfile.HealingWaters)),
+            (typeof(ModelProfile), nameof(ModelProfile.GrindsToDust)),
+            (typeof(ModelProfile), nameof(ModelProfile.Martyrdom)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.Warded)),
+            (typeof(MineExploded), nameof(MineExploded.Warded)),
+            (typeof(ModelProfile), nameof(ModelProfile.ShotsIgnoreMarkers)),
+            (typeof(ModelProfile), nameof(ModelProfile.ExpertMedic)),
+            (typeof(ModelProfile), nameof(ModelProfile.FinishesTheFallen)),
+            (typeof(ModelProfile), nameof(ModelProfile.ExtraChargeDie)),
+            (typeof(ModelProfile), nameof(ModelProfile.InspiresFaithful)),
+            (typeof(ModelProfile), nameof(ModelProfile.Aims)),
+            (typeof(ModelProfile), nameof(ModelProfile.Fortifies)),
+            (typeof(ModelProfile), nameof(ModelProfile.Agile)),
+            (typeof(ModelProfile), nameof(ModelProfile.SwiftDash)),
+            (typeof(ModelProfile), nameof(ModelProfile.QuickToRise)),
+            (typeof(ModelProfile), nameof(ModelProfile.UndeadFortitude)),
+            (typeof(ModelProfile), nameof(ModelProfile.AbioticLife)),
+            (typeof(ModelProfile), nameof(ModelProfile.Stealthy)),
+            (typeof(ModelProfile), nameof(ModelProfile.HuntsTheTough)),
+            (typeof(ModelProfile), nameof(ModelProfile.CounterCharge)),
+            (typeof(ModelProfile), nameof(ModelProfile.MementoMori)),
+            (typeof(ModelProfile), nameof(ModelProfile.Horde)),
+            (typeof(ModelProfile), nameof(ModelProfile.Tramples)),
+            (typeof(ModelStoodUp), nameof(ModelStoodUp.Quick)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.Spared)),
+            (typeof(MineExploded), nameof(MineExploded.Spared)),
+            (typeof(ModelProfile), nameof(ModelProfile.EnforcesOrthodoxy)),
+            (typeof(ModelProfile), nameof(ModelProfile.LaysOnHands)),
+            (typeof(SpendMarkers), nameof(SpendMarkers.Bloodbath)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.Bloodbath)),
+        ];
+
+        // Optional numbers left out when zero, for the same reason (every match before roster stage R1's profile dice).
+        // Roster stage R6e (U121): optional lists left out when empty, for the same reason.
+        private static readonly HashSet<(Type, string)> OmitWhenEmpty =
+        [
+            (typeof(SelfActionRolled), nameof(SelfActionRolled.StoodUp)),
+        ];
+
+        private static readonly HashSet<(Type, string)> OmitWhenZero =
+        [
+            (typeof(ModelProfile), nameof(ModelProfile.RangedDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponInjuryDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponInjuryDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponKeywords)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponKeywords)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeWeaponCleave)),
+            (typeof(ModelProfile), nameof(ModelProfile.ImperviousArmour)),
+            (typeof(Shoot), nameof(Shoot.Weapon)),
+            (typeof(FightModel), nameof(FightModel.Weapon)),
+            (typeof(FreeFight), nameof(FreeFight.Weapon)),
+            (typeof(RangedAttackDeclared), nameof(RangedAttackDeclared.Weapon)),
+            (typeof(MeleeAttackDeclared), nameof(MeleeAttackDeclared.Weapon)),
+            (typeof(ModelProfile), nameof(ModelProfile.Negates)),
+            (typeof(InjuryRolled), nameof(InjuryRolled.ExtraMarkers)),
+            (typeof(ModelProfile), nameof(ModelProfile.RangedWeaponBlast)),
+            (typeof(Weapon), nameof(Weapon.Blast)),
+            (typeof(ShootPoint), nameof(ShootPoint.Weapon)),
+            (typeof(PointAttackDeclared), nameof(PointAttackDeclared.Weapon)),
+            (typeof(ModelProfile), nameof(ModelProfile.Traits)),
+            (typeof(ModelProfile), nameof(ModelProfile.InjuryDiceTaken)),
+            (typeof(ModelProfile), nameof(ModelProfile.MeleeInjuryBonus)),
+            (typeof(ModelProfile), nameof(ModelProfile.ClimbDice)),
+            (typeof(ModelProfile), nameof(ModelProfile.Talismans)),
+            (typeof(ChargeRolled), nameof(ChargeRolled.Dropped)),
+            (typeof(SelfActionRolled), nameof(SelfActionRolled.Removed)),
+        ];
+
         private static readonly ConcurrentDictionary<Type, Shape> Cache = new();
 
         private readonly ConstructorInfo _constructor;
@@ -438,8 +571,26 @@ public static class Wire
         {
             foreach (var member in _members)
             {
+                var memberValue = member.Property.GetValue(value);
+                if (memberValue is null && member.Parameter is null && OmitWhenNull.Contains((Type, member.Property.Name)))
+                {
+                    continue;
+                }
+                if (memberValue is System.Collections.ICollection { Count: 0 } && member.Parameter is null && OmitWhenEmpty.Contains((Type, member.Property.Name)))
+                {
+                    continue;
+                }
+                if (memberValue is false && member.Parameter is null && OmitWhenFalse.Contains((Type, member.Property.Name)))
+                {
+                    continue;
+                }
+                if ((memberValue is 0 || memberValue is Enum flags && Convert.ToUInt64(flags, System.Globalization.CultureInfo.InvariantCulture) == 0)
+                    && member.Parameter is null && OmitWhenZero.Contains((Type, member.Property.Name)))
+                {
+                    continue;
+                }
                 writer.WritePropertyName(member.Utf8Name);
-                JsonSerializer.Serialize(writer, member.Property.GetValue(value), member.Property.PropertyType, options);
+                JsonSerializer.Serialize(writer, memberValue, member.Property.PropertyType, options);
             }
         }
     }

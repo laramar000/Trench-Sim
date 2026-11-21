@@ -184,6 +184,51 @@ public class FightTests
         play.Refused(Fight(), ReasonCode.NoMeleeWeapon);
     }
 
+    // Proposal M1: a Pistol-like ranged weapon, 12"/Melee, with a +1 injury modifier, and no Melee Weapon.
+    private static readonly ModelProfile Pistoleer = new(L("6"), L("0.5"), L("12"), rangedInjuryModifier: 1) { RangedAlsoMelee = true };
+
+    [Fact]
+    [Trait("Rule", "Battlekit p. 68 and PISTOL p. 56: a weapon with \"Melee\" under its Range is also a Melee Weapon")]
+    public void ARangedWeaponWithMeleeUnderItsRangeCanFight()
+    {
+        ModelProfile Pick(ModelId id) => id.Value[0] == 'A' ? Pistoleer : new ModelProfile(L("6"), L("0.5"), Length.Zero, armour: -1, hasMeleeWeapon: true);
+        var play = Brawl(profiles: Pick);
+        var result = play.Do(Fight(), 4, 3, 4, 4); // 7 hits; injury 8, +1 pistol, -1 armour
+        Assert.Single(result.Events.OfType<MeleeAttackDeclared>());
+        var injury = result.Events.OfType<InjuryRolled>().Single().Injury;
+        Assert.Equal(0, injury.Modifier);   // the pistol's own +1 and the target's -1 Armour
+        Assert.Equal(8, injury.Total);
+        Assert.True(play.State.Actions.HasFlag(ActionsTaken.Fight));
+    }
+
+    [Fact]
+    [Trait("Rule", "Melee Attacks p. 45 and Actions p. 34: a pistol in melee keeps the 1\" and Shoot limits")]
+    public void APistolInMeleeKeepsTheOtherLimits()
+    {
+        var far = Skirmish("4", "2", "6.001", "2", Pistoleer);
+        far.Refused(Fight(), ReasonCode.TargetNotInMelee);
+
+        var shot = Brawl(Pistoleer);
+        shot.State = shot.State with { Actions = ActionsTaken.Shoot };
+        shot.Refused(Fight(), ReasonCode.ActionExcluded);
+
+        var down = Brawl(Pistoleer);
+        down.SetStatus(A(1), ModelStatus.Down);
+        Assert.NotNull(Board.AssessMelee(down.State, down.M(A(1)), down.M(B(1))).Refusal);
+    }
+
+    [Fact]
+    [Trait("Rule", "Melee Attacks p. 45: a Melee Weapon is used before a dual-purpose weapon (U54, one weapon)")]
+    public void AModelWithBothFightsWithItsMeleeWeapon()
+    {
+        var both = new ModelProfile(L("6"), L("0.5"), L("12"), rangedInjuryModifier: 2, hasMeleeWeapon: true, meleeInjuryModifier: -1) { RangedAlsoMelee = true };
+        Assert.Equal(-1, both.MeleeAttackInjuryModifier);
+        Assert.Equal(1, Pistoleer.MeleeAttackInjuryModifier);
+        Assert.True(Pistoleer.CanMakeMeleeAttack);
+        Assert.Equal(0, Rifleman.MeleeAttackInjuryModifier);
+        Assert.False(Rifleman.CanMakeMeleeAttack);
+    }
+
     [Fact]
     [Trait("Rule", "Melee Attacks p. 45: one enemy model within 1\" is chosen as the target")]
     public void OnlyAnEnemyModelOnTheTableCanBeFought()

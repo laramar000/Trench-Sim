@@ -34,6 +34,9 @@ public enum ActivationEndReason
     Voluntary,
     RiskyFailure,
     TakenDown,
+
+    // Roster stage R2b: after an attack with a RELOAD weapon (p. 56).
+    Reload,
 }
 
 public sealed record ActivationEnded(ModelId Model, ActivationEndReason Reason) : GameEvent;
@@ -80,3 +83,7 @@ public sealed record WarbandFled(Seat Seat, FledReason Reason) : GameEvent;
 public sealed record TurnEnded(int Turn) : GameEvent;
 
 public sealed record MatchEnded(Seat? Winner, OutcomeReason Reason) : GameEvent;
+
+// A Glorious Deed was completed (pp. 149-150, U96): 1 Victory Point to that seat. It comes right after the event that
+// completed it, which the reducer has already worked out; Model is null for a warband's deed (Hold Your Ground).
+public sealed record GloriousDeedCompleted(Seat Seat, GloriousDeed Deed, ModelId? Model) : GameEvent;

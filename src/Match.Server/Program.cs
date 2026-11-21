@@ -3,13 +3,15 @@ using System.Net;
 using Match.Server;
 
 // trench-server [--address 127.0.0.1] [--port 5080] [--join-timeout 30] [--rejoin-window 300] [--data <folder>] [--new-signing-key]
-const string Usage = "usage: trench-server [--address 127.0.0.1] [--port 5080] [--join-timeout 30] [--rejoin-window 300] [--data <folder>] [--new-signing-key]";
+// [--warbands <file>]: roster stage 5b, also offer the scenario "roster" with the two warbands of that content file.
+const string Usage = "usage: trench-server [--address 127.0.0.1] [--port 5080] [--join-timeout 30] [--rejoin-window 300] [--data <folder>] [--new-signing-key] [--warbands <file>]";
 var address = IPAddress.Loopback;
 var port = 5080;
 var joinTimeout = TimeSpan.FromSeconds(30);
 var rejoinWindow = Lobby.DefaultRejoinWindow;
 var data = ServerData.DefaultDirectory();
 var newKey = false;
+string? warbands = null;
 for (var i = 0; i < args.Length; i++)
 {
     switch (args[i])
@@ -32,6 +34,9 @@ for (var i = 0; i < args.Length; i++)
         case "--new-signing-key":
             newKey = true;
             break;
+        case "--warbands" when i + 1 < args.Length:
+            warbands = args[++i];
+            break;
         default:
             Console.Error.WriteLine(Usage);
             return 2;
@@ -49,6 +54,7 @@ try
         RejoinWindow = rejoinWindow,
         DataDirectory = data,
         NewSigningKey = newKey,
+        Scenarios = warbands is null ? null : ScenarioCatalog.WithRosterMatch(warbands),
         Log = line => Console.WriteLine($"[{DateTimeOffset.UtcNow:HH:mm:ss}] {line}"),
     });
 }

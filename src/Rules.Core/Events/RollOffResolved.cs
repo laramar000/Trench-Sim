@@ -8,6 +8,7 @@ public enum RollOffPurpose
     DeploymentZone,
     DeploymentOrder,
     Initiative,
+    Roles, // Trench Warfare (p. 161): the winner chooses who attacks
 }
 
 public sealed record RollOffRound

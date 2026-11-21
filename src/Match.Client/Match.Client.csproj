@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The client side of protocol v2, shared by the terminal client and the Godot client (M7, D1): the connection,
+       command sequencing, saved seats and reconnecting. Plain C#: no Godot, no server, no simulator. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Match.Client</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Match.Protocol\Match.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>

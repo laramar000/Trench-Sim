@@ -212,11 +212,12 @@ public class CoverTests
 {
     [Fact]
     [Trait("Rule", "1.0.2 p.38 cover: wide as base, touching, between, partially blocks (confirmed wording); readings U4, U5, U14, U15 provisional")]
-    public void BarricadeTheTargetStandsAgainstGivesCoverWithoutBlockingSight()
+    public void BarricadeTheTargetStandsAgainstHidesPartOfItAndGivesCover()
     {
+        // Since stage L2 a 0.75" barricade hides the lower points it stands in front of (U77, U78).
         var field = Field("24", Barricade("b", "6", "11.5", "7", "12.5"));
         var result = Cover.Of(field, Body("a", "3", "12"), Body("t", "7.5", "12"));
-        Assert.Equal(Visibility.Full, result.Sight.Visibility);
+        Assert.Equal(Visibility.Partial, result.Sight.Visibility);
         Assert.True(result.InCover);
         Assert.Equal("b", result.TerrainId);
     }
@@ -285,38 +286,44 @@ public class CoverTests
     [Trait("Rule", "p.38 partially blocks (U5)")]
     public void AWallCornerGivesPartialSightAndCover()
     {
-        var result = Cover.Of(CornerScene(), Body("a", "3", "14"), Body("t", "7.5", "11.5"));
+        var result = Cover.Of(CornerScene(), Body("a", "3", "12.5"), Body("t", "7.5", "11.5"));
         Assert.Equal(Visibility.Partial, result.Sight.Visibility);
-        Assert.Equal((1, 5), (result.Sight.Visible, result.Sight.Total));
+        Assert.Equal((6, 9), (result.Sight.Visible, result.Sight.Total));
         Assert.True(result.InCover);
         Assert.Equal("w", result.TerrainId);
     }
 
     [Fact]
-    [Trait("Rule", "U20, U22: an ignored ground Wall neither blocks nor gives cover to a high-ground attacker")]
-    public void HighGroundAttackerGetsNoObstructionAndNoCoverFromAGroundWall()
+    [Trait("Rule", "U77 replaces U20: high ground sees over a wall only if the wall is low enough")]
+    public void HighGroundAloneNoLongerSeesOverAGroundWall()
     {
+        // A 3" platform behind a 3" wall the target hides against: the eye at 4.1" cannot see down behind it.
         var field = CornerScene(Platform("p", "2", "13", "4", "15"));
         var attacker = Body("a", "3", "14");
         var target = Body("t", "7.5", "11.5");
         Assert.Equal(ModelLevel.High, Elevation.Of(field, attacker).Level);
         var result = Cover.Of(field, attacker, target);
-        Assert.Equal(Visibility.Full, result.Sight.Visibility);
-        Assert.All(result.Sight.Rays, r => Assert.Empty(r.Obstructing));
-        Assert.Contains(result.Sight.Rays, r => r.Crossed.Contains("w")); // the rays do cross the wall; it just is not an obstruction
+        Assert.Equal(Visibility.None, result.Sight.Visibility);
+        Assert.All(result.Sight.Rays, r => Assert.Equal("w", r.BlockedBy));
         Assert.False(result.InCover);
-        Assert.Null(result.TerrainId);
     }
 
     [Fact]
-    [Trait("Rule", "U23: Cover-profile pieces give cover at either level")]
-    public void CoverPiecesStillGiveCoverAgainstHighGroundAttackers()
+    [Trait("Rule", "U78 replaces U23: a barricade gives cover against high ground only while it hides part of the target")]
+    public void ABarricadeGivesCoverAgainstHighGroundOnlyWhileItHidesPartOfTheTarget()
     {
-        var field = Field("24", Platform("p", "2", "10", "5", "14"), Barricade("b", "6", "11.5", "7", "12.5"));
-        var result = Cover.Of(field, Body("a", "3.5", "12"), Body("t", "7.5", "12"));
-        Assert.Equal(ModelLevel.High, result.Sight.Attacker.Level);
-        Assert.True(result.InCover);
-        Assert.Equal("b", result.TerrainId);
+        // From a 3" platform close by, the eye looks down over a 0.75" barricade: the target is seen in full, no cover.
+        var near = Field("24", Platform("p", "2", "10", "5", "14"), Barricade("b", "6", "11.5", "7", "12.5"));
+        var close = Cover.Of(near, Body("a", "3.5", "12"), Body("t", "7.5", "12"));
+        Assert.Equal(ModelLevel.High, close.Sight.Attacker.Level);
+        Assert.Equal(Visibility.Full, close.Sight.Visibility);
+        Assert.False(close.InCover);
+        // From the same platform far away, the barricade hides the legs again and gives cover.
+        var far = Field("24", Platform("p", "2", "10", "5", "14"), Barricade("b", "16", "11.5", "17", "12.5"));
+        var distant = Cover.Of(far, Body("a", "3.5", "12"), Body("t", "17.5", "12"));
+        Assert.Equal(Visibility.Partial, distant.Sight.Visibility);
+        Assert.True(distant.InCover);
+        Assert.Equal("b", distant.TerrainId);
     }
 
     [Fact]
@@ -394,7 +401,8 @@ public class SightConsistencyAndDeterminismTests
             {
                 continue;
             }
-            var sight = LineOfSight.Between(field, attacker, target);
+            // Since stage L2 the rules' sight is the height-based one (U77) and cover reads exactly its rays (U78).
+            var sight = HeightSight.Between(field, attacker, target);
             var cover = Cover.Of(field, attacker, target);
 
             Assert.Equal(sight.Visibility, cover.Sight.Visibility);
@@ -405,18 +413,13 @@ public class SightConsistencyAndDeterminismTests
 
             foreach (var ray in sight.Rays)
             {
-                foreach (var id in ray.Crossed)
-                {
-                    var piece = field.Terrain.Single(t => t.Id == id);
-                    Assert.Equal(SightRules.Obstructs(piece, sight.Attacker, sight.Target), ray.Obstructing.Contains(id));
-                }
-                if (sight.Attacker.Level == ModelLevel.High)
-                {
-                    Assert.DoesNotContain(ray.Obstructing, id => field.Terrain.Single(t => t.Id == id).Surface == SurfaceLevel.Ground);
-                }
+                // A piece can only block a ray whose ground track crosses it, and never the platform either model stands on.
+                Assert.All(ray.Obstructing, id => Assert.Contains(id, ray.Crossed));
+                Assert.DoesNotContain(sight.Attacker.PlatformId ?? "-", ray.Obstructing);
+                Assert.DoesNotContain(sight.Target.PlatformId ?? "-", ray.Obstructing);
             }
 
-            if (sight.Visibility == Visibility.None)
+            if (sight.Visibility != Visibility.Partial)
             {
                 Assert.False(cover.InCover);
             }
@@ -424,11 +427,9 @@ public class SightConsistencyAndDeterminismTests
             {
                 covered++;
                 var piece = field.Terrain.Single(t => t.Id == cover.TerrainId);
-                Assert.NotEqual(TerrainProfile.Low, piece.Profile);
+                Assert.True(SightHeights.TopOf(piece) >= Cover.MinimumHeight);
                 Assert.True(piece.Footprint.CircleTouches(target.Centre, target.Radius));
-                Assert.True(piece.Profile == TerrainProfile.Cover
-                    ? sight.Rays.Any(r => r.Crossed.Contains(piece.Id))
-                    : sight.Rays.Any(r => r.Obstructing.Contains(piece.Id)));
+                Assert.Contains(sight.Rays, r => r.Obstructing.Contains(piece.Id));
             }
         }
         Assert.True(covered > 0 && partial > 0, "the random scenes should exercise cover and partial sight");

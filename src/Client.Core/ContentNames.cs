@@ -1,0 +1,299 @@
+using System.Reflection;
+using System.Text.Json;
+using Rules.Core.Geometry;
+using Rules.Core.State;
+
+namespace Client.Core;
+
+// Model names from the content files (D5). The server builds the ids a1, a2, ... for the first warband of the
+// scenario's file and b1, b2, ... for the second, in file order (Sim.ScenarioSetups). The names are used only if every
+// mapped model's profile equals the one in the match's own setup; otherwise the client shows ids and says why, rather
+// than ever showing a wrong name. Reading the file is a copy of Sim.Content.Parse (M7.3, S2), checked by a test.
+public sealed class ContentNames
+{
+    private readonly IReadOnlyDictionary<string, string> _names;
+
+    private ContentNames(IReadOnlyDictionary<string, string> names, string? warbandOne, string? warbandTwo, string? problem)
+    {
+        _names = names;
+        WarbandOne = warbandOne;
+        WarbandTwo = warbandTwo;
+        Problem = problem;
+    }
+
+    // Roster stage 5b: the scenario a hot-seat match with the player's own rosters uses (Match.Server --warbands), and
+    // the content this window wrote for it.
+    public const string RosterScenario = "roster";
+
+    public static string? RosterContent { get; set; }
+
+    public static ContentNames None { get; } = new(new Dictionary<string, string>(), null, null, null);
+
+    public string? WarbandOne { get; }
+    public string? WarbandTwo { get; }
+
+    // Why names are not shown, in words; null when they are.
+    public string? Problem { get; }
+
+    public string WarbandOf(Seat seat) => (seat == Seat.One ? WarbandOne : WarbandTwo) ?? Words.Seat(seat);
+
+    // "Sharpshooter (a1)", or just "a1" when names are not known.
+    public string Of(ModelId id) => _names.TryGetValue(id.Value, out var name) ? $"{name} ({id.Value})" : id.Value;
+
+    // The model's type as the content names it ("Sharpshooter"), or null when the content does not know it (graphics:
+    // the art catalog's key).
+    public string? TypeOf(ModelId id) => _names.TryGetValue(id.Value, out var name) ? name : null;
+
+    // The scenario names the server offers, and the content file each uses (as Sim.ScenarioSetups does).
+    // A test size ("ranged-2v2") uses the first models of the same file.
+    public static string? FileFor(string scenario) => BaseOf(scenario) switch
+    {
+        "ranged" => "test-warbands.json",
+        "melee" => "melee-warbands.json",
+        _ => null,
+    };
+
+    // The scenarios a player can choose when creating a match: the normal rosters, then the small test sizes.
+    // The tower layouts ("ranged-towers", towers proposal stage T3) come last, so the earlier choices keep their places.
+    public static IReadOnlyList<string> Choices { get; } =
+        ["ranged", "melee", "ranged-1v1", "ranged-2v2", "ranged-3v3", "melee-1v1", "melee-2v2", "melee-3v3", "ranged-towers", "melee-towers",
+            "ranged-1v1-towers", "ranged-2v2-towers", "ranged-3v3-towers", "melee-1v1-towers", "melee-2v2-towers", "melee-3v3-towers",
+            // Trench-maps stage S6: Scenario IV, Trench Warfare, on its map.
+            "ranged-trench-warfare", "melee-trench-warfare", "ranged-1v1-trench-warfare", "ranged-2v2-trench-warfare", "ranged-3v3-trench-warfare",
+            "melee-1v1-trench-warfare", "melee-2v2-trench-warfare", "melee-3v3-trench-warfare"];
+
+    public const string TowersSuffix = "-towers";
+    public const string TrenchWarfareSuffix = "-trench-warfare";
+
+    // The roster part of a scenario name and the words for its map: ("melee-2v2", " with towers").
+    private static (string Roster, string Map) Split(string scenario) =>
+        scenario.EndsWith(TowersSuffix, StringComparison.Ordinal) ? (scenario[..^TowersSuffix.Length], " with towers")
+        : scenario.EndsWith(TrenchWarfareSuffix, StringComparison.Ordinal) ? (scenario[..^TrenchWarfareSuffix.Length], ", Trench Warfare")
+        : (scenario, "");
+
+    // The words for a scenario in the create-match list: "ranged (normal roster)", "melee, 2 v 2 (test roster)",
+    // "ranged with towers (normal roster)", "melee with towers, 1 v 1 (test roster)". Battlefield UI stage K7: the melee
+    // warbands have shooters and fighters, so their normal roster says "melee (shooting and close combat)".
+    public static string Label(string scenario)
+    {
+        var (name, map) = Split(scenario);
+        return name is "ranged" or "melee"
+            ? $"{name}{map} ({(name == "melee" ? "shooting and close combat" : "normal roster")})"
+            : $"{name[..^4]}{map}, {name[^3]} v {name[^1]} (test roster)";
+    }
+
+    private static string BaseOf(string scenario) =>
+        Split(scenario).Roster != scenario ? BaseOf(Split(scenario).Roster)
+        : scenario.Length > 4 && scenario[^4] == '-' && scenario[^2] == 'v' && char.IsAsciiDigit(scenario[^3]) && scenario[^3] == scenario[^1]
+            ? scenario[..^4]
+            : scenario;
+
+    // sentNames: roster stage 5c, the names the server sent with the Welcome of a match played with rosters online.
+    public static ContentNames For(string scenario, MatchSetup? setup, string? sentNames = null)
+    {
+        if (setup is null)
+        {
+            return None;
+        }
+        if (scenario == RosterScenario)
+        {
+            // Roster stage 5b: the warbands this window wrote for its own hot-seat match; 5c: the server's names.
+            try
+            {
+                return (sentNames ?? RosterContent) is { } json ? Match(Parse(json), setup) : Ids("This window did not make the rosters of this match.");
+            }
+            catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException or FormatException)
+            {
+                return Ids("The rosters' content could not be read.");
+            }
+        }
+        if (FileFor(scenario) is not { } file)
+        {
+            return Ids($"This client has no content for the scenario \"{scenario}\".");
+        }
+        IReadOnlyList<ContentWarband> warbands;
+        try
+        {
+            warbands = Parse(Read(file));
+        }
+        catch (Exception e) when (e is JsonException or KeyNotFoundException or InvalidOperationException or ArgumentException or FormatException)
+        {
+            return Ids($"This client's content file {file} could not be read.");
+        }
+        var sized = Split(scenario).Roster;
+        if (sized != BaseOf(sized))
+        {
+            // A test size: the first models of each warband, as Sim.ScenarioSetups builds it.
+            var size = sized[^1] - '0';
+            warbands = [.. warbands.Select(w => w with { Models = [.. w.Models.Take(size)] })];
+        }
+        return Match(warbands, setup);
+    }
+
+    public static ContentNames Match(IReadOnlyList<ContentWarband> warbands, MatchSetup setup)
+    {
+        if (warbands.Count < 2)
+        {
+            return Ids("This client's content does not match the server's.");
+        }
+        var names = new Dictionary<string, string>(StringComparer.Ordinal);
+        var expected = warbands[0].Models.Select((m, i) => ($"a{i + 1}", Seat.One, m))
+            .Concat(warbands[1].Models.Select((m, i) => ($"b{i + 1}", Seat.Two, m)))
+            .ToList();
+        if (expected.Count != setup.Models.Length)
+        {
+            return Ids("This client's content does not match the server's.");
+        }
+        foreach (var (id, seat, model) in expected)
+        {
+            var actual = setup.Models.FirstOrDefault(m => m.Id.Value == id);
+            if (actual is null || actual.Seat != seat || actual.Profile != model.Profile)
+            {
+                return Ids("This client's content does not match the server's.");
+            }
+            names[id] = model.Name;
+        }
+        return new ContentNames(names, warbands[0].Name, warbands[1].Name, null);
+    }
+
+    private static ContentNames Ids(string problem) => new(new Dictionary<string, string>(), null, null, problem + " Models are shown by id.");
+
+    public static string Read(string file)
+    {
+        using var stream = typeof(ContentNames).Assembly.GetManifestResourceStream("content/" + file)
+            ?? throw new InvalidOperationException($"No embedded content {file}.");
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
+
+    // A copy of Sim.Content.Parse.
+    public static IReadOnlyList<ContentWarband> Parse(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var warbands = new List<ContentWarband>();
+        foreach (var band in doc.RootElement.GetProperty("warbands").EnumerateArray())
+        {
+            var models = new List<ContentModel>();
+            foreach (var m in band.GetProperty("models").EnumerateArray())
+            {
+                var diameter = Length.FromMillimetres(m.GetProperty("baseMm").GetInt32());
+                var radius = Length.FromThousandths(diameter.Thousandths / 2);
+                models.Add(new ContentModel(
+                    m.GetProperty("name").GetString()!,
+                    new ModelProfile(
+                        Length.Parse(m.GetProperty("movementInches").GetString()!),
+                        radius,
+                        Length.Parse(m.GetProperty("rangeInches").GetString()!),
+                        m.GetProperty("weaponInjuryModifier").GetInt32(),
+                        m.GetProperty("armour").GetInt32(),
+                        m.TryGetProperty("meleeInjuryModifier", out var melee),
+                        melee.ValueKind == JsonValueKind.Number ? melee.GetInt32() : 0)
+                    {
+                        RangedAlsoMelee = m.TryGetProperty("rangedAlsoMelee", out var also) && also.GetBoolean(),
+                        RangedDice = Dice(m, "rangedDice"),
+                        MeleeDice = Dice(m, "meleeDice"),
+                        RangedWeaponDice = Dice(m, "rangedWeaponDice"),
+                        RangedWeaponInjuryDice = Dice(m, "rangedWeaponInjuryDice"),
+                        MeleeWeaponDice = Dice(m, "meleeWeaponDice"),
+                        MeleeWeaponInjuryDice = Dice(m, "meleeWeaponInjuryDice"),
+                        RangedWeaponKeywords = Keywords(m, "rangedWeaponKeywords"),
+                        MeleeWeaponKeywords = Keywords(m, "meleeWeaponKeywords"),
+                        // Roster stage R3: after the fields they depend on (a second weapon needs a first one).
+                        MeleeWeaponCleave = Dice(m, "meleeWeaponCleave"),
+                        RangedWeaponBlast = Dice(m, "rangedWeaponBlast"),
+                        Block = m.TryGetProperty("block", out var block) && block.GetBoolean(),
+                        ImperviousArmour = Dice(m, "imperviousArmour"),
+                        SecondRangedWeapon = SecondWeapon(m, "secondRangedWeapon"),
+                        SecondMeleeWeapon = SecondWeapon(m, "secondMeleeWeapon"),
+                        Grenade = SecondWeapon(m, "grenade"),
+                        Negates = Keywords(m, "negates"),
+                        Traits = Traits(m),
+                        InjuryDiceTaken = Dice(m, "injuryDiceTaken"),
+                        MeleeInjuryBonus = Dice(m, "meleeInjuryBonus"),
+                        KeepsGoingAfterRisky = m.TryGetProperty("keepsGoingAfterRisky", out var keeps) && keeps.GetBoolean(),
+                        ClimbDice = Dice(m, "climbDice"),
+                        Fanfare = m.TryGetProperty("fanfare", out var fanfare) && fanfare.GetBoolean(),
+                        BlendsIn = m.TryGetProperty("blendsIn", out var blends) && blends.GetBoolean(),
+                        SinisterWhispers = m.TryGetProperty("sinisterWhispers", out var whispers) && whispers.GetBoolean(),
+                        WardedByBlood = m.TryGetProperty("wardedByBlood", out var warded) && warded.GetBoolean(),
+                        BurnsAtActivationEnd = m.TryGetProperty("burnsAtActivationEnd", out var burnsAtEnd) && burnsAtEnd.GetBoolean(),
+                        BurnsWhenTakenOut = m.TryGetProperty("burnsWhenTakenOut", out var burnsWhenOut) && burnsWhenOut.GetBoolean(),
+                        Treats = m.TryGetProperty("treats", out var treats) && treats.GetBoolean(),
+                        HealingWaters = m.TryGetProperty("healingWaters", out var healingWaters) && healingWaters.GetBoolean(),
+                        GrindsToDust = m.TryGetProperty("grindsToDust", out var grinds) && grinds.GetBoolean(),
+                        Martyrdom = m.TryGetProperty("martyrdom", out var martyrdom) && martyrdom.GetBoolean(),
+                        Talismans = Dice(m, "talismans"),
+                        ShotsIgnoreMarkers = m.TryGetProperty("shotsIgnoreMarkers", out var shotsIgnoreMarkers) && shotsIgnoreMarkers.GetBoolean(),
+                        ExpertMedic = m.TryGetProperty("expertMedic", out var expertMedic) && expertMedic.GetBoolean(),
+                        FinishesTheFallen = m.TryGetProperty("finishesTheFallen", out var finishesTheFallen) && finishesTheFallen.GetBoolean(),
+                        ExtraChargeDie = m.TryGetProperty("extraChargeDie", out var extraChargeDie) && extraChargeDie.GetBoolean(),
+                        InspiresFaithful = m.TryGetProperty("inspiresFaithful", out var inspiresFaithful) && inspiresFaithful.GetBoolean(),
+                        Aims = m.TryGetProperty("aims", out var aims) && aims.GetBoolean(),
+                        Fortifies = m.TryGetProperty("fortifies", out var fortifies) && fortifies.GetBoolean(),
+                        Agile = m.TryGetProperty("agile", out var agile) && agile.GetBoolean(),
+                        SwiftDash = m.TryGetProperty("swiftDash", out var swiftDash) && swiftDash.GetBoolean(),
+                        QuickToRise = m.TryGetProperty("quickToRise", out var quickToRise) && quickToRise.GetBoolean(),
+                        UndeadFortitude = m.TryGetProperty("undeadFortitude", out var undeadFortitude) && undeadFortitude.GetBoolean(),
+                        AbioticLife = m.TryGetProperty("abioticLife", out var abioticLife) && abioticLife.GetBoolean(),
+                        Stealthy = m.TryGetProperty("stealthy", out var stealthy) && stealthy.GetBoolean(),
+                        HuntsTheTough = m.TryGetProperty("huntsTheTough", out var huntsTheTough) && huntsTheTough.GetBoolean(),
+                        CounterCharge = m.TryGetProperty("counterCharge", out var counterCharge) && counterCharge.GetBoolean(),
+                        MementoMori = m.TryGetProperty("mementoMori", out var mementoMori) && mementoMori.GetBoolean(),
+                        Horde = m.TryGetProperty("horde", out var horde) && horde.GetBoolean(),
+                        Tramples = m.TryGetProperty("tramples", out var tramples) && tramples.GetBoolean(),
+                        EnforcesOrthodoxy = m.TryGetProperty("enforcesOrthodoxy", out var enforcesOrthodoxy) && enforcesOrthodoxy.GetBoolean(),
+                        LaysOnHands = m.TryGetProperty("laysOnHands", out var laysOnHands) && laysOnHands.GetBoolean(),
+                        HasCover = m.TryGetProperty("hasCover", out var covered) && covered.GetBoolean(),
+                        DigsIn = m.TryGetProperty("digsIn", out var digs) && digs.GetBoolean(),
+                    }));
+            }
+            warbands.Add(new ContentWarband(band.GetProperty("id").GetString()!, band.GetProperty("name").GetString()!, models));
+        }
+        return warbands;
+    }
+
+    // Roster stage R3: a second ranged or Melee Weapon, null when not given: { "rangeInches": "12", "injuryModifier": 0,
+    // "dice": 0, "injuryDice": 0, "keywords": [...], "alsoMelee": false, "cleave": 0 }, each field optional (range 0).
+    private static Weapon? SecondWeapon(JsonElement model, string name) =>
+        model.TryGetProperty(name, out var w)
+            ? new Weapon(
+                w.TryGetProperty("rangeInches", out var range) ? Length.Parse(range.GetString()!) : Length.Zero,
+                Dice(w, "injuryModifier"),
+                Dice(w, "dice"),
+                Dice(w, "injuryDice"),
+                Keywords(w, "keywords"),
+                w.TryGetProperty("alsoMelee", out var also) && also.GetBoolean(),
+                Dice(w, "cleave"))
+            { Blast = Dice(w, "blast") }
+            : null;
+
+    // Roster stage R1: a model's dice (profile Ranged and Melee, weapon DICE and INJURY DICE), zero when not given.
+    private static int Dice(JsonElement model, string name) =>
+        model.TryGetProperty(name, out var value) ? value.GetInt32() : 0;
+
+    // Roster stage R2: a weapon's played keywords, by the engine's names (Rules.Core WeaponKeywords); none when not given.
+    private static WeaponKeywords Keywords(JsonElement model, string name) =>
+        model.TryGetProperty(name, out var value)
+            ? value.EnumerateArray().Aggregate(WeaponKeywords.None, (all, k) => all | Keyword(k.GetString()!))
+            : WeaponKeywords.None;
+
+    // Roster stage R5b: the model's played traits (Rules.Core ModelTraits: FEAR, TOUGH, LEADER...); none when not given.
+    private static ModelTraits Traits(JsonElement model) =>
+        model.TryGetProperty("traits", out var value)
+            ? value.EnumerateArray().Aggregate(ModelTraits.None, (all, t) => all | Trait(t.GetString()!))
+            : ModelTraits.None;
+
+    private static ModelTraits Trait(string name) =>
+        Enum.GetValues<ModelTraits>().FirstOrDefault(t => t != ModelTraits.None && t.ToString() == name) is var t && t != ModelTraits.None
+            ? t
+            : throw new FormatException($"Unknown model trait {name}.");
+
+    private static WeaponKeywords Keyword(string name) =>
+        Enum.GetValues<WeaponKeywords>().FirstOrDefault(k => k != WeaponKeywords.None && k.ToString() == name) is var k && k != WeaponKeywords.None
+            ? k
+            : throw new FormatException($"Unknown weapon keyword {name}.");
+}
+
+public sealed record ContentModel(string Name, ModelProfile Profile);
+
+public sealed record ContentWarband(string Id, string Name, IReadOnlyList<ContentModel> Models);

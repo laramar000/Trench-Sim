@@ -1,0 +1,6 @@
+# Windows batch files keep their CRLF line endings, also in GitHub ZIP downloads.
+*.cmd -text
+
+# Art files stay real files in the repository (never Git LFS), so GitHub ZIP downloads include them.
+*.glb binary
+*.png binary

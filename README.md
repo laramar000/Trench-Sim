@@ -15,7 +15,9 @@ Milestone M6: reconnects and signed match records, awaiting review. A player who
 
 ## Verify
 
-From the repository root:
+**Easiest:** double-click **Test Trench Sim** in this folder (Windows) or run `./test-trench-sim.sh` (Linux). The test center runs every check and a guided test match, and ends with PASS, FAIL or NOT RUN for each check; see `docs/testing.md`.
+
+By hand, from the repository root:
 
 ```sh
 dotnet --version
@@ -71,9 +73,11 @@ src/Match.Protocol/  protocol v2 messages, strict JSON codec, client replay, mat
                      (Rules.Core, System.Text.Json and System.Security.Cryptography only)
 src/Match.Server/    authoritative match server: transport-free Lobby/MatchHost, the WebSocket host, record storage
 src/Match.Cli/       terminal client (trench-cli): interactive or bot play, rejoin, verify
+src/Roster/          roster builder data: battlekit catalogue format, keyword vocabulary, format checks (docs/roster.md)
 content/             original test warbands (placeholder content)
 tests/Rules.Tests/   xUnit tests for the rules engine
 tests/Server.Tests/  codec, server pipeline, records, reconnect and real-WebSocket integration tests
+tests/Roster.Tests/  format tests for the roster data (invented data only)
 docs/protocol.md     the match protocol, version 2
 docs/records.md      signed match records, the verifier and the server's data folder
 docs/rules-notes.md  where each rule lives in the 1.0.2 rulebook

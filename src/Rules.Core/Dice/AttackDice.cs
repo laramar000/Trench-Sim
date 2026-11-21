@@ -1,0 +1,118 @@
+using Rules.Core.State;
+
+namespace Rules.Core.Dice;
+
+// The dice an attack's rolls start with, before any Blood Markers are spent, and the Injury Roll's modifier. The rules
+// use these numbers when an attack is declared and rolled; the client's previews read the same numbers, so the dice a
+// preview shows are the rules' own, not a copy.
+public static class AttackDice
+{
+    // Ranged Attack Success Roll: 1 penalty die for Long Range and 1 for a target in Cover (pp. 42-44).
+    public static int ShotPenalty(bool longRange, bool inCover) => (longRange ? 1 : 0) + (inCover ? 1 : 0);
+
+    // Ranged Attack Success Roll: 1 bonus die for an Elevated position, 3" or more above the target (p. 43).
+    public static int ShotBonus(bool elevated) => elevated ? 1 : 0;
+
+    // Melee Attack Success Roll: 1 penalty die when the target defends an obstacle (pp. 45-46), and (roster stage R3)
+    // for an Off-Hand weapon (p. 45) and for BLOCK after a charge (p. 53).
+    public static int FightPenalty(bool defendedObstacle) => defendedObstacle ? 1 : 0;
+
+    // Roster stage R5b (U106): FEAR gives -1 DICE to a Melee Attack that targets the model, unless the attacker has FEAR
+    // or NEGATE FEAR (pp. 54, 56).
+    public static bool Fears(ModelProfile attacker, ModelProfile target) => target.Traits.HasFlag(ModelTraits.Fear) && !attacker.IgnoresFear;
+
+    // Injury Roll: +1 INJURY DICE for a Critical Success (confirmed ruling) and for a Melee Attack on a Down target (p. 49).
+    public static int InjuryBonus(bool critical, bool meleeOnDownTarget) => (critical ? 1 : 0) + (meleeOnDownTarget ? 1 : 0);
+
+    // Roster stage R1: the attacker's own +DICE or -DICE (p. 15) on the attack's Success Roll: its Ranged or Melee
+    // Characteristic and its weapon's DICE (ModelProfile.RangedAttackDice, MeleeAttackDice).
+    public static int OwnDice(ModelProfile attacker, AttackKind kind) =>
+        kind == AttackKind.Melee ? attacker.MeleeAttackDice : attacker.RangedAttackDice;
+
+    // ... and on its Injury Roll: the weapon's INJURY DICE (p. 18).
+    public static int OwnInjuryDice(ModelProfile attacker, AttackKind kind) =>
+        kind == AttackKind.Melee ? attacker.MeleeAttackInjuryDice : attacker.RangedAttackInjuryDice;
+
+    // Signed dice added to a roll's bonus and penalty dice: +DICE are bonus dice, -DICE penalty dice; the pairs
+    // cancel when the roll is made (p. 15, RollRecord.NetDice).
+    public static (int Bonus, int Penalty) With(int bonus, int penalty, int dice) =>
+        dice >= 0 ? (bonus + dice, penalty) : (bonus, penalty - dice);
+
+    // Injury Roll modifiers: the attacking weapon's modifier and the target's Armour (pp. 46, 48). Roster stage R2:
+    // IGNORE ARMOUR drops the Armour; ARMOUR PIERCING lowers it by 1, to at most 0 (p. 52).
+    // Roster stage R3: the part of the Armour from IMPERVIOUS battlekit is left alone by both (p. 55).
+    // Roster stage R5c (U107): a Melee Attack's MeleeInjuryBonus (Grovelling Devotees) is a third modifier, when the model
+    // has one.
+    public static int[] InjuryModifiers(ModelProfile attacker, ModelProfile target, AttackKind kind) =>
+        kind == AttackKind.Melee && attacker.MeleeInjuryBonus != 0
+            ? [attacker.MeleeAttackInjuryModifier, ArmourAgainst(attacker.AttackKeywords(kind), target.Armour, target.ImperviousArmour), attacker.MeleeInjuryBonus]
+            : [kind == AttackKind.Melee ? attacker.MeleeAttackInjuryModifier : attacker.RangedInjuryModifier, ArmourAgainst(attacker.AttackKeywords(kind), target.Armour, target.ImperviousArmour)];
+
+    public static int ArmourAgainst(WeaponKeywords keywords, int armour, int impervious = 0)
+    {
+        var plain = armour - impervious;
+        var left = keywords.HasFlag(WeaponKeywords.IgnoreArmour) ? 0
+            : keywords.HasFlag(WeaponKeywords.ArmourPiercing) ? Math.Min(0, plain + 1)
+            : plain;
+        return left + impervious;
+    }
+
+    // Roster stage R2: the INJURY DICE a Critical Success adds, +2 with CRITICAL instead of +1 (p. 53).
+    public static int CriticalInjuryDice(WeaponKeywords keywords) => keywords.HasFlag(WeaponKeywords.Critical) ? 2 : 1;
+
+    // The injury dice before markers once an attack has hit: a Critical Success, a Melee Attack on a Down target, the
+    // weapon's own INJURY DICE and dice carried from the declaration (SHOTGUN at Long Range). Roster stage R5c (U107):
+    // and the INJURY DICE the target takes (Holy Smoke, Zealot's Draught).
+    public static (int Bonus, int Penalty) InjuryDice(ModelProfile attacker, AttackKind kind, bool critical, bool meleeOnDownTarget, int carried, ModelProfile target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        var bonus = InjuryBonus(false, meleeOnDownTarget) + (critical ? CriticalInjuryDice(attacker.AttackKeywords(kind)) : 0) + HuntDice(attacker, target);
+        return With(bonus, 0, OwnInjuryDice(attacker, kind) + carried + TakenDice(target, attacker.AttackKeywords(kind)));
+    }
+
+    // Roster stage R5c (U107): the INJURY DICE the target's battlekit adds to attacks that hit it (Holy Smoke: -1).
+    // Roster stage R6c (U119): and its abilities: Corpulent and Artificial Life are in InjuryDiceTaken; Undead Fortitude
+    // -1 unless the attack has FIRE, Abiotic Life -1 when it has GAS.
+    public static int TakenDice(ModelProfile target, WeaponKeywords attack) =>
+        target.InjuryDiceTaken - (target.UndeadFortitude && !attack.HasFlag(WeaponKeywords.Fire) ? 1 : 0) - (target.AbioticLife && attack.HasFlag(WeaponKeywords.Gas) ? 1 : 0);
+
+    // Roster stage R6c (U119): Mubarizun, +1 INJURY DICE against a TOUGH target.
+    public static int HuntDice(ModelProfile attacker, ModelProfile target) => attacker.HuntsTheTough && target.Traits.HasFlag(ModelTraits.Tough) ? 1 : 0;
+
+    // Roster stage R2: a Ranged Attack's Success Roll dice from the declared facts and the weapon's keywords (IGNORE
+    // COVER, IGNORE LONG RANGE, IGNORE ELEVATED POSITION; SHOTGUN at Long Range moves the -1 to the Injury Roll as
+    // InjuryLater), with the attacker's own dice. Without keywords this is ShotBonus, ShotPenalty and OwnDice.
+    // Roster stage R5d (U108): a target that BlendsIn (a Cloak of the Mountain) makes Cover -2 DICE.
+    // Roster stage R5e (U109): whispers, the target is the Urn of the Bitter Ashes' bearer or within 3" of it: -1 DICE.
+    // Roster stage R6b (U118): aim, the +2 DICE of a successful Aim ACTION.
+    // Roster stage R6c (U119): a target with a Stealth Generator: -1 DICE.
+    public static (int Bonus, int Penalty, int InjuryLater) Shot(ModelProfile attacker, bool longRange, bool inCover, bool elevated, ModelProfile? target = null, bool whispers = false, int aim = 0)
+    {
+        var k = attacker.RangedWeaponKeywords;
+        var counts = ShotModifiers(k, longRange, inCover, elevated, target?.BlendsIn == true);
+        var (bonus, penalty) = With(counts.Elevated + aim, counts.LongRange + counts.Cover + (whispers ? 1 : 0) + (target?.Stealthy == true ? 1 : 0), OwnDice(attacker, AttackKind.Ranged));
+        return (bonus, penalty, counts.ShotgunInjury);
+    }
+
+    // Each Success Roll modifier of a shot as it applies with these keywords: +1 Elevated, 1 penalty die each for Long
+    // Range and Cover, and SHOTGUN's -1 INJURY DICE at Long Range.
+    public static (int Elevated, int LongRange, int Cover, int ShotgunInjury) ShotModifiers(WeaponKeywords k, bool longRange, bool inCover, bool elevated, bool blendsIn = false)
+    {
+        var far = longRange && !k.HasFlag(WeaponKeywords.IgnoreLongRange);
+        var shotgun = far && k.HasFlag(WeaponKeywords.Shotgun);
+        return (
+            ShotBonus(elevated && !k.HasFlag(WeaponKeywords.IgnoreElevatedPosition)),
+            far && !shotgun ? ShotPenalty(true, false) : 0,
+            ShotPenalty(false, inCover && !k.HasFlag(WeaponKeywords.IgnoreCover)) * (blendsIn ? 2 : 1),
+            shotgun ? -1 : 0);
+    }
+
+    // Roster stage R4a (U101): the extra BLOOD MARKERS an Injury Roll's weapon puts on the target: 1 for each of
+    // SHRAPNEL, GAS and FIRE that the target does not NEGATE (pp. 54-57).
+    public static int ExtraMarkers(ModelProfile attacker, AttackKind kind, ModelProfile target) =>
+        System.Numerics.BitOperations.PopCount((uint)(attacker.AttackKeywords(kind) & ModelProfile.MarkerKeywords & ~target.Negates));
+
+    // Roster stage R2: RISKY makes the attack's Success Roll Risky (p. 55), as a Shaken warband does (p. 50).
+    public static bool Risky(ModelProfile attacker, AttackKind kind, bool shaken) =>
+        shaken || attacker.AttackKeywords(kind).HasFlag(WeaponKeywords.Risky);
+}

@@ -55,13 +55,13 @@
   "expect": {
     "attackerLevel": "High",
     "targetLevel": "High",
-    "visibility": "None",
-    "visible": 0,
-    "total": 4,
+    "visibility": "Full",
+    "visible": 9,
+    "total": 9,
     "cover": false,
     "coverBy": null
   },
   "status": "provisional",
-  "basis": "U20: high ground sees over Ground walls only, not towers",
-  "ruling": "A High wall that nobody stands on still obstructs a high-ground attacker."
+  "basis": "U19, U77 (replaces the U20 shortcut)",
+  "ruling": "Both models stand on 3\" platforms and the tower between them is also 3\" high, so every ray passes over it: Full. (Before L2: None, because a High wall always blocked high ground.)"
 }

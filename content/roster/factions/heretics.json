@@ -1,0 +1,2837 @@
+{
+ "format": 1,
+ "rulesVersion": "1.0.2",
+ "id": "heretics",
+ "name": "Heretics",
+ "alignment": "fallen",
+ "budgetDucats": 700,
+ "specialRules": [],
+ "models": [
+  {
+   "id": "heretic-priest",
+   "name": "Heretic Priest",
+   "min": 1,
+   "max": 1,
+   "cost": {
+    "amount": 80,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 2,
+   "melee": 2,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "HERETIC"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "LEADER"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Puppet Master ACTION",
+     "summary": "Risky roll; on a Success move one other model (friend or foe) within 12\" in sight D6\" in a straight line (it does not count as charging).",
+     "page": 109
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 109
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "night-commando",
+   "name": "Night Commando",
+   "max": 1,
+   "cost": {
+    "amount": 90,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 2,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "HERETIC"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "INFILTRATOR"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Stealth Generator",
+     "summary": "-1 DICE to Ranged Attacks that target it.",
+     "page": 110
+    },
+    {
+     "name": "Hide ACTION",
+     "summary": "Touching terrain at least 1/2\" high: Risky roll at +1 DICE; on a Success it cannot be targeted by Ranged Attacks or Charges until it acts or an enemy comes within 1.5\" (BLAST still hits).",
+     "page": 110
+    }
+   ],
+   "kitRules": {
+    "onlyKit": [
+     {
+      "category": "ranged",
+      "kit": [
+       "silenced-pistol",
+       "tormentor-chain"
+      ]
+     },
+     {
+      "category": "grenade",
+      "kit": [
+       "gas-grenades"
+      ]
+     }
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 110
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "chorister",
+   "name": "Chorister",
+   "max": 1,
+   "cost": {
+    "amount": 65,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": -2,
+   "melee": 2,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "HERETIC"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "FEAR"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Unholy Hymns",
+     "summary": "-1 DICE to Success Rolls for enemies within 8\".",
+     "page": 111
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 111
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "heretic-trooper",
+   "name": "Heretic Trooper",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 0,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "HERETIC"
+    }
+   ],
+   "kitAccess": "armoury",
+   "upgrades": [
+    {
+     "id": "legionnaire-ranged",
+     "name": "Legionnaire (Ranged +1)",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "note": "Ranged +1 DICE; not with the Melee Legionnaire upgrade; never more Legionnaires than plain Troopers"
+    },
+    {
+     "id": "legionnaire-melee",
+     "name": "Legionnaire (Melee +1)",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "note": "Melee +1 DICE; not with the Ranged Legionnaire upgrade; never more Legionnaires than plain Troopers"
+    }
+   ],
+   "abilities": [
+    {
+     "name": "Heretic Legionnaires",
+     "summary": "A Trooper can become a Legionnaire for +10 ducats, with Ranged or Melee +1 DICE; never more Legionnaires than plain Troopers.",
+     "page": 112
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 112
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "assault-beast",
+   "name": "Assault Beast",
+   "max": 1,
+   "cost": {
+    "amount": 145,
+    "currency": "ducats"
+   },
+   "movementInches": 8,
+   "movementType": "infantry",
+   "ranged": null,
+   "melee": 2,
+   "armour": -3,
+   "baseMm": [
+    50
+   ],
+   "keywords": [
+    {
+     "id": "HERETIC"
+    },
+    {
+     "id": "ARTIFICIAL"
+    },
+    {
+     "id": "FEAR"
+    },
+    {
+     "id": "NEGATE",
+     "value": "DIFFICULT TERRAIN"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "none",
+   "startsWith": [
+    "chainsaw-mouth",
+    "shredding-claws"
+   ],
+   "abilities": [
+    {
+     "name": "Assault Beast",
+     "summary": "Attacks once with either weapon, or twice: Chainsaw Mouth then Shredding Claws (off-hand). Both are RISKY.",
+     "page": 113
+    },
+    {
+     "name": "Loping Dash",
+     "summary": "+1 DICE to the Risky roll for a Dash ACTION.",
+     "page": 113
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 113
+   },
+   "status": "verified",
+   "note": "Its two weapons are part of it and cost nothing; it cannot have any other battlekit.",
+   "naming": "rename"
+  },
+  {
+   "id": "wretched",
+   "name": "Wretched",
+   "cost": {
+    "amount": 25,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": -1,
+   "melee": -1,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "HERETIC"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Chattel",
+     "summary": "In a campaign it can be sold for 25 ducats plus half the cost of its battlekit.",
+     "page": 114
+    },
+    {
+     "name": "Dark Blessing",
+     "summary": "When taken Out of Action, the nearest friendly ELITE HERETIC model gains 1 BLESSING MARKER.",
+     "page": 114
+    },
+    {
+     "name": "Law of Hell",
+     "summary": "If it takes an enemy ELITE model Out of Action it goes free: removed from the game and the roster.",
+     "page": 114
+    }
+   ],
+   "kitRules": {
+    "maxCostDucats": 10,
+    "mustHaveWeapon": true
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 114
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "brand-sworn-heavy-infantry",
+   "name": "Brand-Sworn Heavy Infantry",
+   "max": 5,
+   "cost": {
+    "amount": 95,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 1,
+   "armour": -2,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "HERETIC"
+    },
+    {
+     "id": "STRONG"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "reinforced-armour",
+    "pit-brand"
+   ],
+   "kitRules": {
+    "noCategories": [
+     "armour"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 115
+   },
+   "status": "verified",
+   "note": "Always has Reinforced Armour and a Pit Brand; they cannot be removed and the armour is in its Armour Characteristic.",
+   "naming": "rename"
+  },
+  {
+   "id": "bombard-witch",
+   "name": "Bombard Witch",
+   "max": 1,
+   "cost": {
+    "amount": 100,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": -1,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "HERETIC"
+    },
+    {
+     "id": "ARTIFICIAL"
+    },
+    {
+     "id": "NEGATE",
+     "value": "FEAR"
+    },
+    {
+     "id": "NEGATE",
+     "value": "GAS"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "infernal-bomb"
+   ],
+   "abilities": [
+    {
+     "name": "Abiotic Life",
+     "summary": "-1 INJURY DICE against GAS attacks.",
+     "page": 116
+    },
+    {
+     "name": "Witch Battery",
+     "summary": "Up to 2 if the rest of the warband costs 1,000 ducats or more (not checked by the builder).",
+     "page": 116
+    },
+    {
+     "name": "Levitate",
+     "summary": "No Risky roll to Climb or Jump, and no Injury Roll for Falling.",
+     "page": 116
+    }
+   ],
+   "kitRules": {
+    "noCategories": [
+     "ranged",
+     "grenade"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 116
+   },
+   "status": "verified",
+   "note": "Always has Infernal Bombs (no cost).",
+   "naming": "rename"
+  }
+ ],
+ "armoury": [
+  {
+   "kit": "anti-materiel-rifle",
+   "cost": {
+    "amount": 3,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "automatic-rifle",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "limit": 2,
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "automatic-shotgun",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bolt-action-rifle",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "flamethrower",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "status": "verified"
+  },
+  {
+   "kit": "grenade-launcher",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "heavy-flamethrower",
+   "cost": {
+    "amount": 55,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "machine-gun",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "pistol",
+   "cost": {
+    "amount": 6,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "semi-automatic-rifle",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "shotgun",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "silenced-pistol",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "submachine-gun",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bayonet",
+   "cost": {
+    "amount": 2,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "needsBayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "blasphemous-staff",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "great-hammer-maul",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "great-sword-axe",
+   "cost": {
+    "amount": 12,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "hellblade",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "polearm",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sacrificial-blade",
+   "cost": {
+    "amount": 23,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sword-axe",
+   "cost": {
+    "amount": 4,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "abyssal-claws",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "model": "night-commando"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "trench-club",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "trench-knife",
+   "cost": {
+    "amount": 1,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "frag-grenades",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "gas-grenades",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "incendiary-grenades",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "trench-shield",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "reinforced-armour",
+   "cost": {
+    "amount": 40,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    },
+    {
+     "model": "brand-sworn-heavy-infantry"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "standard-armour",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "binoculars",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "combat-helmet",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "headgear"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "gas-mask",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "damned-pact",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "only": [
+    {
+     "model": "heretic-trooper"
+    }
+   ],
+   "status": "verified",
+   "note": "Heretic Troopers and Legionnaires only"
+  },
+  {
+   "kit": "incendiary-ammunition",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "pit-brand",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "mountaineer-kit",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "musical-instrument",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "shovel",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "troop-flag",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "unholy-relic",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "unholy-trinket",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "iron-penitent-plate",
+   "cost": {
+    "amount": 8,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "battlefield-title",
+   "cost": {
+    "amount": 5,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "demonic-aura-grenade",
+   "cost": {
+    "amount": 3,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "executioners-axe",
+   "cost": {
+    "amount": 6,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "knighthood",
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "rocket-propelled-grenade",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sniper-scope",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "the-mark-of-cain",
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "tormentor-chain",
+   "cost": {
+    "amount": 3,
+    "currency": "glory"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "trench-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified",
+   "note": "Loyal Hound and one Special Training are +1 Glory each, bought as their own items"
+  },
+  {
+   "kit": "loyal-hound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "needsKit": "trench-dog",
+   "limitPerModel": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "guard-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
+  },
+  {
+   "kit": "hellhound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
+  }
+ ],
+ "variants": [
+  {
+   "id": "trench-wraiths",
+   "name": "Trench Wraiths",
+   "removeModels": [
+    "assault-beast",
+    "bombard-witch",
+    "brand-sworn-heavy-infantry"
+   ],
+   "addModels": [
+    {
+     "id": "barbed-wire-banshee",
+     "name": "Barbed Wire Banshee",
+     "max": 1,
+     "cost": {
+      "amount": 65,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": -2,
+     "melee": 2,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "HERETIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "FEAR"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Wailing Wire",
+       "summary": "+1 INJURY DICE to rolls for enemies within 8\".",
+       "page": 118
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 111
+     },
+     "status": "verified",
+     "naming": "keep",
+     "note": "Taken instead of a Chorister, not with one (not checked by the builder)."
+    },
+    {
+     "id": "brand-sworn-heavy-infantry",
+     "name": "Brand-Sworn Heavy Infantry",
+     "max": 5,
+     "cost": {
+      "amount": 95,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 1,
+     "armour": -2,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "HERETIC"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "reinforced-armour"
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 115
+     },
+     "status": "verified",
+     "note": "Always has Reinforced Armour (no Pit Brand in this list); it cannot be removed and is in its Armour Characteristic.",
+     "naming": "rename"
+    }
+   ],
+   "removeArmoury": [
+    "damned-pact",
+    "pit-brand",
+    "trench-dog",
+    "loyal-hound",
+    "guard-dog",
+    "hellhound"
+   ],
+   "addArmoury": [
+    {
+     "kit": "sarcophagus-mine",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "only": [
+      {
+       "model": "heretic-trooper"
+      }
+     ],
+     "status": "verified",
+     "note": "the bearer can have no other battlekit"
+    },
+    {
+     "kit": "tank-palanquin",
+     "cost": {
+      "amount": 60,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "heretic-priest"
+      }
+     ],
+     "status": "verified"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Barbed Wire Banshee",
+     "summary": "May include a Barbed Wire Banshee instead of a Chorister: same profile and cost, +1 INJURY DICE to rolls for enemies within 8\" instead of Unholy Hymns (not both; not checked by the builder).",
+     "page": 118
+    },
+    {
+     "name": "Enemies of All",
+     "summary": "No Mercenaries.",
+     "page": 118
+    },
+    {
+     "name": "Lost Souls",
+     "summary": "No ARTIFICIAL models, no Damned Pacts or Pit Brands; Brand-Sworn Heavy Infantry have no Pit Brand but still cost 95 ducats.",
+     "page": 118
+    },
+    {
+     "name": "Semi-corporeal",
+     "summary": "-1 INJURY DICE to Injury Rolls from Ranged Attacks that hit its models.",
+     "page": 118
+    },
+    {
+     "name": "Slow and Creeping",
+     "summary": "Movement counts as 3\" for a Dash ACTION; -1 DICE to its attacks on a Retreating enemy.",
+     "page": 118
+    },
+    {
+     "name": "Undead Horror",
+     "summary": "Its models have FEAR, NEGATE DIFFICULT TERRAIN and NEGATE GAS.",
+     "page": 118
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 118
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "gilded-knights",
+   "name": "Gilded Knights",
+   "removeModels": [
+    "night-commando",
+    "bombard-witch",
+    "heretic-priest"
+   ],
+   "addModels": [
+    {
+     "id": "heretic-priest",
+     "name": "Heretic Priest",
+     "min": 1,
+     "max": 1,
+     "cost": {
+      "amount": 80,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 2,
+     "melee": 2,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "HERETIC"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Price of Greed ACTION",
+       "summary": "Risky roll; on a Success an Injury Roll for an enemy within 12\" in sight, +1 INJURY DICE on a Critical and +1 INJURY DICE for each -1 INJURY MODIFIER it has (which still applies).",
+       "page": 121
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 109
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "bombard-witch",
+     "name": "Bombard Witch",
+     "max": 1,
+     "cost": {
+      "amount": 100,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": -1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "HERETIC"
+      },
+      {
+       "id": "ARTIFICIAL"
+      },
+      {
+       "id": "NEGATE",
+       "value": "FEAR"
+      },
+      {
+       "id": "NEGATE",
+       "value": "GAS"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "gas-bombs"
+     ],
+     "abilities": [
+      {
+       "name": "Abiotic Life",
+       "summary": "-1 INJURY DICE against GAS attacks.",
+       "page": 116
+      },
+      {
+       "name": "Witch Battery",
+       "summary": "Up to 2 if the rest of the warband costs 1,000 ducats or more (not checked by the builder).",
+       "page": 116
+      },
+      {
+       "name": "Levitate",
+       "summary": "No Risky roll to Climb or Jump, and no Injury Roll for Falling.",
+       "page": 116
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "ranged",
+       "grenade"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 116
+     },
+     "status": "verified",
+     "note": "Always has Gas Bombs (no cost).",
+     "naming": "rename"
+    }
+   ],
+   "removeArmoury": [
+    "flamethrower",
+    "heavy-flamethrower",
+    "blasphemous-staff",
+    "hellblade",
+    "frag-grenades",
+    "incendiary-grenades",
+    "incendiary-ammunition",
+    "tormentor-chain"
+   ],
+   "addArmoury": [
+    {
+     "kit": "coin-hammer",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "golden-calf-altar",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "standard-of-greed",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "tarnished-armour",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-pistol",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 3,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-rifle",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-shotgun",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 2,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bolt-action-rifle",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "flamethrower",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "grenade-launcher",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "heavy-flamethrower",
+     "cost": {
+      "amount": 55,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "heavy-shotgun",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 2,
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "pistol",
+     "cost": {
+      "amount": 6,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "semi-automatic-rifle",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "shotgun",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-rifle",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "submachine-gun",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 2,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bayonet",
+     "cost": {
+      "amount": 2,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "stipulations": [
+      "needsBayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "great-hammer-maul",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 12,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "polearm",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sword-axe",
+     "cost": {
+      "amount": 4,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-club",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-knife",
+     "cost": {
+      "amount": 1,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "frag-grenades",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "incendiary-grenades",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "satchel-charge",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 3,
+     "limitPerModel": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "heavy-ballistic-shield",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified",
+     "note": "models wearing Machine Armour only"
+    },
+    {
+     "kit": "trench-shield",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "machine-armour",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified",
+     "note": "the Limit of 1 does not count Mechanized Heavy Infantry"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "standard-armour",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "binoculars",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "combat-helmet",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "field-shrine",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "gas-mask",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "zealots-draught",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "medi-kit",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "mountaineer-kit",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 4,
+     "status": "verified"
+    },
+    {
+     "kit": "musical-instrument",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "shovel",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "troop-flag",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "status": "verified"
+    },
+    {
+     "kit": "battlefield-title",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "book-of-battle-prayers",
+     "cost": {
+      "amount": 7,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "winged-plate",
+     "cost": {
+      "amount": 8,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "status": "verified",
+     "note": "only a model that already has a Battlefield Title or a Knighthood"
+    },
+    {
+     "kit": "field-hospital",
+     "cost": {
+      "amount": 10,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "great-banner-of-the-principality",
+     "cost": {
+      "amount": 12,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "knighthood",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "resurrection-engine",
+     "cost": {
+      "amount": 11,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "rocket-propelled-grenade",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 2,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "salvage-golem",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "smokescreen",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-scope",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "principality",
+     "group": "from-principality",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "flamethrower",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "jezzail",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "musket",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "stipulations": [
+      "bayonetLug"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "pistol",
+     "cost": {
+      "amount": 6,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "shotgun",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "siege-jezzail",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-rifle",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "bayonet",
+     "cost": {
+      "amount": 2,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "stipulations": [
+      "needsBayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "great-hammer-maul",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 12,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "halberd-gun",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "polearm",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sword-axe",
+     "cost": {
+      "amount": 4,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-club",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-knife",
+     "cost": {
+      "amount": 1,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "frag-grenades",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "trench-shield",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "stipulations": [
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "alchemist-armour",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "standard-armour",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "alchemical-ammunition",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "binoculars",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "cloak-of-the-mountain",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "combat-helmet",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "gas-mask",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "holy-relic",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "medi-kit",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "mountaineer-kit",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "musical-instrument",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "shovel",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "status": "verified"
+    },
+    {
+     "kit": "homunculus-bird",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "troop-flag",
+     "cost": {
+      "amount": 1,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "wind-amulet",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "damascus-armour",
+     "cost": {
+      "amount": 5,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "field-hospital",
+     "cost": {
+      "amount": 10,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "kilij",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 2,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "knighthood",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "masterwork-jezzail",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "rocket-propelled-grenade",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 2,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-scope",
+     "cost": {
+      "amount": 2,
+      "currency": "glory"
+     },
+     "from": "sultanate",
+     "group": "from-sultanate",
+     "limit": 2,
+     "status": "verified"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Corrupt Merchants",
+     "summary": "At creation, 1 piece from The Principality armoury and 1 from The Sultanate armoury may be bought, with their stipulations (both armouries are listed, marked as from those factions).",
+     "page": 120
+    },
+    {
+     "name": "Gas Bombs",
+     "summary": "Bombard Witches have Gas Bombs instead of Infernal Bombs.",
+     "page": 120
+    },
+    {
+     "name": "Goetic Warlocks",
+     "summary": "Up to 2 Goetic Warlocks as Mercenaries, the first for 110 ducats (not in the builder yet: Mercenaries are not entered).",
+     "page": 120
+    },
+    {
+     "name": "Infernal Rivalry",
+     "summary": "No Night Commandos.",
+     "page": 120
+    },
+    {
+     "name": "Chosen of Greed",
+     "summary": "Every model except Wretched must cost at least 80 ducats with its battlekit (not checked by the builder).",
+     "page": 120
+    },
+    {
+     "name": "Preserve the Loot",
+     "summary": "No battlekit with (or giving) FIRE or SHRAPNEL; Grenade Launchers swap SHRAPNEL for -1 INJURY DICE, GAS and IGNORE ARMOUR.",
+     "page": 120
+    },
+    {
+     "name": "Price of Greed",
+     "summary": "The Heretic Priest has Price of Greed ACTION instead of Puppet Master.",
+     "page": 120
+    },
+    {
+     "name": "Worship of Greed",
+     "summary": "The Patron is always the Prince of Greed.",
+     "page": 121
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 120
+   },
+   "status": "verified",
+   "naming": "rename",
+   "kitGroups": [
+    {
+     "id": "from-principality",
+     "name": "Corrupt Merchants: The Principality",
+     "limit": 1
+    },
+    {
+     "id": "from-sultanate",
+     "name": "Corrupt Merchants: The Sultanate",
+     "limit": 1
+    }
+   ]
+  },
+  {
+   "id": "naval-raiders",
+   "name": "Naval Raiders",
+   "removeModels": [
+    "assault-beast",
+    "brand-sworn-heavy-infantry",
+    "heretic-trooper",
+    "wretched"
+   ],
+   "addModels": [
+    {
+     "id": "brand-sworn-heavy-infantry",
+     "name": "Brand-Sworn Heavy Infantry",
+     "max": 2,
+     "cost": {
+      "amount": 95,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 1,
+     "armour": -2,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "HERETIC"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "reinforced-armour",
+      "pit-brand"
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 115
+     },
+     "status": "verified",
+     "note": "Always has Reinforced Armour and a Pit Brand; they cannot be removed and the armour is in its Armour Characteristic.",
+     "naming": "rename",
+     "upgrades": [
+      {
+       "id": "unseen-advance",
+       "name": "Unseen Advance",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "keywords": [
+        {
+         "id": "INFILTRATOR"
+        }
+       ],
+       "note": "at most 3 in the warband, counted across all its models (not checked across entries)"
+      }
+     ]
+    },
+    {
+     "id": "heretic-trooper",
+     "name": "Heretic Trooper",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 0,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "HERETIC"
+      }
+     ],
+     "kitAccess": "armoury",
+     "upgrades": [
+      {
+       "id": "legionnaire-ranged",
+       "name": "Legionnaire (Ranged +1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Ranged +1 DICE; not with the Melee Legionnaire upgrade; never more Legionnaires than plain Troopers"
+      },
+      {
+       "id": "legionnaire-melee",
+       "name": "Legionnaire (Melee +1)",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Melee +1 DICE; not with the Ranged Legionnaire upgrade; never more Legionnaires than plain Troopers"
+      },
+      {
+       "id": "unseen-advance",
+       "name": "Unseen Advance",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "keywords": [
+        {
+         "id": "INFILTRATOR"
+        }
+       ],
+       "note": "at most 3 in the warband, counted across all its models (not checked across entries)"
+      }
+     ],
+     "abilities": [
+      {
+       "name": "Heretic Legionnaires",
+       "summary": "A Trooper can become a Legionnaire for +10 ducats, with Ranged or Melee +1 DICE; never more Legionnaires than plain Troopers.",
+       "page": 112
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 112
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "wretched",
+     "name": "Wretched",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": -1,
+     "melee": -1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "HERETIC"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Chattel",
+       "summary": "In a campaign it can be sold for 25 ducats plus half the cost of its battlekit.",
+       "page": 114
+      },
+      {
+       "name": "Dark Blessing",
+       "summary": "When taken Out of Action, the nearest friendly ELITE HERETIC model gains 1 BLESSING MARKER.",
+       "page": 114
+      },
+      {
+       "name": "Law of Hell",
+       "summary": "If it takes an enemy ELITE model Out of Action it goes free: removed from the game and the roster.",
+       "page": 114
+      }
+     ],
+     "kitRules": {
+      "maxCostDucats": 10,
+      "mustHaveWeapon": true
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 114
+     },
+     "status": "verified",
+     "naming": "keep",
+     "upgrades": [
+      {
+       "id": "unseen-advance",
+       "name": "Unseen Advance",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 3,
+       "keywords": [
+        {
+         "id": "INFILTRATOR"
+        }
+       ],
+       "note": "at most 3 in the warband, counted across all its models (not checked across entries)"
+      }
+     ]
+    }
+   ],
+   "addArmoury": [
+    {
+     "kit": "submachine-gun",
+     "cost": {
+      "amount": 25,
+      "currency": "ducats"
+     },
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Close Assault Weapons",
+     "summary": "Submachine Guns cost 25 ducats.",
+     "page": 124
+    },
+    {
+     "name": "Fast as Lightning",
+     "summary": "+1 DICE to the Risky roll for a Dash ACTION.",
+     "page": 124
+    },
+    {
+     "name": "Let Sleeping Dogs Lie",
+     "summary": "No Assault Beast.",
+     "page": 124
+    },
+    {
+     "name": "Light Troops",
+     "summary": "At most 2 Brand-Sworn Heavy Infantry and 1 Bombard Witch.",
+     "page": 124
+    },
+    {
+     "name": "Unseen Advance",
+     "summary": "Up to 3 models without ELITE can have INFILTRATOR for +10 ducats each.",
+     "page": 124
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 124
+   },
+   "status": "verified",
+   "naming": "keep"
+  }
+ ],
+ "source": {
+  "book": "Warbands of Trench Crusade",
+  "version": "1.0.2",
+  "page": 104
+ },
+ "status": "verified",
+ "naming": "rename",
+ "kitGroups": [
+  {
+   "id": "dog-training",
+   "name": "Trench Dog training",
+   "limitPerModel": 1,
+   "note": "one Special Training per Trench Dog (core rulebook p. 142)"
+  }
+ ]
+}
