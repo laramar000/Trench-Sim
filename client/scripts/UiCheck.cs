@@ -1219,6 +1219,12 @@ public partial class UiCheck : Node
                     && Near(new TablePoint(g.To.X, g.To.Y), shape.X, shape.Y) && Near(new TablePoint(g.From.X, g.From.Y), preview.Path[0].At.X, preview.Path[0].At.Y)
                     && g.Seconds is >= BoardView.GlideMinSeconds and <= BoardView.GlideMaxSeconds && !board.Gliding && drawn is { } d && Near(new TablePoint(d.X, d.Y), shape.X, shape.Y),
                     $"glides {glides} -> {board.GlidesStarted}; last {last}; drawn at {drawn}; server ({shape.X}, {shape.Y})");
+                if (_role == "gvt-a")
+                {
+                    await AnimationResilienceCheck(board);
+                    await CasualtyResilienceCheck(board);
+                    await BlastEffectsCheck(board);
+                }
                 // Performance: the move redrew the models that changed, not the terrain; every model is drawn where the
                 // server has it, and an enemy that did not change kept the nodes it was drawn with.
                 var drawnScene = board.Scene!;
@@ -2618,6 +2624,9 @@ public partial class UiCheck : Node
                 case "effects":
                     await DevEffects(board);
                     break;
+                case "anims":
+                    await DevAnimations(board);
+                    break;
                 case "theme":
                     UiThemeCheck();
                     break;
@@ -2630,6 +2639,101 @@ public partial class UiCheck : Node
                     break;
             }
         }
+    }
+
+    // Dev only (TRENCH_DEV=deploy,anims; never in the checks): pictures of the animations mid-way, taken on plain frames
+    // (Frames waits for animations to end). For three figures of very different heights (the art catalog swapped so every
+    // model is drawn with one figure), a fall at 50%, 85% and 97% beside the lying drawing it hands over to, and an
+    // Out of Action figure lying, half sunk and 90% gone; then, with the real figures, three explosions with marker bursts
+    // at 10% and 50%, and a charge leaning in. Every beat is made up (PlayForCheck) and stretched to 20 s so a slow
+    // software frame cannot move it on; nothing is sent.
+    private async Task DevAnimations(BoardView board)
+    {
+        if (board.Scene?.Models is not { Count: > 1 } models)
+        {
+            return;
+        }
+        async Task Step(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+        async Task Snap(string name)
+        {
+            await Step(3);
+            var path = System.IO.Path.Combine(_out, $"{++_shots:00}-anim-{name}.png");
+            GetViewport().GetTexture().GetImage().SavePng(path);
+            Write($"SHOT {path}");
+        }
+        var model = models[0];
+        var other = models.FirstOrDefault(m => m.Seat != model.Seat) ?? models[1];
+        var real = board.Visuals.Catalog;
+        board.Select(null);
+        var types = models.Select(m => m.Type).OfType<string>().Distinct().ToList();
+        foreach (var (name, file, height) in new[] { ("short", "units/wretched.glb", 1.11), ("mid", "units/holy-warrior.glb", 1.62), ("tall", "units/reliquary-walker.glb", 2.71) })
+        {
+            var entry = $"{{ \"file\": \"{file}\", \"height\": {height.ToString(System.Globalization.CultureInfo.InvariantCulture)} }}";
+            var json = "{ \"entries\": { \"unit:default\": " + entry + string.Concat(types.Select(t => $", \"unit:{t}\": {entry}")) + " } }";
+            if (VisualCatalog.TryParse(json, out var problem) is not { } catalog)
+            {
+                Write($"DEV anims catalog refused: {problem}");
+                continue;
+            }
+            board.UseArt(catalog);
+            board.CentreOn(model.Id, 4f + (float)height * 2);
+            await Frames(10);
+            await Snap($"{name}-standing");
+            foreach (var t in new[] { 0.5, 0.85, 0.97 })
+            {
+                board.PlayForCheck(new Choreography([], [new Beat(0, BeatKind.Fall, -t * 20, 20, model.Id, other.Id)]));
+                await Snap($"{name}-fall-{(int)(t * 100)}");
+                board.FinishAnimations();
+                await Step(2);
+            }
+            board.ShowStatusForPicture(model.Id, Rules.Core.State.ModelStatus.Down);
+            await Snap($"{name}-lying-drawn");
+            board.ShowStatusForPicture(model.Id, null);
+            // The Out of Action figure: its fall is 45% of the beat, the sink the rest.
+            board.HideForPicture(model.Id, true);
+            var fall = 20 * Choreography.FallSeconds / (Choreography.FallSeconds + Choreography.SinkSeconds);
+            foreach (var (label, at) in new[] { ("lying", fall * 0.999), ("half", fall + (20 - fall) * 0.5), ("ninety", fall + (20 - fall) * 0.9) })
+            {
+                board.PlayForCheck(new Choreography([], [new Beat(0, BeatKind.Casualty, -at, 20, model.Id, other.Id, Hit: true)]));
+                await Snap($"{name}-casualty-{label}");
+                board.FinishAnimations();
+                await Step(2);
+            }
+            board.HideForPicture(model.Id, false);
+        }
+        board.UseArt(real);
+        board.CentreOn(model.Id, 9);
+        await Frames(10);
+        TablePoint Near(double dx, double dy) => new(model.X + dx, model.Y + dy);
+        foreach (var t in new[] { 0.1, 0.5 })
+        {
+            board.PlayForCheck(new Choreography([],
+            [
+                new Beat(0, BeatKind.Explosion, -t * 9, 9, model.Id, At: Near(1.5, 0), Size: 2),
+                new Beat(0, BeatKind.Explosion, -t * 9 + 1.35, 9, model.Id, At: Near(-1.5, 1), Size: 2),
+                new Beat(0, BeatKind.MartyrBlast, -t * 9 + 2.7, 9, model.Id, At: Near(0, -2), Size: 3),
+                new Beat(0, BeatKind.Gas, -t * 12, 12, models[1].Id),
+                new Beat(0, BeatKind.Fire, -t * 7, 7, model.Id),
+            ]));
+            await Snap($"blasts-{(int)(t * 100)}");
+            board.FinishAnimations();
+            await Step(4);
+        }
+        board.PlayForCheck(new Choreography([],
+        [
+            new Beat(0, BeatKind.Glide, -10, 20, model.Id, Motion: new Motion(model.Id, [new TablePoint(model.X, model.Y)]), From: Near(-3, 0)),
+            new Beat(0, BeatKind.Lean, -10, 20, model.Id, other.Id),
+        ]));
+        await Snap("charge-lean");
+        board.FinishAnimations();
+        await Step(2);
+        Write("DEV anims done");
     }
 
     // Dev only: both seats deploy every model and answer who activates first (hints and placements, following the turn),
@@ -2855,8 +2959,7 @@ public partial class UiCheck : Node
             $"before F2: {shown}; after: {switched}; {Label("Match code ")?.Text}");
         await Frames(30);
         Check("hotseat-f2-kept", HotControlled() == switched, $"after 30 frames: {HotControlled()}");
-        await KeyPress(Key.F2);
-        await Frames(5);
+        await SwitchMidShotStep();
 
         await HotSeatFullMatch();
 
@@ -3065,6 +3168,43 @@ public partial class UiCheck : Node
         }
     }
 
+    // Audit item B1 (2026-11-21): a change of the seat shown while a shot is playing lets it play on. A made-up shot (seq 0,
+    // so no counter of real events moves) between two models on the table starts 0.5 s from now; F2 then switches the
+    // seat at once through HotSeat.Switch and Main's redraw, the same path a switch following the turn takes. The shot
+    // must be playing at the switch, play every beat on its time (flash, tracer, hit), draw its tracer, be cut short by
+    // nobody, and leave the battlefield still. Before B1 the switch showed it at once.
+    private async Task SwitchMidShotStep()
+    {
+        var shown = HotControlled();
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        if (board?.Scene?.Models is not { Count: > 1 } models)
+        {
+            Check("hotseat-switch-keeps-playback", false, "no battlefield with two models to shoot between");
+            return;
+        }
+        var (a, b) = (models[0], models[1]);
+        var shot = new LogLine(0, "", null, Models: [a.Id, b.Id])
+        {
+            Effects = [new(EffectKind.MuzzleFlash, a.Id), new(EffectKind.HitPuff, b.Id)],
+        };
+        var plan = Choreography.Of([shot], id => id == a.Id ? new TablePoint(a.X, a.Y) : id == b.Id ? new TablePoint(b.X, b.Y) : null);
+        var switches = board.SeatSwitches.Count;
+        var tracers = board.TracersDrawn;
+        // Beats only (no line for the dice tray), 0.5 s from now, so the shot is surely still to play at the switch.
+        board.PlayForCheck(new Choreography([], [.. plan.Beats.Select(beat => beat with { Start = beat.Start + 0.5 })]));
+        Input.ParseInputEvent(new InputEventKey { Keycode = Key.F2, PhysicalKeycode = Key.F2, Pressed = true });
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        Input.ParseInputEvent(new InputEventKey { Keycode = Key.F2, PhysicalKeycode = Key.F2, Pressed = false });
+        await Until(() => !board.Gliding && HotControlled() != shown ? "still" : null, 8, "switch-mid-shot");
+        var record = board.SeatSwitches.Count > switches ? board.SeatSwitches[^1] : null;
+        Check("hotseat-switch-keeps-playback", record is { PlayingBefore: true, CutBy: null, AtOnce: 0, Done: true } && record.Drawn >= 3
+            && record.Kinds.Contains(BeatKind.Tracer) && board.TracersDrawn == tracers + 1 && HotControlled() != shown,
+            record is null ? $"no change of the seat shown after F2 ({shown} -> {HotControlled()})"
+            : $"{record.From} -> {record.To} by F2 with a made-up shot {(record.PlayingBefore ? "playing" : "not playing")}: {record.Drawn} beats drawn on their time, "
+            + $"{record.AtOnce} shown at once, [{string.Join(" ", record.Kinds.Order())}], tracers drawn {board.TracersDrawn - tracers}, "
+            + $"{(record.CutBy is { } cut ? $"cut short by {cut}" : "cut short by nobody")}, {(record.Done ? "still afterwards" : "never still")}");
+    }
+
     // Stage N5: the whole match in this one window, both seats, following the turn: every choice by a mouse click on
     // the decision card or in the Menu, placements by clicks on the battlefield, until MATCH ENDED. The runner checks the
     // server's record with trench-cli verify.
@@ -3138,6 +3278,10 @@ public partial class UiCheck : Node
         var ended = Lines(LogText()).LastOrDefault(l => l.Contains("MATCH ENDED", StringComparison.Ordinal)) ?? "";
         Check("hotseat-full-match", MatchOver() && ended.Length > 0,
             $"{(ended.Length > 0 ? ended : "no MATCH ENDED")}; {actions} clicks and placements by both seats in this window; {Lines(LogText()).Count} events{(refusals.Count == 0 ? "" : "; " + string.Join(" | ", refusals))}");
+        if (Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } timed)
+        {
+            FrameTimeCheck(timed);
+        }
         // The final state hash this window shows, for the runner to compare with the server's signed record.
         var result = MatchOver() ? await Until(() => Section("RESULT OF THE MATCH") is { Length: > 0 } r ? r : null, 30, "hotseat-result") ?? "" : "";
         var hash = result.Split('\n').FirstOrDefault(l => l.StartsWith("Final state hash: ", StringComparison.Ordinal))?[18..] is { Length: 64 } h && h.All(char.IsAsciiHexDigitLower) ? h : null;
@@ -3154,6 +3298,36 @@ public partial class UiCheck : Node
             + (_bannerProblems.Count == 0 ? "" : "; " + string.Join(" | ", _bannerProblems)));
         Check("hotseat-bar-seat-letter", _barSeatSamples > 0 && _barSeatProblems.Count == 0,
             $"{_barSeatSamples} looks at the action bar, each starting with the shown seat's letter" + (_barSeatProblems.Count == 0 ? "" : ": " + string.Join(" | ", _barSeatProblems)));
+    }
+
+    // Audit item B1 (2026-11-21, group abilities: its two hot-seat matches shoot, throw, charge and fight; the hotseat
+    // group's match only ends activations): a change of the seat shown no longer cuts playback short. Over both matches, every
+    // switch Main made because the seat follows the turn (HotSeat.FollowIfNeeded) while the battlefield was playing, or
+    // with the update that caused it playing, must play on to its end: no FinishAnimations meanwhile, no beat shown at
+    // once, the battlefield still again afterwards. At least one such switch must have played an action (a shot, blow,
+    // throw, charge or move) after the switch, so the check is about an action that just happened.
+    private static readonly HashSet<BeatKind> ActionBeats =
+    [
+        BeatKind.MuzzleFlash, BeatKind.Tracer, BeatKind.HitPuff, BeatKind.DirtPuff, BeatKind.Lob, BeatKind.Strike,
+        BeatKind.Impact, BeatKind.Lunge, BeatKind.Lean, BeatKind.Glide,
+    ];
+
+    private async Task SwitchPlaybackCheck(BoardView board)
+    {
+        await Until(() => board.Gliding ? null : "still", 8, "switch-playback-end");
+        var followed = board.SeatSwitches.Where(s => s.Followed).ToList();
+        var playing = followed.Where(s => s.PlayingBefore || s.PlayingAfter).ToList();
+        var actions = playing.Where(s => s.Kinds.Overlaps(ActionBeats) && s.Drawn > 0).ToList();
+        var bad = playing.Where(s => s.CutBy is not null || s.AtOnce > 0 || !s.Done).ToList();
+        string Describe(BoardView.SeatSwitch s) =>
+            $"#{s.Seq} {s.From}->{s.To}{(s.PlayingBefore ? " playing before" : "")}{(s.PlayingAfter ? " playing after" : "")}: {s.Drawn} beats drawn, "
+            + $"{s.AtOnce} at once, [{string.Join(" ", s.Kinds.Order())}]{(s.CutBy is { } cut ? $", cut by {cut}" : "")}{(s.Done ? "" : ", never still")}";
+        Write($"MARK seat-switches {board.SeatSwitches.Count} ({followed.Count} following the turn); animation {board.Animation}, effect lines {board.EffectLines.Count(e => !e.Replayed)} live "
+            + $"{board.EffectLines.Count(e => e.Replayed)} caught up, skipped {board.Skipped.Count}, glides {board.GlidesStarted}, tracer beats {board.TracerBeats}: {string.Join(" | ", playing.Select(Describe))}");
+        Check("abilities-switch-keeps-playback", actions.Count > 0 && bad.Count == 0,
+            $"{followed.Count} switches following the turn, {playing.Count} while playing, {actions.Count} playing an action after the switch, "
+            + $"{bad.Count} cut short" + (bad.Count == 0 ? "" : ": " + string.Join(" | ", bad.Take(4).Select(Describe)))
+            + (actions.Count == 0 ? "" : "; e.g. " + string.Join(" | ", actions.Take(3).Select(Describe))));
     }
 
     // ---- The owner's checklist of 2026-11-02 (group "abilities", docs/manual-test-checklist.md) ----
@@ -3215,10 +3389,18 @@ public partial class UiCheck : Node
                 await KeyPress(Key.Escape);
             }
             ended.Add(await AbilitiesMatch(label));
+            if (Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree()) is { } still)
+            {
+                await Until(() => still.Gliding ? null : "still", 8, $"abilities-{label}-still");
+            }
             await Press(ButtonNamed("Leave"), Key.Enter, null);
             await Until(() => main.ScreenShown == "menu" ? "ok" : null, 20, $"abilities-{label}-left");
         }
         AbilityChecks(ended);
+        if (Controls<BoardView>().FirstOrDefault() is { } played)
+        {
+            await SwitchPlaybackCheck(played);
+        }
     }
 
     // Saved rosters for the two matches; every one is legal and fully playable (MatchReadinessTests and the probe that
@@ -3281,6 +3463,12 @@ public partial class UiCheck : Node
             await Frames(3);
             ReadAbilityLog(main);
             var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+            // Audit item B1: after a change of the seat shown, watch what the battlefield plays to its end before acting,
+            // as a player would (a command sent would show the rest at once, rightly).
+            if (board is { Gliding: true } && board.SeatSwitches.Count > 0 && !board.SeatSwitches[^1].Done)
+            {
+                await Until(() => board.Gliding ? null : "still", 8, "abilities-switch-playback");
+            }
             var state = main.ServerState;
             var seat = HotControlled();
             if (board is not null && board.Interaction.Available.Contains(InteractionMode.Place) && board.Interaction.Pending is null)
@@ -3732,6 +3920,11 @@ public partial class UiCheck : Node
     private void AbilityChecks(List<string> ended)
     {
         Check("abilities-rosters-play-to-the-end", ended.Count == 2 && ended.All(e => e.Length > 0), string.Join(" | ", ended));
+        // Animation stage A4: these rosters throw grenades and fire BLAST guns.
+        if (Controls<BoardView>().FirstOrDefault() is { } fxBoard)
+        {
+            BlastSequenceCheck(fxBoard);
+        }
         var keys = AbilityKeys.Select(k => (k.Mode, k.Key, Result: _abilityKeyResults.TryGetValue(k.Mode, out var r) ? r : "never offered")).ToList();
         Check("abilities-action-keys", keys.All(k => k.Result == ""), string.Join("; ", keys.Select(k => $"{k.Key} {k.Mode}: {(k.Result == "" ? "ok" : k.Result)}")));
         // A Treat needs a friend with a BLOOD MARKER or Down within 1": when the dice gave none, Treat is NOT TESTED, not
@@ -5525,6 +5718,20 @@ public partial class UiCheck : Node
             }
         }
         EffectEndCheck(board);
+        if (_role == "gvt-a")
+        {
+            FrameTimeCheck(board);
+            ShotSequenceCheck(board);
+        }
+        if (_role == "pvp-a")
+        {
+            MeleeSequenceCheck(board);
+        }
+        if (_role is "pvp-a" or "gvt-a")
+        {
+            CasualtySequenceCheck(board);
+            BlastSequenceCheck(board);
+        }
         var twice = shown.GroupBy(r => r.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
         var compared = shown.Count(r => logged.ContainsKey(r.Seq));
         Check("pvp-dice-shown-once-as-logged", shown.Count > 0 && compared > 0 && problems.Count == 0 && twice.Count == 0,
@@ -5537,6 +5744,378 @@ public partial class UiCheck : Node
         {
             Check("pvp-dice-stacked", _diceStacks.All(s => s.EndsWith("in order", StringComparison.Ordinal)), string.Join(" / ", _diceStacks.Distinct().Take(6)));
         }
+    }
+
+    // Animation stage A1 (board-animation-resilience): a made-up update played through the battlefield (PlayForCheck; never
+    // in play): one of this window's models glides 3" back to where the server has it (over 20 s), turning and leaning (stage
+    // A2), while it shoots an enemy, which is
+    // hit and flinches. While it plays, the model is drawn off its spot; selecting it redraws its nodes and pointing at it
+    // marks it, and either way it stays where the glide has it, still leaning; once finished it faces the target, upright, and keeps that
+    // facing when drawn again; the terrain and a model the update does not touch keep their nodes; the tracer is drawn. Finishing
+    // at once (as a command sent does) puts both back on the server's positions with nothing left playing, and with
+    // Animations Off the same shot plays nothing. Nothing is sent and the server's state is never touched.
+    private async Task AnimationResilienceCheck(BoardView board)
+    {
+        // Start from a quiet battlefield in this window's own activation (the server sends nothing until it is asked). The
+        // made-up update lasts 20 s, so a slow software-rendered frame (0.7 s seen on Linux) cannot end it before the
+        // check looks; the check ends it itself with FinishAnimations. Anything that cut it short is named in the detail.
+        await Until(() => !board.Gliding ? "idle" : null, 5, "check-idle");
+        if (board.Scene is not { } scene || scene.Models.FirstOrDefault(m => m.Yours) is not { } mover
+            || scene.Models.FirstOrDefault(m => !m.Yours) is not { } target)
+        {
+            Check("board-animation-resilience", false, "no model of each seat on the battlefield");
+            return;
+        }
+        var selected = board.Selected?.Id;
+        var far = scene.Models.Where(m => m.Id != mover.Id && m.Id != target.Id && m.Id != selected)
+            .OrderByDescending(m => Math.Abs(m.X - mover.X) + Math.Abs(m.Y - mover.Y)).FirstOrDefault();
+        if (far is null)
+        {
+            Check("board-animation-resilience", false, "no third model to keep its nodes");
+            return;
+        }
+        // Plain frames: Frames and Until wait for the battlefield to stop animating, which this check must not do.
+        async Task Step(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+        float Off(Rules.Core.State.ModelId id, ModelShape at) => board.DrawnAt(id) is { } d ? new Vector2((float)at.X, (float)at.Y).DistanceTo(d) : -1;
+        var terrain = board.TerrainBuilds;
+        var farNodes = board.NodeIdsOf(far.Id).ToList();
+        var tracers = board.TracersDrawn;
+        var flinches = board.FlinchesStarted;
+        var plan = new Choreography([],
+        [
+            new Beat(0, BeatKind.Glide, 0, 20.0, mover.Id, Motion: new Motion(mover.Id, [new TablePoint(mover.X, mover.Y)]), From: new TablePoint(mover.X + 3, mover.Y)),
+            new Beat(0, BeatKind.MuzzleFlash, 0, Choreography.FlashSeconds, mover.Id, target.Id, Hit: true),
+            new Beat(0, BeatKind.Tracer, Choreography.TracerDelay, Choreography.TracerSeconds, mover.Id, target.Id, Hit: true),
+            new Beat(0, BeatKind.HitPuff, Choreography.ImpactAt, Choreography.HitPuffSeconds, target.Id, mover.Id, Hit: true),
+            new Beat(0, BeatKind.Flinch, Choreography.ImpactAt, 20.0, target.Id, mover.Id, Hit: true),
+            // Stage A2: it turns to face the target (over 20 s) and leans forward: a 20 s lean started 6 s before, so it is
+            // fully tilted from the first frame (eased in over its first 30%) until 9 s from now, at any frame rate.
+            new Beat(0, BeatKind.Turn, 0, 20.0, mover.Id, target.Id, Hit: true),
+            new Beat(0, BeatKind.Lean, -6.0, 20.0, mover.Id, target.Id, Hit: true),
+        ]);
+        var wantedYaw = Mathf.Atan2((float)(target.X - mover.X), (float)(target.Y - mover.Y));
+        static float AngleGap(float a, float b) => Math.Abs(Mathf.Wrap(a - b, -Mathf.Pi, Mathf.Pi));
+        var finishedBefore = board.FinishedEarly.Count;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        board.PlayForCheck(plan);
+        var playingAtOnce = board.Gliding;
+        await Step(1);
+        var firstLook = clock.ElapsedMilliseconds;
+        var cutBy = string.Join(",", board.FinishedEarly.Skip(finishedBefore));
+        var awayBefore = Off(mover.Id, mover);
+        var moverNodes = board.NodeIdsOf(mover.Id).ToList();
+        board.Select(selected == mover.Id ? null : mover.Id);
+        await Step(1);
+        var redrawn = !board.NodeIdsOf(mover.Id).SequenceEqual(moverNodes);
+        var awayAfter = Off(mover.Id, mover);
+        var leanAfterSelect = board.FacingOf(mover.Id)?.Lean ?? 0;
+        // Pointing at it (hovered: a ring and a larger id, not a redraw) keeps its glide and lean.
+        var filter = board.MouseFilter;
+        board.MouseFilter = Control.MouseFilterEnum.Stop;
+        var hoverNodes = board.NodeIdsOf(mover.Id).ToList();
+        var hovered = false;
+        if (board.ScreenOf(mover.X, mover.Y, mover.Standing + 0.6) is { } local)
+        {
+            var global = board.GetGlobalTransformWithCanvas() * local;
+            for (var i = 0; i < 30 && board.Hovered?.Id != mover.Id; i++)
+            {
+                Input.ParseInputEvent(new InputEventMouseMotion { Position = global, GlobalPosition = global });
+                await Step(1);
+            }
+            await Step(1);
+            hovered = board.Hovered?.Id == mover.Id;
+        }
+        var hoverRedrawn = !board.NodeIdsOf(mover.Id).SequenceEqual(hoverNodes);
+        var awayHovered = Off(mover.Id, mover);
+        var leanHovered = board.FacingOf(mover.Id)?.Lean ?? 0;
+        board.MouseFilter = filter;
+        for (var i = 0; i < 60 && !(board.TracersDrawn > tracers && board.FlinchesStarted > flinches); i++)
+        {
+            await Step(1);
+        }
+        var tracerDrawn = board.TracersDrawn > tracers && board.FlinchesStarted > flinches;
+        var farKept = board.NodeIdsOf(far.Id).SequenceEqual(farNodes) && farNodes.Count > 0;
+        var terrainKept = board.TerrainBuilds == terrain;
+        var playing = board.Gliding;
+        board.FinishAnimations();
+        await Step(1);
+        var moverRest = Off(mover.Id, mover);
+        var targetRest = Off(target.Id, target);
+        // Finished: it faces the target, upright; drawn again (selected), it still faces the target.
+        var faced = board.FacingOf(mover.Id);
+        var facingNodes = board.NodeIdsOf(mover.Id).ToList();
+        board.Select(board.Selected?.Id == mover.Id ? target.Id : mover.Id);
+        await Step(1);
+        var facedAgain = board.FacingOf(mover.Id);
+        var facingKept = !board.NodeIdsOf(mover.Id).SequenceEqual(facingNodes) && faced is { } f && facedAgain is { } g
+            && AngleGap(f.Yaw, wantedYaw) < 0.02f && AngleGap(f.Wanted, wantedYaw) < 0.02f && Math.Abs(f.Lean) < 0.001f
+            && AngleGap(g.Yaw, wantedYaw) < 0.02f && Math.Abs(g.Lean) < 0.001f;
+        var finished = !board.Gliding && moverRest is >= 0 and < 0.01f && targetRest is >= 0 and < 0.01f;
+        var speed = board.Animation;
+        board.Animation = AnimationSpeed.Off;
+        var offTracers = board.TracersDrawn;
+        var shot = new LogLine(0, "", null, Models: [mover.Id, target.Id]) { Effects = [new(EffectKind.MuzzleFlash, mover.Id), new(EffectKind.HitPuff, target.Id)] };
+        board.PlayForCheck(Choreography.Of([shot], _ => null, board.Animation));
+        await Step(2);
+        var offQuiet = !board.Gliding && board.TracersDrawn == offTracers;
+        board.Animation = speed;
+        board.Select(selected);
+        await Frames(1);
+        Check("board-animation-resilience", awayBefore > 0.5f && redrawn && awayAfter > 0.3f && leanAfterSelect > 0.1f
+            && hovered && awayHovered > 0.3f && leanHovered > 0.1f && facingKept && tracerDrawn && cutBy.Length == 0 && farKept && terrainKept && playing && finished && offQuiet,
+            $"{mover.Id.Value} drawn {awayBefore:0.00}\" off its spot; selected: nodes redrawn {redrawn}, still {awayAfter:0.00}\" off, leaning {leanAfterSelect:0.000} rad; "
+            + $"hovered {hovered}: nodes redrawn {hoverRedrawn}, still {awayHovered:0.00}\" off, leaning {leanHovered:0.000} rad; finished facing {faced} (wanted yaw {wantedYaw:0.000}), drawn again {facedAgain}: kept {facingKept}; tracer and flinch drawn {tracerDrawn}; "
+            + $"{far.Id.Value} kept its nodes {farKept}; terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}; finished at once: {moverRest:0.000}\" and {targetRest:0.000}\" "
+            + $"from the server's spots, still playing {board.Gliding}; Off plays nothing {offQuiet}; playing right after PlayForCheck {playingAtOnce}, cut short by [{cutBy}], first look after {firstLook} ms");
+    }
+
+    // Animation stage A2 (board-melee-sequence, optional: only when the match had blows in melee): every blow this window
+    // saw live came due as a strike once (drawn, or shown at once when a command was sent meanwhile), there was at least a
+    // lunge per blow (charges that reach add theirs), attackers turned to their targets, and nothing is still playing.
+    private void MeleeSequenceCheck(BoardView board)
+    {
+        var blows = board.EffectLines.Count(l => !l.Replayed && l.Count == 1);
+        if (blows == 0)
+        {
+            return;
+        }
+        Check("board-melee-sequence", board.StrikeBeats == blows && board.LungesStarted >= blows && board.TurnsStarted > 0 && !board.Gliding,
+            $"{blows} blows seen live, {board.StrikeBeats} strikes, {board.LungesStarted} lunges, {board.TurnsStarted} turns, {board.LeansStarted} charge leans, "
+            + $"{board.ImpactBeats} charge impacts, {board.FlinchesStarted} flinches; still playing: {board.Gliding}");
+    }
+
+    // Animation stage A3 (board-casualty-resilience): a made-up update played through the battlefield (PlayForCheck; never
+    // in play; nothing is sent and the server's state is never touched). One of this window's models falls (a 20 s fall
+    // already 70% through), an enemy rises (half way), and another enemy is drawn as an Out of Action figure going. While it
+    // plays, the falling and rising figures are tipped and the casualty figure shows; selecting the faller redraws its
+    // nodes and it stays tipped; the terrain and an untouched model keep their nodes. Finishing at once (as a command sent
+    // does) puts both upright (the server has them standing), frees the casualty figure and holds no model standing, and
+    // with Animations Off the same fall plays nothing.
+    private async Task CasualtyResilienceCheck(BoardView board)
+    {
+        await Until(() => !board.Gliding ? "idle" : null, 5, "casualty-idle");
+        async Task Step(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+        var standing = board.Scene?.Models.Where(m => m.Status == Rules.Core.State.ModelStatus.Standing).ToList() ?? [];
+        var faller = standing.FirstOrDefault(m => m.Yours);
+        var enemies = standing.Where(m => !m.Yours).ToList();
+        if (faller is null || enemies.Count < 2)
+        {
+            Check("board-casualty-resilience", false, $"needs a standing model of this window and two standing enemies: {standing.Count} standing");
+            return;
+        }
+        var riser = enemies[0];
+        var casualty = enemies[1];
+        var selected = board.Selected?.Id;
+        var untouched = board.Scene!.Models.FirstOrDefault(m => m.Id != faller.Id && m.Id != riser.Id && m.Id != casualty.Id && m.Id != selected);
+        var untouchedNodes = untouched is null ? [] : board.NodeIdsOf(untouched.Id).ToList();
+        var terrain = board.TerrainBuilds;
+        var finishedBefore = board.FinishedEarly.Count;
+        var plan = new Choreography([],
+        [
+            new Beat(0, BeatKind.Fall, -14.0, 20.0, faller.Id, riser.Id),
+            new Beat(0, BeatKind.Rise, -10.0, 20.0, riser.Id),
+            new Beat(0, BeatKind.Casualty, 0, 20.0, casualty.Id, faller.Id, Hit: true),
+        ]);
+        board.PlayForCheck(plan);
+        await Step(1);
+        var fallTilt = board.TiltOf(faller.Id)?.Tilt ?? -1;
+        var riseTilt = board.TiltOf(riser.Id)?.Tilt ?? -1;
+        var ghosts = board.CasualtyNodes;
+        var fallerNodes = board.NodeIdsOf(faller.Id).ToList();
+        board.Select(selected == faller.Id ? riser.Id : faller.Id);
+        await Step(1);
+        var redrawn = !board.NodeIdsOf(faller.Id).SequenceEqual(fallerNodes);
+        var fallTiltAfter = board.TiltOf(faller.Id)?.Tilt ?? -1;
+        var untouchedKept = untouched is null || board.NodeIdsOf(untouched.Id).SequenceEqual(untouchedNodes);
+        var terrainKept = board.TerrainBuilds == terrain;
+        var playing = board.Gliding;
+        var cutBy = string.Join(",", board.FinishedEarly.Skip(finishedBefore));
+        board.FinishAnimations();
+        await Step(1);
+        var fallerAfter = board.TiltOf(faller.Id);
+        var riserAfter = board.TiltOf(riser.Id);
+        var upright = fallerAfter is { } fa && riserAfter is { } ra && fa.Tilt < 0.01f && ra.Tilt < 0.01f && Math.Abs(fa.Scale - 1) < 0.01f && Math.Abs(ra.Scale - 1) < 0.01f;
+        var cleaned = board.CasualtyNodes == 0 && board.GhostsShowing == 0 && board.HeldStanding == 0 && !board.Gliding;
+        // Stage A5: half way through its sink the casualty figure is half faded (its own material copies: the shader's
+        // dither and the paints' alpha), and the model it was copied from is still drawn whole.
+        var fallPart = 20 * Choreography.FallSeconds / (Choreography.FallSeconds + Choreography.SinkSeconds);
+        board.PlayForCheck(new Choreography([], [new Beat(0, BeatKind.Casualty, -(fallPart + (20 - fallPart) / 2), 20, casualty.Id, faller.Id, Hit: true)]));
+        await Step(1);
+        var look = board.CasualtyLook;
+        var sourceFade = board.FigureFade(casualty.Id);
+        var fadesOk = look is { } lk && lk.Fade is > 0.3f and < 0.7f && lk.Alpha is > 0.3f and < 0.7f && sourceFade is null or 1f;
+        board.FinishAnimations();
+        await Step(1);
+        fadesOk &= board.CasualtyNodes == 0;
+        var speed = board.Animation;
+        board.Animation = AnimationSpeed.Off;
+        var down = new LogLine(0, "", null, Models: [riser.Id, faller.Id])
+        {
+            Changes = [new StatusChange(faller.Id, Rules.Core.State.ModelStatus.Standing, Rules.Core.State.ModelStatus.Down)],
+        };
+        board.PlayForCheck(Choreography.Of([down], _ => null, board.Animation));
+        await Step(2);
+        var offQuiet = !board.Gliding && board.TiltOf(faller.Id) is { Tilt: < 0.01f } && board.CasualtyNodes == 0;
+        board.Animation = speed;
+        board.Select(selected);
+        await Frames(1);
+        Check("board-casualty-resilience", fallTilt is > 0.3f and < 1.5f && riseTilt is > 0.1f and < 1.5f && ghosts == 1 && redrawn && fallTiltAfter > 0.3f
+            && untouchedKept && terrainKept && playing && cutBy.Length == 0 && upright && cleaned && fadesOk && offQuiet,
+            $"{faller.Id.Value} falling, tipped {fallTilt:0.00} rad; {riser.Id.Value} rising, tipped {riseTilt:0.00} rad; casualty figures {ghosts}; "
+            + $"selected: nodes redrawn {redrawn}, still tipped {fallTiltAfter:0.00} rad; {untouched?.Id.Value ?? "no other model"} kept its nodes {untouchedKept}; "
+            + $"terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}, cut short by [{cutBy}]; finished at once: {faller.Id.Value} {fallerAfter}, "
+            + $"{riser.Id.Value} {riserAfter}, upright {upright}; casualty figures left {board.CasualtyNodes}, held standing {board.HeldStanding}, still playing {board.Gliding}; "
+            + $"half sunk: casualty figure fade {look}, its model's own figure fade {sourceFade}: {fadesOk}; Off plays nothing {offQuiet}");
+    }
+
+    // Animation stage A3 (board-casualty-sequence, optional: only when the match took models Down, stood them up or put
+    // them Out of Action while this window watched): every such change seen live started its fall, rise or going figure,
+    // and at the end no casualty figure is left and no model is still drawn standing until its fall.
+    private void CasualtySequenceCheck(BoardView board)
+    {
+        var changes = board.StatusLines.Where(l => !l.Replayed).Sum(l => l.Count);
+        if (changes == 0)
+        {
+            return;
+        }
+        var started = board.FallsStarted + board.RisesStarted + board.CasualtiesStarted;
+        Check("board-casualty-sequence", started == changes && board.CasualtyNodes == 0 && board.GhostsShowing == 0 && board.HeldStanding == 0 && !board.Gliding,
+            $"{changes} status changes seen live; {board.FallsStarted} falls, {board.RisesStarted} rises, {board.CasualtiesStarted} going figures "
+            + $"({board.GhostsFreed} freed); casualty figures left {board.CasualtyNodes}, held standing {board.HeldStanding}, still playing {board.Gliding}");
+    }
+
+    // Animation stage A4 (board-blast-effects): a made-up update played through the battlefield (PlayForCheck; never in
+    // play; nothing is sent and the server's state is never touched): one of this window's models lobs a grenade at an
+    // enemy, a weapon's blast, a mine and a Martyrdom Device go off at three points between them, an attack scatters from
+    // the first point to the second with dust where it fell, and the enemy gets SHRAPNEL, GAS and FIRE bursts (each over
+    // 20 s, so a slow frame cannot end them). While it plays, the grenade flies from the thrower's hand to the enemy, the
+    // last explosion is at its point and radius, every burst is drawn, no more than MaxEffects squares show, and the
+    // terrain and an untouched model keep their nodes; each explosion draws its blast ring (stage A5). Finishing at once
+    // (as a command sent does) hurries every effect to its end, leaving nothing showing a moment later; with Animations
+    // Off the same explosions and bursts play nothing.
+    private async Task BlastEffectsCheck(BoardView board)
+    {
+        await Until(() => !board.Gliding && board.EffectsShowing == 0 ? "idle" : null, 5, "blast-idle");
+        async Task Step(int count)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+        }
+        if (board.Scene is not { } scene || scene.Models.FirstOrDefault(m => m.Yours) is not { } thrower
+            || scene.Models.FirstOrDefault(m => !m.Yours) is not { } enemy)
+        {
+            Check("board-blast-effects", false, "no model of each seat on the battlefield");
+            return;
+        }
+        var selected = board.Selected?.Id;
+        var untouched = scene.Models.FirstOrDefault(m => m.Id != thrower.Id && m.Id != enemy.Id && m.Id != selected);
+        var untouchedNodes = untouched is null ? [] : board.NodeIdsOf(untouched.Id).ToList();
+        var terrain = board.TerrainBuilds;
+        TablePoint Between(double f) => new(thrower.X + (enemy.X - thrower.X) * f, thrower.Y + (enemy.Y - thrower.Y) * f);
+        var (p1, p2, p3) = (Between(0.3), Between(0.5), Between(0.7));
+        var (lobs, explosions, markers, stopped, rings) = (board.LobsDrawn, board.ExplosionsDrawn, board.MarkersDrawn, board.EffectsStopped, board.RingsDrawn);
+        var plan = new Choreography([],
+        [
+            new Beat(0, BeatKind.Lob, 0, 20.0, thrower.Id, enemy.Id, Hit: true),
+            new Beat(0, BeatKind.Explosion, 0, 20.0, thrower.Id, At: p1, Size: 2),
+            new Beat(0, BeatKind.MineBlast, 0, 20.0, thrower.Id, At: p2, Size: 1),
+            new Beat(0, BeatKind.MartyrBlast, 0, 20.0, thrower.Id, At: p3, Size: 3),
+            new Beat(0, BeatKind.Scatter, 0, 20.0, thrower.Id, From: p1, At: p2, Size: 2),
+            new Beat(0, BeatKind.Dust, 0, 20.0, thrower.Id, At: p1),
+            new Beat(0, BeatKind.Shrapnel, 0, 20.0, enemy.Id),
+            new Beat(0, BeatKind.Gas, 0, 20.0, enemy.Id),
+            new Beat(0, BeatKind.Fire, 0, 20.0, enemy.Id),
+        ]);
+        board.PlayForCheck(plan);
+        await Step(1);
+        var showing = board.EffectsShowing;
+        var lob = board.LastLob;
+        var lobOk = board.LobsDrawn == lobs + 1 && lob is { } l && new Vector2(l.From.X, l.From.Z).DistanceTo(new Vector2((float)thrower.X, (float)thrower.Y)) < 0.05f
+            && new Vector2(l.To.X, l.To.Z).DistanceTo(new Vector2((float)enemy.X, (float)enemy.Y)) < 0.05f;
+        var last = board.LastExplosion;
+        var blastOk = board.ExplosionsDrawn == explosions + 3 && last is { } x && x.Kind == BeatKind.MartyrBlast && Math.Abs(x.Radius - 3) < 0.001f
+            && new Vector2(x.At.X, x.At.Z).DistanceTo(new Vector2((float)p3.X, (float)p3.Y)) < 0.01f;
+        var markersOk = board.MarkersDrawn == markers + 3;
+        // Stage A5: each explosion draws its blast ring, the last at its point with the server's radius.
+        var ring = board.LastRing;
+        var ringsOk = board.RingsDrawn == rings + 3 && ring is { } rg && Math.Abs(rg.Radius - 3) < 0.001f
+            && new Vector2(rg.At.X, rg.At.Z).DistanceTo(new Vector2((float)p3.X, (float)p3.Y)) < 0.01f;
+        var untouchedKept = untouched is null || board.NodeIdsOf(untouched.Id).SequenceEqual(untouchedNodes);
+        var terrainKept = board.TerrainBuilds == terrain;
+        // Stage A5: finishing at once hurries every effect to its end within BoardView.HurrySeconds (not cut off): the
+        // battlefield is clear a moment later (within 2 s here, at the slow frames of software rendering).
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        board.FinishAnimations();
+        while (board.EffectsShowing > 0 && clock.ElapsedMilliseconds < 4000)
+        {
+            await Step(1);
+        }
+        var settled = clock.ElapsedMilliseconds;
+        var cleaned = board.EffectsShowing == 0 && board.EffectsStopped > stopped && !board.Gliding && settled <= 2000;
+        var speed = board.Animation;
+        board.Animation = AnimationSpeed.Off;
+        var fx = new LogLine(0, "", null, Models: [thrower.Id, enemy.Id])
+        {
+            Fx = new BattleFx(false, null, [new BlastCue(BlastStyle.Weapon, p1, 2)], [new MarkerCue(enemy.Id, MarkerStyle.Gas)]),
+        };
+        board.PlayForCheck(Choreography.Of([fx], _ => null, board.Animation));
+        await Step(2);
+        var offQuiet = board.EffectsShowing == 0 && board.ExplosionsDrawn == explosions + 3 && !board.Gliding;
+        board.Animation = speed;
+        await Frames(1);
+        Check("board-blast-effects", showing > 20 && showing <= BoardView.MaxEffects && lobOk && blastOk && markersOk && ringsOk && untouchedKept && terrainKept && cleaned && offQuiet,
+            $"{showing} effect squares showing (at most {BoardView.MaxEffects}); grenade {lob} from {thrower.Id.Value} at ({thrower.X:0.0}, {thrower.Y:0.0}) to {enemy.Id.Value} at ({enemy.X:0.0}, {enemy.Y:0.0}): {lobOk}; "
+            + $"explosions drawn {board.ExplosionsDrawn - explosions}, last {last} (wanted MartyrBlast at {p3}, radius 3): {blastOk}; marker bursts {board.MarkersDrawn - markers}; "
+            + $"blast rings {board.RingsDrawn - rings}, last {ring}: {ringsOk}; {untouched?.Id.Value ?? "no other model"} kept its nodes {untouchedKept}; terrain builds {terrain} -> {board.TerrainBuilds}; "
+            + $"finished at once: hurried {board.EffectsStopped - stopped}, clear after {settled} ms, showing {board.EffectsShowing}, still playing {board.Gliding}; Off plays nothing {offQuiet}");
+    }
+
+    // Animation stage A4 (board-blast-sequence, optional: only when the window saw explosions or marker bursts live):
+    // every explosion and burst of an event seen live came due once (drawn, or shown at once by a command sent meanwhile),
+    // and at the end nothing is still showing.
+    private void BlastSequenceCheck(BoardView board)
+    {
+        var live = board.FxLines.Where(l => !l.Replayed).ToList();
+        if (live.Count == 0)
+        {
+            return;
+        }
+        var (blasts, markers) = (live.Sum(l => l.Blasts), live.Sum(l => l.Markers));
+        Check("board-blast-sequence", board.BlastBeats == blasts && board.MarkerBeats == markers && board.EffectsShowing == 0 && !board.Gliding,
+            $"{live.Count} events seen live with {blasts} explosions and {markers} marker bursts; {board.BlastBeats} explosion and {board.MarkerBeats} burst beats came due "
+            + $"({board.ExplosionsDrawn} explosions and {board.MarkersDrawn} bursts drawn, {board.LobsDrawn} grenades thrown); still showing {board.EffectsShowing}, playing {board.Gliding}");
+    }
+
+    // Animation stage A1 (board-shot-sequence): every shot this window saw live came due as a tracer beat, once (drawn, or
+    // shown at once when a command was sent meanwhile), and some were drawn; the battlefield is no longer playing anything.
+    private void ShotSequenceCheck(BoardView board)
+    {
+        var shots = board.EffectLines.Count(l => !l.Replayed && l.Count == 2);
+        Check("board-shot-sequence", shots > 0 && board.TracerBeats == shots && board.TracersDrawn > 0 && !board.Gliding,
+            $"{shots} shots seen live, {board.TracerBeats} tracer beats, {board.TracersDrawn} drawn (last {board.LastTracer}), {board.FlinchesStarted} flinches; still playing: {board.Gliding}");
+    }
+
+    // Animation stage A0 (board-frame-time): the battlefield's own time per frame, idle and while animating, and per server
+    // update over a whole match, for comparing a change with the numbers before it (software rendering is slow, so the
+    // numbers are compared on the same machine, never against a fixed limit). It fails only when nothing was measured.
+    private void FrameTimeCheck(BoardView board)
+    {
+        var times = board.Times;
+        Check("board-frame-time", times.IdleFrames > 0 && times.Shows > 0, times.ToString());
     }
 
     // Graphics stage G5 (event-effects): each shot and blow this window saw as it happened played its effects (a flash at

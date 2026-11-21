@@ -1,6 +1,6 @@
 # Hand-over for the next Claude session (Trenches / Trench-Sim)
 
-Written 2026-10-31, last updated 2026-11-01, so a new session can carry on with no other history. Read this file, then `docs/` as needed.
+Written 2026-10-31, last updated 2026-11-20, so a new session can carry on with no other history. Read this file, then `docs/` as needed.
 
 ## What this is
 
@@ -443,3 +443,82 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-17: Chorister built (`chorister()`, `units/chorister.glb`, class B 32 mm, catalog height 1.24", test row 3,300,
   27 figures now), the owner's choice, on their references for mood only. Shown to the owner for review. Still to build
   for the Heretics: Bombard Witch, Barbed Wire Banshee.
+- 2026-11-20 (cloud session, branch `claude/adoring-hamilton-s5yohc`): animation plan approved, Jason chose "1" (an
+  event's dice box, notes and sound come on its beat; the combat log stays immediate). Stages: A0 baseline timing, A1
+  foundation + shot sequence, A2 facing/melee lunge/charge lean, A3 Down topple + Out of Action fade, A4 explosions and
+  grenades, A5 feedback pulses. Done: A0 (`BoardTimes`, UI check `board-frame-time`) and A1 (`Client.Core/Choreography.cs`:
+  each update's lines and beats in order, at most 2.5 s, Full/Fast/Off; `PlaybackQueue`: chains updates, TakeDue/TakeAll; `BoardView` "animation (stage A1)": due queue,
+  glides measured from rest so they queue, flinches, pooled puffs and tracers, `FinishAnimations` on any send, seat change,
+  Esc or catch-up; auto-end waits for playback; Menu "Animations", setting `anim=`; tests `ChoreographyTests`, `PlaybackQueueTests`, UI
+  checks `board-shot-sequence`, `board-animation-resilience`). A0 also counts terrain builds and model draws.
+  Cloud setup used: .NET 10 via dotnet-install.sh into ~/.dotnet (builds.dotnet.microsoft.com answered); the SessionStart
+  hook installs Godot 4.4.1 without .NET, which cannot run this client: Godot 4.7.2 mono for Linux was downloaded from
+  the GitHub release (SHA-512 checked) into the session scratchpad for the UI checks.
+  Checks run here (Linux, xvfb, opengl3): essentials A0 2,241/0 and A1 2,251/0; full UI runner on A1 421 PASS, 0 FAIL;
+  A0 vs A1 board-frame-time (gvt-a, same machine): idle frame mean 0.47/0.25 ms, animating 0.71/0.74 ms, update 19.2/16.4
+  ms, terrain builds while animating 0 in both. Not run: Windows (owner's Test Center).
+- 2026-11-20, Jason: "Proceed with A2: melee and facing animations" (only A2). Done: Turn/Lunge/Lean/Strike/Impact beats
+  (`Choreography`, `Motion.Charging/Reached`); `BoardView`: `_facing` (kept across redraws, cleared on a new match),
+  `_figures`, `Knock` (flinch + lunge), `FigureTurn`, `Lean`, `PlayStrike`; UI checks `board-animation-resilience` (turn,
+  lean, hover) and optional `board-melee-sequence` (pvp-a). Next: A3 only when Jason asks.
+  Checks (Linux, xvfb): essentials 2,253/0; full UI runner 425 PASS, 0 FAIL (board-melee-sequence: 3 blows, 8 lunges,
+  5 charge impacts); gvt-a reruns after the check fixes 29/0 and 27/0. Animating frame mean 0.64-0.83 ms (A1 0.56-0.75);
+  the 0.78-0.83 runs include the check's own hover while its made-up update plays (0.74 with that hover left out); one
+  run had a single 277 ms stall in an animating frame, not seen again. Hover marks a model without redrawing it.
+- 2026-11-20, Jason: "Proceed with A3: Down and Out of Action animations" (only A3). Done: `StatusTracker`/`LogLine.Changes`;
+  Fall/Rise/Casualty beats; `BoardView`: `_held` (a falling model drawn standing until its fall ends), `FallTrack` +
+  `Tipped` (figure tips backwards over its feet, settles over its base), casualty figures (`CasualtyFigure`, in `_effects`,
+  freed when gone or on FinishAnimations); UI checks `board-casualty-resilience` (gvt-a), optional `board-casualty-sequence`
+  (pvp-a, gvt-a). Next: A4 only when Jason asks.
+  Checks (Linux, xvfb): essentials 2,255/0; full UI runner 426 PASS, 0 FAIL; gvt-a run 29/0 with board-casualty-sequence
+  5 changes (2 falls, 2 rises, 1 going figure, none left); animating frame mean 0.63-0.71 ms, terrain builds while
+  animating 0. The pvp melee match took no model Down, so board-casualty-sequence did not report there (optional).
+- 2026-11-20, Jason: "Proceed with A4: Battlefield Effects" (only A4). Done: `BattleEffectsTracker`/`LogLine.Fx` (blasts from
+  BlastHit/PointBlastHit/AttackScattered/Martyrdom/mines, grenade thrown, attack at a point, SHRAPNEL/GAS/FIRE bursts;
+  `ResolutionLog.AttackAt`); beats Lob/Explosion/MineBlast/MartyrBlast/Scatter/Dust/Shrapnel/Gas/Fire; `BoardView` "animation
+  stage A4" (pooled grenades, `Streak`, `PlayExplosion`, `PlayMarker`, `Run`/`StopEffects` so a skip stops every effect;
+  MaxEffects 96); UI checks `board-blast-effects` (gvt-a), optional `board-blast-sequence` (pvp-a, gvt-a, abilities).
+  Next: A5 only when Jason asks.
+  Checks (Linux, xvfb): essentials 2,259/0; full UI runner 426 PASS, 0 FAIL (board-blast-effects; abilities'
+  board-blast-sequence PASS: 2 explosions, 2 bursts, recorded in abilities.log; the Linux runner now also lists it in its
+  summary, tools/UiCheck/Program.cs); gvt-a run 31/0; animating frame mean 0.63-0.67 ms, terrain builds while animating 0.
+- 2026-11-21, Jason: "Proceed with A5: Animation Polish & Battlefield Feedback" (only A5; wait for approval after). Done:
+  blast rings (`BoardView.BlastRing`) + `Choreography.BlastStagger`; see-through dust/smoke/gas (`SmokeAlpha`) and fewer
+  squares when busy; moves turn along their way (`TravelPoint`); Off plays instant turns (`OffFacings`) so Full/Fast/Off
+  end alike; a skip hurries effects (`HurrySeconds`, `StopEffects` speeds tweens up). Stage plan A0-A5 complete; next stage
+  only when Jason approves.
+  Checks (Linux, xvfb): essentials 2,261/0; full UI runner 430 PASS, 0 FAIL (board-blast-effects with rings, clear 207 ms
+  after a skip; abilities board-blast-sequence 2 explosions, 4 bursts); gvt-a run 31/0. Animating frame mean 0.49-0.63 ms
+  (A4 0.63-0.67), max 6.4 ms in the full run; one 15.3 ms frame in the separate gvt run, not seen again. Not verified: how
+  it looks by eye, Windows.
+- 2026-11-21, Jason chose "1" for PR #15 (claude/adoring-hamilton-s5yohc into m7-client, which had 52 newer commits: the
+  art pipeline's figures): merged m7-client into the branch (no rebase). Conflicts: CLAUDE.md (both sides' notes kept, in
+  date order) and `BoardView.DrawModel` (catalog height `figureTall` + A2 facing `FacingNow`). A3 adapted: falls, rises and
+  casualty figures use each figure's catalog height (`StandingHeight`, `FallTrack.Height`, `Tipped(height)`); the casualty
+  figure sinks 0.5" below the ground as it fades (`psx_figure.gdshader` writes no ALPHA, so the fade may not apply to it).
+  Checks after the merge (Linux, xvfb): essentials 2,285/0 (m7-client's figure tests added 24); full UI runner 428 PASS,
+  0 FAIL (unit-figures, board-casualty-resilience, board-blast-effects); animating frame mean 0.49 ms, max 6.1 ms.
+- 2026-11-21, Jason: "proceed with A5: Animation Polish & Visual Verification" with the painted figures (A5 only; wait for
+  approval after). Looked at on screen (Linux Compatibility renderer, xvfb; new dev step `anims`, see docs/client.md):
+  fixed the fall-to-lying size jump (`LyingFit`), falls of base-limited figures ending off the base (tip about the feet
+  with the drawn length, `Tipped(..., length)`), Out of Action figures not fading (new `fade` dither in
+  `psx_figure.gdshader`, own material copies, real-looking base that fades), explosions and FIRE hiding models (smaller,
+  see-through, rising). Not looked at: Windows/Vulkan, rises (same code reversed), live matches by eye.
+  Checks: essentials 2,285/0; full UI runner 428 PASS, 0 FAIL, but pvp-a activation-ends-itself did not report (its one
+  try found the model's Move and Dash unregistered, `MARK auto-end-not-finished`; untouched code, match-dependent); rerun
+  (--skip-build) 425 PASS, 0 FAIL with it PASS, the four build steps not run there (PASS in the first run). Casualty
+  figure half sunk: fade 0.50, its model's own figure 1. Animating frame mean 0.50-0.51 ms, max 6.4-6.7 ms (merge 0.49/6.1).
+- 2026-11-21, Jason: animation audit (no code), then "Implement Stage 1 (B1)" only. Done: a change of the seat shown in
+  hot-seat (following the turn or F2) no longer calls `FinishAnimations` (`BoardView.Show`); a new match finishes the
+  last one's playback in `Main.Attach`; commands, Esc and catch-up unchanged. Hooks for the checks: `BoardView.SeatSwitches`,
+  `FollowedTurn` (set by `Main._Process` when `HotSeat.FollowIfNeeded` switched). New UI checks `hotseat-switch-keeps-playback`
+  (hotseat: a made-up shot playing when F2 switches the seat through HotSeat.Switch and Main's redraw plays all its beats;
+  with the old finish put back it FAILs: 3 beats shown at once, cut by ShowTimed) and `abilities-switch-keeps-playback`
+  (abilities: every switch following the turn while playing plays on, at least one with an action). The hotseat group's
+  full match only ends activations (no attacks, 0 animating frames), so real switches are checked in the abilities group.
+  Checks (Linux, xvfb): essentials 2,285/0; hotseat group 41 PASS, 0 FAIL; abilities 19 PASS, 1 NOT TESTED (scatter, dice),
+  real switches there: 78 following the turn, 1 while playing (a charge's blow and fall), 0 cut short. Not seen: the race
+  itself (one seat drawing an update a frame before the other gets it) never came up in these runs, a live hot-seat match
+  by eye, Windows. Not run: the full UI runner, hotseat-record-verifies (runner only). Next: B2 only when Jason asks.
+  Jason also asked for a "fast animations toggle in the settings": Settings already has "Animations: Full / Fast / Off"
+  (the same control as the in-match Menu, saved as `anim=`); asked whether a separate toggle is wanted.

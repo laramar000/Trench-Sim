@@ -6,6 +6,7 @@
 # Client.Core tests send every action through a real server). Any other check a run did not report makes the verdict INCOMPLETE. One check id per line, as in the runner's summary.md.
 # "host|guest: id" means either client: the deployment-zone hint is pressed by whichever seat the roll-off makes decide, and the
 # placement previews are checked by whichever seat deploys first.
+# Animation stage A0 adds board-frame-time (hotseat, gvt-a): the battlefield's own time per frame, idle and while animating, and per server update, and how often it redrew the terrain and the models (apart while animating), over the match, reported for comparison; it fails only when nothing was measured. Animation stage A1 adds board-shot-sequence (gvt-a: every shot seen live came due as a tracer beat once, drawn or shown at once by a command sent meanwhile, some were drawn, and nothing is still playing at the end) and board-animation-resilience (gvt-a: a made-up glide and hit played through the battlefield survive a redraw of the gliding model, leave the terrain and an untouched model's nodes alone, finish at once onto the server's positions, and play nothing with Animations Off). Animation stage A2 adds turns and a lean to that made-up update (the lean survives a redraw on selection and the hover mark, and once finished the model faces its target and keeps that facing when drawn again) and the optional board-melee-sequence (pvp-a, when the match has blows in melee: every blow seen live came due as a strike once, with a lunge, attackers turned, nothing still playing). Animation stage A3 adds board-casualty-resilience (gvt-a: a made-up fall, rise and Out of Action figure played through the battlefield: tipped while playing, the fall survives a redraw on selection, the terrain and an untouched model keep their nodes, finishing at once leaves both upright with the casualty figure freed and no model held standing, Off plays nothing; stage A5: half way through its sink the casualty figure is half dissolved on its own material copies while its model's figure stays whole) and the optional board-casualty-sequence (pvp-a, gvt-a, when the match had status changes: every change seen live started its fall, rise or going figure, and none is left at the end). Animation stage A4 adds board-blast-effects (gvt-a: a made-up grenade, three explosions, a scatter, dust and three marker bursts played through the battlefield: the grenade flies from the thrower to the enemy, the last explosion is at its point and radius, at most MaxEffects squares show, the terrain and an untouched model keep their nodes, finishing at once stops every effect, Off plays nothing; stage A5: each explosion draws its blast ring at the server's radius, and finishing at once hurries the effects so the battlefield is clear within 2 s) and the optional board-blast-sequence (pvp-a, gvt-a, abilities, when explosions or bursts were seen live: each came due once and nothing is left showing).
 godot-version
 client-build-Debug
 client-build-Release
@@ -242,10 +243,12 @@ hotseat: hotseat-follows-turn
 hotseat: hotseat-whose-move-shown
 hotseat: hotseat-f2-switches
 hotseat: hotseat-f2-kept
+hotseat: hotseat-switch-keeps-playback
 hotseat: hotseat-leave-enter
 hotseat: hotseat-turn-banner
 hotseat: hotseat-bar-seat-letter
 hotseat: hotseat-full-match
+hotseat: board-frame-time
 hotseat: hotseat-log-draws-dice
 hotseat: hotseat-server-stopped
 hotseat: online-roster-type-server
@@ -265,6 +268,7 @@ godot-hotseat-mines: engine errors
 hotseat-mines-no-server-left
 abilities-exit
 abilities: abilities-match-1-started
+abilities: abilities-switch-keeps-playback
 abilities: abilities-match-1-to-the-end
 abilities: abilities-match-2-started
 abilities: abilities-match-2-to-the-end
@@ -406,6 +410,12 @@ gvt-record-outcome-matches
 gvt-a: pvp-type-server
 gvt-a: pvp-choose-scenario
 optional gvt-a: pvp-preview-dice
+optional pvp-a: board-melee-sequence
+optional pvp-a: board-casualty-sequence
+optional gvt-a: board-casualty-sequence
+optional pvp-a: board-blast-sequence
+optional gvt-a: board-blast-sequence
+optional abilities: board-blast-sequence
 gvt-a: board-move-glides
 gvt-a: board-redraws-changed-parts
 gvt-a: pvp-create-enter
@@ -418,6 +428,11 @@ gvt-a: pvp-nothing-to-send
 gvt-a: pvp-labels-show-blood
 gvt-a: pvp-dice-shown-once-as-logged
 gvt-a: event-effects
+gvt-a: board-frame-time
+gvt-a: board-shot-sequence
+gvt-a: board-animation-resilience
+gvt-a: board-casualty-resilience
+gvt-a: board-blast-effects
 gvt-a: pvp-panel-follows-state
 gvt-a: hud-objectives-now
 gvt-a: hud-on-battlefield

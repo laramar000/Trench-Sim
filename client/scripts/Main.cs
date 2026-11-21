@@ -212,7 +212,11 @@ public partial class Main : Control
         if (_controller is not null && System.Threading.Interlocked.Exchange(ref _changed, 0) == 1)
         {
             // Hot-seat: show the seat that must act when the shown one has nothing to do (unless switching is by hand).
-            _hotSeat?.FollowIfNeeded();
+            if (_hotSeat?.FollowIfNeeded() == true)
+            {
+                // Stage B1: the redraw after this switch keeps playing what the battlefield is playing (BoardView.Show).
+                _board.FollowedTurn = true;
+            }
             Render(_controller.Snapshot());
         }
         // The line above the HUD only takes room when it says something.
@@ -518,6 +522,8 @@ public partial class Main : Control
         MoveMenu(_matchMenu, 0, true);
         SetMenu(false);
         _shown = -1;
+        // Animation stage A1: a new match shows at once whatever the last one was still playing.
+        _board.FinishAnimations();
         Render(controller.Snapshot());
         FocusDefault();
         if (!_gapsShown)
@@ -1070,9 +1076,14 @@ public partial class Main : Control
             }
         };
         // A confirmed battlefield command goes the same way as a hint button: one at a time, answered by the server.
-        _board.Interaction.Send = (command, label) => _controller is { } controller
-            ? controller.SendAsync(command, label)
-            : Task.FromResult(new Feedback(FeedbackKind.ProtocolRefused, "Not sent: not in a match."));
+        // Animation stage A1: whatever the battlefield is still playing is shown at once first, so the player never waits.
+        _board.Interaction.Send = (command, label) =>
+        {
+            _board.FinishAnimations();
+            return _controller is { } controller
+                ? controller.SendAsync(command, label)
+                : Task.FromResult(new Feedback(FeedbackKind.ProtocolRefused, "Not sent: not in a match."));
+        };
         _boardSection = boardBox;
         _match.AddChild(_boardSection);
         // Stage K2: the match in words and the list of models are in the Menu (the HUD and the panel say what the next
@@ -2326,6 +2337,7 @@ public partial class Main : Control
     {
         if (_controller is { } controller)
         {
+            _board?.FinishAnimations();
             await controller.SendAsync(hint.Command, hint.Label);
         }
     }
@@ -2413,11 +2425,27 @@ public partial class Main : Control
             Remember(_settings with { Sound = on });
         };
         _soundChoice = sound;
+        // Animation stage A1: how the battlefield plays what the server resolved: Full, Fast (half the time) or Off (every
+        // result at once). Display only.
+        var animation = new OptionButton { Name = "AnimationChoice" };
+        foreach (var name in AnimationChoices)
+        {
+            animation.AddItem(name);
+        }
+        animation.ItemSelected += index =>
+        {
+            if (_board is not null)
+            {
+                _board.Animation = (AnimationSpeed)(int)index;
+            }
+            Remember(_settings with { Animation = (int)index });
+        };
+        _animationChoice = animation;
         // Stage N4: the settings wrap onto more lines, so the Menu never needs more than its column's width.
         var flow = new HFlowContainer { Name = "SettingsRow" };
         flow.AddThemeConstantOverride("h_separation", 8);
         flow.AddThemeConstantOverride("v_separation", 6);
-        foreach (var control in new Control[] { size, contrast, scale, dice, sound })
+        foreach (var control in new Control[] { size, contrast, scale, dice, animation, sound })
         {
             flow.AddChild(control);
         }
@@ -2426,6 +2454,8 @@ public partial class Main : Control
 
     private static readonly string[] DiceChoices = ["Dice: Short (2 s)", "Dice: Normal (4 s)", "Dice: Long (8 s)", "Dice: Off"];
     private static readonly double[] DiceSeconds = [2, 4, 8, 0];
+    private static readonly string[] AnimationChoices = ["Animations: Full", "Animations: Fast", "Animations: Off"];
+    private OptionButton? _animationChoice;
     private OptionButton? _diceChoice;
     private OptionButton? _textChoice;
     private OptionButton? _scaleChoice;
@@ -2537,6 +2567,7 @@ public partial class Main : Control
             Pick(_textChoice, settings.TextSize);
             Pick(_scaleChoice, settings.InterfaceScale);
             Pick(_diceChoice, settings.Dice);
+            Pick(_animationChoice, settings.Animation);
             _soundChoice?.SetPressedNoSignal(settings.Sound);
             _sounds.Enabled = settings.Sound;
             if (_contrastChoice is { } contrast)
