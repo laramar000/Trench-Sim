@@ -2595,7 +2595,7 @@ public partial class BoardView : SubViewportContainer
                 }
                 if (draw)
                 {
-                    PlayStrike(beat);
+                    PlayStrike(beat, (float)Choreography.EffectScale(beat, Animation));
                 }
                 break;
             case BeatKind.Tracer:
@@ -2642,7 +2642,7 @@ public partial class BoardView : SubViewportContainer
                 var cue = new EffectCue(beat.Kind switch { BeatKind.MuzzleFlash => EffectKind.MuzzleFlash, BeatKind.HitPuff => EffectKind.HitPuff, _ => EffectKind.DirtPuff }, beat.Model);
                 if (draw)
                 {
-                    PlayEffect(cue);
+                    PlayEffect(cue, (float)Choreography.EffectScale(beat, Animation));
                 }
                 if (beat.Seq > 0)
                 {
@@ -2792,9 +2792,28 @@ public partial class BoardView : SubViewportContainer
     // For the dev pictures only: show an effect without an event (never used in play).
     public void ShowEffectForPicture(EffectCue cue) => PlayEffect(cue);
 
-    // PS1-style: a few flat, unshaded squares that face the camera, grow and fade, then go. No lights, no particles.
-    private void PlayEffect(EffectCue cue)
+    // For the UI check (audit item T1): how long each flash, puff, strike or impact dust was drawn for (seconds), in the
+    // order drawn; at most 200 kept.
+    public List<float> EffectLengths { get; } = [];
+
+    private void NoteEffectLength(float seconds)
     {
+        if (EffectLengths.Count < 200)
+        {
+            EffectLengths.Add(seconds);
+        }
+    }
+
+    // PS1-style: a few flat, unshaded squares that face the camera, grow and fade, then go. No lights, no particles.
+    // Audit item T1: scale is Choreography.EffectScale (1 in Full; the beat's shortening in Fast).
+    private void PlayEffect(EffectCue cue, float scale = 1)
+    {
+        NoteEffectLength((cue.Kind switch
+        {
+            EffectKind.MuzzleFlash => (float)Choreography.FlashSeconds * 2,
+            EffectKind.HitPuff => (float)Choreography.HitPuffSeconds,
+            _ => (float)Choreography.DirtPuffSeconds,
+        }) * scale);
         if (!Where(cue.At, out var at, out var radius))
         {
             return;
@@ -2802,20 +2821,20 @@ public partial class BoardView : SubViewportContainer
         switch (cue.Kind)
         {
             case EffectKind.MuzzleFlash:
-                Puff(at + new Vector3(0, 0.85f, 0), Vector3.Zero, 0.5f, 0.4f, new Color(1f, 0.9f, 0.45f), (float)Choreography.FlashSeconds * 2);
+                Puff(at + new Vector3(0, 0.85f, 0), Vector3.Zero, 0.5f, 0.4f, new Color(1f, 0.9f, 0.45f), (float)Choreography.FlashSeconds * 2 * scale);
                 break;
             case EffectKind.HitPuff:
                 for (var i = 0; i < 4; i++)
                 {
                     var away = new Vector3(Mathf.Cos(i * 1.7f), 0.6f, Mathf.Sin(i * 1.7f)) * 0.35f;
-                    Puff(at + new Vector3(0, 0.7f, 0), away, 0.3f, 0.4f, new Color(0.72f, 0.2f, 0.15f), (float)Choreography.HitPuffSeconds);
+                    Puff(at + new Vector3(0, 0.7f, 0), away, 0.3f, 0.4f, new Color(0.72f, 0.2f, 0.15f), (float)Choreography.HitPuffSeconds * scale);
                 }
                 break;
             default:
                 for (var i = 0; i < 5; i++)
                 {
                     var side = new Vector3(Mathf.Cos(i * 1.3f), 0, Mathf.Sin(i * 1.3f)) * (radius + 0.35f);
-                    Puff(at + side + new Vector3(0, 0.15f, 0), new Vector3(0, 0.6f, 0), 0.4f, 0.5f, Dust, (float)Choreography.DirtPuffSeconds);
+                    Puff(at + side + new Vector3(0, 0.15f, 0), new Vector3(0, 0.6f, 0), 0.4f, 0.5f, Dust, (float)Choreography.DirtPuffSeconds * scale);
                 }
                 break;
         }
@@ -3255,7 +3274,7 @@ public partial class BoardView : SubViewportContainer
     // Animation stage A2: where a blow lands (Strike: a brief pale flash with two sparks, between the bodies) or a charge
     // strikes home (Impact: dust kicked up round the point of contact, and a smaller flash). The point is on the target's
     // base edge towards the attacker. Pooled squares like every effect; display only.
-    private void PlayStrike(Beat beat)
+    private void PlayStrike(Beat beat, float scale = 1)
     {
         if (beat.Other is not { } attacker || !Where(beat.Model, out var at, out var radius) || !Where(attacker, out var from, out _))
         {
@@ -3267,20 +3286,22 @@ public partial class BoardView : SubViewportContainer
         var side = new Vector3(-toward.Z, 0, toward.X);
         if (beat.Kind == BeatKind.Strike)
         {
-            var seconds = (float)Choreography.StrikeSeconds;
+            var seconds = (float)Choreography.StrikeSeconds * scale;
+            NoteEffectLength(seconds);
             Puff(contact + new Vector3(0, 0.8f, 0), Vector3.Zero, 0.35f, 0.3f, new Color(1f, 0.95f, 0.82f), seconds);
             Puff(contact + new Vector3(0, 0.85f, 0), side * 0.5f + new Vector3(0, 0.25f, 0), 0.12f, 0f, new Color(1f, 0.85f, 0.5f), seconds * 2);
             Puff(contact + new Vector3(0, 0.75f, 0), -side * 0.5f + new Vector3(0, 0.3f, 0), 0.12f, 0f, new Color(1f, 0.85f, 0.5f), seconds * 2);
             return;
         }
-        var dust = (float)Choreography.ImpactSeconds;
+        var dust = (float)Choreography.ImpactSeconds * scale;
+        NoteEffectLength(dust);
         for (var i = 0; i < 6; i++)
         {
             var angle = i * Mathf.Tau / 6;
             var out_ = (side * Mathf.Cos(angle) + toward * Mathf.Sin(angle) * 0.5f) * 0.7f;
             Puff(contact + new Vector3(0, 0.12f, 0), out_ + new Vector3(0, 0.35f, 0), 0.35f, 0.45f, Dust, dust);
         }
-        Puff(contact + new Vector3(0, 0.7f, 0), Vector3.Zero, 0.3f, 0.2f, new Color(1f, 0.95f, 0.82f), (float)Choreography.StrikeSeconds);
+        Puff(contact + new Vector3(0, 0.7f, 0), Vector3.Zero, 0.3f, 0.2f, new Color(1f, 0.95f, 0.82f), (float)Choreography.StrikeSeconds * scale);
     }
 
     // ---- see-through walls (XCOM-style UX) ----

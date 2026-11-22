@@ -145,6 +145,31 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
     // One update plays for at most this long; a longer one is played faster to fit.
     public const double MaxSeconds = 2.5;
 
+    // Audit item T1: the effects drawn for a set length rather than over their beat (a shot's flash, a hit's red puff, a
+    // miss's dirt, a blow's sparks, a charge's impact dust) take that length times EffectScale. Full draws them as long
+    // as ever (1, also in an update played faster to fit MaxSeconds), Fast as long as their beat now lasts (half, or less
+    // in a long update), never under FastEffectFloor of it, so a hit still reads; Off plays no such beat.
+    public const double FastEffectFloor = 0.35;
+
+    // The length an effect beat is drawn for in Full, or null for a beat that is drawn over its own Seconds already.
+    public static double? FullSeconds(BeatKind kind) => kind switch
+    {
+        BeatKind.MuzzleFlash => FlashSeconds,
+        BeatKind.HitPuff => HitPuffSeconds,
+        BeatKind.DirtPuff => DirtPuffSeconds,
+        BeatKind.Strike => StrikeSeconds,
+        BeatKind.Impact => ImpactSeconds,
+        _ => null,
+    };
+
+    public static double EffectScale(Beat beat, AnimationSpeed speed)
+    {
+        ArgumentNullException.ThrowIfNull(beat);
+        return speed != AnimationSpeed.Fast || FullSeconds(beat.Kind) is not { } full || full <= 0
+            ? 1
+            : Math.Clamp(beat.Seconds / full, FastEffectFloor, 1);
+    }
+
     public static Choreography Empty { get; } = new([], []);
 
     // How long the update keeps the battlefield busy: until its last line is shown and its last model is back at rest

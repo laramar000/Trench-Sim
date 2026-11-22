@@ -560,3 +560,17 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   0.50-0.51/6.4-6.7; range on this machine 0.49-0.83); terrain builds while animating 0. Gap: the roster match's table had
   no models placed yet when checked, so different positions across matches are covered by `LastDrawnTests` only; the
   camera now refits on every new match (the existing first-match path). Not run: Windows. Next: only when Jason asks.
+- 2026-11-22, Jason: "Implement audit item T1" only. Done: in Fast, the effects drawn for a set length (muzzle flash, hit
+  puff, miss dirt, blow sparks, charge impact dust: `BoardView.PlayEffect`/`PlayStrike` used fixed Full constants) now
+  take `Choreography.EffectScale` (new: 1 in Full, exactly as before, also in updates sped up to fit 2.5 s; in Fast the
+  beat's own shortening, half normally, floor `FastEffectFloor` 0.35; `FullSeconds(kind)` names the five kinds).
+  Explosions, rings, bursts, tracers, lobs, scatter and dust already used the beat's scaled time; unchanged. Speed is
+  `BoardView.Animation` when the effect comes due. Hook `EffectLengths`. Tests `FastEffectTimingTests` (Full unchanged
+  incl. squeezed updates; Fast half, ends at half the time, overlaps what follows half as long; floor; Off none; other
+  beats unscaled; finish-at-once in Fast). UI check `board-fast-effects` (gvt-a: hit, miss, blow, charge in Full then
+  Fast through the battlefield: Full 0.16/0.70/0.90/0.15/0.50 s, Fast half; clear 1.00-1.25 s Full vs 0.56-0.62 s Fast;
+  a Fast hit skipped with 2 squares showing clear in 0.06 s; Off draws nothing).
+  Checks (Linux, xvfb): essentials 2,296/0; full UI runner 431/0, then (after tightening the skip step to wait for
+  squares on screen) 433/0. Performance (gvt-a board-frame-time): animating mean 0.49 and 0.44 ms, max 5.9/5.8 ms (R1
+  0.59/6.1, A5 0.50-0.51/6.4-6.7); terrain builds while animating 0. Not seen by eye; not run on Windows. Next: only when
+  Jason asks (T2-T5 not started).

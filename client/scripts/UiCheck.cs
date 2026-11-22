@@ -1225,6 +1225,7 @@ public partial class UiCheck : Node
                     await CasualtyResilienceCheck(board);
                     await CasualtyMidMoveCheck(board);
                     await BlastEffectsCheck(board);
+                    await FastEffectsCheck(board);
                 }
                 // Performance: the move redrew the models that changed, not the terrain; every model is drawn where the
                 // server has it, and an enemy that did not change kept the nodes it was drawn with.
@@ -6109,6 +6110,97 @@ public partial class UiCheck : Node
             + $"half way: {half}, on the way {onTheWay}, where its glide draws the model ({drawn}) {withItsGlide}; finished at once half way: none left and the model "
             + $"where the server has it {cleaned}; half way through the fall: {falling} at the halt {fallsAtHalt}; travelled first {rode} of 3; Off draws none {offQuiet}; "
             + $"terrain builds {terrain} -> {board.TerrainBuilds}");
+    }
+
+    // Audit item T1 (board-fast-effects): in Fast, a shot's flash and hit puff, a miss's dirt, a blow's sparks and a
+    // charge's impact dust are drawn as long as their beat lasts (half of Full) instead of their full length. Each
+    // update is laid out by Choreography.Of from made-up lines shaped as the client's (a hit and a miss between two
+    // models on the table, a blow and a charge that reaches) and played through the battlefield (PlayForCheck; nothing
+    // is sent, the server's state is untouched) once in Full and once in Fast. Each set-length effect was drawn for its
+    // Full length in Full and half of it in Fast; the battlefield is clear sooner in Fast than in Full; finishing a Fast
+    // update at once still leaves it clear within a moment; with Animations Off nothing is drawn.
+    private async Task FastEffectsCheck(BoardView board)
+    {
+        await Until(() => !board.Gliding && board.EffectsShowing == 0 ? "idle" : null, 5, "fast-idle");
+        var models = board.Scene?.Models.Where(m => m.Status == Rules.Core.State.ModelStatus.Standing).ToList() ?? [];
+        if (models.Count < 2)
+        {
+            Check("board-fast-effects", false, $"needs two standing models: {models.Count}");
+            return;
+        }
+        var (a, b) = (models[0], models[1]);
+        LogLine Shot(bool hit) => new(0, "", null, Models: [a.Id, b.Id])
+        {
+            Effects = [new(EffectKind.MuzzleFlash, a.Id), new(hit ? EffectKind.HitPuff : EffectKind.DirtPuff, b.Id)],
+        };
+        var blow = new LogLine(0, "", null, Models: [a.Id, b.Id]) { Effects = [new(EffectKind.HitPuff, b.Id)] };
+        var charge = new LogLine(0, "", null, Motion: new Motion(a.Id, [new TablePoint(a.X, a.Y)], b.Id, true), Models: [a.Id]);
+        var updates = new[] { ("hit", new[] { Shot(true) }), ("miss", new[] { Shot(false) }), ("blow", new[] { blow }), ("charge", new[] { charge }) };
+        TablePoint Drawn(Client.Core.ModelShape m) => new(m.X, m.Y);
+        // Where the charge starts: 3" back from the target, so it glides in and reaches.
+        var back = new TablePoint(b.X + (a.X - b.X) * 3 / Math.Max(0.1, Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y))), b.Y + (a.Y - b.Y) * 3 / Math.Max(0.1, Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y))));
+        Func<Rules.Core.State.ModelId, TablePoint?> at = id => id == a.Id ? back : id == b.Id ? Drawn(b) : null;
+        var speed = board.Animation;
+        var lengths = new Dictionary<(string, AnimationSpeed), List<float>>();
+        var clear = new Dictionary<(string, AnimationSpeed), double>();
+        var problems = new List<string>();
+        foreach (var mode in new[] { AnimationSpeed.Full, AnimationSpeed.Fast })
+        {
+            board.Animation = mode;
+            foreach (var (name, lines) in updates)
+            {
+                var plan = Choreography.Of(lines, at, mode);
+                var kinds = plan.Beats.Where(x => Choreography.FullSeconds(x.Kind) is not null).ToList();
+                board.EffectLengths.Clear();
+                var started = Time.GetTicksMsec();
+                board.PlayForCheck(plan);
+                // Each set-length effect, as it comes due: how long it was drawn for.
+                for (var i = 0; i < 600 && (board.Gliding || board.EffectsShowing > 0); i++)
+                {
+                    await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                }
+                var drawn = board.EffectLengths.ToList();
+                clear[(name, mode)] = (Time.GetTicksMsec() - started) / 1000.0;
+                lengths[(name, mode)] = drawn;
+                var wanted = kinds.Select(x => (float)(Choreography.FullSeconds(x.Kind)!.Value * (x.Kind == BeatKind.MuzzleFlash ? 2 : 1) * (mode == AnimationSpeed.Fast ? 0.5 : 1))).ToList();
+                if (drawn.Count != wanted.Count || drawn.Zip(wanted).Any(p => Math.Abs(p.First - p.Second) > 0.01f))
+                {
+                    problems.Add($"{name} {mode}: drawn [{string.Join(" ", drawn.Select(d => d.ToString("0.00")))}] wanted [{string.Join(" ", wanted.Select(w => w.ToString("0.00")))}]");
+                }
+            }
+        }
+        // Interrupted: a Fast hit finished at once while its effects show (from its flash on): clear within a moment.
+        board.Animation = AnimationSpeed.Fast;
+        board.PlayForCheck(Choreography.Of([Shot(true)], at, AnimationSpeed.Fast));
+        for (var i = 0; i < 240 && board.EffectsShowing == 0; i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
+        var showingAtCut = board.EffectsShowing;
+        board.FinishAnimations();
+        var cut = Time.GetTicksMsec();
+        for (var i = 0; i < 240 && (board.Gliding || board.EffectsShowing > 0); i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
+        var cutClear = (Time.GetTicksMsec() - cut) / 1000.0;
+        var cutOk = showingAtCut > 0 && !board.Gliding && board.EffectsShowing == 0 && cutClear < 1.5;
+        // Off: nothing drawn.
+        board.Animation = AnimationSpeed.Off;
+        var offBefore = board.EffectsShowing;
+        board.PlayForCheck(Choreography.Of([Shot(true), blow], at, AnimationSpeed.Off));
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        var offQuiet = board.EffectsShowing == offBefore && board.EffectsShowing == 0;
+        board.Animation = speed;
+        board.FinishAnimations();
+        await Frames(1);
+        var sooner = updates.All(u => clear[(u.Item1, AnimationSpeed.Fast)] < clear[(u.Item1, AnimationSpeed.Full)]);
+        Check("board-fast-effects", problems.Count == 0 && sooner && cutOk && offQuiet,
+            string.Join("; ", updates.Select(u => $"{u.Item1}: Full [{string.Join(" ", lengths[(u.Item1, AnimationSpeed.Full)].Select(d => d.ToString("0.00")))}] s, clear {clear[(u.Item1, AnimationSpeed.Full)]:0.00} s; "
+                + $"Fast [{string.Join(" ", lengths[(u.Item1, AnimationSpeed.Fast)].Select(d => d.ToString("0.00")))}] s, clear {clear[(u.Item1, AnimationSpeed.Fast)]:0.00} s"))
+            + $"; Fast clears sooner {sooner}; a Fast hit finished at once with {showingAtCut} effect squares showing clear in {cutClear:0.00} s {cutOk}; Off draws nothing {offQuiet}"
+            + (problems.Count == 0 ? "" : "; " + string.Join(" | ", problems)));
     }
 
     // Animation stage A3 (board-casualty-sequence, optional: only when the match took models Down, stood them up or put

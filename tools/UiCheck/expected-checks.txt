@@ -434,6 +434,7 @@ gvt-a: board-shot-sequence
 gvt-a: board-animation-resilience
 gvt-a: board-casualty-resilience
 gvt-a: board-casualty-mid-move
+gvt-a: board-fast-effects
 gvt-a: board-blast-effects
 gvt-a: pvp-panel-follows-state
 gvt-a: hud-objectives-now
