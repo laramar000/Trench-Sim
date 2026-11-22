@@ -574,3 +574,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   squares on screen) 433/0. Performance (gvt-a board-frame-time): animating mean 0.49 and 0.44 ms, max 5.9/5.8 ms (R1
   0.59/6.1, A5 0.50-0.51/6.4-6.7); terrain builds while animating 0. Not seen by eye; not run on Windows. Next: only when
   Jason asks (T2-T5 not started).
+- 2026-11-22, Jason: "Implement audit item T2" only. Done: the animation code moved unchanged from `client/scripts/BoardView.cs`
+  (5,592 -> 3,945 lines) into the partial `client/scripts/BoardView.Animation.cs` (1,659 lines): the A1 playback section,
+  the G5 event effects, the A4 battlefield effects and the watchable-moves section with every pose track (ApplyPoses,
+  SetPoses, casualty figures). Pure move, checked line by line against the old file (same lines, same order; only the new
+  file's header added). Its generated `.cs.uid` is left untracked, as for the other partials (MainMenu.cs...).
+  Checks (Linux, xvfb): essentials 2,296/0; full UI runner 431 PASS, 0 FAIL. Performance (gvt-a board-frame-time):
+  animating mean 0.44 ms, max 6.7 ms (T1 0.44-0.49/5.8-5.9); terrain builds while animating 0. Not run: Windows.
+  Next: only when Jason asks (T3-T5 not started).
