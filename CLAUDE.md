@@ -582,3 +582,16 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Checks (Linux, xvfb): essentials 2,296/0; full UI runner 431 PASS, 0 FAIL. Performance (gvt-a board-frame-time):
   animating mean 0.44 ms, max 6.7 ms (T1 0.44-0.49/5.8-5.9); terrain builds while animating 0. Not run: Windows.
   Next: only when Jason asks (T3-T5 not started).
+- 2026-11-22, Jason: "Implement audit item T3" only. Done: one record of where models are drawn. `_lastSeen` (point and
+  radius) is gone, the remembered `ModelShape` gives both; the per-update `before` dictionary of the previous table's
+  positions is replaced by the previous table itself (`ShowNotes(log, BoardScene? before)`, one allocation less per
+  update); "on the table, else as last drawn" is `LastDrawn.Find(table, id)`, used by `Where`, `StartFall` and
+  `StartCasualty` (three hand-written versions before). `NewMatch` clears one cache; `RememberedModels` = `LastDrawn.Models`.
+  Tests `LastDrawnTests` (+2: Find replays the old two caches scene by scene over 12 simulated matches and answers the
+  same point, height, base and shape for every model, incl. ones just off the table; table first; cleared = new table
+  only); B2 `CasualtyPlaceTests` and R1 `board-new-match-reset` unchanged and passing.
+  Checks (Linux, xvfb): essentials 2,298/0; full UI runner 426 PASS, 4 FAIL (hotseat-turn-banner, a banner stayed 1.86 s,
+  known flaky; host battlefield-readable, a3 on grey ground ratio 1.55, a pixel check that reads only the scene and the
+  rendered picture; and the two windows' exit codes), rerun 436 PASS, 0 FAIL. Performance (gvt-a board-frame-time):
+  animating mean 0.58/0.60 ms, max 6.6/7.8 ms (T2 0.44/6.7, range on this machine 0.44-0.83); terrain builds while
+  animating 0. Not run: Windows. Next: only when Jason asks (T4, T5 not started).

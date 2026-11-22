@@ -107,4 +107,72 @@ public class LastDrawnTests
         memory.Clear();
         Assert.Empty(memory.Models);
     }
+    // Audit item T3: Find is the one place for "where is this model drawn": on the table now, else as last drawn. Played
+    // in the battlefield's own order (each update remembers the table drawn so far, then draws the new one), it answers
+    // exactly what the removed point-and-radius copy (_lastSeen) and the shape cache answered together: the same point,
+    // height and base for every model either knew, and nothing for a model neither knew.
+    [Fact]
+    public void FindAnswersWhatTheTwoOldCopiesAnsweredTogether()
+    {
+        var checkedModels = 0;
+        var offTable = 0;
+        foreach (var (_, log) in ClientCoreTests.Matches.Value.Take(12))
+        {
+            var memory = new LastDrawn();
+            var oldSeen = new Dictionary<ModelId, (double X, double Standing, double Y, double Radius)>();
+            var oldShapes = new Dictionary<ModelId, ModelShape>();
+            BoardScene? drawn = null;
+            var ever = new HashSet<ModelId>();
+            foreach (var scene in Scenes(log))
+            {
+                // The battlefield's order in Show: remember the table drawn so far, then draw the new one.
+                memory.Remember(drawn);
+                foreach (var m in drawn?.Models ?? [])
+                {
+                    oldSeen[m.Id] = (m.X, m.Standing, m.Y, m.Radius);
+                    oldShapes[m.Id] = m;
+                }
+                drawn = scene;
+                ever.UnionWith(scene.Models.Select(m => m.Id));
+                foreach (var id in ever)
+                {
+                    var found = memory.Find(drawn, id);
+                    // Old: Where took the table, else _lastSeen; falls and casualties took the table, else _lastShapes.
+                    var oldWhere = drawn.Find(id) is { } t ? (t.X, t.Standing, t.Y, t.Radius) : oldSeen.TryGetValue(id, out var seen) ? seen : ((double, double, double, double)?)null;
+                    var oldShape = drawn.Find(id) ?? (oldShapes.TryGetValue(id, out var s) ? s : null);
+                    Assert.Equal(oldWhere, found is { } f ? (f.X, f.Standing, f.Y, f.Radius) : null);
+                    Assert.Equal(oldShape, found);
+                    offTable += found is not null && drawn.Find(id) is null ? 1 : 0;
+                    checkedModels++;
+                }
+            }
+        }
+        Assert.True(offTable > 0, "no model was looked up after leaving the table");
+        Assert.True(checkedModels > 1000, $"only {checkedModels} look-ups");
+    }
+
+    [Fact]
+    public void FindTakesTheTableFirstAndForgetsTheLastMatchWhenCleared()
+    {
+        var (ranged, melee) = TwoMatches();
+        var first = Scenes(ranged);
+        var memory = new LastDrawn();
+        foreach (var scene in first)
+        {
+            memory.Remember(scene);
+        }
+        var table = Scenes(melee).First(s => s.Models.Count > 0);
+        // On the table: the table's shape, whatever was remembered under the same id.
+        foreach (var model in table.Models)
+        {
+            Assert.Equal(model, memory.Find(table, model.Id));
+        }
+        // A new match: only what is on its table is found.
+        memory.Clear();
+        foreach (var id in first.SelectMany(s => s.Models).Select(m => m.Id).Distinct())
+        {
+            Assert.Equal(table.Find(id), memory.Find(table, id));
+        }
+        Assert.Null(memory.Find(null, table.Models[0].Id));
+    }
 }

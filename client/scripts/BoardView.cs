@@ -222,13 +222,10 @@ public partial class BoardView : SubViewportContainer
     private void ShowTimed(BoardScene? scene, MatchState? state, Seat? seat, IReadOnlyList<LogLine>? log)
     {
         var first = _scene is null && scene is not null;
-        // Where each model was drawn before this update: a model the server moved travels from there (improvement 3).
-        var before = _scene?.Models.ToDictionary(m => m.Id, m => new Vector2((float)m.X, (float)m.Y)) ?? [];
+        // Where each model was drawn before this update: a model the server moved travels from there (improvement 3). Audit
+        // item T3: the table drawn so far itself, no copy of its positions.
+        var before = _scene;
         // Animation stage A1: and where a model taken off the table was last drawn, so a shot that took it out still lands.
-        foreach (var model in _scene?.Models ?? [])
-        {
-            _lastSeen[model.Id] = (new Vector3((float)model.X, (float)model.Standing, (float)model.Y), (float)model.Radius);
-        }
         _lastDrawn.Remember(_scene);
         // A change of the seat shown (hot-seat, by hand or following the turn) does not cut playback short: both seats see
         // the same events with the same numbers, so what is playing is still right. A new match is finished in Main.Attach.
@@ -2375,7 +2372,7 @@ public partial class BoardView : SubViewportContainer
 
     // New events' notes. The first time (or after a catch-up of many events) only remembers where the log is, so a
     // rejoin does not replay old notes.
-    private void ShowNotes(IReadOnlyList<LogLine> log, IReadOnlyDictionary<ModelId, Vector2> before)
+    private void ShowNotes(IReadOnlyList<LogLine> log, BoardScene? before)
     {
         var newest = log.Count == 0 ? 0 : log[^1].Seq;
         if (_lastSeq < 0 || newest < _lastSeq || newest - _lastSeq > 20)
@@ -2419,7 +2416,7 @@ public partial class BoardView : SubViewportContainer
         _lastSeq = newest;
         if (fresh.Count > 0)
         {
-            Play(Choreography.Of(fresh, id => before.TryGetValue(id, out var p) ? new TablePoint(p.X, p.Y) : null, Animation));
+            Play(Choreography.Of(fresh, id => before?.Find(id) is { } was ? new TablePoint(was.X, was.Y) : null, Animation));
         }
     }
 

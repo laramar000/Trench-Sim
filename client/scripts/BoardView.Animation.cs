@@ -22,7 +22,6 @@ public partial class BoardView
     private readonly PlaybackQueue _queue = new();
     private readonly List<PlaybackQueue.Item> _taken = [];
     private readonly List<Beat> _moves = [];
-    private readonly Dictionary<ModelId, (Vector3 At, float Radius)> _lastSeen = [];
     // Animation stage A3: each model as it was last drawn (an Out of Action model is drawn again from this as it goes).
     private readonly LastDrawn _lastDrawn = new();
 
@@ -34,7 +33,6 @@ public partial class BoardView
     public void NewMatch()
     {
         FinishAnimations();
-        _lastSeen.Clear();
         _lastDrawn.Clear();
         _facing.Clear();
         _scene = null;
@@ -49,7 +47,7 @@ public partial class BoardView
     // remembered, one remembered shape, and how many facings are kept.
     public int NewMatches { get; private set; }
 
-    public IReadOnlyCollection<ModelId> RememberedModels => [.. _lastDrawn.Models.Union(_lastSeen.Keys)];
+    public IReadOnlyCollection<ModelId> RememberedModels => _lastDrawn.Models;
 
     public ModelShape? RememberedShape(ModelId id) => _lastDrawn.TryGet(id, out var shape) ? shape : null;
 
@@ -342,15 +340,11 @@ public partial class BoardView
     // Where a model is drawn from for an effect: the table, or (taken off it) where it was last drawn.
     private bool Where(ModelId id, out Vector3 at, out float radius)
     {
-        if (_scene?.Find(id) is { } model)
+        // Audit item T3: on the table, or (just taken off it) as last drawn.
+        if (_lastDrawn.Find(_scene, id) is { } model)
         {
             at = new Vector3((float)model.X, (float)model.Standing, (float)model.Y);
             radius = (float)model.Radius;
-            return true;
-        }
-        if (_lastSeen.TryGetValue(id, out var seen))
-        {
-            (at, radius) = seen;
             return true;
         }
         at = default;
@@ -1214,7 +1208,7 @@ public partial class BoardView
         var from = FacingNow(beat.Model);
         var to = rising ? from : FallYaw(beat.Model, beat.Other, at);
         _facing[beat.Model] = Mathf.Wrap(to, -Mathf.Pi, Mathf.Pi);
-        var height = (_scene?.Find(beat.Model) ?? (_lastDrawn.TryGet(beat.Model, out var seen) ? seen : null)) is { } shape ? StandingHeight(shape) : StandingTall;
+        var height = _lastDrawn.Find(_scene, beat.Model) is { } shape ? StandingHeight(shape) : StandingTall;
         // The standing figure (the holder's first child when drawn standing; a rising model is drawn standing too).
         var figure = _figures.TryGetValue(beat.Model, out var holder) && IsInstanceValid(holder) && holder.GetChildCount() > 0 && holder.GetChild(0) is Node3D standing
             && standing.Name != "Lying" ? standing : null;
@@ -1237,7 +1231,7 @@ public partial class BoardView
     private void StartCasualty(Beat beat, double start)
     {
         // As it was last drawn (in play it has just left the table; the UI check plays one on a model still there).
-        if ((_scene?.Find(beat.Model) ?? (_lastDrawn.TryGet(beat.Model, out var last) ? last : null)) is not { } shape || !_effects.IsInsideTree())
+        if (_lastDrawn.Find(_scene, beat.Model) is not { } shape || !_effects.IsInsideTree())
         {
             return;
         }
