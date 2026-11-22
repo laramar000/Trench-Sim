@@ -168,6 +168,15 @@ embedded with nearest sampling.
   under them), never squashed spheres at fixed points: those read as cushions and float off a raised arm.
 - Budget and texture sizes of its class; nodes named as in section 5.
 - PSX shader (`client/shaders/psx_figure.gdshader`) tested in the game with the new figure, before it is shown for approval: `TRENCH_DEV=deploy,psx godot --path client -- --ui-check dev --out <dir> --scenario ranged` (check `psx-shader` passes; look at `psx-close`, `psx-mid`, `psx-far` for texture warp, wobble and colour steps).
+- When editing the PSX shader itself (animation audit item T5, 2026-11-22): the client sets and reads some of its uniforms
+  by name, so they must stay, with these defaults: `albedo_tex` and `albedo_colour` (set by `Visuals` for every figure),
+  `glow` (1.0, the glowing texels) and `fade` (1.0, drawn whole). `fade` is animation stage A5's dissolve: a figure put
+  Out of Action is drawn as a casualty figure on its own copies of its materials (`BoardView.StartCasualty`), and
+  `PoseGhost` lowers `fade` from 1 to 0 as it sinks; the shader then leaves out more of each 4 x 4 ordered-dither cell
+  (`discard`, no transparency sorting). A model's own figure never sets `fade`, so at 1.0 nothing changes. Without the
+  uniform the casualty figure would not dissolve (`set_shader_parameter` on a missing uniform does nothing), and the UI
+  check `board-casualty-resilience` (half sunk = half faded) would fail; `PsxShaderContractTests` checks these uniforms,
+  their defaults and the dither line on every build.
 
 ## Appendix: units and bases
 

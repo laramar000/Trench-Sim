@@ -605,3 +605,12 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Checks (Linux, xvfb): essentials 2,297/1 (AClientThatStopsReading, known flaky; rerun 3/3 PASS); full UI runner 432
   PASS, 0 FAIL. Performance (gvt-a board-frame-time): animating mean 2.02 ms with one 302 ms frame (and a 374 ms idle
   frame in the same run: the machine; about 0.7 ms without it); re-measured after T5 below.
+  T5 done: `docs/art-pipeline.md` (section 6 checklist) names the shader uniforms the client sets or reads by name
+  (`albedo_tex`, `albedo_colour`, `glow` 1.0, `fade` 1.0) and why `fade` (A5's casualty dissolve, ordered-dither discard)
+  must stay. New `PsxShaderContractTests` (6: the four uniforms with types and defaults, the dither line reading fade,
+  every uniform the client scripts set or read is declared; with `fade` taken out two fail). No game code or shader
+  changed. Checks: essentials 2,304/0; full UI runner 431 PASS, 4 FAIL (all abilities: Detonate never offered in that
+  match, so action-keys, action-previews, actions-narrated and abilities-exit; match-dependent), abilities group rerun
+  18 PASS, 0 FAIL, 2 NOT TESTED (dice), Detonate ok. Performance re-measured on T4's code (gvt-a): animating mean
+  0.56 ms, max 10.1 ms (idle max 403 ms again: the machine); terrain builds while animating 0. Audit items B1, B2, R1,
+  T1-T5 all done. Not run: Windows. Next: only when Jason asks.
