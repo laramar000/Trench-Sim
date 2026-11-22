@@ -2437,6 +2437,13 @@ public partial class Main : Control
         {
             if (_board is not null)
             {
+                // Final animation review: a new speed applies to what comes next; what is still playing is shown at once
+                // (as a command or Esc does), so choosing Off stops the playback in flight and no update half-played at
+                // one speed finishes at another.
+                if (_board.Animation != (AnimationSpeed)(int)index)
+                {
+                    _board.FinishAnimations();
+                }
                 _board.Animation = (AnimationSpeed)(int)index;
             }
             Remember(_settings with { Animation = (int)index });

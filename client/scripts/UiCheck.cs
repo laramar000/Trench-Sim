@@ -2962,6 +2962,8 @@ public partial class UiCheck : Node
         await Frames(30);
         Check("hotseat-f2-kept", HotControlled() == switched, $"after 30 frames: {HotControlled()}");
         await SwitchMidShotStep();
+        await LogBehindStep();
+        await SpeedChoiceStep();
 
         await HotSeatFullMatch();
 
@@ -3235,6 +3237,96 @@ public partial class UiCheck : Node
             : $"{record.From} -> {record.To} by F2 with a made-up shot {(record.PlayingBefore ? "playing" : "not playing")}: {record.Drawn} beats drawn on their time, "
             + $"{record.AtOnce} shown at once, [{string.Join(" ", record.Kinds.Order())}], tracers drawn {board.TracersDrawn - tracers}, "
             + $"{(record.CutBy is { } cut ? $"cut short by {cut}" : "cut short by nobody")}, {(record.Done ? "still afterwards" : "never still")}");
+    }
+
+    // A made-up shot between the first two models on the table (seq 0: no counter of real events moves), its beats
+    // stretched `stretch` times and starting `ahead` seconds from now, so it is surely still playing over a few frames.
+    private static Choreography MadeUpShot(BoardView board, double ahead, double stretch)
+    {
+        var models = board.Scene!.Models;
+        var (a, b) = (models[0], models[1]);
+        var shot = new LogLine(0, "", null, Models: [a.Id, b.Id])
+        {
+            Effects = [new(EffectKind.MuzzleFlash, a.Id), new(EffectKind.HitPuff, b.Id)],
+        };
+        var plan = Choreography.Of([shot], id => id == a.Id ? new TablePoint(a.X, a.Y) : id == b.Id ? new TablePoint(b.X, b.Y) : null);
+        return new Choreography([], [.. plan.Beats.Select(beat => beat with { Start = beat.Start * stretch + ahead, Seconds = beat.Seconds * stretch })]);
+    }
+
+    // Final animation review (hotseat-log-behind-waits): in hot-seat each seat has its own connection, so the seat shown
+    // after a switch may have a log a moment behind what the battlefield already showed. Handed that shorter log (the
+    // last three events missing) while a made-up shot plays, then the whole log again, the battlefield waits it out: the
+    // shot plays on to its end, nothing is shown at once, and no event is taken in a second time (no line shown again,
+    // so no dice, notes or sounds repeat). Before the fix the shorter log cut the shot and the three events came again.
+    private async Task LogBehindStep()
+    {
+        var main = (Main)_main;
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        if (board?.Scene?.Models is not { Count: > 1 } || main.LastScreen is not { Log.Count: > 3 } screen)
+        {
+            Check("hotseat-log-behind-waits", false, $"needs two models and four events: {board?.Scene?.Models.Count} models, {main.LastScreen?.Log.Count} events");
+            return;
+        }
+        await Until(() => !board.Gliding ? "idle" : null, 5, "behind-idle");
+        var shown = 0;
+        void Count(LogLine line) => shown++;
+        board.LineShown += Count;
+        var (behind, finished, tracers) = (board.LogsBehind, board.FinishedEarly.Count, board.TracersDrawn);
+        board.PlayForCheck(MadeUpShot(board, 0.5, 4));
+        board.Show(screen.Board, screen.State, screen.Seat, [.. screen.Log.Take(screen.Log.Count - 3)]);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        var playing = board.Gliding;
+        board.Show(screen.Board, screen.State, screen.Seat, screen.Log);
+        await Until(() => !board.Gliding ? "still" : null, 10, "behind-still");
+        board.LineShown -= Count;
+        var waited = board.LogsBehind - behind;
+        var cut = board.FinishedEarly.Count - finished;
+        var drawn = board.TracersDrawn - tracers;
+        Check("hotseat-log-behind-waits", waited == 1 && playing && cut == 0 && drawn == 1 && shown == 0,
+            $"log of {screen.Log.Count} events handed with the last 3 missing, then whole, while a made-up shot played: waited out {waited}, "
+            + $"still playing after it {playing}, cut short {cut} time(s) [{string.Join(",", board.FinishedEarly.Skip(finished))}], tracer drawn {drawn}, events shown again {shown}");
+    }
+
+    // Final animation review (hotseat-speed-choice-skips): choosing another Animations speed in the Menu while an update
+    // plays shows what is playing at once, so Off stops the playback in flight (before, it kept playing at the old speed);
+    // choosing the speed already set changes nothing. The Menu's own choice is picked (its ItemSelected), then put back.
+    private async Task SpeedChoiceStep()
+    {
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        var choice = Controls<OptionButton>().FirstOrDefault(o => o.Name == "AnimationChoice");
+        if (board?.Scene?.Models is not { Count: > 1 } || choice is null)
+        {
+            Check("hotseat-speed-choice-skips", false, $"needs two models and the Animations choice: {board?.Scene?.Models.Count} models, choice {choice is not null}");
+            return;
+        }
+        await Until(() => !board.Gliding ? "idle" : null, 5, "speed-idle");
+        var was = choice.Selected;
+        void Pick(int index)
+        {
+            choice.Select(index);
+            choice.EmitSignal(OptionButton.SignalName.ItemSelected, (long)index);
+        }
+        // The same speed again: playback goes on.
+        board.PlayForCheck(MadeUpShot(board, 0.5, 4));
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        Pick(was);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        var sameKeeps = board.Gliding;
+        board.FinishAnimations();
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        // Off mid-playback: shown at once, the tracer not drawn, nothing left playing.
+        var tracers = board.TracersDrawn;
+        board.PlayForCheck(MadeUpShot(board, 0.5, 4));
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        var playing = board.Gliding;
+        Pick((int)AnimationSpeed.Off);
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        var stopped = !board.Gliding && board.TracersDrawn == tracers && board.Animation == AnimationSpeed.Off;
+        Pick(was);
+        await Frames(2);
+        Check("hotseat-speed-choice-skips", sameKeeps && playing && stopped && choice.Selected == was,
+            $"same speed picked mid-playback: still playing {sameKeeps}; Off picked mid-playback: playing before {playing}, shown at once with no tracer drawn {stopped}; "
+            + $"speed put back to \"{choice.GetItemText(was)}\" {choice.Selected == was}");
     }
 
     // Stage N5: the whole match in this one window, both seats, following the turn: every choice by a mouse click on

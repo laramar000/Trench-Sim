@@ -9,6 +9,9 @@ using Rules.Core.State;
 // Nothing here changes what is drawn or decides anything.
 public partial class BoardView
 {
+    // For the UI check (final animation review): how often a log behind what was already shown was waited out.
+    public int LogsBehind { get; private set; }
+
     // For the UI check (audit item R1): how often a new match was started, the models whose last drawn place or shape is
     // remembered, one remembered shape, and how many facings are kept.
     public int NewMatches { get; private set; }

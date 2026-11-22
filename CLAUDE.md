@@ -614,3 +614,21 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   18 PASS, 0 FAIL, 2 NOT TESTED (dice), Detonate ok. Performance re-measured on T4's code (gvt-a): animating mean
   0.56 ms, max 10.1 ms (idle max 403 ms again: the machine); terrain builds while animating 0. Audit items B1, B2, R1,
   T1-T5 all done. Not run: Windows. Next: only when Jason asks.
+- 2026-11-22, Jason: final integration review of the animation system (A0-A5, B1-B2, R1, T1-T5). Two faults fixed:
+  (1) `BoardView.ShowNotes` took a log behind what it had shown (`newest < _lastSeq`) as a catch-up: FinishAnimations and
+  its place moved back, so when that log caught up the events in between were taken in again (dice, notes, sounds,
+  animations repeated). Hot-seat seats have separate connections, so a switch can show a seat a moment behind; a log
+  rebuilt after a reconnect (`Welcome ReplayFrom 0`) is the same. Since R1 a new match resets `_lastSeq` to -1, so a
+  shorter log is now waited out (hook `LogsBehind`). (2) Choosing another Animations speed mid-playback left it playing at
+  the old speed (Off kept animating); `Main`'s Animations choice now calls `FinishAnimations` when the speed changes.
+  UI checks `hotseat-log-behind-waits` and `hotseat-speed-choice-skips` (hotseat; helper `MadeUpShot`); with the old
+  behaviour put back both FAIL (cut by ShowNotes, 3 events shown again; Off kept playing).
+  Reviewed without change (no fault found): event order and overlaps (PlaybackQueue, Choreography), moves/charges/
+  casualties in one update (B2 riding, a casualty after a still-playing glide), Full/Fast/Off (T1 scale, OffFacings),
+  skips and NewMatch, effect pool (a new match is seconds after Leave, past the 0.2 s hurry), server positions only.
+  Noted, not changed: the UI-check lists (EffectLines, EffectsPlayed, StatusLines, FxLines, SeatSwitches) grow for a
+  whole session, a few small tuples per event; an update of more than 20 events is shown as a catch-up (no animation),
+  never seen in play.
+  Checks (Linux, xvfb): essentials 2,304/0; full UI runner 438 PASS, 0 FAIL. Performance (gvt-a board-frame-time):
+  animating mean 0.63 ms, max 10.2 ms (T5 run 0.56/10.1, range on this machine 0.44-0.83); terrain builds while
+  animating 0. Not run: Windows; not looked at by eye.

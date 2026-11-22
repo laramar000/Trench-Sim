@@ -2375,7 +2375,16 @@ public partial class BoardView : SubViewportContainer
     private void ShowNotes(IReadOnlyList<LogLine> log, BoardScene? before)
     {
         var newest = log.Count == 0 ? 0 : log[^1].Seq;
-        if (_lastSeq < 0 || newest < _lastSeq || newest - _lastSeq > 20)
+        // Final animation review: a log behind what this battlefield has already shown (the other hot-seat seat's
+        // connection a moment behind after a switch, or a log being rebuilt after a reconnect) shows nothing new and keeps
+        // the place: it neither cuts what is playing nor takes the events in between in a second time when it catches up
+        // (their dice, notes, sounds and animations would repeat). A new match starts from -1 (NewMatch).
+        if (_lastSeq >= 0 && newest < _lastSeq)
+        {
+            LogsBehind++;
+            return;
+        }
+        if (_lastSeq < 0 || newest - _lastSeq > 20)
         {
             if (newest > Math.Max(_lastSeq, 0))
             {

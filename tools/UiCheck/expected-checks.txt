@@ -244,6 +244,8 @@ hotseat: hotseat-whose-move-shown
 hotseat: hotseat-f2-switches
 hotseat: hotseat-f2-kept
 hotseat: hotseat-switch-keeps-playback
+hotseat: hotseat-log-behind-waits
+hotseat: hotseat-speed-choice-skips
 hotseat: hotseat-leave-enter
 hotseat: hotseat-turn-banner
 hotseat: hotseat-bar-seat-letter
