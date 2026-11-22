@@ -2629,6 +2629,9 @@ public partial class UiCheck : Node
                 case "anims":
                     await DevAnimations(board);
                     break;
+                case "showcase":
+                    await DevShowcase(board);
+                    break;
                 case "theme":
                     UiThemeCheck();
                     break;
@@ -2736,6 +2739,162 @@ public partial class UiCheck : Node
         board.FinishAnimations();
         await Step(2);
         Write("DEV anims done");
+    }
+
+    // The animation showcase (TRENCH_DEV=deploy,showcase; Test Center "Animation showcase"; docs/client.md): the staged
+    // scenes of Client.Core.AnimationShowcase played through the real battlefield on the deployed models, close up, each
+    // with a caption naming what to look for. Nothing is sent and the server's state is untouched. With
+    // TRENCH_SHOWCASE=watch the window stays open for a person: F5 plays the scene again, F6 the next, F7 the one before,
+    // F8 switches Full and Fast; closing the window ends it. Otherwise (the cloud, a quick look) every scene plays once at
+    // real speed and a picture is saved every 0.12 s into <out>/showcase/, for looking through frame by frame.
+    private async Task DevShowcase(BoardView board)
+    {
+        if (board.Scene is not { } table || AnimationShowcase.Scenes(table) is not { Count: > 0 } scenes)
+        {
+            Check("dev-showcase", false, $"needs three models on the table: {board.Scene?.Models.Count ?? 0}");
+            return;
+        }
+        var watch = System.Environment.GetEnvironmentVariable("TRENCH_SHOWCASE") == "watch";
+        board.Select(null);
+        // On the moving model, far enough back that a charge's or a move's start (4" behind it) and the blasts are in view.
+        var focus = scenes[0].Lines[0].Models![0];
+        board.CentreOn(focus, 13f);
+        var layer = new CanvasLayer { Layer = 100, Name = "ShowcaseCaption" };
+        var panel = new PanelContainer { Position = new Vector2(16, 16) };
+        var caption = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(560, 0) };
+        caption.AddThemeFontSizeOverride("font_size", 18);
+        panel.AddChild(caption);
+        layer.AddChild(panel);
+        _main.AddChild(layer);
+        var hidden = new List<Rules.Core.State.ModelId>();
+        var held = new List<Rules.Core.State.ModelId>();
+        void Reset()
+        {
+            board.FinishAnimations();
+            foreach (var id in hidden)
+            {
+                board.HideForPicture(id, false);
+            }
+            foreach (var id in held)
+            {
+                board.HoldAfterFall(id, null);
+            }
+            hidden.Clear();
+            held.Clear();
+        }
+        void Caption(int i, bool ended) =>
+            caption.Text = $"{i + 1} / {scenes.Count}   {scenes[i].Title}{(scenes[i].Speed is { } own ? $" ({own})" : "")}\nLook for: {scenes[i].Watch}\n"
+                + (watch ? $"F5 play again · F6 next · F7 previous · F8 Full/Fast (now {board.Animation}){(ended ? "" : "   ...playing")}" : $"Animations: {board.Animation}");
+        async Task Play(int i, string? frames)
+        {
+            Reset();
+            await Frames(2);
+            var scene = scenes[i];
+            Caption(i, false);
+            foreach (var (id, status) in scene.HoldAfter)
+            {
+                board.HoldAfterFall(id, status);
+                held.Add(id);
+            }
+            board.PlayForCheck(scene.Plan(board.Animation));
+            foreach (var id in scene.Hidden)
+            {
+                board.HideForPicture(id, true);
+                hidden.Add(id);
+            }
+            var started = Time.GetTicksMsec();
+            var switched = !scene.SwitchSeat;
+            var next = 0UL;
+            var shots = 0;
+            while (Time.GetTicksMsec() - started < 12_000)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                var at = Time.GetTicksMsec() - started;
+                if (!switched && at > 350)
+                {
+                    switched = true;
+                    Input.ParseInputEvent(new InputEventKey { Keycode = Key.F2, PhysicalKeycode = Key.F2, Pressed = true });
+                    await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                    Input.ParseInputEvent(new InputEventKey { Keycode = Key.F2, PhysicalKeycode = Key.F2, Pressed = false });
+                }
+                if (frames is not null && at >= next)
+                {
+                    next = at + 120;
+                    GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(frames, $"f{++shots:00}-{at:0000}ms.png"));
+                }
+                if (switched && !board.Gliding && board.EffectsShowing == 0 && at > 800)
+                {
+                    break;
+                }
+            }
+            // Hold the end a moment (a picture of it too), so the last pose can be looked at.
+            for (var wait = Time.GetTicksMsec(); Time.GetTicksMsec() - wait < 700;)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            }
+            if (frames is not null)
+            {
+                GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(frames, $"f{++shots:00}-end.png"));
+            }
+            Write($"MARK showcase {i + 1} \"{scene.Title}\" played in {(Time.GetTicksMsec() - started) / 1000.0:0.00} s{(frames is null ? "" : $", {shots} pictures in {frames}")}");
+            Caption(i, true);
+        }
+        if (!watch)
+        {
+            var played = 0;
+            for (var i = 0; i < scenes.Count; i++)
+            {
+                var frames = System.IO.Path.Combine(_out, "showcase", $"{i + 1:00}");
+                System.IO.Directory.CreateDirectory(frames);
+                await Play(i, frames);
+                played++;
+            }
+            Reset();
+            layer.QueueFree();
+            Check("dev-showcase", played == scenes.Count, $"{played} of {scenes.Count} scenes played, pictures in {System.IO.Path.Combine(_out, "showcase")}");
+            return;
+        }
+        // Watch: until the window is closed.
+        var current = 0;
+        await Play(current, null);
+        var down = new HashSet<Key>();
+        bool Pressed(Key key)
+        {
+            var now = Input.IsPhysicalKeyPressed(key);
+            var edge = now && !down.Contains(key);
+            if (now)
+            {
+                down.Add(key);
+            }
+            else
+            {
+                down.Remove(key);
+            }
+            return edge;
+        }
+        while (IsInstanceValid(board))
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            if (Pressed(Key.F5))
+            {
+                await Play(current, null);
+            }
+            else if (Pressed(Key.F6))
+            {
+                current = (current + 1) % scenes.Count;
+                await Play(current, null);
+            }
+            else if (Pressed(Key.F7))
+            {
+                current = (current + scenes.Count - 1) % scenes.Count;
+                await Play(current, null);
+            }
+            else if (Pressed(Key.F8))
+            {
+                board.Animation = board.Animation == AnimationSpeed.Fast ? AnimationSpeed.Full : AnimationSpeed.Fast;
+                await Play(current, null);
+            }
+        }
     }
 
     // Dev only: both seats deploy every model and answer who activates first (hints and placements, following the turn),

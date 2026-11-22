@@ -632,3 +632,18 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Checks (Linux, xvfb): essentials 2,304/0; full UI runner 438 PASS, 0 FAIL. Performance (gvt-a board-frame-time):
   animating mean 0.63 ms, max 10.2 ms (T5 run 0.56/10.1, range on this machine 0.44-0.83); terrain builds while
   animating 0. Not run: Windows; not looked at by eye.
+- 2026-11-22, Jason chose "1" (animation showcase) to start validating the animations by eye. Done: `Client.Core/
+  AnimationShowcase.cs` (11 staged scenes from engine-shaped log lines on the table's two closest models and the one
+  nearest the target: shot Down, shot Out of Action, miss, mine mid-move, charge + blow, charge carry-on with its first leg
+  in contact, grenade + gas, scatter, three overlapping blasts with fire/gas/shrapnel, hot-seat F2 mid-shot, Fast
+  grenade); dev step `showcase` in UiCheck (captions; capture mode saves a picture every 0.12 s to <out>/showcase/NN,
+  check `dev-showcase`; `TRENCH_SHOWCASE=watch` stays open: F5 again, F6 next, F7 previous, F8 Full/Fast); dev-only
+  `BoardView.HoldAfterFall` (a staged Down stays lying; empty in play); Test Center option 9 / `showcase`
+  (`tools/TestCenter/AnimationShowcase.cs`, docs/testing.md). Tests `AnimationShowcaseTests` (7).
+  Looked at here (Linux, Compatibility renderer, xvfb), all 11 scenes frame by frame: the order and placing are right in
+  every scene (falls stay lying, casualty dissolves with its base, the mine casualty falls where it halted, charge lean +
+  impact + strike, grenade arc + ring + gas, scatter skim + landing, staggered blasts, F2 switch plays on). Two looks to
+  decide (owner): the red hit puff and the pale strike flash are near-solid squares that hide the target for most of
+  their time (0.15-0.7 s); stacked fireballs hide models about 0.3 s at their peak. Not changed.
+  Checks: essentials 2,311/0; full UI runner 437 PASS, 0 FAIL; gvt-a animating mean 0.61 ms, max 11.4 ms. Not run:
+  Windows/Vulkan (the showcase is for that: Test Center option 9).

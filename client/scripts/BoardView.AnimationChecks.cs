@@ -9,6 +9,37 @@ using Rules.Core.State;
 // Nothing here changes what is drawn or decides anything.
 public partial class BoardView
 {
+    // The animation showcase (dev only, never in play): the status a staged fall leaves a model drawn with, as the server
+    // would after the event the scene stages (a model taken Down stays lying instead of standing up again, as the server
+    // still has it standing). Empty in play, so a fall ends exactly as before.
+    private readonly Dictionary<ModelId, ModelStatus> _showcaseHolds = [];
+
+    public void HoldAfterFall(ModelId id, ModelStatus? status)
+    {
+        if (status is { } held)
+        {
+            _showcaseHolds[id] = held;
+        }
+        else
+        {
+            _showcaseHolds.Remove(id);
+            ShowStatusForPicture(id, null);
+        }
+    }
+
+    // A fall has ended: drawn as the server has the model (or, in the showcase, as the scene left it).
+    private void EndFallHold(ModelId id)
+    {
+        if (_showcaseHolds.TryGetValue(id, out var held))
+        {
+            _held[id] = held;
+        }
+        else
+        {
+            _held.Remove(id);
+        }
+    }
+
     // For the UI check (final animation review): how often a log behind what was already shown was waited out.
     public int LogsBehind { get; private set; }
 

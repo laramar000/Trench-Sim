@@ -221,10 +221,10 @@ public partial class BoardView
             {
                 if (!fall.Rising)
                 {
-                    _held.Remove(fall.Model);
+                    EndFallHold(fall.Model);
                 }
             }
-            var upright = _falls.Where(f => f.Rising || _scene?.Find(f.Model) is { Status: ModelStatus.Standing }).Select(f => f.Model).ToList();
+            var upright = _falls.Where(f => f.Rising || _scene?.Find(f.Model) is { Status: ModelStatus.Standing } && !_showcaseHolds.ContainsKey(f.Model)).Select(f => f.Model).ToList();
             _falls.Clear();
             Rebuild();
             foreach (var id in upright)
@@ -1338,7 +1338,7 @@ public partial class BoardView
                 }
                 else
                 {
-                    _held.Remove(fall.Model);
+                    EndFallHold(fall.Model);
                     _fallEnded = true;
                     _endedFalls.Add(fall.Model);
                 }
@@ -1364,7 +1364,7 @@ public partial class BoardView
             Rebuild();
             foreach (var id in _endedFalls)
             {
-                if (_scene?.Find(id) is { Status: ModelStatus.Standing })
+                if (_scene?.Find(id) is { Status: ModelStatus.Standing } && !_showcaseHolds.ContainsKey(id))
                 {
                     Upright(id);
                 }

@@ -47,6 +47,7 @@ public static class Program
                 "check" => await MatchCheck.CheckFinished(setup, words.ElementAtOrDefault(1)),
                 "cleanup" => Cleanup(setup),
                 "play" => await PlayGame.Run(setup, opengl),
+                "showcase" => await AnimationShowcase.Run(setup, opengl),
                 _ => Usage(),
             };
         }
@@ -81,6 +82,7 @@ public static class Program
             Console.WriteLine("    6  Get the newest version       downloads it and opens its test center");
             Console.WriteLine("    7  Play Trenches                opens the game on its main menu");
             Console.WriteLine("    8  Run the full tests           adds Release and the UI checks; about 15-25 minutes");
+            Console.WriteLine("    9  Animation showcase           watch every animation close up; F5 again, F6 next");
             Console.WriteLine("    Q  Quit");
             Console.Write("  Type a number and press Enter: ");
             var choice = (Console.ReadLine() ?? "Q").Trim().ToUpperInvariant();
@@ -124,10 +126,13 @@ public static class Program
                 case "8":
                     last = await AutomatedTests.Run(setup, full: true);
                     break;
+                case "9":
+                    last = await AnimationShowcase.Run(setup, opengl);
+                    break;
                 case "Q" or "":
                     return last;
                 default:
-                    Console.WriteLine("  Please type a number from 1 to 8, or Q.");
+                    Console.WriteLine("  Please type a number from 1 to 9, or Q.");
                     continue;
             }
             setup.Pause("Press Enter to go back to the menu.");
@@ -187,7 +192,7 @@ public static class Program
 
     private static int Usage()
     {
-        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests [--full] | match [ranged|melee|ranged-1v1 ... melee-3v3, ranged-towers, melee-towers, ranged-1v1-towers ... melee-3v3-towers, ranged-trench-warfare ... melee-3v3-trench-warfare] | editor | check [<record>] | cleanup | play]");
+        Console.WriteLine("  Usage: dotnet run --project tools/TestCenter -- [tests [--full] | match [ranged|melee|ranged-1v1 ... melee-3v3, ranged-towers, melee-towers, ranged-1v1-towers ... melee-3v3-towers, ranged-trench-warfare ... melee-3v3-trench-warfare] | editor | check [<record>] | cleanup | play | showcase]");
         Console.WriteLine("         [--godot <path>] [--no-questions] [--opengl]");
         return 3;
     }
