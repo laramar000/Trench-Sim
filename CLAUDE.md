@@ -595,3 +595,13 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   rendered picture; and the two windows' exit codes), rerun 436 PASS, 0 FAIL. Performance (gvt-a board-frame-time):
   animating mean 0.58/0.60 ms, max 6.6/7.8 ms (T2 0.44/6.7, range on this machine 0.44-0.83); terrain builds while
   animating 0. Not run: Windows. Next: only when Jason asks (T4, T5 not started).
+- 2026-11-22, Jason: "Start t4 then immediately t5 after if everything checks out". T4 done: the 53 animation members
+  only the UI checks read (counters, Last* records, PlayForCheck, NodeIdsOf, TiltOf, FacingOf, CasualtyLook, FigureFade,
+  CasualtyOf, DrawnAt, SeatSwitch/SeatSwitches, EffectLengths, the dev-picture helpers, R1's read-outs...) moved unchanged
+  with their comments into the partial `client/scripts/BoardView.AnimationChecks.cs` (225 lines;
+  `BoardView.Animation.cs` 1,659 -> 1,439); counters are still counted up in place. B2's `LastCasualtyAt` (written, never
+  read) removed. Members the board reads (Animation, Gliding, FinishAnimations, NewMatch, BodyAt, FollowedTurn,
+  constants) stay. Checked line by line. Its generated `.cs.uid` left untracked (local exclude).
+  Checks (Linux, xvfb): essentials 2,297/1 (AClientThatStopsReading, known flaky; rerun 3/3 PASS); full UI runner 432
+  PASS, 0 FAIL. Performance (gvt-a board-frame-time): animating mean 2.02 ms with one 302 ms frame (and a 374 ms idle
+  frame in the same run: the machine; about 0.7 ms without it); re-measured after T5 below.
