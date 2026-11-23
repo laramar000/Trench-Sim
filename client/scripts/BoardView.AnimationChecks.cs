@@ -40,6 +40,11 @@ public partial class BoardView
         }
     }
 
+    // For the UI check (showcase review, 2026-11-23): each effect square showing now, its colour (with alpha) and size.
+    public IReadOnlyList<(Color Colour, float Size)> ShowingSquares() =>
+        [.. _effects.GetChildren().OfType<MeshInstance3D>().Where(m => m.Visible && m.Mesh == UnitQuad && m.MaterialOverride is StandardMaterial3D)
+            .Select(m => (((StandardMaterial3D)m.MaterialOverride).AlbedoColor, m.Scale.X))];
+
     // For the UI check (final animation review): how often a log behind what was already shown was waited out.
     public int LogsBehind { get; private set; }
 

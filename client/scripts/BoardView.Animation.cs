@@ -314,10 +314,12 @@ public partial class BoardView
                 Puff(at + new Vector3(0, 0.85f, 0), Vector3.Zero, 0.5f, 0.4f, new Color(1f, 0.9f, 0.45f), (float)Choreography.FlashSeconds * 2 * scale);
                 break;
             case EffectKind.HitPuff:
+                // Showcase review (2026-11-23): four see-through spatters flying apart from the hit, so the target stays in
+                // sight (four opaque squares grown to 0.7" from one point hid it for most of their time).
                 for (var i = 0; i < 4; i++)
                 {
-                    var away = new Vector3(Mathf.Cos(i * 1.7f), 0.6f, Mathf.Sin(i * 1.7f)) * 0.35f;
-                    Puff(at + new Vector3(0, 0.7f, 0), away, 0.3f, 0.4f, new Color(0.72f, 0.2f, 0.15f), (float)Choreography.HitPuffSeconds * scale);
+                    var away = new Vector3(Mathf.Cos(i * 1.7f), 0.6f, Mathf.Sin(i * 1.7f)) * 0.6f;
+                    Puff(at + new Vector3(0, 0.7f, 0) + away * 0.25f, away, 0.18f, 0.2f, new Color(0.72f, 0.2f, 0.15f, HitAlpha), (float)Choreography.HitPuffSeconds * scale);
                 }
                 break;
             default:
@@ -563,6 +565,9 @@ public partial class BoardView
     // Animation stage A5: dust, smoke and gas are drawn see-through (at most SmokeAlpha), so they never hide a model.
     private const float SmokeAlpha = 0.55f;
 
+    // Showcase review (2026-11-23): a hit's spatter and a blow's or charge's flash are see-through too.
+    public const float HitAlpha = 0.5f;
+
     // A fireball is drawn see-through too (seen on screen: opaque, it hid the models it was on).
     private const float FireAlpha = 0.7f;
     private static readonly Color Dust = new(0.58f, 0.49f, 0.37f, SmokeAlpha);
@@ -748,7 +753,8 @@ public partial class BoardView
         {
             var seconds = (float)Choreography.StrikeSeconds * scale;
             NoteEffectLength(seconds);
-            Puff(contact + new Vector3(0, 0.8f, 0), Vector3.Zero, 0.35f, 0.3f, new Color(1f, 0.95f, 0.82f), seconds);
+            // Showcase review: the flash small and see-through (an opaque square grown to 0.65" hid both models).
+            Puff(contact + new Vector3(0, 0.8f, 0), Vector3.Zero, 0.2f, 0.15f, new Color(1f, 0.95f, 0.82f, HitAlpha), seconds);
             Puff(contact + new Vector3(0, 0.85f, 0), side * 0.5f + new Vector3(0, 0.25f, 0), 0.12f, 0f, new Color(1f, 0.85f, 0.5f), seconds * 2);
             Puff(contact + new Vector3(0, 0.75f, 0), -side * 0.5f + new Vector3(0, 0.3f, 0), 0.12f, 0f, new Color(1f, 0.85f, 0.5f), seconds * 2);
             return;
@@ -761,7 +767,7 @@ public partial class BoardView
             var out_ = (side * Mathf.Cos(angle) + toward * Mathf.Sin(angle) * 0.5f) * 0.7f;
             Puff(contact + new Vector3(0, 0.12f, 0), out_ + new Vector3(0, 0.35f, 0), 0.35f, 0.45f, Dust, dust);
         }
-        Puff(contact + new Vector3(0, 0.7f, 0), Vector3.Zero, 0.3f, 0.2f, new Color(1f, 0.95f, 0.82f), (float)Choreography.StrikeSeconds * scale);
+        Puff(contact + new Vector3(0, 0.7f, 0), Vector3.Zero, 0.2f, 0.1f, new Color(1f, 0.95f, 0.82f, HitAlpha), (float)Choreography.StrikeSeconds * scale);
     }
 
     // ---- watchable moves (XCOM-style UX, improvement 3) ----

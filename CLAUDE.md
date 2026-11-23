@@ -647,3 +647,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   their time (0.15-0.7 s); stacked fireballs hide models about 0.3 s at their peak. Not changed.
   Checks: essentials 2,311/0; full UI runner 437 PASS, 0 FAIL; gvt-a animating mean 0.61 ms, max 11.4 ms. Not run:
   Windows/Vulkan (the showcase is for that: Test Center option 9).
+- 2026-11-23, Jason chose "1": hits and blows see-through. The red hit spatter is four 0.18"->0.38" squares at
+  `BoardView.HitAlpha` 0.5 flying apart (was four opaque squares grown to 0.7" from one point); the strike and impact
+  flashes 0.2"->0.35"/0.3" at the same alpha (were opaque, to 0.65"); lengths, timing and T1's Fast scaling unchanged;
+  muzzle flash and sparks unchanged; stacked fireballs not changed (option 2 not chosen). Hook `ShowingSquares`. UI check
+  `hotseat-hits-see-through` (hotseat: made-up hit and blow in Full, every red/pale square every frame at most 0.55
+  opaque and 0.4": seen 0.46 and 0.38"). Seen in the showcase capture: the target stays in sight through the hit.
+  Checks: essentials 2,311/0; hotseat group 45 PASS, 0 FAIL (animating mean 0.58 ms); showcase 11/11. Full UI runner
+  not run (look-only change; hotseat group covers it). Not run: Windows.
