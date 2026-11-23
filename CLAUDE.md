@@ -680,3 +680,12 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   `board-bodies` (pvp-a, gvt-a). Checks (Linux, xvfb): essentials 2,314/0; hotseat 46/0; gvt-a 33/0 (board-bodies PASS on
   a real casualty; animating mean 0.74 ms, max 12.1 ms); showcase scenes 2 and 4 looked at. Not run: full runner (pvp-a),
   Windows/Vulkan. Open: bodies pile up for the whole match (no limit; a body can overlap a living model standing there).
+- 2026-11-23, Jason: "Do all" (after "What's next": 1 verify the animation branch, 2 body polish, 3 rules "later" group,
+  4 last two Heretic figures, 5 milestone sign-off). Done: (2) bodies lie in a pool of blood (`BloodPool`, spreads over
+  `PoolSeconds` 1.6 s) and are drawn see-through under a model on the table (`BodyUnderfoot` 0.35, `Underfoot`);
+  `board-bodies` checks both. (5) `docs/manual-test-checklist.md`: steps for the stage 5d hand-played match / Gate G5 and
+  for looking at the showcase on Windows. (3) blocked: the repo has only one-line summaries of the later-group rules
+  (Bodyguard, Hide, Hateful, Court spells, INFECTION/BLESSING MARKERS, Puppet Master, Loudspeakers, Set/Defuse Mine,
+  Time Slip, Temporal Assassin, Flanking/Forward Positions/INFILTRATOR, oval bases); the owner's pages are needed, as
+  for Suicidal Bravery. (4) blocked: references for the Bombard Witch and Barbed Wire Banshee needed. (1) full UI runner
+  first try stopped at 181 PASS, 2 FAIL (host too slow while the essentials ran beside it; reopen waited on it).

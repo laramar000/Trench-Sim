@@ -6581,7 +6581,7 @@ public partial class UiCheck : Node
             return;
         }
         var problems = new List<string>();
-        var looks = new Dictionary<Rules.Core.State.ModelId, (Vector3 At, float Tilt, float Shade, bool BaseShown)>();
+        var looks = new Dictionary<Rules.Core.State.ModelId, (Vector3 At, float Tilt, float Shade, bool BaseShown, float Fade, bool Pool)>();
         foreach (var fallen in scene.Fallen)
         {
             if (board.BodyLook(fallen.Id) is not { } look)
@@ -6590,10 +6590,12 @@ public partial class UiCheck : Node
                 continue;
             }
             looks[fallen.Id] = look;
+            // Body polish: a blood pool under it, and drawn see-through exactly while a model on the table stands on it.
+            var underfoot = scene.Models.Any(m => Math.Sqrt((m.X - fallen.X) * (m.X - fallen.X) + (m.Y - fallen.Y) * (m.Y - fallen.Y)) < m.Radius + fallen.Radius * 0.7);
             if (new Vector2(look.At.X - (float)fallen.X, look.At.Z - (float)fallen.Y).Length() > 0.01f || look.Tilt is < 1.4f or > 1.75f || look.BaseShown
-                || Math.Abs(look.Shade - BoardView.BodyShade) > 0.02f)
+                || Math.Abs(look.Shade - BoardView.BodyShade) > 0.02f || !look.Pool || Math.Abs(look.Fade - (underfoot ? BoardView.BodyUnderfoot : 1f)) > 0.01f)
             {
-                problems.Add($"{fallen.Id.Value}: {look} (wanted at ({fallen.X:0.00}, {fallen.Y:0.00}), tipped about 1.57, shade {BoardView.BodyShade}, no base)");
+                problems.Add($"{fallen.Id.Value}: {look} (wanted at ({fallen.X:0.00}, {fallen.Y:0.00}), tipped about 1.57, shade {BoardView.BodyShade}, no base, a pool, fade {(underfoot ? BoardView.BodyUnderfoot : 1f)})");
             }
         }
         var extra = board.Bodies.Where(id => scene.Fallen.All(f => f.Id != id)).Select(id => id.Value).ToList();
@@ -6602,7 +6604,7 @@ public partial class UiCheck : Node
         var redrawn = 0;
         foreach (var (id, was) in looks)
         {
-            if (board.BodyLook(id) is { } now && now.At.DistanceTo(was.At) < 0.01f && Math.Abs(now.Tilt - was.Tilt) < 0.05f && Math.Abs(now.Shade - was.Shade) < 0.02f && !now.BaseShown)
+            if (board.BodyLook(id) is { } now && now.At.DistanceTo(was.At) < 0.01f && Math.Abs(now.Tilt - was.Tilt) < 0.05f && Math.Abs(now.Shade - was.Shade) < 0.02f && !now.BaseShown && now.Pool && Math.Abs(now.Fade - was.Fade) < 0.01f)
             {
                 redrawn++;
             }

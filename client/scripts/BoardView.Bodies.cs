@@ -19,6 +19,16 @@ public partial class BoardView
     private readonly Dictionary<ModelId, Node3D> _bodies = [];
     private readonly HashSet<ModelId> _hiddenForPicture = [];
 
+    // Body polish (2026-11-23): each body's materials and base, to draw it see-through while a model stands on it.
+    private readonly Dictionary<ModelId, (List<ShaderMaterial> Shaders, List<StandardMaterial3D> Paints, float Radius)> _bodyParts = [];
+
+    // A body under a model on the table is drawn this see-through (the figure shader's ordered dither; the paints' alpha),
+    // so the living model always reads first.
+    public const float BodyUnderfoot = 0.35f;
+
+    // How long a body's blood pool takes to spread when it falls in play (drawn at once without an animation).
+    public const float PoolSeconds = 1.6f;
+
     private static void Darken(List<ShaderMaterial> shaders, List<StandardMaterial3D> paints, IReadOnlyList<Color> colours, float shade)
     {
         foreach (var shader in shaders)
@@ -42,16 +52,21 @@ public partial class BoardView
             return;
         }
         PoseGhost(ghost, double.MaxValue);
-        Keep(ghost.Model, ghost.Root);
+        var radius = _lastDrawn.Find(_scene, ghost.Model) is { } shape ? (float)shape.Radius : 0.5f;
+        Keep(ghost.Model, ghost.Root, ghost.Shaders, ghost.Paints, radius, spread: true);
+        Underfoot();
     }
 
-    // Lays a body to rest: its base hidden, under the bodies node, the model's only body.
-    private void Keep(ModelId id, Node3D root)
+    // Lays a body to rest: its base hidden, a pool of blood under it (spreading when it has just fallen), under the bodies
+    // node, the model's only body.
+    private void Keep(ModelId id, Node3D root, List<ShaderMaterial> shaders, List<StandardMaterial3D> paints, float radius, bool spread)
     {
         foreach (var part in root.GetChildren().OfType<MeshInstance3D>())
         {
             part.Visible = false;
         }
+        root.AddChild(BloodPool(id, radius, spread));
+        _bodyParts[id] = (shaders, paints, radius);
         root.GetParent()?.RemoveChild(root);
         root.Name = $"Body{id.Value}";
         if (_bodies.Remove(id, out var old) && IsInstanceValid(old))
@@ -80,6 +95,58 @@ public partial class BoardView
                 LayBody(model);
             }
         }
+        Underfoot();
+    }
+
+    // A dark, uneven pool of blood on the ground under a body: three flat overlapping discs, placed from the model's id so
+    // it looks the same every time it is drawn. Display only.
+    private static Node3D BloodPool(ModelId id, float radius, bool spread)
+    {
+        var pool = new Node3D { Name = "Pool", Position = new Vector3(0, 0.012f, 0) };
+        var paint = new StandardMaterial3D { AlbedoColor = new Color(0.26f, 0.03f, 0.03f, 0.8f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.35f };
+        var seed = (uint)id.Value.GetHashCode();
+        foreach (var (size, step) in new[] { (0.8f, 0), (0.55f, 1), (0.45f, 2) })
+        {
+            var angle = (seed >> (step * 5) & 31) / 32f * Mathf.Tau;
+            var off = step == 0 ? 0 : radius * 0.45f;
+            pool.AddChild(new MeshInstance3D
+            {
+                Mesh = new CylinderMesh { TopRadius = radius * size, BottomRadius = radius * size, Height = 0.008f, RadialSegments = 12 },
+                Position = new Vector3(Mathf.Cos(angle) * off, step * 0.001f, Mathf.Sin(angle) * off),
+                MaterialOverride = paint,
+            });
+        }
+        if (spread)
+        {
+            pool.Scale = new Vector3(0.15f, 1, 0.15f);
+            pool.Ready += () => pool.CreateTween().TweenProperty(pool, "scale", Vector3.One, PoolSeconds).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        }
+        return pool;
+    }
+
+    // Each body under a model on the table is drawn see-through; the rest whole.
+    private void Underfoot()
+    {
+        foreach (var (id, root) in _bodies)
+        {
+            if (!IsInstanceValid(root) || !_bodyParts.TryGetValue(id, out var parts))
+            {
+                continue;
+            }
+            var at = root.Position;
+            // (Not its own model, which the showcase hides on the table while it plays the casualty.)
+            var under = _scene?.Models.Any(m => m.Id != id && !_hiddenForPicture.Contains(m.Id) && new Vector2((float)m.X - at.X, (float)m.Y - at.Z).Length() < m.Radius + parts.Radius * 0.7f) == true;
+            var fade = under ? BodyUnderfoot : 1f;
+            foreach (var shader in parts.Shaders)
+            {
+                shader.SetShaderParameter("fade", fade);
+            }
+            foreach (var paint in parts.Paints)
+            {
+                paint.Transparency = under ? BaseMaterial3D.TransparencyEnum.Alpha : BaseMaterial3D.TransparencyEnum.Disabled;
+                paint.AlbedoColor = paint.AlbedoColor with { A = fade };
+            }
+        }
     }
 
     // A body drawn lying at once, as a casualty figure ends: facing as the model last faced.
@@ -91,11 +158,12 @@ public partial class BoardView
         holder.Basis = basis;
         holder.Position = new Vector3(0, tall / 2, 0) + offset;
         Darken(shaders, paints, [.. paints.Select(p => p.AlbedoColor)], BodyShade);
-        Keep(model.Id, root);
+        Keep(model.Id, root, shaders, paints, (float)model.Radius, spread: false);
     }
 
     private void RemoveBody(ModelId id)
     {
+        _bodyParts.Remove(id);
         if (_bodies.Remove(id, out var root) && IsInstanceValid(root))
         {
             root.GetParent()?.RemoveChild(root);
@@ -117,18 +185,19 @@ public partial class BoardView
 
     public int BodiesLaid { get; private set; }
 
-    public (Vector3 At, float Tilt, float Shade, bool BaseShown)? BodyLook(ModelId id)
+    public (Vector3 At, float Tilt, float Shade, bool BaseShown, float Fade, bool Pool)? BodyLook(ModelId id)
     {
         if (!_bodies.TryGetValue(id, out var root) || !IsInstanceValid(root) || root.GetChildCount() == 0)
         {
             return null;
         }
-        var holder = root.GetChildren().OfType<Node3D>().FirstOrDefault(n => n is not MeshInstance3D);
+        var holder = root.GetChildren().OfType<Node3D>().FirstOrDefault(n => n is not MeshInstance3D && n.Name != "Pool");
         var shader = root.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>()
             .SelectMany(m => Enumerable.Range(0, m.Mesh?.GetSurfaceCount() ?? 0).Select(i => m.GetSurfaceOverrideMaterial(i))).OfType<ShaderMaterial>().FirstOrDefault();
         var shade = shader?.GetShaderParameter("albedo_colour").AsColor().R ?? BodyShade;
         var up = holder is null ? Vector3.Up : holder.Basis.Y.Normalized();
-        return (root.Position, up.AngleTo(Vector3.Up), shade, root.GetChildren().OfType<MeshInstance3D>().Any(m => m.Visible));
+        var fade = shader?.GetShaderParameter("fade").VariantType is Variant.Type.Float ? (float)shader.GetShaderParameter("fade") : 1f;
+        return (root.Position, up.AngleTo(Vector3.Up), shade, root.GetChildren().OfType<MeshInstance3D>().Any(m => m.Visible), fade, root.GetNodeOrNull<Node3D>("Pool") is not null);
     }
 
     // For the UI check: draws every body again directly (the way Off, a catch-up or a rejoin draws them).
