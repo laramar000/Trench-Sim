@@ -400,7 +400,7 @@ public sealed class MatchController : IAsyncDisposable
                 _feedback,
                 _warning,
                 _log.Values.TakeLast(_options.LogLines).ToList(),
-                BoardScene.Of(state, seat, _names),
+                BoardScene.Of(state, seat, _names, _statuses.Fallen),
                 state,
                 EndOf(view, copy),
                 _trips.Count == 0 ? RoundTrips.None : RoundTrips.Of(_trips, _tripAt) with { Count = _tripCount });

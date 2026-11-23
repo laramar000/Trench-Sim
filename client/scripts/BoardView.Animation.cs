@@ -34,6 +34,7 @@ public partial class BoardView
     public void NewMatch()
     {
         FinishAnimations();
+        ClearBodies();
         _lastDrawn.Clear();
         _facing.Clear();
         _scene = null;
@@ -215,7 +216,7 @@ public partial class BoardView
         {
             foreach (var ghost in _ghosts)
             {
-                FreeGhost(ghost);
+                EndGhost(ghost);
             }
             _ghosts.Clear();
             foreach (var fall in _falls)
@@ -972,6 +973,11 @@ public partial class BoardView
         // Movement review (2026-11-23): the facing it had, from which it turns to face the attacker over the first half of
         // its fall (it used to face the attacker from the moment it appeared).
         public float FromYaw { get; init; }
+
+        // Bodies (2026-11-23): the base's paints, which fade as it goes; Paints are the figure's, which darken.
+        public List<StandardMaterial3D> Base { get; init; } = [];
+
+        public IReadOnlyList<Color> PaintColours { get; } = [.. Paints.Select(p => p.AlbedoColor)];
     }
 
     // A plain body stands this tall (as DrawModel draws it); a figure stands at its catalog height (the art pipeline's,
@@ -1103,9 +1109,33 @@ public partial class BoardView
         }
         var yaw = FallYaw(beat.Model, beat.Other, at);
         var fromYaw = falls ? FacingNow(beat.Model) : yaw;
+        var (root, holder, shaders, paints, under, tall, lyingScale, length) = BuildCasualty(shape, at, fromYaw, _effects);
+        var ghost = new CasualtyFigure(root, holder, shaders, paints, fallStart, fallSeconds, sinkSeconds, falls, yaw, lyingScale, tall, length)
+        {
+            Model = beat.Model,
+            Rides = rides,
+            Home = at,
+            FromYaw = fromYaw,
+            Base = under,
+        };
+        if (rides is not null)
+        {
+            CasualtiesRiding++;
+        }
+        _ghosts.Add(ghost);
+        PoseGhost(ghost, Now);
+        CasualtiesStarted += beat.Seq > 0 ? 1 : 0;
+    }
+
+    // A casualty figure's nodes (its figure, or plain body, and its base, as the model was drawn), each with its own copy of
+    // every material: standing at a point facing yaw, added to parent. Used by the casualty animation and, since the bodies
+    // change (2026-11-23), for a body drawn without one (Off, a catch-up, a rejoin).
+    private (Node3D Root, Node3D Holder, List<ShaderMaterial> Shaders, List<StandardMaterial3D> Paints, List<StandardMaterial3D> Base, float Tall, float LyingScale, float Length)
+        BuildCasualty(ModelShape shape, Vector3 at, float yaw, Node3D parent)
+    {
         var root = new Node3D { Name = $"Casualty{shape.Id.Value}", Position = at };
         var tall = StandingHeight(shape);
-        var holder = new Node3D { Position = new Vector3(0, tall / 2, 0), Rotation = new Vector3(0, fromYaw, 0) };
+        var holder = new Node3D { Position = new Vector3(0, tall / 2, 0), Rotation = new Vector3(0, yaw, 0) };
         var colour = BodyColour(shape);
         Node3D body;
         Node3D? art = null;
@@ -1145,19 +1175,30 @@ public partial class BoardView
                 MaterialOverride = new StandardMaterial3D { AlbedoColor = paint, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
             });
         }
-        _effects.AddChild(root);
+        parent.AddChild(root);
         // Stage A5: every material of the casualty figure is its own copy, so it can fade without touching the model it
         // was copied from: the figure's PS1 shader dissolves (fade), every plain paint goes see-through.
         var shaders = new List<ShaderMaterial>();
         var paints = new List<StandardMaterial3D>();
-        foreach (var mesh in root.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>().Append(body as MeshInstance3D).OfType<MeshInstance3D>())
+        var under = new List<StandardMaterial3D>();
+        foreach (var mesh in root.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>().Append(body as MeshInstance3D).OfType<MeshInstance3D>().Distinct())
         {
             if (mesh.MaterialOverride is StandardMaterial3D own)
             {
+                // Bodies (2026-11-23): the base fades away (so a body never looks like a Down model, which keeps its base);
+                // the figure (here the plain body) stays, darkened.
                 var copy = (StandardMaterial3D)own.Duplicate();
-                copy.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+                var isBase = mesh.GetParent() == root;
+                if (isBase)
+                {
+                    copy.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+                    under.Add(copy);
+                }
+                else
+                {
+                    paints.Add(copy);
+                }
                 mesh.MaterialOverride = copy;
-                paints.Add(copy);
                 continue;
             }
             for (var i = 0; mesh.Mesh is { } m && i < m.GetSurfaceCount(); i++)
@@ -1170,29 +1211,15 @@ public partial class BoardView
                         shaders.Add(dissolve);
                         break;
                     case StandardMaterial3D plain:
-                        var seeThrough = (StandardMaterial3D)plain.Duplicate();
-                        seeThrough.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
-                        mesh.SetSurfaceOverrideMaterial(i, seeThrough);
-                        paints.Add(seeThrough);
+                        var own2 = (StandardMaterial3D)plain.Duplicate();
+                        mesh.SetSurfaceOverrideMaterial(i, own2);
+                        paints.Add(own2);
                         break;
                 }
             }
         }
         var (lyingScale, length) = LyingFit(art, shape.Radius, tall);
-        var ghost = new CasualtyFigure(root, holder, shaders, paints, fallStart, fallSeconds, sinkSeconds, falls, yaw, lyingScale, tall, length)
-        {
-            Model = beat.Model,
-            Rides = rides,
-            Home = at,
-            FromYaw = fromYaw,
-        };
-        if (rides is not null)
-        {
-            CasualtiesRiding++;
-        }
-        _ghosts.Add(ghost);
-        PoseGhost(ghost, Now);
-        CasualtiesStarted += beat.Seq > 0 ? 1 : 0;
+        return (root, holder, shaders, paints, under, tall, lyingScale, length);
     }
 
     private void FreeGhost(CasualtyFigure ghost)
@@ -1255,16 +1282,13 @@ public partial class BoardView
         ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0) + offset;
         var sinkStart = ghost.Start + (ghost.Falls ? ghost.FallSeconds : 0);
         var q = (float)Math.Clamp((now - sinkStart) / ghost.SinkSeconds, 0, 1);
-        // Stage A5: it dissolves (the PS1 shader's dither; the paints' alpha) while settling a little into the mud.
-        foreach (var shader in ghost.Shaders)
-        {
-            shader.SetShaderParameter("fade", 1 - q);
-        }
-        foreach (var paint in ghost.Paints)
+        // Bodies (Jason, 2026-11-23: "bodies lay on the ground, not disappear"; stage A5 dissolved it): the figure stays
+        // lying where it fell and darkens to a body's shade; its base fades away, so it no longer reads as a model in play.
+        Darken(ghost.Shaders, ghost.Paints, ghost.PaintColours, Mathf.Lerp(1f, BodyShade, q));
+        foreach (var paint in ghost.Base)
         {
             paint.AlbedoColor = paint.AlbedoColor with { A = 1 - q };
         }
-        ghost.Holder.Position += new Vector3(0, -0.2f * q, 0);
         return now < sinkStart + ghost.SinkSeconds;
     }
 
@@ -1421,7 +1445,7 @@ public partial class BoardView
         {
             if (!PoseGhost(_ghosts[i], now))
             {
-                FreeGhost(_ghosts[i]);
+                EndGhost(_ghosts[i]);
                 _ghosts.RemoveAt(i--);
             }
         }

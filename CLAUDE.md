@@ -672,3 +672,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (`StepBob`). Lengths and timing unchanged. Checks (Linux, xvfb): essentials 2,311 + 1 new, 1 flaky transport test
   (`AHostThatNeverAnswersTheRejoinTimesOutEachAttempt`, passed 3/3 alone); hotseat group 46/0; gvt-a 33/0 (animating mean
   0.70 ms, max 10.1 ms); showcase 12/12. Not run: full runner, Windows/Vulkan.
+- 2026-11-23, Jason: "I want bodies to lay on the ground not disappear". Done: Out of Action models stay as darkened bodies
+  lying where they fell, without base or label, until the match ends; display only (never in the scene's models).
+  `StatusTracker.Fallen` (last positions) -> `BoardScene.Of(..., fallen)` -> `BoardScene.Fallen`; `BoardView.Bodies.cs`
+  (`SyncBodies`, `EndGhost`, `LayBody`, `BuildCasualty` shared with the casualty figure, which now darkens and drops its
+  base instead of dissolving). Works in Full/Fast/Off, catch-up and rejoin. Tests `BodiesTests`; UI check optional
+  `board-bodies` (pvp-a, gvt-a). Checks (Linux, xvfb): essentials 2,314/0; hotseat 46/0; gvt-a 33/0 (board-bodies PASS on
+  a real casualty; animating mean 0.74 ms, max 12.1 ms); showcase scenes 2 and 4 looked at. Not run: full runner (pvp-a),
+  Windows/Vulkan. Open: bodies pile up for the whole match (no limit; a body can overlap a living model standing there).

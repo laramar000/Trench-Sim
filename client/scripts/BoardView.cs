@@ -157,6 +157,7 @@ public partial class BoardView : SubViewportContainer
         _camera.AddChild(_unitLight);
         _viewport.AddChild(_terrain);
         _viewport.AddChild(_content);
+        _viewport.AddChild(_bodiesNode);
         _viewport.AddChild(_effects);
         _viewport.AddChild(_overlay);
         _viewport.AddChild(_notes);
@@ -267,6 +268,8 @@ public partial class BoardView : SubViewportContainer
         {
             ShowNotes(log, before);
         }
+        // Bodies (2026-11-23): every model Out of Action lies where it fell (its casualty figure becomes it when it plays).
+        SyncBodies();
         if (switched is not null)
         {
             switched.PlayingAfter = Gliding;
@@ -291,6 +294,9 @@ public partial class BoardView : SubViewportContainer
         Dice.SetLook(textScale, highContrast);
         ApplyEnvironment();
         Rebuild();
+        // Bodies are drawn with the look too (figures, or the plain bodies in high contrast).
+        ClearBodies();
+        SyncBodies();
         DrawPreview();
     }
 

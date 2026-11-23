@@ -88,6 +88,14 @@ public partial class BoardView
 
     public void HideForPicture(ModelId id, bool hidden)
     {
+        if (hidden)
+        {
+            _hiddenForPicture.Add(id);
+        }
+        else
+        {
+            _hiddenForPicture.Remove(id);
+        }
         if (_modelNodes.TryGetValue(id, out var nodes))
         {
             foreach (var (node, _) in nodes)
@@ -207,11 +215,12 @@ public partial class BoardView
 
     public int GhostsFreed { get; private set; }
 
-    // Animation stage A5: how far the first casualty figure has faded (its PS1 shader's fade and its paints' alpha, 1
-    // whole), and the fade a model's own figure is drawn with (1 whole; it must never change); for the UI check.
-    public (float Fade, float Alpha)? CasualtyLook => _ghosts.Count == 0 ? null
-        : (_ghosts[0].Shaders.Count == 0 ? 1f : _ghosts[0].Shaders.Min(m => m.GetShaderParameter("fade").VariantType == Variant.Type.Nil ? 1f : (float)m.GetShaderParameter("fade")),
-           _ghosts[0].Paints.Count == 0 ? 1f : _ghosts[0].Paints.Min(m => m.AlbedoColor.A));
+    // Animation stage A5, bodies (2026-11-23): how far the first casualty figure has gone: its figure's shade (1 as drawn,
+    // BodyShade as a body) and its base's alpha (1 whole, 0 gone); and the fade a model's own figure is drawn with (1 whole;
+    // it must never change); for the UI check.
+    public (float Shade, float BaseAlpha)? CasualtyLook => _ghosts.Count == 0 ? null
+        : (_ghosts[0].Shaders.Count == 0 ? 1f : _ghosts[0].Shaders.Min(m => m.GetShaderParameter("albedo_colour").VariantType == Variant.Type.Nil ? 1f : m.GetShaderParameter("albedo_colour").AsColor().R),
+           _ghosts[0].Base.Count == 0 ? 1f : _ghosts[0].Base.Min(m => m.AlbedoColor.A));
 
     public float? FigureFade(ModelId id)
     {

@@ -2786,6 +2786,8 @@ public partial class UiCheck : Node
             }
             hidden.Clear();
             held.Clear();
+            // Bodies (2026-11-23): a staged casualty's body goes with its scene (its model is still on the table).
+            board.ClearStagedBodies();
         }
         void Caption(int i, bool ended) =>
             caption.Text = $"{i + 1} / {scenes.Count}   {scenes[i].Title}{(scenes[i].Speed is { } own ? $" ({own})" : "")}\nLook for: {scenes[i].Watch}\n"
@@ -6133,6 +6135,7 @@ public partial class UiCheck : Node
         if (_role is "pvp-a" or "gvt-a")
         {
             CasualtySequenceCheck(board);
+            BodiesCheck(board);
             BlastSequenceCheck(board);
         }
         var twice = shown.GroupBy(r => r.Seq).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
@@ -6351,14 +6354,14 @@ public partial class UiCheck : Node
         var riserAfter = board.TiltOf(riser.Id);
         var upright = fallerAfter is { } fa && riserAfter is { } ra && fa.Tilt < 0.01f && ra.Tilt < 0.01f && Math.Abs(fa.Scale - 1) < 0.01f && Math.Abs(ra.Scale - 1) < 0.01f;
         var cleaned = board.CasualtyNodes == 0 && board.GhostsShowing == 0 && board.HeldStanding == 0 && !board.Gliding;
-        // Stage A5: half way through its sink the casualty figure is half faded (its own material copies: the shader's
-        // dither and the paints' alpha), and the model it was copied from is still drawn whole.
+        // Stage A5, bodies (2026-11-23): half way through its last phase the casualty figure is half darkened towards a
+        // body and its base half faded (its own material copies), and the model it was copied from is still drawn whole.
         var fallPart = 20 * Choreography.FallSeconds / (Choreography.FallSeconds + Choreography.SinkSeconds);
         board.PlayForCheck(new Choreography([], [new Beat(0, BeatKind.Casualty, -(fallPart + (20 - fallPart) / 2), 20, casualty.Id, faller.Id, Hit: true)]));
         await Step(1);
         var look = board.CasualtyLook;
         var sourceFade = board.FigureFade(casualty.Id);
-        var fadesOk = look is { } lk && lk.Fade is > 0.3f and < 0.7f && lk.Alpha is > 0.3f and < 0.7f && sourceFade is null or 1f;
+        var fadesOk = look is { } lk && lk.Shade < 1f && lk.Shade > BoardView.BodyShade && lk.BaseAlpha is > 0.3f and < 0.7f && sourceFade is null or 1f;
         board.FinishAnimations();
         await Step(1);
         fadesOk &= board.CasualtyNodes == 0;
@@ -6380,7 +6383,7 @@ public partial class UiCheck : Node
             + $"selected: nodes redrawn {redrawn}, still tipped {fallTiltAfter:0.00} rad; {untouched?.Id.Value ?? "no other model"} kept its nodes {untouchedKept}; "
             + $"terrain builds {terrain} -> {board.TerrainBuilds}; playing {playing}, cut short by [{cutBy}]; finished at once: {faller.Id.Value} {fallerAfter}, "
             + $"{riser.Id.Value} {riserAfter}, upright {upright}; casualty figures left {board.CasualtyNodes}, held standing {board.HeldStanding}, still playing {board.Gliding}; "
-            + $"half sunk: casualty figure fade {look}, its model's own figure fade {sourceFade}: {fadesOk}; Off plays nothing {offQuiet}");
+            + $"half way: casualty figure (shade, base alpha) {look}, its model's own figure fade {sourceFade}: {fadesOk}; Off plays nothing {offQuiet}");
     }
 
     // Audit item B2 (board-casualty-mid-move): a model put Out of Action during its own move goes where the server halted
@@ -6564,6 +6567,53 @@ public partial class UiCheck : Node
                 + $"Fast [{string.Join(" ", lengths[(u.Item1, AnimationSpeed.Fast)].Select(d => d.ToString("0.00")))}] s, clear {clear[(u.Item1, AnimationSpeed.Fast)]:0.00} s"))
             + $"; Fast clears sooner {sooner}; a Fast hit finished at once with {showingAtCut} effect squares showing clear in {cutClear:0.00} s {cutOk}; Off draws nothing {offQuiet}"
             + (problems.Count == 0 ? "" : "; " + string.Join(" | ", problems)));
+    }
+
+    // Bodies (board-bodies, optional: only when the match put models Out of Action; Jason, 2026-11-23: "bodies lay on the
+    // ground, not disappear"): at the end of a real match every model Out of Action has exactly one body, lying (tipped
+    // about 90 degrees), darkened, without its base, at the last place the server's table had it, and no body stands for
+    // a model on the table. Then the bodies are drawn again directly (as with Animations Off, a catch-up or a rejoin,
+    // where no casualty figure plays) and each lies at the same place, as tipped and as dark as before.
+    private void BodiesCheck(BoardView board)
+    {
+        if (board.Scene is not { Fallen.Count: > 0 } scene)
+        {
+            return;
+        }
+        var problems = new List<string>();
+        var looks = new Dictionary<Rules.Core.State.ModelId, (Vector3 At, float Tilt, float Shade, bool BaseShown)>();
+        foreach (var fallen in scene.Fallen)
+        {
+            if (board.BodyLook(fallen.Id) is not { } look)
+            {
+                problems.Add($"{fallen.Id.Value}: no body");
+                continue;
+            }
+            looks[fallen.Id] = look;
+            if (new Vector2(look.At.X - (float)fallen.X, look.At.Z - (float)fallen.Y).Length() > 0.01f || look.Tilt is < 1.4f or > 1.75f || look.BaseShown
+                || Math.Abs(look.Shade - BoardView.BodyShade) > 0.02f)
+            {
+                problems.Add($"{fallen.Id.Value}: {look} (wanted at ({fallen.X:0.00}, {fallen.Y:0.00}), tipped about 1.57, shade {BoardView.BodyShade}, no base)");
+            }
+        }
+        var extra = board.Bodies.Where(id => scene.Fallen.All(f => f.Id != id)).Select(id => id.Value).ToList();
+        var laidBefore = board.BodiesLaid;
+        board.RelayBodies();
+        var redrawn = 0;
+        foreach (var (id, was) in looks)
+        {
+            if (board.BodyLook(id) is { } now && now.At.DistanceTo(was.At) < 0.01f && Math.Abs(now.Tilt - was.Tilt) < 0.05f && Math.Abs(now.Shade - was.Shade) < 0.02f && !now.BaseShown)
+            {
+                redrawn++;
+            }
+            else
+            {
+                problems.Add($"{id.Value} drawn directly: {board.BodyLook(id)} (was {was})");
+            }
+        }
+        Check("board-bodies", problems.Count == 0 && extra.Count == 0 && board.Bodies.Count == scene.Fallen.Count && board.BodiesLaid - laidBefore == looks.Count,
+            $"{scene.Fallen.Count} models Out of Action, {board.Bodies.Count} bodies; bodies of models on the table [{string.Join(",", extra)}]; "
+            + $"drawn directly again {redrawn} of {looks.Count} alike; {string.Join(" | ", problems.Take(4))}");
     }
 
     // Animation stage A3 (board-casualty-sequence, optional: only when the match took models Down, stood them up or put

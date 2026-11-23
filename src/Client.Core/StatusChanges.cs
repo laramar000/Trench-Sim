@@ -1,3 +1,4 @@
+using Rules.Core.Geometry;
 using Rules.Core.State;
 
 namespace Client.Core;
@@ -14,8 +15,18 @@ public sealed record StatusChange(ModelId Model, ModelStatus From, ModelStatus T
 public sealed class StatusTracker
 {
     private readonly Dictionary<ModelId, (ModelStatus Status, TablePoint? At)> _known = [];
+    private readonly Dictionary<ModelId, Point2> _lastPosition = [];
 
-    public void Clear() => _known.Clear();
+    public void Clear()
+    {
+        _known.Clear();
+        _lastPosition.Clear();
+    }
+
+    // Bodies (Jason, 2026-11-23: "bodies lay on the ground, not disappear"): each model Out of Action now, at the last
+    // place the server's table had it (the server clears it). Only for models this tracker saw on the table. Display only.
+    public IReadOnlyDictionary<ModelId, Point2> Fallen =>
+        _known.Where(k => k.Value.Status == ModelStatus.OutOfAction && _lastPosition.ContainsKey(k.Key)).ToDictionary(k => k.Key, k => _lastPosition[k.Key]);
 
     public IReadOnlyList<StatusChange> Next(MatchState after)
     {
@@ -30,6 +41,10 @@ public sealed class StatusTracker
             }
             // An Out of Action model keeps the last place the table had it.
             _known[model.Id] = (model.Status, at ?? (model.Status == ModelStatus.OutOfAction ? was.At : null));
+            if (model.Position is { } position)
+            {
+                _lastPosition[model.Id] = position;
+            }
         }
         return changes ?? (IReadOnlyList<StatusChange>)[];
     }
