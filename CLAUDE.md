@@ -689,3 +689,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Time Slip, Temporal Assassin, Flanking/Forward Positions/INFILTRATOR, oval bases); the owner's pages are needed, as
   for Suicidal Bravery. (4) blocked: references for the Bombard Witch and Barbed Wire Banshee needed. (1) full UI runner
   first try stopped at 181 PASS, 2 FAIL (host too slow while the essentials ran beside it; reopen waited on it).
+  Then: the blood pool was not showing (under the zones' 0.02" slabs, and its spread tween stopped by moving the body);
+  fixed and looked at in the showcase. Full UI runner at 45ecaeb: 434 PASS, 2 FAIL (host battlefield-readable, a pixel
+  heuristic on figure colours at turn 1 with no bodies, and host-exit from it); rerun (--skip-build) 437 PASS, 0 FAIL
+  incl. board-bodies in pvp-a. After the pool fix: essentials 2,314/0; gvt-a 34/0 (board-bodies 2 bodies; animating
+  mean 0.76 ms); hotseat 46/0. Not run: Windows.

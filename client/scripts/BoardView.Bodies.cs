@@ -65,7 +65,6 @@ public partial class BoardView
         {
             part.Visible = false;
         }
-        root.AddChild(BloodPool(id, radius, spread));
         _bodyParts[id] = (shaders, paints, radius);
         root.GetParent()?.RemoveChild(root);
         root.Name = $"Body{id.Value}";
@@ -75,6 +74,14 @@ public partial class BoardView
             old.QueueFree();
         }
         _bodiesNode.AddChild(root);
+        // The pool goes in once the body is in its place (a tween started before the move would stop with it).
+        var pool = BloodPool(id, radius);
+        root.AddChild(pool);
+        if (spread)
+        {
+            pool.Scale = new Vector3(0.15f, 1, 0.15f);
+            pool.CreateTween().TweenProperty(pool, "scale", Vector3.One, PoolSeconds).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
+        }
         _bodies[id] = root;
         BodiesLaid++;
     }
@@ -100,10 +107,11 @@ public partial class BoardView
 
     // A dark, uneven pool of blood on the ground under a body: three flat overlapping discs, placed from the model's id so
     // it looks the same every time it is drawn. Display only.
-    private static Node3D BloodPool(ModelId id, float radius, bool spread)
+    private static Node3D BloodPool(ModelId id, float radius)
     {
-        var pool = new Node3D { Name = "Pool", Position = new Vector3(0, 0.012f, 0) };
-        var paint = new StandardMaterial3D { AlbedoColor = new Color(0.26f, 0.03f, 0.03f, 0.8f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.35f };
+        // Just above the deployment zones' and the mine area's slabs (0.02" and 0.025" high), under the body.
+        var pool = new Node3D { Name = "Pool", Position = new Vector3(0, 0.03f, 0) };
+        var paint = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.035f, 0.03f, 0.85f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.35f };
         var seed = (uint)id.Value.GetHashCode();
         foreach (var (size, step) in new[] { (0.8f, 0), (0.55f, 1), (0.45f, 2) })
         {
@@ -115,11 +123,6 @@ public partial class BoardView
                 Position = new Vector3(Mathf.Cos(angle) * off, step * 0.001f, Mathf.Sin(angle) * off),
                 MaterialOverride = paint,
             });
-        }
-        if (spread)
-        {
-            pool.Scale = new Vector3(0.15f, 1, 0.15f);
-            pool.Ready += () => pool.CreateTween().TweenProperty(pool, "scale", Vector3.One, PoolSeconds).SetEase(Tween.EaseType.Out).SetTrans(Tween.TransitionType.Cubic);
         }
         return pool;
     }
