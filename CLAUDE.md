@@ -664,3 +664,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   animating mean 0.56 ms, max 9.2 ms); showcase 11/11, scenes 4, 7, 9 looked at frame by frame. Not run: full runner,
   Windows/Vulkan. Every other effect (dust, muzzle flash, hits) is now drawn smaller, at its coded size; looked at in
   scenes 1 and 7 only.
+- 2026-11-23, Jason: movement and casualty animations reviewed in the showcase. New dev settings `TRENCH_SHOWCASE_SLOW`
+  (slow-motion capture, `BoardView.SlowMotion`, dev only) and `TRENCH_SHOWCASE_ONLY`; twelfth showcase scene (largest
+  model Down then up). Fixed: a waiting rise held its model lying before the fall of the same update; falls land with a
+  small rebound (`FallCurve`), rises ease in and out (`RiseCurve`); the turn into a fall takes its first half (was 30%);
+  the casualty figure starts at the model's own facing (`CasualtyFigure.FromYaw`); gliding figures bob a little each step
+  (`StepBob`). Lengths and timing unchanged. Checks (Linux, xvfb): essentials 2,311 + 1 new, 1 flaky transport test
+  (`AHostThatNeverAnswersTheRejoinTimesOutEachAttempt`, passed 3/3 alone); hotseat group 46/0; gvt-a 33/0 (animating mean
+  0.70 ms, max 10.1 ms); showcase 12/12. Not run: full runner, Windows/Vulkan.

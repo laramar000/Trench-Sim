@@ -40,6 +40,17 @@ public partial class BoardView
         }
     }
 
+    // Dev only (the showcase's slow-motion capture, TRENCH_SHOWCASE_SLOW; never in play or the checks): the playback clock
+    // and the engine's tweens run at this fraction of real time, so pictures taken every 0.12 s show the motion densely.
+    private static double _slow = 1, _slowFrom, _slowBase;
+
+    public static void SlowMotion(double factor)
+    {
+        var now = Now;
+        (_slowBase, _slowFrom, _slow) = (now, Time.GetTicksMsec() / 1000.0, factor);
+        Engine.TimeScale = factor;
+    }
+
     // For the UI check (showcase review, 2026-11-23): each effect square showing now, its colour (with alpha), size, and
     // whether it is drawn at that size (a billboard keeps its scale only when told to; explosion review, 2026-11-23).
     public IReadOnlyList<(Color Colour, float Size, bool KeepsScale)> ShowingSquares() =>

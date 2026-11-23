@@ -29,11 +29,11 @@ public class AnimationShowcaseTests
     private static ShowcaseScene Titled(string start) => Scenes().Single(s => s.Title.StartsWith(start, StringComparison.Ordinal));
 
     [Fact]
-    public void ElevenScenesEachNamingOnlyModelsOnTheTable()
+    public void TwelveScenesEachNamingOnlyModelsOnTheTable()
     {
         var table = Table();
         var scenes = AnimationShowcase.Scenes(table);
-        Assert.Equal(11, scenes.Count);
+        Assert.Equal(12, scenes.Count);
         Assert.Equal(scenes.Count, scenes.Select(s => s.Title).Distinct().Count());
         var ids = table.Models.Select(m => m.Id).ToHashSet();
         foreach (var scene in scenes)
@@ -121,6 +121,21 @@ public class AnimationShowcaseTests
         var grenade = Titled("A grenade");
         Assert.Equal(grenade.Plan(AnimationSpeed.Full).Length / 2, fast.Plan(AnimationSpeed.Full).Length, 9);
         Assert.Equal(Kinds(grenade), Kinds(fast));
+    }
+
+    [Fact]
+    public void TheLargestModelFallsThenRises()
+    {
+        var table = Table();
+        var scene = Titled("The largest model");
+        var beats = scene.Plan(AnimationSpeed.Full).Beats;
+        var fall = Assert.Single(beats, b => b.Kind == BeatKind.Fall);
+        var rise = Assert.Single(beats, b => b.Kind == BeatKind.Rise);
+        Assert.Equal(fall.Model, rise.Model);
+        Assert.Equal(table.Models.Max(m => m.Radius), table.Find(fall.Model)!.Radius);
+        Assert.True(rise.Start >= fall.End - 1e-9);
+        Assert.Empty(scene.Hidden);
+        Assert.Empty(scene.HoldAfter);
     }
 
     [Fact]

@@ -2755,6 +2755,11 @@ public partial class UiCheck : Node
             return;
         }
         var watch = System.Environment.GetEnvironmentVariable("TRENCH_SHOWCASE") == "watch";
+        // TRENCH_SHOWCASE_SLOW=4: captures in quarter-speed slow motion (pictures every 0.03 s of animation), and
+        // TRENCH_SHOWCASE_ONLY=4,5: only those scenes. Dev only.
+        var slow = double.TryParse(System.Environment.GetEnvironmentVariable("TRENCH_SHOWCASE_SLOW"), System.Globalization.CultureInfo.InvariantCulture, out var s) && s > 1 ? s : 1;
+        var only = (System.Environment.GetEnvironmentVariable("TRENCH_SHOWCASE_ONLY") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => int.TryParse(x, out var n) ? n : 0).Where(n => n > 0).ToHashSet();
         board.Select(null);
         // On the moving model, far enough back that a charge's or a move's start (4" behind it) and the blasts are in view.
         var focus = scenes[0].Lines[0].Models![0];
@@ -2806,11 +2811,11 @@ public partial class UiCheck : Node
             var switched = !scene.SwitchSeat;
             var next = 0UL;
             var shots = 0;
-            while (Time.GetTicksMsec() - started < 12_000)
+            while (Time.GetTicksMsec() - started < 12_000 * slow)
             {
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 var at = Time.GetTicksMsec() - started;
-                if (!switched && at > 350)
+                if (!switched && at > 350 * slow)
                 {
                     switched = true;
                     Input.ParseInputEvent(new InputEventKey { Keycode = Key.F2, PhysicalKeycode = Key.F2, Pressed = true });
@@ -2822,7 +2827,7 @@ public partial class UiCheck : Node
                     next = at + 120;
                     GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(frames, $"f{++shots:00}-{at:0000}ms.png"));
                 }
-                if (switched && !board.Gliding && board.EffectsShowing == 0 && at > 800)
+                if (switched && !board.Gliding && board.EffectsShowing == 0 && at > 800 * slow)
                 {
                     break;
                 }
@@ -2842,14 +2847,24 @@ public partial class UiCheck : Node
         if (!watch)
         {
             var played = 0;
+            if (slow > 1)
+            {
+                BoardView.SlowMotion(1 / slow);
+            }
             for (var i = 0; i < scenes.Count; i++)
             {
+                if (only.Count > 0 && !only.Contains(i + 1))
+                {
+                    played++;
+                    continue;
+                }
                 var frames = System.IO.Path.Combine(_out, "showcase", $"{i + 1:00}");
                 System.IO.Directory.CreateDirectory(frames);
                 await Play(i, frames);
                 played++;
             }
             Reset();
+            BoardView.SlowMotion(1);
             layer.QueueFree();
             Check("dev-showcase", played == scenes.Count, $"{played} of {scenes.Count} scenes played, pictures in {System.IO.Path.Combine(_out, "showcase")}");
             return;

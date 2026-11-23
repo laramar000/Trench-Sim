@@ -9,7 +9,8 @@ namespace Client.Core;
 // blast's BattleFx), laid out by Choreography.Of and played through the real battlefield (BoardView.PlayForCheck): a shot
 // that takes a model Down or Out of Action, a miss, a mine stopping a move and taking the model out on the spot, a charge
 // that reaches and a blow, a charge that carries on, a grenade with its blast and gas, a scatter, overlapping blasts
-// with fire, gas and shrapnel, a hot-seat seat switch mid-shot, and the grenade again in Fast. Staged on the models of
+// with fire, gas and shrapnel, a hot-seat seat switch mid-shot, the grenade again in Fast, and the largest model going
+// Down and standing back up. Staged on the models of
 // the table drawn now (nothing is sent; the server's state is never touched); display only.
 public sealed record ShowcaseScene(
     string Title,
@@ -130,6 +131,17 @@ public static class AnimationShowcase
             [Shot(true, thrown: true), Blasts(new BlastCue(BlastStyle.Weapon, pb, BlastRadius)),
              Injury(a, b, ModelStatus.Down, MarkerStyle.Gas), Injury(a, c, null, MarkerStyle.Gas)],
             Drawn, [], [(b.Id, ModelStatus.Down)], Speed: AnimationSpeed.Fast));
+        seq = 0;
+        // The largest model on the table (a bigger figure falls and rises over its own height and base), shot by the
+        // nearest other model.
+        var big = models.MaxBy(m => (m.Radius, m.Standing))!;
+        var by = models.Where(m => m.Id != big.Id).MinBy(m => Apart(m, big))!;
+        scenes.Add(new("The largest model goes Down, then stands back up",
+            "a bigger figure tips back over its feet and settles lying on its base, then rises back to standing; no jump between the fall and the rise",
+            [Line([by.Id, big.Id]) with { Effects = [new(EffectKind.MuzzleFlash, by.Id), new(EffectKind.HitPuff, big.Id)] },
+             Injury(by, big, ModelStatus.Down),
+             Line([big.Id]) with { Changes = [new StatusChange(big.Id, ModelStatus.Down, ModelStatus.Standing, At(big))] }],
+            Drawn, [], []));
         return scenes;
     }
 }

@@ -15,7 +15,8 @@ public partial class BoardView
     // How fast the battlefield plays what the server resolved (the Menu's Animations choice).
     public AnimationSpeed Animation { get; set; } = AnimationSpeed.Full;
 
-    private static double Now => Time.GetTicksMsec() / 1000.0;
+    // The playback clock: wall time, unless the showcase runs in slow motion (dev only, SlowMotion; 1 in play).
+    private static double Now => _slowBase + (Time.GetTicksMsec() / 1000.0 - _slowFrom) * _slow;
 
     // What is still to be shown (PlaybackQueue: lines and one-off beats in time order); glides and flinches move models
     // instead (_glides, _knocks, _turns, _leans). The lists are kept and used again, so a frame allocates nothing.
@@ -235,6 +236,7 @@ public partial class BoardView
         if (_glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0)
         {
             _pose.Clear();
+            _bob.Clear();
             _turned.Clear();
             foreach (var glide in _glides)
             {
@@ -834,6 +836,21 @@ public partial class BoardView
     private readonly Dictionary<ModelId, List<(Node3D Node, Vector3 At)>> _modelNodes = [];
     // Each model's offset from its rest this frame (used again every frame: no allocation while models move).
     private readonly Dictionary<ModelId, Vector3> _pose = [];
+
+    // Movement review (2026-11-23): a gliding figure (not its base, rings or label) rises a little with each step, so it
+    // walks rather than slides; StepBob high at most, a step every StepStride along its way, fading in and out with the
+    // glide so it starts and ends exactly at rest. Display only.
+    private readonly Dictionary<ModelId, float> _bob = [];
+    private const float StepBob = 0.06f;
+    private const float StepStride = 0.75f;
+
+    // Movement review (2026-11-23): how far a fall has tipped at t (0 to 1 of its time): accelerating down, lying by 80%,
+    // then a small rebound and settle, so it lands with weight instead of stopping dead. A rise eases in and out (it used to
+    // leave the ground at full speed). Both take the same time as before.
+    private static float FallCurve(float t) =>
+        t < 0.8f ? t / 0.8f * (t / 0.8f) : 1 - 0.07f * Mathf.Sin(Mathf.Pi * (t - 0.8f) / 0.2f);
+
+    private static float RiseCurve(float t) => 1 - t * t * (3 - 2 * t);
     private readonly HashSet<ModelId> _posed = [];
 
     public const float GlideInchesPerSecond = (float)Choreography.GlideInchesPerSecond;
@@ -951,6 +968,10 @@ public partial class BoardView
 
         // Where it falls: the server's last place for the model.
         public Vector3 Home { get; init; }
+
+        // Movement review (2026-11-23): the facing it had, from which it turns to face the attacker over the first half of
+        // its fall (it used to face the attacker from the moment it appeared).
+        public float FromYaw { get; init; }
     }
 
     // A plain body stands this tall (as DrawModel draws it); a figure stands at its catalog height (the art pipeline's,
@@ -1081,9 +1102,10 @@ public partial class BoardView
             }
         }
         var yaw = FallYaw(beat.Model, beat.Other, at);
+        var fromYaw = falls ? FacingNow(beat.Model) : yaw;
         var root = new Node3D { Name = $"Casualty{shape.Id.Value}", Position = at };
         var tall = StandingHeight(shape);
-        var holder = new Node3D { Position = new Vector3(0, tall / 2, 0), Rotation = new Vector3(0, yaw, 0) };
+        var holder = new Node3D { Position = new Vector3(0, tall / 2, 0), Rotation = new Vector3(0, fromYaw, 0) };
         var colour = BodyColour(shape);
         Node3D body;
         Node3D? art = null;
@@ -1162,6 +1184,7 @@ public partial class BoardView
             Model = beat.Model,
             Rides = rides,
             Home = at,
+            FromYaw = fromYaw,
         };
         if (rides is not null)
         {
@@ -1208,8 +1231,9 @@ public partial class BoardView
             return false;
         }
         var fallT = !ghost.Falls || ghost.FallSeconds <= 0 ? 1f : (float)Math.Clamp((now - ghost.Start) / ghost.FallSeconds, 0, 1);
-        var p = ghost.Falls ? fallT * fallT : 1f;
-        var yaw = ghost.Yaw;
+        var p = ghost.Falls ? FallCurve(fallT) : 1f;
+        var turn = Mathf.Clamp(fallT / 0.5f, 0, 1);
+        var yaw = ghost.Falls ? Mathf.Lerp(ghost.FromYaw, ghost.Yaw, turn * turn * (3 - 2 * turn)) : ghost.Yaw;
         // Audit item B2: still travelling its model's move: at the glide's point, turning along its way as the model would.
         if (ghost.Rides is { } rest && now < ghost.Start)
         {
@@ -1286,6 +1310,7 @@ public partial class BoardView
         }
         var now = Now;
         _pose.Clear();
+        _bob.Clear();
         _posed.Clear();
         for (var i = 0; i < _glides.Count; i++)
         {
@@ -1300,6 +1325,11 @@ public partial class BoardView
             if (_posed.Add(glide.Model))
             {
                 _pose[glide.Model] = GlideOffset(glide, (float)Math.Max(t, 0));
+                if (t > 0 && glide.Total > 0.2f)
+                {
+                    var eased = (float)(t * t * (3 - 2 * t));
+                    _bob[glide.Model] = StepBob * Mathf.Abs(Mathf.Sin(Mathf.Pi * eased * glide.Total / StepStride)) * Mathf.Sin(Mathf.Pi * (float)t);
+                }
             }
         }
         for (var i = 0; i < _knocks.Count; i++)
@@ -1374,8 +1404,16 @@ public partial class BoardView
                 }
                 continue;
             }
-            var p = fall.Rising ? (1 - t) * (1 - t) : t * t;
-            var turn = Mathf.Clamp(t / 0.3f, 0, 1);
+            // Movement review (2026-11-23): a track still to start (a rise after a fall of the same update) holds its pose
+            // only once the earlier tracks of that model are done; before, a waiting rise held the model lying before it fell.
+            if (now < fall.Start && _falls.Take(i).Any(f => f.Model == fall.Model))
+            {
+                continue;
+            }
+            var p = fall.Rising ? RiseCurve(t) : FallCurve(t);
+            // Movement review (2026-11-23): turned to face the attacker over the first half of the fall (was the first 30%:
+            // a model shot from behind spun round in a tenth of a second).
+            var turn = Mathf.Clamp(t / 0.5f, 0, 1);
             var yaw = fall.Rising ? fall.ToYaw : Mathf.Lerp(fall.FromYaw, fall.ToYaw, turn * turn * (3 - 2 * turn));
             _fallen[fall.Model] = Tipped(p, yaw, fall.LyingScale, fall.Height, fall.Length);
         }
@@ -1434,6 +1472,13 @@ public partial class BoardView
                         node.Position = rest + offset;
                     }
                 }
+            }
+        }
+        foreach (var (id, bob) in _bob)
+        {
+            if (!_fallen.ContainsKey(id) && _figures.TryGetValue(id, out var stepping) && IsInstanceValid(stepping))
+            {
+                stepping.Position += new Vector3(0, bob, 0);
             }
         }
         foreach (var (id, (pitch, yaw)) in _turned)
