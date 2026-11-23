@@ -655,3 +655,12 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   opaque and 0.4": seen 0.46 and 0.38"). Seen in the showcase capture: the target stays in sight through the hit.
   Checks: essentials 2,311/0; hotseat group 45 PASS, 0 FAIL (animating mean 0.58 ms); showcase 11/11. Full UI runner
   not run (look-only change; hotseat group covers it). Not run: Windows.
+- 2026-11-23, Jason: explosion and fire effects "less like large opaque blobs". Cause found: `BoardView.Puff`'s material
+  lacked `BillboardKeepScale`, so every effect square was drawn 1" across whatever its size (hits too: 44012e2's size cut
+  never showed, only its opacity). Fixed, and explosions, smoke, gas, shrapnel and burning flames retuned in true inches
+  (`BlastFlashAlpha` 0.6, `BlastFireAlpha` 0.5, `BlastSmokeAlpha` 0.4, `FireAlpha` 0.7 -> 0.6); lengths and timing
+  unchanged. `ShowingSquares` also reports whether each square keeps its scale. New UI check `hotseat-blasts-see-through`.
+  Checks (Linux, xvfb): essentials 2,311/0; hotseat group 46/0; gvt-a 32/0 (board-blast-effects 85 squares, cap 96;
+  animating mean 0.56 ms, max 9.2 ms); showcase 11/11, scenes 4, 7, 9 looked at frame by frame. Not run: full runner,
+  Windows/Vulkan. Every other effect (dust, muzzle flash, hits) is now drawn smaller, at its coded size; looked at in
+  scenes 1 and 7 only.

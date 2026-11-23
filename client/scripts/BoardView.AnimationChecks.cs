@@ -40,10 +40,12 @@ public partial class BoardView
         }
     }
 
-    // For the UI check (showcase review, 2026-11-23): each effect square showing now, its colour (with alpha) and size.
-    public IReadOnlyList<(Color Colour, float Size)> ShowingSquares() =>
+    // For the UI check (showcase review, 2026-11-23): each effect square showing now, its colour (with alpha), size, and
+    // whether it is drawn at that size (a billboard keeps its scale only when told to; explosion review, 2026-11-23).
+    public IReadOnlyList<(Color Colour, float Size, bool KeepsScale)> ShowingSquares() =>
         [.. _effects.GetChildren().OfType<MeshInstance3D>().Where(m => m.Visible && m.Mesh == UnitQuad && m.MaterialOverride is StandardMaterial3D)
-            .Select(m => (((StandardMaterial3D)m.MaterialOverride).AlbedoColor, m.Scale.X))];
+            .Select(m => (Node: m, Paint: (StandardMaterial3D)m.MaterialOverride))
+            .Select(p => (p.Paint.AlbedoColor, p.Node.Scale.X, p.Paint.BillboardKeepScale || p.Paint.BillboardMode == BaseMaterial3D.BillboardModeEnum.Disabled))];
 
     // For the UI check (final animation review): how often a log behind what was already shown was waited out.
     public int LogsBehind { get; private set; }

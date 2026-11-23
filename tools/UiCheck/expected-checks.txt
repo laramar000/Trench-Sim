@@ -247,6 +247,7 @@ hotseat: hotseat-switch-keeps-playback
 hotseat: hotseat-log-behind-waits
 hotseat: hotseat-speed-choice-skips
 hotseat: hotseat-hits-see-through
+hotseat: hotseat-blasts-see-through
 hotseat: hotseat-leave-enter
 hotseat: hotseat-turn-banner
 hotseat: hotseat-bar-seat-letter

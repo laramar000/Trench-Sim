@@ -3124,6 +3124,7 @@ public partial class UiCheck : Node
         await LogBehindStep();
         await SpeedChoiceStep();
         await HitsSeeThroughStep();
+        await BlastsSeeThroughStep();
 
         await HotSeatFullMatch();
 
@@ -3514,7 +3515,7 @@ public partial class UiCheck : Node
             for (var i = 0; i < 400 && (board.Gliding || board.EffectsShowing > 0); i++)
             {
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-                foreach (var (colour, size) in board.ShowingSquares())
+                foreach (var (colour, size, _) in board.ShowingSquares())
                 {
                     var isRed = colour.R > 0.6f && colour.G < 0.3f && colour.B < 0.3f;
                     var isPale = colour.R > 0.95f && colour.G > 0.9f && colour.B > 0.75f;
@@ -3532,6 +3533,56 @@ public partial class UiCheck : Node
         board.Animation = speed;
         Check("hotseat-hits-see-through", red > 0 && pale > 0 && worstAlpha <= 0.55f && worstSize <= 0.4f,
             $"a made-up hit and blow: {red} red spatter and {pale} pale flash squares seen over the frames; most opaque {worstAlpha:0.00} (at most 0.55), largest {worstSize:0.00}\" (at most 0.4)");
+    }
+
+    // Explosion review (hotseat-blasts-see-through, 2026-11-23): a blast reads as a burst, not a blob over the models. A
+    // made-up grenade blast (2" radius) with fire, gas and shrapnel on the models caught, and a Martyrdom blast, are played
+    // through the battlefield (Full) and every effect square is measured every frame: each drawn at the size it was given
+    // (before, the billboard dropped the scale and every square was 1" across), none wider than 1.4"; none wider than 0.3"
+    // more than 0.62 opaque (tiny sparks and debris may be bright); and the blast still throws at least 12 squares at once
+    // (before: a 1.6" flash at 0.85 and fire squares at 0.7).
+    private async Task BlastsSeeThroughStep()
+    {
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        if (board?.Scene?.Models is not { Count: > 1 } models)
+        {
+            Check("hotseat-blasts-see-through", false, $"needs two models: {board?.Scene?.Models.Count}");
+            return;
+        }
+        await Until(() => !board.Gliding && board.EffectsShowing == 0 ? "idle" : null, 5, "blasts-idle");
+        var speed = board.Animation;
+        board.Animation = AnimationSpeed.Full;
+        var (a, b) = (models[0], models[1]);
+        TablePoint? At(Rules.Core.State.ModelId id) => id == a.Id ? new TablePoint(a.X, a.Y) : id == b.Id ? new TablePoint(b.X, b.Y) : null;
+        var lines = new List<LogLine>
+        {
+            new(0, "", null, Models: [a.Id]) { Fx = new BattleFx(false, null, [new BlastCue(BlastStyle.Weapon, new TablePoint(b.X, b.Y), 2)], []) },
+            new(1, "", null, Models: [a.Id, b.Id]) { Fx = new BattleFx(false, null, [], [new MarkerCue(b.Id, MarkerStyle.Fire), new MarkerCue(b.Id, MarkerStyle.Gas), new MarkerCue(a.Id, MarkerStyle.Shrapnel)]) },
+            new(2, "", null, Models: [a.Id]) { Fx = new BattleFx(false, null, [new BlastCue(BlastStyle.Martyrdom, new TablePoint(a.X, a.Y), BattleEffectsTracker.MartyrdomRadius)], []) },
+        };
+        var plan = Choreography.Of(lines, At);
+        var (seen, most, worstAlpha, worstSize, keepsScale) = (0, 0, 0f, 0f, true);
+        board.PlayForCheck(new Choreography([], plan.Beats));
+        for (var i = 0; i < 600 && (board.Gliding || board.EffectsShowing > 0); i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            var squares = board.ShowingSquares();
+            most = Math.Max(most, squares.Count);
+            foreach (var (colour, size, keeps) in squares)
+            {
+                seen++;
+                keepsScale &= keeps;
+                worstSize = Math.Max(worstSize, size);
+                if (size > 0.3f)
+                {
+                    worstAlpha = Math.Max(worstAlpha, colour.A);
+                }
+            }
+        }
+        board.Animation = speed;
+        Check("hotseat-blasts-see-through", seen > 0 && keepsScale && most >= 12 && worstSize <= 1.4f && worstAlpha <= 0.62f,
+            $"a made-up grenade blast with fire, gas and shrapnel, then a Martyrdom blast: {seen} squares over the frames, all drawn at their size {keepsScale}, at most {most} at once (at least 12); "
+            + $"largest {worstSize:0.00}\" (at most 1.4); most opaque square wider than 0.3\" {worstAlpha:0.00} (at most 0.62)");
     }
 
     // Stage N5: the whole match in this one window, both seats, following the turn: every choice by a mouse click on

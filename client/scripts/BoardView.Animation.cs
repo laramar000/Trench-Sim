@@ -358,6 +358,9 @@ public partial class BoardView
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
                 Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                 BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
+                // Explosion review (2026-11-23): without this a billboard drops the node's scale, so every square was drawn
+                // 1" across whatever size it was given (explosions, smoke and hits read as large blobs).
+                BillboardKeepScale = true,
             };
             puff = (new MeshInstance3D { Mesh = UnitQuad, MaterialOverride = paint }, paint);
             _effects.AddChild(puff.Node);
@@ -568,8 +571,15 @@ public partial class BoardView
     // Showcase review (2026-11-23): a hit's spatter and a blow's or charge's flash are see-through too.
     public const float HitAlpha = 0.5f;
 
-    // A fireball is drawn see-through too (seen on screen: opaque, it hid the models it was on).
-    private const float FireAlpha = 0.7f;
+    // A burning model's flames are drawn see-through too (seen on screen: opaque, they hid the model; 0.6 since the
+    // explosion review, 2026-11-23, when squares were first drawn at their true size).
+    private const float FireAlpha = 0.6f;
+
+    // Explosion review (2026-11-23): an explosion's squares are thinner than other effects, since several overlap in one
+    // blast: the flash, the tongues of fire and the smoke (gas round a model too).
+    public const float BlastFlashAlpha = 0.6f;
+    public const float BlastFireAlpha = 0.5f;
+    public const float BlastSmokeAlpha = 0.4f;
     private static readonly Color Dust = new(0.58f, 0.49f, 0.37f, SmokeAlpha);
 
     // A blast ring: a thin ring on the ground spreading out to the blast's radius (the server's, in inches) and fading, so
@@ -635,42 +645,54 @@ public partial class BoardView
         var seconds = (float)beat.Seconds;
         var mine = beat.Kind == BeatKind.MineBlast;
         var martyr = beat.Kind == BeatKind.MartyrBlast;
-        var smoke = new Color(0.22f, 0.2f, 0.18f, SmokeAlpha);
-        var earth = new Color(0.42f, 0.33f, 0.22f, SmokeAlpha);
-        // Stage A5 (seen on screen): a short pale flash, then a small see-through fireball that rises off the models, so the
-        // models in the blast stay readable; the smoke and the blast ring show the area.
-        Puff(at + new Vector3(0, 0.5f, 0), Vector3.Zero, r * (martyr ? 0.7f : 0.5f), r * 0.3f, new Color(1f, 0.93f, 0.72f, 0.85f), seconds * 0.12f);
-        var fire = mine ? 0 : martyr ? 6 : 4;
+        var smoke = new Color(0.4f, 0.37f, 0.33f, BlastSmokeAlpha);
+        var earth = new Color(0.42f, 0.33f, 0.22f, BlastSmokeAlpha);
+        // Explosion review (2026-11-23, seen in the showcase: the flash, fireball and smoke were large, near-solid squares
+        // that hid every model in the blast for about 0.3 s): a small pale flash, then many small see-through tongues of
+        // fire and bright sparks thrown up and outwards, so the impact reads as a burst rather than a blob; the smoke rolls
+        // outward to the ring in smaller, thinner puffs so the centre clears. Every length is as before.
+        Puff(at + new Vector3(0, 0.5f, 0), Vector3.Zero, Mathf.Min(r * (martyr ? 0.45f : 0.4f), 1f), 0.35f, new Color(1f, 0.93f, 0.72f, BlastFlashAlpha), seconds * 0.12f);
+        var fire = mine ? 0 : martyr ? 8 : 6;
         for (var i = 0; i < fire; i++)
         {
-            var angle = i * Mathf.Tau / fire;
-            var out_ = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * r * 0.25f;
-            Puff(at + new Vector3(0, 0.3f, 0) + out_, out_ * 0.5f + new Vector3(0, 1.2f, 0), 0.3f * Mathf.Sqrt(r), 0.25f, martyr ? new Color(0.95f, 0.35f, 0.1f, FireAlpha) : new Color(1f, 0.55f, 0.15f, FireAlpha), seconds * 0.45f);
+            var angle = i * Mathf.Tau / fire + 0.2f;
+            var dir = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
+            var hot = i % 2 == 0;
+            var colour = martyr ? (hot ? new Color(0.95f, 0.35f, 0.1f, BlastFireAlpha) : new Color(1f, 0.55f, 0.2f, BlastFireAlpha))
+                : hot ? new Color(1f, 0.55f, 0.15f, BlastFireAlpha) : new Color(1f, 0.78f, 0.3f, BlastFireAlpha);
+            Puff(at + new Vector3(0, 0.3f, 0) + dir * r * 0.2f, dir * r * 0.35f + new Vector3(0, hot ? 1.4f : 1f, 0), 0.26f * Mathf.Sqrt(r), 0.2f, colour, seconds * 0.45f);
         }
         if (mine)
         {
             for (var i = 0; i < 6; i++)
             {
                 var angle = i * Mathf.Tau / 6;
-                Puff(at + new Vector3(Mathf.Cos(angle) * 0.2f, 0.2f, Mathf.Sin(angle) * 0.2f), new Vector3(Mathf.Cos(angle) * 0.3f, 1.3f, Mathf.Sin(angle) * 0.3f), 0.4f, 0.3f, earth, seconds * 0.6f);
+                Puff(at + new Vector3(Mathf.Cos(angle) * 0.2f, 0.2f, Mathf.Sin(angle) * 0.2f), new Vector3(Mathf.Cos(angle) * 0.35f, 1.4f, Mathf.Sin(angle) * 0.35f), 0.45f, 0.35f, earth, seconds * 0.6f);
             }
         }
         // Stage A5: with many effects already showing, an explosion draws less (no debris, half the smoke), so several
         // together stay readable and within MaxEffects; its blast ring always shows.
         var busy = _effectsShowing > MaxEffects / 2;
         BlastRing(at, (float)beat.Size, martyr ? new Color(1f, 0.55f, 0.3f) : mine ? new Color(0.85f, 0.7f, 0.5f) : new Color(1f, 0.9f, 0.7f), seconds);
+        // Sparks: tiny and bright, thrown fast and wide, gone in a third of the blast.
+        for (var i = 0; i < (mine ? 0 : busy ? 3 : 6); i++)
+        {
+            var angle = i * 2.4f + 0.5f;
+            var dir = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
+            Puff(at + new Vector3(0, 0.4f, 0), dir * r * 0.9f + new Vector3(0, 1.1f + 0.15f * (i % 3), 0), 0.1f, 0f, new Color(1f, 0.9f, 0.55f, 0.9f), seconds * 0.3f);
+        }
         var ring = (martyr ? 8 : 6) / (busy ? 2 : 1);
         for (var i = 0; i < ring; i++)
         {
             var angle = i * Mathf.Tau / ring + 0.3f;
             var dir = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
-            Puff(at + dir * r * 0.3f + new Vector3(0, 0.2f, 0), dir * r * 0.5f + new Vector3(0, 0.5f, 0), 0.6f, 0.8f, smoke, seconds * 1.1f);
+            Puff(at + dir * r * 0.45f + new Vector3(0, 0.2f, 0), dir * r * 0.45f + new Vector3(0, 0.6f, 0), 0.6f, 0.6f, smoke, seconds * 1.1f);
         }
         for (var i = 0; i < (busy ? 0 : 5); i++)
         {
             var angle = i * 1.9f;
             var dir = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
-            Puff(at + new Vector3(0, 0.3f, 0), dir * r * 0.8f + new Vector3(0, 0.9f, 0), 0.12f, 0f, mine ? earth : new Color(0.12f, 0.11f, 0.1f), seconds * 0.55f);
+            Puff(at + new Vector3(0, 0.3f, 0), dir * r * 0.8f + new Vector3(0, 0.9f, 0), 0.13f, 0f, mine ? earth with { A = 0.85f } : new Color(0.12f, 0.11f, 0.1f, 0.85f), seconds * 0.55f);
         }
     }
 
@@ -713,15 +735,17 @@ public partial class BoardView
                 for (var i = 0; i < 6; i++)
                 {
                     var dir = new Vector3(Mathf.Cos(i * 1.05f), 0.3f, Mathf.Sin(i * 1.05f));
-                    Puff(at + new Vector3(0, 0.6f, 0), dir * 0.7f, 0.1f, 0f, new Color(0.3f, 0.3f, 0.32f), seconds);
+                    Puff(at + new Vector3(0, 0.6f, 0), dir * 0.7f, 0.12f, 0f, new Color(0.3f, 0.3f, 0.32f), seconds);
                 }
-                Puff(at + new Vector3(0, 0.6f, 0), Vector3.Zero, 0.25f, 0.15f, new Color(1f, 0.9f, 0.6f), seconds * 0.4f);
+                Puff(at + new Vector3(0, 0.6f, 0), Vector3.Zero, 0.3f, 0.15f, new Color(1f, 0.9f, 0.6f, HitAlpha), seconds * 0.4f);
                 break;
             case BeatKind.Gas:
-                for (var i = 0; i < 3; i++)
+                // Explosion review (2026-11-23): smaller, thinner wisps round the base that drift outward, so the model
+                // stands clear in the middle of its gas.
+                for (var i = 0; i < 4; i++)
                 {
-                    var side = new Vector3(Mathf.Cos(i * 2.1f), 0, Mathf.Sin(i * 2.1f)) * (radius + 0.1f);
-                    Puff(at + side + new Vector3(0, 0.4f, 0), new Vector3(0, 0.4f, 0) + side * 0.3f, 0.6f, 0.9f, new Color(0.55f, 0.62f, 0.3f, SmokeAlpha), seconds);
+                    var side = new Vector3(Mathf.Cos(i * 1.57f + 0.4f), 0, Mathf.Sin(i * 1.57f + 0.4f)) * (radius + 0.2f);
+                    Puff(at + side + new Vector3(0, 0.3f, 0), new Vector3(0, 0.35f, 0) + side * 0.5f, 0.5f, 0.6f, new Color(0.55f, 0.72f, 0.28f, BlastSmokeAlpha), seconds);
                 }
                 break;
             default:
@@ -730,7 +754,7 @@ public partial class BoardView
                 for (var i = 0; i < 5; i++)
                 {
                     var side = new Vector3(Mathf.Cos(i * 1.26f), 0, Mathf.Sin(i * 1.26f)) * radius * 0.85f;
-                    Puff(at + side + new Vector3(0, 0.12f + 0.08f * i, 0), new Vector3(0, 0.8f, 0), 0.2f, 0.06f, i % 2 == 0 ? new Color(1f, 0.6f, 0.15f, FireAlpha) : new Color(1f, 0.85f, 0.3f, FireAlpha), seconds * (0.7f + 0.08f * i));
+                    Puff(at + side + new Vector3(0, 0.12f + 0.08f * i, 0), new Vector3(0, 0.8f, 0), 0.3f, 0.1f, i % 2 == 0 ? new Color(1f, 0.6f, 0.15f, FireAlpha) : new Color(1f, 0.85f, 0.3f, FireAlpha), seconds * (0.7f + 0.08f * i));
                 }
                 break;
         }
