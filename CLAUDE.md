@@ -719,3 +719,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   harder on the side facing the hit; the body turns and falls from it). Essentials 2,330/0; showcase scenes 2, 4, 13
   looked at (shot knocks it back and twists it, the mine sweeps the legs, the grenade flips it). Prototype figures still
   not committed.
+- 2026-11-24, Jason: "Do what's best in whatever order is optimal no mistakes" (after the choice: 2 tone down the big
+  throws, 1 approve the prototypes and rig the rest). Done so far: thrown bodies stop at other models' bases
+  (`Ragdoll.Fall(..., obstacles)`, recorded per fall in `_fallObstacles`), reach at most about a body length; the figure
+  builder rigs every figure with a body of its own (`RAGDOLL`: all but the Reliquary Walker) and prints `RIGCHECK` per bone
+  (its middle within 0.08 of the body, owning body vertices); dev step `ragdolls` (lineup of every figure falling, check
+  `dev-ragdolls`). Essentials 2,331/0. In progress: the 26 rigged figures building (scratchpad `rigged/`), to be compared
+  with the old files (parts, triangles, bounds, skeleton), looked at, then committed with the test
+  `UnitFiguresTests.AFigureWithABodyHasTheRagdollSkeleton` (kept aside until then).

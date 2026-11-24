@@ -37,6 +37,16 @@ public partial class BoardView
     // Which way each model fell this match (away from what hit it), so a body drawn again directly falls the same way.
     private readonly Dictionary<ModelId, (Vector3 Push, float Hit)> _fallPush = [];
 
+    // The bases each fall had to keep out of (the models on the table near it then), so the same body drawn again lies
+    // the same even when models have moved since.
+    private readonly Dictionary<ModelId, (double X, double Z, double Radius)[]> _fallObstacles = [];
+
+    // The bases of the models on the table within 6" of a point (not the model falling, not one the showcase hides).
+    private (double X, double Z, double Radius)[] Obstacles(ModelId falling, Vector3 near) =>
+        [.. (_scene?.Models ?? []).Where(m => m.Id != falling && !_hiddenForPicture.Contains(m.Id)
+                && new Vector2((float)m.X - near.X, (float)m.Y - near.Z).Length() < 6)
+            .Select(m => (m.X, m.Y, m.Radius))];
+
     // Each model's last hit (Client.Core.RagdollImpacts) and when it lands in the playback.
     private readonly Dictionary<ModelId, (double At, RagdollImpact Hit)> _recentImpact = [];
 
@@ -75,11 +85,11 @@ public partial class BoardView
     }
 
     // The fall from the figure as it stands now, in the world: on the ground at groundY, pushed along push.
-    private static void Simulate(RagdollRig rig, float groundY, Vector3 push, float height, ModelId id, float hit)
+    private static void Simulate(RagdollRig rig, float groundY, Vector3 push, float height, ModelId id, float hit, (double X, double Z, double Radius)[] obstacles)
     {
         var to = rig.Skeleton.GlobalTransform;
         var standing = rig.Joint.Select(b => to * rig.Skeleton.GetBoneGlobalPose(b).Origin).Select(v => new Joint3(v.X, v.Y, v.Z)).ToArray();
-        rig.Frames = Ragdoll.Fall(standing, groundY, new Joint3(push.X, push.Y, push.Z), height, id.Value, hit);
+        rig.Frames = Ragdoll.Fall(standing, groundY, new Joint3(push.X, push.Y, push.Z), height, id.Value, hit, obstacles);
     }
 
     // Poses the skeleton at the fall's moment t (0 standing .. 1 at rest).

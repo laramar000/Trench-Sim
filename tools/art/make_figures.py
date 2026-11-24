@@ -248,7 +248,12 @@ def lift(v): return Vector((v.x, v.y, v.z + FLOOR))
 RIG_PTS = {}   # the main body's posed joints (human_body), for the ragdoll skeleton
 # Ragdoll (Jason, 2026-11-24, "Implement ragdoll"): the figures exported with a skeleton and skin weights, so the game
 # can let them go limp when they fall Out of Action. One figure at a time, each shown to the owner before the next.
-RAGDOLL = {"rifleman", "skirmisher"}
+# Every figure with a MakeHuman body of its own; not the Reliquary Walker (its body is the martyr on its wheel), which
+# tips over as before.
+RAGDOLL = {"rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet",
+           "castigator", "sanctified-giant", "yeoman", "shock-trooper", "lieutenant", "blind-marksman", "trench-cleric", "combat-engineer",
+           "mechanized-heavy-infantry", "combat-medic", "holy-warrior", "heretic-trooper", "heretic-priest", "brand-sworn-heavy-infantry",
+           "assault-beast", "wretched", "night-commando", "chorister"}
 GROUND = 0.0   # how far legs() raised the ground to the feet (the pelvis stays where the painters expect it)
 TWIST = 0.0
 LOOK = 0.0
@@ -9026,6 +9031,16 @@ def rig_figure(k, low):
         o.parent = arm
         m = o.modifiers.new("Ragdoll", "ARMATURE"); m.object = arm
     print(f"RIG {role} bones={len(bones)} " + " ".join(f"{n}=({h.x:.2f},{h.y:.2f},{h.z:.2f})" for n, (h, _, _) in bones.items()))
+    # The skeleton fits the figure: every weighted bone runs through the body (its middle within 0.08 of a body vertex, on
+    # the figure 1.2 tall) and has body vertices of its own.
+    bv = [v.co.copy() for v in B.data.vertices]
+    owned = {n: 0 for n in bones}
+    for v in B.data.vertices:
+        if v.groups: owned[B.vertex_groups[max(v.groups, key=lambda g: g.weight).group].name] += 1
+    for n, (h, t, _) in bones.items():
+        if n in ("headtip", "hand.L", "hand.R", "foot.L", "foot.R"): continue
+        m = (h + t) / 2; near = min((m - v).length for v in bv)
+        print(f"RIGCHECK {role} {n} near={near:.3f} owned={owned[n]} {'OK' if near < 0.08 and owned[n] > 0 else 'BAD'}")
 if role in RAGDOLL and RIG_PTS:
     rig_figure(1.2 / top, low)
 bpy.ops.object.select_all(action='SELECT')

@@ -166,7 +166,8 @@ public partial class BoardView
         {
             // Ragdoll: the same fall worked out at once (the way it fell this match, else backwards), posed at its end.
             var (push, hit) = _fallPush.TryGetValue(model.Id, out var fell) ? fell : (Backwards(yaw) * (float)RagdollImpacts.Crumple, (float)RagdollImpacts.ChestHigh);
-            Simulate(rig, root.GlobalPosition.Y, push, tall, model.Id, hit);
+            var blocks = _fallObstacles.TryGetValue(model.Id, out var kept) ? kept : _fallObstacles[model.Id] = Obstacles(model.Id, root.GlobalPosition);
+            Simulate(rig, root.GlobalPosition.Y, push, tall, model.Id, hit, blocks);
             PoseRig(rig, 1);
         }
         else
@@ -223,6 +224,53 @@ public partial class BoardView
     {
         ClearBodies();
         SyncBodies();
+    }
+
+    // Dev only (the ragdoll review, TRENCH_DEV=ragdolls, 2026-11-24; never in play): every figure file of the catalog
+    // from `from` on (at most `count`), side by side from `at`, each falling from the same chest-high hit along +X, posed
+    // at moment t of its fall (0 standing, 1 at rest). The figures replace the last lineup. Returns each one's file,
+    // whether it has a skeleton, and how far its torso lies over.
+    private Node3D? _lineup;
+
+    public List<(string File, bool Rigged, float Tilt)> RagdollLineup(Vector3 at, int from, int count, double t)
+    {
+        _lineup?.GetParent()?.RemoveChild(_lineup);
+        _lineup?.QueueFree();
+        _lineup = new Node3D { Name = "RagdollLineup" };
+        _effects.AddChild(_lineup);
+        var seen = new List<(string File, bool Rigged, float Tilt)>();
+        var files = Visuals.Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal))
+            .GroupBy(e => e.Value).Select(g => g.First()).OrderBy(e => e.Value, StringComparer.Ordinal).Skip(from).Take(count).ToList();
+        var x = 0f;
+        foreach (var (key, file) in files)
+        {
+            if (Visuals.Model(key) is not { } figure)
+            {
+                continue;
+            }
+            var height = (float)Visuals.Catalog.HeightFor(key);
+            var root = new Node3D { Position = at + new Vector3(x, 0, 0) };
+            _lineup.AddChild(root);
+            root.AddChild(figure);
+            Visuals.FitOnBase(figure, Vector3.Zero, Math.Max(0.5f, height * 0.42f), height);
+            var tilt = 0f;
+            if (RigOf(root) is { } rig)
+            {
+                Simulate(rig, at.Y, new Vector3(1, 0, 0) * (float)RagdollImpacts.Shot, height, new ModelId(file), (float)RagdollImpacts.ChestHigh, []);
+                PoseRig(rig, t);
+                tilt = TorsoTilt(root);
+            }
+            seen.Add((file, RigOf(root) is not null, tilt));
+            x += Math.Max(1.8f, height * 1.4f);
+        }
+        return seen;
+    }
+
+    public void ClearRagdollLineup()
+    {
+        _lineup?.GetParent()?.RemoveChild(_lineup);
+        _lineup?.QueueFree();
+        _lineup = null;
     }
 
     public void ClearStagedBodies()

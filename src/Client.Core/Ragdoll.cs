@@ -89,7 +89,11 @@ public static class Ragdoll
     // its joints and stiff torso: a shot to the chest knocks the top back and the body topples away; a hit at the feet
     // sweeps the legs out, so the body falls the other way; a hit from the side, struck first on the near shoulder or hip,
     // turns it as it goes; from behind, it pitches forward onto its face.
-    public static IReadOnlyList<Joint3[]> Fall(IReadOnlyList<Joint3> standing, double ground, Joint3 push, double height, string key, double hit = 0.6)
+    //
+    // obstacles (2026-11-24): the bases of the models on the table near it (centre X, Z and radius), which no joint can
+    // enter, so a thrown body stops against a living model instead of landing on it.
+    public static IReadOnlyList<Joint3[]> Fall(IReadOnlyList<Joint3> standing, double ground, Joint3 push, double height, string key, double hit = 0.6,
+        IReadOnlyList<(double X, double Z, double Radius)>? obstacles = null)
     {
         ArgumentNullException.ThrowIfNull(standing);
         ArgumentNullException.ThrowIfNull(key);
@@ -105,7 +109,9 @@ public static class Ragdoll
         // A person is about 1.75 m; the figure is `height` inches: gravity in inches per second squared at that scale.
         var gravity = 9.81 * height / 1.75;
         var start = p[(int)RagdollJoint.Hips];
-        var reach = height * Math.Min(4.0, 1.1 + 1.2 * push.Flat);
+        // How far from its place it can lie: a hard throw further, but never more than a body length or so.
+        var reach = height * Math.Min(2.2, 1.1 + 0.5 * push.Flat);
+        var blocks = obstacles ?? [];
         var radius = new double[Joints];
         for (var i = 0; i < Joints; i++)
         {
@@ -176,6 +182,19 @@ public static class Ragdoll
                     {
                         // The ground: nothing goes below it.
                         p[i] = p[i] with { Y = Math.Max(p[i].Y, ground + radius[i]) };
+                        // Out of every other model's base (it stops against it, at its own thickness).
+                        foreach (var (ox, oz, r) in blocks)
+                        {
+                            var dx = p[i].X - ox;
+                            var dz = p[i].Z - oz;
+                            var d = Math.Sqrt(dx * dx + dz * dz);
+                            var clear = r + radius[i];
+                            if (d < clear)
+                            {
+                                var (ux, uz) = d > 1e-9 ? (dx / d, dz / d) : (1.0, 0.0);
+                                p[i] = new Joint3(ox + ux * clear, p[i].Y, oz + uz * clear);
+                            }
+                        }
                         // Within reach of where it stood (a body never sprawls onto the next model's place).
                         var off = new Joint3(p[i].X - start.X, 0, p[i].Z - start.Z);
                         if (off.Flat > reach)

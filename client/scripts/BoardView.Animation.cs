@@ -36,6 +36,7 @@ public partial class BoardView
         FinishAnimations();
         ClearBodies();
         _fallPush.Clear();
+        _fallObstacles.Clear();
         _recentImpact.Clear();
         _lastDrawn.Clear();
         _facing.Clear();
@@ -1324,7 +1325,8 @@ public partial class BoardView
             {
                 if (rig.Frames is null)
                 {
-                    Simulate(rig, ghost.Root.GlobalPosition.Y, ghost.Push, ghost.Height, ghost.Model, ghost.Hit);
+                    var blocks = _fallObstacles[ghost.Model] = Obstacles(ghost.Model, ghost.Root.GlobalPosition);
+                    Simulate(rig, ghost.Root.GlobalPosition.Y, ghost.Push, ghost.Height, ghost.Model, ghost.Hit, blocks);
                     RagdollFalls++;
                 }
                 PoseRig(rig, (now - ghost.Start) / RagdollSeconds(ghost, rig));

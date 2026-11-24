@@ -2632,6 +2632,9 @@ public partial class UiCheck : Node
                 case "showcase":
                     await DevShowcase(board);
                     break;
+                case "ragdolls":
+                    await DevRagdolls(board);
+                    break;
                 case "theme":
                     UiThemeCheck();
                     break;
@@ -2739,6 +2742,55 @@ public partial class UiCheck : Node
         board.FinishAnimations();
         await Step(2);
         Write("DEV anims done");
+    }
+
+    // The ragdoll review (TRENCH_DEV=deploy,ragdolls, 2026-11-24): every figure of the catalog, seven to a row, falls from
+    // the same chest-high shot; pictures of each row standing, early, mid-fall and at rest go to <out>/ragdolls/. Check
+    // dev-ragdolls: every figure but the Reliquary Walker has its skeleton, and each one lies over at the end.
+    private async Task DevRagdolls(BoardView board)
+    {
+        if (board.Scene is not { } scene)
+        {
+            Check("dev-ragdolls", false, "no battlefield");
+            return;
+        }
+        var dir = System.IO.Path.Combine(_out, "ragdolls");
+        System.IO.Directory.CreateDirectory(dir);
+        board.Select(null);
+        var problems = new List<string>();
+        var figures = 0;
+        for (var row = 0; ; row++)
+        {
+            var at = new Vector3((float)scene.Width / 2 - 6f, 0, (float)scene.Depth / 2);
+            List<(string File, bool Rigged, float Tilt)> seen = [];
+            foreach (var t in new[] { 0.0, 0.15, 0.4, 1.0 })
+            {
+                seen = board.RagdollLineup(at, row * 7, 7, t);
+                if (seen.Count == 0)
+                {
+                    break;
+                }
+                board.LookAtTable(new Vector2(at.X + 5.5f, at.Z), 9f);
+                await Frames(4);
+                GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(dir, $"row{row + 1}-t{(int)(t * 100):000}.png"));
+            }
+            if (seen.Count == 0)
+            {
+                break;
+            }
+            foreach (var (file, rigged, tilt) in seen)
+            {
+                figures++;
+                var walker = file.EndsWith("reliquary-walker.glb", StringComparison.Ordinal);
+                if (rigged == walker || (rigged && tilt < 1.0f))
+                {
+                    problems.Add($"{file}: skeleton {rigged}, lying over {tilt:0.00} rad");
+                }
+                Write($"MARK ragdoll {file} skeleton {rigged} tilt {tilt:0.00}");
+            }
+        }
+        board.ClearRagdollLineup();
+        Check("dev-ragdolls", figures > 20 && problems.Count == 0, $"{figures} figures, pictures in {dir}; {string.Join(" | ", problems)}");
     }
 
     // The animation showcase (TRENCH_DEV=deploy,showcase; Test Center "Animation showcase"; docs/client.md): the staged

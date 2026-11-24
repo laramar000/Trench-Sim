@@ -60,7 +60,7 @@ public class RagdollTests
         foreach (var frame in frames)
         {
             Assert.All(frame, j => Assert.True(j.Y >= 2 - 1e-6, "below the ground"));
-            Assert.All(frame, j => Assert.True(new Joint3(j.X - start[0].X, 0, j.Z - start[0].Z).Flat <= 1.2 * (1.1 + 1.2 * new Joint3(px, 0, pz).Flat) + 1e-6));
+            Assert.All(frame, j => Assert.True(new Joint3(j.X - start[0].X, 0, j.Z - start[0].Z).Flat <= 1.2 * Math.Min(2.2, 1.1 + 0.5 * new Joint3(px, 0, pz).Flat) + 1e-6));
         }
         // Bones keep their lengths, the torso its shape (within 3%).
         foreach (var (a, b) in new[] { (RagdollJoint.ShoulderL, RagdollJoint.ElbowL), (RagdollJoint.KneeR, RagdollJoint.FootR), (RagdollJoint.Neck, RagdollJoint.HeadTop), (RagdollJoint.Hips, RagdollJoint.Neck), (RagdollJoint.ShoulderL, RagdollJoint.HipR) })
@@ -147,6 +147,24 @@ public class RagdollTests
         var start = Standing();   // facing +z
         var end = Ragdoll.Fall(start, 0, new Joint3(0, 0, 1), 1.2, "a1", hit: 0.7)[^1];
         Assert.True(end[(int)RagdollJoint.HeadTop].Z - start[(int)RagdollJoint.Hips].Z > 0.3, "not pitched forward");
+    }
+
+    // 2026-11-24: a body thrown at another model stops against its base, never on it; and a hard throw stays within about
+    // a body length of where it stood.
+    [Fact]
+    public void AThrownBodyStopsAgainstAnotherModelsBase()
+    {
+        var start = Standing();
+        var hips = start[(int)RagdollJoint.Hips];
+        var other = (X: hips.X + 1.3, Z: hips.Z, Radius: 0.49);   // a 25 mm base 1.3" away, in the way
+        var frames = Ragdoll.Fall(start, 0, new Joint3(2.8, 0.9, 0), 1.2, "a1", 0.22, [other]);
+        foreach (var frame in frames)
+        {
+            Assert.All(frame, j => Assert.True(Math.Sqrt((j.X - other.X) * (j.X - other.X) + (j.Z - other.Z) * (j.Z - other.Z)) >= other.Radius - 1e-6, "a joint went into the other model's base"));
+        }
+        var free = Ragdoll.Fall(start, 0, new Joint3(2.8, 0.9, 0), 1.2, "a1", 0.22);
+        Assert.True(frames[^1][(int)RagdollJoint.Hips].X < free[^1][(int)RagdollJoint.Hips].X, "the base did not stop it");
+        Assert.All(free[^1], j => Assert.True(new Joint3(j.X - hips.X, 0, j.Z - hips.Z).Flat <= 1.2 * 2.2 + 1e-6));
     }
 
     [Fact]
