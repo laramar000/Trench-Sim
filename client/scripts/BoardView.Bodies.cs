@@ -20,7 +20,7 @@ public partial class BoardView
     private readonly HashSet<ModelId> _hiddenForPicture = [];
 
     // Body polish (2026-11-23): each body's materials and base, to draw it see-through while a model stands on it.
-    private readonly Dictionary<ModelId, (List<ShaderMaterial> Shaders, List<StandardMaterial3D> Paints, float Radius)> _bodyParts = [];
+    private readonly Dictionary<ModelId, (List<ShaderMaterial> Shaders, List<StandardMaterial3D> Paints, float Radius, Vector3 Lies)> _bodyParts = [];
 
     // A body under a model on the table is drawn this see-through (the figure shader's ordered dither; the paints' alpha),
     // so the living model always reads first.
@@ -65,7 +65,11 @@ public partial class BoardView
         {
             part.Visible = false;
         }
-        _bodyParts[id] = (shaders, paints, radius);
+        // Where it lies: a ragdoll can be thrown off its place (2026-11-24), so its hips; else its place.
+        var lies = RigOf(root) is { } rig
+            ? rig.Skeleton.GlobalTransform * rig.Skeleton.GetBoneGlobalPose(rig.Joint[(int)RagdollJoint.Hips]).Origin
+            : root.GlobalPosition;
+        _bodyParts[id] = (shaders, paints, radius, lies);
         root.GetParent()?.RemoveChild(root);
         root.Name = $"Body{id.Value}";
         if (_bodies.Remove(id, out var old) && IsInstanceValid(old))
@@ -77,6 +81,7 @@ public partial class BoardView
         // The pool goes in once the body is in its place (a tween started before the move would stop with it).
         var pool = BloodPool(id, radius);
         root.AddChild(pool);
+        pool.GlobalPosition = new Vector3(lies.X, root.GlobalPosition.Y + 0.03f, lies.Z);
         if (spread)
         {
             pool.Scale = new Vector3(0.15f, 1, 0.15f);
@@ -136,7 +141,7 @@ public partial class BoardView
             {
                 continue;
             }
-            var at = root.Position;
+            var at = parts.Lies;
             // (Not its own model, which the showcase hides on the table while it plays the casualty.)
             var under = _scene?.Models.Any(m => m.Id != id && !_hiddenForPicture.Contains(m.Id) && new Vector2((float)m.X - at.X, (float)m.Y - at.Z).Length() < m.Radius + parts.Radius * 0.7f) == true;
             var fade = under ? BodyUnderfoot : 1f;
@@ -160,7 +165,7 @@ public partial class BoardView
         if (RigOf(root) is { } rig)
         {
             // Ragdoll: the same fall worked out at once (the way it fell this match, else backwards), posed at its end.
-            Simulate(rig, root.GlobalPosition.Y, _fallPush.TryGetValue(model.Id, out var push) ? push : Backwards(yaw), tall, model.Id);
+            Simulate(rig, root.GlobalPosition.Y, _fallPush.TryGetValue(model.Id, out var push) ? push : Backwards(yaw) * (float)RagdollImpacts.Crumple, tall, model.Id);
             PoseRig(rig, 1);
         }
         else
@@ -197,7 +202,7 @@ public partial class BoardView
 
     public int BodiesLaid { get; private set; }
 
-    public (Vector3 At, float Tilt, float Shade, bool BaseShown, float Fade, bool Pool)? BodyLook(ModelId id)
+    public (Vector3 At, float Tilt, float Shade, bool BaseShown, float Fade, bool Pool, Vector3 Lies)? BodyLook(ModelId id)
     {
         if (!_bodies.TryGetValue(id, out var root) || !IsInstanceValid(root) || root.GetChildCount() == 0)
         {
@@ -208,7 +213,8 @@ public partial class BoardView
             .SelectMany(m => Enumerable.Range(0, m.Mesh?.GetSurfaceCount() ?? 0).Select(i => m.GetSurfaceOverrideMaterial(i))).OfType<ShaderMaterial>().FirstOrDefault();
         var shade = shader?.GetShaderParameter("albedo_colour").AsColor().R ?? BodyShade;
         var fade = shader?.GetShaderParameter("fade").VariantType is Variant.Type.Float ? (float)shader.GetShaderParameter("fade") : 1f;
-        return (root.Position, TorsoTilt(root), shade, root.GetChildren().OfType<MeshInstance3D>().Any(m => m.Visible), fade, root.GetNodeOrNull<Node3D>("Pool") is not null);
+        return (root.Position, TorsoTilt(root), shade, root.GetChildren().OfType<MeshInstance3D>().Any(m => m.Visible), fade, root.GetNodeOrNull<Node3D>("Pool") is not null,
+            _bodyParts.TryGetValue(id, out var parts) ? parts.Lies : root.GlobalPosition);
     }
 
     // For the UI check: draws every body again directly (the way Off, a catch-up or a rejoin draws them).

@@ -36,6 +36,7 @@ public partial class BoardView
         FinishAnimations();
         ClearBodies();
         _fallPush.Clear();
+        _recentImpact.Clear();
         _lastDrawn.Clear();
         _facing.Clear();
         _scene = null;
@@ -56,7 +57,13 @@ public partial class BoardView
             FinishAnimations();
         }
         _moves.Clear();
-        _queue.Add(plan, now, _moves);
+        var begins = _queue.Add(plan, now, _moves);
+        // Ragdoll (2026-11-24): each model's last hit in this update, when it lands in this playback and how hard, so a
+        // figure put Out of Action goes limp on the hit itself, thrown as hard as it was hit.
+        foreach (var (id, hit) in RagdollImpacts.Of(plan, id => _lastDrawn.Find(_scene, id) is { } s ? new TablePoint(s.X, s.Y) : null))
+        {
+            _recentImpact[id] = (begins + hit.At, hit);
+        }
         foreach (var move in _moves)
         {
             _openSwitch?.Kinds.Add(move.Kind);
@@ -1116,6 +1123,20 @@ public partial class BoardView
         var yaw = FallYaw(beat.Model, beat.Other, at);
         var fromYaw = falls ? FacingNow(beat.Model) : yaw;
         var (root, holder, shaders, paints, under, tall, lyingScale, length) = BuildCasualty(shape, at, fromYaw, _effects);
+        // Ragdoll (2026-11-24, "the impact influences how far they ragdoll; seamless, no hesitation"): thrown as its last hit
+        // threw it (else a light push backwards); a figure with a skeleton goes limp on that hit itself when it is still to
+        // land or landing now, not on its Injury Roll's beat after it.
+        var rig = falls ? RigOf(root) : null;
+        var push = Backwards(yaw) * (float)RagdollImpacts.Crumple;
+        if (_recentImpact.TryGetValue(beat.Model, out var impact))
+        {
+            var thrown = impact.Hit.Push;
+            push = new Vector3((float)thrown.X, (float)thrown.Y, (float)thrown.Z);
+            if (rig is not null && impact.At <= fallStart && impact.At >= Now - 0.05)
+            {
+                fallStart = impact.At;
+            }
+        }
         var ghost = new CasualtyFigure(root, holder, shaders, paints, fallStart, fallSeconds, sinkSeconds, falls, yaw, lyingScale, tall, length)
         {
             Model = beat.Model,
@@ -1123,8 +1144,8 @@ public partial class BoardView
             Home = at,
             FromYaw = fromYaw,
             Base = under,
-            Rig = falls ? RigOf(root) : null,
-            Push = Backwards(yaw),
+            Rig = rig,
+            Push = push,
         };
         // Which way it fell, for its body drawn again later.
         _fallPush[beat.Model] = ghost.Push;
@@ -1289,8 +1310,8 @@ public partial class BoardView
         }
         if (ghost.Rig is { } rig)
         {
-            // Ragdoll: the figure stands as it was (it does not turn round first) and goes limp from its beat, away from
-            // what hit it; its whole fall plays over the fall and the settling that follows.
+            // Ragdoll: the figure stands as it was (it does not turn round first) and goes limp from the hit, thrown as it
+            // was hit; its fall plays at its own pace (Fast: faster, as every beat), then it lies as a body.
             ghost.Holder.Basis = new Basis(Vector3.Up, ghost.Rides is not null && now < ghost.Start ? yaw : ghost.FromYaw);
             ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0);
             if (now >= ghost.Start)
@@ -1300,7 +1321,7 @@ public partial class BoardView
                     Simulate(rig, ghost.Root.GlobalPosition.Y, ghost.Push, ghost.Height, ghost.Model);
                     RagdollFalls++;
                 }
-                PoseRig(rig, (now - ghost.Start) / Math.Max(1e-6, ghost.FallSeconds + ghost.SinkSeconds));
+                PoseRig(rig, (now - ghost.Start) / RagdollSeconds(ghost, rig));
             }
         }
         else
@@ -1311,6 +1332,13 @@ public partial class BoardView
         }
         var sinkStart = ghost.Start + (ghost.Falls ? ghost.FallSeconds : 0);
         var q = (float)Math.Clamp((now - sinkStart) / ghost.SinkSeconds, 0, 1);
+        var end = sinkStart + ghost.SinkSeconds;
+        if (ghost.Rig is { Frames: not null } fallen)
+        {
+            // A ragdoll darkens and loses its base over its whole fall, however long that takes.
+            end = Math.Max(end, ghost.Start + RagdollSeconds(ghost, fallen));
+            q = (float)Math.Clamp((now - ghost.Start) / (end - ghost.Start), 0, 1);
+        }
         // Bodies (Jason, 2026-11-23: "bodies lay on the ground, not disappear"; stage A5 dissolved it): the figure stays
         // lying where it fell and darkens to a body's shade; its base fades away, so it no longer reads as a model in play.
         Darken(ghost.Shaders, ghost.Paints, ghost.PaintColours, Mathf.Lerp(1f, BodyShade, q));
@@ -1318,8 +1346,13 @@ public partial class BoardView
         {
             paint.AlbedoColor = paint.AlbedoColor with { A = 1 - q };
         }
-        return now < sinkStart + ghost.SinkSeconds;
+        return now < end;
     }
+
+    // How long a ragdoll's fall plays: its own length, at the beat's pace (Fast: faster).
+    private static double RagdollSeconds(CasualtyFigure ghost, RagdollRig rig) =>
+        Math.Max(1e-3, ((rig.Frames?.Count ?? 1) - 1) * Ragdoll.FrameSeconds
+            * (ghost.FallSeconds + ghost.SinkSeconds) / (Choreography.FallSeconds + Choreography.SinkSeconds));
 
     // Puts a figure back upright, facing as it was left, at its rest (after a rise or when finishing at once).
     private void Upright(ModelId id)

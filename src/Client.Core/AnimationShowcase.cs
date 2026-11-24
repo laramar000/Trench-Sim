@@ -9,8 +9,8 @@ namespace Client.Core;
 // blast's BattleFx), laid out by Choreography.Of and played through the real battlefield (BoardView.PlayForCheck): a shot
 // that takes a model Down or Out of Action, a miss, a mine stopping a move and taking the model out on the spot, a charge
 // that reaches and a blow, a charge that carries on, a grenade with its blast and gas, a scatter, overlapping blasts
-// with fire, gas and shrapnel, a hot-seat seat switch mid-shot, the grenade again in Fast, and the largest model going
-// Down and standing back up. Staged on the models of
+// with fire, gas and shrapnel, a hot-seat seat switch mid-shot, the grenade again in Fast, the largest model going
+// Down and standing back up, and a grenade putting two models Out of Action. Staged on the models of
 // the table drawn now (nothing is sent; the server's state is never touched); display only.
 public sealed record ShowcaseScene(
     string Title,
@@ -142,6 +142,14 @@ public static class AnimationShowcase
              Injury(by, big, ModelStatus.Down),
              Line([big.Id]) with { Changes = [new StatusChange(big.Id, ModelStatus.Down, ModelStatus.Standing, At(big))] }],
             Drawn, [], []));
+        seq = 0;
+        // 2026-11-24 ("the impact influences how far they ragdoll"): a grenade lands on the target; it and the model
+        // nearest it go Out of Action, the one at the centre thrown harder and further than the one at the edge.
+        scenes.Add(new("Two models put Out of Action by one grenade",
+            "the blast lands on the target: both go limp at the blast itself, no pause; the one at its centre is thrown up and further than the one at the edge",
+            [Shot(true, thrown: true), Blasts(new BlastCue(BlastStyle.Weapon, pb, Math.Max(BlastRadius, Apart(b, c) + 0.3))),
+             Injury(a, b, ModelStatus.OutOfAction, MarkerStyle.Shrapnel), Injury(a, c, ModelStatus.OutOfAction, MarkerStyle.Shrapnel)],
+            Drawn, [b.Id, c.Id], []));
         return scenes;
     }
 }

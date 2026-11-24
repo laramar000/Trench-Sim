@@ -29,11 +29,11 @@ public class AnimationShowcaseTests
     private static ShowcaseScene Titled(string start) => Scenes().Single(s => s.Title.StartsWith(start, StringComparison.Ordinal));
 
     [Fact]
-    public void TwelveScenesEachNamingOnlyModelsOnTheTable()
+    public void ThirteenScenesEachNamingOnlyModelsOnTheTable()
     {
         var table = Table();
         var scenes = AnimationShowcase.Scenes(table);
-        Assert.Equal(12, scenes.Count);
+        Assert.Equal(13, scenes.Count);
         Assert.Equal(scenes.Count, scenes.Select(s => s.Title).Distinct().Count());
         var ids = table.Models.Select(m => m.Id).ToHashSet();
         foreach (var scene in scenes)
@@ -136,6 +136,23 @@ public class AnimationShowcaseTests
         Assert.True(rise.Start >= fall.End - 1e-9);
         Assert.Empty(scene.Hidden);
         Assert.Empty(scene.HoldAfter);
+    }
+
+    [Fact]
+    public void AGrenadePutsTwoOutOfActionTheNearerThrownHarder()
+    {
+        var scene = Titled("Two models put");
+        var plan = scene.Plan(AnimationSpeed.Full);
+        var casualties = plan.Beats.Where(b => b.Kind == BeatKind.Casualty).ToList();
+        Assert.Equal(2, casualties.Count);
+        Assert.Equal(casualties.Select(c => c.Model).ToHashSet(), scene.Hidden.ToHashSet());
+        var impacts = RagdollImpacts.Of(plan, scene.DrawnAt);
+        var blast = plan.Beats.Single(b => b.Kind == BeatKind.Explosion);
+        // Both are hit by the blast itself, before their Injury Rolls' beats.
+        Assert.All(casualties, c => Assert.Equal(blast.Start, impacts[c.Model].At, 9));
+        Assert.All(casualties, c => Assert.True(impacts[c.Model].At < c.Start));
+        var (centre, edge) = (impacts[casualties[0].Model], impacts[casualties[1].Model]);
+        Assert.True(centre.Strength > edge.Strength && centre.Lift > edge.Lift, $"{centre} / {edge}");
     }
 
     [Fact]

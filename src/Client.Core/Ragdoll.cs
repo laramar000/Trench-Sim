@@ -48,7 +48,7 @@ public static class Ragdoll
     public const double FrameSeconds = 1.0 / 60;
 
     // At most this long; a fall that has come to rest sooner stops there.
-    public const double MaxSeconds = 1.4;
+    public const double MaxSeconds = 2.0;
 
     private const int Substeps = 4;
     private const int Iterations = 10;
@@ -78,9 +78,11 @@ public static class Ragdoll
     ];
 
     // The fall: frames of every joint (indexed by RagdollJoint), from the standing joints at rest to lying. ground is the
-    // height the figure stands on; push is the way it is thrown (horizontal, away from what hit it; zero: it crumples);
-    // height its standing height (gravity is scaled so it falls in a person's time at this size); key gives it its own
-    // small differences (Spread). Every joint stays above the ground and within reach of where it stood.
+    // height the figure stands on; push is how it is thrown (2026-11-24, "the impact influences how far they ragdoll"):
+    // across, away from what hit it, as hard as its length (a shot about 0.5, a blow 0.8, a charge 1, a blast up to 3;
+    // zero: it crumples), and up by its height (a blast lifts it); height its standing height (gravity is scaled so it falls
+    // in a person's time at this size); key gives it its own small differences (Spread). Every joint stays above the
+    // ground and within reach of where it stood (further the harder it was thrown).
     public static IReadOnlyList<Joint3[]> Fall(IReadOnlyList<Joint3> standing, double ground, Joint3 push, double height, string key)
     {
         ArgumentNullException.ThrowIfNull(standing);
@@ -97,7 +99,7 @@ public static class Ragdoll
         // A person is about 1.75 m; the figure is `height` inches: gravity in inches per second squared at that scale.
         var gravity = 9.81 * height / 1.75;
         var start = p[(int)RagdollJoint.Hips];
-        var reach = height * 1.1;
+        var reach = height * Math.Min(4.0, 1.1 + 1.2 * push.Flat);
         var radius = new double[Joints];
         for (var i = 0; i < Joints; i++)
         {
@@ -106,12 +108,16 @@ public static class Ragdoll
         // Thrown: the upper body away from the attacker, the feet a little the other way, each joint a little differently.
         var flat = push.Flat;
         var away = flat < 1e-9 ? new Joint3(spread.Next() - 0.5, 0, spread.Next() - 0.5) : new Joint3(push.X / flat, 0, push.Z / flat);
-        var speed = (flat < 1e-9 ? 0.25 : 1.2) * height;
+        var speed = (flat < 1e-9 ? 0.25 : 0.6 + flat) * height;
+        // A hard throw carries the whole body, not only the top of it.
+        var carry = Math.Max(0, flat - 0.5) * 1.4 * height;
+        var lift = Math.Max(0, push.Y) * 1.6 * height;
         var previous = new Joint3[Joints];
         for (var i = 0; i < Joints; i++)
         {
             var up = (p[i].Y - ground) / height;   // 0 at the feet, 1 at the head
-            var kick = away * (speed * (up - 0.3)) + new Joint3(spread.Next() - 0.5, 0, spread.Next() - 0.5) * (0.08 * height);
+            var kick = away * (speed * (up - 0.3) + carry) + new Joint3(0, lift * (0.6 + 0.6 * up), 0)
+                + new Joint3(spread.Next() - 0.5, 0, spread.Next() - 0.5) * (0.08 * height);
             previous[i] = p[i] - kick * dt;
         }
         var lengths = Bones.Select(b => (rest[(int)b.A] - rest[(int)b.B]).Length).ToArray();
@@ -169,8 +175,10 @@ public static class Ragdoll
                 {
                     if (p[i].Y <= ground + radius[i] + 1e-6)
                     {
+                        // A body thrown along the ground skids; a slow one sticks (static friction), so it comes to rest.
                         var slide = p[i] - previous[i];
-                        previous[i] = new Joint3(p[i].X - slide.X * 0.6, p[i].Y, p[i].Z - slide.Z * 0.6);
+                        var keep = slide.Flat < height * 0.0015 ? 0.0 : 0.82;
+                        previous[i] = new Joint3(p[i].X - slide.X * keep, p[i].Y, p[i].Z - slide.Z * keep);
                     }
                 }
             }

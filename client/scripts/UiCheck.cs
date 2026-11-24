@@ -6581,7 +6581,7 @@ public partial class UiCheck : Node
             return;
         }
         var problems = new List<string>();
-        var looks = new Dictionary<Rules.Core.State.ModelId, (Vector3 At, float Tilt, float Shade, bool BaseShown, float Fade, bool Pool)>();
+        var looks = new Dictionary<Rules.Core.State.ModelId, (Vector3 At, float Tilt, float Shade, bool BaseShown, float Fade, bool Pool, Vector3 Lies)>();
         foreach (var fallen in scene.Fallen)
         {
             if (board.BodyLook(fallen.Id) is not { } look)
@@ -6591,7 +6591,8 @@ public partial class UiCheck : Node
             }
             looks[fallen.Id] = look;
             // Body polish: a blood pool under it, and drawn see-through exactly while a model on the table stands on it.
-            var underfoot = scene.Models.Any(m => Math.Sqrt((m.X - fallen.X) * (m.X - fallen.X) + (m.Y - fallen.Y) * (m.Y - fallen.Y)) < m.Radius + fallen.Radius * 0.7);
+            // (Where the body lies: a ragdoll thrown by a hit lies off its place, 2026-11-24.)
+            var underfoot = scene.Models.Any(m => Math.Sqrt((m.X - look.Lies.X) * (m.X - look.Lies.X) + (m.Y - look.Lies.Z) * (m.Y - look.Lies.Z)) < m.Radius + fallen.Radius * 0.7);
             if (new Vector2(look.At.X - (float)fallen.X, look.At.Z - (float)fallen.Y).Length() > 0.01f || look.Tilt is < 1.2f or > 2.6f || look.BaseShown
                 || Math.Abs(look.Shade - BoardView.BodyShade) > 0.02f || !look.Pool || Math.Abs(look.Fade - (underfoot ? BoardView.BodyUnderfoot : 1f)) > 0.01f)
             {

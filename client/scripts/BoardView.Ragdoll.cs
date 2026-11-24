@@ -37,6 +37,9 @@ public partial class BoardView
     // Which way each model fell this match (away from what hit it), so a body drawn again directly falls the same way.
     private readonly Dictionary<ModelId, Vector3> _fallPush = [];
 
+    // Each model's last hit (Client.Core.RagdollImpacts) and when it lands in the playback.
+    private readonly Dictionary<ModelId, (double At, RagdollImpact Hit)> _recentImpact = [];
+
     // For the UI check: how many falls were played as a ragdoll.
     public int RagdollFalls { get; private set; }
 
@@ -76,7 +79,7 @@ public partial class BoardView
     {
         var to = rig.Skeleton.GlobalTransform;
         var standing = rig.Joint.Select(b => to * rig.Skeleton.GetBoneGlobalPose(b).Origin).Select(v => new Joint3(v.X, v.Y, v.Z)).ToArray();
-        rig.Frames = Ragdoll.Fall(standing, groundY, new Joint3(push.X, 0, push.Z), height, id.Value);
+        rig.Frames = Ragdoll.Fall(standing, groundY, new Joint3(push.X, push.Y, push.Z), height, id.Value);
     }
 
     // Poses the skeleton at the fall's moment t (0 standing .. 1 at rest).

@@ -707,3 +707,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   the rigged Skirmisher; board-bodies PASS on 2 real bodies in the run before the last tilt change, not reported in the
   last run); hotseat 46/0. Next (owner): approve the prototypes, then the other figures one at a time (the Reliquary
   Walker has no human body: it keeps the tip-over). Not run: full runner, Windows.
+- 2026-11-24, Jason: "I need the impact to influence how far they ragdoll. Seamless. No hesitation before they ragdoll".
+  Done: `Client.Core/RagdollImpacts.cs` (each model's last hit per update: time, direction, strength, lift),
+  `Ragdoll.Fall` throws by strength and lift (skid then stick); `BoardView.Play` keeps `_recentImpact`, a rigged
+  casualty's fall starts on the hit (not the Injury Roll's beat) and plays at its own length; pool and underfoot follow
+  where the body lies. Showcase scene 13. Checks with the rigged prototypes in place: essentials 2,327/0; showcase scenes
+  2, 4, 13 looked at (fall on the hit, the blast's centre thrown about two bases). The prototype figures are still not
+  committed (owner's approval).

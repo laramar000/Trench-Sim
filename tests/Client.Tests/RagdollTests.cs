@@ -60,7 +60,7 @@ public class RagdollTests
         foreach (var frame in frames)
         {
             Assert.All(frame, j => Assert.True(j.Y >= 2 - 1e-6, "below the ground"));
-            Assert.All(frame, j => Assert.True(new Joint3(j.X - start[0].X, 0, j.Z - start[0].Z).Flat <= 1.2 * 1.1 + 1e-6));
+            Assert.All(frame, j => Assert.True(new Joint3(j.X - start[0].X, 0, j.Z - start[0].Z).Flat <= 1.2 * (1.1 + 1.2 * new Joint3(px, 0, pz).Flat) + 1e-6));
         }
         // Bones keep their lengths, the torso its shape (within 3%).
         foreach (var (a, b) in new[] { (RagdollJoint.ShoulderL, RagdollJoint.ElbowL), (RagdollJoint.KneeR, RagdollJoint.FootR), (RagdollJoint.Neck, RagdollJoint.HeadTop), (RagdollJoint.Hips, RagdollJoint.Neck), (RagdollJoint.ShoulderL, RagdollJoint.HipR) })
@@ -82,6 +82,28 @@ public class RagdollTests
             var head = end[(int)RagdollJoint.HeadTop] - start[(int)RagdollJoint.Hips];
             Assert.True(head.X * dx + head.Z * dz > 0.3, $"pushed ({dx}, {dz}): head ended at ({head.X:0.00}, {head.Z:0.00}) from the hips");
         }
+    }
+
+    // 2026-11-24 ("the impact influences how far they ragdoll"): a harder hit throws the body further; a blast's lift
+    // throws it up before it lands.
+    [Fact]
+    public void AHarderHitThrowsItFurther()
+    {
+        double Thrown(double strength, double lift = 0)
+        {
+            var start = Standing();
+            var frames = Ragdoll.Fall(start, 0, new Joint3(strength, lift, 0), 1.2, "a1");
+            return frames[^1][(int)RagdollJoint.Hips].X - start[(int)RagdollJoint.Hips].X;
+        }
+        var shot = Thrown(0.5);
+        var blow = Thrown(0.8);
+        var blast = Thrown(2.5, 0.6);
+        Assert.True(shot < blow && blow < blast, $"hips thrown {shot:0.00}, {blow:0.00}, {blast:0.00}");
+        Assert.True(blast > 1.2, $"a close blast threw the body only {blast:0.00}\"");
+        var start = Standing();
+        var lifted = Ragdoll.Fall(start, 0, new Joint3(1.5, 1.2, 0), 1.2, "a1");
+        Assert.True(lifted.Max(f => f[(int)RagdollJoint.Hips].Y) > start[(int)RagdollJoint.Hips].Y + 0.1, "a blast's lift did not throw it up");
+        Assert.True(lifted[^1][(int)RagdollJoint.Neck].Y < 0.25);
     }
 
     [Fact]
