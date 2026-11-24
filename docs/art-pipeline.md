@@ -47,8 +47,12 @@ oppressive, gothic. Every figure must read first as a silhouette, then by its eq
   (`BoardView.CloseDistance`), the closest zoom 4". A figure is judged at 8", where it is about 60 to 120 pixels tall
   in a 1280 x 800 window.
 - **Loading:** figures are read at run time with Godot's glTF loader (the `units` folder has `.gdignore`), so the
-  export must be plain glTF 2.0: meshes, PNG textures, nearest sampling, no armature, no animation, no custom
-  extensions. Parts named `Accent...` are drawn with the seat colour by the client (`Visuals.PaintAccent`).
+  export must be plain glTF 2.0: meshes, PNG textures, nearest sampling, no animation, no custom extensions. No
+  armature, except the ragdoll skeleton (2026-11-24, figures in `RAGDOLL` in `tools/art/make_figures.py`): 16 bones
+  named `pelvis`, `chest`, `head`, `headtip`, `upperarm.L/R`, `lowerarm.L/R`, `hand.L/R`, `upperleg.L/R`,
+  `lowerleg.L/R`, `foot.L/R` on the posed joints, the five tip bones unweighted; every vertex skinned to its two nearest
+  bones, headgear to the head, a held weapon or shield to the nearer forearm, a back piece to the chest. The figure looks
+  the same at rest; the client lets it go limp when it is put Out of Action (`BoardView.Ragdoll.cs`). Parts named `Accent...` are drawn with the seat colour by the client (`Visuals.PaintAccent`).
 - **Catalog:** `client/assets/catalog.json` maps `unit:<model name>` to a file. A model with no entry is drawn as the
   plain cylinder. High-contrast mode always draws the plain shapes.
 - **Bases (rules data, `baseMm` in content/roster):** 25, 32, 40, 50 and 60 mm round, and 30 x 60 mm oval (oval bases

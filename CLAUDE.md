@@ -694,3 +694,16 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   heuristic on figure colours at turn 1 with no bodies, and host-exit from it); rerun (--skip-build) 437 PASS, 0 FAIL
   incl. board-bodies in pvp-a. After the pool fix: essentials 2,314/0; gvt-a 34/0 (board-bodies 2 bodies; animating
   mean 0.76 ms); hotseat 46/0. Not run: Windows.
+- 2026-11-24, Jason chose option 3 of "shooting running climbing animations?" and said "Implement ragdoll". Built: the
+  figure builder adds a 16-bone ragdoll skeleton with skin weights for figures in `RAGDOLL` (`rig_figure`, end of
+  `tools/art/make_figures.py`; the joints come from `human_body`'s first body, `RIG_PTS`, through the same warps and
+  scaling); `Client.Core/Ragdoll.cs` (deterministic point-and-stick solver, `RagdollTests`); `client/scripts/
+  BoardView.Ragdoll.cs` (rig lookup, `Simulate`, `PoseRig`, `TorsoTilt`, `_fallPush`), used by the casualty figure and
+  `LayBody`; figures without a skeleton tip over as before. Prototype figures: Rifleman and Skirmisher (the showcase's
+  two Out of Action scenes), rebuilt painted with skeletons and looked at in the showcase (scenes 2 and 4); NOT
+  committed (the owner's art rule: ask before commit): they are in the session scratchpad (`painted/`), the tree keeps
+  the old files. Rebuild here: `uv venv` + `pip install bpy==5.1.2` (Python 3.13), `tools/art/.makehuman` fetched.
+  Checks with the rigged prototypes in place (Linux, xvfb): essentials 2,321/0; gvt-a 33/0 (board-casualty-mid-move on
+  the rigged Skirmisher; board-bodies PASS on 2 real bodies in the run before the last tilt change, not reported in the
+  last run); hotseat 46/0. Next (owner): approve the prototypes, then the other figures one at a time (the Reliquary
+  Walker has no human body: it keeps the tip-over). Not run: full runner, Windows.

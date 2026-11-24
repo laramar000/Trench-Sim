@@ -6592,10 +6592,10 @@ public partial class UiCheck : Node
             looks[fallen.Id] = look;
             // Body polish: a blood pool under it, and drawn see-through exactly while a model on the table stands on it.
             var underfoot = scene.Models.Any(m => Math.Sqrt((m.X - fallen.X) * (m.X - fallen.X) + (m.Y - fallen.Y) * (m.Y - fallen.Y)) < m.Radius + fallen.Radius * 0.7);
-            if (new Vector2(look.At.X - (float)fallen.X, look.At.Z - (float)fallen.Y).Length() > 0.01f || look.Tilt is < 1.4f or > 1.75f || look.BaseShown
+            if (new Vector2(look.At.X - (float)fallen.X, look.At.Z - (float)fallen.Y).Length() > 0.01f || look.Tilt is < 1.2f or > 2.6f || look.BaseShown
                 || Math.Abs(look.Shade - BoardView.BodyShade) > 0.02f || !look.Pool || Math.Abs(look.Fade - (underfoot ? BoardView.BodyUnderfoot : 1f)) > 0.01f)
             {
-                problems.Add($"{fallen.Id.Value}: {look} (wanted at ({fallen.X:0.00}, {fallen.Y:0.00}), tipped about 1.57, shade {BoardView.BodyShade}, no base, a pool, fade {(underfoot ? BoardView.BodyUnderfoot : 1f)})");
+                problems.Add($"{fallen.Id.Value}: {look} (wanted at ({fallen.X:0.00}, {fallen.Y:0.00}), lying (tilt 1.2 to 2.6), shade {BoardView.BodyShade}, no base, a pool, fade {(underfoot ? BoardView.BodyUnderfoot : 1f)})");
             }
         }
         var extra = board.Bodies.Where(id => scene.Fallen.All(f => f.Id != id)).Select(id => id.Value).ToList();

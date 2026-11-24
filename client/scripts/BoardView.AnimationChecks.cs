@@ -248,7 +248,7 @@ public partial class BoardView
     // leans from upright (radians); null when it has none.
     public (Vector3 At, float Tilt)? CasualtyOf(ModelId id) =>
         _ghosts.LastOrDefault(g => g.Model == id && IsInstanceValid(g.Root)) is { } ghost
-            ? (ghost.Root.Position, ghost.Holder.Basis.Y.Normalized().AngleTo(Vector3.Up))
+            ? (ghost.Root.Position, ghost.Rig is null ? ghost.Holder.Basis.Y.Normalized().AngleTo(Vector3.Up) : TorsoTilt(ghost.Root))
             : null;
 
     // How far a model's figure leans from upright now (radians; 0 standing, about pi/2 lying in a fall), and its scale;

@@ -157,9 +157,18 @@ public partial class BoardView
     {
         var yaw = FacingNow(model.Id);
         var (root, holder, shaders, paints, _, tall, lyingScale, length) = BuildCasualty(model, new Vector3((float)model.X, (float)model.Standing, (float)model.Y), yaw, _bodiesNode);
-        var (basis, offset) = Tipped(1, yaw, lyingScale, tall, length);
-        holder.Basis = basis;
-        holder.Position = new Vector3(0, tall / 2, 0) + offset;
+        if (RigOf(root) is { } rig)
+        {
+            // Ragdoll: the same fall worked out at once (the way it fell this match, else backwards), posed at its end.
+            Simulate(rig, root.GlobalPosition.Y, _fallPush.TryGetValue(model.Id, out var push) ? push : Backwards(yaw), tall, model.Id);
+            PoseRig(rig, 1);
+        }
+        else
+        {
+            var (basis, offset) = Tipped(1, yaw, lyingScale, tall, length);
+            holder.Basis = basis;
+            holder.Position = new Vector3(0, tall / 2, 0) + offset;
+        }
         Darken(shaders, paints, [.. paints.Select(p => p.AlbedoColor)], BodyShade);
         Keep(model.Id, root, shaders, paints, (float)model.Radius, spread: false);
     }
@@ -194,13 +203,12 @@ public partial class BoardView
         {
             return null;
         }
-        var holder = root.GetChildren().OfType<Node3D>().FirstOrDefault(n => n is not MeshInstance3D && n.Name != "Pool");
-        var shader = root.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>()
+        // (A part drawn by an override, the seat colour on the Accent, keeps an unused shader under it: not that one.)
+        var shader = root.FindChildren("*", "MeshInstance3D", true, false).OfType<MeshInstance3D>().Where(m => m.MaterialOverride is null)
             .SelectMany(m => Enumerable.Range(0, m.Mesh?.GetSurfaceCount() ?? 0).Select(i => m.GetSurfaceOverrideMaterial(i))).OfType<ShaderMaterial>().FirstOrDefault();
         var shade = shader?.GetShaderParameter("albedo_colour").AsColor().R ?? BodyShade;
-        var up = holder is null ? Vector3.Up : holder.Basis.Y.Normalized();
         var fade = shader?.GetShaderParameter("fade").VariantType is Variant.Type.Float ? (float)shader.GetShaderParameter("fade") : 1f;
-        return (root.Position, up.AngleTo(Vector3.Up), shade, root.GetChildren().OfType<MeshInstance3D>().Any(m => m.Visible), fade, root.GetNodeOrNull<Node3D>("Pool") is not null);
+        return (root.Position, TorsoTilt(root), shade, root.GetChildren().OfType<MeshInstance3D>().Any(m => m.Visible), fade, root.GetNodeOrNull<Node3D>("Pool") is not null);
     }
 
     // For the UI check: draws every body again directly (the way Off, a catch-up or a rejoin draws them).

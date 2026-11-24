@@ -35,6 +35,7 @@ public partial class BoardView
     {
         FinishAnimations();
         ClearBodies();
+        _fallPush.Clear();
         _lastDrawn.Clear();
         _facing.Clear();
         _scene = null;
@@ -977,6 +978,11 @@ public partial class BoardView
         // Bodies (2026-11-23): the base's paints, which fade as it goes; Paints are the figure's, which darken.
         public List<StandardMaterial3D> Base { get; init; } = [];
 
+        // Ragdoll (2026-11-24): a figure with a skeleton falls limp (null: it tips over), pushed this way.
+        public RagdollRig? Rig { get; init; }
+
+        public Vector3 Push { get; init; }
+
         public IReadOnlyList<Color> PaintColours { get; } = [.. Paints.Select(p => p.AlbedoColor)];
     }
 
@@ -1117,7 +1123,11 @@ public partial class BoardView
             Home = at,
             FromYaw = fromYaw,
             Base = under,
+            Rig = falls ? RigOf(root) : null,
+            Push = Backwards(yaw),
         };
+        // Which way it fell, for its body drawn again later.
+        _fallPush[beat.Model] = ghost.Push;
         if (rides is not null)
         {
             CasualtiesRiding++;
@@ -1277,9 +1287,28 @@ public partial class BoardView
         {
             ghost.Root.Position = ghost.Home;
         }
-        var (basis, offset) = Tipped(p, yaw, ghost.LyingScale, ghost.Height, ghost.Length);
-        ghost.Holder.Basis = basis;
-        ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0) + offset;
+        if (ghost.Rig is { } rig)
+        {
+            // Ragdoll: the figure stands as it was (it does not turn round first) and goes limp from its beat, away from
+            // what hit it; its whole fall plays over the fall and the settling that follows.
+            ghost.Holder.Basis = new Basis(Vector3.Up, ghost.Rides is not null && now < ghost.Start ? yaw : ghost.FromYaw);
+            ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0);
+            if (now >= ghost.Start)
+            {
+                if (rig.Frames is null)
+                {
+                    Simulate(rig, ghost.Root.GlobalPosition.Y, ghost.Push, ghost.Height, ghost.Model);
+                    RagdollFalls++;
+                }
+                PoseRig(rig, (now - ghost.Start) / Math.Max(1e-6, ghost.FallSeconds + ghost.SinkSeconds));
+            }
+        }
+        else
+        {
+            var (basis, offset) = Tipped(p, yaw, ghost.LyingScale, ghost.Height, ghost.Length);
+            ghost.Holder.Basis = basis;
+            ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0) + offset;
+        }
         var sinkStart = ghost.Start + (ghost.Falls ? ghost.FallSeconds : 0);
         var q = (float)Math.Clamp((now - sinkStart) / ghost.SinkSeconds, 0, 1);
         // Bodies (Jason, 2026-11-23: "bodies lay on the ground, not disappear"; stage A5 dissolved it): the figure stays

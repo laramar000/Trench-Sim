@@ -245,6 +245,10 @@ def lift(v): return Vector((v.x, v.y, v.z + FLOOR))
 # Dynamic poses (2026-11-12, the owner: "more dynamic and less static"). A figure's pose() may call legs() for its
 # stance; TWIST turns the shoulders against the hips and LOOK turns the head on the neck (degrees, positive to the
 # figure's left), both applied to the finished, painted figure (dynamic_warp, at the end of this file).
+RIG_PTS = {}   # the main body's posed joints (human_body), for the ragdoll skeleton
+# Ragdoll (Jason, 2026-11-24, "Implement ragdoll"): the figures exported with a skeleton and skin weights, so the game
+# can let them go limp when they fall Out of Action. One figure at a time, each shown to the owner before the next.
+RAGDOLL = {"rifleman", "skirmisher"}
 GROUND = 0.0   # how far legs() raised the ground to the feet (the pelvis stays where the painters expect it)
 TWIST = 0.0
 LOOK = 0.0
@@ -290,6 +294,8 @@ def human_body(pose, coat=True, dress=None, head="hood", mitts=None, shape="male
     global JOINTS; JOINTS = {f"{b}.{s}": lift(human.world(rig, f"{b}.{s}", "head")) for s in ("L", "R")
                              for b in ("upperarm01", "lowerarm01", "wrist", "upperleg01", "lowerleg01", "foot")}   # landmarks for painted figures
     global HIPS, HEAD_AXIS; HIPS = (JOINTS["upperleg01.L"] + JOINTS["upperleg01.R"]) / 2; HEAD_AXIS = (headtop - NECK).normalized()
+    if not RIG_PTS:   # ragdoll skeleton (2026-11-24): the first (main) body's posed joints, for rig_figure()
+        RIG_PTS.update({k: v.copy() for k, v in JOINTS.items()}); RIG_PTS.update(neck=NECK.copy(), headtop=headtop.copy(), hips=HIPS.copy())
     faces = human.bake_pose(body, rig)
     body.location.z = FLOOR; bpy.context.view_layer.objects.active = body
     bpy.ops.object.select_all(action='DESELECT'); body.select_set(True)
@@ -8957,6 +8963,71 @@ allp = [(o.matrix_world @ v.co) for o in ALL for v in o.data.vertices]
 w = max(max(p.x for p in allp)-min(p.x for p in allp), max(p.y for p in allp)-min(p.y for p in allp))
 # feet: how far the body's lowest point stands above the figure's (0: the feet are on the ground, not held up by a part hanging lower)
 print(f"FIG {role} " + " ".join(f"{n}={tris(o)}" for n, o in OBJS.items()) + f" total={sum(tris(o) for o in ALL)} height={max(p.z for p in allp):.3f} raw={top:.3f} width={w:.3f} feet={min(v.co.z for v in B.data.vertices):.3f}")
+def rig_figure(k, low):
+    # Ragdoll skeleton: eleven bones on the main body's posed joints, carried through the same warps, turn and scaling as
+    # every vertex (WARP, TWIST/LOOK on the body, the floor and the 1.2 scale), so the finished figure is unchanged at
+    # rest. Each vertex is bound to its two nearest bones, blended by distance (rigid near the middle of a bone, soft at a
+    # joint); headgear goes with the head, a held weapon or shield with the nearer forearm, a back piece with the chest.
+    tw, lk = math.radians(TWIST), math.radians(LOOK)
+    def warp(p):
+        if WARP is not None: p = WARP("Body", p)
+        if TWIST or LOOK:
+            if lk:
+                e = p - NECK; t = e.dot(HEAD_AXIS); rad = (e - HEAD_AXIS * t).length
+                p = Matrix.Rotation(lk * sstep(t / 0.07) * sstep((0.26 - rad) / 0.08), 3, HEAD_AXIS) @ e + NECK
+            p = Matrix.Rotation(tw * sstep((p.z - 0.95) / 0.45), 3, 'Z') @ (p - HIPS) + HIPS
+        return Vector((p.x, p.y, p.z - low)) * k
+    J = {n: warp(v.copy()) for n, v in RIG_PTS.items()}
+    mid = J["hips"].lerp(J["neck"], 0.45)
+    bones = {   # name: (head, tail, parent)
+        "pelvis": (J["hips"], mid, None), "chest": (mid, J["neck"], "pelvis"), "head": (J["neck"], J["headtop"], "chest")}
+    for s_ in ("L", "R"):
+        wrist = J[f"wrist.{s_}"]; fore = wrist - J[f"lowerarm01.{s_}"]
+        bones[f"upperarm.{s_}"] = (J[f"upperarm01.{s_}"], J[f"lowerarm01.{s_}"], "chest")
+        bones[f"lowerarm.{s_}"] = (J[f"lowerarm01.{s_}"], wrist + fore.normalized() * fore.length * 0.35, f"upperarm.{s_}")
+        bones[f"upperleg.{s_}"] = (J[f"upperleg01.{s_}"], J[f"lowerleg01.{s_}"], "pelvis")
+        bones[f"lowerleg.{s_}"] = (J[f"lowerleg01.{s_}"], Vector((J[f"foot.{s_}"].x, J[f"foot.{s_}"].y, 0.0)), f"upperleg.{s_}")
+    # tip bones (no weights) where the head, hands and feet end: the file keeps only where each bone starts, so the game
+    # finds the top of the head, the hands and the feet from these
+    for n, par in (("headtip", "head"), ("hand.L", "lowerarm.L"), ("hand.R", "lowerarm.R"), ("foot.L", "lowerleg.L"), ("foot.R", "lowerleg.R")):
+        h = bones[par][1]; bones[n] = (h, h + (h - bones[par][0]).normalized() * 0.02, par)
+    ad = bpy.data.armatures.new("Ragdoll"); arm = bpy.data.objects.new("Ragdoll", ad); bpy.context.collection.objects.link(arm)
+    bpy.ops.object.select_all(action='DESELECT'); arm.select_set(True); bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode='EDIT')
+    for n, (h, t, _) in bones.items():
+        eb = ad.edit_bones.new(n); eb.head = h; eb.tail = t if (t - h).length > 1e-4 else h + Vector((0, 0, 0.01))
+    for n, (_, _, par) in bones.items():
+        if par: ad.edit_bones[n].parent = ad.edit_bones[par]
+    bpy.ops.object.mode_set(mode='OBJECT')
+    def seg(p, a, b):
+        ab = b - a; t = max(0.0, min(1.0, (p - a).dot(ab) / max(ab.length_squared, 1e-9))); return (a + ab * t - p).length
+    def whole(o, n):
+        g = o.vertex_groups.new(name=n); g.add(list(range(len(o.data.vertices))), 1.0, 'REPLACE')
+    for name, o in OBJS.items():
+        for g in list(o.vertex_groups): o.vertex_groups.remove(g)
+        if name.startswith("Helmet"):
+            whole(o, "head")
+        elif name.startswith(("Weapon", "Shield")):
+            c = sum((v.co for v in o.data.vertices), Vector()) / max(1, len(o.data.vertices))
+            near = min(("L", "R"), key=lambda s_: min((v.co - J[f"wrist.{s_}"]).length for v in o.data.vertices))
+            whole(o, f"lowerarm.{near}")
+        elif name.startswith("Back"):
+            whole(o, "chest")
+        else:
+            weighted = {n: b for n, b in bones.items() if n not in ("headtip", "hand.L", "hand.R", "foot.L", "foot.R")}
+            groups = {n: o.vertex_groups.new(name=n) for n in weighted}
+            for v in o.data.vertices:
+                d = sorted((seg(v.co, h, t), n) for n, (h, t, _) in weighted.items())
+                (d0, n0), (d1, n1) = d[0], d[1]
+                # the nearer bone has it alone unless the second is nearly as close (a joint): then a smooth blend
+                w1 = max(0.0, 1 - (d1 - d0) / max(0.02, d0 * 0.6)) * 0.5
+                groups[n0].add([v.index], 1 - w1, 'REPLACE')
+                if w1 > 0.001: groups[n1].add([v.index], w1, 'REPLACE')
+        o.parent = arm
+        m = o.modifiers.new("Ragdoll", "ARMATURE"); m.object = arm
+    print(f"RIG {role} bones={len(bones)} " + " ".join(f"{n}=({h.x:.2f},{h.y:.2f},{h.z:.2f})" for n, (h, _, _) in bones.items()))
+if role in RAGDOLL and RIG_PTS:
+    rig_figure(1.2 / top, low)
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=f"{outdir}/{role}.glb", export_format='GLB', export_yup=True, export_vertex_color='ACTIVE')   # the Accent's shading
 # the Blender source, for review or hand edits (docs/art-pipeline.md): saved only when asked
