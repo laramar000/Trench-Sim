@@ -714,3 +714,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   where the body lies. Showcase scene 13. Checks with the rigged prototypes in place: essentials 2,327/0; showcase scenes
   2, 4, 13 looked at (fall on the hit, the blast's centre thrown about two bases). The prototype figures are still not
   committed (owner's approval).
+- 2026-11-24, Jason: "Not just how far but the direction of the ragdoll in general". Done: `RagdollImpact.Hit` (where on
+  the body: shot 0.65, blow 0.78, charge 0.45, blast 0.22, mine 0.05) and `Ragdoll.Fall(..., hit)` (push at that height,
+  harder on the side facing the hit; the body turns and falls from it). Essentials 2,330/0; showcase scenes 2, 4, 13
+  looked at (shot knocks it back and twists it, the mine sweeps the legs, the grenade flips it). Prototype figures still
+  not committed.

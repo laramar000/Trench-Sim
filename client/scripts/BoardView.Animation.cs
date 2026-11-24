@@ -990,6 +990,9 @@ public partial class BoardView
 
         public Vector3 Push { get; init; }
 
+        // Where on the body the hit landed (0 the feet, 1 the head).
+        public float Hit { get; init; } = (float)RagdollImpacts.ChestHigh;
+
         public IReadOnlyList<Color> PaintColours { get; } = [.. Paints.Select(p => p.AlbedoColor)];
     }
 
@@ -1128,10 +1131,12 @@ public partial class BoardView
         // land or landing now, not on its Injury Roll's beat after it.
         var rig = falls ? RigOf(root) : null;
         var push = Backwards(yaw) * (float)RagdollImpacts.Crumple;
+        var hit = (float)RagdollImpacts.ChestHigh;
         if (_recentImpact.TryGetValue(beat.Model, out var impact))
         {
             var thrown = impact.Hit.Push;
             push = new Vector3((float)thrown.X, (float)thrown.Y, (float)thrown.Z);
+            hit = (float)impact.Hit.Hit;
             if (rig is not null && impact.At <= fallStart && impact.At >= Now - 0.05)
             {
                 fallStart = impact.At;
@@ -1146,9 +1151,10 @@ public partial class BoardView
             Base = under,
             Rig = rig,
             Push = push,
+            Hit = hit,
         };
         // Which way it fell, for its body drawn again later.
-        _fallPush[beat.Model] = ghost.Push;
+        _fallPush[beat.Model] = (ghost.Push, ghost.Hit);
         if (rides is not null)
         {
             CasualtiesRiding++;
@@ -1318,7 +1324,7 @@ public partial class BoardView
             {
                 if (rig.Frames is null)
                 {
-                    Simulate(rig, ghost.Root.GlobalPosition.Y, ghost.Push, ghost.Height, ghost.Model);
+                    Simulate(rig, ghost.Root.GlobalPosition.Y, ghost.Push, ghost.Height, ghost.Model, ghost.Hit);
                     RagdollFalls++;
                 }
                 PoseRig(rig, (now - ghost.Start) / RagdollSeconds(ghost, rig));

@@ -7,7 +7,9 @@ namespace Client.Core;
 // or the blast's centre, on the table), how hard (a share of the figure's height per second: a shot is light, a blow in
 // melee harder, a charge harder still, a blast hardest the closer it stood) and how much it lifted it (blasts, a mine
 // most). A figure put Out of Action goes limp from this moment, thrown this way and this hard. Display only.
-public readonly record struct RagdollImpact(double At, double DirX, double DirY, double Strength, double Lift)
+// Hit (2026-11-24, "the direction of the ragdoll in general"): where on the body it lands, 0 the feet to 1 the head (a shot
+// at the chest, a blow higher, a charge at the hips, a blast low, a mine at the feet); Ragdoll.Fall turns the body by it.
+public readonly record struct RagdollImpact(double At, double DirX, double DirY, double Strength, double Lift, double Hit = RagdollImpacts.ChestHigh)
 {
     // The push for Ragdoll.Fall: across the table (X, Y on the table are X, Z in the world), and up.
     public Joint3 Push => new(DirX * Strength, Lift, DirY * Strength);
@@ -21,6 +23,13 @@ public static class RagdollImpacts
 
     // A fall with no hit in sight (a model that crumples): a light push, backwards.
     public const double Crumple = 0.5;
+
+    // Where each kind of hit lands on the body (0 the feet, 1 the head).
+    public const double ChestHigh = 0.65;
+    public const double BlowHigh = 0.78;
+    public const double ChargeHigh = 0.45;
+    public const double BlastHigh = 0.22;
+    public const double MineHigh = 0.05;
 
     // For every model hit in this update, its last hit. place: where a model stands (the last place drawn); a casualty's
     // own beat names the server's place for it (a mine halt), which is used first.
@@ -51,9 +60,10 @@ public static class RagdollImpacts
                     // The kind of attack from its event's other beats: a blow (a strike on it) or a charge striking home
                     // (an impact on it); else a shot.
                     var same = beats.Where(b => b.Seq == beat.Seq && b.Model == beat.Model).ToList();
-                    var strength = same.Any(b => b.Kind == BeatKind.Impact) ? Charge : same.Any(b => b.Kind == BeatKind.Strike) ? Blow : Shot;
+                    var (strength, high) = same.Any(b => b.Kind == BeatKind.Impact) ? (Charge, ChargeHigh)
+                        : same.Any(b => b.Kind == BeatKind.Strike) ? (Blow, BlowHigh) : (Shot, ChestHigh);
                     var (dx, dy) = Away(Where(beat.Model), Where(by), beat.Model);
-                    Take(beat.Model, new RagdollImpact(beat.Start, dx, dy, strength, 0));
+                    Take(beat.Model, new RagdollImpact(beat.Start, dx, dy, strength, 0, high));
                     break;
                 }
                 case BeatKind.Explosion or BeatKind.MartyrBlast or BeatKind.MineBlast when beat.At is { } centre:
@@ -78,7 +88,7 @@ public static class RagdollImpacts
                             _ => (1.0 + 1.8 * near, 0.3 + 0.6 * near),
                         };
                         var (dx, dy) = Away(p, centre, id);
-                        Take(id, new RagdollImpact(beat.Start, dx, dy, strength, lift));
+                        Take(id, new RagdollImpact(beat.Start, dx, dy, strength, lift, beat.Kind == BeatKind.MineBlast ? MineHigh : BlastHigh));
                     }
                     break;
                 }

@@ -165,7 +165,8 @@ public partial class BoardView
         if (RigOf(root) is { } rig)
         {
             // Ragdoll: the same fall worked out at once (the way it fell this match, else backwards), posed at its end.
-            Simulate(rig, root.GlobalPosition.Y, _fallPush.TryGetValue(model.Id, out var push) ? push : Backwards(yaw) * (float)RagdollImpacts.Crumple, tall, model.Id);
+            var (push, hit) = _fallPush.TryGetValue(model.Id, out var fell) ? fell : (Backwards(yaw) * (float)RagdollImpacts.Crumple, (float)RagdollImpacts.ChestHigh);
+            Simulate(rig, root.GlobalPosition.Y, push, tall, model.Id, hit);
             PoseRig(rig, 1);
         }
         else

@@ -83,7 +83,13 @@ public static class Ragdoll
     // zero: it crumples), and up by its height (a blast lifts it); height its standing height (gravity is scaled so it falls
     // in a person's time at this size); key gives it its own small differences (Spread). Every joint stays above the
     // ground and within reach of where it stood (further the harder it was thrown).
-    public static IReadOnlyList<Joint3[]> Fall(IReadOnlyList<Joint3> standing, double ground, Joint3 push, double height, string key)
+    //
+    // hit (2026-11-24, "not just how far but the direction of the ragdoll in general"): where on the body the hit lands, 0
+    // the feet to 1 the head. The push lands there, harder on the side facing it, and the rest of the body follows through
+    // its joints and stiff torso: a shot to the chest knocks the top back and the body topples away; a hit at the feet
+    // sweeps the legs out, so the body falls the other way; a hit from the side, struck first on the near shoulder or hip,
+    // turns it as it goes; from behind, it pitches forward onto its face.
+    public static IReadOnlyList<Joint3[]> Fall(IReadOnlyList<Joint3> standing, double ground, Joint3 push, double height, string key, double hit = 0.6)
     {
         ArgumentNullException.ThrowIfNull(standing);
         ArgumentNullException.ThrowIfNull(key);
@@ -105,18 +111,27 @@ public static class Ragdoll
         {
             radius[i] = height * (i is (int)RagdollJoint.Hips or (int)RagdollJoint.Neck or (int)RagdollJoint.HeadTop ? 0.07 : 0.04);
         }
-        // Thrown: the upper body away from the attacker, the feet a little the other way, each joint a little differently.
+        // Thrown: the joints where the hit lands most, the side facing it more than the far side, each joint a little
+        // differently; the stiff torso and the bones carry the rest, so where and from which side it lands decides how
+        // the body goes over and turns.
         var flat = push.Flat;
         var away = flat < 1e-9 ? new Joint3(spread.Next() - 0.5, 0, spread.Next() - 0.5) : new Joint3(push.X / flat, 0, push.Z / flat);
+        away = away * (1 / Math.Max(1e-9, away.Flat));
         var speed = (flat < 1e-9 ? 0.25 : 0.6 + flat) * height;
-        // A hard throw carries the whole body, not only the top of it.
+        // A hard throw carries the whole body, not only where it was hit.
         var carry = Math.Max(0, flat - 0.5) * 1.4 * height;
         var lift = Math.Max(0, push.Y) * 1.6 * height;
+        hit = Math.Clamp(hit, 0, 1);
+        var hips = p[(int)RagdollJoint.Hips];
         var previous = new Joint3[Joints];
         for (var i = 0; i < Joints; i++)
         {
             var up = (p[i].Y - ground) / height;   // 0 at the feet, 1 at the head
-            var kick = away * (speed * (up - 0.3) + carry) + new Joint3(0, lift * (0.6 + 0.6 * up), 0)
+            // How near the hit it is: up the body, and across it (the side facing the hit is struck first).
+            var near = Math.Exp(-Math.Pow((up - hit) / 0.3, 2));
+            var facing = -((p[i].X - hips.X) * away.X + (p[i].Z - hips.Z) * away.Z) / (0.12 * height);
+            var weight = near * (1 + 0.6 * Math.Clamp(facing, -1, 1));
+            var kick = away * (speed * 1.9 * weight + carry) + new Joint3(0, lift * (0.6 + 0.6 * up), 0)
                 + new Joint3(spread.Next() - 0.5, 0, spread.Next() - 0.5) * (0.08 * height);
             previous[i] = p[i] - kick * dt;
         }

@@ -35,7 +35,7 @@ public partial class BoardView
     }
 
     // Which way each model fell this match (away from what hit it), so a body drawn again directly falls the same way.
-    private readonly Dictionary<ModelId, Vector3> _fallPush = [];
+    private readonly Dictionary<ModelId, (Vector3 Push, float Hit)> _fallPush = [];
 
     // Each model's last hit (Client.Core.RagdollImpacts) and when it lands in the playback.
     private readonly Dictionary<ModelId, (double At, RagdollImpact Hit)> _recentImpact = [];
@@ -75,11 +75,11 @@ public partial class BoardView
     }
 
     // The fall from the figure as it stands now, in the world: on the ground at groundY, pushed along push.
-    private static void Simulate(RagdollRig rig, float groundY, Vector3 push, float height, ModelId id)
+    private static void Simulate(RagdollRig rig, float groundY, Vector3 push, float height, ModelId id, float hit)
     {
         var to = rig.Skeleton.GlobalTransform;
         var standing = rig.Joint.Select(b => to * rig.Skeleton.GetBoneGlobalPose(b).Origin).Select(v => new Joint3(v.X, v.Y, v.Z)).ToArray();
-        rig.Frames = Ragdoll.Fall(standing, groundY, new Joint3(push.X, push.Y, push.Z), height, id.Value);
+        rig.Frames = Ragdoll.Fall(standing, groundY, new Joint3(push.X, push.Y, push.Z), height, id.Value, hit);
     }
 
     // Poses the skeleton at the fall's moment t (0 standing .. 1 at rest).

@@ -106,6 +106,49 @@ public class RagdollTests
         Assert.True(lifted[^1][(int)RagdollJoint.Neck].Y < 0.25);
     }
 
+    // 2026-11-24 ("the direction of the ragdoll in general"): where the hit lands and from which side decides how it goes.
+    [Fact]
+    public void AHighHitTopplesItAwayAndALowHitSweepsTheLegs()
+    {
+        var start = Standing();
+        double Ahead(Joint3[] f, RagdollJoint j) => f[(int)j].X - start[(int)j].X;
+        var chest = Ragdoll.Fall(start, 0, new Joint3(1, 0, 0), 1.2, "a1", hit: 0.7);
+        var legs = Ragdoll.Fall(start, 0, new Joint3(1, 0, 0), 1.2, "a1", hit: 0.05);
+        // Early on: hit high, the head moves away first; hit at the feet, the feet do.
+        var early = 8;
+        Assert.True(Ahead(chest[early], RagdollJoint.HeadTop) > Ahead(chest[early], RagdollJoint.FootL), "a chest hit moved the feet first");
+        Assert.True(Ahead(legs[early], RagdollJoint.FootL) > Ahead(legs[early], RagdollJoint.HeadTop), "a hit at the feet moved the head first");
+        // At rest: hit high, the head lies away from where the feet are; legs swept, the head lies back towards the hit.
+        var c = chest[^1];
+        var l = legs[^1];
+        Assert.True(c[(int)RagdollJoint.HeadTop].X > c[(int)RagdollJoint.FootL].X, "a chest hit left the head nearer the shooter than the feet");
+        Assert.True(l[(int)RagdollJoint.HeadTop].X < l[(int)RagdollJoint.FootL].X, "swept legs left the head further than the feet");
+    }
+
+    [Fact]
+    public void AHitFromTheSideTurnsTheBodyMoreThanOneFromTheFront()
+    {
+        var start = Standing();   // facing +z: its shoulders run along x
+        double Turned(Joint3 push)
+        {
+            var end = Ragdoll.Fall(start, 0, push, 1.2, "a1", hit: 0.7)[^1];
+            static double Yaw(Joint3 a, Joint3 b) => Math.Atan2(a.Z - b.Z, a.X - b.X);
+            var d = Math.Abs(Yaw(end[(int)RagdollJoint.ShoulderL], end[(int)RagdollJoint.ShoulderR]) - Yaw(start[(int)RagdollJoint.ShoulderL], start[(int)RagdollJoint.ShoulderR]));
+            return Math.Min(d, 2 * Math.PI - d);
+        }
+        var front = Turned(new Joint3(0, 0, -1));
+        var side = Turned(new Joint3(1, 0, 0));
+        Assert.True(side > front + 0.15, $"turned {side:0.00} rad hit from the side, {front:0.00} from the front");
+    }
+
+    [Fact]
+    public void AHitFromBehindPitchesItForwardOntoItsFace()
+    {
+        var start = Standing();   // facing +z
+        var end = Ragdoll.Fall(start, 0, new Joint3(0, 0, 1), 1.2, "a1", hit: 0.7)[^1];
+        Assert.True(end[(int)RagdollJoint.HeadTop].Z - start[(int)RagdollJoint.Hips].Z > 0.3, "not pitched forward");
+    }
+
     [Fact]
     public void ABigFigureFallsInAboutTheSameTime()
     {

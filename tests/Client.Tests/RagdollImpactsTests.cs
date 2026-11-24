@@ -39,6 +39,7 @@ public class RagdollImpactsTests
         var casualty = plan.Beats.Single(b => b.Kind == BeatKind.Casualty);
         var impact = impacts[casualty.Model];
         Assert.Equal(RagdollImpacts.Shot, impact.Strength);
+        Assert.Equal(RagdollImpacts.ChestHigh, impact.Hit);
         Assert.Equal(0, impact.Lift);
         Assert.True(impact.At < casualty.Start, $"hit at {impact.At:0.00} s, casualty at {casualty.Start:0.00} s");
         Assert.Equal(plan.Beats.Single(b => b.Kind == BeatKind.Flinch).Start, impact.At, 9);
@@ -54,6 +55,7 @@ public class RagdollImpactsTests
         var blow = Staged(table, "A charge reaches");
         var target = blow.Plan.Beats.Single(b => b.Kind == BeatKind.Fall).Model;
         Assert.Equal(RagdollImpacts.Blow, blow.Impacts[target].Strength);
+        Assert.Equal(RagdollImpacts.BlowHigh, blow.Impacts[target].Hit);
         var blasts = Staged(table, "A grenade");
         var aimed = blasts.Plan.Beats.Single(b => b.Kind == BeatKind.Explosion);
         var closest = blasts.Impacts.OrderByDescending(i => i.Value.Strength).First();
@@ -81,6 +83,7 @@ public class RagdollImpactsTests
         var casualty = plan.Beats.Single(b => b.Kind == BeatKind.Casualty);
         var impact = impacts[casualty.Model];
         Assert.True(impact.Lift >= 0.9 && impact.Strength >= 0.8, $"{impact}");
+        Assert.Equal(RagdollImpacts.MineHigh, impact.Hit);
         Assert.True(impact.At <= casualty.Start + 1e-9);
         Assert.Equal(1, Math.Sqrt(impact.DirX * impact.DirX + impact.DirY * impact.DirY), 6);
     }
