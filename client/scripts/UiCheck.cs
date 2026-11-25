@@ -2762,7 +2762,7 @@ public partial class UiCheck : Node
         for (var row = 0; ; row++)
         {
             var at = new Vector3((float)scene.Width / 2 - 6f, 0, (float)scene.Depth / 2);
-            List<(string File, bool Rigged, float Tilt)> seen = [];
+            List<(string File, bool Rigged, float Tilt, float X)> seen = [];
             foreach (var t in new[] { 0.0, 0.15, 0.4, 1.0 })
             {
                 seen = board.RagdollLineup(at, row * 7, 7, t);
@@ -2778,7 +2778,18 @@ public partial class UiCheck : Node
             {
                 break;
             }
-            foreach (var (file, rigged, tilt) in seen)
+            // Close up, mid-fall and at rest, one picture a figure: torn or stretched joints show here.
+            foreach (var t in new[] { 0.4, 1.0 })
+            {
+                var posed = board.RagdollLineup(at, row * 7, 7, t);
+                foreach (var (file, _, _, x) in posed)
+                {
+                    board.LookAtTable(new Vector2(x + 0.5f, at.Z), 3.2f);
+                    await Frames(3);
+                    GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(dir, $"close-{System.IO.Path.GetFileNameWithoutExtension(file)}-t{(int)(t * 100):000}.png"));
+                }
+            }
+            foreach (var (file, rigged, tilt, _) in seen)
             {
                 figures++;
                 var walker = file.EndsWith("reliquary-walker.glb", StringComparison.Ordinal);

@@ -132,6 +132,34 @@ public class UnitFiguresTests
         { "units/chorister.glb", 3300, 1024, 0.9f },
     };
 
+    // Ragdoll (2026-11-24): every figure with a body of its own carries the 16-bone skeleton the client lets go limp (its
+    // bones named as tools/art/make_figures.py rig_figure gives them), and every part of it is skinned to that skeleton,
+    // so no part is left standing when the body falls. The Reliquary Walker has none (its body is the martyr on its
+    // wheel): it tips over as before.
+    [Theory]
+    [MemberData(nameof(Figures))]
+    public void AFigureWithABodyHasTheRagdollSkeleton(string file, int budget, int texture, float width)
+    {
+        _ = (budget, texture, width);
+        var bytes = File.ReadAllBytes(Path.Combine(Assets, file));
+        var length = BitConverter.ToInt32(bytes, 12);
+        using var gltf = JsonDocument.Parse(Encoding.UTF8.GetString(bytes, 20, length));
+        var root = gltf.RootElement;
+        var hasSkins = root.TryGetProperty("skins", out var skins) && skins.GetArrayLength() > 0;
+        if (file.EndsWith("reliquary-walker.glb", StringComparison.Ordinal))
+        {
+            Assert.False(hasSkins);
+            return;
+        }
+        Assert.True(hasSkins, $"{file} has no skeleton");
+        var nodes = root.GetProperty("nodes").EnumerateArray().ToList();
+        var joints = skins[0].GetProperty("joints").EnumerateArray().Select(j => nodes[j.GetInt32()].GetProperty("name").GetString()).ToHashSet();
+        string[] bones = ["pelvis", "chest", "head", "headtip", "upperarm.L", "upperarm.R", "lowerarm.L", "lowerarm.R", "hand.L", "hand.R",
+            "upperleg.L", "upperleg.R", "lowerleg.L", "lowerleg.R", "foot.L", "foot.R"];
+        Assert.True(joints.SetEquals(bones), $"{file}: {string.Join(", ", joints)}");
+        Assert.All(nodes.Where(n => n.TryGetProperty("mesh", out _)), n => Assert.True(n.TryGetProperty("skin", out _), $"{file}: {n.GetProperty("name")} is not skinned"));
+    }
+
     [Theory]
     [MemberData(nameof(Figures))]
     public void AFigureIsSmallFitsItsBaseAndHasAnAccent(string file, int budget, int texture, float width)

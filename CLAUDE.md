@@ -42,7 +42,8 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
   before handing over a release.
 - Known flaky tests (sandbox network timing, unrelated to most changes): CancellingARun*, ARejoinWhile*,
   AnAborted*, ALocalServerThatCannotStart*, ATakeover*, DuplicateAndStale*, AConnectionThatNeverJoins*,
-  AClientThatStopsReading, the hotseat-turn-banner timing UI check. Rerun just that test once.
+  AClientThatStopsReading, AHostThatNeverAnswersTheRejoinTimesOutEachAttempt, the hotseat-turn-banner timing UI check.
+  Rerun just that test once.
 - Godot UI-check gotchas: drivers click only spots no box covers (`UiCheck.Clickable`); `RemoveChild` before `QueueFree`
   when reusing node names; node names cannot contain `. : @ / " %`; UI-check code must not touch ImmutableArray.
 - Client.Core must not use System.Random (use `Spread`); the Godot client must not reference System.Text.Json.
@@ -727,3 +728,12 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   `dev-ragdolls`). Essentials 2,331/0. In progress: the 26 rigged figures building (scratchpad `rigged/`), to be compared
   with the old files (parts, triangles, bounds, skeleton), looked at, then committed with the test
   `UnitFiguresTests.AFigureWithABodyHasTheRagdollSkeleton` (kept aside until then).
+  Then: the 26 rebuilt figures differ from the approved ones (the cloth simulation and decimation vary run to run: up
+  to 0.15" on the Heretic Trooper's cape, a few triangles), so they were NOT used. Instead the skeleton was grafted onto
+  the approved files: bone nodes from the rebuilds, skin weights computed on the approved meshes as `rig_figure` does,
+  the approved binary kept byte for byte with the new data appended (script kept in the session scratchpad only:
+  `graft.py`; for a future figure, build it with `RAGDOLL` and it is rigged directly). Checked: all 26 figures' parts,
+  triangles and bounds exactly as before, 16 bones, the old data byte-identical; dev step `ragdolls` with close-ups
+  (`<out>/ragdolls/close-*`): all 26 fall and lie, nothing torn or stretched, the Reliquary Walker unrigged; new test
+  `UnitFiguresTests.AFigureWithABodyHasTheRagdollSkeleton`. Essentials 2,357 with 1 known flake (rerun 3/3). Figures
+  folder about 59 MB of the 64 MB cap. Not run on Windows.

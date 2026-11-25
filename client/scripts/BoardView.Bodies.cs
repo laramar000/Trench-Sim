@@ -232,13 +232,13 @@ public partial class BoardView
     // whether it has a skeleton, and how far its torso lies over.
     private Node3D? _lineup;
 
-    public List<(string File, bool Rigged, float Tilt)> RagdollLineup(Vector3 at, int from, int count, double t)
+    public List<(string File, bool Rigged, float Tilt, float X)> RagdollLineup(Vector3 at, int from, int count, double t)
     {
         _lineup?.GetParent()?.RemoveChild(_lineup);
         _lineup?.QueueFree();
         _lineup = new Node3D { Name = "RagdollLineup" };
         _effects.AddChild(_lineup);
-        var seen = new List<(string File, bool Rigged, float Tilt)>();
+        var seen = new List<(string File, bool Rigged, float Tilt, float X)>();
         var files = Visuals.Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal))
             .GroupBy(e => e.Value).Select(g => g.First()).OrderBy(e => e.Value, StringComparer.Ordinal).Skip(from).Take(count).ToList();
         var x = 0f;
@@ -256,11 +256,11 @@ public partial class BoardView
             var tilt = 0f;
             if (RigOf(root) is { } rig)
             {
-                Simulate(rig, at.Y, new Vector3(1, 0, 0) * (float)RagdollImpacts.Shot, height, new ModelId(file), (float)RagdollImpacts.ChestHigh, []);
+                Simulate(rig, at.Y, new Vector3(1, 0, 0) * (float)RagdollImpacts.Shot, height, new ModelId(System.IO.Path.GetFileNameWithoutExtension(file)), (float)RagdollImpacts.ChestHigh, []);
                 PoseRig(rig, t);
                 tilt = TorsoTilt(root);
             }
-            seen.Add((file, RigOf(root) is not null, tilt));
+            seen.Add((file, RigOf(root) is not null, tilt, at.X + x));
             x += Math.Max(1.8f, height * 1.4f);
         }
         return seen;
