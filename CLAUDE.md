@@ -737,3 +737,13 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (`<out>/ragdolls/close-*`): all 26 fall and lie, nothing torn or stretched, the Reliquary Walker unrigged; new test
   `UnitFiguresTests.AFigureWithABodyHasTheRagdollSkeleton`. Essentials 2,357 with 1 known flake (rerun 3/3). Figures
   folder about 59 MB of the 64 MB cap. Not run on Windows.
+- 2026-11-25, Jason: ragdoll GIFs "good enough for now", then "Go to 3" (Down falls by ragdoll) and the goal "Complete
+  Animation Suite" (ragdoll and terrain the main focus). Done (docs/client.md "Animation suite"): `RagdollGround` (terrain
+  heights from TerrainDress parts, trench floors, lying bodies) in `Ragdoll.Fall(..., land)`: bodies stop against walls and
+  towers, drape over sandbags, drop into trenches, fall off platforms; `Ragdoll.Down` + `Ragdoll.Rise` (Down falls by
+  ragdoll over the base, drawn lying in that pose, `DownFall`; standing up from it); falls on a worker thread
+  (`RagdollRig.Pending`); ACTION gestures from events (`ActionCue`; beats Brace, DigIn, Rally, Reach) and shooter `Recoil`;
+  showcase scenes 14 (actions) and 15-19 (terrain; `--scenario ranged-towers`). Not covered: suppression, crawling,
+  artillery, slopes (none in the rules or table); the Walker has no skeleton. hotseat-turn-banner failed 3 times here, also
+  on the previous commit (machine timing).
+

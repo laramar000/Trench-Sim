@@ -154,4 +154,31 @@ public class RagdollTerrainTests
     }
 
     private static double Dist(Joint3 a, Joint3 b) => (a - b).Length;
+
+    // A figure of any size (a small one, a Giant): scaled about its feet, it still stops against the wall and lies above
+    // the land, and a body thrown onto another lies over it.
+    [Theory]
+    [InlineData(0.6)]
+    [InlineData(1.0)]
+    [InlineData(1.8)]
+    public void EverySizeStopsAgainstAWallAndLiesOverABodyBeforeIt(double scale)
+    {
+        var start = RagdollTests.Standing().Select(j => new Joint3(10 + (j.X - 10) * scale, j.Y * scale, 20 + (j.Z - 20) * scale)).ToArray();
+        var height = 1.2 * scale;
+        var wall = new TerrainShape("wall", new TableRect(10 + 0.6 * scale, 15, 11 + 0.6 * scale, 25), TerrainProfile.Wall, 3, false, false, "wall");
+        var land = RagdollGround.Of(Table(wall), 10, 20);
+        var frames = Ragdoll.Fall(start, 0, new Joint3(2.5, 0.3, 0), height, "s", 0.65, null, land);
+        AboveLand(frames, land, height);
+        Assert.All(frames, f => Assert.All(f, j => Assert.True(j.X < 10 + 0.6 * scale + 0.02 || j.Y > 1.5, $"joint in the wall at x {j.X:0.00}")));
+        // Another body lying where this one lands: raised over it.
+        var flat = RagdollGround.Of(Table(), 10, 20);
+        var first = Ragdoll.Fall(start, 0, new Joint3(1.0, 0, 0), height, "f", 0.65, null, flat)[^1];
+        foreach (var joint in first)
+        {
+            flat.Raise(joint.X, joint.Z, height * 0.06, joint.Y + height * 0.05);
+        }
+        var second = Ragdoll.Fall(start, 0, new Joint3(1.0, 0, 0), height, "g", 0.65, null, flat);
+        AboveLand(second, flat, height);
+        Assert.True(second[^1].Max(j => j.Y) > first.Max(j => j.Y) - 1e-6);
+    }
 }

@@ -36,6 +36,32 @@ public sealed class RagdollGround
 
     public static RagdollGround Flat(double level) => new(level, 0, 0, 0, 0, []);
 
+    // Raises the ground to `top` over a disc (a body already lying there: 2026-11-25, a body thrown onto another lies over
+    // it rather than through it). Nothing outside the grid changes.
+    public void Raise(double x, double z, double radius, double top)
+    {
+        if (_nx == 0)
+        {
+            return;
+        }
+        var i0 = Math.Max(0, (int)Math.Floor((x - radius - _x0) / Step));
+        var i1 = Math.Min(_nx - 1, (int)Math.Floor((x + radius - _x0) / Step));
+        var j0 = Math.Max(0, (int)Math.Floor((z - radius - _z0) / Step));
+        var j1 = Math.Min(_nz - 1, (int)Math.Floor((z + radius - _z0) / Step));
+        for (var j = j0; j <= j1; j++)
+        {
+            for (var i = i0; i <= i1; i++)
+            {
+                var cx = _x0 + (i + 0.5) * Step - x;
+                var cz = _z0 + (j + 0.5) * Step - z;
+                if (cx * cx + cz * cz <= radius * radius && _heights[j * _nx + i] < top)
+                {
+                    _heights[j * _nx + i] = top;
+                }
+            }
+        }
+    }
+
     // The height at a point: the highest thing drawn there.
     public double At(double x, double z)
     {

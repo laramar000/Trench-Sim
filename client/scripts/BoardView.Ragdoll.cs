@@ -145,6 +145,27 @@ public partial class BoardView
             return kept;
         }
         var land = _scene is { } scene ? RagdollGround.Of(scene, at.X, at.Z, dressed: !_highContrast) : RagdollGround.Flat(at.Y);
+        // The bodies already lying near (each joint a small mound), so a body thrown onto one lies over it.
+        foreach (var (other, root) in _bodies)
+        {
+            if (other == id || !IsInstanceValid(root) || new Vector2(root.GlobalPosition.X - at.X, root.GlobalPosition.Z - at.Z).Length() > RagdollGround.Window)
+            {
+                continue;
+            }
+            if (CachedRig(root) is { } rig)
+            {
+                // (Its size from its skeleton standing at rest.)
+                var standing = StandingJoints(rig);
+                var tall = standing[(int)RagdollJoint.HeadTop].Y - standing[(int)RagdollJoint.FootL].Y;
+                var to = rig.Skeleton.GlobalTransform;
+                foreach (var bone in rig.Joint)
+                {
+                    var joint = to * rig.Skeleton.GetBoneGlobalPose(bone).Origin;
+                    var r = Math.Max(0.04, Math.Abs(tall) * 0.06);
+                    land.Raise(joint.X, joint.Z, r, joint.Y + r * 0.8);
+                }
+            }
+        }
         return _fallLand[id] = land;
     }
 
