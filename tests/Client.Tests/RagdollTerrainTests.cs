@@ -114,6 +114,35 @@ public class RagdollTerrainTests
         Assert.Contains(frames[^1], j => j.X > 10.5 && j.X < 11.1 && j.Y > 0.6);
     }
 
+    // 2026-11-25 (the owner saw bodies clip): a body thrown against chest-high sandbags or a wall never leaps up off them
+    // (the land and the stiff torso once levered it inches into the air), and a tower's face is solid where its braces
+    // cross it (the band outside its walls), so a body against a tower stays in view outside it.
+    [Fact]
+    public void NoBodyLeapsOffTerrainAndATowerFaceIsSolid()
+    {
+        var bags = new TerrainShape("bags", new TableRect(10.5, 15, 11.1, 25), TerrainProfile.Cover, 0.75, false, false, "bags");
+        var wall = new TerrainShape("wall", new TableRect(10.5, 15, 11.5, 25), TerrainProfile.Wall, 3, false, false, "wall");
+        foreach (var piece in new[] { bags, wall })
+        {
+            var land = RagdollGround.Of(Table(piece), 10, 20);
+            foreach (var (push, key) in new[] { (new Joint3(1.6, 0.2, 0), "s1"), (new Joint3(2.5, 0.45, 0), "s2"), (new Joint3(0.8, 0, 0), "s3") })
+            {
+                var frames = Ragdoll.Fall(RagdollTests.Standing(), 0, push, 1.2, key, 0.65, null, land);
+                AboveLand(frames, land, 1.2);
+                Assert.True(frames.Max(f => f[(int)RagdollJoint.Hips].Y) < 1.3, $"{piece.Id} {key}: hips up to {frames.Max(f => f[(int)RagdollJoint.Hips].Y):0.00}");
+            }
+        }
+        var tower = new TerrainShape("tower", new TableRect(10.5, 18, 13.5, 21), TerrainProfile.Wall, 2, true, false, "tower")
+        {
+            Ladders = [new LadderShape("l1", new TablePoint(10.5, 19.5), Side.West)],
+        };
+        var towerLand = RagdollGround.Of(Table(tower), 10, 20);
+        // Inside the outer band (between the corner posts, where the braces are): solid up to the platform.
+        Assert.InRange(towerLand.At(10.54, 19.0), 1.0, 2.0001);
+        var thrown = Ragdoll.Fall(RagdollTests.Standing(), 0, new Joint3(2.5, 0.3, 0), 1.2, "t2", 0.65, null, towerLand);
+        Assert.All(thrown[^1], j => Assert.True(j.X < 10.5 + 0.02, $"joint inside the tower at x {j.X:0.00}"));
+    }
+
     [Theory]
     [InlineData(0.5, 0, 0)]
     [InlineData(3, 1.5, 0)]

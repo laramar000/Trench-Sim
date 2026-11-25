@@ -226,7 +226,7 @@ public static class AnimationShowcase
                 id => table.Models.FirstOrDefault(m => m.Id == id) is { } m ? new TablePoint(m.X, m.Y) : null, [victim.Id], [])
             {
                 Focus = at,
-                FocusDistance = 7,
+                FocusDistance = 5,
             };
         }
     }

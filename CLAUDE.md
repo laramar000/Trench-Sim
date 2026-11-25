@@ -749,4 +749,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Full UI runner at 5ea7ddb: 436 PASS, 2 FAIL (board-casualty-mid-move: a fall due before its worker thread finished
   stood still for a frame; fixed, a due fall now waits for it; gvt-a rerun 0 failures, animating mean 0.78 ms, max
   11.6 ms). Essentials 2,379/0.
+- 2026-11-25, Jason: "The models are clipping through the terrain in the gifs you sent. Is there movement animations?
+  /goal give everything a skeleton". Clipping fixed (docs/client.md "Clipping fixes"): side contacts push out across,
+  never onto a top; full-radius joints; segments rest on edges (`LiftSegments`); rise speed capped; heavier trunk;
+  tower braces solid. Showcase terrain scenes looked at again (all five: body at the wall's foot, slumped at the bags,
+  on the trench floor, against the tower, off the platform). Essentials 2,380/0.
 

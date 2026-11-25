@@ -51,6 +51,9 @@ public static class Ragdoll
     public const double MaxSeconds = 2.0;
 
     private const int Substeps = 4;
+
+    // How hard gravity pulls each joint (the trunk's dead weight more than the limbs').
+    private static readonly double[] Weight = [1.8, 1.5, 1, 1.3, 1.3, 1, 1, 1, 1, 1.5, 1.5, 1, 1, 1, 1];
     private const int Iterations = 10;
 
     private static readonly (RagdollJoint A, RagdollJoint B)[] Bones =
@@ -130,6 +133,8 @@ public static class Ragdoll
         // A hard throw carries the whole body, not only where it was hit.
         var carry = Math.Max(0, flat - 0.5) * 1.4 * height;
         var lift = Math.Max(0, push.Y) * 1.6 * height;
+        // The fastest it may rise in a substep: its throw's lift (a blast's) at most, never under a slow stumble's.
+        var riseCap = (lift * 1.3 + 0.6 * height) * dt;
         hit = Math.Clamp(hit, 0, 1);
         var hips = p[(int)RagdollJoint.Hips];
         var previous = new Joint3[Joints];
@@ -164,7 +169,9 @@ public static class Ragdoll
                 {
                     var v = (p[i] - previous[i]) * 0.995;
                     previous[i] = p[i];
-                    p[i] = p[i] + v + new Joint3(0, -gravity * dt * dt, 0);
+                    // The trunk is heavier than the limbs: dead weight that buckles the legs, so a body propped against
+                    // something slumps down it rather than standing on (2026-11-25).
+                    p[i] = p[i] + v + new Joint3(0, -gravity * Weight[i] * dt * dt, 0);
                 }
                 for (var k = 0; k < Iterations; k++)
                 {
@@ -200,6 +207,18 @@ public static class Ragdoll
                             var k2 = far / off.Flat;
                             p[i] = new Joint3(start.X + off.X * k2, p[i].Y, start.Z + off.Z * k2);
                         }
+                    }
+                }
+                // The pieces between the joints, over what they lie across.
+                LiftSegments(p, previous, free, radius, land, lip);
+                // Nothing goes up faster than the blast threw it (2026-11-25): a body driven against a side while its top
+                // lands on it levers up, and the land and the stiff torso between them would otherwise build that into a
+                // leap. Its place stays as corrected; only the speed it carries on with is capped.
+                for (var i = 0; i < Joints; i++)
+                {
+                    if (p[i].Y - previous[i].Y > riseCap)
+                    {
+                        previous[i] = previous[i] with { Y = p[i].Y - riseCap };
                     }
                 }
                 // What lies on the ground slides less (friction), and does not bounce.
@@ -335,8 +354,10 @@ public static class Ragdoll
         return radius;
     }
 
-    // A joint at `at`, last at `was`, kept out of the land: lifted onto what it came down on (or a low step), or stopped
-    // against the side of something taller that it was driven into (it keeps where it was across, and slides down).
+    // A joint at `at`, last at `was`, kept out of the land: lifted onto what it came down on (or a low step); driven
+    // sideways into something taller, it is moved out of it across, never up onto it (2026-11-25, a body against a wall
+    // was lifted onto its top and dragged over it): first back the way it came on one axis (so it slides along the side),
+    // then fully back, then the nearest clear spot round it.
     private static Joint3 OnLand(RagdollGround land, Joint3 at, Joint3 was, double radius, double lip)
     {
         var floor = land.Under(at.X, at.Z, radius) + radius;
@@ -348,10 +369,80 @@ public static class Ragdoll
         {
             return at with { Y = floor };
         }
-        // Driven sideways into a side: back across to where it was (if that is clear at this height).
-        var before = land.Under(was.X, was.Z, radius) + radius;
-        return before <= at.Y + lip ? new Joint3(was.X, Math.Max(at.Y, before), was.Z) : at with { Y = floor };
+        // Purely across: a spot clear at the height it is at (any lift there would let it climb the side step by step).
+        bool Clear(double x, double z) => land.Under(x, z, radius) + radius <= at.Y;
+        if (Clear(was.X, at.Z))
+        {
+            return at with { X = was.X };
+        }
+        if (Clear(at.X, was.Z))
+        {
+            return at with { Z = was.Z };
+        }
+        if (Clear(was.X, was.Z))
+        {
+            return new Joint3(was.X, at.Y, was.Z);
+        }
+        for (var ring = 1; ring <= 8; ring++)
+        {
+            var d = ring * RagdollGround.Step;
+            for (var k = 0; k < 8; k++)
+            {
+                var (x, z) = (at.X + d * Cos8[k], at.Z + d * Sin8[k]);
+                if (Clear(x, z))
+                {
+                    return new Joint3(x, at.Y, z);
+                }
+            }
+        }
+        // Nowhere clear near (wedged in a corner as it sinks): where it was, no lower than it was.
+        return new Joint3(was.X, Math.Max(at.Y, was.Y), was.Z);
     }
+
+    private static readonly double[] Cos8 = [.. Enumerable.Range(0, 8).Select(k => Math.Cos(k * Math.PI / 4))];
+    private static readonly double[] Sin8 = [.. Enumerable.Range(0, 8).Select(k => Math.Sin(k * Math.PI / 4))];
+
+    // The pieces of the body between joints (each bone, and the trunk's spine, sides and girdles), so a limb or the trunk
+    // lying across an edge rests on it instead of sinking in between its joints.
+    private static readonly (RagdollJoint A, RagdollJoint B)[] Segments =
+    [
+        .. Bones,
+        (RagdollJoint.Hips, RagdollJoint.Neck), (RagdollJoint.ShoulderL, RagdollJoint.HipL), (RagdollJoint.ShoulderR, RagdollJoint.HipR),
+        (RagdollJoint.ShoulderL, RagdollJoint.ShoulderR), (RagdollJoint.HipL, RagdollJoint.HipR),
+    ];
+
+    // Lifts each piece whose middle stretch has sunk a little into the land (a third and two thirds along, by at most
+    // `most`: resting on an edge), pushing its two joints up in proportion without adding speed; a deeper one is a side
+    // it was driven into, the joints' to keep out of. Not a piece with a joint still free of what it started inside.
+    private static void LiftSegments(Joint3[] p, Joint3[] previous, bool[] free, double[] radius, RagdollGround land, double most)
+    {
+        foreach (var (ja, jb) in Segments)
+        {
+            var (a, b) = ((int)ja, (int)jb);
+            if (free[a] || free[b])
+            {
+                continue;
+            }
+            var r = Math.Min(radius[a], radius[b]);
+            foreach (var s in Thirds)
+            {
+                var at = p[a] + (p[b] - p[a]) * s;
+                var depth = land.Under(at.X, at.Z, r) + r - at.Y;
+                if (depth <= 0 || depth > most)
+                {
+                    continue;
+                }
+                var norm = (1 - s) * (1 - s) + s * s;
+                var (up, down) = (depth * (1 - s) / norm, depth * s / norm);
+                p[a] = p[a] with { Y = p[a].Y + up };
+                p[b] = p[b] with { Y = p[b].Y + down };
+                previous[a] = previous[a] with { Y = previous[a].Y + up };
+                previous[b] = previous[b] with { Y = previous[b].Y + down };
+            }
+        }
+    }
+
+    private static readonly double[] Thirds = [1.0 / 3, 2.0 / 3];
 
     // The body's shape from its standing joints: bone lengths, the stiff torso, the joint limits.
     private sealed class Shape

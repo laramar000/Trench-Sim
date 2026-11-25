@@ -77,7 +77,7 @@ public sealed class RagdollGround
     // The highest thing drawn within `radius` of a point (the point and four round it), for a joint that has thickness.
     public double Under(double x, double z, double radius)
     {
-        var r = radius * 0.7;
+        var r = radius;
         return Math.Max(At(x, z), Math.Max(Math.Max(At(x + r, z), At(x - r, z)), Math.Max(At(x, z + r), At(x, z - r))));
     }
 
@@ -115,7 +115,7 @@ public sealed class RagdollGround
         foreach (var piece in scene.Terrain.Where(t => !t.Trench && Near(t.Area, x, z)))
         {
             var boxes = dressed && TerrainDress.For(piece) is { Count: > 0 } parts
-                ? parts.Where(p => p.Tilt == 0).Select(p => (p.X, p.Z, p.SizeX, p.SizeZ, p.Yaw, Top: p.Y + p.SizeY / 2))
+                ? parts.Select(Box)
                 : piece.Parts.Select(p => (X: p.CentreX, Z: p.CentreY, SizeX: p.Width, SizeZ: p.Depth, Yaw: 0.0, Top: piece.Height));
             foreach (var (bx, bz, sx, sz, yaw, top) in boxes)
             {
@@ -141,6 +141,20 @@ public sealed class RagdollGround
             }
         }
         return new RagdollGround(0, x0, z0, nx, nz, heights);
+    }
+
+    // A part's box on the ground: a level part as it is; a tilted one (a tower's braces) as the box round its turned corners,
+    // up to its highest corner, so a tower's face is solid where the braces cross it.
+    private static (double X, double Z, double SizeX, double SizeZ, double Yaw, double Top) Box(DressPart part)
+    {
+        if (part.Tilt == 0)
+        {
+            return (part.X, part.Z, part.SizeX, part.SizeZ, part.Yaw, part.Y + part.SizeY / 2);
+        }
+        var corners = part.Corners().ToList();
+        var (x0, x1) = (corners.Min(c => c.X), corners.Max(c => c.X));
+        var (z0, z1) = (corners.Min(c => c.Z), corners.Max(c => c.Z));
+        return ((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, 0, corners.Max(c => c.Y));
     }
 
     private static bool Near(TableRect area, double x, double z) =>
