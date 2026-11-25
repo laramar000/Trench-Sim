@@ -245,7 +245,7 @@ public class BattleEffectsTests
         var point = new TablePoint(12, 9);
         var fired = new LogLine(3, "", null, Models: [a]) { Fx = new BattleFx(false, new AimCue(a, point, true), [], []) };
         var plan = Choreography.Of([fired], _ => null);
-        Assert.Equal([BeatKind.Turn, BeatKind.MuzzleFlash, BeatKind.Tracer], plan.Beats.Select(b => b.Kind));
+        Assert.Equal([BeatKind.Turn, BeatKind.MuzzleFlash, BeatKind.Recoil, BeatKind.Tracer], plan.Beats.Select(b => b.Kind));
         Assert.All(plan.Beats, b => Assert.Equal(point, b.At));
         Assert.Equal(Choreography.TurnSeconds + Choreography.ImpactAt, plan.Lines.Single().At, 9);
         var thrown = new LogLine(3, "", null, Models: [a]) { Fx = new BattleFx(true, new AimCue(a, point, false), [], []) };

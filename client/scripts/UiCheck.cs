@@ -2861,6 +2861,15 @@ public partial class UiCheck : Node
             await Frames(2);
             var scene = scenes[i];
             Caption(i, false);
+            // A scene staged somewhere else on the table (by a terrain piece) looks there; the others at the actors.
+            if (scene.Focus is { } spot)
+            {
+                board.LookAtTable(new Vector2((float)spot.X, (float)spot.Y), scene.FocusDistance);
+            }
+            else
+            {
+                board.CentreOn(focus, 13f);
+            }
             foreach (var (id, status) in scene.HoldAfter)
             {
                 board.HoldAfterFall(id, status);
@@ -3204,6 +3213,7 @@ public partial class UiCheck : Node
         await LogBehindStep();
         await SpeedChoiceStep();
         await HitsSeeThroughStep();
+        await ActionGesturesStep();
         await BlastsSeeThroughStep();
 
         await HotSeatFullMatch();
@@ -3613,6 +3623,59 @@ public partial class UiCheck : Node
         board.Animation = speed;
         Check("hotseat-hits-see-through", red > 0 && pale > 0 && worstAlpha <= 0.55f && worstSize <= 0.4f,
             $"a made-up hit and blow: {red} red spatter and {pale} pale flash squares seen over the frames; most opaque {worstAlpha:0.00} (at most 0.55), largest {worstSize:0.00}\" (at most 0.4)");
+    }
+
+    // Animation suite (hotseat-action-gestures, 2026-11-25): made-up ACTIONS played through the battlefield (Full): taking
+    // aim, a shot (its recoil), digging in, tending a friend and a rally. Every frame the figures' crouch, lean and push are
+    // measured: each gesture crouches (or the rally lifts) and leans, the shot kicks the shooter back, the friend tended
+    // is reached for; and when it has played every figure is back exactly at rest, upright, nothing left playing.
+    private async Task ActionGesturesStep()
+    {
+        var board = Controls<BoardView>().FirstOrDefault(b => b.IsVisibleInTree());
+        if (board?.Scene?.Models is not { Count: > 1 } models)
+        {
+            Check("hotseat-action-gestures", false, $"needs two models: {board?.Scene?.Models.Count}");
+            return;
+        }
+        await Until(() => !board.Gliding && board.EffectsShowing == 0 ? "idle" : null, 5, "gestures-idle");
+        var speed = board.Animation;
+        board.Animation = AnimationSpeed.Full;
+        var (a, b) = (models[0], models[1]);
+        LogLine Act(Rules.Core.State.ModelId who, ActionStyle style, Rules.Core.State.ModelId? friend = null) =>
+            new(0, "", null, Models: [who]) { Fx = BattleFx.None with { Action = new ActionCue(who, style, friend) } };
+        TablePoint? Drawn(Rules.Core.State.ModelId id) => id == a.Id ? new TablePoint(a.X, a.Y) : id == b.Id ? new TablePoint(b.X, b.Y) : null;
+        var report = new List<string>();
+        var ok = true;
+        var (gestures, recoils) = (board.GesturesStarted, board.RecoilsStarted);
+        foreach (var (label, lines, mover, wantLift, wantAcross) in new (string, LogLine[], Rules.Core.State.ModelId, int, bool)[]
+        {
+            ("aim", [Act(a.Id, ActionStyle.Aim)], a.Id, -1, false),
+            ("shot", [new LogLine(0, "", null, Models: [a.Id, b.Id]) { Effects = [new(EffectKind.MuzzleFlash, a.Id), new(EffectKind.DirtPuff, b.Id)] }], a.Id, 0, true),
+            ("dig in", [Act(b.Id, ActionStyle.Fortify)], b.Id, -1, false),
+            ("tend", [Act(b.Id, ActionStyle.Treat, a.Id)], b.Id, 0, true),
+            ("rally", [Act(b.Id, ActionStyle.Rally)], b.Id, 1, false),
+        })
+        {
+            board.PlayForCheck(Choreography.Of(lines, Drawn, AnimationSpeed.Full));
+            var (low, high, lean, across) = (0f, 0f, 0f, 0f);
+            for (var i = 0; i < 400 && (board.Gliding || board.EffectsShowing > 0); i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                if (board.FigureOffset(mover) is { } off)
+                {
+                    (low, high, across) = (Math.Min(low, off.Lift), Math.Max(high, off.Lift), Math.Max(across, off.Across));
+                }
+                lean = Math.Max(lean, Math.Abs(board.FacingOf(mover)?.Lean ?? 0));
+            }
+            await Frames(2);
+            var rest = board.FigureOffset(mover) is { } end && Math.Abs(end.Lift) < 1e-3f && end.Across < 1e-3f && Math.Abs(board.FacingOf(mover)?.Lean ?? 1) < 1e-3f;
+            var moved = (wantLift < 0 ? low < -0.04f : wantLift > 0 ? high > 0.03f : true) && (!wantAcross || across > 0.05f) && (wantLift == 0 || lean > 0.05f);
+            ok &= rest && moved && !board.Gliding;
+            report.Add($"{label}: lift {low:0.000}..{high:0.000}, lean {lean:0.00} rad, push {across:0.00} in {(moved ? "ok" : "MISSING")}, back at rest {rest}");
+        }
+        board.Animation = speed;
+        ok &= board.GesturesStarted - gestures == 3 && board.RecoilsStarted - recoils == 1;
+        Check("hotseat-action-gestures", ok, $"{string.Join("; ", report)}; gestures {board.GesturesStarted - gestures} (3), recoils {board.RecoilsStarted - recoils} (1)");
     }
 
     // Explosion review (hotseat-blasts-see-through, 2026-11-23): a blast reads as a burst, not a blob over the models. A

@@ -3468,7 +3468,15 @@ public partial class BoardView : SubViewportContainer
                     Rotation = new Vector3(0, FacingNow(model.Id), 0),
                 };
                 Node3D shape = figure;
-                if (model.Status != ModelStatus.Standing)
+                // Ragdoll (2026-11-25): a Down figure with a skeleton is drawn at its standing size, lying in the pose its
+                // own fall ended in (DownFall), posed once it is in the tree below.
+                var rigged = model.Status != ModelStatus.Standing && CachedRig(figure) is not null;
+                if (rigged)
+                {
+                    figureTall = (float)Visuals.Catalog.HeightFor(unitKey, VisualCatalog.DefaultUnitKey);
+                    holder.Position = new Vector3((float)model.X, standing + figureTall / 2, (float)model.Y);
+                }
+                else if (model.Status != ModelStatus.Standing)
                 {
                     // Down: the figure lies on its back across the base.
                     shape = new Node3D { Name = "Lying" };
@@ -3488,6 +3496,12 @@ public partial class BoardView : SubViewportContainer
                 }
                 holder.AddChild(shape);
                 _content.AddChild(holder);
+                if (rigged && CachedRig(figure) is { } rig)
+                {
+                    var down = DownPoseOf(model.Id, rig, new Vector3((float)model.X, standing, (float)model.Y), (float)model.Radius, figureTall, FacingNow(model.Id));
+                    holder.Rotation = new Vector3(0, down.Yaw, 0);
+                    PoseRig(rig, down.Fall.Wait(), 1);
+                }
                 FigureBase(model, standing, colour);
                 _figuresFromArt++;
             }

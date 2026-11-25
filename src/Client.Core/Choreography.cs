@@ -56,6 +56,16 @@ public enum BeatKind
     Shrapnel,
     Gas,
     Fire,
+
+    // Animation suite (2026-11-25): the shooter's recoil as it fires (Model kicks back from Other, its target); an ACTION
+    // a model takes: bracing (taking aim, working a RELOAD weapon: a crouch and lean), digging in (Fortify: a crouch with
+    // spade strokes, dust at its feet), rallying (Enforced Orthodoxy: it straightens and rises), reaching to a friend it
+    // tends (Treat, Laying on of Hands: Model leans to Other and back).
+    Recoil,
+    Brace,
+    DigIn,
+    Rally,
+    Reach,
 }
 
 // One thing the battlefield draws for an event, Start seconds after the update arrived, for Seconds. Model is the model it
@@ -71,7 +81,7 @@ public sealed record Beat(int Seq, BeatKind Kind, double Start, double Seconds, 
 
     // Beats that move or turn a model for a while (the battlefield poses it each frame) rather than draw an effect once.
     public bool PosesModel => Kind is BeatKind.Glide or BeatKind.Flinch or BeatKind.Turn or BeatKind.Lunge or BeatKind.Lean
-        or BeatKind.Fall or BeatKind.Rise or BeatKind.Casualty;
+        or BeatKind.Fall or BeatKind.Rise or BeatKind.Casualty or BeatKind.Recoil or BeatKind.Brace or BeatKind.DigIn or BeatKind.Rally or BeatKind.Reach;
 
     // Effects drawn once, that fade on their own (an update is not busy while they fade).
     public bool FadesOnItsOwn => Kind is BeatKind.HitPuff or BeatKind.DirtPuff or BeatKind.Strike or BeatKind.Impact
@@ -135,6 +145,13 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
     public const double ShrapnelSeconds = 0.35;
     public const double GasSeconds = 1.2;
     public const double FireSeconds = 0.7;
+
+    // Animation suite (2026-11-25): a shooter's recoil, and how long each ACTION plays (what follows waits for it).
+    public const double RecoilSeconds = 0.18;
+    public const double BraceSeconds = 0.5;
+    public const double DigInSeconds = 0.7;
+    public const double RallySeconds = 0.6;
+    public const double ReachSeconds = 0.55;
 
     // Animation stage A5: several explosions of one event go off this far apart, so each can be read.
     public const double BlastStagger = 0.15;
@@ -267,6 +284,27 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
                     cues.Add(new(line, t));
                     continue;
                 }
+                // Animation suite: an ACTION a model takes (a friend tended: it turns to the friend first).
+                if (line.Fx.Action is { } act)
+                {
+                    var go = act.Target is { } friend && friend != act.Model ? Turn(line.Seq, act.Model, friend, t, true) : t;
+                    var (kind, seconds) = act.Style switch
+                    {
+                        ActionStyle.Fortify => (BeatKind.DigIn, DigInSeconds),
+                        ActionStyle.Rally => (BeatKind.Rally, RallySeconds),
+                        ActionStyle.Treat when act.Target is { } tended && tended != act.Model => (BeatKind.Reach, ReachSeconds),
+                        ActionStyle.Treat => (BeatKind.Brace, BraceSeconds),
+                        _ => (BeatKind.Brace, BraceSeconds),
+                    };
+                    beats.Add(new(line.Seq, kind, go, seconds, act.Model, act.Target is { } other && other != act.Model ? other : null, true));
+                    if (kind == BeatKind.DigIn && drawnAt(act.Model) is { } feet)
+                    {
+                        beats.Add(new(line.Seq, BeatKind.Dust, go + seconds * 0.3, DustSeconds, act.Model, At: feet));
+                    }
+                    cues.Add(new(line, go));
+                    t = go + seconds;
+                    continue;
+                }
                 // Stage A4: an attack at a point: the attacker turns to it, then fires (flash and tracer) or throws.
                 if (line.Fx.Aim is { } aim)
                 {
@@ -281,6 +319,7 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
                     else
                     {
                         beats.Add(new(line.Seq, BeatKind.MuzzleFlash, fire, FlashSeconds, aim.Attacker, Hit: aim.Hit, At: aim.At));
+                        beats.Add(new(line.Seq, BeatKind.Recoil, fire, RecoilSeconds, aim.Attacker, Hit: aim.Hit, At: aim.At));
                         beats.Add(new(line.Seq, BeatKind.Tracer, fire + TracerDelay, TracerSeconds, aim.Attacker, Hit: aim.Hit, At: aim.At));
                         down = fire + ImpactAt;
                     }
@@ -355,6 +394,7 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
             else if (flash is not null)
             {
                 beats.Add(new(line.Seq, BeatKind.MuzzleFlash, strikeAt, FlashSeconds, flash.At, puff.At, hit));
+                beats.Add(new(line.Seq, BeatKind.Recoil, strikeAt, RecoilSeconds, flash.At, puff.At, hit));
                 beats.Add(new(line.Seq, BeatKind.Tracer, strikeAt + TracerDelay, TracerSeconds, flash.At, puff.At, hit));
                 landed = strikeAt + ImpactAt;
             }

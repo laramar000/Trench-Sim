@@ -255,12 +255,31 @@ public partial class BoardView
     // null when the model has no figure (for the UI check).
     public (float Tilt, float Scale)? TiltOf(ModelId id) =>
         _figures.TryGetValue(id, out var figure) && IsInstanceValid(figure)
-            ? (figure.Basis.Y.Normalized().AngleTo(Vector3.Up), figure.Basis.Y.Length())
+            ? (figure.GetChildCount() > 0 && figure.GetChild(0) is Node3D art && CachedRig(art) is not null ? TorsoTilt(figure) : figure.Basis.Y.Normalized().AngleTo(Vector3.Up),
+                figure.Basis.Y.Length())
             : null;
 
     // How many turns, lunges and leans were started, and how many strikes and charge impacts of the match came due (for
     // the UI check).
     public int TurnsStarted { get; private set; }
+
+    // Animation suite (2026-11-25): recoils and ACTION gestures started (for the UI check).
+    public int RecoilsStarted { get; private set; }
+
+    public int GesturesStarted { get; private set; }
+
+    // How far a model's figure is drawn above (+) or below (-) its rest now, and how far its nodes are pushed across from
+    // their rest (for the UI check); null when it has no figure.
+    public (float Lift, float Across)? FigureOffset(ModelId id)
+    {
+        if (!_figures.TryGetValue(id, out var figure) || !IsInstanceValid(figure) || !_modelNodes.TryGetValue(id, out var nodes))
+        {
+            return null;
+        }
+        var rest = nodes.FirstOrDefault(n => n.Node == figure).At;
+        var off = figure.Position - rest;
+        return (off.Y, new Vector2(off.X, off.Z).Length());
+    }
 
     public int LungesStarted { get; private set; }
 

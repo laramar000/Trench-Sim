@@ -34,9 +34,11 @@ public class PlaybackQueueTests
         var start = queue.Add(Plan(AnimationSpeed.Full, Shot(1, hit: true), Injury(2)), 100, moves);
         Assert.Equal(100, start);
         // The turn (stage A2) and the flinch move models from their start on; they are not queued.
-        Assert.Equal([BeatKind.Turn, BeatKind.Flinch], moves.Select(m => m.Kind));
+        // Animation suite (2026-11-25): and the shooter's recoil as it fires.
+        Assert.Equal([BeatKind.Turn, BeatKind.Recoil, BeatKind.Flinch], moves.Select(m => m.Kind));
         Assert.Equal((A, (ModelId?)B, 100.0), (moves[0].Model, moves[0].Other, moves[0].Start));
-        var flinch = moves[1];
+        Assert.Equal((A, 100 + Choreography.TurnSeconds), (moves[1].Model, moves[1].Start));
+        var flinch = moves[2];
         var fire = 100 + Choreography.TurnSeconds;
         Assert.Equal((B, (ModelId?)A), (flinch.Model, flinch.Other));
         Assert.Equal(fire + Choreography.ImpactAt, flinch.Start, 9);
@@ -63,7 +65,8 @@ public class PlaybackQueueTests
         var queue = new PlaybackQueue();
         var moves = new List<Beat>();
         queue.Add(Plan(AnimationSpeed.Full, Shot(1, hit: false)), 0, moves);
-        Assert.Equal([BeatKind.Turn], moves.Select(m => m.Kind));
+        // Animation suite (2026-11-25): the shooter's recoil moves it too.
+        Assert.Equal([BeatKind.Turn, BeatKind.Recoil], moves.Select(m => m.Kind));
         var taken = new List<PlaybackQueue.Item>();
         queue.TakeAll(0, taken);
         Assert.Equal(["MuzzleFlash 1", "Tracer 1", "line 1", "DirtPuff 1"], taken.Select(Describe));
@@ -84,7 +87,8 @@ public class PlaybackQueueTests
         var start = queue.Add(Plan(AnimationSpeed.Full, Shot(2, hit: true)), 10.1, moves);
         Assert.Equal(10 + Choreography.GlideMaxSeconds, start, 9);
         Assert.Equal(start, moves[2].Start, 9);
-        Assert.Equal(start + Choreography.TurnSeconds + Choreography.ImpactAt, moves[3].Start, 9);
+        Assert.Equal(BeatKind.Recoil, moves[3].Kind);
+        Assert.Equal(start + Choreography.TurnSeconds + Choreography.ImpactAt, moves[4].Start, 9);
         var taken = new List<PlaybackQueue.Item>();
         queue.TakeDue(start - 0.001, taken);
         Assert.Equal(["line 1"], taken.Select(Describe));

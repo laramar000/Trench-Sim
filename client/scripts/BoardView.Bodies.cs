@@ -81,7 +81,9 @@ public partial class BoardView
         // The pool goes in once the body is in its place (a tween started before the move would stop with it).
         var pool = BloodPool(id, radius);
         root.AddChild(pool);
-        pool.GlobalPosition = new Vector3(lies.X, root.GlobalPosition.Y + 0.03f, lies.Z);
+        // On what it lies on (2026-11-25: a body over sandbags or down in a trench bleeds there).
+        var level = _fallLand.TryGetValue(id, out var land) ? (float)land.At(lies.X, lies.Z) : root.GlobalPosition.Y;
+        pool.GlobalPosition = new Vector3(lies.X, level + 0.03f, lies.Z);
         if (spread)
         {
             pool.Scale = new Vector3(0.15f, 1, 0.15f);
@@ -167,7 +169,7 @@ public partial class BoardView
             // Ragdoll: the same fall worked out at once (the way it fell this match, else backwards), posed at its end.
             var (push, hit) = _fallPush.TryGetValue(model.Id, out var fell) ? fell : (Backwards(yaw) * (float)RagdollImpacts.Crumple, (float)RagdollImpacts.ChestHigh);
             var blocks = _fallObstacles.TryGetValue(model.Id, out var kept) ? kept : _fallObstacles[model.Id] = Obstacles(model.Id, root.GlobalPosition);
-            Simulate(rig, root.GlobalPosition.Y, push, tall, model.Id, hit, blocks);
+            Simulate(rig, root.GlobalPosition, (float)model.Radius, push, tall, model.Id, hit, blocks, wait: true);
             PoseRig(rig, 1);
         }
         else
@@ -256,7 +258,7 @@ public partial class BoardView
             var tilt = 0f;
             if (RigOf(root) is { } rig)
             {
-                Simulate(rig, at.Y, new Vector3(1, 0, 0) * (float)RagdollImpacts.Shot, height, new ModelId(System.IO.Path.GetFileNameWithoutExtension(file)), (float)RagdollImpacts.ChestHigh, []);
+                Simulate(rig, root.GlobalPosition, 0.5f, new Vector3(1, 0, 0) * (float)RagdollImpacts.Shot, height, new ModelId(System.IO.Path.GetFileNameWithoutExtension(file)), (float)RagdollImpacts.ChestHigh, [], wait: true);
                 PoseRig(rig, t);
                 tilt = TorsoTilt(root);
             }

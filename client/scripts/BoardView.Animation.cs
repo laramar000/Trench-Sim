@@ -36,6 +36,9 @@ public partial class BoardView
         FinishAnimations();
         ClearBodies();
         _fallPush.Clear();
+        _downFalls.Clear();
+        _fallLand.Clear();
+        _rigs.Clear();
         _fallObstacles.Clear();
         _recentImpact.Clear();
         _lastDrawn.Clear();
@@ -84,6 +87,9 @@ public partial class BoardView
                     break;
                 case BeatKind.Casualty:
                     StartCasualty(move, move.Start);
+                    break;
+                case BeatKind.Brace or BeatKind.DigIn or BeatKind.Rally:
+                    StartGesture(move, move.Start);
                     break;
                 default:
                     StartKnock(move, move.Start);
@@ -243,7 +249,7 @@ public partial class BoardView
                 Upright(id);
             }
         }
-        if (_glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0)
+        if (_glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0 || _gestures.Count > 0)
         {
             _pose.Clear();
             _bob.Clear();
@@ -265,6 +271,12 @@ public partial class BoardView
             {
                 _turned[lean.Model] = (0, _turned.TryGetValue(lean.Model, out var t) ? t.Yaw : FacingNow(lean.Model));
             }
+            // Animation suite: gestures end standing as before.
+            foreach (var gesture in _gestures)
+            {
+                _turned[gesture.Model] = (0, _turned.TryGetValue(gesture.Model, out var t) ? t.Yaw : FacingNow(gesture.Model));
+            }
+            _gestures.Clear();
             _glides.Clear();
             _knocks.Clear();
             _turns.Clear();
@@ -828,6 +840,61 @@ public partial class BoardView
 
     public const float FlinchInches = 0.35f;
     public const float LungeInches = 0.4f;
+    public const float RecoilInches = 0.12f;
+    public const float ReachInches = 0.25f;
+
+    // Animation suite (2026-11-25): an ACTION played on a model's figure (not its base or label): bracing (taking aim or
+    // working a RELOAD weapon) crouches a little and leans in; digging in (Fortify) crouches lower with spade strokes; a
+    // rally straightens it up and lifts it. Each eases in and back out to exactly how it stood.
+    private sealed record Gesture(ModelId Model, double Start, double Seconds, BeatKind Kind);
+
+    private readonly List<Gesture> _gestures = [];
+
+    private void StartGesture(Beat beat, double start)
+    {
+        _gestures.Add(new Gesture(beat.Model, start, beat.Seconds, beat.Kind));
+        GesturesStarted++;
+    }
+
+    // Each gesture's crouch (a share of the figure's height, down) and lean (degrees, forward) at t (0 to 1 of its time).
+    public static (float Crouch, float Lean) GestureAt(BeatKind kind, float t)
+    {
+        if (t is <= 0 or >= 1)
+        {
+            return (0, 0);
+        }
+        var k = Mathf.Sin(Mathf.Pi * t);
+        k *= k;
+        return kind switch
+        {
+            BeatKind.DigIn => (0.12f * k, (16 + 10 * Mathf.Sin(Mathf.Tau * 2 * t)) * k),
+            BeatKind.Rally => (-0.05f * k, -8 * k),
+            _ => (0.07f * k, 9 * k),
+        };
+    }
+
+    private void ApplyGestures(double now)
+    {
+        for (var i = 0; i < _gestures.Count; i++)
+        {
+            var gesture = _gestures[i];
+            var t = (float)((now - gesture.Start) / gesture.Seconds);
+            if (t >= 1)
+            {
+                _gestures.RemoveAt(i--);
+                _turned.TryAdd(gesture.Model, (0, FacingNow(gesture.Model)));
+                _pose.TryAdd(gesture.Model, Vector3.Zero);
+                continue;
+            }
+            // Drawn from its rest each frame (the crouch is added to that).
+            _pose.TryAdd(gesture.Model, Vector3.Zero);
+            var (crouch, lean) = GestureAt(gesture.Kind, t);
+            var tall = _lastDrawn.Find(_scene, gesture.Model) is { } shape ? StandingHeight(shape) : StandingTall;
+            _bob[gesture.Model] = _bob.GetValueOrDefault(gesture.Model) - crouch * tall;
+            var yaw = _turned.TryGetValue(gesture.Model, out var turned) ? turned.Yaw : FacingNow(gesture.Model);
+            _turned[gesture.Model] = ((turned.Pitch) + Mathf.DegToRad(lean), yaw);
+        }
+    }
     public const float LeanDegrees = 14f;
 
     // Each model's facing as the last turn left it (display only, never the rules'): a figure drawn again (selected,
@@ -869,7 +936,7 @@ public partial class BoardView
 
     // Whether the battlefield is still playing what the server resolved: a model travelling or flinching, or a line or
     // effect still to show (the UI check waits for this before it measures the drawing; the auto-end waits for it).
-    public bool Gliding => _glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0 || _falls.Count > 0 || _ghosts.Count > 0 || _queue.Count > 0;
+    public bool Gliding => _glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0 || _falls.Count > 0 || _ghosts.Count > 0 || _gestures.Count > 0 || _queue.Count > 0;
 
     // The point of a model the see-through walls keep visible (Godot units: x, height, table y; for the UI check).
     public Vector3? BodyAt(ModelId id) => _modelNodes.TryGetValue(id, out var nodes) && nodes.Count > 0 ? nodes[0].Node.Position : null;
@@ -902,6 +969,18 @@ public partial class BoardView
 
     private void StartKnock(Beat beat, double start)
     {
+        // Animation suite: a shooter's recoil, a short kick back from what it fires at (a model, or a point).
+        if (beat.Kind == BeatKind.Recoil)
+        {
+            if (Where(beat.Model, out var gun, out _)
+                && (beat.Other is { } aimed && Where(aimed, out var target, out _) ? target : beat.At is { } point ? Ground(point) : (Vector3?)null) is { } towards
+                && new Vector3(gun.X - towards.X, 0, gun.Z - towards.Z) is { } back && back.Length() > 0.01f)
+            {
+                _knocks.Add(new Knock(beat.Model, start, beat.Seconds, back.Normalized() * RecoilInches, 0.15f));
+                RecoilsStarted++;
+            }
+            return;
+        }
         if (beat.Other is not { } other || !Where(beat.Model, out var at, out _) || !Where(other, out var from, out _))
         {
             return;
@@ -909,6 +988,12 @@ public partial class BoardView
         var away = new Vector3(at.X - from.X, 0, at.Z - from.Z);
         if (away.Length() < 0.01f)
         {
+            return;
+        }
+        if (beat.Kind == BeatKind.Reach)
+        {
+            // Animation suite: a lean to the friend it tends and back, held at its peak a moment.
+            _knocks.Add(new Knock(beat.Model, start, beat.Seconds, -away.Normalized() * ReachInches, 0.5f));
             return;
         }
         if (beat.Kind == BeatKind.Lunge)
@@ -963,7 +1048,25 @@ public partial class BoardView
     // Animation stage A3: a fall (or a rise) of a model's figure: it tips backwards over its feet, away from the model
     // that downed it, turning first to face that model, and settles lying over its base (a rise is the same, backwards).
     // A falling model is drawn standing until its fall ends (_held), then lying, as the server's status has it.
-    private sealed record FallTrack(ModelId Model, double Start, double Seconds, bool Rising, float FromYaw, float ToYaw, float LyingScale, float Height, float Length);
+    private sealed record FallTrack(ModelId Model, double Start, double Seconds, bool Rising, float FromYaw, float ToYaw, float LyingScale, float Height, float Length)
+    {
+        // Down and up by the ragdoll (2026-11-25): a figure with a skeleton falls limp as a model put Out of Action does,
+        // kept over its base (DownFall), and stands up from the very pose it lies in (Ragdoll.Rise). Frames: the rise's,
+        // or the fall's once worked out (DownFall.Fall); its pace is the beat's (Fast: faster). Null: it tips over.
+        public DownFall? Down { get; init; }
+
+        public IReadOnlyList<Joint3[]>? RiseFrames { get; init; }
+
+        public IReadOnlyList<Joint3[]>? Frames => RiseFrames ?? (Down is { Fall.Ready: true } d ? d.Fall.Frames : null);
+
+        public bool Ragdoll => Down is not null || RiseFrames is not null;
+
+        // How long it plays: a fall its own length at the beat's pace (until it is worked out, not yet known); a rise
+        // the beat.
+        public double Plays => RiseFrames is not null ? Seconds
+            : Frames is { Count: > 1 } f ? Math.Max(Seconds, (f.Count - 1) * Client.Core.Ragdoll.FrameSeconds * Seconds / Choreography.FallSeconds)
+            : double.MaxValue;
+    }
 
     // An Out of Action model drawn again as it goes (its figure and base, not in the scene): it falls (unless it was Down),
     // then sinks and fades, and is freed.
@@ -1071,7 +1174,47 @@ public partial class BoardView
         var figure = _figures.TryGetValue(beat.Model, out var holder) && IsInstanceValid(holder) && holder.GetChildCount() > 0 && holder.GetChild(0) is Node3D standing
             && standing.Name != "Lying" ? standing : null;
         var (lying, length) = LyingFit(figure, radius, height);
-        _falls.Add(new FallTrack(beat.Model, start, beat.Seconds, rising, from, to, lying, height, length));
+        var track = new FallTrack(beat.Model, start, beat.Seconds, rising, from, to, lying, height, length);
+        if (figure is not null && CachedRig(figure) is { } rig)
+        {
+            // Ragdoll (2026-11-25): it keeps its facing (it does not turn round first) and goes limp from the hit.
+            _facing[beat.Model] = Mathf.Wrap(from, -Mathf.Pi, Mathf.Pi);
+            var place = new Vector3(at.X, at.Y, at.Z);
+            if (rising)
+            {
+                // From the pose it lies in (its fall's last frame; worked out now when it was drawn Down without one).
+                var down = DownPoseOf(beat.Model, rig, place, radius, height, from);
+                _downFalls.Remove(beat.Model);
+                var land = LandAt(beat.Model, place, radius);
+                track = track with { ToYaw = from, RiseFrames = Ragdoll.Rise(down.Fall.Wait()[^1], StandingJoints(rig), height, land) };
+            }
+            else
+            {
+                var push = Backwards(from) * (float)RagdollImpacts.Shot;
+                var hit = (float)RagdollImpacts.ChestHigh;
+                if (beat.Other is { } by && Where(by, out var from2, out _) && new Vector2(at.X - from2.X, at.Z - from2.Z).Length() > 0.01f)
+                {
+                    push = new Vector3(at.X - from2.X, 0, at.Z - from2.Z).Normalized() * (float)RagdollImpacts.Shot;
+                }
+                if (_recentImpact.TryGetValue(beat.Model, out var impact))
+                {
+                    var thrown = impact.Hit.Push;
+                    push = new Vector3((float)thrown.X, (float)thrown.Y, (float)thrown.Z);
+                    hit = (float)impact.Hit.Hit;
+                    // Seamless: limp from the hit itself when it lands now or later.
+                    if (impact.At <= start && impact.At >= Now - 0.05)
+                    {
+                        track = track with { Start = impact.At, Seconds = beat.Seconds + (start - impact.At) };
+                    }
+                }
+                var fall = new RagdollRig { Skeleton = rig.Skeleton, Joint = rig.Joint, Chest = rig.Chest, Order = rig.Order };
+                Simulate(fall, place, radius, push, height, beat.Model, hit, _fallObstacles[beat.Model] = Obstacles(beat.Model, place), down: true);
+                _downFalls[beat.Model] = new DownFall { Place = place, Yaw = from, Fall = fall };
+                track = track with { ToYaw = from, Down = _downFalls[beat.Model] };
+                RagdollFalls++;
+            }
+        }
+        _falls.Add(track);
         if (rising)
         {
             RisesStarted += beat.Seq > 0 ? 1 : 0;
@@ -1131,6 +1274,12 @@ public partial class BoardView
         // threw it (else a light push backwards); a figure with a skeleton goes limp on that hit itself when it is still to
         // land or landing now, not on its Injury Roll's beat after it.
         var rig = falls ? RigOf(root) : null;
+        // Ragdoll (2026-11-25): a model already lying Down (drawn in its own fall's pose) goes on lying in that pose.
+        if (!falls && RigOf(root) is { } lying && _downFalls.TryGetValue(beat.Model, out var down) && down.Fall.Wait() is { Count: > 0 } downFrames)
+        {
+            rig = lying;
+            rig.Frames = [downFrames[^1]];
+        }
         var push = Backwards(yaw) * (float)RagdollImpacts.Crumple;
         var hit = (float)RagdollImpacts.ChestHigh;
         if (_recentImpact.TryGetValue(beat.Model, out var impact))
@@ -1156,6 +1305,15 @@ public partial class BoardView
         };
         // Which way it fell, for its body drawn again later.
         _fallPush[beat.Model] = (ghost.Push, ghost.Hit);
+        if (rig is not null && falls)
+        {
+            // Its fall, from where it falls (its place, facing as it was), set going now so it is there when it comes due.
+            root.Position = at;
+            holder.Basis = new Basis(Vector3.Up, fromYaw);
+            var blocks = _fallObstacles[beat.Model] = Obstacles(beat.Model, at);
+            Simulate(rig, at, (float)shape.Radius, push, tall, beat.Model, hit, blocks);
+            RagdollFalls++;
+        }
         if (rides is not null)
         {
             CasualtiesRiding++;
@@ -1321,14 +1479,15 @@ public partial class BoardView
             // was hit; its fall plays at its own pace (Fast: faster, as every beat), then it lies as a body.
             ghost.Holder.Basis = new Basis(Vector3.Up, ghost.Rides is not null && now < ghost.Start ? yaw : ghost.FromYaw);
             ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0);
-            if (now >= ghost.Start)
+            // Its fall was set going off the main thread when the casualty began (StartCasualty); until it is there (a
+            // frame or two at most) the figure stands as it was.
+            if (!ghost.Falls && rig.Ready)
             {
-                if (rig.Frames is null)
-                {
-                    var blocks = _fallObstacles[ghost.Model] = Obstacles(ghost.Model, ghost.Root.GlobalPosition);
-                    Simulate(rig, ghost.Root.GlobalPosition.Y, ghost.Push, ghost.Height, ghost.Model, ghost.Hit, blocks);
-                    RagdollFalls++;
-                }
+                // Already Down: it lies as it lay.
+                PoseRig(rig, 1);
+            }
+            else if (now >= ghost.Start && rig.Ready)
+            {
                 PoseRig(rig, (now - ghost.Start) / RagdollSeconds(ghost, rig));
             }
         }
@@ -1341,7 +1500,7 @@ public partial class BoardView
         var sinkStart = ghost.Start + (ghost.Falls ? ghost.FallSeconds : 0);
         var q = (float)Math.Clamp((now - sinkStart) / ghost.SinkSeconds, 0, 1);
         var end = sinkStart + ghost.SinkSeconds;
-        if (ghost.Rig is { Frames: not null } fallen)
+        if (ghost.Rig is { Ready: true } fallen)
         {
             // A ragdoll darkens and loses its base over its whole fall, however long that takes.
             end = Math.Max(end, ghost.Start + RagdollSeconds(ghost, fallen));
@@ -1368,6 +1527,11 @@ public partial class BoardView
         if (_figures.TryGetValue(id, out var figure) && IsInstanceValid(figure) && _modelNodes.TryGetValue(id, out var nodes))
         {
             figure.Basis = new Basis(Vector3.Up, FacingNow(id));
+            // A ragdoll that stood up: its skeleton back at rest.
+            if (figure.GetChildCount() > 0 && figure.GetChild(0) is Node3D art && CachedRig(art) is { } rig)
+            {
+                rig.Skeleton.ResetBonePoses();
+            }
             foreach (var (node, rest) in nodes)
             {
                 if (node == figure)
@@ -1398,7 +1562,7 @@ public partial class BoardView
     // starts, so it does not jump ahead of the picture); a flinch adds its knock.
     private void ApplyPoses()
     {
-        if (_glides.Count == 0 && _knocks.Count == 0 && _turns.Count == 0 && _leans.Count == 0 && _falls.Count == 0 && _ghosts.Count == 0)
+        if (_glides.Count == 0 && _knocks.Count == 0 && _turns.Count == 0 && _leans.Count == 0 && _falls.Count == 0 && _ghosts.Count == 0 && _gestures.Count == 0)
         {
             return;
         }
@@ -1474,6 +1638,7 @@ public partial class BoardView
                 _leans.RemoveAt(i--);
             }
         }
+        ApplyGestures(now);
         // Animation stage A3: falls and rises tip the figure (a fall still to start holds it upright, a rise still to start
         // holds it lying); a fall that ends lets the model be drawn lying, a rise that ends puts it upright.
         _fallen.Clear();
@@ -1483,12 +1648,17 @@ public partial class BoardView
         {
             var fall = _falls[i];
             var t = (float)Math.Clamp((now - fall.Start) / fall.Seconds, 0, 1);
-            if (now - fall.Start >= fall.Seconds)
+            if (now - fall.Start >= (fall.Ragdoll ? fall.Plays : fall.Seconds))
             {
                 _falls.RemoveAt(i--);
                 if (fall.Rising)
                 {
                     _fallen[fall.Model] = (new Basis(Vector3.Up, fall.ToYaw), Vector3.Zero);
+                    if (fall.Ragdoll && _figures.TryGetValue(fall.Model, out var stood) && IsInstanceValid(stood) && stood.GetChildCount() > 0
+                        && stood.GetChild(0) is Node3D art && CachedRig(art) is { } rig)
+                    {
+                        rig.Skeleton.ResetBonePoses();
+                    }
                 }
                 else
                 {
@@ -1502,6 +1672,24 @@ public partial class BoardView
             // only once the earlier tracks of that model are done; before, a waiting rise held the model lying before it fell.
             if (now < fall.Start && _falls.Take(i).Any(f => f.Model == fall.Model))
             {
+                continue;
+            }
+            // Ragdoll: a rise waits for its own fall to have settled (a ragdoll's fall plays on past its beat), and then
+            // starts from there, so it gets up from the pose the fall ended in.
+            if (fall.Ragdoll && fall.Rising && _falls.Take(i).Any(f => f.Model == fall.Model))
+            {
+                _falls[i] = fall with { Start = Math.Max(fall.Start, now) };
+                continue;
+            }
+            if (fall.Ragdoll)
+            {
+                // Upright and facing as it stood; its skeleton does the falling (or the rising).
+                _fallen[fall.Model] = (new Basis(Vector3.Up, fall.ToYaw), Vector3.Zero);
+                if (fall.Frames is { } frames && _figures.TryGetValue(fall.Model, out var drawn) && IsInstanceValid(drawn)
+                    && drawn.GetChildCount() > 0 && drawn.GetChild(0) is Node3D art && CachedRig(art) is { } posed)
+                {
+                    PoseRig(posed, frames, (now - fall.Start) / (fall.RiseFrames is not null ? fall.Seconds : fall.Plays));
+                }
                 continue;
             }
             var p = fall.Rising ? RiseCurve(t) : FallCurve(t);
@@ -1526,7 +1714,7 @@ public partial class BoardView
             Rebuild();
             foreach (var id in _endedFalls)
             {
-                if (_scene?.Find(id) is { Status: ModelStatus.Standing } && !_showcaseHolds.ContainsKey(id))
+                if (_scene?.Find(id) is { Status: ModelStatus.Standing } && !_showcaseHolds.ContainsKey(id) && !_falls.Any(f => f.Model == id && f.Rising))
                 {
                     Upright(id);
                 }

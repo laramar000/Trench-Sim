@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Client.Core;
 using Godot;
 using Rules.Core.State;
@@ -32,7 +33,52 @@ public partial class BoardView
         public required int[] Order { get; init; }
 
         public IReadOnlyList<Joint3[]>? Frames { get; set; }
+
+        // A fall being worked out off the main thread (2026-11-25: a fall costs a few milliseconds; several at once would
+        // stall a frame); Frames once it is done.
+        public Task<IReadOnlyList<Joint3[]>>? Pending { get; set; }
+
+        // Are the frames there (taking them from a finished worker)?
+        public bool Ready
+        {
+            get
+            {
+                if (Frames is null && Pending is { IsCompleted: true } done)
+                {
+                    Frames = done.IsCompletedSuccessfully ? done.Result : [];
+                }
+                return Frames is not null;
+            }
+        }
+
+        // The frames, waiting for the worker if it is still at them (a body drawn at once).
+        public IReadOnlyList<Joint3[]> Wait()
+        {
+            if (!Ready && Pending is { } working)
+            {
+                working.Wait();
+                _ = Ready;
+            }
+            return Frames ?? [];
+        }
     }
+
+    // A Down model drawn by its ragdoll (2026-11-25, "Down falls with the same ragdoll"): its fall's frames (world inches),
+    // from the place it fell at and the facing its figure was drawn with, so it is drawn lying in the very pose its fall
+    // ended in, and stands up from it.
+    private sealed class DownFall
+    {
+        public required Vector3 Place { get; init; }
+
+        public required float Yaw { get; init; }
+
+        public required RagdollRig Fall { get; init; }
+    }
+
+    private readonly Dictionary<ModelId, DownFall> _downFalls = [];
+
+    // The terrain round each fall (RagdollGround), kept for the body's blood pool.
+    private readonly Dictionary<ModelId, RagdollGround> _fallLand = [];
 
     // Which way each model fell this match (away from what hit it), so a body drawn again directly falls the same way.
     private readonly Dictionary<ModelId, (Vector3 Push, float Hit)> _fallPush = [];
@@ -84,18 +130,70 @@ public partial class BoardView
         };
     }
 
-    // The fall from the figure as it stands now, in the world: on the ground at groundY, pushed along push.
-    private static void Simulate(RagdollRig rig, float groundY, Vector3 push, float height, ModelId id, float hit, (double X, double Z, double Radius)[] obstacles)
+    // The figure's joints standing at rest, in the world, as it is placed now.
+    private static Joint3[] StandingJoints(RagdollRig rig)
     {
         var to = rig.Skeleton.GlobalTransform;
-        var standing = rig.Joint.Select(b => to * rig.Skeleton.GetBoneGlobalPose(b).Origin).Select(v => new Joint3(v.X, v.Y, v.Z)).ToArray();
-        rig.Frames = Ragdoll.Fall(standing, groundY, new Joint3(push.X, push.Y, push.Z), height, id.Value, hit, obstacles);
+        return [.. rig.Joint.Select(b => to * rig.Skeleton.GetBoneGlobalRest(b).Origin).Select(v => new Joint3(v.X, v.Y, v.Z))];
+    }
+
+    // The ground round a place (2026-11-25: bodies collide with the terrain drawn there), the same every time for a model.
+    private RagdollGround LandAt(ModelId id, Vector3 at, float radius)
+    {
+        if (_fallLand.TryGetValue(id, out var kept))
+        {
+            return kept;
+        }
+        var land = _scene is { } scene ? RagdollGround.Of(scene, at.X, at.Z, dressed: !_highContrast) : RagdollGround.Flat(at.Y);
+        return _fallLand[id] = land;
+    }
+
+    // The fall from the figure as it stands at `at` (its place on the ground, base radius), pushed along push, on the
+    // terrain there: a model put Out of Action (Ragdoll.Fall) or taken Down (Ragdoll.Down, kept over its base). Worked out
+    // off the main thread (rig.Ready says when it is there), or at once with wait.
+    private void Simulate(RagdollRig rig, Vector3 at, float radius, Vector3 push, float height, ModelId id, float hit, (double X, double Z, double Radius)[] obstacles,
+        bool down = false, bool wait = false)
+    {
+        var standing = StandingJoints(rig);
+        var land = LandAt(id, at, radius);
+        var thrown = new Joint3(push.X, push.Y, push.Z);
+        var ground = (double)at.Y;
+        var key = id.Value;
+        IReadOnlyList<Joint3[]> Work() => down
+            ? Ragdoll.Down(standing, ground, thrown, height, key, hit, obstacles, land)
+            : Ragdoll.Fall(standing, ground, thrown, height, key, hit, obstacles, land);
+        rig.Frames = null;
+        if (wait)
+        {
+            rig.Pending = null;
+            rig.Frames = Work();
+        }
+        else
+        {
+            rig.Pending = Task.Run(Work);
+        }
+    }
+
+    // A Down model's lying pose: its fall's frames when it fell here this match, else (drawn Down at once: Off, a
+    // catch-up, a rejoin, a model Down before) a fall worked out now, crumpling backwards from its facing.
+    private DownFall DownPoseOf(ModelId id, RagdollRig rig, Vector3 place, float radius, float height, float yaw)
+    {
+        if (_downFalls.TryGetValue(id, out var fell) && fell.Place.DistanceTo(place) < 0.01f)
+        {
+            return fell;
+        }
+        var fall = new RagdollRig { Skeleton = rig.Skeleton, Joint = rig.Joint, Chest = rig.Chest, Order = rig.Order };
+        Simulate(fall, place, radius, Backwards(yaw) * (float)RagdollImpacts.Crumple, height, id, (float)RagdollImpacts.ChestHigh, Obstacles(id, place), down: true, wait: true);
+        return _downFalls[id] = new DownFall { Place = place, Yaw = yaw, Fall = fall };
     }
 
     // Poses the skeleton at the fall's moment t (0 standing .. 1 at rest).
-    private static void PoseRig(RagdollRig rig, double t)
+    private static void PoseRig(RagdollRig rig, double t) => PoseRig(rig, rig.Frames, t);
+
+    // Poses the skeleton at moment t of these frames (another figure's fall, as for a Down model drawn again).
+    private static void PoseRig(RagdollRig rig, IReadOnlyList<Joint3[]>? frames, double t)
     {
-        if (rig.Frames is not { Count: > 0 } frames)
+        if (frames is not { Count: > 0 })
         {
             return;
         }
@@ -197,5 +295,22 @@ public partial class BoardView
         }
         var holder = root.GetChildren().OfType<Node3D>().FirstOrDefault(n => n is not MeshInstance3D && n.Name != "Pool");
         return holder is null ? 0 : holder.Basis.Y.Normalized().AngleTo(Vector3.Up);
+    }
+
+    // Each figure's rig, found once per figure drawn (a redraw makes a new figure).
+    private readonly Dictionary<ulong, RagdollRig?> _rigs = [];
+
+    private RagdollRig? CachedRig(Node3D figure)
+    {
+        var key = figure.GetInstanceId();
+        if (!_rigs.TryGetValue(key, out var rig))
+        {
+            if (_rigs.Count > 512)
+            {
+                _rigs.Clear();
+            }
+            rig = _rigs[key] = RigOf(figure);
+        }
+        return rig;
     }
 }

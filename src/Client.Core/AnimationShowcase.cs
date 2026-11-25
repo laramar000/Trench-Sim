@@ -1,3 +1,4 @@
+using Rules.Core.Geometry;
 using Rules.Core.State;
 
 namespace Client.Core;
@@ -22,6 +23,11 @@ public sealed record ShowcaseScene(
     bool SwitchSeat = false,
     AnimationSpeed? Speed = null)
 {
+    // Where the camera looks for this scene (null: on the actors), and from how far.
+    public TablePoint? Focus { get; init; }
+
+    public float FocusDistance { get; init; } = 8;
+
     // The scene's own speed (the Fast scene) unless the battlefield plays nothing (Off).
     public Choreography Plan(AnimationSpeed speed) => Choreography.Of(Lines, DrawnAt, speed == AnimationSpeed.Off ? speed : Speed ?? speed);
 }
@@ -150,6 +156,78 @@ public static class AnimationShowcase
             [Shot(true, thrown: true), Blasts(new BlastCue(BlastStyle.Weapon, pb, Math.Max(BlastRadius, Apart(b, c) + 0.3))),
              Injury(a, b, ModelStatus.OutOfAction, MarkerStyle.Shrapnel), Injury(a, c, ModelStatus.OutOfAction, MarkerStyle.Shrapnel)],
             Drawn, [b.Id, c.Id], []));
+        seq = 0;
+        // Animation suite (2026-11-25): the ACTIONS a model takes, one after another, each from its event: taking aim,
+        // firing (with recoil), working a RELOAD weapon, digging in, tending a friend, and a rally.
+        LogLine Act(ModelShape who, ActionStyle style, ModelShape? friend = null) =>
+            Line([who.Id]) with { Fx = BattleFx.None with { Action = new ActionCue(who.Id, style, friend?.Id) } };
+        scenes.Add(new("Actions: aim, fire, reload, dig in, tend a friend, rally",
+            "the shooter crouches a little and leans into its aim, fires with a small kick back, braces again to reload; "
+                + "the next model crouches low and digs with dust at its feet; it turns to a friend and leans to it; then straightens up to rally; each settles exactly as it stood",
+            [Act(a, ActionStyle.Aim), Shot(false), Act(a, ActionStyle.Reload), Act(c, ActionStyle.Fortify), Act(c, ActionStyle.Treat, b), Act(c, ActionStyle.Rally)],
+            Drawn, [], []));
+        scenes.AddRange(TerrainScenes(table, b, pb, Line));
         return scenes;
+    }
+
+    public const double TerrainBlastRadius = 1.2;
+
+    // Ragdoll terrain (2026-11-25): for each kind of terrain drawn on this table, a body thrown at it by a blast beside it:
+    // against a wall's side, over a sandbag ring, into a trench, against a tower, and off a tower's platform edge. The
+    // casualty is staged at a point by the piece (its Injury Roll names that place, as the server's last place for a model
+    // does), the model it stands for hidden; the blast goes off on the far side, so it is thrown at the terrain.
+    private static IEnumerable<ShowcaseScene> TerrainScenes(BoardScene table, ModelShape victim, TablePoint near, Func<IReadOnlyList<ModelId>, Motion?, LogLine> line)
+    {
+        // The point of a piece nearest a spot (over its parts), and the way from the spot to it.
+        static (TablePoint At, double X, double Y) Nearest(TerrainShape piece, TablePoint from)
+        {
+            var best = piece.Parts.Select(r => new TablePoint(Math.Clamp(from.X, r.X0, r.X1), Math.Clamp(from.Y, r.Y0, r.Y1)))
+                .MinBy(q => (q.X - from.X) * (q.X - from.X) + (q.Y - from.Y) * (q.Y - from.Y));
+            var (dx, dy) = (best.X - from.X, best.Y - from.Y);
+            var d = Math.Sqrt(dx * dx + dy * dy);
+            return d < 1e-6 ? (best, 1, 0) : (best, dx / d, dy / d);
+        }
+        // Out: how far its base's edge stands outside the piece (negative: its base reaches over the edge, at a trench's lip,
+        // or stands that far inside it, on a platform); Blast: how far the blast goes off from it, away from the piece.
+        var kinds = new (string Title, string Watch, Func<TerrainShape, bool> Is, double Out, double Blast)[]
+        {
+            ("A body thrown against a wall", "the blast is on the open side: the body is thrown at the wall, stops against its side and slides down it; nothing goes into the stone",
+                t => t.Profile == TerrainProfile.Wall && !t.Tower && !t.Trench, 0.1, 0.9),
+            ("A body thrown over sandbags", "thrown at the sandbag ring: it lands draped over the bags, lying on their tops, not sunk into them",
+                t => t.Profile == TerrainProfile.Cover && !t.Trench, 0.1, 0.9),
+            ("A body thrown into a trench", "at the trench's edge, thrown towards it: it tips over the lip and drops onto the trench floor, its blood there",
+                t => t.Trench, -0.1, 0.9),
+            ("A body thrown against a tower", "thrown at the tower's side: it stops against the timbers and slides down; nothing passes into the tower",
+                t => t.Tower, 0.1, 0.9),
+            ("A body thrown off a tower's platform", "standing on the platform by its edge, thrown outwards: it goes over the edge and falls to the ground below",
+                t => t.Tower, -0.05, -0.9),
+        };
+        var seq = 0;
+        foreach (var (title, watch, isKind, outside, blast) in kinds)
+        {
+            if (table.Terrain.Where(isKind).MinBy(t => Nearest(t, near) is var n ? (n.At.X - near.X) * (n.At.X - near.X) + (n.At.Y - near.Y) * (n.At.Y - near.Y) : 0) is not { } piece)
+            {
+                continue;
+            }
+            var (edge, nx, ny) = Nearest(piece, near);
+            // Outside the piece (a positive offset) towards the spot, or (negative) inside it by its edge.
+            var off = outside >= 0 || blast > 0 ? victim.Radius + outside : -(victim.Radius - outside);
+            var at = new TablePoint(edge.X - nx * off, edge.Y - ny * off);
+            var centre = new TablePoint(at.X - nx * blast, at.Y - ny * blast);
+            seq = 0;
+            LogLine Next(IReadOnlyList<ModelId> involved) => line(involved, null) with { Seq = ++seq };
+            yield return new ShowcaseScene(title, watch,
+                [Next([victim.Id]) with { Fx = new BattleFx(false, null, [new BlastCue(BlastStyle.Weapon, centre, TerrainBlastRadius)], []) },
+                 Next([victim.Id]) with
+                 {
+                     Changes = [new StatusChange(victim.Id, ModelStatus.Standing, ModelStatus.OutOfAction, at)],
+                     Fx = new BattleFx(false, null, [], [new MarkerCue(victim.Id, MarkerStyle.Shrapnel)]),
+                 }],
+                id => table.Models.FirstOrDefault(m => m.Id == id) is { } m ? new TablePoint(m.X, m.Y) : null, [victim.Id], [])
+            {
+                Focus = at,
+                FocusDistance = 7,
+            };
+        }
     }
 }

@@ -31,12 +31,28 @@ public sealed record MarkerCue(ModelId Model, MarkerStyle Style);
 // An attack at a point: the attacker, the point, and whether the Success Roll passed.
 public sealed record AimCue(ModelId Attacker, TablePoint At, bool Hit);
 
+// Animation suite (2026-11-25): an ACTION a model takes on itself or a friend, as its event declares it: taking aim,
+// reloading (a RELOAD weapon's activation end), digging in (Fortify), rallying its friends (Enforced Orthodoxy), or
+// tending a friend (Treat, Laying on of Hands; Target the friend).
+public enum ActionStyle
+{
+    Aim,
+    Reload,
+    Fortify,
+    Rally,
+    Treat,
+}
+
+public sealed record ActionCue(ModelId Model, ActionStyle Style, ModelId? Target = null);
+
 // Thrown: the attack's weapon is a grenade (it is lobbed, not fired).
 public sealed record BattleFx(bool Thrown, AimCue? Aim, IReadOnlyList<BlastCue> Blasts, IReadOnlyList<MarkerCue> Markers)
 {
     public static BattleFx None { get; } = new(false, null, [], []);
 
-    public bool Any => Thrown || Aim is not null || Blasts.Count > 0 || Markers.Count > 0;
+    public ActionCue? Action { get; init; }
+
+    public bool Any => Thrown || Aim is not null || Blasts.Count > 0 || Markers.Count > 0 || Action is not null;
 }
 
 // Follows the match event by event (with the state just after each one, and the attack the event belongs to) to name each
@@ -103,7 +119,17 @@ public sealed class BattleEffectsTracker
                 }
                 break;
         }
-        return !thrown && aim is null && blasts.Count == 0 && markers.Count == 0 ? BattleFx.None : new(thrown, aim, blasts, markers);
+        ActionCue? action = e switch
+        {
+            SelfActionDeclared { Action: SelfActionKind.Aim } d => new(d.Model, ActionStyle.Aim),
+            SelfActionDeclared { Action: SelfActionKind.Fortify } d => new(d.Model, ActionStyle.Fortify),
+            SelfActionDeclared { Action: SelfActionKind.EnforcedOrthodoxy } d => new(d.Model, ActionStyle.Rally),
+            SelfActionDeclared { Action: SelfActionKind.LayingOnHands } d => new(d.Model, ActionStyle.Treat, d.Target),
+            TreatDeclared t => new(t.Model, ActionStyle.Treat, t.Target),
+            ActivationEnded { Reason: ActivationEndReason.Reload } r => new(r.Model, ActionStyle.Reload),
+            _ => null,
+        };
+        return !thrown && aim is null && blasts.Count == 0 && markers.Count == 0 && action is null ? BattleFx.None : new(thrown, aim, blasts, markers) { Action = action };
     }
 
     private static TablePoint? At(MatchState state, ModelId id) => state.FindModel(id)?.Position is { } at ? TablePoint.Of(at) : null;

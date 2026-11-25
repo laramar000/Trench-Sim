@@ -29,11 +29,11 @@ public class AnimationShowcaseTests
     private static ShowcaseScene Titled(string start) => Scenes().Single(s => s.Title.StartsWith(start, StringComparison.Ordinal));
 
     [Fact]
-    public void ThirteenScenesEachNamingOnlyModelsOnTheTable()
+    public void FourteenScenesEachNamingOnlyModelsOnTheTable()
     {
         var table = Table();
         var scenes = AnimationShowcase.Scenes(table);
-        Assert.Equal(13, scenes.Count);
+        Assert.Equal(14, scenes.Count(s => s.Focus is null));
         Assert.Equal(scenes.Count, scenes.Select(s => s.Title).Distinct().Count());
         var ids = table.Models.Select(m => m.Id).ToHashSet();
         foreach (var scene in scenes)
@@ -160,5 +160,47 @@ public class AnimationShowcaseTests
     {
         var table = Table();
         Assert.Empty(AnimationShowcase.Scenes(table with { Models = [.. table.Models.Take(2)] }));
+    }
+
+    // Ragdoll terrain (2026-11-25): a scene per kind of terrain on the table, each a blast on the open side throwing a
+    // staged casualty at the piece (off a tower's platform: outwards from inside its edge).
+    [Fact]
+    public void TerrainScenesThrowABodyAtEachKindOfTerrain()
+    {
+        var table = Table();
+        var cx = table.Models.Average(m => m.X);
+        var cy = table.Models.Average(m => m.Y);
+        var wall = new TerrainShape("wall", new TableRect(cx + 3, cy - 4, cx + 4, cy + 4), Rules.Core.Geometry.TerrainProfile.Wall, 3, false, false, "wall");
+        var bags = new TerrainShape("bags", new TableRect(cx - 5, cy - 4, cx - 3, cy + 4), Rules.Core.Geometry.TerrainProfile.Cover, 0.75, false, false, "bags");
+        var trench = new TerrainShape("trench", new TableRect(cx - 4, cy + 3, cx + 4, cy + 5), Rules.Core.Geometry.TerrainProfile.Low, 0, false, false, "trench") { Depth = 1 };
+        var tower = new TerrainShape("tower", new TableRect(cx - 2, cy - 8, cx + 2, cy - 5), Rules.Core.Geometry.TerrainProfile.Wall, 3, true, false, "tower")
+        {
+            Ladders = [new LadderShape("l", new TablePoint(cx, cy - 5), Rules.Core.Geometry.Side.South)],
+        };
+        var scenes = AnimationShowcase.Scenes(table with { Terrain = [wall, bags, trench, tower] }).Where(s => s.Focus is not null).ToList();
+        Assert.Equal(5, scenes.Count);
+        foreach (var (scene, piece, inside) in new[] { (scenes[0], wall, false), (scenes[1], bags, false), (scenes[2], trench, false), (scenes[3], tower, false), (scenes[4], tower, true) })
+        {
+            var plan = scene.Plan(AnimationSpeed.Full);
+            var blast = Assert.Single(plan.Beats, b => b.Kind == BeatKind.Explosion);
+            var casualty = Assert.Single(plan.Beats, b => b.Kind == BeatKind.Casualty);
+            var at = casualty.At!.Value;
+            Assert.Equal(inside, piece.Holds(at.X, at.Y));
+            Assert.Equal(scene.Focus, at);
+            // Thrown at the piece (or, inside, out over its edge): a step on from the body along the blast's way crosses it.
+            var (dx, dy) = (at.X - blast.At!.Value.X, at.Y - blast.At.Value.Y);
+            var d = Math.Sqrt(dx * dx + dy * dy);
+            Assert.InRange(d, 0.5, AnimationShowcase.TerrainBlastRadius);
+            Assert.NotEqual(inside, piece.Holds(at.X + dx / d * 0.8, at.Y + dy / d * 0.8));
+            Assert.Contains(casualty.Model, scene.Hidden);
+        }
+    }
+
+    [Fact]
+    public void TheActionsScenePlaysEachAction()
+    {
+        var kinds = Kinds(Titled("Actions:"));
+        Assert.Superset(new HashSet<BeatKind> { BeatKind.Brace, BeatKind.Recoil, BeatKind.DigIn, BeatKind.Dust, BeatKind.Reach, BeatKind.Rally }, kinds.ToHashSet());
+        Assert.Equal(2, kinds.Count(k => k == BeatKind.Brace));
     }
 }

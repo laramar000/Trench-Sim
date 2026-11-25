@@ -8,7 +8,7 @@ namespace Client.Tests;
 public class RagdollTests
 {
     // A 1.2" figure's joints as tools/art/make_figures.py rigs the Trench Pilgrim (x right, y up, z forward).
-    private static Joint3[] Standing(double x = 10, double z = 20, double ground = 0)
+    internal static Joint3[] Standing(double x = 10, double z = 20, double ground = 0)
     {
         Joint3 J(double a, double b, double c) => new(x + a, ground + b, z + c);
         var j = new Joint3[Ragdoll.Joints];
