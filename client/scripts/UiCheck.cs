@@ -2635,6 +2635,9 @@ public partial class UiCheck : Node
                 case "ragdolls":
                     await DevRagdolls(board);
                     break;
+                case "walks":
+                    await DevWalks(board);
+                    break;
                 case "theme":
                     UiThemeCheck();
                     break;
@@ -2748,6 +2751,33 @@ public partial class UiCheck : Node
     // the same chest-high shot; pictures of each row standing, early, mid-fall and at rest go to <out>/ragdolls/. Check
     // dev-ragdolls: every figure has its skeleton (the Reliquary Walker too since 2026-11-25), and each one lies over at the end
     // (or, on all fours, lies down: hips and neck low).
+    // Dev only (TRENCH_DEV=deploy,walks, 2026-11-25): six figures of every build (a rifleman, a kneeling marksman, a
+    // charging pilgrim, the all-fours beast, the Giant and the Walker) posed at four moments of the walk cycle, a picture
+    // of each moment in <out>/walks/; check dev-walks: every one of them has a skeleton to walk with.
+    private async Task DevWalks(BoardView board)
+    {
+        if (board.Scene is not { } scene)
+        {
+            Check("dev-walks", false, "no battlefield");
+            return;
+        }
+        var dir = System.IO.Path.Combine(_out, "walks");
+        System.IO.Directory.CreateDirectory(dir);
+        board.Select(null);
+        string[] files = ["units/rifleman.glb", "units/blind-marksman.glb", "units/trench-pilgrim.glb", "units/assault-beast.glb", "units/sanctified-giant.glb", "units/reliquary-walker.glb"];
+        var at = new Vector3((float)scene.Width / 2 - 5f, 0, (float)scene.Depth / 2);
+        var posed = 0;
+        foreach (var (phase, name) in new[] { (0f, "a-together"), (Mathf.Pi / 2, "b-left-forward"), (Mathf.Pi, "c-together"), (3 * Mathf.Pi / 2, "d-right-forward") })
+        {
+            posed = board.WalkLineup(at, files, phase);
+            board.LookAtTable(new Vector2(at.X + 4.5f, at.Z), 6f);
+            await Frames(4);
+            GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(dir, $"walk-{name}.png"));
+        }
+        board.ClearRagdollLineup();
+        Check("dev-walks", posed == files.Length, $"{posed} of {files.Length} figures posed walking; pictures in {dir}");
+    }
+
     private async Task DevRagdolls(BoardView board)
     {
         if (board.Scene is not { } scene)
@@ -3673,6 +3703,24 @@ public partial class UiCheck : Node
             ok &= rest && moved && !board.Gliding;
             report.Add($"{label}: lift {low:0.000}..{high:0.000}, lean {lean:0.00} rad, push {across:0.00} in {(moved ? "ok" : "MISSING")}, back at rest {rest}");
         }
+        // Walk cycle (2026-11-25): a made-up 3" move of a figure with a skeleton: its legs swing while it glides (the left
+        // thigh turned well off its standing pose at some point), and it ends exactly at rest.
+        var walkFrames = board.WalkFrames;
+        var to = new TablePoint(a.X + 3, a.Y);
+        var walkLine = new LogLine(0, "", null, Motion: new Motion(a.Id, [to]), Models: [a.Id]);
+        board.PlayForCheck(new Choreography([], [.. Choreography.Of([walkLine], id => id == a.Id ? new TablePoint(a.X, a.Y) : null, AnimationSpeed.Full).Beats
+            .Select(beat => beat with { Seconds = beat.Seconds * 4 })]));
+        var swingSeen = 0f;
+        for (var i = 0; i < 600 && board.Gliding; i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            swingSeen = Math.Max(swingSeen, board.LegSwing(a.Id) ?? 0);
+        }
+        await Frames(2);
+        var legRest = board.LegSwing(a.Id) is { } after && after < 0.5f;
+        var walked = board.LegSwing(a.Id) is null || (swingSeen > 10 && board.WalkFrames > walkFrames && legRest);
+        ok &= walked;
+        report.Add($"walk: {board.WalkFrames - walkFrames} frames posed, thigh swung up to {swingSeen:0.0} degrees, back at rest {legRest}{(board.LegSwing(a.Id) is null ? " (no skeleton)" : "")}");
         board.Animation = speed;
         ok &= board.GesturesStarted - gestures == 3 && board.RecoilsStarted - recoils == 1;
         Check("hotseat-action-gestures", ok, $"{string.Join("; ", report)}; gestures {board.GesturesStarted - gestures} (3), recoils {board.RecoilsStarted - recoils} (1)");

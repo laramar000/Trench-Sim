@@ -335,4 +335,106 @@ public partial class BoardView
         }
         return rig;
     }
+
+    // Walk cycle (Jason, 2026-11-25: "Is there movement animations?", then "1": legs stride and the body sways while models
+    // move): each figure with a skeleton gliding along its path is posed every frame from its own standing pose (a
+    // crouching, charging or kneeling figure walks from that pose): each leg swings from the hip about the figure's
+    // side-to-side axis, opposite to the other, its knee bending as it comes forward, and the chest (with the arms, the
+    // weapon and the head) twists a little against the stride. The phase is the distance travelled, so the feet keep
+    // pace with the ground; it fades in and out with the glide and ends exactly at rest. Display only.
+    private readonly Dictionary<ModelId, (float Phase, float Weight)> _stride = [];
+    private readonly HashSet<ModelId> _walking = [];
+
+    public const float WalkSwingDegrees = 26f;
+    public const float WalkKneeDegrees = 38f;
+    public const float WalkSwayDegrees = 6f;
+
+    // For the UI check: frames a figure was posed walking, and the largest leg swing seen (degrees).
+    public int WalkFrames { get; private set; }
+
+    public float WalkSwingSeen { get; private set; }
+
+    private void ApplyWalk()
+    {
+        foreach (var id in _walking.Where(id => !_stride.ContainsKey(id)).ToList())
+        {
+            if (WalkingRig(id) is { } done)
+            {
+                done.Skeleton.ResetBonePoses();
+            }
+            _walking.Remove(id);
+        }
+        foreach (var (id, (phase, weight)) in _stride)
+        {
+            if (WalkingRig(id) is not { } rig || _falls.Any(f => f.Model == id) || _scene?.Find(id) is { Status: not ModelStatus.Standing })
+            {
+                continue;
+            }
+            PoseWalk(rig, phase, weight);
+            _walking.Add(id);
+            WalkFrames++;
+        }
+    }
+
+    private RagdollRig? WalkingRig(ModelId id) =>
+        _figures.TryGetValue(id, out var holder) && IsInstanceValid(holder) && holder.GetChildCount() > 0 && holder.GetChild(0) is Node3D art
+            ? CachedRig(art)
+            : null;
+
+    private void PoseWalk(RagdollRig rig, float phase, float weight)
+    {
+        var s = rig.Skeleton;
+        var count = s.GetBoneCount();
+        var pose = new Transform3D[count];
+        for (var b = 0; b < count; b++)
+        {
+            pose[b] = s.GetBoneGlobalRest(b);
+        }
+        int Bone(RagdollJoint j) => rig.Joint[(int)j];
+        var side = pose[Bone(RagdollJoint.HipL)].Origin - pose[Bone(RagdollJoint.HipR)].Origin;
+        if (side.LengthSquared() < 1e-10f)
+        {
+            return;
+        }
+        side = side.Normalized();
+        bool Under(int bone, int top)
+        {
+            for (var b = bone; b >= 0; b = s.GetBoneParent(b))
+            {
+                if (b == top)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        // Turns a bone and everything below it about a point.
+        void Turn(int bone, Vector3 at, Basis q)
+        {
+            for (var b = 0; b < count; b++)
+            {
+                if (Under(b, bone))
+                {
+                    pose[b] = new Transform3D(q * pose[b].Basis, at + q * (pose[b].Origin - at));
+                }
+            }
+        }
+        foreach (var (hip, knee, offset) in new[] { (RagdollJoint.HipL, RagdollJoint.KneeL, 0f), (RagdollJoint.HipR, RagdollJoint.KneeR, Mathf.Pi) })
+        {
+            var p = phase + offset;
+            // Forward (towards the figure's front, +Z) is a turn about the side axis by minus the swing.
+            var swing = Mathf.DegToRad(WalkSwingDegrees) * weight * Mathf.Sin(p);
+            var bend = Mathf.DegToRad(WalkKneeDegrees) * weight * Mathf.Max(0, Mathf.Cos(p));
+            Turn(Bone(hip), pose[Bone(hip)].Origin, new Basis(side, -swing));
+            Turn(Bone(knee), pose[Bone(knee)].Origin, new Basis(side, bend));
+            WalkSwingSeen = Math.Max(WalkSwingSeen, Mathf.RadToDeg(Mathf.Abs(swing)));
+        }
+        // The chest twists against the stride (the left leg forward, the right shoulder comes forward).
+        Turn(rig.Chest, pose[rig.Chest].Origin, new Basis(Vector3.Up, Mathf.DegToRad(WalkSwayDegrees) * weight * Mathf.Sin(phase)));
+        foreach (var bone in rig.Order)
+        {
+            s.SetBoneGlobalPose(bone, pose[bone]);
+        }
+    }
 }
+

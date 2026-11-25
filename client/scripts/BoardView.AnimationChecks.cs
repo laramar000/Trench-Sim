@@ -268,6 +268,20 @@ public partial class BoardView
 
     public int GesturesStarted { get; private set; }
 
+    // Walk cycle (UI check): how far a model's left thigh is turned from its standing pose now (degrees); null without a
+    // skeleton.
+    public float? LegSwing(ModelId id)
+    {
+        if (WalkingRig(id) is not { } rig)
+        {
+            return null;
+        }
+        var s = rig.Skeleton;
+        int Bone(RagdollJoint j) => rig.Joint[(int)j];
+        Vector3 Thigh(Func<int, Transform3D> at) => at(Bone(RagdollJoint.KneeL)).Origin - at(Bone(RagdollJoint.HipL)).Origin;
+        return Mathf.RadToDeg(Thigh(s.GetBoneGlobalPose).AngleTo(Thigh(s.GetBoneGlobalRest)));
+    }
+
     // How far a model's figure is drawn above (+) or below (-) its rest now, and how far its nodes are pushed across from
     // their rest (for the UI check); null when it has no figure.
     public (float Lift, float Across)? FigureOffset(ModelId id)

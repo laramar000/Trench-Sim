@@ -275,6 +275,40 @@ public partial class BoardView
         return seen;
     }
 
+    // The dev step `walks` (2026-11-25): the figures named, side by side on open ground, each posed mid-stride at one moment
+    // of the walk cycle (phase: 0 legs together, pi/2 the left leg forward, pi together again, 3pi/2 the right forward),
+    // facing across the line. Dev only.
+    public int WalkLineup(Vector3 at, IReadOnlyList<string> files, float phase)
+    {
+        _lineup?.GetParent()?.RemoveChild(_lineup);
+        _lineup?.QueueFree();
+        _lineup = new Node3D { Name = "RagdollLineup" };
+        _effects.AddChild(_lineup);
+        var x = 0f;
+        var posed = 0;
+        foreach (var file in files)
+        {
+            if (Visuals.Catalog.Entries.FirstOrDefault(e => e.Value == file && e.Key.StartsWith("unit:", StringComparison.Ordinal)) is not { Key: { } key }
+                || Visuals.Model(key) is not { } figure)
+            {
+                continue;
+            }
+            var height = (float)Visuals.Catalog.HeightFor(key);
+            // Faced to the camera's right, so the legs swing across the picture.
+            var root = new Node3D { Position = at + new Vector3(x, 0, 0), Rotation = new Vector3(0, Mathf.Pi / 2, 0) };
+            _lineup.AddChild(root);
+            root.AddChild(figure);
+            Visuals.FitOnBase(figure, Vector3.Zero, Math.Max(0.5f, height * 0.42f), height);
+            if (RigOf(root) is { } rig)
+            {
+                PoseWalk(rig, phase, 1);
+                posed++;
+            }
+            x += Math.Max(1.6f, height * 1.2f);
+        }
+        return posed;
+    }
+
     public void ClearRagdollLineup()
     {
         _lineup?.GetParent()?.RemoveChild(_lineup);

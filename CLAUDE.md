@@ -42,7 +42,8 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
   before handing over a release.
 - Known flaky tests (sandbox network timing, unrelated to most changes): CancellingARun*, ARejoinWhile*,
   AnAborted*, ALocalServerThatCannotStart*, ATakeover*, DuplicateAndStale*, AConnectionThatNeverJoins*,
-  AClientThatStopsReading, AHostThatNeverAnswersTheRejoinTimesOutEachAttempt, the hotseat-turn-banner timing UI check.
+  AClientThatStopsReading, AHostThatNeverAnswersTheRejoinTimesOutEachAttempt, AStalledReaderPausesItsMatchOnlyAndThenExpires,
+  the hotseat-turn-banner timing UI check.
   Rerun just that test once.
 - Godot UI-check gotchas: drivers click only spots no box covers (`UiCheck.Clickable`); `RemoveChild` before `QueueFree`
   when reusing node names; node names cannot contain `. : @ / " %`; UI-check code must not touch ImmutableArray.
@@ -758,4 +759,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (`reliquary_walker()` RIG_PTS, in `RAGDOLL`; grafted onto the approved file, geometry byte-identical); `Ragdoll.Radii`
   thickens joints for figures broader than a man. dev-ragdolls PASS 27/27 (flat ground; all-fours Beast "down").
   Movement: glides with a step bob and turns, charges lean; no leg walk cycle (asked the owner).
+- 2026-11-25, Jason chose "1,3": walk cycle (docs/client.md "Walk cycle": `PoseWalk`/`ApplyWalk`, legs swing, knees
+  bend, chest sways, stride by distance; dev step `walks`; `hotseat-action-gestures` walk part PASS 25.4 degrees, back at
+  rest), then the full UI run (option 3).
 
