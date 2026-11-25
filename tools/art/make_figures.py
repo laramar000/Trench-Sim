@@ -9032,15 +9032,16 @@ def rig_figure(k, low):
         m = o.modifiers.new("Ragdoll", "ARMATURE"); m.object = arm
     print(f"RIG {role} bones={len(bones)} " + " ".join(f"{n}=({h.x:.2f},{h.y:.2f},{h.z:.2f})" for n, (h, _, _) in bones.items()))
     # The skeleton fits the figure: every weighted bone runs through the body (its middle within 0.08 of a body vertex, on
-    # the figure 1.2 tall) and has body vertices of its own.
+    # the figure 1.2 tall; 0.12 for the pelvis and chest, inside the trunk) and has body vertices of its own.
     bv = [v.co.copy() for v in B.data.vertices]
     owned = {n: 0 for n in bones}
     for v in B.data.vertices:
         if v.groups: owned[B.vertex_groups[max(v.groups, key=lambda g: g.weight).group].name] += 1
     for n, (h, t, _) in bones.items():
         if n in ("headtip", "hand.L", "hand.R", "foot.L", "foot.R"): continue
-        m = (h + t) / 2; near = min((m - v).length for v in bv)
-        print(f"RIGCHECK {role} {n} near={near:.3f} owned={owned[n]} {'OK' if near < 0.08 and owned[n] > 0 else 'BAD'}")
+        # (the pelvis and chest run through the middle of the trunk, so the surface is up to its half-depth away)
+        m = (h + t) / 2; near = min((m - v).length for v in bv); most = 0.12 if n in ("pelvis", "chest") else 0.08
+        print(f"RIGCHECK {role} {n} near={near:.3f} owned={owned[n]} {'OK' if near < most and owned[n] > 0 else 'BAD'}")
 if role in RAGDOLL and RIG_PTS:
     rig_figure(1.2 / top, low)
 bpy.ops.object.select_all(action='SELECT')
