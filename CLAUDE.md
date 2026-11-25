@@ -746,4 +746,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   showcase scenes 14 (actions) and 15-19 (terrain; `--scenario ranged-towers`). Not covered: suppression, crawling,
   artillery, slopes (none in the rules or table); the Walker has no skeleton. hotseat-turn-banner failed 3 times here, also
   on the previous commit (machine timing).
+  Full UI runner at 5ea7ddb: 436 PASS, 2 FAIL (board-casualty-mid-move: a fall due before its worker thread finished
+  stood still for a frame; fixed, a due fall now waits for it; gvt-a rerun 0 failures, animating mean 0.78 ms, max
+  11.6 ms). Essentials 2,379/0.
 

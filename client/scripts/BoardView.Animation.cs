@@ -1479,14 +1479,14 @@ public partial class BoardView
             // was hit; its fall plays at its own pace (Fast: faster, as every beat), then it lies as a body.
             ghost.Holder.Basis = new Basis(Vector3.Up, ghost.Rides is not null && now < ghost.Start ? yaw : ghost.FromYaw);
             ghost.Holder.Position = new Vector3(0, ghost.Height / 2, 0);
-            // Its fall was set going off the main thread when the casualty began (StartCasualty); until it is there (a
-            // frame or two at most) the figure stands as it was.
+            // Its fall was set going off the main thread when the casualty was planned (StartCasualty); due before it is
+            // there, it is waited for then (no hesitation on the hit).
             if (!ghost.Falls && rig.Ready)
             {
                 // Already Down: it lies as it lay.
                 PoseRig(rig, 1);
             }
-            else if (now >= ghost.Start && rig.Ready)
+            else if (now >= ghost.Start && rig.Wait() is { Count: > 0 })
             {
                 PoseRig(rig, (now - ghost.Start) / RagdollSeconds(ghost, rig));
             }
@@ -1683,6 +1683,11 @@ public partial class BoardView
             }
             if (fall.Ragdoll)
             {
+                // Due before its worker is done: waited for (no hesitation on the hit).
+                if (now >= fall.Start && fall.Down is { } due)
+                {
+                    due.Fall.Wait();
+                }
                 // Upright and facing as it stood; its skeleton does the falling (or the rising).
                 _fallen[fall.Model] = (new Basis(Vector3.Up, fall.ToYaw), Vector3.Zero);
                 if (fall.Frames is { } frames && _figures.TryGetValue(fall.Model, out var drawn) && IsInstanceValid(drawn)
