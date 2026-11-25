@@ -762,4 +762,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-25, Jason chose "1,3": walk cycle (docs/client.md "Walk cycle": `PoseWalk`/`ApplyWalk`, legs swing, knees
   bend, chest sways, stride by distance; dev step `walks`; `hotseat-action-gestures` walk part PASS 25.4 degrees, back at
   rest), then the full UI run (option 3).
+  Full UI runner at da78e4c: 436 PASS, 0 FAIL (hotseat-action-gestures incl. walk, board-casualty-mid-move, board-bodies;
+  frame time gvt-a animating mean 0.67 ms, max 6.9 ms). Not run: Windows.
 
