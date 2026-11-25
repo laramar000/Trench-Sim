@@ -2746,7 +2746,8 @@ public partial class UiCheck : Node
 
     // The ragdoll review (TRENCH_DEV=deploy,ragdolls, 2026-11-24): every figure of the catalog, seven to a row, falls from
     // the same chest-high shot; pictures of each row standing, early, mid-fall and at rest go to <out>/ragdolls/. Check
-    // dev-ragdolls: every figure but the Reliquary Walker has its skeleton, and each one lies over at the end.
+    // dev-ragdolls: every figure has its skeleton (the Reliquary Walker too since 2026-11-25), and each one lies over at the end
+    // (or, on all fours, lies down: hips and neck low).
     private async Task DevRagdolls(BoardView board)
     {
         if (board.Scene is not { } scene)
@@ -2762,7 +2763,7 @@ public partial class UiCheck : Node
         for (var row = 0; ; row++)
         {
             var at = new Vector3((float)scene.Width / 2 - 6f, 0, (float)scene.Depth / 2);
-            List<(string File, bool Rigged, float Tilt, float X)> seen = [];
+            List<(string File, bool Rigged, float Tilt, float X, bool Low)> seen = [];
             foreach (var t in new[] { 0.0, 0.15, 0.4, 1.0 })
             {
                 seen = board.RagdollLineup(at, row * 7, 7, t);
@@ -2782,22 +2783,21 @@ public partial class UiCheck : Node
             foreach (var t in new[] { 0.4, 1.0 })
             {
                 var posed = board.RagdollLineup(at, row * 7, 7, t);
-                foreach (var (file, _, _, x) in posed)
+                foreach (var (file, _, _, x, _) in posed)
                 {
                     board.LookAtTable(new Vector2(x + 0.5f, at.Z), 3.2f);
                     await Frames(3);
                     GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(dir, $"close-{System.IO.Path.GetFileNameWithoutExtension(file)}-t{(int)(t * 100):000}.png"));
                 }
             }
-            foreach (var (file, rigged, tilt, _) in seen)
+            foreach (var (file, rigged, tilt, _, low) in seen)
             {
                 figures++;
-                var walker = file.EndsWith("reliquary-walker.glb", StringComparison.Ordinal);
-                if (rigged == walker || (rigged && tilt < 1.0f))
+                if (!rigged || (tilt < 1.0f && !low))
                 {
                     problems.Add($"{file}: skeleton {rigged}, lying over {tilt:0.00} rad");
                 }
-                Write($"MARK ragdoll {file} skeleton {rigged} tilt {tilt:0.00}");
+                Write($"MARK ragdoll {file} skeleton {rigged} tilt {tilt:0.00} down {low}");
             }
         }
         board.ClearRagdollLineup();

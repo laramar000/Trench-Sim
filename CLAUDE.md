@@ -754,4 +754,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   never onto a top; full-radius joints; segments rest on edges (`LiftSegments`); rise speed capped; heavier trunk;
   tower braces solid. Showcase terrain scenes looked at again (all five: body at the wall's foot, slumped at the bags,
   on the trench floor, against the tower, off the platform). Essentials 2,380/0.
+  Skeleton goal: the Reliquary Walker (the only figure without one) now has its own 16-bone skeleton on its hull
+  (`reliquary_walker()` RIG_PTS, in `RAGDOLL`; grafted onto the approved file, geometry byte-identical); `Ragdoll.Radii`
+  thickens joints for figures broader than a man. dev-ragdolls PASS 27/27 (flat ground; all-fours Beast "down").
+  Movement: glides with a step bob and turns, charges lean; no leg walk cycle (asked the owner).
 

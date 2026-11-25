@@ -253,7 +253,7 @@ RIG_PTS = {}   # the main body's posed joints (human_body), for the ragdoll skel
 RAGDOLL = {"rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet",
            "castigator", "sanctified-giant", "yeoman", "shock-trooper", "lieutenant", "blind-marksman", "trench-cleric", "combat-engineer",
            "mechanized-heavy-infantry", "combat-medic", "holy-warrior", "heretic-trooper", "heretic-priest", "brand-sworn-heavy-infantry",
-           "assault-beast", "wretched", "night-commando", "chorister"}
+           "assault-beast", "wretched", "night-commando", "chorister", "reliquary-walker"}
 GROUND = 0.0   # how far legs() raised the ground to the feet (the pelvis stays where the painters expect it)
 TWIST = 0.0
 LOOK = 0.0
@@ -5427,6 +5427,19 @@ def reliquary_walker():
             return lit(C["ragsd"] if f < 0.2 else C["rags"], n, ao, p=p)
         return psx_kit(C, base, p, n, ao) or lit(C["metal"], n, ao, p=p)
     PAINT = paint
+    # Ragdoll (2026-11-25, the owner: "give everything a skeleton"): the walker's own joints on its hull, not the martyr's
+    # (human_body set RIG_PTS from the martyr on its wheel): sabatons, knees, thighs, hips, the collar under the
+    # tabernacle, the pauldrons, the elbow pistons and the fists; the head runs up the spire (rig_figure finds its top).
+    RIG_PTS.clear()
+    for s_, x in (("L", 1), ("R", -1)):
+        RIG_PTS[f"upperleg01.{s_}"] = Vector((0.24 * x, 0.0, 0.62))
+        RIG_PTS[f"lowerleg01.{s_}"] = Vector((0.24 * x, -0.03, 0.40))
+        RIG_PTS[f"foot.{s_}"] = Vector((0.24 * x, -0.05, 0.07))
+        RIG_PTS[f"upperarm01.{s_}"] = Vector((0.5 * x, 0.0, 1.15))
+        RIG_PTS[f"lowerarm01.{s_}"] = Vector((0.58 * x, -0.02, 0.78))
+    RIG_PTS["wrist.R"] = Vector((-0.58, -0.1, 0.45))      # the right fist, round the mace
+    RIG_PTS["wrist.L"] = Vector((0.62, -0.34, 0.68))      # the left forearm held out with the wheel
+    RIG_PTS.update(hips=Vector((0.0, 0.0, 0.72)), neck=Vector((0.0, 0.03, 1.35)), headtop=Vector((0.0, 0.03, 1.36)))
 
 def sanctified_giant():
     # Sanctified Giant (2026-11-03, seventh figure of docs/art-pipeline.md, class C, 40 mm): an original figure on the
@@ -8983,6 +8996,8 @@ def rig_figure(k, low):
             p = Matrix.Rotation(tw * sstep((p.z - 0.95) / 0.45), 3, 'Z') @ (p - HIPS) + HIPS
         return Vector((p.x, p.y, p.z - low)) * k
     J = {n: warp(v.copy()) for n, v in RIG_PTS.items()}
+    if role == "reliquary-walker":   # its head is the tabernacle and spire: up to the spire's tip
+        J["headtop"] = Vector((J["neck"].x, J["neck"].y, max(v.co.z for v in OBJS["Helmet"].data.vertices)))
     mid = J["hips"].lerp(J["neck"], 0.45)
     bones = {   # name: (head, tail, parent)
         "pelvis": (J["hips"], mid, None), "chest": (mid, J["neck"], "pelvis"), "head": (J["neck"], J["headtop"], "chest")}

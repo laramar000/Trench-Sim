@@ -173,10 +173,11 @@ public partial class BoardView
     // terrain there: a model put Out of Action (Ragdoll.Fall) or taken Down (Ragdoll.Down, kept over its base). Worked out
     // off the main thread (rig.Ready says when it is there), or at once with wait.
     private void Simulate(RagdollRig rig, Vector3 at, float radius, Vector3 push, float height, ModelId id, float hit, (double X, double Z, double Radius)[] obstacles,
-        bool down = false, bool wait = false)
+        bool down = false, bool wait = false, bool flat = false)
     {
         var standing = StandingJoints(rig);
-        var land = LandAt(id, at, radius);
+        // (flat: the dev lineup, every figure on open ground so their falls compare.)
+        var land = flat ? RagdollGround.Flat(at.Y) : LandAt(id, at, radius);
         var thrown = new Joint3(push.X, push.Y, push.Z);
         var ground = (double)at.Y;
         var key = id.Value;

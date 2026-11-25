@@ -122,7 +122,7 @@ public static class Ragdoll
         var far = height * (reach ?? Math.Min(2.2, 1.1 + 0.5 * push.Flat));
         var blocks = obstacles ?? [];
         land ??= RagdollGround.Flat(ground);
-        var radius = Radii(height);
+        var radius = Radii(height, p);
         // Thrown: the joints where the hit lands most, the side facing it more than the far side, each joint a little
         // differently; the stiff torso and the bones carry the rest, so where and from which side it lands decides how
         // the body goes over and turns.
@@ -262,7 +262,7 @@ public static class Ragdoll
         var end = frames[^1];
         var middle = (end[(int)RagdollJoint.Hips] + end[(int)RagdollJoint.Neck]) * 0.5;
         var shift = new Joint3(home.X - middle.X, 0, home.Z - middle.Z);
-        var radius = Radii(Math.Max(0.1, height));
+        var radius = Radii(Math.Max(0.1, height), standing);
         var slid = new List<Joint3[]>(frames.Count);
         for (var f = 0; f < frames.Count; f++)
         {
@@ -297,7 +297,7 @@ public static class Ragdoll
         height = Math.Max(0.1, height);
         var rest = standing.ToArray();
         var shape = new Shape(rest);
-        var radius = Radii(height);
+        var radius = Radii(height, rest);
         land ??= RagdollGround.Flat(rest.Min(j => j.Y) - radius.Min());
         static double Ease(double t)
         {
@@ -343,13 +343,18 @@ public static class Ragdoll
     // A step a joint is lifted over rather than stopped by, as a share of the figure's height (a duckboard, a lip of rubble).
     private const double StepShare = 0.1;
 
-    // Each joint's thickness: the trunk and head thicker than the limbs.
-    private static double[] Radii(double height)
+    // Each joint's thickness: the trunk and head thicker than the limbs, by the figure's height, or (2026-11-25, the
+    // Reliquary Walker's skeleton) by its build when it is broader than a man: a hull with its shoulders far apart lies as
+    // thick as it is, not sunk into the ground. A man's shoulders give no more than the height does.
+    private static double[] Radii(double height, IReadOnlyList<Joint3> standing)
     {
+        var half = (standing[(int)RagdollJoint.ShoulderL] - standing[(int)RagdollJoint.ShoulderR]).Flat / 2;
+        var trunk = Math.Max(height * 0.07, half * 0.6);
+        var limb = Math.Max(height * 0.04, half * 0.35);
         var radius = new double[Joints];
         for (var i = 0; i < Joints; i++)
         {
-            radius[i] = height * (i is (int)RagdollJoint.Hips or (int)RagdollJoint.Neck or (int)RagdollJoint.HeadTop ? 0.07 : 0.04);
+            radius[i] = i is (int)RagdollJoint.Hips or (int)RagdollJoint.Neck or (int)RagdollJoint.HeadTop ? trunk : limb;
         }
         return radius;
     }

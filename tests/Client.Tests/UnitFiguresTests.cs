@@ -134,11 +134,11 @@ public class UnitFiguresTests
 
     // Ragdoll (2026-11-24): every figure with a body of its own carries the 16-bone skeleton the client lets go limp (its
     // bones named as tools/art/make_figures.py rig_figure gives them), and every part of it is skinned to that skeleton,
-    // so no part is left standing when the body falls. The Reliquary Walker has none (its body is the martyr on its
-    // wheel): it tips over as before.
+    // so no part is left standing when the body falls. Since 2026-11-25 (the owner: "give everything a skeleton") the
+    // Reliquary Walker too, on joints of its own hull (its legs, hips, collar, pauldrons, elbow pistons and fists).
     [Theory]
     [MemberData(nameof(Figures))]
-    public void AFigureWithABodyHasTheRagdollSkeleton(string file, int budget, int texture, float width)
+    public void EveryFigureHasTheRagdollSkeleton(string file, int budget, int texture, float width)
     {
         _ = (budget, texture, width);
         var bytes = File.ReadAllBytes(Path.Combine(Assets, file));
@@ -146,11 +146,6 @@ public class UnitFiguresTests
         using var gltf = JsonDocument.Parse(Encoding.UTF8.GetString(bytes, 20, length));
         var root = gltf.RootElement;
         var hasSkins = root.TryGetProperty("skins", out var skins) && skins.GetArrayLength() > 0;
-        if (file.EndsWith("reliquary-walker.glb", StringComparison.Ordinal))
-        {
-            Assert.False(hasSkins);
-            return;
-        }
         Assert.True(hasSkins, $"{file} has no skeleton");
         var nodes = root.GetProperty("nodes").EnumerateArray().ToList();
         var joints = skins[0].GetProperty("joints").EnumerateArray().Select(j => nodes[j.GetInt32()].GetProperty("name").GetString()).ToHashSet();

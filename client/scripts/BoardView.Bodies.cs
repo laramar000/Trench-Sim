@@ -234,13 +234,13 @@ public partial class BoardView
     // whether it has a skeleton, and how far its torso lies over.
     private Node3D? _lineup;
 
-    public List<(string File, bool Rigged, float Tilt, float X)> RagdollLineup(Vector3 at, int from, int count, double t)
+    public List<(string File, bool Rigged, float Tilt, float X, bool Low)> RagdollLineup(Vector3 at, int from, int count, double t)
     {
         _lineup?.GetParent()?.RemoveChild(_lineup);
         _lineup?.QueueFree();
         _lineup = new Node3D { Name = "RagdollLineup" };
         _effects.AddChild(_lineup);
-        var seen = new List<(string File, bool Rigged, float Tilt, float X)>();
+        var seen = new List<(string File, bool Rigged, float Tilt, float X, bool Low)>();
         var files = Visuals.Catalog.Entries.Where(e => e.Key.StartsWith("unit:", StringComparison.Ordinal))
             .GroupBy(e => e.Value).Select(g => g.First()).OrderBy(e => e.Value, StringComparer.Ordinal).Skip(from).Take(count).ToList();
         var x = 0f;
@@ -256,13 +256,20 @@ public partial class BoardView
             root.AddChild(figure);
             Visuals.FitOnBase(figure, Vector3.Zero, Math.Max(0.5f, height * 0.42f), height);
             var tilt = 0f;
+            var low = false;
             if (RigOf(root) is { } rig)
             {
-                Simulate(rig, root.GlobalPosition, 0.5f, new Vector3(1, 0, 0) * (float)RagdollImpacts.Shot, height, new ModelId(System.IO.Path.GetFileNameWithoutExtension(file)), (float)RagdollImpacts.ChestHigh, [], wait: true);
+                Simulate(rig, root.GlobalPosition, 0.5f, new Vector3(1, 0, 0) * (float)RagdollImpacts.Shot, height, new ModelId(System.IO.Path.GetFileNameWithoutExtension(file)), (float)RagdollImpacts.ChestHigh, [], wait: true, flat: true);
                 PoseRig(rig, t);
                 tilt = TorsoTilt(root);
+                // Down on the ground: its hips and neck within a third of its height of it (a figure on all fours lies
+                // down without its trunk turning much).
+                var s = rig.Skeleton;
+                var hips = (s.GlobalTransform * s.GetBoneGlobalPose(rig.Joint[(int)RagdollJoint.Hips]).Origin).Y - at.Y;
+                var neck = (s.GlobalTransform * s.GetBoneGlobalPose(rig.Joint[(int)RagdollJoint.Neck]).Origin).Y - at.Y;
+                low = hips < height / 3 && neck < height / 3;
             }
-            seen.Add((file, RigOf(root) is not null, tilt, at.X + x));
+            seen.Add((file, RigOf(root) is not null, tilt, at.X + x, low));
             x += Math.Max(1.8f, height * 1.4f);
         }
         return seen;
