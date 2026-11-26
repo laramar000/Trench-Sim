@@ -827,3 +827,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Then U, S reached GitHub: 403 "Resource not accessible by personal access token" on creating a blob = the key has no
   Contents write on this repository (a key setting, not code). U now tests writing (a tiny blob) before saving a key,
   and a 403/404 on sending prints where to change the key on GitHub (edit it: repository selected, Contents Read and write).
+- 2026-11-26, Jason chose "1" (keep Apache 2.0, add the non-clashing legal lines): README "Legal notes" under License:
+  unofficial and non-commercial, no builds or publisher rules text/art/logos, renamed names and trademarks to owners,
+  takedown requests via GitHub, no warranty. Not covered (told the owner): the art risk of reference-based figures and
+  community-licence base assets. Hand-over from the owner the same day: open items are the upload key (needs Contents
+  write), then reading the uploaded full run (def6105) and fixing its failures; m7-client stays behind until his word.
