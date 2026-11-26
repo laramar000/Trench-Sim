@@ -819,3 +819,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Then: Jason could not paste the key (the hidden prompt read keys one by one and dropped Ctrl+V), and twice pasted
   keys into the chat instead; told to delete both on GitHub; neither was used. Fixed: U now takes the key from the
   clipboard on Enter (PowerShell Get-Clipboard), or from a normal pasted line, checks its form, clears the clipboard.
+  First real upload (def6105, full run: unit tests all PASS, Windows UI 440 PASS / 4 FAIL) failed before reaching
+  GitHub: "authority-checks.txt ... used by another process" (Windows locks a log the test center still holds open).
+  Fixed: files are read with FileShare.ReadWrite; U then S resends the newest run from its report.md.

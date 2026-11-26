@@ -48,7 +48,7 @@ public static class Program
                 "cleanup" => Cleanup(setup),
                 "play" => await PlayGame.Run(setup, opengl),
                 "showcase" => await AnimationShowcase.Run(setup, opengl),
-                "upload" => await ResultsUpload.SetUp(),
+                "upload" => await ResultsUpload.SetUp(setup.Results),
                 _ => Usage(),
             };
         }
@@ -132,7 +132,7 @@ public static class Program
                     last = await AnimationShowcase.Run(setup, opengl);
                     break;
                 case "U":
-                    last = await ResultsUpload.SetUp();
+                    last = await ResultsUpload.SetUp(setup.Results);
                     break;
                 case "Q" or "":
                     return last;

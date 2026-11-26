@@ -28,7 +28,7 @@ public static partial class ResultsUpload
     public static bool Configured => File.Exists(KeyFile) && File.ReadAllText(KeyFile).Trim().Length > 0;
 
     // Menu option U: explains, opens GitHub's page for a new key, asks for it, checks it and keeps it. Or turns uploads off.
-    public static async Task<int> SetUp()
+    public static async Task<int> SetUp(string results)
     {
         Console.WriteLine();
         Console.WriteLine("  Send test results to GitHub, so Claude can read them without you copying anything.");
@@ -36,11 +36,16 @@ public static partial class ResultsUpload
         Console.WriteLine("  Your computer's name, your user name and your folder paths are removed first.");
         if (Configured)
         {
-            Console.Write("  Uploads are ON. Type OFF to turn them off, or press Enter to keep them: ");
-            if ((Console.ReadLine() ?? "").Trim().Equals("OFF", StringComparison.OrdinalIgnoreCase))
+            Console.Write("  Uploads are ON. Type S to send the newest run's results again, OFF to turn uploads off, or press Enter: ");
+            var choice = (Console.ReadLine() ?? "").Trim();
+            if (choice.Equals("OFF", StringComparison.OrdinalIgnoreCase))
             {
                 File.Delete(KeyFile);
                 Console.WriteLine("  Uploads are off. The key was deleted from this computer (you can also delete it on GitHub).");
+            }
+            else if (choice.Equals("S", StringComparison.OrdinalIgnoreCase))
+            {
+                return SendNewest(results);
             }
             return 0;
         }
@@ -96,6 +101,10 @@ public static partial class ResultsUpload
         return 0;
     }
 
+    // What a sent run is made of: its folder, the report's title and verdict, the Trench Sim folder it ran in and the
+    // version.
+    private sealed record Run(string Folder, string Title, string Verdict, string Repository, string Commit);
+
     // After a run: sends its folder when a key was given; says in one line what happened. Never fails the run.
     public static void Send(Report report)
     {
@@ -104,26 +113,54 @@ public static partial class ResultsUpload
             Console.WriteLine("  (Menu option U sends results to GitHub, so Claude can read them without copying.)");
             return;
         }
+        Send(new Run(report.Folder, report.Title, report.Verdict,
+            report.Facts.FirstOrDefault(f => f.Name == "Folder").Value ?? "",
+            report.Facts.FirstOrDefault(f => f.Name.StartsWith("Trench Sim version", StringComparison.Ordinal)).Value ?? ""));
+    }
+
+    // U, then S: sends the newest run in test-results again (from its report.md), without running anything.
+    private static int SendNewest(string results)
+    {
+        var folder = Directory.Exists(results)
+            ? Directory.EnumerateDirectories(results).Where(d => File.Exists(Path.Combine(d, "report.md"))).OrderByDescending(Path.GetFileName, StringComparer.Ordinal).FirstOrDefault()
+            : null;
+        if (folder is null)
+        {
+            Console.WriteLine("  There is no finished run to send yet.");
+            return 1;
+        }
+        var text = Read(Path.Combine(folder, "report.md"));
+        string Find(string pattern) => Regex.Match(text, pattern, RegexOptions.Multiline) is { Success: true } m ? m.Groups[1].Value.Trim() : "";
+        Console.WriteLine($"  Sending {Path.GetFileName(folder)}...");
+        return Send(new Run(folder, Find(@"^# (.+)$"), Find(@"^\*\*Result: (\w+)"), Find(@"^\| Folder \| (.+?) \|\r?$"),
+            Find(@"^\| Trench Sim version \(commit\) \| (.+?) \|\r?$"))) ? 0 : 1;
+    }
+
+    private static bool Send(Run report)
+    {
         try
         {
             var where = SendAsync(report).GetAwaiter().GetResult();
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"  Sent to GitHub for Claude: {where}");
             Console.ResetColor();
+            return true;
         }
         catch (Exception e)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"  Could not send the results to GitHub: {e.Message}");
+            Console.WriteLine("  (Menu option U, then S, sends them again.)");
             Console.ResetColor();
+            return false;
         }
     }
 
-    private static async Task<string> SendAsync(Report report)
+    private static async Task<string> SendAsync(Run report)
     {
         var key = File.ReadAllText(KeyFile).Trim();
-        var repository = report.Facts.FirstOrDefault(f => f.Name == "Folder").Value ?? "";
-        var commit = report.Facts.FirstOrDefault(f => f.Name.StartsWith("Trench Sim version", StringComparison.Ordinal)).Value ?? "";
+        var repository = report.Repository;
+        var commit = report.Commit;
         var sha = ShaPattern().Match(commit) is { Success: true } m ? m.Value[..7] : "unknown";
         var run = $"runs/{Path.GetFileName(report.Folder)}-{sha}";
         var files = Collect(report.Folder)
@@ -194,9 +231,17 @@ public static partial class ResultsUpload
         }
     }
 
+    // (2026-11-26: read with sharing: a program's log file can still be open in the test center when the run ends, and a
+    // plain read was refused with "used by another process".)
     private static string Read(string path)
     {
-        var bytes = File.ReadAllBytes(path);
+        byte[] bytes;
+        using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+        using (var copy = new MemoryStream())
+        {
+            stream.CopyTo(copy);
+            bytes = copy.ToArray();
+        }
         if (bytes.Length <= MaxFileBytes)
         {
             return Encoding.UTF8.GetString(bytes);
