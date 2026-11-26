@@ -59,13 +59,26 @@ public static partial class ResultsUpload
         {
             Console.WriteLine($"  (Open this page yourself: {page})");
         }
-        Console.Write("  Paste the key here and press Enter (it is not shown), or press Enter to cancel: ");
-        var key = ReadHidden().Trim();
-        if (key.Length == 0)
+        // (2026-11-26: a hidden prompt read key by key took Ctrl+V as a control key and dropped the paste; the key is now
+        // taken from the clipboard, or from a normal line where pasting works.)
+        Console.WriteLine("  Copy the key on GitHub, come back to this window and press Enter: the test center takes it from the");
+        Console.Write("  clipboard. (Or paste it here first, then press Enter.) Type C and Enter to cancel: ");
+        var typed = (Console.ReadLine() ?? "").Trim();
+        if (typed.Equals("C", StringComparison.OrdinalIgnoreCase))
         {
             Console.WriteLine("  Cancelled. Nothing was saved.");
             return 0;
         }
+        var fromClipboard = typed.Length == 0;
+        var key = fromClipboard ? await Clipboard() : typed;
+        if (!KeyPattern().IsMatch(key))
+        {
+            Console.WriteLine(fromClipboard
+                ? "  The clipboard does not hold a GitHub key (they start with github_pat_). Copy it on GitHub and choose U again."
+                : "  That is not a GitHub key (they start with github_pat_). Nothing was saved; choose U again.");
+            return 1;
+        }
+        Console.WriteLine($"  Got a key ending in {key[^4..]}. Checking it with GitHub...");
         using var http = Client(key);
         var answer = await http.GetAsync($"https://api.github.com/repos/{Repository}");
         if (!answer.IsSuccessStatusCode)
@@ -75,6 +88,10 @@ public static partial class ResultsUpload
         }
         Directory.CreateDirectory(Setup.SettingsFolder);
         await File.WriteAllTextAsync(KeyFile, key);
+        if (fromClipboard)
+        {
+            await ClearClipboard();
+        }
         Console.WriteLine("  Saved. From now on every run's results go to GitHub by themselves.");
         return 0;
     }
@@ -243,34 +260,50 @@ public static partial class ResultsUpload
     private static async Task<JsonNode> Json(HttpResponseMessage answer) =>
         JsonNode.Parse(await answer.Content.ReadAsStringAsync()) ?? throw new InvalidOperationException("GitHub sent an empty answer.");
 
-    private static string ReadHidden()
+    // The clipboard's text (Windows: PowerShell's Get-Clipboard), or "" when it cannot be read.
+    private static async Task<string> Clipboard()
     {
-        if (Console.IsInputRedirected)
+        if (!OperatingSystem.IsWindows())
         {
-            return Console.ReadLine() ?? "";
+            return "";
         }
-        var text = new StringBuilder();
-        while (true)
+        try
         {
-            var key = Console.ReadKey(intercept: true);
-            if (key.Key == ConsoleKey.Enter)
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("powershell", ["-NoProfile", "-Command", "Get-Clipboard -Raw"])
             {
-                Console.WriteLine();
-                return text.ToString();
-            }
-            if (key.Key == ConsoleKey.Backspace)
-            {
-                if (text.Length > 0)
-                {
-                    text.Length--;
-                }
-            }
-            else if (!char.IsControl(key.KeyChar))
-            {
-                text.Append(key.KeyChar);
-            }
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            })!;
+            var text = await process.StandardOutput.ReadToEndAsync();
+            await process.WaitForExitAsync();
+            return text.Trim();
+        }
+        catch (Exception)
+        {
+            return "";
         }
     }
+
+    // Leaves no key on the clipboard once it is saved.
+    private static async Task ClearClipboard()
+    {
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("powershell", ["-NoProfile", "-Command", "Set-Clipboard -Value ' '"])
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            })!;
+            await process.WaitForExitAsync();
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    [GeneratedRegex(@"^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$")]
+    private static partial Regex KeyPattern();
 
     [GeneratedRegex("[0-9a-f]{40}")]
     private static partial Regex ShaPattern();
