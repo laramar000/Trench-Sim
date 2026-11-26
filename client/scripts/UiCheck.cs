@@ -2840,6 +2840,8 @@ public partial class UiCheck : Node
     // TRENCH_SHOWCASE=watch the window stays open for a person: F5 plays the scene again, F6 the next, F7 the one before,
     // F8 switches Full and Fast; closing the window ends it. Otherwise (the cloud, a quick look) every scene plays once at
     // real speed and a picture is saved every 0.12 s into <out>/showcase/, for looking through frame by frame.
+    private static float? ShowcaseDistance;
+
     private async Task DevShowcase(BoardView board)
     {
         if (board.Scene is not { } table || AnimationShowcase.Scenes(table) is not { Count: > 0 } scenes)
@@ -2854,6 +2856,15 @@ public partial class UiCheck : Node
         var only = (System.Environment.GetEnvironmentVariable("TRENCH_SHOWCASE_ONLY") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(x => int.TryParse(x, out var n) ? n : 0).Where(n => n > 0).ToHashSet();
         board.Select(null);
+        // TRENCH_SHOWCASE_PITCH=20 and TRENCH_SHOWCASE_DISTANCE=6: a lower, closer camera (dev pictures only).
+        if (float.TryParse(System.Environment.GetEnvironmentVariable("TRENCH_SHOWCASE_PITCH"), System.Globalization.CultureInfo.InvariantCulture, out var pitch))
+        {
+            board.PicturePitch = pitch;
+        }
+        if (float.TryParse(System.Environment.GetEnvironmentVariable("TRENCH_SHOWCASE_DISTANCE"), System.Globalization.CultureInfo.InvariantCulture, out var near))
+        {
+            ShowcaseDistance = near;
+        }
         // On the moving model, far enough back that a charge's or a move's start (4" behind it) and the blasts are in view.
         var focus = scenes[0].Lines[0].Models![0];
         board.CentreOn(focus, 13f);
@@ -2898,7 +2909,7 @@ public partial class UiCheck : Node
             }
             else
             {
-                board.CentreOn(focus, 13f);
+                board.CentreOn(focus, ShowcaseDistance ?? 13f);
             }
             foreach (var (id, status) in scene.HoldAfter)
             {
@@ -6617,9 +6628,12 @@ public partial class UiCheck : Node
         board.FinishAnimations();
         await Step(1);
 
+        var ghostWalks = board.GhostWalkFrames;
         board.PlayForCheck(At((glide.Start + glide.Seconds / 2) * k));
         await Step(1);
         var half = board.CasualtyOf(mover.Id);
+        // Walk cycle (2026-11-26): a casualty figure with a skeleton walks its move (a figure without one glides).
+        var walksIt = board.GhostWalkFrames > ghostWalks || !board.CasualtyHasSkeleton(mover.Id);
         var drawn = board.DrawnAt(mover.Id);
         var length = Math.Sqrt((halt.X - start.X) * (halt.X - start.X) + (halt.Y - start.Y) * (halt.Y - start.Y));
         var onTheWay = half is { } h && Flat(h.At, start) > 0.3 && Flat(h.At, halt) > 0.3 && Math.Abs(Flat(h.At, start) + Flat(h.At, halt) - length) < 0.05 && h.Tilt < 0.05f;
@@ -6645,11 +6659,11 @@ public partial class UiCheck : Node
         var offQuiet = board.CasualtyNodes == 0 && !board.Gliding;
         board.Animation = speed;
         await Frames(1);
-        Check("board-casualty-mid-move", waitsAtStart && onTheWay && withItsGlide && playing && cleaned && fallsAtHalt && rode == 3 && offQuiet && board.TerrainBuilds == terrain,
+        Check("board-casualty-mid-move", walksIt && waitsAtStart && onTheWay && withItsGlide && playing && cleaned && fallsAtHalt && rode == 3 && offQuiet && board.TerrainBuilds == terrain,
             $"{mover.Id.Value} from ({start.X:0.00}, {start.Y:0.00}) halted at ({halt.X:0.00}, {halt.Y:0.00}); before the move: {waiting} at the start {waitsAtStart}; "
             + $"half way: {half}, on the way {onTheWay}, where its glide draws the model ({drawn}) {withItsGlide}; finished at once half way: none left and the model "
             + $"where the server has it {cleaned}; half way through the fall: {falling} at the halt {fallsAtHalt}; travelled first {rode} of 3; Off draws none {offQuiet}; "
-            + $"terrain builds {terrain} -> {board.TerrainBuilds}");
+            + $"terrain builds {terrain} -> {board.TerrainBuilds}; walked its move {walksIt}");
     }
 
     // Audit item T1 (board-fast-effects): in Fast, a shot's flash and hit puff, a miss's dirt, a blow's sparks and a

@@ -29,11 +29,11 @@ public class AnimationShowcaseTests
     private static ShowcaseScene Titled(string start) => Scenes().Single(s => s.Title.StartsWith(start, StringComparison.Ordinal));
 
     [Fact]
-    public void FourteenScenesEachNamingOnlyModelsOnTheTable()
+    public void FifteenScenesEachNamingOnlyModelsOnTheTable()
     {
         var table = Table();
         var scenes = AnimationShowcase.Scenes(table);
-        Assert.Equal(14, scenes.Count(s => s.Focus is null));
+        Assert.Equal(15, scenes.Count(s => s.Focus is null));
         Assert.Equal(scenes.Count, scenes.Select(s => s.Title).Distinct().Count());
         var ids = table.Models.Select(m => m.Id).ToHashSet();
         foreach (var scene in scenes)

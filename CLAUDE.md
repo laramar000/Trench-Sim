@@ -60,6 +60,9 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - Decisions: a short numbered list with one-line trade-offs and a recommendation, ending "Choose a number" (the owner
   answers on a phone).
 - No screenshots in reports, no post-mortems unless asked, plain short replies.
+- Replies are read aloud to the owner in the car (2026-11-26): write the summary for the ear. Short spoken sentences, plain
+  words, no file names, code names, commit hashes, symbols or tables in the spoken part; say what changed and what it
+  looks like, then what was checked, then the choices. Keep the numbered choices short so they can be heard and answered.
 - Bot/AI opponent deferred until asked. Keep hot-seat. Towers and vertical terrain belong in the default maps.
 - Graphics are decorative only: never change rules, protocol, records, hashes, movement, LOS or base sizes for looks.
 
@@ -764,4 +767,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   rest), then the full UI run (option 3).
   Full UI runner at da78e4c: 436 PASS, 0 FAIL (hotseat-action-gestures incl. walk, board-casualty-mid-move, board-bodies;
   frame time gvt-a animating mean 0.67 ms, max 6.9 ms). Not run: Windows.
+- 2026-11-26, Jason: "do 1, 2" (walk GIFs from a low close camera; casualties mid-move walk instead of slide). Done: a
+  casualty figure riding its model's move walks it (`PoseGhost` + `PoseWalk`, hook `GhostWalkFrames`; checked in
+  `board-casualty-mid-move`); at most 7 steps a second (`MaxStepsPerSecond`: fast moves take long running strides);
+  showcase scene 15 "A model walks into place"; dev settings `TRENCH_SHOWCASE_PITCH`/`TRENCH_SHOWCASE_DISTANCE`
+  (`BoardView.PicturePitch`). gvt-a 0 failures. Jason does Windows (option 3) at home.
 

@@ -519,6 +519,9 @@ public partial class BoardView : SubViewportContainer
         Changed?.Invoke();
     }
 
+    // Dev pictures only (the walk GIFs, 2026-11-26): a lower camera angle, in degrees above the table; null in play.
+    public float? PicturePitch { get; set; }
+
     // Puts the angled camera at a point (Godot units: x, height, table y), keeping its facing (for the UI check).
     public void PlaceCameraAt(Vector3 at)
     {
@@ -2768,7 +2771,7 @@ public partial class BoardView : SubViewportContainer
             return;
         }
         _camera.Projection = Camera3D.ProjectionType.Perspective;
-        var pitch = Mathf.DegToRad(AngledPitch);
+        var pitch = Mathf.DegToRad(PicturePitch ?? AngledPitch);
         var back = new Vector3(Mathf.Sin(yaw) * Mathf.Cos(pitch), Mathf.Sin(pitch), Mathf.Cos(yaw) * Mathf.Cos(pitch));
         _camera.Position = _target + back * _distance;
         _camera.Rotation = new Vector3(-pitch, yaw, 0);

@@ -926,6 +926,10 @@ public partial class BoardView
     // Walk cycle (2026-11-25): one step is this share of the figure's height (a stride of two steps a cycle).
     public const float StepLength = 0.55f;
 
+    // At most this many steps a second (2026-11-26: moves glide at up to 24" a second; a step per StepLength would be a
+    // blur of legs there).
+    public const float MaxStepsPerSecond = 7f;
+
     // Movement review (2026-11-23): how far a fall has tipped at t (0 to 1 of its time): accelerating down, lying by 80%,
     // then a small rebound and settle, so it lands with weight instead of stopping dead. A rise eases in and out (it used to
     // leave the ground at full speed). Both take the same time as before.
@@ -1473,6 +1477,12 @@ public partial class BoardView
             {
                 yaw = turning.Yaw;
             }
+            // Walk cycle (2026-11-26): it walks its move as the model would, then falls where it halted.
+            if (_stride.TryGetValue(ghost.Model, out var step) && CachedRig(ghost.Root) is { } walker)
+            {
+                PoseWalk(walker, step.Phase, step.Weight);
+                GhostWalkFrames++;
+            }
         }
         else if (ghost.Rides is not null)
         {
@@ -1596,7 +1606,8 @@ public partial class BoardView
                     // Walk cycle (2026-11-25): a figure with a skeleton strides, a step every StepLength of its height; it
                     // rises as its legs pass each other (high when they are together) and settles as they spread.
                     var tall = _lastDrawn.Find(_scene, glide.Model) is { } walker ? StandingHeight(walker) : StandingTall;
-                    var stride = tall * StepLength;
+                    // (No more than MaxStepsPerSecond: a fast move takes long running strides rather than a blur of steps.)
+                    var stride = Math.Max(tall * StepLength, glide.Total / (float)glide.Seconds / MaxStepsPerSecond);
                     var weight = Mathf.Clamp(Mathf.Min((float)t, 1 - (float)t) / 0.15f, 0, 1);
                     _stride[glide.Model] = (travelled / stride * Mathf.Pi, weight);
                     _bob[glide.Model] = StepBob * Mathf.Abs(Mathf.Cos(Mathf.Pi * travelled / stride)) * Mathf.Sin(Mathf.Pi * (float)t);

@@ -166,6 +166,12 @@ public static class AnimationShowcase
                 + "the next model crouches low and digs with dust at its feet; it turns to a friend and leans to it; then straightens up to rally; each settles exactly as it stood",
             [Act(a, ActionStyle.Aim), Shot(false), Act(a, ActionStyle.Reload), Act(c, ActionStyle.Fortify), Act(c, ActionStyle.Treat, b), Act(c, ActionStyle.Rally)],
             Drawn, [], []));
+        seq = 0;
+        // Walk cycle (2026-11-26): a plain move, so the stride can be watched on its own.
+        scenes.Add(new("A model walks into place",
+            "it turns along its way and walks: legs swing in turn, the knee bending as each comes forward, the chest swaying; it stops exactly as it stood",
+            [Line([a.Id], new Motion(a.Id, [pa]))],
+            id => id == a.Id ? new TablePoint(a.X + (a.X - b.X) / apart * 2 * ChargeFrom, a.Y + (a.Y - b.Y) / apart * 2 * ChargeFrom) : Drawn(id), [], []));
         scenes.AddRange(TerrainScenes(table, b, pb, Line));
         return scenes;
     }
