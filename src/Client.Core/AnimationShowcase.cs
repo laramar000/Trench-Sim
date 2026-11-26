@@ -188,7 +188,7 @@ public static class AnimationShowcase
         };
         LogLine Hurt(HitPower power) => Injury(a, b, null) with { Power = power };
         scenes.Add(new("A pistol hit, then a shotgun hit",
-            "the pistol jolts the target: a small knock and a short reel; the shotgun rocks it: knocked further, reeling harder and longer, shoved back a step before it steadies",
+            "the pistol jolts the target: a small recoil of the body; the shotgun rocks it: the body reels harder and longer. The model stays on its spot",
             [Fired(HitPower.Light), Hurt(HitPower.Light), Fired(HitPower.Heavy), Hurt(HitPower.Heavy)], Drawn, [], []) { Watched = b.Id });
         seq = 0;
         // Flamethrowers (2026-11-26): a jet of flame sets the target alight; it burns and reels, standing.
