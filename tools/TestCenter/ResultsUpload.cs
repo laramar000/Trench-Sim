@@ -197,7 +197,8 @@ public static partial class ResultsUpload
         var files = Collect(report.Folder)
             .Select(f => (Path: $"{run}/{f.Relative.Replace('\\', '/')}", Text: Clean(Read(f.Full), repository)))
             .ToList();
-        files.Add(("LATEST.md", $"# Newest test run\n\n[{run}]({run}/report.md): {report.Title}, {report.Verdict}, version {sha}, sent {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC.\n"));
+        files.Add(("LATEST.md", $"# Newest test run\n\n[{run}]({run}/report.md): {report.Title}, {report.Verdict}, version {sha}, sent {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC.\n\n"
+            + $"The {KeepRuns} newest runs are in runs/; older ones are moved to {ArchiveFolder}/ by each upload.\n"));
 
         using var http = Client(key);
         var api = $"https://api.github.com/repos/{Repository}/git";
@@ -210,6 +211,26 @@ public static partial class ResultsUpload
             baseTree = (await Json(await Ok(await http.GetAsync($"{api}/commits/{parent}"))))["tree"]!["sha"]!.GetValue<string>();
         }
         var entries = new JsonArray();
+        // (Jason, 2026-11-26: "just keep the most 5 recent tests and archive older ones ... automatically".) Each run
+        // folder past the newest five moves from runs/ to archive/: the same files, at their new place.
+        var archived = 0;
+        if (baseTree is not null)
+        {
+            var listing = await Json(await Ok(await http.GetAsync($"{api}/trees/{baseTree}?recursive=1")));
+            var blobs = listing["tree"]!.AsArray().Select(e => e!)
+                .Where(e => e["type"]!.GetValue<string>() == "blob")
+                .Select(e => (Path: e["path"]!.GetValue<string>(), Sha: e["sha"]!.GetValue<string>()))
+                .Where(e => e.Path.StartsWith("runs/", StringComparison.Ordinal))
+                .ToList();
+            var names = blobs.Select(b => b.Path.Split('/')[1]).Append(run.Split('/')[1]).Distinct().ToList();
+            var moving = ToArchive(names, run.Split('/')[1]).ToHashSet(StringComparer.Ordinal);
+            foreach (var (path, blobSha) in blobs.Where(b => moving.Contains(b.Path.Split('/')[1])))
+            {
+                entries.Add(new JsonObject { ["path"] = ArchiveFolder + path["runs".Length..], ["mode"] = "100644", ["type"] = "blob", ["sha"] = blobSha });
+                entries.Add(new JsonObject { ["path"] = path, ["mode"] = "100644", ["type"] = "blob", ["sha"] = null });
+            }
+            archived = moving.Count;
+        }
         foreach (var (path, text) in files)
         {
             var blob = await Post(http, $"{api}/blobs", new JsonObject { ["content"] = text, ["encoding"] = "utf-8" });
@@ -237,8 +258,18 @@ public static partial class ResultsUpload
             await Ok(await http.PatchAsync($"{api}/refs/heads/{Branch}", Body(new JsonObject { ["sha"] = made })));
         }
         File.WriteAllText(Path.Combine(report.Folder, "sent-to-github.txt"), $"{Branch}/{run} ({files.Count} files), commit {made}\n");
-        return $"{files.Count} files in {Branch}/{run}";
+        return $"{files.Count} files in {Branch}/{run}" + (archived > 0 ? $"; {archived} older run(s) moved to {ArchiveFolder}/" : "");
     }
+
+    // How many runs stay in runs/, and where older ones go.
+    public const int KeepRuns = 5;
+
+    public const string ArchiveFolder = "archive";
+
+    // The run folders to move to the archive: all but the newest KeepRuns (run folders are named by their time, so newest
+    // sorts last), never the run being sent now.
+    public static List<string> ToArchive(IEnumerable<string> runs, string sending) =>
+        [.. runs.Distinct().OrderByDescending(r => r, StringComparer.Ordinal).Skip(KeepRuns).Where(r => r != sending).OrderBy(r => r, StringComparer.Ordinal)];
 
     // The run's report, its logs and the UI checks' summaries (not the screenshots or Godot's own logs: too large).
     private static IEnumerable<(string Full, string Relative)> Collect(string folder)

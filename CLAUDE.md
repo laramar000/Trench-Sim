@@ -832,3 +832,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   takedown requests via GitHub, no warranty. Not covered (told the owner): the art risk of reference-based figures and
   community-licence base assets. Hand-over from the owner the same day: open items are the upload key (needs Contents
   write), then reading the uploaded full run (def6105) and fixing its failures; m7-client stays behind until his word.
+- 2026-11-26: first upload arrived (test-results: runs/20261126-094921-automated-def6105; no computer, user or folder
+  names in it). Its 4 FAILs: host battlefield-readable (pixel heuristic: seats 0.12 apart, wanted 0.15; seen flaky before,
+  not changed) + host-exit, and pvp-a board-bodies + pvp-a-exit: a body drawn again (RelayBodies) worked its ragdoll fall
+  out afresh (facing then) and lay 0.4" off and turned. Fixed: `BoardView._bodyPose` keeps how each body came to rest
+  (place, holder, bone poses) and LayBody reuses it; cleared by NewMatch, a model back on the table and the showcase.
+  Jason: "keep the most 5 recent tests and archive older ones ... automatically": each upload moves run folders past the
+  newest five from runs/ to archive/ (same blobs, Git Data API; `ResultsUpload.ToArchive`, never the run being sent),
+  checked with a scratch program (8 runs -> 3 oldest moved); not yet run against GitHub.
