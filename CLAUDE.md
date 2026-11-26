@@ -824,3 +824,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Fixed: files are read with FileShare.ReadWrite; U then S resends the newest run from its report.md.
   U then S found nothing in the new download (each option-6 version is a new folder); it now looks in every Trench Sim
   folder beside this one and sends the newest run by its time-named folder (checked on a mock folder layout here).
+  Then U, S reached GitHub: 403 "Resource not accessible by personal access token" on creating a blob = the key has no
+  Contents write on this repository (a key setting, not code). U now tests writing (a tiny blob) before saving a key,
+  and a 403/404 on sending prints where to change the key on GitHub (edit it: repository selected, Contents Read and write).

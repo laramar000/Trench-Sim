@@ -91,6 +91,15 @@ public static partial class ResultsUpload
             Console.WriteLine($"  GitHub did not accept that key ({(int)answer.StatusCode}). Nothing was saved; try again with a new key.");
             return 1;
         }
+        // (2026-11-26: a key that can read but not write was saved and every upload then failed with 403. Writing is
+        // tested here first, with a tiny unreferenced blob that GitHub discards on its own.)
+        var probe = await http.PostAsync($"https://api.github.com/repos/{Repository}/git/blobs", Body(new JsonObject { ["content"] = "Trench Sim upload check", ["encoding"] = "utf-8" }));
+        if (!probe.IsSuccessStatusCode)
+        {
+            Console.WriteLine($"  GitHub says this key cannot write to {Repository} ({(int)probe.StatusCode}). Nothing was saved.");
+            Console.WriteLine(WriteHelp);
+            return 1;
+        }
         Directory.CreateDirectory(Setup.SettingsFolder);
         await File.WriteAllTextAsync(KeyFile, key);
         if (fromClipboard)
@@ -100,6 +109,13 @@ public static partial class ResultsUpload
         Console.WriteLine("  Saved. From now on every run's results go to GitHub by themselves.");
         return 0;
     }
+
+    // What to change when GitHub refuses the key's writes (403 "Resource not accessible by personal access token").
+    private const string WriteHelp =
+        "  The key can read but not write. On GitHub open Settings, Developer settings, Fine-grained tokens, click the key,\n" +
+        "  then Edit: under Repository access choose Only select repositories and pick " + Repository + ";\n" +
+        "  under Repository permissions set Contents to Read and write. Save, then choose U and S here again.\n" +
+        "  (If " + Repository + " is not offered, the key was made under another account than the one that owns it.)";
 
     // What a sent run is made of: its folder, the report's title and verdict, the Trench Sim folder it ran in and the
     // version.
@@ -161,6 +177,10 @@ public static partial class ResultsUpload
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"  Could not send the results to GitHub: {e.Message}");
+            if (e.Message.Contains("answered 403", StringComparison.Ordinal) || e.Message.Contains("answered 404", StringComparison.Ordinal))
+            {
+                Console.WriteLine(WriteHelp);
+            }
             Console.WriteLine("  (Menu option U, then S, sends them again.)");
             Console.ResetColor();
             return false;
