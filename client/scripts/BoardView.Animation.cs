@@ -1015,7 +1015,9 @@ public partial class BoardView
             LungesStarted++;
             return;
         }
-        _knocks.Add(new Knock(beat.Model, start, beat.Seconds, away.Normalized() * FlinchInches, 0.5f));
+        // Hit power (2026-11-26): a pistol knocks it back less than a rifle, a shotgun or a heavy weapon further.
+        var knock = FlinchInches * (beat.Size >= 1 ? (float)HitPowers.Scale(Choreography.PowerOf(beat)) : 1f);
+        _knocks.Add(new Knock(beat.Model, start, beat.Seconds, away.Normalized() * knock, 0.5f));
         FlinchesStarted++;
     }
 

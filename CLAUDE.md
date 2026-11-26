@@ -780,4 +780,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Full UI runner at 43aa052: 439 PASS, 0 FAIL (frame time gvt-a animating mean 0.68 ms, max 7.1 ms). Quality pass on the
   tower map (`TRENCH_DEV=deploy,showcase,ragdolls,walks --scenario ranged-towers`): showcase 21/21, dev-ragdolls 27/27,
   dev-walks 6/6, failures 0; the only engine error is the sandbox's missing ALSA sound device (harmless). Not run: Windows.
+- 2026-11-26, Jason: "tune the hit reactions ... a rocket launcher or an explosive would send them a lot farther than a
+  pistol or a blunt weapon". Done (docs/client.md "Hit power"): `HitPowers` (Light pistol/plain hand weapon, Firm rifle,
+  Heavy shotgun/HEAVY/+2 injury, Explosive grenade/BLAST/mine/Martyrdom, DEADLY +1), `LogLine.Power`; scales the flinch,
+  the ragdoll throw and the wound reel (angles, length, a shove back for Heavy and Explosive); showcase scene 16. No web
+  research needed (ranked from the weapons' rules keywords). hotseat group: only the known banner flake failed.
 

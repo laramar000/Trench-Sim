@@ -69,9 +69,12 @@ public static class AnimationShowcase
         {
             Effects = [new(EffectKind.MuzzleFlash, a.Id), new(hit ? EffectKind.HitPuff : EffectKind.DirtPuff, b.Id)],
             Fx = thrown ? new BattleFx(true, null, [], []) : BattleFx.None,
+            Power = thrown ? HitPower.Explosive : null,
         };
         LogLine Injury(ModelShape by, ModelShape on, ModelStatus? to, params MarkerStyle[] markers) => Line([by.Id, on.Id]) with
         {
+            // Hit power (2026-11-26): a marker burst comes with a blast here (a grenade's or a shell's).
+            Power = markers.Length > 0 ? HitPower.Explosive : null,
             Changes = to is { } status ? [new StatusChange(on.Id, ModelStatus.Standing, status, At(on))] : [],
             // Hit reactions (2026-11-26): a hit that leaves it standing gives it a BLOOD MARKER: it reels.
             Wounded = to is null ? [on.Id] : [],
@@ -176,6 +179,17 @@ public static class AnimationShowcase
         scenes.Add(new("A shot wounds its target but leaves it standing",
             "flash, tracer, red puff; as the dice show a Blood Marker the target's trunk snaps back away from the shooter, its head jerks, and it recovers its stance",
             [Shot(true), Injury(a, b, null)], Drawn, [], []) { Watched = b.Id });
+        seq = 0;
+        // Hit power (2026-11-26): the same target shot by a pistol, then by a shotgun.
+        LogLine Fired(HitPower power) => Line([a.Id, b.Id]) with
+        {
+            Effects = [new(EffectKind.MuzzleFlash, a.Id), new(EffectKind.HitPuff, b.Id)],
+            Power = power,
+        };
+        LogLine Hurt(HitPower power) => Injury(a, b, null) with { Power = power };
+        scenes.Add(new("A pistol hit, then a shotgun hit",
+            "the pistol jolts the target: a small knock and a short reel; the shotgun rocks it: knocked further, reeling harder and longer, shoved back a step before it steadies",
+            [Fired(HitPower.Light), Hurt(HitPower.Light), Fired(HitPower.Heavy), Hurt(HitPower.Heavy)], Drawn, [], []) { Watched = b.Id });
         seq = 0;
         // Walk cycle (2026-11-26): a plain move, so the stride can be watched on its own.
         scenes.Add(new("A model walks into place",

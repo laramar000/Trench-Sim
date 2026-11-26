@@ -442,7 +442,7 @@ public partial class BoardView
     // away from whoever hurt it (the shoulders turning a little with it), the head jerks further, then it recovers its
     // own stance; quick out (the first sixth), slower back. Without a skeleton the figure is
     // knocked back a little instead. Display only.
-    private sealed record Wound(ModelId Model, double Start, double Seconds, Vector3 Away);
+    private sealed record Wound(ModelId Model, double Start, double Seconds, Vector3 Away, HitPower Power);
 
     private readonly List<Wound> _wounds = [];
 
@@ -450,10 +450,24 @@ public partial class BoardView
     public const float WoundHeadDegrees = 12f;
     public const float WoundTwistDegrees = 7f;
 
+    // Hit power (2026-11-26, "a rocket launcher or an explosive would send them a lot farther than a pistol or a blunt
+    // weapon"): how far each power reels the trunk, jerks the head and turns the shoulders (degrees), and how far it
+    // shoves the whole model back before it steadies (inches; back on its own place by the end: the server's position).
+    // A pistol or a club jolts; a rifle rocks; a shotgun or a heavy weapon staggers it back; a blast throws it back hard.
+    public static (float Trunk, float Head, float Twist, float Shove) WoundOf(HitPower power) => power switch
+    {
+        HitPower.Light => (9f, 7f, 4f, 0f),
+        HitPower.Heavy => (23f, 15f, 9f, 0.22f),
+        HitPower.Explosive => (30f, 18f, 12f, 0.45f),
+        _ => (WoundTrunkDegrees, WoundHeadDegrees, WoundTwistDegrees, 0f),
+    };
+
     // For the UI check: wounds started, and the most the trunk was seen reeling (degrees).
     public int WoundsStarted { get; private set; }
 
     public float WoundReelSeen { get; private set; }
+
+    public HitPower? LastWoundPower { get; private set; }
 
     private void StartWound(Beat beat, double start)
     {
@@ -467,16 +481,24 @@ public partial class BoardView
         {
             away = new Vector3(at.X - from.X, 0, at.Z - from.Z).Normalized();
         }
+        var power = Choreography.PowerOf(beat);
+        var shove = WoundOf(power).Shove;
         if (WalkingRig(beat.Model) is null)
         {
-            // No skeleton: a small knock back and in again.
-            _knocks.Add(new Knock(beat.Model, start, beat.Seconds, away * FlinchInches * 0.6f, 0.2f));
+            // No skeleton: a knock back and in again, as hard as the hit.
+            _knocks.Add(new Knock(beat.Model, start, beat.Seconds, away * Math.Max(FlinchInches * 0.6f * (float)HitPowers.Scale(power), shove), 0.2f));
         }
         else
         {
-            _wounds.Add(new Wound(beat.Model, start, beat.Seconds, away));
+            _wounds.Add(new Wound(beat.Model, start, beat.Seconds, away, power));
+            if (shove > 0)
+            {
+                // A heavy hit or a blast staggers the whole model back, then it steadies on its own place.
+                _knocks.Add(new Knock(beat.Model, start, beat.Seconds, away * shove, 0.22f));
+            }
         }
         WoundsStarted++;
+        LastWoundPower = power;
     }
 
     // How far into the reel at t (0 to 1 of its time): out fast, back slowly, exactly 0 at both ends.
@@ -515,7 +537,7 @@ public partial class BoardView
             }
             if (t > 0 && !_walking.Contains(wound.Model))
             {
-                PoseWound(rig, wound.Away, WoundCurve(t));
+                PoseWound(rig, wound.Away, WoundCurve(t), WoundOf(wound.Power));
             }
         }
     }
@@ -532,7 +554,7 @@ public partial class BoardView
         _wounds.Clear();
     }
 
-    private void PoseWound(RagdollRig rig, Vector3 away, float k)
+    private void PoseWound(RagdollRig rig, Vector3 away, float k, (float Trunk, float Head, float Twist, float Shove) size)
     {
         var s = rig.Skeleton;
         var count = s.GetBoneCount();
@@ -571,12 +593,12 @@ public partial class BoardView
                 }
             }
         }
-        var reel = Mathf.DegToRad(WoundTrunkDegrees) * k;
+        var reel = Mathf.DegToRad(size.Trunk) * k;
         // The trunk from the chest up snaps back (the top moves away), the shoulders turn a little with it.
-        Turn(rig.Chest, pose[rig.Chest].Origin, new Basis(axis, reel) * new Basis(Vector3.Up, Mathf.DegToRad(WoundTwistDegrees) * k));
+        Turn(rig.Chest, pose[rig.Chest].Origin, new Basis(axis, reel) * new Basis(Vector3.Up, Mathf.DegToRad(size.Twist) * k));
         // The head jerks further.
         var neck = rig.Joint[(int)RagdollJoint.Neck];
-        Turn(neck, pose[neck].Origin, new Basis(axis, Mathf.DegToRad(WoundHeadDegrees) * k));
+        Turn(neck, pose[neck].Origin, new Basis(axis, Mathf.DegToRad(size.Head) * k));
         foreach (var bone in rig.Order)
         {
             s.SetBoneGlobalPose(bone, pose[bone]);

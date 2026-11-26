@@ -62,6 +62,11 @@ public static class RagdollImpacts
                     var same = beats.Where(b => b.Seq == beat.Seq && b.Model == beat.Model).ToList();
                     var (strength, high) = same.Any(b => b.Kind == BeatKind.Impact) ? (Charge, ChargeHigh)
                         : same.Any(b => b.Kind == BeatKind.Strike) ? (Blow, BlowHigh) : (Shot, ChestHigh);
+                    // Hit power (2026-11-26): a pistol throws less than a rifle, a shotgun or a heavy weapon more.
+                    if (beat.Size >= 1)
+                    {
+                        strength *= HitPowers.Scale(Choreography.PowerOf(beat));
+                    }
                     var (dx, dy) = Away(Where(beat.Model), Where(by), beat.Model);
                     Take(beat.Model, new RagdollImpact(beat.Start, dx, dy, strength, 0, high));
                     break;

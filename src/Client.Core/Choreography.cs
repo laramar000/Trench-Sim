@@ -153,8 +153,26 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
     // Animation suite (2026-11-25): a shooter's recoil, and how long each ACTION plays (what follows waits for it).
     public const double RecoilSeconds = 0.18;
 
-    // Hit reactions (2026-11-26): how long a wounded model reels and recovers (what follows does not wait for it).
+    // Hit reactions (2026-11-26): how long a wounded model reels and recovers (what follows does not wait for it), for a
+    // Firm hit; a lighter hit is over sooner, a heavier one or a blast rocks it longer.
     public const double WoundSeconds = 0.5;
+
+    public static double WoundSecondsFor(HitPower power) => power switch
+    {
+        HitPower.Light => 0.4,
+        HitPower.Heavy => 0.65,
+        HitPower.Explosive => 0.8,
+        _ => WoundSeconds,
+    };
+
+    // Hit power (2026-11-26): a Flinch's and a Wound's Size carry the hit's power (HitPower + 1; 0 not known: Firm).
+    public static double PowerSize(HitPower? power) => power is { } p ? (int)p + 1 : 0;
+
+    public static HitPower PowerOf(Beat beat)
+    {
+        ArgumentNullException.ThrowIfNull(beat);
+        return beat.Size >= 1 ? (HitPower)Math.Clamp((int)beat.Size - 1, 0, 3) : HitPower.Firm;
+    }
     public const double BraceSeconds = 0.5;
     public const double DigInSeconds = 0.7;
     public const double RallySeconds = 0.6;
@@ -383,7 +401,8 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
                 foreach (var hurt in line.Wounded)
                 {
                     var hurter = line.Models?.FirstOrDefault(m => m != hurt);
-                    beats.Add(new(line.Seq, BeatKind.Wound, at, WoundSeconds, hurt, hurter is { } h && h != default ? h : null, true));
+                    var power = line.Power ?? HitPower.Firm;
+                    beats.Add(new(line.Seq, BeatKind.Wound, at, WoundSecondsFor(power), hurt, hurter is { } h && h != default ? h : null, true, Size: PowerSize(power)));
                 }
                 continue;
             }
@@ -425,7 +444,7 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
             beats.Add(new(line.Seq, hit ? BeatKind.HitPuff : BeatKind.DirtPuff, landed, hit ? HitPuffSeconds : DirtPuffSeconds, puff.At, attacker, hit));
             if (hit && attacker is { } by)
             {
-                beats.Add(new(line.Seq, BeatKind.Flinch, landed, FlinchSeconds, puff.At, by, hit));
+                beats.Add(new(line.Seq, BeatKind.Flinch, landed, FlinchSeconds, puff.At, by, hit, Size: PowerSize(line.Power)));
             }
             cues.Add(new(line, landed));
             // A grenade's blast (its next event) goes off where it lands, without the pause after a shot.

@@ -29,11 +29,11 @@ public class AnimationShowcaseTests
     private static ShowcaseScene Titled(string start) => Scenes().Single(s => s.Title.StartsWith(start, StringComparison.Ordinal));
 
     [Fact]
-    public void SixteenScenesEachNamingOnlyModelsOnTheTable()
+    public void SeventeenScenesEachNamingOnlyModelsOnTheTable()
     {
         var table = Table();
         var scenes = AnimationShowcase.Scenes(table);
-        Assert.Equal(16, scenes.Count(s => s.Focus is null));
+        Assert.Equal(17, scenes.Count(s => s.Focus is null));
         Assert.Equal(scenes.Count, scenes.Select(s => s.Title).Distinct().Count());
         var ids = table.Models.Select(m => m.Id).ToHashSet();
         foreach (var scene in scenes)
@@ -211,5 +211,13 @@ public class AnimationShowcaseTests
         var wound = Assert.Single(scene.Plan(AnimationSpeed.Full).Beats, b => b.Kind == BeatKind.Wound);
         Assert.NotNull(wound.Other);
         Assert.DoesNotContain(scene.Plan(AnimationSpeed.Full).Beats, b => b.Kind is BeatKind.Fall or BeatKind.Casualty);
+    }
+
+    [Fact]
+    public void APistolHitIsLighterThanAShotgunHit()
+    {
+        var wounds = Titled("A pistol hit").Plan(AnimationSpeed.Full).Beats.Where(b => b.Kind == BeatKind.Wound).ToList();
+        Assert.Equal([HitPower.Light, HitPower.Heavy], wounds.Select(Choreography.PowerOf));
+        Assert.True(wounds[0].Seconds < wounds[1].Seconds);
     }
 }

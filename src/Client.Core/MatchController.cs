@@ -61,6 +61,9 @@ public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<U
     // Hit reactions (2026-11-26): the models this event gave a BLOOD MARKER and left standing (StatusTracker.Wounded).
     public IReadOnlyList<ModelId> Wounded { get; init; } = [];
 
+    // Hit power (2026-11-26): how hard the attack this event is part of lands (HitPowers), or null outside one.
+    public HitPower? Power { get; init; }
+
     // Animation stage A4: its explosions, thrown grenade, attack at a point and SHRAPNEL, GAS or FIRE markers (none for most).
     public BattleFx Fx { get; init; } = BattleFx.None;
 }
@@ -533,6 +536,7 @@ public sealed class MatchController : IAsyncDisposable
             Effects = EffectCues.Of(e),
             Changes = _statuses.Next(state),
             Wounded = _statuses.Wounded,
+            Power = HitPowers.Of(e, state.Setup, _resolutions.ActionAt(seq)?.Actor, _resolutions.AttackAt(seq).Kind, _resolutions.AttackAt(seq).Weapon),
             Fx = _battle.Next(e, state, _resolutions.AttackAt(seq).Kind, _resolutions.AttackAt(seq).Weapon),
         };
     }

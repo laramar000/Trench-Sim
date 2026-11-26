@@ -3735,25 +3735,33 @@ public partial class UiCheck : Node
         // Hit reactions (2026-11-26): a made-up hit that gives b a Blood Marker and leaves it standing: its trunk reels
         // back (a figure with a skeleton) and it ends exactly at rest.
         var woundsBefore = board.WoundsStarted;
-        var shotAt = new LogLine(0, "", null, Models: [a.Id, b.Id]) { Effects = [new(EffectKind.MuzzleFlash, a.Id), new(EffectKind.HitPuff, b.Id)] };
-        var wounding = new LogLine(0, "", null, Models: [a.Id, b.Id]) { Wounded = [b.Id] };
-        board.PlayForCheck(Choreography.Of([shotAt, wounding], Drawn, AnimationSpeed.Full));
-        var reelSeen = 0f;
-        for (var i = 0; i < 400 && board.Gliding; i++)
+        // Hit power (2026-11-26): a pistol wound, then a blast wound: the blast reels the trunk harder.
+        var reels = new List<float>();
+        var reeledBack = true;
+        foreach (var power in new[] { HitPower.Light, HitPower.Explosive })
         {
-            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-            reelSeen = Math.Max(reelSeen, board.TiltOf(b.Id)?.Tilt ?? 0);
+            var shotAt = new LogLine(0, "", null, Models: [a.Id, b.Id]) { Effects = [new(EffectKind.MuzzleFlash, a.Id), new(EffectKind.HitPuff, b.Id)], Power = power };
+            var wounding = new LogLine(0, "", null, Models: [a.Id, b.Id]) { Wounded = [b.Id], Power = power };
+            board.PlayForCheck(Choreography.Of([shotAt, wounding], Drawn, AnimationSpeed.Full));
+            var reelSeen = 0f;
+            for (var i = 0; i < 400 && board.Gliding; i++)
+            {
+                await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+                reelSeen = Math.Max(reelSeen, board.TiltOf(b.Id)?.Tilt ?? 0);
+            }
+            await Frames(2);
+            reeledBack &= board.TiltOf(b.Id) is { Tilt: < 0.02f } && !board.Gliding && board.DrawnAt(b.Id) is { } home && Math.Abs(home.X - b.X) < 0.01f && Math.Abs(home.Y - b.Y) < 0.01f;
+            reels.Add(reelSeen);
         }
-        await Frames(2);
-        var reeledBack = board.TiltOf(b.Id) is { Tilt: < 0.02f } && !board.Gliding;
-        // (Measured hips to neck: the chest turns 16 degrees above the hips, so the trunk as a whole leans about half that.)
-        var reeled = board.WoundsStarted == woundsBefore + 1 && (board.LegSwing(b.Id) is null || reelSeen > 0.08f) && reeledBack;
+        // (Measured hips to neck: the chest turns above the hips, so the trunk as a whole leans about half the turn.)
+        var skeleton = board.LegSwing(b.Id) is not null;
+        var reeled = board.WoundsStarted == woundsBefore + 2 && (!skeleton || (reels[0] > 0.04f && reels[1] > reels[0] * 1.5f)) && reeledBack;
         ok &= reeled;
-        report.Add($"wound: reel started {board.WoundsStarted - woundsBefore}, trunk reeled up to {reelSeen:0.00} rad, back at rest {reeledBack}");
+        report.Add($"wound: reels started {board.WoundsStarted - woundsBefore} (2), trunk reeled {reels[0]:0.00} rad by a pistol, {reels[1]:0.00} rad by a blast, back at rest on its place {reeledBack}");
         board.Animation = speed;
-        // (Two shots: the gesture run's and the wound's.)
-        ok &= board.GesturesStarted - gestures == 3 && board.RecoilsStarted - recoils == 2;
-        Check("hotseat-action-gestures", ok, $"{string.Join("; ", report)}; gestures {board.GesturesStarted - gestures} (3), recoils {board.RecoilsStarted - recoils} (2)");
+        // (Three shots: the gesture run's and the two wounds'.)
+        ok &= board.GesturesStarted - gestures == 3 && board.RecoilsStarted - recoils == 3;
+        Check("hotseat-action-gestures", ok, $"{string.Join("; ", report)}; gestures {board.GesturesStarted - gestures} (3), recoils {board.RecoilsStarted - recoils} (3)");
     }
 
     // Explosion review (hotseat-blasts-see-through, 2026-11-23): a blast reads as a burst, not a blob over the models. A
