@@ -1,0 +1,22 @@
+dotnet build <repo>\TrenchSim.sln -c Debug -warnaserror -nodeReuse:false -p:UseSharedCompilation=false
+
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Roster -> <repo>\src\Roster\bin\Debug\net10.0\Roster.dll
+  Rules.Core -> <repo>\src\Rules.Core\bin\Debug\net10.0\Rules.Core.dll
+  Match.Protocol -> <repo>\src\Match.Protocol\bin\Debug\net10.0\Match.Protocol.dll
+  Sim -> <repo>\src\Sim\bin\Debug\net10.0\Sim.dll
+  Match.Client -> <repo>\src\Match.Client\bin\Debug\net10.0\Match.Client.dll
+  Match.Cli -> <repo>\src\Match.Cli\bin\Debug\net10.0\trench-cli.dll
+  Client.Core -> <repo>\src\Client.Core\bin\Debug\net10.0\Client.Core.dll
+  Match.Server -> <repo>\src\Match.Server\bin\Debug\net10.0\Match.Server.dll
+  Roster.Tests -> <repo>\tests\Roster.Tests\bin\Debug\net10.0\Roster.Tests.dll
+  Rules.Tests -> <repo>\tests\Rules.Tests\bin\Debug\net10.0\Rules.Tests.dll
+  Server.Tests -> <repo>\tests\Server.Tests\bin\Debug\net10.0\Server.Tests.dll
+  Client.Tests -> <repo>\tests\Client.Tests\bin\Debug\net10.0\Client.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:09.86
