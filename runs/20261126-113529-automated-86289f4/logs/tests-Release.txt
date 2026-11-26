@@ -1,0 +1,18 @@
+dotnet test <repo>\TrenchSim.sln -c Release --no-build
+
+Test run for <repo>\tests\Rules.Tests\bin\Release\net10.0\Rules.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for <repo>\tests\Server.Tests\bin\Release\net10.0\Server.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for <repo>\tests\Client.Tests\bin\Release\net10.0\Client.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for <repo>\tests\Roster.Tests\bin\Release\net10.0\Roster.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   159, Skipped:     0, Total:   159, Duration: 481 ms - Roster.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:  1054, Skipped:     0, Total:  1054, Duration: 42 s - Rules.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:   503, Skipped:     0, Total:   503, Duration: 43 s - Server.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:   675, Skipped:     0, Total:   675, Duration: 51 s - Client.Tests.dll (net10.0)

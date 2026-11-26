@@ -1,0 +1,33 @@
+dotnet build <repo>\TrenchSim.sln -c Debug -warnaserror -nodeReuse:false -p:UseSharedCompilation=false
+
+  Determining projects to restore...
+  Restored <repo>\src\Sim\Sim.csproj (in 83 ms).
+  Restored <repo>\src\Match.Cli\Match.Cli.csproj (in 84 ms).
+  Restored <repo>\src\Roster\Roster.csproj (in 81 ms).
+  Restored <repo>\src\Rules.Core\Rules.Core.csproj (in 81 ms).
+  Restored <repo>\src\Match.Protocol\Match.Protocol.csproj (in 83 ms).
+  Restored <repo>\src\Match.Client\Match.Client.csproj (in 83 ms).
+  Restored <repo>\src\Match.Server\Match.Server.csproj (in 84 ms).
+  Restored <repo>\src\Client.Core\Client.Core.csproj (in 84 ms).
+  Restored <repo>\tests\Roster.Tests\Roster.Tests.csproj (in 702 ms).
+  Restored <repo>\tests\Rules.Tests\Rules.Tests.csproj (in 703 ms).
+  Restored <repo>\tests\Client.Tests\Client.Tests.csproj (in 703 ms).
+  Restored <repo>\tests\Server.Tests\Server.Tests.csproj (in 703 ms).
+  Roster -> <repo>\src\Roster\bin\Debug\net10.0\Roster.dll
+  Rules.Core -> <repo>\src\Rules.Core\bin\Debug\net10.0\Rules.Core.dll
+  Roster.Tests -> <repo>\tests\Roster.Tests\bin\Debug\net10.0\Roster.Tests.dll
+  Match.Protocol -> <repo>\src\Match.Protocol\bin\Debug\net10.0\Match.Protocol.dll
+  Sim -> <repo>\src\Sim\bin\Debug\net10.0\Sim.dll
+  Match.Client -> <repo>\src\Match.Client\bin\Debug\net10.0\Match.Client.dll
+  Rules.Tests -> <repo>\tests\Rules.Tests\bin\Debug\net10.0\Rules.Tests.dll
+  Match.Server -> <repo>\src\Match.Server\bin\Debug\net10.0\Match.Server.dll
+  Match.Cli -> <repo>\src\Match.Cli\bin\Debug\net10.0\trench-cli.dll
+  Client.Core -> <repo>\src\Client.Core\bin\Debug\net10.0\Client.Core.dll
+  Server.Tests -> <repo>\tests\Server.Tests\bin\Debug\net10.0\Server.Tests.dll
+  Client.Tests -> <repo>\tests\Client.Tests\bin\Debug\net10.0\Client.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:17.77

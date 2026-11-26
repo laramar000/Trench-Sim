@@ -1,0 +1,6 @@
+dotnet test <repo>\tests\Client.Tests -c Debug --no-build --filter FullyQualifiedName~ClientAuthorityTest|FullyQualifiedName~ClientProjectTest
+
+Test run for <repo>\tests\Client.Tests\bin\Debug\net10.0\Client.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    24, Skipped:     0, Total:    24, Duration: 8 s - Client.Tests.dll (net10.0)
