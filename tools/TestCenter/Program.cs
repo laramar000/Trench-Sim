@@ -79,7 +79,7 @@ public static class Program
             Console.WriteLine("    3  Check the Godot editor       you press Build and Play when asked");
             Console.WriteLine("    4  Check a finished match       verifies the latest match's record");
             Console.WriteLine("    5  Clean up                     stops anything a test left running");
-            Console.WriteLine("    6  Get the newest version       downloads it and opens its test center");
+            Console.WriteLine("    6  Get the newest version       downloads the newest work (any branch), opens its test center");
             Console.WriteLine("    7  Play Trenches                opens the game on its main menu");
             Console.WriteLine("    8  Run the full tests           adds Release and the UI checks; about 15-25 minutes");
             Console.WriteLine("    9  Animation showcase           watch every animation close up; F5 again, F6 next");
@@ -157,7 +157,8 @@ public static class Program
         return still.Count == 0 ? 0 : 1;
     }
 
-    // Downloads the newest version of this branch next to this one and opens its test center (Windows).
+    // Downloads the newest version (the most recently updated working branch, Get-TrenchSim.ps1) next to this one and opens
+    // its test center (Windows).
     private static bool Update(Setup setup)
     {
         if (!OperatingSystem.IsWindows())

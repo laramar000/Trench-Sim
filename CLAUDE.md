@@ -796,3 +796,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   xvfb): essentials 2,391/0; hotseat group 0 failures. Jason's Windows Test Center run that day (417 PASS, 7 FAIL, all
   host window: menu, corner icons, log drawer, unit card, rules/gaps buttons) was on a ZIP of d042dd7 (2026-11-17), not
   this branch: to be rerun on the current branch before reading anything into it.
+- 2026-11-26, Jason: "always make it so get the newest version through the test center by entering 6". Done: Test
+  Center option 6 (`tools/TestCenter/Get-TrenchSim.ps1`) no longer fetches m7-client only: it picks the working branch
+  (m7-client, main, claude/*) with the newest commit on GitHub and says which; `-Branch <name>` still forces one. The
+  one-line installer in docs/testing.md now reads the script from this branch (m7-client's copy is the old one). Not run:
+  PowerShell (none here); Jason's d042dd7 folder still has the old option 6, so it needs the one-liner once.

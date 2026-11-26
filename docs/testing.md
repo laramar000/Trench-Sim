@@ -9,12 +9,14 @@ windows, connects them, finds the match's record, verifies it and writes a repor
 Open **PowerShell** (Start menu, type `PowerShell`, press Enter), paste this line and press Enter:
 
 ```powershell
-irm https://raw.githubusercontent.com/laramar000/Trench-Sim/m7-client/tools/TestCenter/Get-TrenchSim.ps1 | iex
+irm https://raw.githubusercontent.com/laramar000/Trench-Sim/claude/adoring-hamilton-s5yohc/tools/TestCenter/Get-TrenchSim.ps1 | iex
 ```
 
 It downloads the newest version into `%USERPROFILE%\TrenchSim\Trench-Sim-<version>`, offers to install the .NET 10 SDK if
 it is missing, puts a **Test Trench Sim** shortcut on your desktop and opens the test center. Later, menu option 6 gets
-the newest version the same way. (Already have a Trench Sim folder? Double-click **Test Trench Sim** in it.)
+the newest version the same way. "Newest" means the working branch updated most recently on GitHub (m7-client, main or
+any claude/ branch), whichever it is; the window says which branch and version it picked (since 2026-11-26; before, option 6
+always took m7-client). A folder downloaded before that still has the old option 6: get the new one once with the line above. (Already have a Trench Sim folder? Double-click **Test Trench Sim** in it.)
 
 Godot 4.7.2 (.NET edition) is found by itself in your Downloads, Desktop or Documents folder. If it is not there, the test
 center offers to download it, or you can drag the Godot program into its window. It remembers the choice.
