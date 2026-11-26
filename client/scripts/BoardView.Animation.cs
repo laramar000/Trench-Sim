@@ -1117,10 +1117,19 @@ public partial class BoardView
             LungesStarted++;
             return;
         }
-        // Hit power (2026-11-26): a pistol knocks it back less than a rifle, a shotgun or a heavy weapon further.
+        FlinchesStarted++;
+        // Hit recoil (2026-11-26, "when the model is hit I dont want the entire model to move just have them recoil"): a
+        // figure with a skeleton recoils in its body only (the trunk and head snap back from the hit, as hard as the hit),
+        // its base and place untouched.
+        if (WalkingRig(beat.Model) is not null)
+        {
+            _wounds.Add(new Wound(beat.Model, start, beat.Seconds, away.Normalized(), Choreography.PowerOf(beat), FlinchRecoil));
+            RecoilPosesStarted++;
+            return;
+        }
+        // No skeleton: a small knock back and in again (a pistol less than a rifle, a shotgun or a heavy weapon further).
         var knock = FlinchInches * (beat.Size >= 1 ? (float)HitPowers.Scale(Choreography.PowerOf(beat)) : 1f);
         _knocks.Add(new Knock(beat.Model, start, beat.Seconds, away.Normalized() * knock, 0.5f));
-        FlinchesStarted++;
     }
 
     // The facing from one table point to another (the yaw the figure holder is drawn with).

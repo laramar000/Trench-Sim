@@ -789,4 +789,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   "Shotgun falloff", "Flamethrowers"): `HitPowers.ShotgunAt` (point blank Explosive ... edge of range Light, by base-edge
   distance over range); `LogLine.Flame` + `BeatKind.Flame` (a jet of flame bursts, no tracer or recoil); FIRE marker burns
   1.4 s with flames climbing the body and smoke (`Later`, dropped by a skip); showcase scene 17.
-
+- 2026-11-26, Jason: "when the model is hit I dont want the entire model to move just have them recoil". Done: a hit's
+  flinch on a figure with a skeleton is a body-only recoil (the wound reel at 0.6 of its size over 0.2 s, `FlinchRecoil`,
+  hook `RecoilPosesStarted`); the wound's whole-model shove for Heavy and Explosive hits is gone; only a figure without a
+  skeleton is still knocked. UI check `hotseat-action-gestures` now also checks the model moved 0.000". Checks (Linux,
+  xvfb): essentials 2,391/0; hotseat group 0 failures. Jason's Windows Test Center run that day (417 PASS, 7 FAIL, all
+  host window: menu, corner icons, log drawer, unit card, rules/gaps buttons) was on a ZIP of d042dd7 (2026-11-17), not
+  this branch: to be rerun on the current branch before reading anything into it.

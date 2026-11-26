@@ -3738,6 +3738,8 @@ public partial class UiCheck : Node
         // Hit power (2026-11-26): a pistol wound, then a blast wound: the blast reels the trunk harder.
         var reels = new List<float>();
         var reeledBack = true;
+        var driftSeen = 0f;
+        var recoilPoses = board.RecoilPosesStarted;
         foreach (var power in new[] { HitPower.Light, HitPower.Explosive })
         {
             var shotAt = new LogLine(0, "", null, Models: [a.Id, b.Id]) { Effects = [new(EffectKind.MuzzleFlash, a.Id), new(EffectKind.HitPuff, b.Id)], Power = power };
@@ -3748,6 +3750,11 @@ public partial class UiCheck : Node
             {
                 await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
                 reelSeen = Math.Max(reelSeen, board.TiltOf(b.Id)?.Tilt ?? 0);
+                // (2026-11-26: the body recoils, the model itself never leaves its place.)
+                if (board.LegSwing(b.Id) is not null && board.DrawnAt(b.Id) is { } now)
+                {
+                    driftSeen = Math.Max(driftSeen, new Vector2(now.X - (float)b.X, now.Y - (float)b.Y).Length());
+                }
             }
             await Frames(2);
             reeledBack &= board.TiltOf(b.Id) is { Tilt: < 0.02f } && !board.Gliding && board.DrawnAt(b.Id) is { } home && Math.Abs(home.X - b.X) < 0.01f && Math.Abs(home.Y - b.Y) < 0.01f;
@@ -3755,9 +3762,10 @@ public partial class UiCheck : Node
         }
         // (Measured hips to neck: the chest turns above the hips, so the trunk as a whole leans about half the turn.)
         var skeleton = board.LegSwing(b.Id) is not null;
-        var reeled = board.WoundsStarted == woundsBefore + 2 && (!skeleton || (reels[0] > 0.04f && reels[1] > reels[0] * 1.5f)) && reeledBack;
+        var stayed = !skeleton || (driftSeen < 0.005f && board.RecoilPosesStarted - recoilPoses == 2);
+        var reeled = board.WoundsStarted == woundsBefore + 2 && (!skeleton || (reels[0] > 0.04f && reels[1] > reels[0] * 1.5f)) && reeledBack && stayed;
         ok &= reeled;
-        report.Add($"wound: reels started {board.WoundsStarted - woundsBefore} (2), trunk reeled {reels[0]:0.00} rad by a pistol, {reels[1]:0.00} rad by a blast, back at rest on its place {reeledBack}");
+        report.Add($"wound: reels started {board.WoundsStarted - woundsBefore} (2), body recoils on the hit {board.RecoilPosesStarted - recoilPoses} (2), trunk reeled {reels[0]:0.00} rad by a pistol, {reels[1]:0.00} rad by a blast, model moved at most {driftSeen:0.000}\", back at rest on its place {reeledBack}");
         board.Animation = speed;
         // (Three shots: the gesture run's and the two wounds'.)
         ok &= board.GesturesStarted - gestures == 3 && board.RecoilsStarted - recoils == 3;

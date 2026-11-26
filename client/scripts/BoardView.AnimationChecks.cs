@@ -198,6 +198,9 @@ public partial class BoardView
     // How many flinches were shown (for the UI check).
     public int FlinchesStarted { get; private set; }
 
+    // For the UI check (2026-11-26): hits that recoiled in the body only (a figure with a skeleton; nothing moved it).
+    public int RecoilPosesStarted { get; private set; }
+
     // The casualty figures in the battlefield now (for the UI check: none once they have gone).
     public int CasualtyNodes => _effects.GetChildren().Count(c => c.Name.ToString().StartsWith("Casualty", StringComparison.Ordinal) && !c.IsQueuedForDeletion());
 
