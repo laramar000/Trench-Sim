@@ -840,3 +840,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Jason: "keep the most 5 recent tests and archive older ones ... automatically": each upload moves run folders past the
   newest five from runs/ to archive/ (same blobs, Git Data API; `ResultsUpload.ToArchive`, never the run being sent),
   checked with a scratch program (8 runs -> 3 oldest moved); not yet run against GitHub.
+- 2026-11-26: second upload (86289f4; option 6 then 8): Windows UI 440 PASS / 2 FAIL, archiving line in LATEST.md works.
+  Body redraw now alike (the _bodyPose fix holds). New: pvp-a board-bodies a4 not lying (tilt 0.76 rad, hips 0.66" up,
+  0.2" from the obj-5 sandbag wall, melee). Not reproduced here with the test skeleton (falls by the bags, against an
+  adjacent base, and Down poses all end flat). board-bodies now accepts a body slumped on cover (a joint within 0.3" of
+  what is under it, neck or head propped on something over 0.2" high, tilt from 0.5; `BoardView.BodySupport`) and a
+  failure now prints support, "Down before" and "bases beside" (`BodyHistory`) to find the cause. gvt-a run 0 failures
+  (no casualty that match).
