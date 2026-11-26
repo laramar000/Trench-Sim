@@ -436,5 +436,152 @@ public partial class BoardView
             s.SetBoneGlobalPose(bone, pose[bone]);
         }
     }
+
+    // Hit reactions (Jason, 2026-11-26: "an animation for when a unit takes a hit but doesn't die ... nothing too over the
+    // top"): a model that takes a BLOOD MARKER and stays standing reels from the blow on its skeleton: the trunk snaps back
+    // away from whoever hurt it (the shoulders turning a little with it), the head jerks further, then it recovers its
+    // own stance; quick out (the first sixth), slower back. Without a skeleton the figure is
+    // knocked back a little instead. Display only.
+    private sealed record Wound(ModelId Model, double Start, double Seconds, Vector3 Away);
+
+    private readonly List<Wound> _wounds = [];
+
+    public const float WoundTrunkDegrees = 16f;
+    public const float WoundHeadDegrees = 12f;
+    public const float WoundTwistDegrees = 7f;
+
+    // For the UI check: wounds started, and the most the trunk was seen reeling (degrees).
+    public int WoundsStarted { get; private set; }
+
+    public float WoundReelSeen { get; private set; }
+
+    private void StartWound(Beat beat, double start)
+    {
+        if (!Where(beat.Model, out var at, out _))
+        {
+            return;
+        }
+        // Away from whoever hurt it; else backwards from its facing.
+        var away = Backwards(FacingNow(beat.Model));
+        if (beat.Other is { } by && Where(by, out var from, out _) && new Vector2(at.X - from.X, at.Z - from.Z).Length() > 0.01f)
+        {
+            away = new Vector3(at.X - from.X, 0, at.Z - from.Z).Normalized();
+        }
+        if (WalkingRig(beat.Model) is null)
+        {
+            // No skeleton: a small knock back and in again.
+            _knocks.Add(new Knock(beat.Model, start, beat.Seconds, away * FlinchInches * 0.6f, 0.2f));
+        }
+        else
+        {
+            _wounds.Add(new Wound(beat.Model, start, beat.Seconds, away));
+        }
+        WoundsStarted++;
+    }
+
+    // How far into the reel at t (0 to 1 of its time): out fast, back slowly, exactly 0 at both ends.
+    public static float WoundCurve(float t)
+    {
+        if (t is <= 0 or >= 1)
+        {
+            return 0;
+        }
+        const float peak = 0.16f;
+        if (t < peak)
+        {
+            var u = t / peak;
+            return u * (2 - u);
+        }
+        var v = (t - peak) / (1 - peak);
+        return 1 - v * v * (3 - 2 * v);
+    }
+
+    private void ApplyWounds(double now)
+    {
+        for (var i = 0; i < _wounds.Count; i++)
+        {
+            var wound = _wounds[i];
+            var t = (float)((now - wound.Start) / wound.Seconds);
+            var rig = WalkingRig(wound.Model);
+            // (Taken Down or out meanwhile, or ended: its own pose takes over.)
+            if (t >= 1 || rig is null || _scene?.Find(wound.Model) is not { Status: ModelStatus.Standing } || _falls.Any(f => f.Model == wound.Model))
+            {
+                _wounds.RemoveAt(i--);
+                if (rig is not null && !_walking.Contains(wound.Model) && _scene?.Find(wound.Model) is { Status: ModelStatus.Standing } && !_falls.Any(f => f.Model == wound.Model))
+                {
+                    rig.Skeleton.ResetBonePoses();
+                }
+                continue;
+            }
+            if (t > 0 && !_walking.Contains(wound.Model))
+            {
+                PoseWound(rig, wound.Away, WoundCurve(t));
+            }
+        }
+    }
+
+    private void EndWounds()
+    {
+        foreach (var wound in _wounds)
+        {
+            if (WalkingRig(wound.Model) is { } rig && _scene?.Find(wound.Model) is { Status: ModelStatus.Standing })
+            {
+                rig.Skeleton.ResetBonePoses();
+            }
+        }
+        _wounds.Clear();
+    }
+
+    private void PoseWound(RagdollRig rig, Vector3 away, float k)
+    {
+        var s = rig.Skeleton;
+        var count = s.GetBoneCount();
+        var pose = new Transform3D[count];
+        for (var b = 0; b < count; b++)
+        {
+            pose[b] = s.GetBoneGlobalRest(b);
+        }
+        // The way it reels, in the skeleton's own space, level.
+        var local = s.GlobalTransform.Basis.Inverse() * away;
+        local.Y = 0;
+        if (local.LengthSquared() < 1e-8f)
+        {
+            return;
+        }
+        local = local.Normalized();
+        var axis = Vector3.Up.Cross(local).Normalized();
+        bool Under(int bone, int top)
+        {
+            for (var b = bone; b >= 0; b = s.GetBoneParent(b))
+            {
+                if (b == top)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        void Turn(int bone, Vector3 at, Basis q)
+        {
+            for (var b = 0; b < count; b++)
+            {
+                if (Under(b, bone))
+                {
+                    pose[b] = new Transform3D(q * pose[b].Basis, at + q * (pose[b].Origin - at));
+                }
+            }
+        }
+        var reel = Mathf.DegToRad(WoundTrunkDegrees) * k;
+        // The trunk from the chest up snaps back (the top moves away), the shoulders turn a little with it.
+        Turn(rig.Chest, pose[rig.Chest].Origin, new Basis(axis, reel) * new Basis(Vector3.Up, Mathf.DegToRad(WoundTwistDegrees) * k));
+        // The head jerks further.
+        var neck = rig.Joint[(int)RagdollJoint.Neck];
+        Turn(neck, pose[neck].Origin, new Basis(axis, Mathf.DegToRad(WoundHeadDegrees) * k));
+        foreach (var bone in rig.Order)
+        {
+            s.SetBoneGlobalPose(bone, pose[bone]);
+        }
+        WoundReelSeen = Math.Max(WoundReelSeen, Mathf.RadToDeg(reel));
+    }
 }
 

@@ -16,12 +16,19 @@ public sealed class StatusTracker
 {
     private readonly Dictionary<ModelId, (ModelStatus Status, TablePoint? At)> _known = [];
     private readonly Dictionary<ModelId, Point2> _lastPosition = [];
+    private readonly Dictionary<ModelId, int> _markers = [];
 
     public void Clear()
     {
         _known.Clear();
         _lastPosition.Clear();
+        _markers.Clear();
     }
+
+    // Hit reactions (Jason, 2026-11-26: "an animation for when a unit takes a hit but doesn't die ... when a unit takes a
+    // blood marker"): the models the last event gave at least one more BLOOD MARKER while it left them standing (a model
+    // taken Down falls instead; one put Out of Action goes). Display only.
+    public IReadOnlyList<ModelId> Wounded { get; private set; } = [];
 
     // Bodies (Jason, 2026-11-23: "bodies lay on the ground, not disappear"): each model Out of Action now, at the last
     // place the server's table had it (the server clears it). Only for models this tracker saw on the table. Display only.
@@ -32,8 +39,15 @@ public sealed class StatusTracker
     {
         ArgumentNullException.ThrowIfNull(after);
         List<StatusChange>? changes = null;
+        List<ModelId>? wounded = null;
         foreach (var model in after.Models)
         {
+            if (_markers.TryGetValue(model.Id, out var markers) && model.BloodMarkers > markers && model.Status == ModelStatus.Standing
+                && _known.TryGetValue(model.Id, out var stood) && stood.Status == ModelStatus.Standing)
+            {
+                (wounded ??= []).Add(model.Id);
+            }
+            _markers[model.Id] = model.BloodMarkers;
             var at = model.Position is { } p ? TablePoint.Of(p) : (TablePoint?)null;
             if (_known.TryGetValue(model.Id, out var was) && was.Status != model.Status)
             {
@@ -46,6 +60,7 @@ public sealed class StatusTracker
                 _lastPosition[model.Id] = position;
             }
         }
+        Wounded = wounded ?? (IReadOnlyList<ModelId>)[];
         return changes ?? (IReadOnlyList<StatusChange>)[];
     }
 }

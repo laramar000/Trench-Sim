@@ -29,11 +29,11 @@ public class AnimationShowcaseTests
     private static ShowcaseScene Titled(string start) => Scenes().Single(s => s.Title.StartsWith(start, StringComparison.Ordinal));
 
     [Fact]
-    public void FifteenScenesEachNamingOnlyModelsOnTheTable()
+    public void SixteenScenesEachNamingOnlyModelsOnTheTable()
     {
         var table = Table();
         var scenes = AnimationShowcase.Scenes(table);
-        Assert.Equal(15, scenes.Count(s => s.Focus is null));
+        Assert.Equal(16, scenes.Count(s => s.Focus is null));
         Assert.Equal(scenes.Count, scenes.Select(s => s.Title).Distinct().Count());
         var ids = table.Models.Select(m => m.Id).ToHashSet();
         foreach (var scene in scenes)
@@ -202,5 +202,14 @@ public class AnimationShowcaseTests
         var kinds = Kinds(Titled("Actions:"));
         Assert.Superset(new HashSet<BeatKind> { BeatKind.Brace, BeatKind.Recoil, BeatKind.DigIn, BeatKind.Dust, BeatKind.Reach, BeatKind.Rally }, kinds.ToHashSet());
         Assert.Equal(2, kinds.Count(k => k == BeatKind.Brace));
+    }
+
+    [Fact]
+    public void AWoundingShotReelsItsTarget()
+    {
+        var scene = Titled("A shot wounds");
+        var wound = Assert.Single(scene.Plan(AnimationSpeed.Full).Beats, b => b.Kind == BeatKind.Wound);
+        Assert.NotNull(wound.Other);
+        Assert.DoesNotContain(scene.Plan(AnimationSpeed.Full).Beats, b => b.Kind is BeatKind.Fall or BeatKind.Casualty);
     }
 }

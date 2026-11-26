@@ -28,6 +28,9 @@ public sealed record ShowcaseScene(
 
     public float FocusDistance { get; init; } = 8;
 
+    // The model the camera watches for this scene (null: the scene's first actor).
+    public ModelId? Watched { get; init; }
+
     // The scene's own speed (the Fast scene) unless the battlefield plays nothing (Off).
     public Choreography Plan(AnimationSpeed speed) => Choreography.Of(Lines, DrawnAt, speed == AnimationSpeed.Off ? speed : Speed ?? speed);
 }
@@ -70,6 +73,8 @@ public static class AnimationShowcase
         LogLine Injury(ModelShape by, ModelShape on, ModelStatus? to, params MarkerStyle[] markers) => Line([by.Id, on.Id]) with
         {
             Changes = to is { } status ? [new StatusChange(on.Id, ModelStatus.Standing, status, At(on))] : [],
+            // Hit reactions (2026-11-26): a hit that leaves it standing gives it a BLOOD MARKER: it reels.
+            Wounded = to is null ? [on.Id] : [],
             Fx = markers.Length == 0 ? BattleFx.None : new BattleFx(false, null, [], [.. markers.Select(s => new MarkerCue(on.Id, s))]),
         };
         LogLine Blasts(params BlastCue[] blasts) => Line([a.Id]) with { Fx = new BattleFx(false, null, blasts, []) };
@@ -166,6 +171,11 @@ public static class AnimationShowcase
                 + "the next model crouches low and digs with dust at its feet; it turns to a friend and leans to it; then straightens up to rally; each settles exactly as it stood",
             [Act(a, ActionStyle.Aim), Shot(false), Act(a, ActionStyle.Reload), Act(c, ActionStyle.Fortify), Act(c, ActionStyle.Treat, b), Act(c, ActionStyle.Rally)],
             Drawn, [], []));
+        seq = 0;
+        // Hit reactions (2026-11-26): a hit that does not drop its target.
+        scenes.Add(new("A shot wounds its target but leaves it standing",
+            "flash, tracer, red puff; as the dice show a Blood Marker the target's trunk snaps back away from the shooter, its head jerks, and it recovers its stance",
+            [Shot(true), Injury(a, b, null)], Drawn, [], []) { Watched = b.Id });
         seq = 0;
         // Walk cycle (2026-11-26): a plain move, so the stride can be watched on its own.
         scenes.Add(new("A model walks into place",

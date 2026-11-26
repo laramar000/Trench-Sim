@@ -62,6 +62,10 @@ public enum BeatKind
     // spade strokes, dust at its feet), rallying (Enforced Orthodoxy: it straightens and rises), reaching to a friend it
     // tends (Treat, Laying on of Hands: Model leans to Other and back).
     Recoil,
+
+    // Hit reactions (2026-11-26): a model that took a BLOOD MARKER and stays standing reels from the blow (Model reels away
+    // from Other, the model that hurt it, when the event names one) and recovers its stance.
+    Wound,
     Brace,
     DigIn,
     Rally,
@@ -81,7 +85,7 @@ public sealed record Beat(int Seq, BeatKind Kind, double Start, double Seconds, 
 
     // Beats that move or turn a model for a while (the battlefield poses it each frame) rather than draw an effect once.
     public bool PosesModel => Kind is BeatKind.Glide or BeatKind.Flinch or BeatKind.Turn or BeatKind.Lunge or BeatKind.Lean
-        or BeatKind.Fall or BeatKind.Rise or BeatKind.Casualty or BeatKind.Recoil or BeatKind.Brace or BeatKind.DigIn or BeatKind.Rally or BeatKind.Reach;
+        or BeatKind.Fall or BeatKind.Rise or BeatKind.Casualty or BeatKind.Recoil or BeatKind.Wound or BeatKind.Brace or BeatKind.DigIn or BeatKind.Rally or BeatKind.Reach;
 
     // Effects drawn once, that fade on their own (an update is not busy while they fade).
     public bool FadesOnItsOwn => Kind is BeatKind.HitPuff or BeatKind.DirtPuff or BeatKind.Strike or BeatKind.Impact
@@ -148,6 +152,9 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
 
     // Animation suite (2026-11-25): a shooter's recoil, and how long each ACTION plays (what follows waits for it).
     public const double RecoilSeconds = 0.18;
+
+    // Hit reactions (2026-11-26): how long a wounded model reels and recovers (what follows does not wait for it).
+    public const double WoundSeconds = 0.5;
     public const double BraceSeconds = 0.5;
     public const double DigInSeconds = 0.7;
     public const double RallySeconds = 0.6;
@@ -371,6 +378,12 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
                 if (line.Changes.Count > 0)
                 {
                     t = Math.Max(t, Falls(line, at, beats));
+                }
+                // Hit reactions: each model this event wounded reels as its line (its dice) comes up.
+                foreach (var hurt in line.Wounded)
+                {
+                    var hurter = line.Models?.FirstOrDefault(m => m != hurt);
+                    beats.Add(new(line.Seq, BeatKind.Wound, at, WoundSeconds, hurt, hurter is { } h && h != default ? h : null, true));
                 }
                 continue;
             }

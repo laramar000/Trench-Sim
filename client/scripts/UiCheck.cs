@@ -2909,7 +2909,7 @@ public partial class UiCheck : Node
             }
             else
             {
-                board.CentreOn(focus, ShowcaseDistance ?? 13f);
+                board.CentreOn(scene.Watched ?? focus, ShowcaseDistance ?? 13f);
             }
             foreach (var (id, status) in scene.HoldAfter)
             {
@@ -3732,9 +3732,28 @@ public partial class UiCheck : Node
         var walked = board.LegSwing(a.Id) is null || (swingSeen > 10 && board.WalkFrames > walkFrames && legRest);
         ok &= walked;
         report.Add($"walk: {board.WalkFrames - walkFrames} frames posed, thigh swung up to {swingSeen:0.0} degrees, back at rest {legRest}{(board.LegSwing(a.Id) is null ? " (no skeleton)" : "")}");
+        // Hit reactions (2026-11-26): a made-up hit that gives b a Blood Marker and leaves it standing: its trunk reels
+        // back (a figure with a skeleton) and it ends exactly at rest.
+        var woundsBefore = board.WoundsStarted;
+        var shotAt = new LogLine(0, "", null, Models: [a.Id, b.Id]) { Effects = [new(EffectKind.MuzzleFlash, a.Id), new(EffectKind.HitPuff, b.Id)] };
+        var wounding = new LogLine(0, "", null, Models: [a.Id, b.Id]) { Wounded = [b.Id] };
+        board.PlayForCheck(Choreography.Of([shotAt, wounding], Drawn, AnimationSpeed.Full));
+        var reelSeen = 0f;
+        for (var i = 0; i < 400 && board.Gliding; i++)
+        {
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+            reelSeen = Math.Max(reelSeen, board.TiltOf(b.Id)?.Tilt ?? 0);
+        }
+        await Frames(2);
+        var reeledBack = board.TiltOf(b.Id) is { Tilt: < 0.02f } && !board.Gliding;
+        // (Measured hips to neck: the chest turns 16 degrees above the hips, so the trunk as a whole leans about half that.)
+        var reeled = board.WoundsStarted == woundsBefore + 1 && (board.LegSwing(b.Id) is null || reelSeen > 0.08f) && reeledBack;
+        ok &= reeled;
+        report.Add($"wound: reel started {board.WoundsStarted - woundsBefore}, trunk reeled up to {reelSeen:0.00} rad, back at rest {reeledBack}");
         board.Animation = speed;
-        ok &= board.GesturesStarted - gestures == 3 && board.RecoilsStarted - recoils == 1;
-        Check("hotseat-action-gestures", ok, $"{string.Join("; ", report)}; gestures {board.GesturesStarted - gestures} (3), recoils {board.RecoilsStarted - recoils} (1)");
+        // (Two shots: the gesture run's and the wound's.)
+        ok &= board.GesturesStarted - gestures == 3 && board.RecoilsStarted - recoils == 2;
+        Check("hotseat-action-gestures", ok, $"{string.Join("; ", report)}; gestures {board.GesturesStarted - gestures} (3), recoils {board.RecoilsStarted - recoils} (2)");
     }
 
     // Explosion review (hotseat-blasts-see-through, 2026-11-23): a blast reads as a burst, not a blob over the models. A

@@ -58,6 +58,9 @@ public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<U
     // Animation stage A3: the models this event took Down, stood up or put Out of Action (none for most).
     public IReadOnlyList<StatusChange> Changes { get; init; } = [];
 
+    // Hit reactions (2026-11-26): the models this event gave a BLOOD MARKER and left standing (StatusTracker.Wounded).
+    public IReadOnlyList<ModelId> Wounded { get; init; } = [];
+
     // Animation stage A4: its explosions, thrown grenade, attack at a point and SHRAPNEL, GAS or FIRE markers (none for most).
     public BattleFx Fx { get; init; } = BattleFx.None;
 }
@@ -529,6 +532,7 @@ public sealed class MatchController : IAsyncDisposable
             Outcome = EventText.Outcome(e),
             Effects = EffectCues.Of(e),
             Changes = _statuses.Next(state),
+            Wounded = _statuses.Wounded,
             Fx = _battle.Next(e, state, _resolutions.AttackAt(seq).Kind, _resolutions.AttackAt(seq).Weapon),
         };
     }

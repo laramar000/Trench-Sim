@@ -772,4 +772,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   `board-casualty-mid-move`); at most 7 steps a second (`MaxStepsPerSecond`: fast moves take long running strides);
   showcase scene 15 "A model walks into place"; dev settings `TRENCH_SHOWCASE_PITCH`/`TRENCH_SHOWCASE_DISTANCE`
   (`BoardView.PicturePitch`). gvt-a 0 failures. Jason does Windows (option 3) at home.
+- 2026-11-26, Jason: a hit animation when a unit takes a Blood Marker and stays up, "nothing too over the top", then the
+  full screen checks and a quality pass. Done: `StatusTracker.Wounded` -> `LogLine.Wounded` -> `Wound` beat -> `PoseWound`
+  (trunk back 16 degrees, shoulders turn 7, head 12, quick out and slower back, 0.5 s; knock fallback without a skeleton);
+  showcase scene 15 (camera on the target, `ShowcaseScene.Watched`); tests `HitReactionTests`; UI check
+  `hotseat-action-gestures` wound part.
 

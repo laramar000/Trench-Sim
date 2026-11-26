@@ -91,6 +91,9 @@ public partial class BoardView
                 case BeatKind.Brace or BeatKind.DigIn or BeatKind.Rally:
                     StartGesture(move, move.Start);
                     break;
+                case BeatKind.Wound:
+                    StartWound(move, move.Start);
+                    break;
                 default:
                     StartKnock(move, move.Start);
                     break;
@@ -249,7 +252,7 @@ public partial class BoardView
                 Upright(id);
             }
         }
-        if (_glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0 || _gestures.Count > 0)
+        if (_glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0 || _gestures.Count > 0 || _wounds.Count > 0)
         {
             _pose.Clear();
             _bob.Clear();
@@ -280,6 +283,7 @@ public partial class BoardView
             _glides.Clear();
             _stride.Clear();
             ApplyWalk();
+            EndWounds();
             _knocks.Clear();
             _turns.Clear();
             _leans.Clear();
@@ -945,7 +949,7 @@ public partial class BoardView
 
     // Whether the battlefield is still playing what the server resolved: a model travelling or flinching, or a line or
     // effect still to show (the UI check waits for this before it measures the drawing; the auto-end waits for it).
-    public bool Gliding => _glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0 || _falls.Count > 0 || _ghosts.Count > 0 || _gestures.Count > 0 || _queue.Count > 0;
+    public bool Gliding => _glides.Count > 0 || _knocks.Count > 0 || _turns.Count > 0 || _leans.Count > 0 || _falls.Count > 0 || _ghosts.Count > 0 || _gestures.Count > 0 || _wounds.Count > 0 || _queue.Count > 0;
 
     // The point of a model the see-through walls keep visible (Godot units: x, height, table y; for the UI check).
     public Vector3? BodyAt(ModelId id) => _modelNodes.TryGetValue(id, out var nodes) && nodes.Count > 0 ? nodes[0].Node.Position : null;
@@ -1577,7 +1581,7 @@ public partial class BoardView
     // starts, so it does not jump ahead of the picture); a flinch adds its knock.
     private void ApplyPoses()
     {
-        if (_glides.Count == 0 && _knocks.Count == 0 && _turns.Count == 0 && _leans.Count == 0 && _falls.Count == 0 && _ghosts.Count == 0 && _gestures.Count == 0)
+        if (_glides.Count == 0 && _knocks.Count == 0 && _turns.Count == 0 && _leans.Count == 0 && _falls.Count == 0 && _ghosts.Count == 0 && _gestures.Count == 0 && _wounds.Count == 0)
         {
             return;
         }
@@ -1751,6 +1755,7 @@ public partial class BoardView
         }
         SetPoses();
         ApplyWalk();
+        ApplyWounds(now);
     }
 
     private static Vector3 GlideOffset(Glide glide, float t)
