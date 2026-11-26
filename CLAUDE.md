@@ -801,3 +801,11 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (m7-client, main, claude/*) with the newest commit on GitHub and says which; `-Branch <name>` still forces one. The
   one-line installer in docs/testing.md now reads the script from this branch (m7-client's copy is the old one). Not run:
   PowerShell (none here); Jason's d042dd7 folder still has the old option 6, so it needs the one-liner once.
+- 2026-11-26: Windows full run on 85af35a (first on the animation work): 437 PASS, 7 FAIL (abilities: Detonate never
+  offered, 4 checks, match-dependent; pvp-b pvp-type-server typed address lost but joined; pvp-a result-details click
+  did not open Details, pvp-b-rejoin passed it; Debug unit test PersistenceTests.AMatchInterruptedWithoutARecordIs...
+  failed, Release passed, no message seen). Jason wants results without copying: offered Remote Control folder share
+  (recommended) or Test Center uploading reports to GitHub; not chosen yet. PR #15 merged into m7-client on Jason's "2"
+  (85af35a), so m7-client = this branch.
+- 2026-11-26, Jason: plugins Ponytail (dietrichgebert/ponytail) and Caveman (juliusbrussee/caveman) added to
+  `.claude/settings.json` (extraKnownMarketplaces + enabledPlugins) so cloud sessions load them; take effect next session.
