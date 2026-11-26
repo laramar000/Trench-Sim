@@ -64,6 +64,9 @@ public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<U
     // Hit power (2026-11-26): how hard the attack this event is part of lands (HitPowers), or null outside one.
     public HitPower? Power { get; init; }
 
+    // Flamethrowers (2026-11-26): the attack this event is part of is a jet of flame (HitPowers.IsFlame).
+    public bool Flame { get; init; }
+
     // Animation stage A4: its explosions, thrown grenade, attack at a point and SHRAPNEL, GAS or FIRE markers (none for most).
     public BattleFx Fx { get; init; } = BattleFx.None;
 }
@@ -536,7 +539,8 @@ public sealed class MatchController : IAsyncDisposable
             Effects = EffectCues.Of(e),
             Changes = _statuses.Next(state),
             Wounded = _statuses.Wounded,
-            Power = HitPowers.Of(e, state.Setup, _resolutions.ActionAt(seq)?.Actor, _resolutions.AttackAt(seq).Kind, _resolutions.AttackAt(seq).Weapon),
+            Power = HitPowers.Of(e, state.Setup, _resolutions.ActionAt(seq)?.Actor, _resolutions.AttackAt(seq).Kind, _resolutions.AttackAt(seq).Weapon, _statuses.Place),
+            Flame = HitPowers.IsFlame(e, state.Setup, _resolutions.ActionAt(seq)?.Actor, _resolutions.AttackAt(seq).Kind, _resolutions.AttackAt(seq).Weapon),
             Fx = _battle.Next(e, state, _resolutions.AttackAt(seq).Kind, _resolutions.AttackAt(seq).Weapon),
         };
     }

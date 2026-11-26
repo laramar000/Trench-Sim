@@ -191,6 +191,12 @@ public static class AnimationShowcase
             "the pistol jolts the target: a small knock and a short reel; the shotgun rocks it: knocked further, reeling harder and longer, shoved back a step before it steadies",
             [Fired(HitPower.Light), Hurt(HitPower.Light), Fired(HitPower.Heavy), Hurt(HitPower.Heavy)], Drawn, [], []) { Watched = b.Id });
         seq = 0;
+        // Flamethrowers (2026-11-26): a jet of flame sets the target alight; it burns and reels, standing.
+        scenes.Add(new("A flamethrower sets its target alight",
+            "a jet of flame rolls from the weapon onto the target (no tracer); flames catch round its feet and climb its body in waves, it reels from the burn, then smoke rises off it",
+            [Line([a.Id, b.Id]) with { Effects = [new(EffectKind.MuzzleFlash, a.Id), new(EffectKind.HitPuff, b.Id)], Flame = true, Power = HitPower.Firm },
+             Injury(a, b, null, MarkerStyle.Fire) with { Power = HitPower.Firm }], Drawn, [], []) { Watched = b.Id });
+        seq = 0;
         // Walk cycle (2026-11-26): a plain move, so the stride can be watched on its own.
         scenes.Add(new("A model walks into place",
             "it turns along its way and walks: legs swing in turn, the knee bending as each comes forward, the chest swaying; it stops exactly as it stood",

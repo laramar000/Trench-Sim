@@ -271,6 +271,9 @@ public partial class BoardView
     // Walk cycle (UI check): frames a casualty figure walked its model's move before falling.
     public int GhostWalkFrames { get; private set; }
 
+    // Flamethrowers (UI check): flame jets drawn for the match's events.
+    public int FlameBeats { get; private set; }
+
     public bool CasualtyHasSkeleton(ModelId id) =>
         _ghosts.Any(g => g.Model == id && IsInstanceValid(g.Root) && CachedRig(g.Root) is not null)
         || (_lastDrawn.Find(_scene, id) is { } shape && Visuals.Catalog.PathFor(shape.Type is { } type ? VisualCatalog.UnitKey(type) : VisualCatalog.DefaultUnitKey, VisualCatalog.DefaultUnitKey) is not null && !_highContrast);

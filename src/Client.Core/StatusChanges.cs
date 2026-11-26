@@ -30,6 +30,9 @@ public sealed class StatusTracker
     // taken Down falls instead; one put Out of Action goes). Display only.
     public IReadOnlyList<ModelId> Wounded { get; private set; } = [];
 
+    // Where the server's table last had a model (kept after it leaves the table), or null if it never did.
+    public TablePoint? Place(ModelId id) => _lastPosition.TryGetValue(id, out var p) ? TablePoint.Of(p) : null;
+
     // Bodies (Jason, 2026-11-23: "bodies lay on the ground, not disappear"): each model Out of Action now, at the last
     // place the server's table had it (the server clears it). Only for models this tracker saw on the table. Display only.
     public IReadOnlyDictionary<ModelId, Point2> Fallen =>

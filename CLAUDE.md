@@ -785,4 +785,8 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   Heavy shotgun/HEAVY/+2 injury, Explosive grenade/BLAST/mine/Martyrdom, DEADLY +1), `LogLine.Power`; scales the flinch,
   the ragdoll throw and the wound reel (angles, length, a shove back for Heavy and Explosive); showcase scene 16. No web
   research needed (ranked from the weapons' rules keywords). hotseat group: only the known banner flake failed.
+- 2026-11-26, Jason: shotgun power falls off with distance; flamethrowers need a burning animation. Done (docs/client.md
+  "Shotgun falloff", "Flamethrowers"): `HitPowers.ShotgunAt` (point blank Explosive ... edge of range Light, by base-edge
+  distance over range); `LogLine.Flame` + `BeatKind.Flame` (a jet of flame bursts, no tracer or recoil); FIRE marker burns
+  1.4 s with flames climbing the body and smoke (`Later`, dropped by a skip); showcase scene 17.
 

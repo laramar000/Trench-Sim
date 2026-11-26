@@ -98,4 +98,42 @@ public class HitPowerTests
         }
         Assert.NotEmpty(seen);
     }
+
+    // Shotgun falloff (2026-11-26): point blank it hits as hard as a blast, at the edge of its range no harder than a
+    // pistol; other guns do not change with distance.
+    [Fact]
+    public void AShotgunLosesItsPunchWithDistance()
+    {
+        var shotgun = Gun(WeaponKeywords.Shotgun);
+        Assert.Equal(HitPower.Explosive, HitPowers.OfWeapon(shotgun, AttackKind.Ranged, reach: 0.05));
+        Assert.Equal(HitPower.Heavy, HitPowers.OfWeapon(shotgun, AttackKind.Ranged, reach: 0.5));
+        Assert.Equal(HitPower.Firm, HitPowers.OfWeapon(shotgun, AttackKind.Ranged, reach: 0.8));
+        Assert.Equal(HitPower.Light, HitPowers.OfWeapon(shotgun, AttackKind.Ranged, reach: 0.98));
+        Assert.Equal(HitPower.Heavy, HitPowers.OfWeapon(shotgun, AttackKind.Ranged));
+        foreach (var reach in new[] { 0.05, 0.98 })
+        {
+            Assert.Equal(HitPower.Firm, HitPowers.OfWeapon(Gun(), AttackKind.Ranged, reach: reach));
+            Assert.Equal(HitPower.Light, HitPowers.OfWeapon(Gun(WeaponKeywords.Pistol), AttackKind.Ranged, reach: reach));
+        }
+        // Thrown further point blank than at long range.
+        var close = new[] { 0.05, 0.5, 0.8, 0.98 }.Select(r => HitPowers.Scale(HitPowers.ShotgunAt(r))).ToList();
+        Assert.Equal(close.OrderDescending(), close);
+    }
+
+    // Flamethrowers (2026-11-26): a FIRE ranged weapon without BLAST shoots a jet of flame (no tracer, no recoil), landing
+    // as the jet arrives; its FIRE marker burns longer than before.
+    [Fact]
+    public void AFlamethrowerShootsAJetOfFlame()
+    {
+        var flame = new LogLine(1, "", null, Models: [A, B]) { Effects = [new(EffectKind.MuzzleFlash, A), new(EffectKind.HitPuff, B)], Flame = true };
+        var plan = Choreography.Of([flame], id => id == A ? new TablePoint(0, 0) : new TablePoint(6, 0));
+        var jet = Assert.Single(plan.Beats, b => b.Kind == BeatKind.Flame);
+        Assert.Equal((A, (ModelId?)B, Choreography.FlameSeconds), (jet.Model, jet.Other, jet.Seconds));
+        Assert.DoesNotContain(plan.Beats, b => b.Kind is BeatKind.Tracer or BeatKind.Recoil);
+        Assert.Equal(jet.End, plan.Beats.Single(b => b.Kind == BeatKind.HitPuff).Start, 9);
+        Assert.True(Choreography.FireSeconds >= 1.2);
+        var a = new ModelId("a1");
+        Assert.False(HitPowers.IsFlame(new ActivationEnded(a, ActivationEndReason.Voluntary), null, a, AttackKind.Melee, 0));
+    }
 }
+

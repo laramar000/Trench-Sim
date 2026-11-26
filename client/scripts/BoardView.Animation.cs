@@ -165,6 +165,13 @@ public partial class BoardView
                     PlayTracer(beat);
                 }
                 break;
+            case BeatKind.Flame:
+                FlameBeats += beat.Seq > 0 ? 1 : 0;
+                if (draw)
+                {
+                    PlayFlame(beat);
+                }
+                break;
             case BeatKind.Lob:
                 // Animation stage A4: a grenade thrown at a model plays its throw in place of the shot's flash and tracer.
                 if (beat.Seq > 0 && beat.Other is not null)
@@ -451,6 +458,59 @@ public partial class BoardView
         }
     }
 
+    // Flamethrowers (Jason, 2026-11-26): a jet of flame rolls from the weapon to the target (past it into the ground beside
+    // it on a miss, as a tracer does): see-through tongues of orange and yellow flame thrown out along the line, each a
+    // little further and wider than the last, the far ones reaching the target as the jet lands, fading as they go, with
+    // a thin smoke behind. Pooled squares like every effect; display only.
+    private void PlayFlame(Beat beat)
+    {
+        if (!Where(beat.Model, out var shooter, out _) || beat.Other is not { } target || !Where(target, out var aim, out var radius))
+        {
+            return;
+        }
+        var from = shooter + new Vector3(0, 0.8f, 0);
+        var to = aim + new Vector3(0, 0.6f, 0);
+        var flat = new Vector3(to.X - from.X, 0, to.Z - from.Z);
+        if (flat.Length() < 0.1f)
+        {
+            return;
+        }
+        var along = flat.Normalized();
+        if (!beat.Hit)
+        {
+            var side = new Vector3(-along.Z, 0, along.X) * (beat.Seq % 2 == 0 ? 1 : -1);
+            to = aim + side * (radius + 0.4f) + along * 0.6f + new Vector3(0, 0.15f, 0);
+        }
+        var seconds = (float)beat.Seconds;
+        // A steady stream: bursts of flame leave the muzzle one after another through the jet's time, each rolling out the
+        // whole way and widening as it goes; the first reaches the target as the jet lands, the last trails off past it.
+        const int bursts = 4;
+        for (var burst = 0; burst < bursts; burst++)
+        {
+            var delay = seconds * 0.22f * burst;
+            var index = burst;
+            void Burst()
+            {
+                for (var i = 0; i < 4; i++)
+                {
+                    var share = 0.55f + 0.17f * i;
+                    var colour = (i + index) % 3 == 0 ? new Color(1f, 0.9f, 0.45f, FireAlpha) : new Color(1f, 0.5f + 0.1f * (i % 2), 0.12f, FireAlpha);
+                    Puff(from, (to - from) * share + new Vector3(0, 0.1f * share, 0), 0.1f, 0.2f + 0.3f * share, colour, seconds * (0.8f + 0.15f * i));
+                }
+            }
+            if (burst == 0)
+            {
+                Burst();
+            }
+            else
+            {
+                Later(delay, Burst);
+            }
+        }
+        // A thin smoke trailing behind the jet.
+        Puff(from + (to - from) * 0.4f, new Vector3(0, 0.45f, 0), 0.2f, 0.35f, new Color(0.25f, 0.24f, 0.23f, BlastSmokeAlpha), seconds * 2.5f);
+    }
+
     // The ground (a tower's deck, a trench's floor) at a table point.
     private Vector3 Ground(TablePoint at) => new((float)at.X, (float)LevelAt(at.X, at.Y), (float)at.Y);
 
@@ -515,8 +575,31 @@ public partial class BoardView
         }));
     }
 
+    // Flamethrowers (2026-11-26): an effect drawn a moment later (a burn's later waves of flame); a skip in between drops it
+    // rather than drawing it after the battlefield settled.
+    private int _stops;
+
+    private void Later(double delay, Action draw)
+    {
+        if (!_effects.IsInsideTree())
+        {
+            return;
+        }
+        var stops = _stops;
+        var wait = _effects.CreateTween();
+        wait.TweenInterval(delay);
+        Run(wait, () =>
+        {
+            if (stops == _stops)
+            {
+                draw();
+            }
+        }, delay);
+    }
+
     private void StopEffects()
     {
+        _stops++;
         if (_running.Count == 0)
         {
             return;
@@ -780,12 +863,31 @@ public partial class BoardView
                 break;
             default:
                 // Stage A5 (seen on screen: opaque flames over the body hid the model): small see-through flames round
-                // the base's edge, licking up past the figure.
-                for (var i = 0; i < 5; i++)
+                // the base's edge, licking up past the figure. Flamethrowers (2026-11-26): it burns: flames catch round
+                // its feet and climb its body in waves over the burn's length, then a thin smoke rises off it.
+                var tall = _lastDrawn.Find(_scene, beat.Model) is { } burning ? StandingHeight(burning) : StandingTall;
+                for (var wave = 0; wave < 3; wave++)
                 {
-                    var side = new Vector3(Mathf.Cos(i * 1.26f), 0, Mathf.Sin(i * 1.26f)) * radius * 0.85f;
-                    Puff(at + side + new Vector3(0, 0.12f + 0.08f * i, 0), new Vector3(0, 0.8f, 0), 0.3f, 0.1f, i % 2 == 0 ? new Color(1f, 0.6f, 0.15f, FireAlpha) : new Color(1f, 0.85f, 0.3f, FireAlpha), seconds * (0.7f + 0.08f * i));
+                    for (var i = 0; i < 5; i++)
+                    {
+                        var turn = i * 1.26f + wave * 0.6f;
+                        var side = new Vector3(Mathf.Cos(turn), 0, Mathf.Sin(turn)) * radius * (0.85f - 0.2f * wave);
+                        var life = seconds * (0.35f + 0.05f * i);
+                        var colour = (i + wave) % 2 == 0 ? new Color(1f, 0.6f, 0.15f, FireAlpha) : new Color(1f, 0.85f, 0.3f, FireAlpha);
+                        // Each wave a little later and higher up the body (a wave's flames start where the last one's rose).
+                        var start = at + side + new Vector3(0, 0.1f + tall * 0.25f * wave + 0.06f * i, 0);
+                        if (wave == 0)
+                        {
+                            Puff(start, new Vector3(0, tall * 0.55f, 0), 0.26f, 0.12f, colour, life);
+                        }
+                        else
+                        {
+                            var delay = seconds * 0.22f * wave;
+                            Later(delay, () => Puff(start, new Vector3(0, tall * 0.5f, 0), 0.24f, 0.1f, colour, life));
+                        }
+                    }
                 }
+                Later(seconds * 0.55f, () => Puff(at + new Vector3(0, tall * 0.9f, 0), new Vector3(0.1f, tall * 0.7f, 0), 0.25f, 0.45f, new Color(0.22f, 0.21f, 0.2f, BlastSmokeAlpha), seconds * 0.8f));
                 break;
         }
     }

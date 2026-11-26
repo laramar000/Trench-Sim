@@ -63,6 +63,9 @@ public enum BeatKind
     // tends (Treat, Laying on of Hands: Model leans to Other and back).
     Recoil,
 
+    // Flamethrowers (2026-11-26): a jet of flame from the weapon to the target (Model fires at Other), in place of a tracer.
+    Flame,
+
     // Hit reactions (2026-11-26): a model that took a BLOOD MARKER and stays standing reels from the blow (Model reels away
     // from Other, the model that hurt it, when the event names one) and recovers its stance.
     Wound,
@@ -148,7 +151,10 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
     public const double DustSeconds = 0.6;
     public const double ShrapnelSeconds = 0.35;
     public const double GasSeconds = 1.2;
-    public const double FireSeconds = 0.7;
+    // Flamethrowers (2026-11-26): a FIRE marker's flames burn on the model longer (they climb its body, then smoke), and a
+    // flame jet takes this long to reach its target.
+    public const double FireSeconds = 1.4;
+    public const double FlameSeconds = 0.35;
 
     // Animation suite (2026-11-25): a shooter's recoil, and how long each ACTION plays (what follows waits for it).
     public const double RecoilSeconds = 0.18;
@@ -422,6 +428,13 @@ public sealed record Choreography(IReadOnlyList<LineCue> Lines, IReadOnlyList<Be
                 // Stage A4: a grenade is lobbed in an arc; it lands at the end of its flight.
                 beats.Add(new(line.Seq, BeatKind.Lob, strikeAt, LobSeconds, flash.At, puff.At, hit));
                 landed = strikeAt + LobSeconds;
+            }
+            else if (flash is not null && line.Flame)
+            {
+                // Flamethrowers: a jet of flame rolls out to the target (no recoil); it lands as the jet arrives.
+                beats.Add(new(line.Seq, BeatKind.MuzzleFlash, strikeAt, FlashSeconds, flash.At, puff.At, hit));
+                beats.Add(new(line.Seq, BeatKind.Flame, strikeAt, FlameSeconds, flash.At, puff.At, hit));
+                landed = strikeAt + FlameSeconds;
             }
             else if (flash is not null)
             {
