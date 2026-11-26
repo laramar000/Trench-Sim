@@ -28,6 +28,8 @@ public sealed class Report
 
     public IReadOnlyList<Row> Rows => _rows;
 
+    public IReadOnlyList<(string Name, string Value)> Facts => _facts;
+
     public void Fact(string name, string value) => _facts.Add((name, value));
 
     public void Pass(string check, string detail) => Add(new Row("PASS", check, detail, true));
@@ -124,6 +126,7 @@ public sealed class Report
         }
         Console.WriteLine();
         Console.WriteLine($"  Full report: {path}");
+        ResultsUpload.Send(this);
         return verdict switch { "PASS" => 0, "FAIL" => 1, _ => 2 };
     }
 

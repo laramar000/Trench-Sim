@@ -809,3 +809,10 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (85af35a), so m7-client = this branch.
 - 2026-11-26, Jason: plugins Ponytail (dietrichgebert/ponytail) and Caveman (juliusbrussee/caveman) added to
   `.claude/settings.json` (extraKnownMarketplaces + enabledPlugins) so cloud sessions load them; take effect next session.
+- 2026-11-26, Jason chose the GitHub upload (over a Remote Control folder share) so Claude reads Test Center results
+  without copying. Done: `tools/TestCenter/ResultsUpload.cs`, menu U / `upload`: a fine-grained key kept in
+  `%LOCALAPPDATA%\TrenchSim\github-upload-key.txt`; `Report.Finish` sends each run (report.md, logs/*.txt, every
+  ui-check summary.md; cleaned of computer, user and folder names) as one commit to branch `test-results`
+  (`runs/<time>-<kind>-<sha7>/`, `LATEST.md`) through the Git Data API. To read: `git fetch origin test-results` then
+  `git show origin/test-results:LATEST.md`. Not run against GitHub here (no key in the cloud); the cleaning was checked
+  with a scratch program. The branch does not exist until the first upload.
