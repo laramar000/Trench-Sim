@@ -777,4 +777,7 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (trunk back 16 degrees, shoulders turn 7, head 12, quick out and slower back, 0.5 s; knock fallback without a skeleton);
   showcase scene 15 (camera on the target, `ShowcaseScene.Watched`); tests `HitReactionTests`; UI check
   `hotseat-action-gestures` wound part.
+  Full UI runner at 43aa052: 439 PASS, 0 FAIL (frame time gvt-a animating mean 0.68 ms, max 7.1 ms). Quality pass on the
+  tower map (`TRENCH_DEV=deploy,showcase,ragdolls,walks --scenario ranged-towers`): showcase 21/21, dev-ragdolls 27/27,
+  dev-walks 6/6, failures 0; the only engine error is the sandbox's missing ALSA sound device (harmless). Not run: Windows.
 
