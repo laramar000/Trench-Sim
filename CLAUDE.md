@@ -1,6 +1,6 @@
 # Hand-over for the next Claude session (Trenches / Trench-Sim)
 
-Written 2026-10-31, last updated 2026-11-01, so a new session can carry on with no other history. Read this file, then `docs/` as needed.
+Written 2026-10-31, last updated 2026-11-20, so a new session can carry on with no other history. Read this file, then `docs/` as needed.
 
 ## What this is
 
@@ -42,7 +42,9 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
   before handing over a release.
 - Known flaky tests (sandbox network timing, unrelated to most changes): CancellingARun*, ARejoinWhile*,
   AnAborted*, ALocalServerThatCannotStart*, ATakeover*, DuplicateAndStale*, AConnectionThatNeverJoins*,
-  AClientThatStopsReading, the hotseat-turn-banner timing UI check. Rerun just that test once.
+  AClientThatStopsReading, AHostThatNeverAnswersTheRejoinTimesOutEachAttempt, AStalledReaderPausesItsMatchOnlyAndThenExpires,
+  the hotseat-turn-banner timing UI check.
+  Rerun just that test once.
 - Godot UI-check gotchas: drivers click only spots no box covers (`UiCheck.Clickable`); `RemoveChild` before `QueueFree`
   when reusing node names; node names cannot contain `. : @ / " %`; UI-check code must not touch ImmutableArray.
 - Client.Core must not use System.Random (use `Spread`); the Godot client must not reference System.Text.Json.
@@ -58,6 +60,9 @@ Working branch: **`m7-client`** (all current work). Older milestone branches m0-
 - Decisions: a short numbered list with one-line trade-offs and a recommendation, ending "Choose a number" (the owner
   answers on a phone).
 - No screenshots in reports, no post-mortems unless asked, plain short replies.
+- Replies are read aloud to the owner in the car (2026-11-26): write the summary for the ear. Short spoken sentences, plain
+  words, no file names, code names, commit hashes, symbols or tables in the spoken part; say what changed and what it
+  looks like, then what was checked, then the choices. Keep the numbered choices short so they can be heard and answered.
 - Bot/AI opponent deferred until asked. Keep hot-seat. Towers and vertical terrain belong in the default maps.
 - Graphics are decorative only: never change rules, protocol, records, hashes, movement, LOS or base sizes for looks.
 
@@ -443,3 +448,356 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-17: Chorister built (`chorister()`, `units/chorister.glb`, class B 32 mm, catalog height 1.24", test row 3,300,
   27 figures now), the owner's choice, on their references for mood only. Shown to the owner for review. Still to build
   for the Heretics: Bombard Witch, Barbed Wire Banshee.
+- 2026-11-20 (cloud session, branch `claude/adoring-hamilton-s5yohc`): animation plan approved, Jason chose "1" (an
+  event's dice box, notes and sound come on its beat; the combat log stays immediate). Stages: A0 baseline timing, A1
+  foundation + shot sequence, A2 facing/melee lunge/charge lean, A3 Down topple + Out of Action fade, A4 explosions and
+  grenades, A5 feedback pulses. Done: A0 (`BoardTimes`, UI check `board-frame-time`) and A1 (`Client.Core/Choreography.cs`:
+  each update's lines and beats in order, at most 2.5 s, Full/Fast/Off; `PlaybackQueue`: chains updates, TakeDue/TakeAll; `BoardView` "animation (stage A1)": due queue,
+  glides measured from rest so they queue, flinches, pooled puffs and tracers, `FinishAnimations` on any send, seat change,
+  Esc or catch-up; auto-end waits for playback; Menu "Animations", setting `anim=`; tests `ChoreographyTests`, `PlaybackQueueTests`, UI
+  checks `board-shot-sequence`, `board-animation-resilience`). A0 also counts terrain builds and model draws.
+  Cloud setup used: .NET 10 via dotnet-install.sh into ~/.dotnet (builds.dotnet.microsoft.com answered); the SessionStart
+  hook installs Godot 4.4.1 without .NET, which cannot run this client: Godot 4.7.2 mono for Linux was downloaded from
+  the GitHub release (SHA-512 checked) into the session scratchpad for the UI checks.
+  Checks run here (Linux, xvfb, opengl3): essentials A0 2,241/0 and A1 2,251/0; full UI runner on A1 421 PASS, 0 FAIL;
+  A0 vs A1 board-frame-time (gvt-a, same machine): idle frame mean 0.47/0.25 ms, animating 0.71/0.74 ms, update 19.2/16.4
+  ms, terrain builds while animating 0 in both. Not run: Windows (owner's Test Center).
+- 2026-11-20, Jason: "Proceed with A2: melee and facing animations" (only A2). Done: Turn/Lunge/Lean/Strike/Impact beats
+  (`Choreography`, `Motion.Charging/Reached`); `BoardView`: `_facing` (kept across redraws, cleared on a new match),
+  `_figures`, `Knock` (flinch + lunge), `FigureTurn`, `Lean`, `PlayStrike`; UI checks `board-animation-resilience` (turn,
+  lean, hover) and optional `board-melee-sequence` (pvp-a). Next: A3 only when Jason asks.
+  Checks (Linux, xvfb): essentials 2,253/0; full UI runner 425 PASS, 0 FAIL (board-melee-sequence: 3 blows, 8 lunges,
+  5 charge impacts); gvt-a reruns after the check fixes 29/0 and 27/0. Animating frame mean 0.64-0.83 ms (A1 0.56-0.75);
+  the 0.78-0.83 runs include the check's own hover while its made-up update plays (0.74 with that hover left out); one
+  run had a single 277 ms stall in an animating frame, not seen again. Hover marks a model without redrawing it.
+- 2026-11-20, Jason: "Proceed with A3: Down and Out of Action animations" (only A3). Done: `StatusTracker`/`LogLine.Changes`;
+  Fall/Rise/Casualty beats; `BoardView`: `_held` (a falling model drawn standing until its fall ends), `FallTrack` +
+  `Tipped` (figure tips backwards over its feet, settles over its base), casualty figures (`CasualtyFigure`, in `_effects`,
+  freed when gone or on FinishAnimations); UI checks `board-casualty-resilience` (gvt-a), optional `board-casualty-sequence`
+  (pvp-a, gvt-a). Next: A4 only when Jason asks.
+  Checks (Linux, xvfb): essentials 2,255/0; full UI runner 426 PASS, 0 FAIL; gvt-a run 29/0 with board-casualty-sequence
+  5 changes (2 falls, 2 rises, 1 going figure, none left); animating frame mean 0.63-0.71 ms, terrain builds while
+  animating 0. The pvp melee match took no model Down, so board-casualty-sequence did not report there (optional).
+- 2026-11-20, Jason: "Proceed with A4: Battlefield Effects" (only A4). Done: `BattleEffectsTracker`/`LogLine.Fx` (blasts from
+  BlastHit/PointBlastHit/AttackScattered/Martyrdom/mines, grenade thrown, attack at a point, SHRAPNEL/GAS/FIRE bursts;
+  `ResolutionLog.AttackAt`); beats Lob/Explosion/MineBlast/MartyrBlast/Scatter/Dust/Shrapnel/Gas/Fire; `BoardView` "animation
+  stage A4" (pooled grenades, `Streak`, `PlayExplosion`, `PlayMarker`, `Run`/`StopEffects` so a skip stops every effect;
+  MaxEffects 96); UI checks `board-blast-effects` (gvt-a), optional `board-blast-sequence` (pvp-a, gvt-a, abilities).
+  Next: A5 only when Jason asks.
+  Checks (Linux, xvfb): essentials 2,259/0; full UI runner 426 PASS, 0 FAIL (board-blast-effects; abilities'
+  board-blast-sequence PASS: 2 explosions, 2 bursts, recorded in abilities.log; the Linux runner now also lists it in its
+  summary, tools/UiCheck/Program.cs); gvt-a run 31/0; animating frame mean 0.63-0.67 ms, terrain builds while animating 0.
+- 2026-11-21, Jason: "Proceed with A5: Animation Polish & Battlefield Feedback" (only A5; wait for approval after). Done:
+  blast rings (`BoardView.BlastRing`) + `Choreography.BlastStagger`; see-through dust/smoke/gas (`SmokeAlpha`) and fewer
+  squares when busy; moves turn along their way (`TravelPoint`); Off plays instant turns (`OffFacings`) so Full/Fast/Off
+  end alike; a skip hurries effects (`HurrySeconds`, `StopEffects` speeds tweens up). Stage plan A0-A5 complete; next stage
+  only when Jason approves.
+  Checks (Linux, xvfb): essentials 2,261/0; full UI runner 430 PASS, 0 FAIL (board-blast-effects with rings, clear 207 ms
+  after a skip; abilities board-blast-sequence 2 explosions, 4 bursts); gvt-a run 31/0. Animating frame mean 0.49-0.63 ms
+  (A4 0.63-0.67), max 6.4 ms in the full run; one 15.3 ms frame in the separate gvt run, not seen again. Not verified: how
+  it looks by eye, Windows.
+- 2026-11-21, Jason chose "1" for PR #15 (claude/adoring-hamilton-s5yohc into m7-client, which had 52 newer commits: the
+  art pipeline's figures): merged m7-client into the branch (no rebase). Conflicts: CLAUDE.md (both sides' notes kept, in
+  date order) and `BoardView.DrawModel` (catalog height `figureTall` + A2 facing `FacingNow`). A3 adapted: falls, rises and
+  casualty figures use each figure's catalog height (`StandingHeight`, `FallTrack.Height`, `Tipped(height)`); the casualty
+  figure sinks 0.5" below the ground as it fades (`psx_figure.gdshader` writes no ALPHA, so the fade may not apply to it).
+  Checks after the merge (Linux, xvfb): essentials 2,285/0 (m7-client's figure tests added 24); full UI runner 428 PASS,
+  0 FAIL (unit-figures, board-casualty-resilience, board-blast-effects); animating frame mean 0.49 ms, max 6.1 ms.
+- 2026-11-21, Jason: "proceed with A5: Animation Polish & Visual Verification" with the painted figures (A5 only; wait for
+  approval after). Looked at on screen (Linux Compatibility renderer, xvfb; new dev step `anims`, see docs/client.md):
+  fixed the fall-to-lying size jump (`LyingFit`), falls of base-limited figures ending off the base (tip about the feet
+  with the drawn length, `Tipped(..., length)`), Out of Action figures not fading (new `fade` dither in
+  `psx_figure.gdshader`, own material copies, real-looking base that fades), explosions and FIRE hiding models (smaller,
+  see-through, rising). Not looked at: Windows/Vulkan, rises (same code reversed), live matches by eye.
+  Checks: essentials 2,285/0; full UI runner 428 PASS, 0 FAIL, but pvp-a activation-ends-itself did not report (its one
+  try found the model's Move and Dash unregistered, `MARK auto-end-not-finished`; untouched code, match-dependent); rerun
+  (--skip-build) 425 PASS, 0 FAIL with it PASS, the four build steps not run there (PASS in the first run). Casualty
+  figure half sunk: fade 0.50, its model's own figure 1. Animating frame mean 0.50-0.51 ms, max 6.4-6.7 ms (merge 0.49/6.1).
+- 2026-11-21, Jason: animation audit (no code), then "Implement Stage 1 (B1)" only. Done: a change of the seat shown in
+  hot-seat (following the turn or F2) no longer calls `FinishAnimations` (`BoardView.Show`); a new match finishes the
+  last one's playback in `Main.Attach`; commands, Esc and catch-up unchanged. Hooks for the checks: `BoardView.SeatSwitches`,
+  `FollowedTurn` (set by `Main._Process` when `HotSeat.FollowIfNeeded` switched). New UI checks `hotseat-switch-keeps-playback`
+  (hotseat: a made-up shot playing when F2 switches the seat through HotSeat.Switch and Main's redraw plays all its beats;
+  with the old finish put back it FAILs: 3 beats shown at once, cut by ShowTimed) and `abilities-switch-keeps-playback`
+  (abilities: every switch following the turn while playing plays on, at least one with an action). The hotseat group's
+  full match only ends activations (no attacks, 0 animating frames), so real switches are checked in the abilities group.
+  Checks (Linux, xvfb): essentials 2,285/0; hotseat group 41 PASS, 0 FAIL; abilities 19 PASS, 1 NOT TESTED (scatter, dice),
+  real switches there: 78 following the turn, 1 while playing (a charge's blow and fall), 0 cut short. Not seen: the race
+  itself (one seat drawing an update a frame before the other gets it) never came up in these runs, a live hot-seat match
+  by eye, Windows. Not run: the full UI runner, hotseat-record-verifies (runner only). Next: B2 only when Jason asks.
+  Jason also asked for a "fast animations toggle in the settings": Settings already has "Animations: Full / Fast / Off"
+  (the same control as the in-match Menu, saved as `anim=`); asked whether a separate toggle is wanted.
+- 2026-11-21, Jason: "Implement Stage 2 (B2)" only. Done: a model put Out of Action during its own move (a live Mine
+  Marker halts a Move, Dash, charge or resumed move) goes where the server halted it. The server clears an Out of Action
+  model's position, so `StatusTracker` keeps each model's last place and `StatusChange.At` names it (after the event, or
+  just before it for Out of Action: the halt from `Reducer.HaltAtMine`); `Choreography.Falls` puts it on the Casualty
+  beat (`Beat.At`); `BoardView.StartCasualty` places the casualty figure there and, while the model's glide of the same
+  update plays (it already ends at the halt, `Motions.Cut`), the figure rides it (`CasualtyFigure.Rides/Home`, posed
+  from `_pose`/`_turned` in `PoseGhost`), then falls and dissolves as before. A move halted where the model stood has
+  no glide; it falls there. Hooks: `CasualtyOf`, `CasualtiesRiding`, `LastCasualtyAt`. Tests `CasualtyPlaceTests`
+  (bot-played Trench Warfare, 24 seeds: halts for Moves, Dashes, a charge and resumed moves, Full/Fast/Off, finishing
+  at once mid-move, every other casualty at the server's last place), `StatusChangesTests` (At); UI check
+  `board-casualty-mid-move` (gvt-a: made-up update from engine-shaped lines through `Choreography.Of`, stretched 20x:
+  waits at the start, rides with the glide, falls at the halt, finish-at-once frees it, Off draws none).
+  Also: B1's `abilities-switch-keeps-playback` is now optional (B2's full run had 81 switches, none while playing, so it
+  failed with nothing cut short); a switch that cuts playback still fails; `hotseat-switch-keeps-playback` stays required.
+  Checks (Linux, xvfb): essentials 2,288/0; full UI runner 432 PASS, 2 FAIL (that B1 check and abilities-exit, both
+  from the no-chance case above; board-casualty-mid-move, board-casualty-resilience, hotseat-mines all PASS).
+  After making it optional: abilities group rerun exit 0, 17 PASS, 2 NOT TESTED (dice), again no switch while playing.
+  Performance (gvt-a board-frame-time): animating frame mean 0.55 ms, max 8.4 ms (A5 baseline 0.50-0.51 ms, max
+  6.4-6.7 ms; earlier runs on this machine ranged 0.49-0.83 ms); terrain builds while animating 0. Not seen: a real
+  mine casualty in a live window (dice), Windows. Next: only when Jason asks (R1, T1 and the rest not started).
+- 2026-11-21, Jason: "Implement audit item R1" only. Done: every new match comes in through `Main.Attach` (hot-seat,
+  host, join, rejoin of a saved seat, rematch; an in-match reconnect does not), which now calls `BoardView.NewMatch`:
+  FinishAnimations as before, then clears `_lastSeen`, `LastDrawn` (new Client.Core class, was `_lastShapes`), `_facing`,
+  the drawn table (`_scene = null`, so the first update takes the existing `first` path: facings afresh, camera fits the
+  new table), `_lastSeq = -1` (the match's events so far are caught up, as for a first match), the selection,
+  `_lastActive` and the hook's seat. Found while doing it: after Leave the old `_scene` stayed, so the new match's first
+  Show copied the old models back into the caches and took "where models were" from the old table; `_facing` was only
+  cleared when the new match's first screen had no battlefield. Hooks: `NewMatches`, `RememberedModels`,
+  `RememberedShape`, `FacingCount`. Tests `LastDrawnTests` (ranged then melee match: within a match a model leaving the
+  table keeps its last shape; after the clearing nothing of the first match is remembered, even under shared ids;
+  without it the first match leaks). UI check `board-new-match-reset` (hotseat, in the online roster match after the
+  hot-seat match): with the old behaviour put back it FAILs (all 8 hot-seat models still remembered); with the fix PASS.
+  Checks (Linux, xvfb): essentials 2,291/0; hotseat group 42/0; full UI runner 435 PASS, 0 FAIL (incl. rematch-creates,
+  pvp-b-rejoin, reopen, board-casualty-mid-move; abilities-switch-keeps-playback reported this time: 2 switches while
+  playing, 0 cut short). Performance (gvt-a board-frame-time): animating mean 0.59 ms, max 6.1 ms (B2 run 0.55/8.4, A5
+  0.50-0.51/6.4-6.7; range on this machine 0.49-0.83); terrain builds while animating 0. Gap: the roster match's table had
+  no models placed yet when checked, so different positions across matches are covered by `LastDrawnTests` only; the
+  camera now refits on every new match (the existing first-match path). Not run: Windows. Next: only when Jason asks.
+- 2026-11-22, Jason: "Implement audit item T1" only. Done: in Fast, the effects drawn for a set length (muzzle flash, hit
+  puff, miss dirt, blow sparks, charge impact dust: `BoardView.PlayEffect`/`PlayStrike` used fixed Full constants) now
+  take `Choreography.EffectScale` (new: 1 in Full, exactly as before, also in updates sped up to fit 2.5 s; in Fast the
+  beat's own shortening, half normally, floor `FastEffectFloor` 0.35; `FullSeconds(kind)` names the five kinds).
+  Explosions, rings, bursts, tracers, lobs, scatter and dust already used the beat's scaled time; unchanged. Speed is
+  `BoardView.Animation` when the effect comes due. Hook `EffectLengths`. Tests `FastEffectTimingTests` (Full unchanged
+  incl. squeezed updates; Fast half, ends at half the time, overlaps what follows half as long; floor; Off none; other
+  beats unscaled; finish-at-once in Fast). UI check `board-fast-effects` (gvt-a: hit, miss, blow, charge in Full then
+  Fast through the battlefield: Full 0.16/0.70/0.90/0.15/0.50 s, Fast half; clear 1.00-1.25 s Full vs 0.56-0.62 s Fast;
+  a Fast hit skipped with 2 squares showing clear in 0.06 s; Off draws nothing).
+  Checks (Linux, xvfb): essentials 2,296/0; full UI runner 431/0, then (after tightening the skip step to wait for
+  squares on screen) 433/0. Performance (gvt-a board-frame-time): animating mean 0.49 and 0.44 ms, max 5.9/5.8 ms (R1
+  0.59/6.1, A5 0.50-0.51/6.4-6.7); terrain builds while animating 0. Not seen by eye; not run on Windows. Next: only when
+  Jason asks (T2-T5 not started).
+- 2026-11-22, Jason: "Implement audit item T2" only. Done: the animation code moved unchanged from `client/scripts/BoardView.cs`
+  (5,592 -> 3,945 lines) into the partial `client/scripts/BoardView.Animation.cs` (1,659 lines): the A1 playback section,
+  the G5 event effects, the A4 battlefield effects and the watchable-moves section with every pose track (ApplyPoses,
+  SetPoses, casualty figures). Pure move, checked line by line against the old file (same lines, same order; only the new
+  file's header added). Its generated `.cs.uid` is left untracked, as for the other partials (MainMenu.cs...).
+  Checks (Linux, xvfb): essentials 2,296/0; full UI runner 431 PASS, 0 FAIL. Performance (gvt-a board-frame-time):
+  animating mean 0.44 ms, max 6.7 ms (T1 0.44-0.49/5.8-5.9); terrain builds while animating 0. Not run: Windows.
+  Next: only when Jason asks (T3-T5 not started).
+- 2026-11-22, Jason: "Implement audit item T3" only. Done: one record of where models are drawn. `_lastSeen` (point and
+  radius) is gone, the remembered `ModelShape` gives both; the per-update `before` dictionary of the previous table's
+  positions is replaced by the previous table itself (`ShowNotes(log, BoardScene? before)`, one allocation less per
+  update); "on the table, else as last drawn" is `LastDrawn.Find(table, id)`, used by `Where`, `StartFall` and
+  `StartCasualty` (three hand-written versions before). `NewMatch` clears one cache; `RememberedModels` = `LastDrawn.Models`.
+  Tests `LastDrawnTests` (+2: Find replays the old two caches scene by scene over 12 simulated matches and answers the
+  same point, height, base and shape for every model, incl. ones just off the table; table first; cleared = new table
+  only); B2 `CasualtyPlaceTests` and R1 `board-new-match-reset` unchanged and passing.
+  Checks (Linux, xvfb): essentials 2,298/0; full UI runner 426 PASS, 4 FAIL (hotseat-turn-banner, a banner stayed 1.86 s,
+  known flaky; host battlefield-readable, a3 on grey ground ratio 1.55, a pixel check that reads only the scene and the
+  rendered picture; and the two windows' exit codes), rerun 436 PASS, 0 FAIL. Performance (gvt-a board-frame-time):
+  animating mean 0.58/0.60 ms, max 6.6/7.8 ms (T2 0.44/6.7, range on this machine 0.44-0.83); terrain builds while
+  animating 0. Not run: Windows. Next: only when Jason asks (T4, T5 not started).
+- 2026-11-22, Jason: "Start t4 then immediately t5 after if everything checks out". T4 done: the 53 animation members
+  only the UI checks read (counters, Last* records, PlayForCheck, NodeIdsOf, TiltOf, FacingOf, CasualtyLook, FigureFade,
+  CasualtyOf, DrawnAt, SeatSwitch/SeatSwitches, EffectLengths, the dev-picture helpers, R1's read-outs...) moved unchanged
+  with their comments into the partial `client/scripts/BoardView.AnimationChecks.cs` (225 lines;
+  `BoardView.Animation.cs` 1,659 -> 1,439); counters are still counted up in place. B2's `LastCasualtyAt` (written, never
+  read) removed. Members the board reads (Animation, Gliding, FinishAnimations, NewMatch, BodyAt, FollowedTurn,
+  constants) stay. Checked line by line. Its generated `.cs.uid` left untracked (local exclude).
+  Checks (Linux, xvfb): essentials 2,297/1 (AClientThatStopsReading, known flaky; rerun 3/3 PASS); full UI runner 432
+  PASS, 0 FAIL. Performance (gvt-a board-frame-time): animating mean 2.02 ms with one 302 ms frame (and a 374 ms idle
+  frame in the same run: the machine; about 0.7 ms without it); re-measured after T5 below.
+  T5 done: `docs/art-pipeline.md` (section 6 checklist) names the shader uniforms the client sets or reads by name
+  (`albedo_tex`, `albedo_colour`, `glow` 1.0, `fade` 1.0) and why `fade` (A5's casualty dissolve, ordered-dither discard)
+  must stay. New `PsxShaderContractTests` (6: the four uniforms with types and defaults, the dither line reading fade,
+  every uniform the client scripts set or read is declared; with `fade` taken out two fail). No game code or shader
+  changed. Checks: essentials 2,304/0; full UI runner 431 PASS, 4 FAIL (all abilities: Detonate never offered in that
+  match, so action-keys, action-previews, actions-narrated and abilities-exit; match-dependent), abilities group rerun
+  18 PASS, 0 FAIL, 2 NOT TESTED (dice), Detonate ok. Performance re-measured on T4's code (gvt-a): animating mean
+  0.56 ms, max 10.1 ms (idle max 403 ms again: the machine); terrain builds while animating 0. Audit items B1, B2, R1,
+  T1-T5 all done. Not run: Windows. Next: only when Jason asks.
+- 2026-11-22, Jason: final integration review of the animation system (A0-A5, B1-B2, R1, T1-T5). Two faults fixed:
+  (1) `BoardView.ShowNotes` took a log behind what it had shown (`newest < _lastSeq`) as a catch-up: FinishAnimations and
+  its place moved back, so when that log caught up the events in between were taken in again (dice, notes, sounds,
+  animations repeated). Hot-seat seats have separate connections, so a switch can show a seat a moment behind; a log
+  rebuilt after a reconnect (`Welcome ReplayFrom 0`) is the same. Since R1 a new match resets `_lastSeq` to -1, so a
+  shorter log is now waited out (hook `LogsBehind`). (2) Choosing another Animations speed mid-playback left it playing at
+  the old speed (Off kept animating); `Main`'s Animations choice now calls `FinishAnimations` when the speed changes.
+  UI checks `hotseat-log-behind-waits` and `hotseat-speed-choice-skips` (hotseat; helper `MadeUpShot`); with the old
+  behaviour put back both FAIL (cut by ShowNotes, 3 events shown again; Off kept playing).
+  Reviewed without change (no fault found): event order and overlaps (PlaybackQueue, Choreography), moves/charges/
+  casualties in one update (B2 riding, a casualty after a still-playing glide), Full/Fast/Off (T1 scale, OffFacings),
+  skips and NewMatch, effect pool (a new match is seconds after Leave, past the 0.2 s hurry), server positions only.
+  Noted, not changed: the UI-check lists (EffectLines, EffectsPlayed, StatusLines, FxLines, SeatSwitches) grow for a
+  whole session, a few small tuples per event; an update of more than 20 events is shown as a catch-up (no animation),
+  never seen in play.
+  Checks (Linux, xvfb): essentials 2,304/0; full UI runner 438 PASS, 0 FAIL. Performance (gvt-a board-frame-time):
+  animating mean 0.63 ms, max 10.2 ms (T5 run 0.56/10.1, range on this machine 0.44-0.83); terrain builds while
+  animating 0. Not run: Windows; not looked at by eye.
+- 2026-11-22, Jason chose "1" (animation showcase) to start validating the animations by eye. Done: `Client.Core/
+  AnimationShowcase.cs` (11 staged scenes from engine-shaped log lines on the table's two closest models and the one
+  nearest the target: shot Down, shot Out of Action, miss, mine mid-move, charge + blow, charge carry-on with its first leg
+  in contact, grenade + gas, scatter, three overlapping blasts with fire/gas/shrapnel, hot-seat F2 mid-shot, Fast
+  grenade); dev step `showcase` in UiCheck (captions; capture mode saves a picture every 0.12 s to <out>/showcase/NN,
+  check `dev-showcase`; `TRENCH_SHOWCASE=watch` stays open: F5 again, F6 next, F7 previous, F8 Full/Fast); dev-only
+  `BoardView.HoldAfterFall` (a staged Down stays lying; empty in play); Test Center option 9 / `showcase`
+  (`tools/TestCenter/AnimationShowcase.cs`, docs/testing.md). Tests `AnimationShowcaseTests` (7).
+  Looked at here (Linux, Compatibility renderer, xvfb), all 11 scenes frame by frame: the order and placing are right in
+  every scene (falls stay lying, casualty dissolves with its base, the mine casualty falls where it halted, charge lean +
+  impact + strike, grenade arc + ring + gas, scatter skim + landing, staggered blasts, F2 switch plays on). Two looks to
+  decide (owner): the red hit puff and the pale strike flash are near-solid squares that hide the target for most of
+  their time (0.15-0.7 s); stacked fireballs hide models about 0.3 s at their peak. Not changed.
+  Checks: essentials 2,311/0; full UI runner 437 PASS, 0 FAIL; gvt-a animating mean 0.61 ms, max 11.4 ms. Not run:
+  Windows/Vulkan (the showcase is for that: Test Center option 9).
+- 2026-11-23, Jason chose "1": hits and blows see-through. The red hit spatter is four 0.18"->0.38" squares at
+  `BoardView.HitAlpha` 0.5 flying apart (was four opaque squares grown to 0.7" from one point); the strike and impact
+  flashes 0.2"->0.35"/0.3" at the same alpha (were opaque, to 0.65"); lengths, timing and T1's Fast scaling unchanged;
+  muzzle flash and sparks unchanged; stacked fireballs not changed (option 2 not chosen). Hook `ShowingSquares`. UI check
+  `hotseat-hits-see-through` (hotseat: made-up hit and blow in Full, every red/pale square every frame at most 0.55
+  opaque and 0.4": seen 0.46 and 0.38"). Seen in the showcase capture: the target stays in sight through the hit.
+  Checks: essentials 2,311/0; hotseat group 45 PASS, 0 FAIL (animating mean 0.58 ms); showcase 11/11. Full UI runner
+  not run (look-only change; hotseat group covers it). Not run: Windows.
+- 2026-11-23, Jason: explosion and fire effects "less like large opaque blobs". Cause found: `BoardView.Puff`'s material
+  lacked `BillboardKeepScale`, so every effect square was drawn 1" across whatever its size (hits too: 44012e2's size cut
+  never showed, only its opacity). Fixed, and explosions, smoke, gas, shrapnel and burning flames retuned in true inches
+  (`BlastFlashAlpha` 0.6, `BlastFireAlpha` 0.5, `BlastSmokeAlpha` 0.4, `FireAlpha` 0.7 -> 0.6); lengths and timing
+  unchanged. `ShowingSquares` also reports whether each square keeps its scale. New UI check `hotseat-blasts-see-through`.
+  Checks (Linux, xvfb): essentials 2,311/0; hotseat group 46/0; gvt-a 32/0 (board-blast-effects 85 squares, cap 96;
+  animating mean 0.56 ms, max 9.2 ms); showcase 11/11, scenes 4, 7, 9 looked at frame by frame. Not run: full runner,
+  Windows/Vulkan. Every other effect (dust, muzzle flash, hits) is now drawn smaller, at its coded size; looked at in
+  scenes 1 and 7 only.
+- 2026-11-23, Jason: movement and casualty animations reviewed in the showcase. New dev settings `TRENCH_SHOWCASE_SLOW`
+  (slow-motion capture, `BoardView.SlowMotion`, dev only) and `TRENCH_SHOWCASE_ONLY`; twelfth showcase scene (largest
+  model Down then up). Fixed: a waiting rise held its model lying before the fall of the same update; falls land with a
+  small rebound (`FallCurve`), rises ease in and out (`RiseCurve`); the turn into a fall takes its first half (was 30%);
+  the casualty figure starts at the model's own facing (`CasualtyFigure.FromYaw`); gliding figures bob a little each step
+  (`StepBob`). Lengths and timing unchanged. Checks (Linux, xvfb): essentials 2,311 + 1 new, 1 flaky transport test
+  (`AHostThatNeverAnswersTheRejoinTimesOutEachAttempt`, passed 3/3 alone); hotseat group 46/0; gvt-a 33/0 (animating mean
+  0.70 ms, max 10.1 ms); showcase 12/12. Not run: full runner, Windows/Vulkan.
+- 2026-11-23, Jason: "I want bodies to lay on the ground not disappear". Done: Out of Action models stay as darkened bodies
+  lying where they fell, without base or label, until the match ends; display only (never in the scene's models).
+  `StatusTracker.Fallen` (last positions) -> `BoardScene.Of(..., fallen)` -> `BoardScene.Fallen`; `BoardView.Bodies.cs`
+  (`SyncBodies`, `EndGhost`, `LayBody`, `BuildCasualty` shared with the casualty figure, which now darkens and drops its
+  base instead of dissolving). Works in Full/Fast/Off, catch-up and rejoin. Tests `BodiesTests`; UI check optional
+  `board-bodies` (pvp-a, gvt-a). Checks (Linux, xvfb): essentials 2,314/0; hotseat 46/0; gvt-a 33/0 (board-bodies PASS on
+  a real casualty; animating mean 0.74 ms, max 12.1 ms); showcase scenes 2 and 4 looked at. Not run: full runner (pvp-a),
+  Windows/Vulkan. Open: bodies pile up for the whole match (no limit; a body can overlap a living model standing there).
+- 2026-11-23, Jason: "Do all" (after "What's next": 1 verify the animation branch, 2 body polish, 3 rules "later" group,
+  4 last two Heretic figures, 5 milestone sign-off). Done: (2) bodies lie in a pool of blood (`BloodPool`, spreads over
+  `PoolSeconds` 1.6 s) and are drawn see-through under a model on the table (`BodyUnderfoot` 0.35, `Underfoot`);
+  `board-bodies` checks both. (5) `docs/manual-test-checklist.md`: steps for the stage 5d hand-played match / Gate G5 and
+  for looking at the showcase on Windows. (3) blocked: the repo has only one-line summaries of the later-group rules
+  (Bodyguard, Hide, Hateful, Court spells, INFECTION/BLESSING MARKERS, Puppet Master, Loudspeakers, Set/Defuse Mine,
+  Time Slip, Temporal Assassin, Flanking/Forward Positions/INFILTRATOR, oval bases); the owner's pages are needed, as
+  for Suicidal Bravery. (4) blocked: references for the Bombard Witch and Barbed Wire Banshee needed. (1) full UI runner
+  first try stopped at 181 PASS, 2 FAIL (host too slow while the essentials ran beside it; reopen waited on it).
+  Then: the blood pool was not showing (under the zones' 0.02" slabs, and its spread tween stopped by moving the body);
+  fixed and looked at in the showcase. Full UI runner at 45ecaeb: 434 PASS, 2 FAIL (host battlefield-readable, a pixel
+  heuristic on figure colours at turn 1 with no bodies, and host-exit from it); rerun (--skip-build) 437 PASS, 0 FAIL
+  incl. board-bodies in pvp-a. After the pool fix: essentials 2,314/0; gvt-a 34/0 (board-bodies 2 bodies; animating
+  mean 0.76 ms); hotseat 46/0. Not run: Windows.
+- 2026-11-24, Jason chose option 3 of "shooting running climbing animations?" and said "Implement ragdoll". Built: the
+  figure builder adds a 16-bone ragdoll skeleton with skin weights for figures in `RAGDOLL` (`rig_figure`, end of
+  `tools/art/make_figures.py`; the joints come from `human_body`'s first body, `RIG_PTS`, through the same warps and
+  scaling); `Client.Core/Ragdoll.cs` (deterministic point-and-stick solver, `RagdollTests`); `client/scripts/
+  BoardView.Ragdoll.cs` (rig lookup, `Simulate`, `PoseRig`, `TorsoTilt`, `_fallPush`), used by the casualty figure and
+  `LayBody`; figures without a skeleton tip over as before. Prototype figures: Rifleman and Skirmisher (the showcase's
+  two Out of Action scenes), rebuilt painted with skeletons and looked at in the showcase (scenes 2 and 4); NOT
+  committed (the owner's art rule: ask before commit): they are in the session scratchpad (`painted/`), the tree keeps
+  the old files. Rebuild here: `uv venv` + `pip install bpy==5.1.2` (Python 3.13), `tools/art/.makehuman` fetched.
+  Checks with the rigged prototypes in place (Linux, xvfb): essentials 2,321/0; gvt-a 33/0 (board-casualty-mid-move on
+  the rigged Skirmisher; board-bodies PASS on 2 real bodies in the run before the last tilt change, not reported in the
+  last run); hotseat 46/0. Next (owner): approve the prototypes, then the other figures one at a time (the Reliquary
+  Walker has no human body: it keeps the tip-over). Not run: full runner, Windows.
+- 2026-11-24, Jason: "I need the impact to influence how far they ragdoll. Seamless. No hesitation before they ragdoll".
+  Done: `Client.Core/RagdollImpacts.cs` (each model's last hit per update: time, direction, strength, lift),
+  `Ragdoll.Fall` throws by strength and lift (skid then stick); `BoardView.Play` keeps `_recentImpact`, a rigged
+  casualty's fall starts on the hit (not the Injury Roll's beat) and plays at its own length; pool and underfoot follow
+  where the body lies. Showcase scene 13. Checks with the rigged prototypes in place: essentials 2,327/0; showcase scenes
+  2, 4, 13 looked at (fall on the hit, the blast's centre thrown about two bases). The prototype figures are still not
+  committed (owner's approval).
+- 2026-11-24, Jason: "Not just how far but the direction of the ragdoll in general". Done: `RagdollImpact.Hit` (where on
+  the body: shot 0.65, blow 0.78, charge 0.45, blast 0.22, mine 0.05) and `Ragdoll.Fall(..., hit)` (push at that height,
+  harder on the side facing the hit; the body turns and falls from it). Essentials 2,330/0; showcase scenes 2, 4, 13
+  looked at (shot knocks it back and twists it, the mine sweeps the legs, the grenade flips it). Prototype figures still
+  not committed.
+- 2026-11-24, Jason: "Do what's best in whatever order is optimal no mistakes" (after the choice: 2 tone down the big
+  throws, 1 approve the prototypes and rig the rest). Done so far: thrown bodies stop at other models' bases
+  (`Ragdoll.Fall(..., obstacles)`, recorded per fall in `_fallObstacles`), reach at most about a body length; the figure
+  builder rigs every figure with a body of its own (`RAGDOLL`: all but the Reliquary Walker) and prints `RIGCHECK` per bone
+  (its middle within 0.08 of the body, owning body vertices); dev step `ragdolls` (lineup of every figure falling, check
+  `dev-ragdolls`). Essentials 2,331/0. In progress: the 26 rigged figures building (scratchpad `rigged/`), to be compared
+  with the old files (parts, triangles, bounds, skeleton), looked at, then committed with the test
+  `UnitFiguresTests.AFigureWithABodyHasTheRagdollSkeleton` (kept aside until then).
+  Then: the 26 rebuilt figures differ from the approved ones (the cloth simulation and decimation vary run to run: up
+  to 0.15" on the Heretic Trooper's cape, a few triangles), so they were NOT used. Instead the skeleton was grafted onto
+  the approved files: bone nodes from the rebuilds, skin weights computed on the approved meshes as `rig_figure` does,
+  the approved binary kept byte for byte with the new data appended (script kept in the session scratchpad only:
+  `graft.py`; for a future figure, build it with `RAGDOLL` and it is rigged directly). Checked: all 26 figures' parts,
+  triangles and bounds exactly as before, 16 bones, the old data byte-identical; dev step `ragdolls` with close-ups
+  (`<out>/ragdolls/close-*`): all 26 fall and lie, nothing torn or stretched, the Reliquary Walker unrigged; new test
+  `UnitFiguresTests.AFigureWithABodyHasTheRagdollSkeleton`. Essentials 2,357 with 1 known flake (rerun 3/3). Figures
+  folder about 59 MB of the 64 MB cap. Not run on Windows.
+- 2026-11-25, Jason: ragdoll GIFs "good enough for now", then "Go to 3" (Down falls by ragdoll) and the goal "Complete
+  Animation Suite" (ragdoll and terrain the main focus). Done (docs/client.md "Animation suite"): `RagdollGround` (terrain
+  heights from TerrainDress parts, trench floors, lying bodies) in `Ragdoll.Fall(..., land)`: bodies stop against walls and
+  towers, drape over sandbags, drop into trenches, fall off platforms; `Ragdoll.Down` + `Ragdoll.Rise` (Down falls by
+  ragdoll over the base, drawn lying in that pose, `DownFall`; standing up from it); falls on a worker thread
+  (`RagdollRig.Pending`); ACTION gestures from events (`ActionCue`; beats Brace, DigIn, Rally, Reach) and shooter `Recoil`;
+  showcase scenes 14 (actions) and 15-19 (terrain; `--scenario ranged-towers`). Not covered: suppression, crawling,
+  artillery, slopes (none in the rules or table); the Walker has no skeleton. hotseat-turn-banner failed 3 times here, also
+  on the previous commit (machine timing).
+  Full UI runner at 5ea7ddb: 436 PASS, 2 FAIL (board-casualty-mid-move: a fall due before its worker thread finished
+  stood still for a frame; fixed, a due fall now waits for it; gvt-a rerun 0 failures, animating mean 0.78 ms, max
+  11.6 ms). Essentials 2,379/0.
+- 2026-11-25, Jason: "The models are clipping through the terrain in the gifs you sent. Is there movement animations?
+  /goal give everything a skeleton". Clipping fixed (docs/client.md "Clipping fixes"): side contacts push out across,
+  never onto a top; full-radius joints; segments rest on edges (`LiftSegments`); rise speed capped; heavier trunk;
+  tower braces solid. Showcase terrain scenes looked at again (all five: body at the wall's foot, slumped at the bags,
+  on the trench floor, against the tower, off the platform). Essentials 2,380/0.
+  Skeleton goal: the Reliquary Walker (the only figure without one) now has its own 16-bone skeleton on its hull
+  (`reliquary_walker()` RIG_PTS, in `RAGDOLL`; grafted onto the approved file, geometry byte-identical); `Ragdoll.Radii`
+  thickens joints for figures broader than a man. dev-ragdolls PASS 27/27 (flat ground; all-fours Beast "down").
+  Movement: glides with a step bob and turns, charges lean; no leg walk cycle (asked the owner).
+- 2026-11-25, Jason chose "1,3": walk cycle (docs/client.md "Walk cycle": `PoseWalk`/`ApplyWalk`, legs swing, knees
+  bend, chest sways, stride by distance; dev step `walks`; `hotseat-action-gestures` walk part PASS 25.4 degrees, back at
+  rest), then the full UI run (option 3).
+  Full UI runner at da78e4c: 436 PASS, 0 FAIL (hotseat-action-gestures incl. walk, board-casualty-mid-move, board-bodies;
+  frame time gvt-a animating mean 0.67 ms, max 6.9 ms). Not run: Windows.
+- 2026-11-26, Jason: "do 1, 2" (walk GIFs from a low close camera; casualties mid-move walk instead of slide). Done: a
+  casualty figure riding its model's move walks it (`PoseGhost` + `PoseWalk`, hook `GhostWalkFrames`; checked in
+  `board-casualty-mid-move`); at most 7 steps a second (`MaxStepsPerSecond`: fast moves take long running strides);
+  showcase scene 15 "A model walks into place"; dev settings `TRENCH_SHOWCASE_PITCH`/`TRENCH_SHOWCASE_DISTANCE`
+  (`BoardView.PicturePitch`). gvt-a 0 failures. Jason does Windows (option 3) at home.
+- 2026-11-26, Jason: a hit animation when a unit takes a Blood Marker and stays up, "nothing too over the top", then the
+  full screen checks and a quality pass. Done: `StatusTracker.Wounded` -> `LogLine.Wounded` -> `Wound` beat -> `PoseWound`
+  (trunk back 16 degrees, shoulders turn 7, head 12, quick out and slower back, 0.5 s; knock fallback without a skeleton);
+  showcase scene 15 (camera on the target, `ShowcaseScene.Watched`); tests `HitReactionTests`; UI check
+  `hotseat-action-gestures` wound part.
+  Full UI runner at 43aa052: 439 PASS, 0 FAIL (frame time gvt-a animating mean 0.68 ms, max 7.1 ms). Quality pass on the
+  tower map (`TRENCH_DEV=deploy,showcase,ragdolls,walks --scenario ranged-towers`): showcase 21/21, dev-ragdolls 27/27,
+  dev-walks 6/6, failures 0; the only engine error is the sandbox's missing ALSA sound device (harmless). Not run: Windows.
+- 2026-11-26, Jason: "tune the hit reactions ... a rocket launcher or an explosive would send them a lot farther than a
+  pistol or a blunt weapon". Done (docs/client.md "Hit power"): `HitPowers` (Light pistol/plain hand weapon, Firm rifle,
+  Heavy shotgun/HEAVY/+2 injury, Explosive grenade/BLAST/mine/Martyrdom, DEADLY +1), `LogLine.Power`; scales the flinch,
+  the ragdoll throw and the wound reel (angles, length, a shove back for Heavy and Explosive); showcase scene 16. No web
+  research needed (ranked from the weapons' rules keywords). hotseat group: only the known banner flake failed.
+- 2026-11-26, Jason: shotgun power falls off with distance; flamethrowers need a burning animation. Done (docs/client.md
+  "Shotgun falloff", "Flamethrowers"): `HitPowers.ShotgunAt` (point blank Explosive ... edge of range Light, by base-edge
+  distance over range); `LogLine.Flame` + `BeatKind.Flame` (a jet of flame bursts, no tracer or recoil); FIRE marker burns
+  1.4 s with flames climbing the body and smoke (`Later`, dropped by a skip); showcase scene 17.
+- 2026-11-26, Jason: "when the model is hit I dont want the entire model to move just have them recoil". Done: a hit's
+  flinch on a figure with a skeleton is a body-only recoil (the wound reel at 0.6 of its size over 0.2 s, `FlinchRecoil`,
+  hook `RecoilPosesStarted`); the wound's whole-model shove for Heavy and Explosive hits is gone; only a figure without a
+  skeleton is still knocked. UI check `hotseat-action-gestures` now also checks the model moved 0.000". Checks (Linux,
+  xvfb): essentials 2,391/0; hotseat group 0 failures. Jason's Windows Test Center run that day (417 PASS, 7 FAIL, all
+  host window: menu, corner icons, log drawer, unit card, rules/gaps buttons) was on a ZIP of d042dd7 (2026-11-17), not
+  this branch: to be rerun on the current branch before reading anything into it.
+- 2026-11-26, Jason: "always make it so get the newest version through the test center by entering 6". Done: Test
+  Center option 6 (`tools/TestCenter/Get-TrenchSim.ps1`) no longer fetches m7-client only: it picks the working branch
+  (m7-client, main, claude/*) with the newest commit on GitHub and says which; `-Branch <name>` still forces one. The
+  one-line installer in docs/testing.md now reads the script from this branch (m7-client's copy is the old one). Not run:
+  PowerShell (none here); Jason's d042dd7 folder still has the old option 6, so it needs the one-liner once.

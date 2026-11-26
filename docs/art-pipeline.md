@@ -47,8 +47,12 @@ oppressive, gothic. Every figure must read first as a silhouette, then by its eq
   (`BoardView.CloseDistance`), the closest zoom 4". A figure is judged at 8", where it is about 60 to 120 pixels tall
   in a 1280 x 800 window.
 - **Loading:** figures are read at run time with Godot's glTF loader (the `units` folder has `.gdignore`), so the
-  export must be plain glTF 2.0: meshes, PNG textures, nearest sampling, no armature, no animation, no custom
-  extensions. Parts named `Accent...` are drawn with the seat colour by the client (`Visuals.PaintAccent`).
+  export must be plain glTF 2.0: meshes, PNG textures, nearest sampling, no animation, no custom extensions. No
+  armature, except the ragdoll skeleton (2026-11-24, figures in `RAGDOLL` in `tools/art/make_figures.py`): 16 bones
+  named `pelvis`, `chest`, `head`, `headtip`, `upperarm.L/R`, `lowerarm.L/R`, `hand.L/R`, `upperleg.L/R`,
+  `lowerleg.L/R`, `foot.L/R` on the posed joints, the five tip bones unweighted; every vertex skinned to its two nearest
+  bones, headgear to the head, a held weapon or shield to the nearer forearm, a back piece to the chest. The figure looks
+  the same at rest; the client lets it go limp when it is put Out of Action (`BoardView.Ragdoll.cs`). Parts named `Accent...` are drawn with the seat colour by the client (`Visuals.PaintAccent`).
 - **Catalog:** `client/assets/catalog.json` maps `unit:<model name>` to a file. A model with no entry is drawn as the
   plain cylinder. High-contrast mode always draws the plain shapes.
 - **Bases (rules data, `baseMm` in content/roster):** 25, 32, 40, 50 and 60 mm round, and 30 x 60 mm oval (oval bases
@@ -168,6 +172,15 @@ embedded with nearest sampling.
   under them), never squashed spheres at fixed points: those read as cushions and float off a raised arm.
 - Budget and texture sizes of its class; nodes named as in section 5.
 - PSX shader (`client/shaders/psx_figure.gdshader`) tested in the game with the new figure, before it is shown for approval: `TRENCH_DEV=deploy,psx godot --path client -- --ui-check dev --out <dir> --scenario ranged` (check `psx-shader` passes; look at `psx-close`, `psx-mid`, `psx-far` for texture warp, wobble and colour steps).
+- When editing the PSX shader itself (animation audit item T5, 2026-11-22): the client sets and reads some of its uniforms
+  by name, so they must stay, with these defaults: `albedo_tex` and `albedo_colour` (set by `Visuals` for every figure),
+  `glow` (1.0, the glowing texels) and `fade` (1.0, drawn whole). `fade` is animation stage A5's dissolve: a figure put
+  Out of Action is drawn as a casualty figure on its own copies of its materials (`BoardView.StartCasualty`), and
+  `PoseGhost` lowers `fade` from 1 to 0 as it sinks; the shader then leaves out more of each 4 x 4 ordered-dither cell
+  (`discard`, no transparency sorting). A model's own figure never sets `fade`, so at 1.0 nothing changes. Without the
+  uniform the casualty figure would not dissolve (`set_shader_parameter` on a missing uniform does nothing), and the UI
+  check `board-casualty-resilience` (half sunk = half faded) would fail; `PsxShaderContractTests` checks these uniforms,
+  their defaults and the dither line on every build.
 
 ## Appendix: units and bases
 

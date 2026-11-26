@@ -9,12 +9,14 @@ windows, connects them, finds the match's record, verifies it and writes a repor
 Open **PowerShell** (Start menu, type `PowerShell`, press Enter), paste this line and press Enter:
 
 ```powershell
-irm https://raw.githubusercontent.com/laramar000/Trench-Sim/m7-client/tools/TestCenter/Get-TrenchSim.ps1 | iex
+irm https://raw.githubusercontent.com/laramar000/Trench-Sim/claude/adoring-hamilton-s5yohc/tools/TestCenter/Get-TrenchSim.ps1 | iex
 ```
 
 It downloads the newest version into `%USERPROFILE%\TrenchSim\Trench-Sim-<version>`, offers to install the .NET 10 SDK if
 it is missing, puts a **Test Trench Sim** shortcut on your desktop and opens the test center. Later, menu option 6 gets
-the newest version the same way. (Already have a Trench Sim folder? Double-click **Test Trench Sim** in it.)
+the newest version the same way. "Newest" means the working branch updated most recently on GitHub (m7-client, main or
+any claude/ branch), whichever it is; the window says which branch and version it picked (since 2026-11-26; before, option 6
+always took m7-client). A folder downloaded before that still has the old option 6: get the new one once with the line above. (Already have a Trench Sim folder? Double-click **Test Trench Sim** in it.)
 
 Godot 4.7.2 (.NET edition) is found by itself in your Downloads, Desktop or Documents folder. If it is not there, the test
 center offers to download it, or you can drag the Godot program into its window. It remembers the choice.
@@ -33,6 +35,7 @@ Double-click **Test Trench Sim**. A menu appears:
 | **5 Clean up** | Stops anything a test left running. | Nothing. |
 | **6 Get the newest version** | Downloads it and opens its test center. | Nothing. |
 | **7 Play Trenches** | Builds the game and opens it on its main menu, as a player sees it (your own settings and saved seats). The test center waits until the game is closed. | Play: hot-seat, host or join from **Play**. Close the window or choose **Exit** when done. |
+| **9 Animation showcase** | Builds the game, starts a hot-seat match, deploys both sides by itself (about a minute), then plays staged scenes of the battlefield's animations close up, each with a caption saying what to look for: a shot taking a model Down, Out of Action, a miss, a mine stopping a move, a charge that reaches, a charge that carries on, a grenade, a scatter, overlapping blasts, a hot-seat seat switch mid-shot, the grenade in Fast, the largest model going Down and standing back up, two models put Out of Action by one grenade, the ACTIONS (aim, fire, reload, dig in, tend a friend, rally), and a body thrown at each kind of terrain on the table (a wall, sandbags, a trench, a tower, off a tower's platform; the tower map has all five). Nothing is sent to the match. `showcase` from the command line. | Watch. **F5** plays the scene again, **F6** the next, **F7** the one before, **F8** switches Full and Fast. Close the window when done. |
 
 At the end of each run you see a large **RESULT: PASS / FAIL / INCOMPLETE** with every FAIL and NOT RUN line, and the full
 report is saved as `test-results\<date>-<kind>\report.md` in the Trench Sim folder, with every program's output in its

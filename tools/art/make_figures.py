@@ -245,6 +245,15 @@ def lift(v): return Vector((v.x, v.y, v.z + FLOOR))
 # Dynamic poses (2026-11-12, the owner: "more dynamic and less static"). A figure's pose() may call legs() for its
 # stance; TWIST turns the shoulders against the hips and LOOK turns the head on the neck (degrees, positive to the
 # figure's left), both applied to the finished, painted figure (dynamic_warp, at the end of this file).
+RIG_PTS = {}   # the main body's posed joints (human_body), for the ragdoll skeleton
+# Ragdoll (Jason, 2026-11-24, "Implement ragdoll"): the figures exported with a skeleton and skin weights, so the game
+# can let them go limp when they fall Out of Action. One figure at a time, each shown to the owner before the next.
+# Every figure with a MakeHuman body of its own; not the Reliquary Walker (its body is the martyr on its wheel), which
+# tips over as before.
+RAGDOLL = {"rifleman", "skirmisher", "shield", "standard", "trench-pilgrim", "stigmatic-nun", "ecclesiastic-prisoner", "war-prophet",
+           "castigator", "sanctified-giant", "yeoman", "shock-trooper", "lieutenant", "blind-marksman", "trench-cleric", "combat-engineer",
+           "mechanized-heavy-infantry", "combat-medic", "holy-warrior", "heretic-trooper", "heretic-priest", "brand-sworn-heavy-infantry",
+           "assault-beast", "wretched", "night-commando", "chorister", "reliquary-walker"}
 GROUND = 0.0   # how far legs() raised the ground to the feet (the pelvis stays where the painters expect it)
 TWIST = 0.0
 LOOK = 0.0
@@ -290,6 +299,8 @@ def human_body(pose, coat=True, dress=None, head="hood", mitts=None, shape="male
     global JOINTS; JOINTS = {f"{b}.{s}": lift(human.world(rig, f"{b}.{s}", "head")) for s in ("L", "R")
                              for b in ("upperarm01", "lowerarm01", "wrist", "upperleg01", "lowerleg01", "foot")}   # landmarks for painted figures
     global HIPS, HEAD_AXIS; HIPS = (JOINTS["upperleg01.L"] + JOINTS["upperleg01.R"]) / 2; HEAD_AXIS = (headtop - NECK).normalized()
+    if not RIG_PTS:   # ragdoll skeleton (2026-11-24): the first (main) body's posed joints, for rig_figure()
+        RIG_PTS.update({k: v.copy() for k, v in JOINTS.items()}); RIG_PTS.update(neck=NECK.copy(), headtop=headtop.copy(), hips=HIPS.copy())
     faces = human.bake_pose(body, rig)
     body.location.z = FLOOR; bpy.context.view_layer.objects.active = body
     bpy.ops.object.select_all(action='DESELECT'); body.select_set(True)
@@ -5416,6 +5427,19 @@ def reliquary_walker():
             return lit(C["ragsd"] if f < 0.2 else C["rags"], n, ao, p=p)
         return psx_kit(C, base, p, n, ao) or lit(C["metal"], n, ao, p=p)
     PAINT = paint
+    # Ragdoll (2026-11-25, the owner: "give everything a skeleton"): the walker's own joints on its hull, not the martyr's
+    # (human_body set RIG_PTS from the martyr on its wheel): sabatons, knees, thighs, hips, the collar under the
+    # tabernacle, the pauldrons, the elbow pistons and the fists; the head runs up the spire (rig_figure finds its top).
+    RIG_PTS.clear()
+    for s_, x in (("L", 1), ("R", -1)):
+        RIG_PTS[f"upperleg01.{s_}"] = Vector((0.24 * x, 0.0, 0.62))
+        RIG_PTS[f"lowerleg01.{s_}"] = Vector((0.24 * x, -0.03, 0.40))
+        RIG_PTS[f"foot.{s_}"] = Vector((0.24 * x, -0.05, 0.07))
+        RIG_PTS[f"upperarm01.{s_}"] = Vector((0.5 * x, 0.0, 1.15))
+        RIG_PTS[f"lowerarm01.{s_}"] = Vector((0.58 * x, -0.02, 0.78))
+    RIG_PTS["wrist.R"] = Vector((-0.58, -0.1, 0.45))      # the right fist, round the mace
+    RIG_PTS["wrist.L"] = Vector((0.62, -0.34, 0.68))      # the left forearm held out with the wheel
+    RIG_PTS.update(hips=Vector((0.0, 0.0, 0.72)), neck=Vector((0.0, 0.03, 1.35)), headtop=Vector((0.0, 0.03, 1.36)))
 
 def sanctified_giant():
     # Sanctified Giant (2026-11-03, seventh figure of docs/art-pipeline.md, class C, 40 mm): an original figure on the
@@ -8957,6 +8981,84 @@ allp = [(o.matrix_world @ v.co) for o in ALL for v in o.data.vertices]
 w = max(max(p.x for p in allp)-min(p.x for p in allp), max(p.y for p in allp)-min(p.y for p in allp))
 # feet: how far the body's lowest point stands above the figure's (0: the feet are on the ground, not held up by a part hanging lower)
 print(f"FIG {role} " + " ".join(f"{n}={tris(o)}" for n, o in OBJS.items()) + f" total={sum(tris(o) for o in ALL)} height={max(p.z for p in allp):.3f} raw={top:.3f} width={w:.3f} feet={min(v.co.z for v in B.data.vertices):.3f}")
+def rig_figure(k, low):
+    # Ragdoll skeleton: eleven bones on the main body's posed joints, carried through the same warps, turn and scaling as
+    # every vertex (WARP, TWIST/LOOK on the body, the floor and the 1.2 scale), so the finished figure is unchanged at
+    # rest. Each vertex is bound to its two nearest bones, blended by distance (rigid near the middle of a bone, soft at a
+    # joint); headgear goes with the head, a held weapon or shield with the nearer forearm, a back piece with the chest.
+    tw, lk = math.radians(TWIST), math.radians(LOOK)
+    def warp(p):
+        if WARP is not None: p = WARP("Body", p)
+        if TWIST or LOOK:
+            if lk:
+                e = p - NECK; t = e.dot(HEAD_AXIS); rad = (e - HEAD_AXIS * t).length
+                p = Matrix.Rotation(lk * sstep(t / 0.07) * sstep((0.26 - rad) / 0.08), 3, HEAD_AXIS) @ e + NECK
+            p = Matrix.Rotation(tw * sstep((p.z - 0.95) / 0.45), 3, 'Z') @ (p - HIPS) + HIPS
+        return Vector((p.x, p.y, p.z - low)) * k
+    J = {n: warp(v.copy()) for n, v in RIG_PTS.items()}
+    if role == "reliquary-walker":   # its head is the tabernacle and spire: up to the spire's tip
+        J["headtop"] = Vector((J["neck"].x, J["neck"].y, max(v.co.z for v in OBJS["Helmet"].data.vertices)))
+    mid = J["hips"].lerp(J["neck"], 0.45)
+    bones = {   # name: (head, tail, parent)
+        "pelvis": (J["hips"], mid, None), "chest": (mid, J["neck"], "pelvis"), "head": (J["neck"], J["headtop"], "chest")}
+    for s_ in ("L", "R"):
+        wrist = J[f"wrist.{s_}"]; fore = wrist - J[f"lowerarm01.{s_}"]
+        bones[f"upperarm.{s_}"] = (J[f"upperarm01.{s_}"], J[f"lowerarm01.{s_}"], "chest")
+        bones[f"lowerarm.{s_}"] = (J[f"lowerarm01.{s_}"], wrist + fore.normalized() * fore.length * 0.35, f"upperarm.{s_}")
+        bones[f"upperleg.{s_}"] = (J[f"upperleg01.{s_}"], J[f"lowerleg01.{s_}"], "pelvis")
+        bones[f"lowerleg.{s_}"] = (J[f"lowerleg01.{s_}"], Vector((J[f"foot.{s_}"].x, J[f"foot.{s_}"].y, 0.0)), f"upperleg.{s_}")
+    # tip bones (no weights) where the head, hands and feet end: the file keeps only where each bone starts, so the game
+    # finds the top of the head, the hands and the feet from these
+    for n, par in (("headtip", "head"), ("hand.L", "lowerarm.L"), ("hand.R", "lowerarm.R"), ("foot.L", "lowerleg.L"), ("foot.R", "lowerleg.R")):
+        h = bones[par][1]; bones[n] = (h, h + (h - bones[par][0]).normalized() * 0.02, par)
+    ad = bpy.data.armatures.new("Ragdoll"); arm = bpy.data.objects.new("Ragdoll", ad); bpy.context.collection.objects.link(arm)
+    bpy.ops.object.select_all(action='DESELECT'); arm.select_set(True); bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode='EDIT')
+    for n, (h, t, _) in bones.items():
+        eb = ad.edit_bones.new(n); eb.head = h; eb.tail = t if (t - h).length > 1e-4 else h + Vector((0, 0, 0.01))
+    for n, (_, _, par) in bones.items():
+        if par: ad.edit_bones[n].parent = ad.edit_bones[par]
+    bpy.ops.object.mode_set(mode='OBJECT')
+    def seg(p, a, b):
+        ab = b - a; t = max(0.0, min(1.0, (p - a).dot(ab) / max(ab.length_squared, 1e-9))); return (a + ab * t - p).length
+    def whole(o, n):
+        g = o.vertex_groups.new(name=n); g.add(list(range(len(o.data.vertices))), 1.0, 'REPLACE')
+    for name, o in OBJS.items():
+        for g in list(o.vertex_groups): o.vertex_groups.remove(g)
+        if name.startswith("Helmet"):
+            whole(o, "head")
+        elif name.startswith(("Weapon", "Shield")):
+            c = sum((v.co for v in o.data.vertices), Vector()) / max(1, len(o.data.vertices))
+            near = min(("L", "R"), key=lambda s_: min((v.co - J[f"wrist.{s_}"]).length for v in o.data.vertices))
+            whole(o, f"lowerarm.{near}")
+        elif name.startswith("Back"):
+            whole(o, "chest")
+        else:
+            weighted = {n: b for n, b in bones.items() if n not in ("headtip", "hand.L", "hand.R", "foot.L", "foot.R")}
+            groups = {n: o.vertex_groups.new(name=n) for n in weighted}
+            for v in o.data.vertices:
+                d = sorted((seg(v.co, h, t), n) for n, (h, t, _) in weighted.items())
+                (d0, n0), (d1, n1) = d[0], d[1]
+                # the nearer bone has it alone unless the second is nearly as close (a joint): then a smooth blend
+                w1 = max(0.0, 1 - (d1 - d0) / max(0.02, d0 * 0.6)) * 0.5
+                groups[n0].add([v.index], 1 - w1, 'REPLACE')
+                if w1 > 0.001: groups[n1].add([v.index], w1, 'REPLACE')
+        o.parent = arm
+        m = o.modifiers.new("Ragdoll", "ARMATURE"); m.object = arm
+    print(f"RIG {role} bones={len(bones)} " + " ".join(f"{n}=({h.x:.2f},{h.y:.2f},{h.z:.2f})" for n, (h, _, _) in bones.items()))
+    # The skeleton fits the figure: every weighted bone runs through the body (its middle within 0.08 of a body vertex, on
+    # the figure 1.2 tall; 0.12 for the pelvis and chest, inside the trunk) and has body vertices of its own.
+    bv = [v.co.copy() for v in B.data.vertices]
+    owned = {n: 0 for n in bones}
+    for v in B.data.vertices:
+        if v.groups: owned[B.vertex_groups[max(v.groups, key=lambda g: g.weight).group].name] += 1
+    for n, (h, t, _) in bones.items():
+        if n in ("headtip", "hand.L", "hand.R", "foot.L", "foot.R"): continue
+        # (the pelvis and chest run through the middle of the trunk, so the surface is up to its half-depth away)
+        m = (h + t) / 2; near = min((m - v).length for v in bv); most = 0.12 if n in ("pelvis", "chest") else 0.08
+        print(f"RIGCHECK {role} {n} near={near:.3f} owned={owned[n]} {'OK' if near < most and owned[n] > 0 else 'BAD'}")
+if role in RAGDOLL and RIG_PTS:
+    rig_figure(1.2 / top, low)
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=f"{outdir}/{role}.glb", export_format='GLB', export_yup=True, export_vertex_color='ACTIVE')   # the Accent's shading
 # the Blender source, for review or hand edits (docs/art-pipeline.md): saved only when asked

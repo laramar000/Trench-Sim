@@ -5,8 +5,11 @@
 .DESCRIPTION
   For a Windows PC without git. Paste this one line into PowerShell (it downloads and runs this script):
 
-    irm https://raw.githubusercontent.com/laramar000/Trench-Sim/m7-client/tools/TestCenter/Get-TrenchSim.ps1 | iex
+    irm https://raw.githubusercontent.com/laramar000/Trench-Sim/claude/adoring-hamilton-s5yohc/tools/TestCenter/Get-TrenchSim.ps1 | iex
 
+  0. Picks the branch: the working branch updated most recently on GitHub (m7-client, main or any claude/ branch), so
+     the newest work is always the one fetched, whichever branch it is on (the owner, 2026-11-26: "always make it so
+     get the newest version through the test center by entering 6"). -Branch <name> fetches that branch instead.
   1. Asks GitHub for the newest commit of the branch and downloads that exact commit as a ZIP into
      %USERPROFILE%\TrenchSim\Trench-Sim-<commit> (kept if it is already there), so the folder name says which version
      is tested.
@@ -15,7 +18,7 @@
   Older downloaded folders are left as they are.
 #>
 param(
-    [string]$Branch = 'm7-client',
+    [string]$Branch = '',
     [string]$Into = (Join-Path $env:USERPROFILE 'TrenchSim'),
     [switch]$NoStart
 )
@@ -26,9 +29,33 @@ $ProgressPreference = 'SilentlyContinue'
 $repo = 'laramar000/Trench-Sim'
 
 try {
-    Write-Host "Trench Sim: looking up the newest version of '$Branch'..."
-    $sha = (Invoke-RestMethod "https://api.github.com/repos/$repo/commits/$Branch" -Headers @{ 'User-Agent' = 'TrenchSim-TestCenter' }).sha
+    $headers = @{ 'User-Agent' = 'TrenchSim-TestCenter' }
+    if ($Branch) {
+        $candidates = @($Branch)
+    }
+    else {
+        Write-Host 'Trench Sim: looking for the newest version on any working branch...'
+        $candidates = @(Invoke-RestMethod "https://api.github.com/repos/$repo/branches?per_page=100" -Headers $headers |
+            ForEach-Object { $_ } | ForEach-Object { $_.name } |
+            Where-Object { $_ -eq 'm7-client' -or $_ -eq 'main' -or $_ -like 'claude/*' })
+        if ($candidates.Count -eq 0) { $candidates = @('m7-client') }
+    }
+    $best = $null
+    foreach ($name in $candidates) {
+        try {
+            $commit = Invoke-RestMethod "https://api.github.com/repos/$repo/commits/$name" -Headers $headers
+            $when = [datetime]$commit.commit.committer.date
+            if ($null -eq $best -or $when -gt $best.When) { $best = @{ Name = $name; Sha = $commit.sha; When = $when } }
+        }
+        catch {
+            Write-Host "  (could not read branch '$name': $($_.Exception.Message))"
+        }
+    }
+    if ($null -eq $best) { throw 'GitHub did not say which version is newest.' }
+    $Branch = $best.Name
+    $sha = $best.Sha
     if ($sha -notmatch '^[0-9a-f]{40}$') { throw "GitHub did not say which commit is newest (got '$sha')." }
+    Write-Host "Newest version: branch '$Branch', $($sha.Substring(0, 7)), updated $($best.When.ToString('yyyy-MM-dd HH:mm'))."
     $folder = Join-Path $Into "Trench-Sim-$sha"
     if (Test-Path (Join-Path $folder 'TrenchSim.sln')) {
         Write-Host "Already downloaded: $folder"
@@ -68,7 +95,7 @@ try {
     $link = $shell.CreateShortcut($shortcut)
     $link.TargetPath = $launcher
     $link.WorkingDirectory = $folder
-    $link.Description = "Trench Sim test center ($($sha.Substring(0, 7)))"
+    $link.Description = "Trench Sim test center ($Branch, $($sha.Substring(0, 7)))"
     $link.Save()
     Write-Host "The 'Test Trench Sim' shortcut on your desktop now opens version $($sha.Substring(0, 7))."
     if (-not $NoStart) { Start-Process -FilePath $launcher -WorkingDirectory $folder }

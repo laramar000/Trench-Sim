@@ -157,6 +157,7 @@ public partial class BoardView : SubViewportContainer
         _camera.AddChild(_unitLight);
         _viewport.AddChild(_terrain);
         _viewport.AddChild(_content);
+        _viewport.AddChild(_bodiesNode);
         _viewport.AddChild(_effects);
         _viewport.AddChild(_overlay);
         _viewport.AddChild(_notes);
@@ -214,9 +215,38 @@ public partial class BoardView : SubViewportContainer
     // preview is kept while it still fits the match (Interaction.Update).
     public void Show(BoardScene? scene, MatchState? state = null, Seat? seat = null, IReadOnlyList<LogLine>? log = null)
     {
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        ShowTimed(scene, state, seat, log);
+        _times.Show(System.Diagnostics.Stopwatch.GetTimestamp() - started);
+    }
+
+    private void ShowTimed(BoardScene? scene, MatchState? state, Seat? seat, IReadOnlyList<LogLine>? log)
+    {
         var first = _scene is null && scene is not null;
-        // Where each model was drawn before this update: a model the server moved travels from there (improvement 3).
-        var before = _scene?.Models.ToDictionary(m => m.Id, m => new Vector2((float)m.X, (float)m.Y)) ?? [];
+        // Where each model was drawn before this update: a model the server moved travels from there (improvement 3). Audit
+        // item T3: the table drawn so far itself, no copy of its positions.
+        var before = _scene;
+        // Animation stage A1: and where a model taken off the table was last drawn, so a shot that took it out still lands.
+        _lastDrawn.Remember(_scene);
+        // A change of the seat shown (hot-seat, by hand or following the turn) does not cut playback short: both seats see
+        // the same events with the same numbers, so what is playing is still right. A new match is finished in Main.Attach.
+        SeatSwitch? switched = null;
+        if (seat != _seatSeen)
+        {
+            if (_seatSeen is not null && scene is not null)
+            {
+                switched = new SeatSwitch(_seatSeen, seat, FollowedTurn, Gliding);
+                SeatSwitches.Add(switched);
+                _openSwitch = switched;
+            }
+            _seatSeen = seat;
+        }
+        FollowedTurn = false;
+        // Animation stage A2: a new match's figures face the middle again.
+        if (first)
+        {
+            _facing.Clear();
+        }
         _scene = scene;
         if (_scene?.Find(_selected) is null)
         {
@@ -238,8 +268,15 @@ public partial class BoardView : SubViewportContainer
         {
             ShowNotes(log, before);
         }
+        // Bodies (2026-11-23): every model Out of Action lies where it fell (its casualty figure becomes it when it plays).
+        SyncBodies();
+        if (switched is not null)
+        {
+            switched.PlayingAfter = Gliding;
+            switched.Seq = _lastSeq;
+        }
         Rebuild();
-        ApplyGlides();
+        ApplyPoses();
         UpdateSeeThrough();
         DrawPreview();
         if (first)
@@ -257,6 +294,9 @@ public partial class BoardView : SubViewportContainer
         Dice.SetLook(textScale, highContrast);
         ApplyEnvironment();
         Rebuild();
+        // Bodies are drawn with the look too (figures, or the plain bodies in high contrast).
+        ClearBodies();
+        SyncBodies();
         DrawPreview();
     }
 
@@ -478,6 +518,9 @@ public partial class BoardView : SubViewportContainer
         PlaceCamera();
         Changed?.Invoke();
     }
+
+    // Dev pictures only (the walk GIFs, 2026-11-26): a lower camera angle, in degrees above the table; null in play.
+    public float? PicturePitch { get; set; }
 
     // Puts the angled camera at a point (Godot units: x, height, table y), keeping its facing (for the UI check).
     public void PlaceCameraAt(Vector3 at)
@@ -811,7 +854,8 @@ public partial class BoardView : SubViewportContainer
     private async void TickAutoEnd()
     {
         Interaction.AutoEnd = AutoEndActivations;
-        if (!_autoEndTicking)
+        // Animation stage A1: the "ends by itself" countdown starts once the battlefield has shown what happened.
+        if (!_autoEndTicking && !Gliding)
         {
             _autoEndTicking = true;
             try
@@ -904,6 +948,25 @@ public partial class BoardView : SubViewportContainer
 
     public override void _Process(double delta)
     {
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        var busy = Gliding;
+        ProcessFrame();
+        if (_openSwitch is { } open && !Gliding)
+        {
+            open.Done = true;
+            _openSwitch = null;
+        }
+        _times.Frame(System.Diagnostics.Stopwatch.GetTimestamp() - started, busy);
+    }
+
+    // Animation stage A0: what the battlefield's own work costs per frame (idle, and while something is animating) and per
+    // update from the server, measured with no allocation, so a change can be compared with the numbers before it.
+    private readonly BoardTimes _times = new();
+
+    public BoardTimes Times => _times;
+
+    private void ProcessFrame()
+    {
         PlaceStrip();
         if (_turnBanner.Visible)
         {
@@ -932,7 +995,8 @@ public partial class BoardView : SubViewportContainer
         KeepControlsOnTop();
         TickAutoEnd();
         PlaceReasonBox();
-        ApplyGlides();
+        RunDue(Now, draw: true);
+        ApplyPoses();
         UpdateMeleeLinks();
         UpdateSeeThrough();
         SeparateLabels();
@@ -1220,6 +1284,11 @@ public partial class BoardView : SubViewportContainer
         {
             ActivateSelected();
             return true;
+        }
+        // Animation stage A1: Esc shows at once whatever is still playing (display only), then does what it always did.
+        if (key.Keycode == Key.Escape)
+        {
+            FinishAnimations();
         }
         // Stage N2: Esc first keeps an activation that was about to end by itself.
         if (key.Keycode == Key.Escape && KeepActivation())
@@ -2312,111 +2381,61 @@ public partial class BoardView : SubViewportContainer
 
     // New events' notes. The first time (or after a catch-up of many events) only remembers where the log is, so a
     // rejoin does not replay old notes.
-    private void ShowNotes(IReadOnlyList<LogLine> log, IReadOnlyDictionary<ModelId, Vector2> before)
+    private void ShowNotes(IReadOnlyList<LogLine> log, BoardScene? before)
     {
         var newest = log.Count == 0 ? 0 : log[^1].Seq;
-        if (_lastSeq < 0 || newest < _lastSeq || newest - _lastSeq > 20)
+        // Final animation review: a log behind what this battlefield has already shown (the other hot-seat seat's
+        // connection a moment behind after a switch, or a log being rebuilt after a reconnect) shows nothing new and keeps
+        // the place: it neither cuts what is playing nor takes the events in between in a second time when it catches up
+        // (their dice, notes, sounds and animations would repeat). A new match starts from -1 (NewMatch).
+        if (_lastSeq >= 0 && newest < _lastSeq)
+        {
+            LogsBehind++;
+            return;
+        }
+        if (_lastSeq < 0 || newest - _lastSeq > 20)
         {
             if (newest > Math.Max(_lastSeq, 0))
             {
                 _skipped.Add((Math.Max(_lastSeq, 0), newest));
             }
             _lastSeq = newest;
-            _glides.Clear();
+            FinishAnimations();
             return;
         }
-        foreach (var line in log.Where(l => l.Seq > _lastSeq))
+        var fresh = new List<LogLine>();
+        foreach (var line in log)
         {
+            if (line.Seq <= _lastSeq)
+            {
+                continue;
+            }
+            fresh.Add(line);
             if (line.Replayed)
             {
                 ReplayedUpTo = Math.Max(ReplayedUpTo, line.Seq);
-            }
-            Dice.Feed.Add(line, DiceTray.Now);
-            LineShown?.Invoke(line);
-            foreach (var note in line.Notes ?? [])
-            {
-                AddNote(note);
             }
             // Graphics stage G5: an event's effects, only for an event this window sees as it happens (not caught up).
             if (line.Effects.Count > 0)
             {
                 EffectLines.Add((line.Seq, line.Effects.Count, line.Replayed));
-                if (!line.Replayed)
-                {
-                    foreach (var cue in line.Effects)
-                    {
-                        PlayEffect(cue);
-                        EffectsPlayed.Add((line.Seq, cue));
-                    }
-                }
             }
-            if (line.Motion is { } motion && before.TryGetValue(motion.Model, out var from))
+            // Animation stage A3: the status changes each event made (for the UI check).
+            if (line.Changes.Count > 0)
             {
-                StartGlide(motion, from);
+                StatusLines.Add((line.Seq, line.Changes.Count, line.Replayed));
+            }
+            // Animation stage A4: the explosions and marker bursts each event has (for the UI check).
+            if (line.Fx.Blasts.Count > 0 || line.Fx.Markers.Count > 0)
+            {
+                FxLines.Add((line.Seq, line.Fx.Blasts.Count, line.Fx.Markers.Count, line.Replayed));
             }
         }
         _lastSeq = newest;
-    }
-
-    // ---- event effects (graphics stage G5) ----
-
-    // Every event with effects this window took in (its number, how many effects, caught up or not), and the effects it
-    // played (for the UI check: all of the live ones, none of the caught-up ones).
-    public List<(int Seq, int Count, bool Replayed)> EffectLines { get; } = [];
-
-    public List<(int Seq, EffectCue Cue)> EffectsPlayed { get; } = [];
-
-    public int EffectsShowing => _effects.GetChildCount();
-
-    // For the dev pictures only: show an effect without an event (never used in play).
-    public void ShowEffectForPicture(EffectCue cue) => PlayEffect(cue);
-
-    // PS1-style: a few flat, unshaded squares that face the camera, grow and fade, then go. No lights, no particles.
-    private void PlayEffect(EffectCue cue)
-    {
-        if (_scene?.Find(cue.At) is not { } model)
+        if (fresh.Count > 0)
         {
-            return;
+            Play(Choreography.Of(fresh, id => before?.Find(id) is { } was ? new TablePoint(was.X, was.Y) : null, Animation));
         }
-        var at = new Vector3((float)model.X, (float)model.Standing, (float)model.Y);
-        switch (cue.Kind)
-        {
-            case EffectKind.MuzzleFlash:
-                Puff(at + new Vector3(0, 0.85f, 0), Vector3.Zero, 0.5f, 0.4f, new Color(1f, 0.9f, 0.45f), 0.35f);
-                break;
-            case EffectKind.HitPuff:
-                for (var i = 0; i < 4; i++)
-                {
-                    var away = new Vector3(Mathf.Cos(i * 1.7f), 0.6f, Mathf.Sin(i * 1.7f)) * 0.35f;
-                    Puff(at + new Vector3(0, 0.7f, 0), away, 0.3f, 0.4f, new Color(0.72f, 0.2f, 0.15f), 0.7f);
-                }
-                break;
-            default:
-                for (var i = 0; i < 5; i++)
-                {
-                    var side = new Vector3(Mathf.Cos(i * 1.3f), 0, Mathf.Sin(i * 1.3f)) * ((float)model.Radius + 0.35f);
-                    Puff(at + side + new Vector3(0, 0.15f, 0), new Vector3(0, 0.6f, 0), 0.4f, 0.5f, new Color(0.58f, 0.49f, 0.37f), 0.9f);
-                }
-                break;
-        }
-    }
-
-    private void Puff(Vector3 from, Vector3 drift, float size, float grow, Color colour, float seconds)
-    {
-        var paint = new StandardMaterial3D
-        {
-            AlbedoColor = colour,
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
-        };
-        var puff = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(size, size) }, Position = from, MaterialOverride = paint };
-        _effects.AddChild(puff);
-        var tween = puff.CreateTween().SetParallel();
-        tween.TweenProperty(puff, "position", from + drift, seconds);
-        tween.TweenProperty(puff, "scale", Vector3.One * (1 + grow / size), seconds);
-        tween.TweenProperty(paint, "albedo_color:a", 0f, seconds);
-        tween.Chain().TweenCallback(Callable.From(puff.QueueFree));
     }
 
     // ---- see-through walls (XCOM-style UX) ----
@@ -2494,7 +2513,7 @@ public partial class BoardView : SubViewportContainer
         // QoL H2: worked out again only when the camera has moved or a model is travelling (or after a redraw), not every
         // frame.
         var key = (_camera.GlobalTransform, _topDown);
-        if (!Gliding && _seeThroughKey == key)
+        if (_glides.Count == 0 && _knocks.Count == 0 && _seeThroughKey == key)
         {
             return;
         }
@@ -2517,115 +2536,6 @@ public partial class BoardView : SubViewportContainer
         }
         _faded.Clear();
         _faded.UnionWith(hiding);
-    }
-
-    // ---- watchable moves (XCOM-style UX, improvement 3) ----
-
-    // A model the server moved travels its path from where it was drawn, briefly, instead of jumping. Only the drawing
-    // moves: the scene, the selection, the previews and every check use the server's position throughout. When the
-    // path ends off screen the camera turns to it (keeping the zoom).
-    private sealed record Glide(ModelId Model, Vector2[] Points, float[] Lengths, float Total, double Start, double Seconds, float[] Heights);
-
-    private readonly List<Glide> _glides = [];
-    private readonly Dictionary<ModelId, List<(Node3D Node, Vector3 At)>> _modelNodes = [];
-
-    public const float GlideInchesPerSecond = 24f;
-    public const double GlideMinSeconds = 0.25;
-    public const double GlideMaxSeconds = 0.7;
-
-    // How many moves have been shown travelling, and the last one (for the UI check).
-    public int GlidesStarted { get; private set; }
-
-    public (ModelId Model, Vector2 From, Vector2 To, double Seconds)? LastGlide { get; private set; }
-
-    // Whether a model is still travelling on screen (the UI check waits for this before it measures the drawing).
-    public bool Gliding => _glides.Count > 0;
-
-    // The point of a model the see-through walls keep visible (Godot units: x, height, table y; for the UI check).
-    public Vector3? BodyAt(ModelId id) => _modelNodes.TryGetValue(id, out var nodes) && nodes.Count > 0 ? nodes[0].Node.Position : null;
-
-    // Where a model is drawn now (its base centre, inches); the server's position once it has stopped.
-    public Vector2? DrawnAt(ModelId id) => _modelNodes.TryGetValue(id, out var nodes) && nodes.Count > 0
-        ? new Vector2(nodes[0].Node.Position.X, nodes[0].Node.Position.Z)
-        : null;
-
-    private void StartGlide(Motion motion, Vector2 from)
-    {
-        var points = new[] { from }.Concat(motion.Path.Select(p => new Vector2((float)p.X, (float)p.Y))).ToArray();
-        var lengths = new float[points.Length];
-        for (var i = 1; i < points.Length; i++)
-        {
-            lengths[i] = lengths[i - 1] + points[i - 1].DistanceTo(points[i]);
-        }
-        if (lengths[^1] < 0.01f)
-        {
-            return;
-        }
-        _glides.RemoveAll(g => g.Model == motion.Model);
-        var seconds = Math.Clamp(lengths[^1] / GlideInchesPerSecond, GlideMinSeconds, GlideMaxSeconds);
-        // Towers proposal, stage T4: each point's height (a tower's platform or the ground), so a climb is seen going up.
-        var heights = points.Select(p => (float)LevelAt(p.X, p.Y)).ToArray();
-        _glides.Add(new Glide(motion.Model, points, lengths, lengths[^1], Time.GetTicksMsec() / 1000.0, seconds, heights));
-        GlidesStarted++;
-        LastGlide = (motion.Model, points[0], points[^1], seconds);
-        var end = points[^1];
-        var standing = _scene?.Find(motion.Model)?.Standing ?? 0;
-        if (!OnScreen(ScreenOf(end.X, end.Y, standing)))
-        {
-            CentreOnPoint(end);
-        }
-    }
-
-    // The height a base centred at this table point stands at: a tower's height inside its footprint, a trench's floor
-    // when the centre is in one (trench-maps stage S3), else the ground (as Rules.Core.Geometry.Towers.ElevationAt and the
-    // rules' U81; display only).
-    private double LevelAt(double x, double y) =>
-        _scene?.Terrain.FirstOrDefault(t => t.Tower && t.Area.X0 < x && x < t.Area.X1 && t.Area.Y0 < y && y < t.Area.Y1)?.Height
-        ?? (_scene is { } scene && TrenchPits.At(scene, x, y) is { } trench ? -trench.Depth : 0);
-
-    private bool OnScreen(Vector2? at) => at is { } p && p.X >= 0 && p.Y >= 0 && p.X <= Size.X && p.Y <= Size.Y;
-
-    // Draws each travelling model at its point along the path; a finished one is back on the server's position.
-    private void ApplyGlides()
-    {
-        if (_glides.Count == 0)
-        {
-            return;
-        }
-        var now = Time.GetTicksMsec() / 1000.0;
-        foreach (var glide in _glides.ToList())
-        {
-            var t = (float)Math.Clamp((now - glide.Start) / glide.Seconds, 0, 1);
-            // Eased so it starts and stops gently.
-            var eased = t * t * (3 - 2 * t);
-            var along = eased * glide.Total;
-            var i = 1;
-            while (i < glide.Points.Length - 1 && glide.Lengths[i] < along)
-            {
-                i++;
-            }
-            var leg = glide.Lengths[i] - glide.Lengths[i - 1];
-            var part = leg <= 0 ? 1 : (along - glide.Lengths[i - 1]) / leg;
-            var at = glide.Points[i - 1].Lerp(glide.Points[i], part);
-            var offset = t >= 1 ? Vector2.Zero : at - glide.Points[^1];
-            var rise = t >= 1 ? 0 : Mathf.Lerp(glide.Heights[i - 1], glide.Heights[i], part) - glide.Heights[^1];
-            if (_modelNodes.TryGetValue(glide.Model, out var nodes))
-            {
-                foreach (var (node, rest) in nodes)
-                {
-                    if (IsInstanceValid(node))
-                    {
-                        node.Position = rest + new Vector3(offset.X, rise, offset.Y);
-                    }
-                }
-            }
-            if (t >= 1)
-            {
-                _glides.Remove(glide);
-            }
-        }
-        // Labels moved: place them again next frame.
-        _labelsPlaced = "";
     }
 
     public void AddNote(UnitNote note)
@@ -2861,7 +2771,7 @@ public partial class BoardView : SubViewportContainer
             return;
         }
         _camera.Projection = Camera3D.ProjectionType.Perspective;
-        var pitch = Mathf.DegToRad(AngledPitch);
+        var pitch = Mathf.DegToRad(PicturePitch ?? AngledPitch);
         var back = new Vector3(Mathf.Sin(yaw) * Mathf.Cos(pitch), Mathf.Sin(pitch), Mathf.Cos(yaw) * Mathf.Cos(pitch));
         _camera.Position = _target + back * _distance;
         _camera.Rotation = new Vector3(-pitch, yaw, 0);
@@ -3020,7 +2930,16 @@ public partial class BoardView : SubViewportContainer
         _terrainKey = null;
     }
 
+    // Animation stage A0: every redraw is counted (terrain built, models drawn), apart for redraws while something animates.
     private void Rebuild()
+    {
+        var terrain = TerrainBuilds;
+        var models = ModelsDrawn;
+        RebuildParts();
+        _times.Rebuilt(TerrainBuilds - terrain, ModelsDrawn - models, Gliding);
+    }
+
+    private void RebuildParts()
     {
         // Performance: a model is drawn again only when what it is drawn from changed (ModelKey); the others keep their
         // nodes. Everything else in _content (rings on objectives, zone labels, mines, links) is drawn again.
@@ -3031,7 +2950,9 @@ public partial class BoardView : SubViewportContainer
             foreach (var model in now.Models)
             {
                 var selected = model.Id == _selected;
-                keys[model.Id] = new ModelKey(model, selected, model.Id == _hovered, model.Yours && !selected && Interaction.CanChoose(model.Id), look);
+                // Animation stage A3: a model about to fall is drawn standing until its fall ends.
+                var drawn = _held.TryGetValue(model.Id, out var held) ? model with { Status = held } : model;
+                keys[model.Id] = new ModelKey(drawn, selected, model.Id == _hovered, model.Yours && !selected && Interaction.CanChoose(model.Id), look);
             }
         }
         var kept = new HashSet<Node>();
@@ -3043,6 +2964,7 @@ public partial class BoardView : SubViewportContainer
                 continue;
             }
             _drawnModels.Remove(id);
+            _figures.Remove(id);
             _bodyColours.Remove(id);
             _eligibleRings.Remove(id);
             _idLabels.Remove(id);
@@ -3140,10 +3062,15 @@ public partial class BoardView : SubViewportContainer
             }
             var firstNode = _content.GetChildCount();
             var fromArt = _figuresFromArt;
-            DrawModel(model, keys[model.Id].Choosable);
+            DrawModel(keys[model.Id].Shape, keys[model.Id].Choosable);
             var nodes = Enumerable.Range(firstNode, _content.GetChildCount() - firstNode).Select(i => _content.GetChild(i)).ToList();
             // Everything just drawn for this model (body, rings, id), so a glide can carry it along its path.
             _modelNodes[model.Id] = [.. nodes.OfType<Node3D>().Select(n => (n, n.Position))];
+            // Animation stage A2: the figure holder, which turns and leans (the plain body has none).
+            if (nodes.OfType<Node3D>().FirstOrDefault(n => n.Name == $"Figure{model.Id.Value}") is { } figure)
+            {
+                _figures[model.Id] = figure;
+            }
             _drawnModels[model.Id] = new DrawnModel(keys[model.Id], nodes, _figuresFromArt > fromArt);
             ModelsDrawn++;
         }
@@ -3539,11 +3466,20 @@ public partial class BoardView : SubViewportContainer
                 {
                     Name = $"Figure{model.Id.Value}",
                     Position = new Vector3((float)model.X, standing + figureTall / 2, (float)model.Y),
-                    // Decoration only: each figure faces the middle of the battlefield.
-                    Rotation = new Vector3(0, Mathf.Atan2((float)(_scene!.Width / 2 - model.X), (float)(_scene.Depth / 2 - model.Y)), 0),
+                    // Decoration only: each figure faces the middle of the battlefield until it turns to a target (stage A2,
+                    // _facing), and keeps that facing when drawn again.
+                    Rotation = new Vector3(0, FacingNow(model.Id), 0),
                 };
                 Node3D shape = figure;
-                if (model.Status != ModelStatus.Standing)
+                // Ragdoll (2026-11-25): a Down figure with a skeleton is drawn at its standing size, lying in the pose its
+                // own fall ended in (DownFall), posed once it is in the tree below.
+                var rigged = model.Status != ModelStatus.Standing && CachedRig(figure) is not null;
+                if (rigged)
+                {
+                    figureTall = (float)Visuals.Catalog.HeightFor(unitKey, VisualCatalog.DefaultUnitKey);
+                    holder.Position = new Vector3((float)model.X, standing + figureTall / 2, (float)model.Y);
+                }
+                else if (model.Status != ModelStatus.Standing)
                 {
                     // Down: the figure lies on its back across the base.
                     shape = new Node3D { Name = "Lying" };
@@ -3563,6 +3499,12 @@ public partial class BoardView : SubViewportContainer
                 }
                 holder.AddChild(shape);
                 _content.AddChild(holder);
+                if (rigged && CachedRig(figure) is { } rig)
+                {
+                    var down = DownPoseOf(model.Id, rig, new Vector3((float)model.X, standing, (float)model.Y), (float)model.Radius, figureTall, FacingNow(model.Id));
+                    holder.Rotation = new Vector3(0, down.Yaw, 0);
+                    PoseRig(rig, down.Fall.Wait(), 1);
+                }
                 FigureBase(model, standing, colour);
                 _figuresFromArt++;
             }
@@ -3961,4 +3903,72 @@ public partial class BoardView : SubViewportContainer
         NoDepthTest = noDepth,
         ShadingMode = noDepth ? BaseMaterial3D.ShadingModeEnum.Unshaded : BaseMaterial3D.ShadingModeEnum.PerPixel,
     };
+}
+
+// Animation stage A0: the battlefield's own time per frame and per server update (Stopwatch ticks summed, the slowest
+// kept), split into frames where nothing is animating and frames where something is, and how often it redrew the terrain
+// and models (apart while something animates). Counting only: two clock reads per frame, no allocation.
+public sealed class BoardTimes
+{
+    private long _idle, _idleMax, _busy, _busyMax, _show, _showMax;
+
+    // Redraws: terrain layers built and models drawn, all and while something animates.
+    public int TerrainBuilds { get; private set; }
+
+    public int BusyTerrainBuilds { get; private set; }
+
+    public int ModelDraws { get; private set; }
+
+    public int BusyModelDraws { get; private set; }
+
+    public void Rebuilt(int terrain, int models, bool busy)
+    {
+        TerrainBuilds += terrain;
+        ModelDraws += models;
+        if (busy)
+        {
+            BusyTerrainBuilds += terrain;
+            BusyModelDraws += models;
+        }
+    }
+
+    public int IdleFrames { get; private set; }
+
+    public int BusyFrames { get; private set; }
+
+    public int Shows { get; private set; }
+
+    public void Frame(long ticks, bool busy)
+    {
+        if (busy)
+        {
+            BusyFrames++;
+            _busy += ticks;
+            _busyMax = Math.Max(_busyMax, ticks);
+        }
+        else
+        {
+            IdleFrames++;
+            _idle += ticks;
+            _idleMax = Math.Max(_idleMax, ticks);
+        }
+    }
+
+    public void Show(long ticks)
+    {
+        Shows++;
+        _show += ticks;
+        _showMax = Math.Max(_showMax, ticks);
+    }
+
+    private static double Ms(long ticks) => ticks * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+
+    private static string Mean(long sum, int count) => count == 0 ? "-" : (Ms(sum) / count).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Max(long ticks) => Ms(ticks).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+    public override string ToString() =>
+        $"idle frames {IdleFrames} mean {Mean(_idle, IdleFrames)} ms max {Max(_idleMax)} ms; animating frames {BusyFrames} mean {Mean(_busy, BusyFrames)} ms max {Max(_busyMax)} ms; " +
+        $"updates {Shows} mean {Mean(_show, Shows)} ms max {Max(_showMax)} ms; terrain builds {TerrainBuilds} ({BusyTerrainBuilds} while animating); " +
+        $"models drawn {ModelDraws} ({BusyModelDraws} while animating)";
 }

@@ -175,8 +175,13 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
 
     public TableRect? MineArea { get; init; }
 
+    // Bodies (Jason, 2026-11-23): the models Out of Action, each at the last place the table had it (given by the caller's
+    // StatusTracker: the server clears it), drawn lying where they fell. Never on the table: nothing selects, blocks or sees
+    // by them. Display only.
+    public IReadOnlyList<ModelShape> Fallen { get; init; } = [];
+
     // Null when the match has no battlefield yet (before the Welcome, or a setup without a scenario).
-    public static BoardScene? Of(MatchState state, Seat? you, ContentNames names)
+    public static BoardScene? Of(MatchState state, Seat? you, ContentNames names, IReadOnlyDictionary<ModelId, Point2>? fallen = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(names);
@@ -205,9 +210,11 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
         }).ToList();
         var models = new List<ModelShape>();
         // On the table: a position, Down models included (a Down model still has a base, p. 36), as Rules.Core's Board does.
+        var bodies = new List<ModelShape>();
         foreach (var model in state.Models)
         {
-            if (model.Position is not { } at || state.Setup.ProfileOf(model.Id) is not { } profile)
+            var place = model.Position ?? (model.Status == ModelStatus.OutOfAction && fallen is not null && fallen.TryGetValue(model.Id, out var last) ? last : (Point2?)null);
+            if (place is not { } at || state.Setup.ProfileOf(model.Id) is not { } profile)
             {
                 continue;
             }
@@ -220,13 +227,14 @@ public sealed record BoardScene(double Width, double Depth, IReadOnlyList<ZoneSh
                 : level.Level == ModelLevel.High && field.Terrain.FirstOrDefault(t => t.Id == level.PlatformId) is { } platform ? DisplayHeight.Of(platform.Profile)
                 : Trenches.Of(field, body) is not null ? -TableRect.Inches(field.TrenchDepth!.Value)
                 : 0;
-            models.Add(new ModelShape(model.Id, names.Of(model.Id), model.Seat, Words.SeatLetter(model.Seat),
+            (model.Position is null ? bodies : models).Add(new ModelShape(model.Id, names.Of(model.Id), model.Seat, Words.SeatLetter(model.Seat),
                 TableRect.Inches(body.Centre.X), TableRect.Inches(body.Centre.Y), TableRect.Inches(body.Radius),
                 level.Level == ModelLevel.High, standing, model.Status, state.ActiveModel == model.Id, model.Seat == you,
                 model.ActivatedThisTurn, CanStillActivate(state, model), model.BloodMarkers) { TowerId = tower?.Id, Type = names.TypeOf(model.Id) });
         }
         return new BoardScene(TableRect.Inches(field.Width), TableRect.Inches(field.Height), zones, terrain, models)
         {
+            Fallen = bodies,
             Links = [.. Engagement.Pairs(state).Where(p => models.Any(m => m.Id == p.One) && models.Any(m => m.Id == p.Two))],
             Mines = [.. state.Mines.Select(m => new MineShape(m.Id, TableRect.Inches(m.At.X), TableRect.Inches(m.At.Y), TableRect.Inches(Rules.Core.Geometry.Mines.MarkerRadius),
                 !state.DudsKnown ? MineKnown.Unknown : state.Duds.Contains(m.Id) ? MineKnown.Dud : MineKnown.Live))],

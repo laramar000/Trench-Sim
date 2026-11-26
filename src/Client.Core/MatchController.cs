@@ -54,6 +54,21 @@ public sealed record LogLine(int Seq, string Text, string? Dice, IReadOnlyList<U
 
     // Graphics stage G5: the effects the battlefield shows for this event (none for most).
     public IReadOnlyList<EffectCue> Effects { get; init; } = [];
+
+    // Animation stage A3: the models this event took Down, stood up or put Out of Action (none for most).
+    public IReadOnlyList<StatusChange> Changes { get; init; } = [];
+
+    // Hit reactions (2026-11-26): the models this event gave a BLOOD MARKER and left standing (StatusTracker.Wounded).
+    public IReadOnlyList<ModelId> Wounded { get; init; } = [];
+
+    // Hit power (2026-11-26): how hard the attack this event is part of lands (HitPowers), or null outside one.
+    public HitPower? Power { get; init; }
+
+    // Flamethrowers (2026-11-26): the attack this event is part of is a jet of flame (HitPowers.IsFlame).
+    public bool Flame { get; init; }
+
+    // Animation stage A4: its explosions, thrown grenade, attack at a point and SHRAPNEL, GAS or FIRE markers (none for most).
+    public BattleFx Fx { get; init; } = BattleFx.None;
 }
 
 // Everything the screen needs at one moment. Hints are empty whenever input is locked (InputLocked says why).
@@ -394,7 +409,7 @@ public sealed class MatchController : IAsyncDisposable
                 _feedback,
                 _warning,
                 _log.Values.TakeLast(_options.LogLines).ToList(),
-                BoardScene.Of(state, seat, _names),
+                BoardScene.Of(state, seat, _names, _statuses.Fallen),
                 state,
                 EndOf(view, copy),
                 _trips.Count == 0 ? RoundTrips.None : RoundTrips.Of(_trips, _tripAt) with { Count = _tripCount });
@@ -506,6 +521,10 @@ public sealed class MatchController : IAsyncDisposable
     private readonly MatchTally _tally = new();
     // Proposal J1b: why each roll had its dice, and each action's steps and outcome.
     private readonly ResolutionLog _resolutions = new();
+    // Animation stage A3: each model's status as the last event left it.
+    private readonly StatusTracker _statuses = new();
+    // Animation stage A4: where the Mine Markers lay, for the explosions.
+    private readonly BattleEffectsTracker _battle = new();
 
     private LogLine Line(int seq, Rules.Core.Events.GameEvent e, MatchState state)
     {
@@ -518,6 +537,11 @@ public sealed class MatchController : IAsyncDisposable
             Action = _resolutions.ActionAt(seq),
             Outcome = EventText.Outcome(e),
             Effects = EffectCues.Of(e),
+            Changes = _statuses.Next(state),
+            Wounded = _statuses.Wounded,
+            Power = HitPowers.Of(e, state.Setup, _resolutions.ActionAt(seq)?.Actor, _resolutions.AttackAt(seq).Kind, _resolutions.AttackAt(seq).Weapon, _statuses.Place),
+            Flame = HitPowers.IsFlame(e, state.Setup, _resolutions.ActionAt(seq)?.Actor, _resolutions.AttackAt(seq).Kind, _resolutions.AttackAt(seq).Weapon),
+            Fx = _battle.Next(e, state, _resolutions.AttackAt(seq).Kind, _resolutions.AttackAt(seq).Weapon),
         };
     }
 
@@ -541,6 +565,8 @@ public sealed class MatchController : IAsyncDisposable
                     _log.Clear();
                     _tally.Clear();
                     _resolutions.Clear();
+                    _statuses.Clear();
+                    _battle.Clear();
                     break;
                 case MatchAborted a when ReferenceEquals(session, _session):
                     SetConnection(ConnectionState.Aborted, $"Match aborted ({a.Reason}). No result was recorded as a win or loss.");

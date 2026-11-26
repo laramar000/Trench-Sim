@@ -2,13 +2,18 @@ using System.Globalization;
 
 namespace Client.Core;
 
-// QoL I2 (sound: I3, off by default): what a player chose in the Menu, kept between launches in a small text file ("key=value" lines). A missing,
+// QoL I2 (sound: I3, off by default; animations: stage A1, Full, Fast or Off): what a player chose in the Menu, kept between launches in a small text file ("key=value" lines). A missing,
 // unknown or out-of-range value falls back to its default, so a broken file never stops the client. No match data.
-public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false, int Dice = 1, bool TopDown = false, int InterfaceScale = 0, bool Sound = false)
+public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false, int Dice = 1, bool TopDown = false, int InterfaceScale = 0, bool Sound = false, int Animation = 0)
 {
     public static readonly float[] TextScales = [1f, 1.25f, 1.5f];
     public static readonly float[] InterfaceScales = [1f, 1.25f, 1.5f];
     public const int DiceChoices = 4;
+
+    // The Menu's Animations choices, in the order of AnimationSpeed: Full, Fast, Off.
+    public const int AnimationChoices = 3;
+
+    public AnimationSpeed AnimationSpeed => (AnimationSpeed)Animation;
 
     public static ClientSettings Default { get; } = new();
 
@@ -18,7 +23,8 @@ public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false,
         $"dice={Dice}",
         $"topdown={(TopDown ? 1 : 0)}",
         $"scale={InterfaceScale}",
-        $"sound={(Sound ? 1 : 0)}") + "\n";
+        $"sound={(Sound ? 1 : 0)}",
+        $"anim={Animation}") + "\n";
 
     public static ClientSettings Parse(string? text)
     {
@@ -39,6 +45,7 @@ public sealed record ClientSettings(int TextSize = 0, bool HighContrast = false,
             Pick("dice", DiceChoices, d.Dice),
             Pick("topdown", 2, d.TopDown ? 1 : 0) == 1,
             Pick("scale", InterfaceScales.Length, d.InterfaceScale),
-            Pick("sound", 2, d.Sound ? 1 : 0) == 1);
+            Pick("sound", 2, d.Sound ? 1 : 0) == 1,
+            Pick("anim", AnimationChoices, d.Animation));
     }
 }
