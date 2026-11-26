@@ -822,3 +822,5 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   First real upload (def6105, full run: unit tests all PASS, Windows UI 440 PASS / 4 FAIL) failed before reaching
   GitHub: "authority-checks.txt ... used by another process" (Windows locks a log the test center still holds open).
   Fixed: files are read with FileShare.ReadWrite; U then S resends the newest run from its report.md.
+  U then S found nothing in the new download (each option-6 version is a new folder); it now looks in every Trench Sim
+  folder beside this one and sends the newest run by its time-named folder (checked on a mock folder layout here).

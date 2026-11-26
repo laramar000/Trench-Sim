@@ -121,9 +121,20 @@ public static partial class ResultsUpload
     // U, then S: sends the newest run in test-results again (from its report.md), without running anything.
     private static int SendNewest(string results)
     {
-        var folder = Directory.Exists(results)
-            ? Directory.EnumerateDirectories(results).Where(d => File.Exists(Path.Combine(d, "report.md"))).OrderByDescending(Path.GetFileName, StringComparer.Ordinal).FirstOrDefault()
-            : null;
+        // (2026-11-26: option 6 puts each version in a folder of its own beside this one, so the newest run is looked for
+        // in every Trench Sim folder there, not only this one's. Run folders are named by their time, newest last.)
+        var places = new List<string> { results };
+        if (Directory.GetParent(Path.GetDirectoryName(results) ?? "") is { } downloads)
+        {
+            places.AddRange(Directory.EnumerateDirectories(downloads.FullName)
+                .Where(d => File.Exists(Path.Combine(d, "TrenchSim.sln")))
+                .Select(d => Path.Combine(d, "test-results")));
+        }
+        var folder = places.Distinct(StringComparer.OrdinalIgnoreCase).Where(Directory.Exists)
+            .SelectMany(Directory.EnumerateDirectories)
+            .Where(d => File.Exists(Path.Combine(d, "report.md")))
+            .OrderByDescending(Path.GetFileName, StringComparer.Ordinal)
+            .FirstOrDefault();
         if (folder is null)
         {
             Console.WriteLine("  There is no finished run to send yet.");
