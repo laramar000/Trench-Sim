@@ -1,0 +1,246 @@
+# Character art pipeline
+
+The standard every unit figure follows. The template is the Trench Pilgrim (`client/assets/units/trench-pilgrim.glb`,
+built by `tools/art/make_figures.py --figure trench-pilgrim`). Status: **approved by the owner as the template**
+(2026-11-03). Nothing below changes a rule; the art is decoration only, and the rules' bases and positions never move.
+
+## 1. Visual direction
+
+Grimdark tabletop miniatures translated into a low-poly game: a world-war trench army fighting a holy war. Dark,
+oppressive, gothic. Every figure must read first as a silhouette, then by its equipment, then by its colour.
+
+- **Genre, not copies.** WWI trench kit (steel helmets, greatcoats, webbing, bolt-action rifles, trench clubs, gas
+  masks as shapes) worn over or beside medieval religious dress (robes, tabards, hoods, crosses, rosaries, wax seals,
+  prayer strips, reliquaries). Each design is original. The Trench Crusade community licence (trenchcrusade.com,
+  version 1.00, February 2026) forbids basing fan work on official concept art, art or miniatures, so official images
+  are not used as modelling references, and no official design is reproduced.
+- **Palette.** Restrained, desaturated: mud browns (`3e3428` robe, `5a5040` coat, `6a5c46` rags), gunmetal and rust
+  (`4c5048` helmet, `3a3a3c` metal, `55555a` iron), leather (`4a3020`), bone and parchment (`c8bca0`), old blood
+  (`4e1610`), brass (`8a6a2a`). Saturated colour is reserved for the seat colour (below).
+- **Faces.** Every humanoid head is a smooth, pale mannequin surface (`cfc4b0`, plaster): no eyes, eyebrows, nose,
+  mouth, ears or facial hair, and no texture marks that read as features. Helmets, hoods and masks keep their shapes;
+  an opening (eye slit, visor) shows the blank surface or darkness, never a feature. The MakeHuman face is removed
+  completely, with every body face inside the head's column (so its baked shading cannot leave marks).
+  Headgear that hides the whole head (the Trench Pilgrim's capirote) is built with no head under it (`head=None`),
+  so nothing can show through.
+- **Cloth.** Robes, habits, hoods, mantles, capes, skirts, loincloths and tabards are simulated (2026-11-03, the owner:
+  hand-shaped cloth looked wrong): `cloth_cone` and `cloth_panel` lay the cloth out clear of the posed body, `drape()`
+  hangs it from its pinned edge under gravity with self-collision, smooths its inside, reduces it to its triangle
+  count and grows its thickness outward without a rim. A figure with no head drapes over a stand-in head.
+- **The Trench Pilgrim** (the owner, 2026-11-03) is a WWI trench soldier, not a robed pilgrim: wool tunic, webbing,
+  breeches, puttees, under a capirote whose base is an iron casing.
+- **Build.** Lean and gaunt rather than heavy: the pilgrims use MakeHuman's minimum-muscle, minimum-weight body
+  (`shape="minmuscle-minweight"`); robes and capes stay close to the body. Bulk is for armoured and large units.
+- **Proportions.** Slightly heroic, not cartoonish: the plain head 12% larger than anatomical, gloved mitten hands,
+  weapons and helmets about 10-15% over true scale so they read from the game camera. Realistic anatomy (fingers,
+  faces, muscles) is avoided; the body is a posed mannequin under clothing.
+- **Seat colour where the camera sees it.** The game camera looks down steeply, so the parts painted with the seat
+  colour (the "Accent" node) must include something seen from above: a shoulder mantle, a crest, a plume, a banner,
+  not only a tabard on the front.
+
+## 2. Technical requirements (from the Godot client)
+
+- **Units:** game units are inches, Y up. A figure is authored 1.2 tall with its feet at y = 0, centred on the origin,
+  facing +Z. The client (`Visuals.FitOnBase`) scales each figure to the plain body's height (1.2") and, if it is wider
+  than the base, narrower still, then turns it to face the middle of the battlefield. Down models lie on their backs.
+- **Camera:** perspective, steep and high. The fitted view shows the whole table; double-click focus is 8" away
+  (`BoardView.CloseDistance`), the closest zoom 4". A figure is judged at 8", where it is about 60 to 120 pixels tall
+  in a 1280 x 800 window.
+- **Loading:** figures are read at run time with Godot's glTF loader (the `units` folder has `.gdignore`), so the
+  export must be plain glTF 2.0: meshes, PNG textures, nearest sampling, no animation, no custom extensions. No
+  armature, except the ragdoll skeleton (2026-11-24, figures in `RAGDOLL` in `tools/art/make_figures.py`): 16 bones
+  named `pelvis`, `chest`, `head`, `headtip`, `upperarm.L/R`, `lowerarm.L/R`, `hand.L/R`, `upperleg.L/R`,
+  `lowerleg.L/R`, `foot.L/R` on the posed joints, the five tip bones unweighted; every vertex skinned to its two nearest
+  bones, headgear to the head, a held weapon or shield to the nearer forearm, a back piece to the chest. The figure looks
+  the same at rest; the client lets it go limp when it is put Out of Action (`BoardView.Ragdoll.cs`). Parts named `Accent...` are drawn with the seat colour by the client (`Visuals.PaintAccent`).
+- **Catalog:** `client/assets/catalog.json` maps `unit:<model name>` to a file. A model with no entry is drawn as the
+  plain cylinder. High-contrast mode always draws the plain shapes.
+- **Bases (rules data, `baseMm` in content/roster):** 25, 32, 40, 50 and 60 mm round, and 30 x 60 mm oval (oval bases
+  are refused in matches for now). A figure's footprint, weapons included, must fit inside its base: a 25 mm base is
+  0.984" across, so a 1.2" infantry figure may be at most about 0.95" wide.
+
+## 3. Size classes and budgets
+
+| Class | Base | Figure height | Body | All modules | Total triangles | Textures |
+|---|---|---|---|---|---|---|
+| A infantry | 25 mm | 1.2" | 1,150 | 2,400 | 3,600 | body 128 px, each module 64 px |
+| B elite | 32 mm | 1.3" (bulkier, same head size) | 1,200 | 3,300 | 4,500 | body 128, modules 64 |
+| C heavy | 40 mm | 1.6" | 1,600 | 4,400 | 6,000 | body 256, modules 64 |
+| D large | 50 mm | 2.0" | 2,200 | 5,000 | 7,200 | body 256, modules 128 |
+| E huge | 60 mm | 2.4" | 2,800 | 6,200 | 9,000 | body 256, modules 128 |
+| F oval | 30 x 60 mm | by the creature; length along the oval | 2,000 | 3,500 | 5,500 | body 256, modules 64 |
+
+The class limits above were raised on 2026-11-04 (the owner: raise the limit in general, since too many things looked
+unnatural at the old ones). The exceptions below were set before and are still listed so each figure's test row has its reason.
+
+Exceptions the owner allowed: the Castigator, 3,100 triangles (class B), for its detailed gas mask (2026-11-03); the Reliquary Walker,
+8,000 triangles (class E) with 256 px textures on its body and wheel, for a posed martyr bound to the wheel (2026-11-03);
+the Sanctified Giant, 5,200 triangles (class C), for its posed body, simulated cloth and chain cluster (the owner: larger
+units may have more, 2026-11-03); the Yeoman, 2,400 triangles (class A), for its WWI gas mask (2026-11-03); the Shock Trooper, 2,700 triangles
+(class A), for the same mask and its iron plates (2026-11-03); the Lieutenant, 3,400 triangles (class B), for the
+sallet with its raised visor, the shield and the boots (2026-11-03); the Blind Marksman, 2,800 triangles
+(class B), kneeling with a long rifle (2026-11-03), drawn 1.25" tall since it kneels; the Trench Cleric, 4,000 triangles
+(class B), for the cuirass with its lames front and back, boxy pauldrons, chain fringe and the great cross (2026-11-04),
+drawn 1.65" tall for the cap and cross.
+Painted from the start (2026-11-10), within their class limits: Mechanized Heavy Infantry (class C, 3,934 triangles, drawn
+1.6"), Combat Medic (class A, 1,283 triangles; the roster gives it a 25 mm base) and Holy Warrior (class B, 2,422
+triangles, drawn 1.55"). With them every Principality unit has its figure (20 figures in all).
+Heretics (2026-11-13): the Heretic Trooper is the first (class A, 1,940 triangles, drawn 1.15"), on the owner's references: a rust-red steel helm, a gas mask with a hose to a red belt canister, rust-red chest lames and a breast plaque, a dark slate uniform, pale leg wraps; the seat colour is a ragged shawl over the left shoulder and back. Its pose throws a stick grenade. Review renders without a window: `tools/art/render_turnaround.py`.
+Heretic Trooper rework (2026-11-16, the owner: "do a full rework if needed", with twelve more references): 2,106 triangles, drawn 1.18". A helm with a short peak and a flared skirt low over the ears and nape, the mark daubed on its front; pale glass lenses; a thick scarf falling as a cape over the left shoulder and back (seat colour); leather braces over the lames; a taller plaque high on the right breast; thick shins in pale wraps laid round and round; a bound pale effigy beside the belt skull; a fuller body in grey-blue. The stick grenades are gone. This supersedes the look described in the line above. Second pass the same day (the owner: "more cool and edgy"): 2,308 triangles, drawn 1.54" with the raised blade (the body's scale is unchanged, 0.70" a metre); braced wide with a jagged saw-backed blade raised in the right hand and a pistol with a drum levelled in the left, in place of the rifle; a near-black uniform, lenses lit red, a spiked rust pauldron on the sword shoulder, barbed wire round the helm, the cape longer and more torn. Third pass the same day (the owner: a faceless black-coated shock trooper with burning eyes, "but WW1"; a look and a mood, no design of any game copied): 2,721 triangles, drawn 1.14"; a long black greatcoat open at the front, lenses burning amber with their glow on the mask, a blackened helm, hunched over the rifle in both hands again, the blade hung at the right hip, no pistol. Its lenses glow in the game (the owner: "Yes, make them glow"): a painter returns four values for a texel that glows, the bake writes that texel's alpha as 0.5 (every other texel 1), and `client/shaders/psx_figure.gdshader` draws a texel with alpha under 0.75 at its own colour, unlit and ungraded (`glow`, 1.0). Decoration only; at first only this figure marked any texel (the Priest and the Brand-Sworn followed on 2026-11-17). The helm refitted the same day (the owner: "make the helmet and the head look more natural together", "the proportions are weird"): it was built level over a bowed head and twice the head's width; now built in the head's own frame and sized from the head (the dome 18 mm clear of the skull, the skirt 42 mm), so it bows with the head; drawn 1.10". Then (the owner: "Add more details to cape. Fix gas mask."): 2,981 triangles. The mask was flat paint on a ball with lenses wider than the face; now two solid eyepieces (iron rings, glowing glass) toed out, a solid rubber muzzle the drum screws into, a black rubber face piece with a pale rolled edge on a lighter canvas hood, and two straps with buckles. The cape has more folds (32 segments) and marks in its baked shading (`ACCENT_PAINT`, a figure's factor on the Accent's vertex colours: mud up from the hem, fold shadows, stains, the scarf's turns), and a rag of pale linen with the mark stitched to its back (a textured part in Chest, laid on the cape by ray casting). Fixed 2026-11-17 (the owner: "fix what needs work and keep psx inspiration"): the cape now drapes over the greatcoat too (it was hung against the body only, so the coat showed through its hem as loose dark scraps), and the rifle is shorter (fore-end 0.31, bayonet 0.15), its tip inside the 25 mm base. The linen field sign moved toward the left shoulder and narrowed, clear of the fold at the cape's back edge (it hung past it). Still 2,981 triangles, drawn 1.10".
+Heretic Priest (2026-11-16, class B, 2,752 triangles, drawn 1.58"): a closed blade-shaped iron mitre with two horns, its only opening an inverted cross lit red from inside, fire at its tip; spiked rust pauldrons with hanging fangs of plate, a rust cuirass, bloodied gauntlets, a black coat skirt open at the front over steel leg armour with flames painted up from the hem and a ringed star on the back; a staff topped by an iron ring with a red-hot five-point star, point down; an inverted cross of charred wood raised in the right hand; a brass triangle with an eye and a padlock on the belt; the seat colour is the mantle round the shoulders. Made more heretical the same day on the owner's word and further references (the first version had an arrow in the ring, a ritual knife and a belt skull). Glow added 2026-11-17 (the owner: "Go ahead"): the fire at the mitre's tip, the red-hot star (all but its dark scale), the mitre's cross slit, the cracks in the charred cross and the eye's iris on the belt triangle are glowing texels; the flames painted on the coat stay paint. Shoulders refitted the same day (the owner: "Shoulders on the priest need a quality check the model looks weird"): the pauldrons were set at fixed points, level, beside the mitre, so with both arms raised they floated above the arms' roots and the arms came out from under the mantle uncapped; refitted to the posed shoulders, then (the owner: "the pauldrons look like whoopy cushions", they were squashed spheres) rebuilt as three curved plates a side down the upper arm (`psx_shell`, as the Combat Engineer's and the Holy Warrior's), the top plate outermost and shortest, sized from how far the mantle stands off the arm so the mantle flares out under their edges, each painted with a dark rolled rim, a light edge and a row of rivets on rust; the spike stands on the top plate and the three fangs hang from the lowest plate's rim. A narrower mantle was tried and dropped (it collapsed to a thin band and lost the seat colour). 3,024 triangles (test row 3,100), class B.
+Brand-Sworn Heavy Infantry (2026-11-16, class B, 2,147 triangles, drawn 1.58" with the axe; the body is drawn at 0.78" a metre, between the line troops' 0.70 and the Mechanized Heavy Infantry's 0.85): a big man in rust-red plate, a closed barrel helm whose face is a grille lit red from inside, spiked round pauldrons with a skull spitted on one, steel knee cops, a red air tank on the back with a hose to the helm, the house mark (an arrow driven downward) branded and still glowing on the breast, brow, pauldrons, thighs and axe; lunging with a great bearded axe raised in both hands; the seat colour is the helm's crest and a ragged half-skirt round the back of the hips. Glow added 2026-11-17: every brand (breast, brow, pauldrons, thighs, axe) and the helm's five slots are glowing texels, the scorched ring round each brand stays a lit surface. Rebuilt with no other change: 2,147 triangles, the same bounds.
+Fit pass on every figure (2026-11-17, the owner: "Make sure their clothing sits naturally and correctly on their body no floating"): a check of every loose piece of all 23 figures found 47 touching nothing (0.008 to 0.067 apart: packs, bells, straps, a patch, weapon parts); `settle()` now closes every such gap in the build, and the check finds none. The squashed-sphere pauldrons at fixed points (Shield, War Prophet, Heretic Trooper, Brand-Sworn, and first the Heretic Priest) became curved plates down each posed upper arm (`arm_plates()`), the cloth under them pressed in; the War Prophet keeps its seat-colour top lame, the Brand-Sworn its three spikes, the skull on the left one and the brand on top, the Shield its buckled strap. The Heretic Trooper's linen patch now lies on its cape (it stood 0.013 off). Triangles: see `UnitFiguresTests`.
+Cloak definition (2026-11-17, the owner: "all the cloaks need to have more definition in them. right now they are just flat red or blue textures"): the Accent is no longer untextured. It gets a 512 px grey texture (`accent_cloth()` in `tools/art/make_figures.py`), which the client multiplies with the seat colour and its baked vertex shading (`Visuals.PaintAccent`, `tools/art/psx_showcase.gd` the same), so the seat colour stays its only colour. Seat-colour cloth (material `accentcloth`: every `cloth_cone`/`cloth_panel`, sashes, pennants, tabards, tabs, the helm band, the Skirmisher's mantle) is painted with folds down its hang, lit ridges and dark creases, weave, stitched panel seams, a turned and stitched hem along its open or rim edges, a frayed edge, stains, blood and mud; solid seat-colour parts (helmets, caps, plate tops, the crest, the shield board) with grain, scuffs and grime.
+Assault Beast (2026-11-17, class D 50 mm, 2,823 triangles, drawn 1.25" hunched): the owner sent references of an existing war-wolf miniature and asked for its signature look; that design (its hooked saw-toothed beak helm, plate layout and plank pose) was not copied. Built instead in the same mood: a hunched long-armed beast on its toes (MakeHuman `male-young-maxmuscle-minweight`, `legs(..., drop=0.22, heel=...)`), the arms drawn out long and the helm shrunk about the neck after painting (`WARP`), a long squared riveted muzzle-helm with an open jaw, its teeth a chainsaw's (the owner: "make the teeth more chainsaw like"): 14 raked steel cutters on a dark chain along each jaw and helm edge, hoses into a spiked collar, `arm_plates` on the shoulders and `psx_shell` plates on forearms and thighs, a fur-tuft ridge, claws seated on the soles, a seat-colour cloth on the back. The client centres a figure on its bounds, so its long muzzle still fits the base. Reposed the same day on all fours (the owner: "posing on all 4s"): both claws planted, the right a stride ahead, the back level; the claws lie forward along the ground, each moved whole by its base's stretch in `WARP` (a tip nearer the other arm had bent them upright).
+Wretched (2026-11-17, class A 25 mm, 2,675 triangles, drawn 1.11"): on the owner's references (scourged penitents in chains and rust iron) for mood only; the referenced miniature's domed, brimmed helm and chest disc were not copied. A gaunt bare body (MakeHuman `male-young-averagemuscle-minweight`, its bare feet kept, every body region painted as flesh), a lurching stride, a tall closed bucket helm built in the head's frame down onto the shoulders (no head under it), chains wound round the torso by ray casting (`wrap()`, hits beyond 0.2 from the axis, an arm held out, skipped), a padlock, `psx_shell` bracers and greaves, a sackcloth apron with an iron plate, a nail-studded club, a seat-colour rag hung down the back of the left shoulder.
+Night Commando (2026-11-17, class B 32 mm, 3,582 triangles, drawn 1.4"): on the owner's references (a gaunt stalker in riveted bronze, a mail skirt, long bloody claws) for mood only; the referenced miniature's toothed dome helm and exact plate layout were not copied. MakeHuman `male-young-maxmuscle-averageweight` with the chest, back, arms and thighs pushed out along their normals, a tall stance with the knees bent (`legs(..., drop=0.07)`), hunched, the head thrust out but held level (aim `neck01` up, or the head looks at the ground and a helm built in its frame points forward). A large closed bronze helm in the head's frame, a rounded dome a little swept back (it first rose twice a head's height into a long crown; the owner: "why is the head so long"), no eyes, a barred grille; a cuirass of lames painted on the body; pauldrons as a domed cap over each shoulder, every vertex ray-cast onto the shoulder, trapezius and upper arm with 0.018 to spare and the radii smoothed (never inside the body), a boss on the crown and two lames down the upper arm fitted the same way (the owner: "pauldrons look bad": `arm_plates`, drawn out along the shoulder line, stood off these hanging arms as flat slabs); greaves and three bronze lames down each thigh; a long mail skirt front and back (`cloth_panel`); a back plate with two glowing chemical canisters, hoses into the helm and three long needles; four blade claws a hand (the arms drawn out long by `WARP`, the claws moved whole by their base); clawed bare feet. Seat colour: a cloth laid on the hunched back (the helm curtain was dropped: it stood off the shorter helm) (each row ray-cast onto it down the torso, not hung: a hung cloth stood off the back), which faces up (a curtain pinned lower on a thrust-out head hangs from the throat). First built crouched at 1.05" with two red lenses; the owner: "no eyes much bulkier and taller. get as close to references as possible" (closer in build, proportions and kit; the miniature's own sculpt still not copied).
+Chorister (2026-11-17, class B 32 mm, 3,252 triangles, drawn 1.24" with the sigil): on the owner's references (a headless cantor in a dark cassock, a blood sigil rising from the neck, a severed head held out) for mood only; the referenced sigil and sculpt were not copied. MakeHuman `male-young-averagemuscle-minweight`, no head, the torso filled out so the cassock skirt (`cloth_cone` from the waist to the ground) starts flush; bandaged arms painted on; a branching sigil of light tapered tubes (`tube()` in `chorister()`: a few rings of 3 or 4 sides, where `chain()`'s skin modifier cost 2,400 triangles) lit from within; the seat-colour shoulder cape built, not draped: its top rows cast along rays from a point above the neck (the first surface seen from there, no further out than the shoulder), its lower rows hanging straight down from those, just clear of the torso and the hanging arm, and short over the raised arm (a draped cone stood off like a lampshade, a narrow one crumpled round the neck, rays from inside the torso hit it from within); an inverted cross on a cord over the cape, a rope belt with brass discs and a noose laid on the skirt by ray casting, a severed head hanging by its hair from the left fist, blood running from it, a knife low in the right.
+Detail pass (2026-11-10): Mechanized Heavy Infantry 4,402 triangles with a 512 px body texture (class C, inside the file
+size limit) and 256 px modules; Combat Medic 1,459 (short split tunic and apron instead of the greatcoat); Holy Warrior 2,662.
+Texture sizes (2026-11-11, the owner: clean fine detail): every figure's body and every module texture is 512 px (the file-size limit in `UnitFiguresTests` is doubled to match); older text above giving 128 or 256 px is superseded.
+Detail pass (2026-11-12, the owner: highest quality): every body, coat and robe texture is 1,024 px, the other modules stay 512 px. The bake packs each UV layout tight (the default packing left half of a texture empty) and paints every texel as the mean of 3 x 3 samples, so a painted line thinner than a texel stays a whole line, not a row of dashes.
+Dynamic poses (2026-11-12, the owner: "more dynamic and less static"): every figure is in action. In `make_figures.py` a pose calls `legs()` for its stance (feet placed by inverse kinematics; the pelvis stays put and the ground rises to the feet, `GROUND`, so the painters' heights hold) and sets `TWIST` (shoulders against hips) and `LOOK` (head on the neck), which warp the finished, painted figure; `WARP` is a figure's own warp (the Holy Warrior's sword turned into a high guard, the Reliquary Walker's stride). Grounded kit adds `GROUND` to its heights. `FIG_FAST=1` builds a figure unpainted in seconds, to check a pose; the `FIG` line's `feet=` must be 0 (else a part hangs below the feet) and `raw=` is the height in metres before scaling. Catalog heights follow one true scale (2026-11-13, the owner: "sizes are all wrong scale properly"): height = `raw` x 0.70 inches for every human figure, whatever it carries or wears (a helmeted rifleman 1.2"; a banner pole, a raised sword or a tall cap adds height, a crouch takes it away, the body stays one size), 1.6" for the Sanctified Giant (x 0.93) and 1.45" for the Mechanized Heavy Infantry (x 0.85, 7.25 ft at 1" = 5 ft, 1.23" wide on its 40 mm base): the owner, 2026-11-13, after trying 2.0", 1.85" and 1.55": "reduce size of both large non shrine units", smaller than the Walker and bigger than normal units (lore research: the official lore gives the Anchorite Shrine 12 to 15 ft and calls machine armour a far smaller personal suit, and publishes no height for it, so the Reliquary Walker at 2.71" stands 1.87 times the Mechanized), x 1.13 for the Reliquary Walker. `psx_showcase.gd` draws each figure at its catalog height.
+A script figure sets these with `BODY_BUDGET` and `TEX_SIZES` (texture size by module name). `render_turnaround.py`
+takes the catalog height as an optional last argument, so a large figure is shown at its drawn size on its base.
+
+Figure height (built 2026-11-03): a catalog entry may give its figure's standing height in inches, for example
+`"unit:Sanctified Giant": {"file": "units/sanctified-giant.glb", "height": 1.6}` (0.5" to 6"; `VisualCatalog.HeightFor`).
+Without one a figure stands 1.2", the plain body's height. The client scales the whole figure to that height and, if it is
+wider than its base, narrower still. Tall headgear counts in the height: the Trench Pilgrim's capirote makes its body
+shorter than a bare-headed figure's at the same height, which an entry's height can make up for. Oval bases are still
+drawn round.
+
+## 4. Materials, textures and lighting
+
+- One baked texture per mesh node: diffuse colour multiplied by baked ambient occlusion (`0.55 + 0.45 x AO`), cut to
+  15-bit colour (5 bits per channel), sampled nearest. No normal, roughness or metal maps: roughness 1, metallic 0,
+  so the game's lights shade everything alike.
+- Source materials are the named palette entries of `make_figures.py` (`M`), each with a little noise for grime.
+- Accent parts have a grey texture only (folds, seams, hems, wear; `accent_cloth()`, since 2026-11-17); the client gives
+  them the seat colour, multiplied with that texture and their vertex colours: baked grey shading (hard light bands,
+  darker where other parts stand close), so a seat-colour part is not one flat patch.
+- Lighting is the game's own; nothing is baked except occlusion. Review renders use a flat studio light
+  (`tools/art/render_turnaround.py`) and the game itself.
+
+## 5. Modules
+
+Each figure is one glTF file with one mesh node per module, so later work can show, hide or swap kit:
+
+| Node | Holds |
+|---|---|
+| `Body` | posed body, mannequin head, gloved hands, clothing that is part of the figure |
+| `Accent` | everything in the seat colour |
+| `Helmet` | headgear (helmet, hood, mask), its seals and strips |
+| `Weapon` | the main weapon (a second weapon would be `Weapon2`) |
+| `Chest` | webbing, bandoliers, breastplates, seals on the chest |
+| `Back` | packs, banners on the back, reliquaries |
+| `Hip` | satchels, canteens, sidearms, grenades |
+| `Boots` | boots (`boots()`), kept out of the body's decimation |
+
+Modules are built in the script with `module("Name")` before the parts that belong to them. Placement comes from the
+posed rig (hands, head, shoulders), so the same module code fits any pose. Today the kit a figure shows is fixed per
+unit; showing the kit a roster actually chose is a later step (it needs the client to know each model's kit).
+
+## 6. Workflow (Blender)
+
+1. **Design note** per unit: silhouette, headgear, weapon, two or three distinctive details, class (section 3).
+2. **Script** the figure in `tools/art/make_figures.py`: pose the MakeHuman base body (CC0) with its own skeleton,
+   dress it, build its modules. Scripts keep every figure reproducible and reviewable in git; the `.blend` is a
+   by-product for inspection or hand fixes.
+3. **Build**: `python tools/art/make_figures.py --figure <name> <units folder> <makehuman folder>` (Python 3.11-3.13
+   with `bpy==5.1.2`); set `FIG_BLEND=<folder>` to also save the `.blend`. The script decimates the body to budget
+   (head and hands kept), unwraps, bakes, quantises and exports, and prints each node's triangles.
+4. **Review renders**: `python tools/art/render_turnaround.py <glb> <png> <base mm>`: front, three-quarter, side and
+   back on the rules' base.
+5. **In-game check** at 8" and 4" from the game camera, in a hot-seat match.
+6. **Catalog** entry, credit in `client/assets/ASSETS.md`, tests (`UnitFiguresTests`: size, budget, Accent, height).
+
+Export settings: glTF binary (`.glb`), Y up, transforms applied, triangulated, no armature or animation, PNG textures
+embedded with nearest sampling.
+
+## 7. Review checklist
+
+- Face blank from every angle, at every zoom; no dark marks on the head.
+- Silhouette tells the unit apart from the others at 8".
+- Seat colour visible from above.
+- Footprint inside the base; nothing floating or sunk; nothing pierces the body. Every build runs `settle()` in
+  `tools/art/make_figures.py` before scaling (2026-11-17): each loose piece that touches nothing within 0.008 (file units, the figure
+  1.2 tall) is moved straight toward its nearest neighbour until 0.002 short of it; the `SETTLE` line says how many
+  moved. Plates that rest on cloth are fitted to the body with room for the cloth, and the cloth pressed in under them
+  (the Heretic Priest's pauldrons), not fitted to the cloth's loose outside.
+- Pauldrons are curved plates down the posed upper arm (`arm_plates()`, from over the shoulder's top, fitted to the body
+  under them), never squashed spheres at fixed points: those read as cushions and float off a raised arm.
+- Budget and texture sizes of its class; nodes named as in section 5.
+- PSX shader (`client/shaders/psx_figure.gdshader`) tested in the game with the new figure, before it is shown for approval: `TRENCH_DEV=deploy,psx godot --path client -- --ui-check dev --out <dir> --scenario ranged` (check `psx-shader` passes; look at `psx-close`, `psx-mid`, `psx-far` for texture warp, wobble and colour steps).
+- When editing the PSX shader itself (animation audit item T5, 2026-11-22): the client sets and reads some of its uniforms
+  by name, so they must stay, with these defaults: `albedo_tex` and `albedo_colour` (set by `Visuals` for every figure),
+  `glow` (1.0, the glowing texels) and `fade` (1.0, drawn whole). `fade` is animation stage A5's dissolve: a figure put
+  Out of Action is drawn as a casualty figure on its own copies of its materials (`BoardView.StartCasualty`), and
+  `PoseGhost` lowers `fade` from 1 to 0 as it sinks; the shader then leaves out more of each 4 x 4 ordered-dither cell
+  (`discard`, no transparency sorting). A model's own figure never sets `fade`, so at 1.0 nothing changes. Without the
+  uniform the casualty figure would not dissolve (`set_shader_parameter` on a missing uniform does nothing), and the UI
+  check `board-casualty-resilience` (half sunk = half faded) would fail; `PsxShaderContractTests` checks these uniforms,
+  their defaults and the dither line on every build.
+
+## Appendix: units and bases
+
+From the faction lists (`content/roster/factions`, the rulebook's base sizes). Visual design notes are written per unit
+when its figure is made.
+
+| Faction | Unit | Base (mm) | Class | Keywords |
+|---|---|---|---|---|
+| The Court | Praetor | 50 | D large | COURT, DEMONIC, ELITE, FEAR, FLYING, LEADER, STRONG, TOUGH |
+| The Court | Sorcerer | 50 | D large | COURT, DEMONIC, ELITE, FEAR, FLYING |
+| The Court | Shadow Hunter | 32 | B elite | COURT, DEMONIC, ELITE, INFILTRATOR |
+| The Court | Hell Knight | 40 | C heavy | COURT, DEMONIC, ELITE, STRONG |
+| The Court | Wretched | 25 | A infantry | COURT |
+| The Court | Pit Locust | 30 x 60 | F oval | COURT, DEMONIC, FEAR, FLYING |
+| The Court | Chain Fiend | 32 | B elite | COURT, DEMONIC |
+| The Court | Fallen Saint | 60 | E huge | COURT, DEMONIC, IGNORE, FEAR, STRONG, TOUGH |
+| The Cult | Bloated Lord | 50 | D large | CULT, ELITE, FEAR, LEADER, NEGATE, STRONG, TOUGH |
+| The Cult | Plague Knight | 32 | B elite | CULT, ELITE, FEAR, NEGATE, STRONG |
+| The Cult | Corpse Guard | 32 | B elite | CULT, ELITE, FEAR, NEGATE |
+| The Cult | Plague Thrall | 25 | A infantry | CULT, FEAR, NEGATE |
+| The Cult | Fly Thrall | 25 | A infantry | CULT, FEAR, FLYING, NEGATE |
+| The Cult | Plague Hound | 30 x 60 | F oval | CULT, FEAR, NEGATE |
+| The Cult | Fly Herald | 40 | C heavy | CULT, FEAR, FLYING, NEGATE, SKIRMISHER |
+| The Cult | Amalgam | 60 | E huge | CULT, FEAR, NEGATE, STRONG, TOUGH |
+| The Cult | Executor | 32 | B elite | CULT, ELITE, FEAR, LEADER, NEGATE, STRONG, TOUGH |
+| Heretics | Heretic Priest | 32 | B elite | HERETIC, ELITE, LEADER, TOUGH |
+| Heretics | Night Commando | 32 | B elite | HERETIC, ELITE, INFILTRATOR |
+| Heretics | Chorister | 32 | B elite | HERETIC, ELITE, FEAR |
+| Heretics | Heretic Trooper | 25 | A infantry | HERETIC |
+| Heretics | Assault Beast | 50 | D large | HERETIC, ARTIFICIAL, FEAR, NEGATE, TOUGH |
+| Heretics | Wretched | 25 | A infantry | HERETIC |
+| Heretics | Brand-Sworn Heavy Infantry | 32 | B elite | HERETIC, STRONG |
+| Heretics | Bombard Witch | 32 | B elite | HERETIC, ARTIFICIAL, NEGATE, NEGATE |
+| Heretics | Barbed Wire Banshee | 32 | B elite | HERETIC, ELITE, FEAR |
+| Pilgrims | War Prophet | 32 | B elite | PILGRIM, ELITE, LEADER |
+| Pilgrims | Sanctified Giant | 40 | C heavy | PILGRIM, ELITE, REGENERATE, STRONG, TOUGH |
+| Pilgrims | Castigator | 32 | B elite | PILGRIM, ELITE |
+| Pilgrims | Trench Pilgrim | 25 | A infantry | PILGRIM |
+| Pilgrims | Stigmatic Nun | 25 | A infantry | PILGRIM, REGENERATE |
+| Pilgrims | Ecclesiastic Prisoner | 25 | A infantry | PILGRIM |
+| Pilgrims | Reliquary Walker | 60 | E huge | PILGRIM, FEAR, NEGATE, STRONG, TOUGH |
+| The Principality | Lieutenant | 32 | B elite | PRINCIPALITY, ELITE, LEADER, TOUGH |
+| The Principality | Blind Marksman | 25 | A infantry | PRINCIPALITY, ELITE |
+| The Principality | Trench Cleric | 32 | B elite | PRINCIPALITY, ELITE, NEGATE |
+| The Principality | Yeoman | 25 | A infantry | PRINCIPALITY |
+| The Principality | Shock Trooper | 25 | A infantry | PRINCIPALITY |
+| The Principality | Combat Engineer | 25 | A infantry | PRINCIPALITY, NEGATE |
+| The Principality | Mechanized Heavy Infantry | 40 | C heavy | PRINCIPALITY, STRONG |
+| The Principality | Combat Medic | 25 | A infantry | PRINCIPALITY, NEGATE |
+| The Principality | Holy Warrior | 32 | B elite | PRINCIPALITY, ELITE, NEGATE |
+| The Sultanate | Yüzbaşı | 32 | B elite | SULTANATE, ELITE, LEADER, NEGATE, TOUGH |
+| The Sultanate | Alchemist | 32 | B elite | SULTANATE, ELITE |
+| The Sultanate | Assassin | 32 | B elite | SULTANATE, ELITE, INFILTRATOR |
+| The Sultanate | Azeb | 25 | A infantry | SULTANATE |
+| The Sultanate | Sapper | 25 | A infantry | SULTANATE, NEGATE |
+| The Sultanate | Alchemical Lion | 50 | D large | SULTANATE, ARTIFICIAL |
+| The Sultanate | Janissary | 32 | B elite | SULTANATE, STRONG |
+| The Sultanate | Brazen Bull | 60 | E huge | SULTANATE, ARTIFICIAL, FEAR, STRONG, TOUGH |
+| The Sultanate | Master Assassin | 32 | B elite | SULTANATE, ELITE, INFILTRATOR, LEADER, TOUGH |
+| The Sultanate | Dervish | 32 | B elite | SULTANATE, IGNORE |
+| The Sultanate | Fāris | 32 | B elite | SULTANATE, ELITE, STRONG |
+| The Sultanate | Homunculus | 25 | A infantry | SULTANATE, ARTIFICIAL |
+| The Sultanate | Silahdar | 32 | B elite | SULTANATE, ELITE, LEADER, NEGATE, STRONG, TOUGH |

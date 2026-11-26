@@ -1,0 +1,150 @@
+{
+  "format": 1,
+  "id": "broken-line",
+  "name": "Broken Line",
+  "notes": "Preset for Trench Warfare (stage S7): three straight 8\" sections along the defender's edge, a shelled No Man's Land of craters and a few broken walls in front of them.",
+  "width": "36",
+  "height": "36",
+  "archetype": "no-mans-land",
+  "supports": [
+    "trench-warfare"
+  ],
+  "zones": [
+    {
+      "id": "west",
+      "rect": [
+        "0",
+        "0",
+        "6",
+        "36"
+      ]
+    },
+    {
+      "id": "east",
+      "rect": [
+        "30",
+        "0",
+        "36",
+        "36"
+      ]
+    }
+  ],
+  "objectives": [],
+  "terrain": [
+    {
+      "id": "trench-s",
+      "rect": [
+        "32",
+        "2",
+        "34.5",
+        "10"
+      ],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-m",
+      "rect": [
+        "32",
+        "13",
+        "34.5",
+        "21"
+      ],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "trench-n",
+      "rect": [
+        "32",
+        "24",
+        "34.5",
+        "34"
+      ],
+      "profile": "low",
+      "depth": "1"
+    },
+    {
+      "id": "crater-1",
+      "rect": [
+        "10",
+        "6",
+        "14",
+        "10"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "crater-2",
+      "rect": [
+        "18",
+        "14",
+        "22",
+        "18"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "crater-3",
+      "rect": [
+        "10",
+        "24",
+        "14",
+        "28"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "crater-4",
+      "rect": [
+        "22",
+        "26",
+        "26",
+        "30"
+      ],
+      "profile": "low",
+      "kind": [
+        "difficult"
+      ]
+    },
+    {
+      "id": "wall-1",
+      "rect": [
+        "23",
+        "6",
+        "28",
+        "7"
+      ],
+      "profile": "wall"
+    },
+    {
+      "id": "wall-2",
+      "rect": [
+        "14",
+        "31",
+        "19",
+        "32"
+      ],
+      "profile": "wall"
+    },
+    {
+      "id": "wreck",
+      "rect": [
+        "25",
+        "17",
+        "28",
+        "20"
+      ],
+      "profile": "cover"
+    }
+  ]
+}

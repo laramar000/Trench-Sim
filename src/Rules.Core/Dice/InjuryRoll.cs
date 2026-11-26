@@ -16,7 +16,10 @@ public sealed record InjuryRollResult
     public InjuryRollResult(RollRecord dice, int netDice, int modifier, bool targetAlreadyDown)
     {
         ArgumentNullException.ThrowIfNull(dice);
-        dice.EnsureKeptFor(InjuryRoll.KeptDice, netDice, nameof(dice));
+        // DEADLY (p. 54, U104): three dice kept instead of two; a Martyrdom Device's bearer (U115): 4D6 added together.
+        // A Bloodbath Roll (U123) keeps one more (3, or 4 with DEADLY). The count kept says which roll it was, together with
+        // InjuryRolled.Bloodbath.
+        dice.EnsureKeptFor(dice.Kept.Count is InjuryRoll.DeadlyKeptDice or InjuryRoll.AllFourDice ? dice.Kept.Count : InjuryRoll.KeptDice, netDice, nameof(dice));
         // Combined modifiers can't be below the floor: negatives are floored, positives only add.
         ArgumentOutOfRangeException.ThrowIfLessThan(modifier, InjuryRoll.NegativeModifierFloor);
         Dice = dice;
@@ -29,6 +32,9 @@ public sealed record InjuryRollResult
     public int NetDice { get; }
     public int Modifier { get; }
     public bool TargetAlreadyDown { get; }
+    // Only when it is not a Bloodbath Roll (InjuryRolled.Bloodbath), which keeps one more.
+    public bool Deadly => Dice.Kept.Count == InjuryRoll.DeadlyKeptDice;
+    public bool AllFour => Dice.Kept.Count == InjuryRoll.AllFourDice;
     public int Total => Dice.Total + Modifier;
     public InjuryOutcome Outcome => InjuryRoll.Classify(Total);
     public int BloodMarkers => InjuryRoll.BloodMarkersFor(Outcome, TargetAlreadyDown);
@@ -40,6 +46,8 @@ public sealed record InjuryRollResult
 public static class InjuryRoll
 {
     public const int KeptDice = 2;
+    public const int DeadlyKeptDice = 3;
+    public const int AllFourDice = 4;
     public const int NegativeModifierFloor = -3;
 
     public static InjuryRollResult Roll(
@@ -47,12 +55,20 @@ public static class InjuryRoll
         int bonusDice = 0,
         int penaltyDice = 0,
         IEnumerable<int>? modifiers = null,
-        bool targetAlreadyDown = false)
+        bool targetAlreadyDown = false,
+        bool deadly = false,
+        bool allFour = false,
+        bool bloodbath = false)
     {
         var net = RollRecord.NetDice(bonusDice, penaltyDice);
-        var record = RollRecord.RollAndKeep(dice, KeptDice, net);
+        var record = RollRecord.RollAndKeep(dice, KeptFor(deadly, allFour, bloodbath), net);
         return new InjuryRollResult(record, net, CombineModifiers(modifiers ?? []), targetAlreadyDown);
     }
+
+    // The dice an Injury Roll keeps: 2, 3 with DEADLY (p. 54), one more for a Bloodbath Roll (p. 47, U123), and a Martyrdom
+    // Device's bearer 4D6 (U115).
+    public static int KeptFor(bool deadly, bool allFour, bool bloodbath) =>
+        allFour ? AllFourDice : KeptDice + (deadly ? 1 : 0) + (bloodbath ? 1 : 0);
 
     // Negative modifiers together count for no less than -3; positive modifiers are not capped.
     public static int CombineModifiers(IEnumerable<int> modifiers)

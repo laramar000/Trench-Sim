@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Trench Sim test center ("Test Trench Sim" in the repository folder; see docs/testing.md): one place to run every
+       automated check and to play a guided test match whose result is verified automatically. Outside TrenchSim.sln: it
+       starts the build, the tests, the server, Godot and trench-cli as separate processes and references none of them. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>TestCenter</RootNamespace>
+  </PropertyGroup>
+
+</Project>

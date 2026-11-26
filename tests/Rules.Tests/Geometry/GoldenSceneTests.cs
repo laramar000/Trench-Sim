@@ -49,11 +49,7 @@ public class GoldenSceneTests
         var field = new Battlefield(Geo.L(size), Geo.L(size), terrain, []);
         var attacker = BodyOf("attacker", root.GetProperty("attacker"));
         var target = BodyOf("target", root.GetProperty("target"));
-        ISightSampler? sampler = root.TryGetProperty("samplePoints", out var pts)
-            ? new FixedSampler(pts.EnumerateArray().Select(p => Geo.P(Num(p[0]), Num(p[1]))).ToArray())
-            : null;
-
-        var result = Cover.Of(field, attacker, target, sampler);
+        var result = Cover.Of(field, attacker, target);
         var expect = root.GetProperty("expect");
         Assert.Equal(expect.GetProperty("attackerLevel").GetString(), result.Sight.Attacker.Level.ToString());
         Assert.Equal(expect.GetProperty("targetLevel").GetString(), result.Sight.Target.Level.ToString());

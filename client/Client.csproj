@@ -1,0 +1,14 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <!-- The Godot client (M7). Kept out of TrenchSim.sln so the solution builds and tests without Godot.
+       It shows server state and sends commands; it never resolves commands or rolls dice. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\src\Client.Core\Client.Core.csproj" />
+  </ItemGroup>
+</Project>

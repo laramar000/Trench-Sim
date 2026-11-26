@@ -30,13 +30,13 @@
   "expect": {
     "attackerLevel": "Ground",
     "targetLevel": "Ground",
-    "visibility": "Partial",
-    "visible": 1,
-    "total": 5,
-    "cover": true,
-    "coverBy": "wall"
+    "visibility": "None",
+    "visible": 0,
+    "total": 9,
+    "cover": false,
+    "coverBy": null
   },
   "status": "provisional",
-  "basis": "p. 30 partial line of sight (confirmed); p. 38 cover; sampling U2/U16, readings U4, U5",
-  "ruling": "Four of five test rays are stopped by the wall and one gets past its corner, so sight is Partial; the wall is between, touches the target and is wide enough, so it gives cover."
+  "basis": "p. 30 (confirmed: no visible part means no line of sight); readings U77, U78",
+  "ruling": "The target stands against the wall's south face and the attacker looks past the corner at a steep angle: every one of the nine points is behind the wall, so there is no line of sight and no cover. (Before L2: Partial 1/5 with cover, from a rim point at the full radius; the side points now sit at 0.8 of the radius, U77.)"
 }

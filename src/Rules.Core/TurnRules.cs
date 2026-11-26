@@ -15,6 +15,12 @@ internal static class TurnRules
     public static int DownOrOut(MatchState state, Seat seat) =>
         ModelsOf(state, seat).Count(m => m.Status != ModelStatus.Standing);
 
+    // LEADER (p. 55): +1 DICE to the warband's Morale Checks while at least one LEADER model is on the battlefield and
+    // neither Down nor Out of Action (U106).
+    public static int LeaderDice(MatchState state, Seat seat) =>
+        ModelsOf(state, seat).Any(m => m.Deployed && m.Position is not null && m.Status == ModelStatus.Standing
+            && state.Setup?.ProfileOf(m.Id) is { } p && p.Traits.HasFlag(ModelTraits.Leader)) ? 1 : 0;
+
     // Models counted for Initiative. Provisional rule R1 chooses between the two chapters (p. 32 / Core p. 14).
     public static int InitiativeCount(MatchState state, Seat seat)
     {

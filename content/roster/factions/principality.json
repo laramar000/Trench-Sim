@@ -1,0 +1,2973 @@
+{
+ "format": 1,
+ "rulesVersion": "1.0.2",
+ "id": "principality",
+ "name": "The Principality",
+ "alignment": "faithful",
+ "budgetDucats": 700,
+ "specialRules": [
+  {
+   "name": "Fireteams",
+   "summary": "Up to 2 Fireteams of any two models, each with FIRETEAM for free; Concentrated Attack: 3 BLOOD MARKERS turn the second Fireteam hit on a target into a Bloodbath Roll.",
+   "page": 23
+  }
+ ],
+ "models": [
+  {
+   "id": "lieutenant",
+   "name": "Lieutenant",
+   "min": 1,
+   "max": 1,
+   "cost": {
+    "amount": 70,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 2,
+   "melee": 2,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "PRINCIPALITY"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "LEADER"
+    },
+    {
+     "id": "TOUGH"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Hold Your Fire! ACTION",
+     "summary": "Pick an enemy in Line of Sight that may Activate; this Activation ends and the opponent must Activate that model.",
+     "page": 27
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 27
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "blind-marksman",
+   "name": "Blind Marksman",
+   "max": 2,
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 2,
+   "melee": -1,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "PRINCIPALITY"
+    },
+    {
+     "id": "ELITE"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Absolute Faith",
+     "summary": "The opponent cannot spend BLOOD MARKERS to add -DICE to its Ranged Attacks.",
+     "page": 28
+    },
+    {
+     "name": "Aim ACTION",
+     "summary": "Risky roll at +2 DICE; on a Success its Ranged Attacks get +2 DICE for the rest of the Activation.",
+     "page": 28
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 28
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "trench-cleric",
+   "name": "Trench Cleric",
+   "max": 1,
+   "cost": {
+    "amount": 60,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 1,
+   "armour": 0,
+   "baseMm": [
+    32
+   ],
+   "keywords": [
+    {
+     "id": "PRINCIPALITY"
+    },
+    {
+     "id": "ELITE"
+    },
+    {
+     "id": "NEGATE",
+     "value": "FEAR"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "God is With Us! ACTION",
+     "summary": "Risky roll; on a Success place 1 BLESSING MARKER on itself or a friend within 6\".",
+     "page": 29
+    },
+    {
+     "name": "Onward Christian Soldiers!",
+     "summary": "Friendly PRINCIPALITY models within 8\" have NEGATE FEAR.",
+     "page": 29
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 29
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "yeoman",
+   "name": "Yeoman",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 0,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "PRINCIPALITY"
+    }
+   ],
+   "kitAccess": "armoury",
+   "prices": [
+    {
+     "kit": "bolt-action-rifle",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     }
+    }
+   ],
+   "upgrades": [
+    {
+     "id": "trench-mole",
+     "name": "Trench Mole",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "maxPerWarband": 2,
+     "keywords": [
+      {
+       "id": "INFILTRATOR"
+      }
+     ],
+     "note": "a 3rd Trench Mole is allowed if the rest of the warband costs 1,000 ducats or more"
+    }
+   ],
+   "abilities": [
+    {
+     "name": "Trench Moles",
+     "summary": "Up to 2 Yeomen can become Trench Moles with INFILTRATOR for +10 ducats each.",
+     "page": 30
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 30
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "shock-trooper",
+   "name": "Shock Trooper",
+   "max": 5,
+   "cost": {
+    "amount": 45,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 1,
+   "armour": 0,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "PRINCIPALITY"
+    }
+   ],
+   "kitAccess": "armoury",
+   "abilities": [
+    {
+     "name": "Assault Drill",
+     "summary": "Ignore HEAVY for 1 melee weapon (still at most 1 HEAVY weapon).",
+     "page": 32
+    },
+    {
+     "name": "Shock Charge",
+     "summary": "Roll 1 extra D6 for the Charge Bonus and use the highest.",
+     "page": 32
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 32
+   },
+   "status": "verified",
+   "naming": "keep"
+  },
+  {
+   "id": "combat-engineer",
+   "name": "Combat Engineer",
+   "max": 2,
+   "cost": {
+    "amount": 80,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 1,
+   "armour": -2,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "PRINCIPALITY"
+    },
+    {
+     "id": "NEGATE",
+     "value": "MINED"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "engineer-body-armour",
+    "shovel"
+   ],
+   "abilities": [
+    {
+     "name": "Battlefield Demolition",
+     "summary": "Ignore HEAVY for 1 Satchel Charge (still at most 1 HEAVY weapon).",
+     "page": 33
+    },
+    {
+     "name": "Set Mine ACTION",
+     "summary": "Touching a terrain piece up to 8\" by 8\": roll at +2 DICE; on a Success it gains MINED.",
+     "page": 33
+    },
+    {
+     "name": "Defuse Mine",
+     "summary": "Moving into a MINED marker or piece: Risky roll to remove MINED; a Failure detonates it.",
+     "page": 33
+    },
+    {
+     "name": "Fortify ACTION",
+     "summary": "Risky roll; on a Success it has COVER until it moves.",
+     "page": 33
+    }
+   ],
+   "kitRules": {
+    "noCategories": [
+     "armour"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 32
+   },
+   "status": "verified",
+   "note": "Engineer Body Armour and Shovel cannot be removed; the armour is already in its Armour Characteristic.",
+   "naming": "keep"
+  },
+  {
+   "id": "mechanized-heavy-infantry",
+   "name": "Mechanized Heavy Infantry",
+   "max": 3,
+   "cost": {
+    "amount": 85,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 1,
+   "melee": 0,
+   "armour": -2,
+   "baseMm": [
+    40
+   ],
+   "keywords": [
+    {
+     "id": "PRINCIPALITY"
+    },
+    {
+     "id": "STRONG"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "reinforced-armour"
+   ],
+   "upgrades": [
+    {
+     "id": "machine-armour-instead",
+     "name": "Machine Armour instead",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "note": "Machine Armour replaces its Reinforced Armour (95 ducats in all): Armour -3 and the Machine Armour rules"
+    }
+   ],
+   "kitRules": {
+    "noCategories": [
+     "armour"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 33
+   },
+   "status": "verified",
+   "note": "Always has Reinforced Armour (85 ducats) or Machine Armour (95 ducats); its armour cannot be removed and is in its Armour Characteristic (-2, or -3 with Machine Armour).",
+   "naming": "keep"
+  },
+  {
+   "id": "combat-medic",
+   "name": "Combat Medic",
+   "max": 1,
+   "cost": {
+    "amount": 65,
+    "currency": "ducats"
+   },
+   "movementInches": 6,
+   "movementType": "infantry",
+   "ranged": 0,
+   "melee": 0,
+   "armour": -1,
+   "baseMm": [
+    25
+   ],
+   "keywords": [
+    {
+     "id": "PRINCIPALITY"
+    },
+    {
+     "id": "NEGATE",
+     "value": "FEAR"
+    }
+   ],
+   "kitAccess": "armoury",
+   "startsWith": [
+    "standard-armour",
+    "gas-mask",
+    "medi-kit",
+    "misericordia"
+   ],
+   "abilities": [
+    {
+     "name": "Expert Medic",
+     "summary": "+2 DICE to the Risky roll for a Treat ACTION with its Medi-kit.",
+     "page": 34
+    },
+    {
+     "name": "Finish the Fallen",
+     "summary": "+1 INJURY DICE to melee Injury Rolls against a Down target that is not CULT or DEMONIC.",
+     "page": 34
+    }
+   ],
+   "kitRules": {
+    "noCategories": [
+     "armour"
+    ]
+   },
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 34
+   },
+   "status": "verified",
+   "naming": "keep"
+  }
+ ],
+ "armoury": [
+  {
+   "kit": "automatic-pistol",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "automatic-rifle",
+   "cost": {
+    "amount": 40,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "automatic-shotgun",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bolt-action-rifle",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "flamethrower",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "status": "verified"
+  },
+  {
+   "kit": "grenade-launcher",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "heavy-flamethrower",
+   "cost": {
+    "amount": 55,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "heavy-shotgun",
+   "cost": {
+    "amount": 20,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "machine-gun",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "pistol",
+   "cost": {
+    "amount": 6,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "semi-automatic-rifle",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "shotgun",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sniper-rifle",
+   "cost": {
+    "amount": 35,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "status": "verified"
+  },
+  {
+   "kit": "submachine-gun",
+   "cost": {
+    "amount": 30,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "stipulations": [
+    "bayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "bayonet",
+   "cost": {
+    "amount": 2,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "needsBayonetLug",
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "great-hammer-maul",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "great-sword-axe",
+   "cost": {
+    "amount": 12,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "misericordia",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "model": "combat-medic"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "polearm",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sword-axe",
+   "cost": {
+    "amount": 4,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "trench-club",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "trench-knife",
+   "cost": {
+    "amount": 1,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "frag-grenades",
+   "cost": {
+    "amount": 7,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "incendiary-grenades",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "satchel-charge",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 3,
+   "limitPerModel": 1,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "heavy-ballistic-shield",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified",
+   "note": "models wearing Machine Armour only"
+  },
+  {
+   "kit": "trench-shield",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "shieldCombo"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "engineer-body-armour",
+   "cost": {
+    "amount": 45,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "model": "combat-engineer"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "machine-armour",
+   "cost": {
+    "amount": 50,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    },
+    {
+     "model": "mechanized-heavy-infantry"
+    }
+   ],
+   "status": "verified",
+   "note": "the Limit of 1 does not count Mechanized Heavy Infantry"
+  },
+  {
+   "kit": "reinforced-armour",
+   "cost": {
+    "amount": 40,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    },
+    {
+     "model": "mechanized-heavy-infantry"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "standard-armour",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "binoculars",
+   "cost": {
+    "amount": 10,
+    "currency": "ducats"
+   },
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "combat-helmet",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "stipulations": [
+    "headgear"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "field-shrine",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "gas-mask",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "zealots-draught",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 2,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "medi-kit",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "mountaineer-kit",
+   "cost": {
+    "amount": 3,
+    "currency": "ducats"
+   },
+   "limit": 4,
+   "status": "verified"
+  },
+  {
+   "kit": "musical-instrument",
+   "cost": {
+    "amount": 15,
+    "currency": "ducats"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "shovel",
+   "cost": {
+    "amount": 5,
+    "currency": "ducats"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "troop-flag",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "status": "verified"
+  },
+  {
+   "kit": "battlefield-title",
+   "cost": {
+    "amount": 5,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "book-of-battle-prayers",
+   "cost": {
+    "amount": 7,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "winged-plate",
+   "cost": {
+    "amount": 8,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified",
+   "note": "only a model that already has a Battlefield Title or a Knighthood"
+  },
+  {
+   "kit": "field-hospital",
+   "cost": {
+    "amount": 10,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "great-banner-of-the-principality",
+   "cost": {
+    "amount": 12,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "knighthood",
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "only": [
+    {
+     "keyword": "ELITE"
+    }
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "resurrection-engine",
+   "cost": {
+    "amount": 11,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "rocket-propelled-grenade",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "limit": 2,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "salvage-golem",
+   "cost": {
+    "amount": 4,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "smokescreen",
+   "cost": {
+    "amount": 5,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "stipulations": [
+    "consumable"
+   ],
+   "status": "verified"
+  },
+  {
+   "kit": "sniper-scope",
+   "cost": {
+    "amount": 2,
+    "currency": "glory"
+   },
+   "limit": 2,
+   "status": "verified"
+  },
+  {
+   "kit": "trench-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "limit": 1,
+   "status": "verified",
+   "note": "Loyal Hound and one Special Training are +1 Glory each, bought as their own items"
+  },
+  {
+   "kit": "loyal-hound",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "needsKit": "trench-dog",
+   "limitPerModel": 1,
+   "status": "verified"
+  },
+  {
+   "kit": "guard-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
+  },
+  {
+   "kit": "mercy-dog",
+   "cost": {
+    "amount": 1,
+    "currency": "glory"
+   },
+   "group": "dog-training",
+   "needsKit": "trench-dog",
+   "status": "verified"
+  }
+ ],
+ "variants": [
+  {
+   "id": "pontifical-task-force",
+   "name": "Pontifical Task Force",
+   "removeModels": [
+    "lieutenant",
+    "trench-cleric",
+    "yeoman"
+   ],
+   "addModels": [
+    {
+     "id": "lieutenant",
+     "name": "Lieutenant",
+     "max": 1,
+     "cost": {
+      "amount": 70,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 2,
+     "melee": 2,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Hold Your Fire! ACTION",
+       "summary": "Pick an enemy in Line of Sight that may Activate; this Activation ends and the opponent must Activate that model.",
+       "page": 27
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 27
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "trench-cleric",
+     "name": "Trench Cleric",
+     "max": 1,
+     "cost": {
+      "amount": 60,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "NEGATE",
+       "value": "FEAR"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "God is With Us! ACTION",
+       "summary": "Risky roll; on a Success place 1 BLESSING MARKER on itself or a friend within 6\".",
+       "page": 29
+      },
+      {
+       "name": "Onward Christian Soldiers!",
+       "summary": "Friendly PRINCIPALITY models within 8\" have NEGATE FEAR.",
+       "page": 29
+      },
+      {
+       "name": "Arise and be Healed! ACTION",
+       "summary": "Risky roll; on a Success it or a friend within 3\" may stand up free and lose up to D3 BLOOD and/or INFECTION MARKERS.",
+       "page": 35
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 29
+     },
+     "status": "verified",
+     "naming": "keep",
+     "min": 1
+    },
+    {
+     "id": "yeoman",
+     "name": "Yeoman",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 0,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      }
+     ],
+     "kitAccess": "armoury",
+     "prices": [
+      {
+       "kit": "bolt-action-rifle",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       }
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 30
+     },
+     "status": "verified",
+     "naming": "keep"
+    }
+   ],
+   "addArmoury": [
+    {
+     "kit": "pontiffs-crucifix",
+     "cost": {
+      "amount": 3,
+      "currency": "glory"
+     },
+     "limit": 1,
+     "status": "verified",
+     "note": "the first one is free when the warband is created"
+    }
+   ],
+   "budgetDucats": 500,
+   "budgetGlory": 11,
+   "specialRules": [
+    {
+     "name": "Far from Home",
+     "summary": "No Trench Moles.",
+     "page": 35
+    },
+    {
+     "name": "Lector",
+     "summary": "Must include 1 Trench Cleric (LEADER, with Arise and be Healed!); a Lieutenant is optional.",
+     "page": 35
+    },
+    {
+     "name": "Specialist Force",
+     "summary": "500 ducats and 11 Glory to recruit; in one-off games 200 fewer ducats and 11 more Glory than agreed; gains 4 Glory per Reinforcements.",
+     "page": 35
+    },
+    {
+     "name": "Supreme Blessing",
+     "summary": "One model must take the Pontiff’s Crucifix, free when the warband is created.",
+     "page": 35
+    },
+    {
+     "name": "Swiss Guard",
+     "summary": "The Lieutenant and up to 4 other models may have NEGATE FEAR for free.",
+     "page": 35
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 35
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "hibernian-rangers",
+   "name": "Hibernian Rangers",
+   "removeModels": [
+    "lieutenant",
+    "trench-cleric",
+    "shock-trooper",
+    "combat-engineer",
+    "mechanized-heavy-infantry"
+   ],
+   "addModels": [
+    {
+     "id": "lieutenant",
+     "name": "Lieutenant",
+     "min": 1,
+     "max": 1,
+     "cost": {
+      "amount": 70,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 2,
+     "melee": 2,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "TOUGH"
+      },
+      {
+       "id": "SKIRMISHER"
+      }
+     ],
+     "kitAccess": "armoury",
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 27
+     },
+     "status": "verified",
+     "naming": "keep",
+     "upgrades": [
+      {
+       "id": "berserker",
+       "name": "Berserker",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "NEGATE",
+         "value": "FEAR"
+        }
+       ],
+       "note": "only the Lieutenant or one Fianna in the warband; cannot have Armour (Shields are allowed); never gets BLOOD MARKERS"
+      }
+     ]
+    },
+    {
+     "id": "trench-cleric",
+     "name": "Trench Cleric",
+     "max": 2,
+     "cost": {
+      "amount": 60,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "NEGATE",
+       "value": "FEAR"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "God is With Us! ACTION",
+       "summary": "Risky roll; on a Success place 1 BLESSING MARKER on itself or a friend within 6\".",
+       "page": 29
+      },
+      {
+       "name": "Arise and be Healed! ACTION",
+       "summary": "Risky roll; on a Success it or a friend within 3\" may stand up free and lose up to D3 BLOOD and/or INFECTION MARKERS.",
+       "page": 35
+      },
+      {
+       "name": "Away Serpents! ACTION",
+       "summary": "Pick an enemy within 12\" and take a Risky roll (-1 DICE against a 40mm or larger base); on a Success it is taken Down.",
+       "page": 38
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 29
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "shock-trooper",
+     "name": "Shock Trooper",
+     "max": 5,
+     "cost": {
+      "amount": 45,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Assault Drill",
+       "summary": "Ignore HEAVY for 1 melee weapon (still at most 1 HEAVY weapon).",
+       "page": 32
+      },
+      {
+       "name": "Shock Charge",
+       "summary": "Roll 1 extra D6 for the Charge Bonus and use the highest.",
+       "page": 32
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 32
+     },
+     "status": "verified",
+     "naming": "keep",
+     "upgrades": [
+      {
+       "id": "fianna",
+       "name": "Fianna",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "keywords": [
+        {
+         "id": "INFILTRATOR"
+        },
+        {
+         "id": "SKIRMISHER"
+        }
+       ]
+      },
+      {
+       "id": "berserker",
+       "name": "Berserker",
+       "cost": {
+        "amount": 15,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 1,
+       "keywords": [
+        {
+         "id": "NEGATE",
+         "value": "FEAR"
+        }
+       ],
+       "note": "only the Lieutenant or one Fianna in the warband; cannot have Armour (Shields are allowed); never gets BLOOD MARKERS"
+      }
+     ]
+    },
+    {
+     "id": "combat-engineer",
+     "name": "Combat Engineer",
+     "max": 4,
+     "cost": {
+      "amount": 80,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": -2,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "NEGATE",
+       "value": "MINED"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "engineer-body-armour",
+      "shovel"
+     ],
+     "abilities": [
+      {
+       "name": "Battlefield Demolition",
+       "summary": "Ignore HEAVY for 1 Satchel Charge (still at most 1 HEAVY weapon).",
+       "page": 33
+      },
+      {
+       "name": "Set Mine ACTION",
+       "summary": "Touching a terrain piece up to 8\" by 8\": roll at +2 DICE; on a Success it gains MINED.",
+       "page": 33
+      },
+      {
+       "name": "Defuse Mine",
+       "summary": "Moving into a MINED marker or piece: Risky roll to remove MINED; a Failure detonates it.",
+       "page": 33
+      },
+      {
+       "name": "Fortify ACTION",
+       "summary": "Risky roll; on a Success it has COVER until it moves.",
+       "page": 33
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 32
+     },
+     "status": "verified",
+     "note": "Engineer Body Armour and Shovel cannot be removed; the armour is already in its Armour Characteristic.",
+     "naming": "keep"
+    },
+    {
+     "id": "mechanized-heavy-infantry",
+     "name": "Mechanized Heavy Infantry",
+     "max": 1,
+     "cost": {
+      "amount": 85,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 0,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "reinforced-armour"
+     ],
+     "upgrades": [
+      {
+       "id": "machine-armour-instead",
+       "name": "Machine Armour instead",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Machine Armour replaces its Reinforced Armour (95 ducats in all): Armour -3 and the Machine Armour rules"
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 33
+     },
+     "status": "verified",
+     "note": "Always has Reinforced Armour (85 ducats) or Machine Armour (95 ducats); its armour cannot be removed and is in its Armour Characteristic (-2, or -3 with Machine Armour).",
+     "naming": "keep"
+    }
+   ],
+   "addArmoury": [
+    {
+     "kit": "armour-piercing-bullets",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "satchel-charge",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "limit": 4,
+     "limitPerModel": 1,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "machine-armour",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "mechanized-heavy-infantry"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "mechanized-heavy-infantry"
+      }
+     ],
+     "status": "verified"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Anointed Ammunition",
+     "summary": "Armour-Piercing Bullets cost 5 ducats each, Limit 2.",
+     "page": 37
+    },
+    {
+     "name": "Berserker",
+     "summary": "The Lieutenant or one Fianna can become a Berserker for +15 ducats: no Armour, NEGATE FEAR, never gets BLOOD MARKERS.",
+     "page": 37
+    },
+    {
+     "name": "Carnyx",
+     "summary": "One Musical Instrument can have FEAR for free.",
+     "page": 37
+    },
+    {
+     "name": "Fianna",
+     "summary": "Shock Troopers can have INFILTRATOR and SKIRMISHER for +10 ducats each.",
+     "page": 37
+    },
+    {
+     "name": "Followers of Saint Patrick",
+     "summary": "The Patron is always a Learned Saint.",
+     "page": 37
+    },
+    {
+     "name": "Hit & Run Tactics",
+     "summary": "-1 DICE to Melee Attacks against its models that are Retreating.",
+     "page": 37
+    },
+    {
+     "name": "Light Infantry",
+     "summary": "At most 1 Mechanized Heavy Infantry and up to 4 Combat Engineers; Satchel Charges Limit 4; at most 3 models with a Great Sword/Axe and none on Mechanized Heavy Infantry; only Mechanized Heavy Infantry may have HEAVY weapons (except Great Swords/Axes; Combat Engineers may have Satchel Charges); only Mechanized Heavy Infantry may have Reinforced or Machine Armour.",
+     "page": 38
+    },
+    {
+     "name": "Loose Formation",
+     "summary": "The Lieutenant has SKIRMISHER instead of Hold Your Fire!.",
+     "page": 38
+    },
+    {
+     "name": "Strong in Faith",
+     "summary": "0-2 Trench Clerics, with Arise and be Healed! and Away Serpents! instead of Onward Christian Soldiers!.",
+     "page": 38
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 37
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "highland-assault-detachment",
+   "name": "Highland Assault Detachment",
+   "removeModels": [
+    "lieutenant",
+    "shock-trooper",
+    "mechanized-heavy-infantry"
+   ],
+   "addModels": [
+    {
+     "id": "lieutenant",
+     "name": "Lieutenant",
+     "min": 1,
+     "max": 1,
+     "cost": {
+      "amount": 70,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 2,
+     "melee": 2,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "TOUGH"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Hold Your Fire! ACTION",
+       "summary": "Pick an enemy in Line of Sight that may Activate; this Activation ends and the opponent must Activate that model.",
+       "page": 27
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 27
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "shock-trooper",
+     "name": "Shock Trooper",
+     "max": 5,
+     "cost": {
+      "amount": 45,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Assault Drill",
+       "summary": "Ignore HEAVY for 1 melee weapon (still at most 1 HEAVY weapon).",
+       "page": 32
+      },
+      {
+       "name": "Shock Charge",
+       "summary": "Roll 1 extra D6 for the Charge Bonus and use the highest.",
+       "page": 32
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 32
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "mechanized-heavy-infantry",
+     "name": "Mechanized Heavy Infantry",
+     "max": 3,
+     "cost": {
+      "amount": 85,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "reinforced-armour"
+     ],
+     "upgrades": [
+      {
+       "id": "machine-armour-instead",
+       "name": "Machine Armour instead",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Machine Armour replaces its Reinforced Armour (95 ducats in all): Armour -3 and the Machine Armour rules"
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 33
+     },
+     "status": "verified",
+     "note": "Always has Reinforced Armour (85 ducats) or Machine Armour (95 ducats); its armour cannot be removed and is in its Armour Characteristic (-2, or -3 with Machine Armour).",
+     "naming": "keep"
+    }
+   ],
+   "addArmoury": [
+    {
+     "kit": "great-sword-axe",
+     "cost": {
+      "amount": 7,
+      "currency": "ducats"
+     },
+     "status": "verified"
+    },
+    {
+     "kit": "dum-dum-bullets",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "lochaber-axe",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "status": "verified"
+    },
+    {
+     "kit": "machine-armour",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "model": "lieutenant"
+      },
+      {
+       "model": "mechanized-heavy-infantry"
+      }
+     ],
+     "status": "verified",
+     "note": "the Limit of 1 does not count Mechanized Heavy Infantry"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "lieutenant"
+      },
+      {
+       "model": "mechanized-heavy-infantry"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-shotgun",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "grenade-launcher",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "sniper-rifle",
+     "cost": {
+      "amount": 35,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "submachine-gun",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Bagpipes",
+     "summary": "One Musical Instrument can become Bagpipes for free: friends within 8\" have NEGATE FEAR.",
+     "page": 39
+    },
+    {
+     "name": "Brave",
+     "summary": "+1 DICE to Morale Checks.",
+     "page": 39
+    },
+    {
+     "name": "Celtic Machine Armour",
+     "summary": "Machine Armour does not reduce the Charge Bonus to D3\".",
+     "page": 39
+    },
+    {
+     "name": "Claymore Smiths",
+     "summary": "Great Swords/Axes cost 7 ducats.",
+     "page": 39
+    },
+    {
+     "name": "Cold Steel",
+     "summary": "The first of each melee weapon bought for the warband costs half (not checked by the builder).",
+     "page": 39
+    },
+    {
+     "name": "Dum-Dum Ammunition",
+     "summary": "Dum-Dum Bullets cost 5 ducats each, Limit 3.",
+     "page": 39
+    },
+    {
+     "name": "Highland Strength",
+     "summary": "The Lieutenant and Shock Troopers have STRONG for free.",
+     "page": 39
+    },
+    {
+     "name": "Lightly-armoured",
+     "summary": "Only the Lieutenant and Mechanized Heavy Infantry may have Reinforced or Machine Armour.",
+     "page": 40
+    },
+    {
+     "name": "Melee-focused",
+     "summary": "Mechanized Heavy Infantry have Melee +1 DICE and Ranged +0 DICE.",
+     "page": 40
+    },
+    {
+     "name": "Rampant Charge",
+     "summary": "Its models have IGNORE DEFENDED OBSTACLE.",
+     "page": 40
+    },
+    {
+     "name": "Strained Supply",
+     "summary": "Automatic Shotguns, Grenade Launchers, Machine Guns, Sniper Rifles and Submachine Guns have Limit 1.",
+     "page": 40
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 39
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "prussian-stormtroopers",
+   "name": "Prussian Stormtroopers",
+   "removeModels": [
+    "lieutenant",
+    "shock-trooper",
+    "blind-marksman",
+    "mechanized-heavy-infantry",
+    "yeoman"
+   ],
+   "addModels": [
+    {
+     "id": "lieutenant",
+     "name": "Lieutenant",
+     "min": 1,
+     "max": 1,
+     "cost": {
+      "amount": 70,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 2,
+     "melee": 2,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Hold Your Fire! ACTION",
+       "summary": "Pick an enemy in Line of Sight that may Activate; this Activation ends and the opponent must Activate that model.",
+       "page": 27
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 27
+     },
+     "status": "verified",
+     "naming": "keep",
+     "upgrades": [
+      {
+       "id": "rapid-assault",
+       "name": "Rapid Assault",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "+1 DICE to the Risky roll for a Dash ACTION"
+      }
+     ]
+    },
+    {
+     "id": "shock-trooper",
+     "name": "Shock Trooper",
+     "max": 8,
+     "cost": {
+      "amount": 45,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Shock Charge",
+       "summary": "Roll 1 extra D6 for the Charge Bonus and use the highest.",
+       "page": 32
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 32
+     },
+     "status": "verified",
+     "naming": "keep",
+     "min": 2,
+     "upgrades": [
+      {
+       "id": "rapid-assault",
+       "name": "Rapid Assault",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "note": "+1 DICE to the Risky roll for a Dash ACTION"
+      },
+      {
+       "id": "forward-position",
+       "name": "Forward Position",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 2,
+       "keywords": [
+        {
+         "id": "INFILTRATOR"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": "blind-marksman",
+     "name": "Blind Marksman",
+     "max": 1,
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 2,
+     "melee": -1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "ELITE"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Absolute Faith",
+       "summary": "The opponent cannot spend BLOOD MARKERS to add -DICE to its Ranged Attacks.",
+       "page": 28
+      },
+      {
+       "name": "Aim ACTION",
+       "summary": "Risky roll at +2 DICE; on a Success its Ranged Attacks get +2 DICE for the rest of the Activation.",
+       "page": 28
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 28
+     },
+     "status": "verified",
+     "naming": "rename"
+    },
+    {
+     "id": "mechanized-heavy-infantry",
+     "name": "Mechanized Heavy Infantry",
+     "max": 1,
+     "cost": {
+      "amount": 85,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 0,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "reinforced-armour"
+     ],
+     "upgrades": [
+      {
+       "id": "machine-armour-instead",
+       "name": "Machine Armour instead",
+       "cost": {
+        "amount": 10,
+        "currency": "ducats"
+       },
+       "note": "Machine Armour replaces its Reinforced Armour (95 ducats in all): Armour -3 and the Machine Armour rules"
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 33
+     },
+     "status": "verified",
+     "note": "Always has Reinforced Armour (85 ducats) or Machine Armour (95 ducats); its armour cannot be removed and is in its Armour Characteristic (-2, or -3 with Machine Armour).",
+     "naming": "keep"
+    },
+    {
+     "id": "yeoman",
+     "name": "Yeoman",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 0,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      }
+     ],
+     "kitAccess": "armoury",
+     "prices": [
+      {
+       "kit": "bolt-action-rifle",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       }
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 30
+     },
+     "status": "verified",
+     "naming": "keep"
+    }
+   ],
+   "removeArmoury": [
+    "grenade-launcher",
+    "zealots-draught"
+   ],
+   "addArmoury": [
+    {
+     "kit": "submachine-gun",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "limit": 4,
+     "stipulations": [
+      "bayonetLug",
+      "shieldCombo"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "automatic-pistol",
+     "cost": {
+      "amount": 20,
+      "currency": "ducats"
+     },
+     "limit": 3,
+     "status": "verified"
+    },
+    {
+     "kit": "machine-gun",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "status": "verified"
+    },
+    {
+     "kit": "machine-armour",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "model": "lieutenant"
+      },
+      {
+       "model": "mechanized-heavy-infantry"
+      }
+     ],
+     "status": "verified",
+     "note": "the Limit of 1 does not count Mechanized Heavy Infantry"
+    },
+    {
+     "kit": "reinforced-armour",
+     "cost": {
+      "amount": 40,
+      "currency": "ducats"
+     },
+     "only": [
+      {
+       "model": "lieutenant"
+      },
+      {
+       "model": "mechanized-heavy-infantry"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "tank-splitter-sword",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "status": "verified"
+    },
+    {
+     "kit": "holy-smoke",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "limitPerModel": 1,
+     "only": [
+      {
+       "model": "trench-cleric"
+      }
+     ],
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Athleticism",
+     "summary": "The Lieutenant and Shock Troopers can have Rapid Assault for +5 ducats each: +1 DICE to Dash Risky rolls.",
+     "page": 41
+    },
+    {
+     "name": "Expert Fireteams",
+     "summary": "Up to 3 Fireteams.",
+     "page": 41
+    },
+    {
+     "name": "Feldkaplane",
+     "summary": "Trench Clerics can have 1 dose of Holy Smoke.",
+     "page": 41
+    },
+    {
+     "name": "Forward Positions",
+     "summary": "Up to 2 Shock Troopers can have INFILTRATOR for +10 ducats each.",
+     "page": 41
+    },
+    {
+     "name": "Lightly-armoured",
+     "summary": "Only the Lieutenant and Mechanized Heavy Infantry may have Reinforced or Machine Armour.",
+     "page": 41
+    },
+    {
+     "name": "Light Melee",
+     "summary": "Shock Troopers lose Assault Drill (same cost).",
+     "page": 41
+    },
+    {
+     "name": "Masters of the Grenade",
+     "summary": "Grenades have +4\" Range.",
+     "page": 41
+    },
+    {
+     "name": "Specialised Equipment",
+     "summary": "Submachine Guns Limit 4; Automatic Pistols are not ELITE only; Machine Guns Limit 1; no Grenade Launchers or Zealot’s Draught.",
+     "page": 41
+    },
+    {
+     "name": "Troop Selection",
+     "summary": "2-8 Shock Troopers; no Trench Moles; at most 1 Blind Marksman and 1 Mechanized Heavy Infantry.",
+     "page": 41
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 41
+   },
+   "status": "verified",
+   "naming": "rename"
+  },
+  {
+   "id": "abyssinian-expedition",
+   "name": "Abyssinian Expedition",
+   "removeModels": [
+    "blind-marksman",
+    "combat-medic",
+    "yeoman",
+    "mechanized-heavy-infantry",
+    "lieutenant",
+    "trench-cleric",
+    "shock-trooper"
+   ],
+   "addModels": [
+    {
+     "id": "combat-medic",
+     "name": "Combat Medic",
+     "max": 2,
+     "cost": {
+      "amount": 65,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 0,
+     "armour": -1,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "NEGATE",
+       "value": "FEAR"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "standard-armour",
+      "gas-mask",
+      "medi-kit",
+      "misericordia"
+     ],
+     "abilities": [
+      {
+       "name": "Expert Medic",
+       "summary": "+2 DICE to the Risky roll for a Treat ACTION with its Medi-kit.",
+       "page": 34
+      },
+      {
+       "name": "Finish the Fallen",
+       "summary": "+1 INJURY DICE to melee Injury Rolls against a Down target that is not CULT or DEMONIC.",
+       "page": 34
+      }
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 34
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "yeoman",
+     "name": "Yeoman",
+     "cost": {
+      "amount": 30,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 0,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      }
+     ],
+     "kitAccess": "armoury",
+     "prices": [
+      {
+       "kit": "bolt-action-rifle",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       }
+      }
+     ],
+     "upgrades": [
+      {
+       "id": "flanking",
+       "name": "Flanking",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       },
+       "maxPerWarband": 4,
+       "note": "deploy in its zone or at a battlefield edge at least 8\" from enemies"
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 30
+     },
+     "status": "verified",
+     "naming": "keep"
+    },
+    {
+     "id": "mechanized-heavy-infantry",
+     "name": "Mechanized Heavy Infantry",
+     "max": 3,
+     "cost": {
+      "amount": 85,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 0,
+     "armour": -2,
+     "baseMm": [
+      40
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "STRONG"
+      }
+     ],
+     "kitAccess": "armoury",
+     "startsWith": [
+      "reinforced-armour"
+     ],
+     "kitRules": {
+      "noCategories": [
+       "armour"
+      ]
+     },
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 33
+     },
+     "status": "verified",
+     "note": "Always has Reinforced Armour; it cannot be removed and is in its Armour Characteristic.",
+     "naming": "keep"
+    },
+    {
+     "id": "lieutenant",
+     "name": "Lieutenant",
+     "min": 1,
+     "max": 1,
+     "cost": {
+      "amount": 70,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 2,
+     "melee": 2,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "LEADER"
+      },
+      {
+       "id": "TOUGH"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Hold Your Fire! ACTION",
+       "summary": "Pick an enemy in Line of Sight that may Activate; this Activation ends and the opponent must Activate that model.",
+       "page": 27
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 27
+     },
+     "status": "verified",
+     "naming": "keep",
+     "upgrades": [
+      {
+       "id": "chewa",
+       "name": "Chewa",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       }
+      }
+     ]
+    },
+    {
+     "id": "trench-cleric",
+     "name": "Trench Cleric",
+     "max": 1,
+     "cost": {
+      "amount": 60,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "NEGATE",
+       "value": "FEAR"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "God is With Us! ACTION",
+       "summary": "Risky roll; on a Success place 1 BLESSING MARKER on itself or a friend within 6\".",
+       "page": 29
+      },
+      {
+       "name": "Onward Christian Soldiers!",
+       "summary": "Friendly PRINCIPALITY models within 8\" have NEGATE FEAR.",
+       "page": 29
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 29
+     },
+     "status": "verified",
+     "naming": "keep",
+     "upgrades": [
+      {
+       "id": "chewa",
+       "name": "Chewa",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       }
+      }
+     ]
+    },
+    {
+     "id": "shock-trooper",
+     "name": "Shock Trooper",
+     "max": 5,
+     "cost": {
+      "amount": 45,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 0,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      25
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "Assault Drill",
+       "summary": "Ignore HEAVY for 1 melee weapon (still at most 1 HEAVY weapon).",
+       "page": 32
+      },
+      {
+       "name": "Shock Charge",
+       "summary": "Roll 1 extra D6 for the Charge Bonus and use the highest.",
+       "page": 32
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 32
+     },
+     "status": "verified",
+     "naming": "keep",
+     "upgrades": [
+      {
+       "id": "chewa",
+       "name": "Chewa",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       }
+      }
+     ]
+    },
+    {
+     "id": "holy-warrior",
+     "name": "Holy Warrior",
+     "max": 2,
+     "cost": {
+      "amount": 60,
+      "currency": "ducats"
+     },
+     "movementInches": 6,
+     "movementType": "infantry",
+     "ranged": 1,
+     "melee": 1,
+     "armour": 0,
+     "baseMm": [
+      32
+     ],
+     "keywords": [
+      {
+       "id": "PRINCIPALITY"
+      },
+      {
+       "id": "ELITE"
+      },
+      {
+       "id": "NEGATE",
+       "value": "FEAR"
+      }
+     ],
+     "kitAccess": "armoury",
+     "abilities": [
+      {
+       "name": "God is With Us! ACTION",
+       "summary": "Risky roll; on a Success place 1 BLESSING MARKER on itself or a friend within 6\".",
+       "page": 29
+      },
+      {
+       "name": "Onward Christian Soldiers!",
+       "summary": "Friendly PRINCIPALITY models within 8\" have NEGATE FEAR.",
+       "page": 29
+      },
+      {
+       "name": "Blessed Psalm ACTION",
+       "summary": "Move 1 BLESSING MARKER from itself to a friendly model, no roll needed.",
+       "page": 43
+      },
+      {
+       "name": "Arise and be Healed! ACTION",
+       "summary": "Risky roll; on a Success it or a friend within 3\" may stand up free and lose up to D3 BLOOD and/or INFECTION MARKERS.",
+       "page": 35
+      }
+     ],
+     "source": {
+      "book": "Warbands of Trench Crusade",
+      "version": "1.0.2",
+      "page": 29
+     },
+     "status": "verified",
+     "naming": "keep",
+     "upgrades": [
+      {
+       "id": "chewa",
+       "name": "Chewa",
+       "cost": {
+        "amount": 5,
+        "currency": "ducats"
+       }
+      }
+     ]
+    }
+   ],
+   "addArmoury": [
+    {
+     "kit": "misericordia",
+     "cost": {
+      "amount": 15,
+      "currency": "ducats"
+     },
+     "limit": 2,
+     "only": [
+      {
+       "model": "combat-medic"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "machine-armour",
+     "cost": {
+      "amount": 50,
+      "currency": "ducats"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "keyword": "ELITE"
+      }
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "shotel",
+     "cost": {
+      "amount": 5,
+      "currency": "ducats"
+     },
+     "status": "verified",
+     "note": "Chewa & ELITE only (not checked by the builder)"
+    },
+    {
+     "kit": "holy-water-of-lalibela",
+     "cost": {
+      "amount": 3,
+      "currency": "ducats"
+     },
+     "limit": 5,
+     "stipulations": [
+      "consumable"
+     ],
+     "status": "verified"
+    },
+    {
+     "kit": "anfarro",
+     "cost": {
+      "amount": 10,
+      "currency": "ducats"
+     },
+     "limit": 6,
+     "stipulations": [
+      "headgear"
+     ],
+     "status": "verified",
+     "note": "Chewa & ELITE only (not checked by the builder)"
+    },
+    {
+     "kit": "tabot",
+     "cost": {
+      "amount": 4,
+      "currency": "glory"
+     },
+     "limit": 1,
+     "only": [
+      {
+       "model": "holy-warrior"
+      }
+     ],
+     "status": "verified"
+    }
+   ],
+   "specialRules": [
+    {
+     "name": "Abyssinian Healers",
+     "summary": "0-2 Combat Medics; Misericordia Limit 2.",
+     "page": 43
+    },
+    {
+     "name": "Chieftain Panoply",
+     "summary": "Mechanized Heavy Infantry cannot have Machine Armour.",
+     "page": 43
+    },
+    {
+     "name": "Faith of Ethiopia",
+     "summary": "No Blind Marksmen.",
+     "page": 43
+    },
+    {
+     "name": "Holy Warriors",
+     "summary": "0-1 Trench Cleric and 0-2 Holy Warriors (Trench Cleric entry plus Blessed Psalm and Arise and be Healed!).",
+     "page": 43
+    },
+    {
+     "name": "Short-Range Marksmanship",
+     "summary": "The Lieutenant and Yeomen get +1 DICE at Short Range, except with Grenades or HEAVY weapons.",
+     "page": 43
+    },
+    {
+     "name": "Vanguard Forces",
+     "summary": "No Trench Moles; up to 4 Yeomen can have Flanking for +5 ducats each (deploy at a battlefield edge 8\" from enemies).",
+     "page": 43
+    },
+    {
+     "name": "Warrior Nobles",
+     "summary": "Shock Troopers and ELITE models can have Chewa for +5 ducats each: +1 DICE in melee per other friend within 1\" of the target, up to +2.",
+     "page": 43
+    },
+    {
+     "name": "Weapons of Mobile Warfare",
+     "summary": "At most 3 ranged weapons with HEAVY, not counting Satchel Charges (not checked by the builder).",
+     "page": 43
+    }
+   ],
+   "source": {
+    "book": "Warbands of Trench Crusade",
+    "version": "1.0.2",
+    "page": 43
+   },
+   "status": "verified",
+   "naming": "rename"
+  }
+ ],
+ "source": {
+  "book": "Warbands of Trench Crusade",
+  "version": "1.0.2",
+  "page": 23
+ },
+ "status": "verified",
+ "naming": "rename",
+ "kitGroups": [
+  {
+   "id": "dog-training",
+   "name": "Trench Dog training",
+   "limitPerModel": 1,
+   "note": "one Special Training per Trench Dog (core rulebook p. 142)"
+  }
+ ]
+}

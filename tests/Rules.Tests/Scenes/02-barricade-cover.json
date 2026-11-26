@@ -30,13 +30,13 @@
   "expect": {
     "attackerLevel": "Ground",
     "targetLevel": "Ground",
-    "visibility": "Full",
-    "visible": 4,
-    "total": 4,
+    "visibility": "Partial",
+    "visible": 3,
+    "total": 9,
     "cover": true,
     "coverBy": "barricade"
   },
   "status": "provisional",
-  "basis": "Cover conditions p. 38 (confirmed wording); readings U4, U5, U14, U15",
-  "ruling": "A Cover-profile piece never blocks sight, so the target is fully visible, and it gives cover because it is between, touching, and as wide as the base."
+  "basis": "Cover conditions p. 38 (confirmed wording); readings U4, U15, U77, U78",
+  "ruling": "The 0.75\" barricade hides the target's legs and body points; its head shows over the top, so sight is Partial. The barricade is at least 1/2\" high, touches the target, is as wide as its base and hides part of it, so it gives cover. (Before L2: Full 4/4 with cover.)"
 }

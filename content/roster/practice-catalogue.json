@@ -1,0 +1,174 @@
+{
+ "format": 1,
+ "rulesVersion": "1.0.2",
+ "note": "Invented practice data for the roster builder until the real lists are entered (stage 4). Not from any book.",
+ "entries": [
+  {
+   "id": "practice-rifle",
+   "name": "Practice Rifle",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 24,
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "practice-pistol",
+   "name": "Practice Pistol",
+   "category": "ranged",
+   "hands": 1,
+   "rangeInches": 12,
+   "alsoMelee": true,
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "practice-carbine",
+   "name": "Practice Carbine",
+   "category": "ranged",
+   "hands": 2,
+   "rangeInches": 18,
+   "keywords": [
+    {
+     "id": "ASSAULT"
+    }
+   ],
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "practice-bayonet",
+   "name": "Practice Bayonet",
+   "category": "melee",
+   "hands": 2,
+   "keywords": [
+    {
+     "id": "CUMBERSOME"
+    }
+   ],
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "practice-club",
+   "name": "Practice Club",
+   "category": "melee",
+   "hands": 1,
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "practice-maul",
+   "name": "Practice Maul",
+   "category": "melee",
+   "hands": 2,
+   "injuryModifier": 1,
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "practice-grenade",
+   "name": "Practice Grenade",
+   "category": "grenade",
+   "rangeInches": 8,
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "practice-shield",
+   "name": "Practice Shield",
+   "category": "shield",
+   "injuryModifier": -1,
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "practice-coat",
+   "name": "Practice Coat",
+   "category": "armour",
+   "injuryModifier": -1,
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "practice-helmet",
+   "name": "Practice Helmet",
+   "category": "equipment",
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  },
+  {
+   "id": "practice-mask",
+   "name": "Practice Mask",
+   "category": "equipment",
+   "source": {
+    "book": "practice",
+    "version": "1.0.2",
+    "page": 1
+   },
+   "status": "unverified",
+   "naming": "keep",
+   "cost": null
+  }
+ ]
+}

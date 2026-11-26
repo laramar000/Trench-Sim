@@ -43,12 +43,12 @@
     "attackerLevel": "Ground",
     "targetLevel": "Ground",
     "visibility": "Partial",
-    "visible": 2,
-    "total": 4,
+    "visible": 3,
+    "total": 9,
     "cover": false,
     "coverBy": null
   },
   "status": "provisional",
-  "basis": "p. 30 partial line of sight (confirmed); sampling U2/U16",
-  "ruling": "The two central rays pass through the slit and the two outer rays hit the walls: Partial. Neither wall touches the target, so there is no cover. Limitation: a real sliver of a wider target could be visible through a gap the fixed rays miss."
+  "basis": "p. 30 partial line of sight (confirmed); U77",
+  "ruling": "The middle column of points passes through the slit and the side columns hit the walls: Partial. Neither wall touches the target, so there is no cover. Limitation: a sliver of the target could be visible through a gap the fixed points miss. (Before L2: Partial 2/4.)"
 }
