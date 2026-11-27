@@ -6816,10 +6816,16 @@ public partial class UiCheck : Node
             // Body polish: a blood pool under it, and drawn see-through exactly while a model on the table stands on it.
             // (Where the body lies: a ragdoll thrown by a hit lies off its place, 2026-11-24.)
             var underfoot = scene.Models.Any(m => Math.Sqrt((m.X - look.Lies.X) * (m.X - look.Lies.X) + (m.Y - look.Lies.Z) * (m.Y - look.Lies.Z)) < m.Radius + fallen.Radius * 0.7);
-            if (new Vector2(look.At.X - (float)fallen.X, look.At.Z - (float)fallen.Y).Length() > 0.01f || look.Tilt is < 1.2f or > 2.6f || look.BaseShown
+            // (2026-11-26, Windows run: a body slumped over a sandbag ring lay with its trunk 0.76 rad over and its hips
+            // 0.66" up, leaning on the bags' side: since the terrain-aware ragdoll of 2026-11-25 a body may slump against cover.
+            // Lying flat, or slumped: a joint on what is under it, its neck or head propped on something raised, the trunk
+            // well over.)
+            var support = board.BodySupport(fallen.Id);
+            var down = look.Tilt is >= 1.2f and <= 2.6f || (support is { Lowest: < 0.3f, Propped: true } && look.Tilt is >= 0.5f and <= 2.6f);
+            if (new Vector2(look.At.X - (float)fallen.X, look.At.Z - (float)fallen.Y).Length() > 0.01f || !down || look.BaseShown
                 || Math.Abs(look.Shade - BoardView.BodyShade) > 0.02f || !look.Pool || Math.Abs(look.Fade - (underfoot ? BoardView.BodyUnderfoot : 1f)) > 0.01f)
             {
-                problems.Add($"{fallen.Id.Value}: {look} (wanted at ({fallen.X:0.00}, {fallen.Y:0.00}), lying (tilt 1.2 to 2.6), shade {BoardView.BodyShade}, no base, a pool, fade {(underfoot ? BoardView.BodyUnderfoot : 1f)})");
+                problems.Add($"{fallen.Id.Value}: {look}, support {(support is { } su ? $"lowest joint {su.Lowest:0.00}\" up, propped {su.Propped}" : "?")}, Down before {board.BodyHistory(fallen.Id).WasDown}, bases beside {board.BodyHistory(fallen.Id).Beside} (wanted at ({fallen.X:0.00}, {fallen.Y:0.00}), lying (tilt 1.2 to 2.6, or slumped on cover: a joint within 0.3\", neck or head propped, tilt from 0.5), shade {BoardView.BodyShade}, no base, a pool, fade {(underfoot ? BoardView.BodyUnderfoot : 1f)})");
             }
         }
         var extra = board.Bodies.Where(id => scene.Fallen.All(f => f.Id != id)).Select(id => id.Value).ToList();

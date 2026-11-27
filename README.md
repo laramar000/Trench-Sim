@@ -98,4 +98,12 @@ The original code and original documentation in this repository are licensed und
 
 That license covers only material written for this project. It does not cover, and does not grant any rights in, the game, its rules text, artwork, logos, names, setting or other intellectual property of any game publisher or other third party, which remain subject to their owners' rights. It gives no permission to distribute a complete playable client of that game or its protected content, and this repository contains none. This project is unofficial and unaffiliated.
 
+### Legal notes
+
+- **Unofficial and non-commercial.** This is a fan project, made and shared without charge and not for profit. It is not affiliated with, endorsed or sponsored by any game publisher.
+- **No builds, no game content.** No playable builds are distributed. The repository contains no rules text, artwork or logos taken from the game's publisher; the rules engine is written from the owner's own reading of the published rules, and its data holds only the numbers and keywords a match needs.
+- **Names.** Generic names are kept; distinctive names of factions, units and equipment are replaced with original ones. All trademarks, product names and setting names belong to their respective owners, and their mention here implies no endorsement.
+- **Takedown requests.** A rights holder who believes something here infringes their rights can open an issue on GitHub or contact the repository owner through GitHub. The material will be reviewed and removed promptly where the request is valid.
+- **No warranty.** Everything here is provided as is, without warranty of any kind, as the Apache License 2.0 also states.
+
 The test project uses the third-party packages Microsoft.NET.Test.Sdk, xunit and xunit.runner.visualstudio, which keep their own licenses; they are restored from NuGet and are not included here. The rules engine (`src/Rules.Core`) and the protocol library (`src/Match.Protocol`) use no third-party packages; the server uses only the ASP.NET Core shared framework that ships with .NET.

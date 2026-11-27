@@ -22,6 +22,12 @@ public partial class BoardView
     // Body polish (2026-11-23): each body's materials and base, to draw it see-through while a model stands on it.
     private readonly Dictionary<ModelId, (List<ShaderMaterial> Shaders, List<StandardMaterial3D> Paints, float Radius, Vector3 Lies)> _bodyParts = [];
 
+    // (2026-11-26, Windows run board-bodies: a body drawn again worked its fall out afresh from the model's facing then, and
+    // lay 0.4" off and turned from where it had come to rest.) How each body came to rest this match, as it was laid: its
+    // place, its holder's turn and its skeleton's pose. A body drawn again (Off, a catch-up, a reconnect) is laid exactly
+    // so. A new match forgets them.
+    private readonly Dictionary<ModelId, (Vector3 Root, Transform3D Holder, Transform3D[] Bones)> _bodyPose = [];
+
     // A body under a model on the table is drawn this see-through (the figure shader's ordered dither; the paints' alpha),
     // so the living model always reads first.
     public const float BodyUnderfoot = 0.35f;
@@ -70,6 +76,14 @@ public partial class BoardView
             ? rig.Skeleton.GlobalTransform * rig.Skeleton.GetBoneGlobalPose(rig.Joint[(int)RagdollJoint.Hips]).Origin
             : root.GlobalPosition;
         _bodyParts[id] = (shaders, paints, radius, lies);
+        if (!_bodyPose.ContainsKey(id))
+        {
+            var held = root.GetChildren().OfType<Node3D>().FirstOrDefault(n => n is not MeshInstance3D);
+            var bones = RigOf(root) is { } posed
+                ? [.. Enumerable.Range(0, posed.Skeleton.GetBoneCount()).Select(posed.Skeleton.GetBoneGlobalPose)]
+                : System.Array.Empty<Transform3D>();
+            _bodyPose[id] = (root.Position, held?.Transform ?? Transform3D.Identity, bones);
+        }
         root.GetParent()?.RemoveChild(root);
         root.Name = $"Body{id.Value}";
         if (_bodies.Remove(id, out var old) && IsInstanceValid(old))
@@ -101,6 +115,7 @@ public partial class BoardView
         foreach (var gone in _bodies.Keys.Where(id => _scene?.Find(id) is not null && !_hiddenForPicture.Contains(id)).ToList())
         {
             RemoveBody(gone);
+            _bodyPose.Remove(gone);
         }
         foreach (var model in fallen)
         {
@@ -164,7 +179,20 @@ public partial class BoardView
     {
         var yaw = FacingNow(model.Id);
         var (root, holder, shaders, paints, _, tall, lyingScale, length) = BuildCasualty(model, new Vector3((float)model.X, (float)model.Standing, (float)model.Y), yaw, _bodiesNode);
-        if (RigOf(root) is { } rig)
+        if (_bodyPose.TryGetValue(model.Id, out var rest))
+        {
+            // Laid before this match: exactly as it came to rest then.
+            root.Position = rest.Root;
+            holder.Transform = rest.Holder;
+            if (RigOf(root) is { } again && again.Skeleton.GetBoneCount() == rest.Bones.Length)
+            {
+                foreach (var bone in again.Order)
+                {
+                    again.Skeleton.SetBoneGlobalPose(bone, rest.Bones[bone]);
+                }
+            }
+        }
+        else if (RigOf(root) is { } rig)
         {
             // Ragdoll: the same fall worked out at once (the way it fell this match, else backwards), posed at its end.
             var (push, hit) = _fallPush.TryGetValue(model.Id, out var fell) ? fell : (Backwards(yaw) * (float)RagdollImpacts.Crumple, (float)RagdollImpacts.ChestHigh);
@@ -321,6 +349,7 @@ public partial class BoardView
         foreach (var id in _bodies.Keys.Where(id => _scene?.Find(id) is not null).ToList())
         {
             RemoveBody(id);
+            _bodyPose.Remove(id);
         }
     }
 }

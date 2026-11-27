@@ -809,3 +809,44 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   (85af35a), so m7-client = this branch.
 - 2026-11-26, Jason: plugins Ponytail (dietrichgebert/ponytail) and Caveman (juliusbrussee/caveman) added to
   `.claude/settings.json` (extraKnownMarketplaces + enabledPlugins) so cloud sessions load them; take effect next session.
+- 2026-11-26, Jason chose the GitHub upload (over a Remote Control folder share) so Claude reads Test Center results
+  without copying. Done: `tools/TestCenter/ResultsUpload.cs`, menu U / `upload`: a fine-grained key kept in
+  `%LOCALAPPDATA%\TrenchSim\github-upload-key.txt`; `Report.Finish` sends each run (report.md, logs/*.txt, every
+  ui-check summary.md; cleaned of computer, user and folder names) as one commit to branch `test-results`
+  (`runs/<time>-<kind>-<sha7>/`, `LATEST.md`) through the Git Data API. To read: `git fetch origin test-results` then
+  `git show origin/test-results:LATEST.md`. Not run against GitHub here (no key in the cloud); the cleaning was checked
+  with a scratch program. The branch does not exist until the first upload.
+  Then: Jason could not paste the key (the hidden prompt read keys one by one and dropped Ctrl+V), and twice pasted
+  keys into the chat instead; told to delete both on GitHub; neither was used. Fixed: U now takes the key from the
+  clipboard on Enter (PowerShell Get-Clipboard), or from a normal pasted line, checks its form, clears the clipboard.
+  First real upload (def6105, full run: unit tests all PASS, Windows UI 440 PASS / 4 FAIL) failed before reaching
+  GitHub: "authority-checks.txt ... used by another process" (Windows locks a log the test center still holds open).
+  Fixed: files are read with FileShare.ReadWrite; U then S resends the newest run from its report.md.
+  U then S found nothing in the new download (each option-6 version is a new folder); it now looks in every Trench Sim
+  folder beside this one and sends the newest run by its time-named folder (checked on a mock folder layout here).
+  Then U, S reached GitHub: 403 "Resource not accessible by personal access token" on creating a blob = the key has no
+  Contents write on this repository (a key setting, not code). U now tests writing (a tiny blob) before saving a key,
+  and a 403/404 on sending prints where to change the key on GitHub (edit it: repository selected, Contents Read and write).
+- 2026-11-26, Jason chose "1" (keep Apache 2.0, add the non-clashing legal lines): README "Legal notes" under License:
+  unofficial and non-commercial, no builds or publisher rules text/art/logos, renamed names and trademarks to owners,
+  takedown requests via GitHub, no warranty. Not covered (told the owner): the art risk of reference-based figures and
+  community-licence base assets. Hand-over from the owner the same day: open items are the upload key (needs Contents
+  write), then reading the uploaded full run (def6105) and fixing its failures; m7-client stays behind until his word.
+- 2026-11-26: first upload arrived (test-results: runs/20261126-094921-automated-def6105; no computer, user or folder
+  names in it). Its 4 FAILs: host battlefield-readable (pixel heuristic: seats 0.12 apart, wanted 0.15; seen flaky before,
+  not changed) + host-exit, and pvp-a board-bodies + pvp-a-exit: a body drawn again (RelayBodies) worked its ragdoll fall
+  out afresh (facing then) and lay 0.4" off and turned. Fixed: `BoardView._bodyPose` keeps how each body came to rest
+  (place, holder, bone poses) and LayBody reuses it; cleared by NewMatch, a model back on the table and the showcase.
+  Jason: "keep the most 5 recent tests and archive older ones ... automatically": each upload moves run folders past the
+  newest five from runs/ to archive/ (same blobs, Git Data API; `ResultsUpload.ToArchive`, never the run being sent),
+  checked with a scratch program (8 runs -> 3 oldest moved); not yet run against GitHub.
+- 2026-11-26: second upload (86289f4; option 6 then 8): Windows UI 440 PASS / 2 FAIL, archiving line in LATEST.md works.
+  Body redraw now alike (the _bodyPose fix holds). New: pvp-a board-bodies a4 not lying (tilt 0.76 rad, hips 0.66" up,
+  0.2" from the obj-5 sandbag wall, melee). Not reproduced here with the test skeleton (falls by the bags, against an
+  adjacent base, and Down poses all end flat). board-bodies now accepts a body slumped on cover (a joint within 0.3" of
+  what is under it, neck or head propped on something over 0.2" high, tilt from 0.5; `BoardView.BodySupport`) and a
+  failure now prints support, "Down before" and "bases beside" (`BodyHistory`) to find the cause. gvt-a run 0 failures
+  (no casualty that match).
+- 2026-11-27: third upload (f8ecc8e, option 6 then 8): full PASS on Windows. Unit tests 2,391/0 Debug and Release;
+  Windows UI 442 PASS, 0 FAIL, 18 NOT TESTED (12 optional the match gave no chance for, 6 manual); pvp-a board-bodies
+  PASS (1 body, redraw alike); host battlefield-readable PASS (seats 0.16 apart). The slumped-body case did not come up.

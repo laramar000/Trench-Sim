@@ -326,6 +326,29 @@ public partial class BoardView
         ? new Vector2(nodes[0].Node.Position.X, nodes[0].Node.Position.Z)
         : null;
 
+    // For the UI check board-bodies (2026-11-26): how a body rests on what is drawn under it (the ground, sandbags, a wall,
+    // a trench floor, another body: the ground its fall was worked out on), in inches. Lowest: the smallest gap between a
+    // joint and what is under it (a body on something has a joint on it). Propped: its neck or head lies on something
+    // raised (over 0.2" high) within 0.4" of its top, as a body slumped against sandbags does. Null without a skeleton.
+    // Also, to say why a body is not down when the check fails: whether its model lay Down before it went out (its body
+    // then starts from that pose) and how many living models' bases were beside its fall (they stop a falling body).
+    public (bool WasDown, int Beside) BodyHistory(ModelId id) =>
+        (_downFalls.ContainsKey(id), _fallObstacles.TryGetValue(id, out var blocks) ? blocks.Length : 0);
+
+    public (float Lowest, bool Propped)? BodySupport(ModelId id)
+    {
+        if (!_bodies.TryGetValue(id, out var root) || !IsInstanceValid(root) || RigOf(root) is not { } rig || !_fallLand.TryGetValue(id, out var land))
+        {
+            return null;
+        }
+        var to = rig.Skeleton.GlobalTransform;
+        Vector3 At(RagdollJoint joint) => to * rig.Skeleton.GetBoneGlobalPose(rig.Joint[(int)joint]).Origin;
+        float Gap(Vector3 p) => p.Y - (float)land.Under(p.X, p.Z, 0.1);
+        var lowest = Enum.GetValues<RagdollJoint>().Min(j => Gap(At(j)));
+        var propped = new[] { RagdollJoint.Neck, RagdollJoint.HeadTop }.Select(At).Any(p => land.Under(p.X, p.Z, 0.15) > 0.2 && Gap(p) < 0.4f);
+        return (lowest, propped);
+    }
+
     // For the UI check (audit item B2): casualty figures that travelled their model's move first.
     public int CasualtiesRiding { get; private set; }
 }

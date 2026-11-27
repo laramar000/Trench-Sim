@@ -48,6 +48,7 @@ public static class Program
                 "cleanup" => Cleanup(setup),
                 "play" => await PlayGame.Run(setup, opengl),
                 "showcase" => await AnimationShowcase.Run(setup, opengl),
+                "upload" => await ResultsUpload.SetUp(setup.Results),
                 _ => Usage(),
             };
         }
@@ -83,6 +84,7 @@ public static class Program
             Console.WriteLine("    7  Play Trenches                opens the game on its main menu");
             Console.WriteLine("    8  Run the full tests           adds Release and the UI checks; about 15-25 minutes");
             Console.WriteLine("    9  Animation showcase           watch every animation close up; F5 again, F6 next");
+            Console.WriteLine($"    U  Send results to GitHub       {(ResultsUpload.Configured ? "ON: every run's results go to GitHub for Claude" : "off: set it up once so Claude can read results")}");
             Console.WriteLine("    Q  Quit");
             Console.Write("  Type a number and press Enter: ");
             var choice = (Console.ReadLine() ?? "Q").Trim().ToUpperInvariant();
@@ -129,10 +131,13 @@ public static class Program
                 case "9":
                     last = await AnimationShowcase.Run(setup, opengl);
                     break;
+                case "U":
+                    last = await ResultsUpload.SetUp(setup.Results);
+                    break;
                 case "Q" or "":
                     return last;
                 default:
-                    Console.WriteLine("  Please type a number from 1 to 9, or Q.");
+                    Console.WriteLine("  Please type a number from 1 to 9, U or Q.");
                     continue;
             }
             setup.Pause("Press Enter to go back to the menu.");

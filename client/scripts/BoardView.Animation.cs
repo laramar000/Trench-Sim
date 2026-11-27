@@ -35,6 +35,7 @@ public partial class BoardView
     {
         FinishAnimations();
         ClearBodies();
+        _bodyPose.Clear();
         _fallPush.Clear();
         _downFalls.Clear();
         _fallLand.Clear();
