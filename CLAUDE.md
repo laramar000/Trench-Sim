@@ -847,3 +847,6 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
   what is under it, neck or head propped on something over 0.2" high, tilt from 0.5; `BoardView.BodySupport`) and a
   failure now prints support, "Down before" and "bases beside" (`BodyHistory`) to find the cause. gvt-a run 0 failures
   (no casualty that match).
+- 2026-11-27: third upload (f8ecc8e, option 6 then 8): full PASS on Windows. Unit tests 2,391/0 Debug and Release;
+  Windows UI 442 PASS, 0 FAIL, 18 NOT TESTED (12 optional the match gave no chance for, 6 manual); pvp-a board-bodies
+  PASS (1 body, redraw alike); host battlefield-readable PASS (seats 0.16 apart). The slumped-body case did not come up.
