@@ -751,3 +751,7 @@ public sealed record ChargeCarriedOn : GameEvent
 
 // U124: the charging model stops where it made contact rather than carry on.
 public sealed record ChargeStopped(ModelId Model) : GameEvent;
+
+// Hateful (U125): the activating model must take a Charge ACTION at this enemy (the closest it can charge that has neither
+// CULT nor DEMONIC) before anything else this activation.
+public sealed record ChargeCompelled(ModelId Model, ModelId Target) : GameEvent;

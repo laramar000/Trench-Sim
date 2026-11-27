@@ -88,6 +88,11 @@ public static class StateHash
         {
             Line(sb, "counterCharging", true);
         }
+        // Hateful (U125): only when set.
+        if (state.MustCharge is { } mustCharge)
+        {
+            Line(sb, "mustCharge", mustCharge.Value);
+        }
         if (!state.MarkersOwed.IsDefaultOrEmpty)
         {
             Line(sb, "markersOwed", string.Join(";", state.MarkersOwed.Select(o => $"{o.Source.Value}>{string.Join(",", o.Targets.Select(t => t.Value))}")));
@@ -156,7 +161,7 @@ public static class StateHash
                 $"deployed={Bool(m.Deployed)}",
                 $"activated={Bool(m.ActivatedThisTurn)}",
                 $"at={(m.Position is { } at ? Point(at) : "-")}",
-                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : "") + (m.TalismansUsed == 0 ? "" : $",talismansUsed={m.TalismansUsed}"));
+                $"markers={m.BloodMarkers}") + (m.ToughSpent ? ",tough=spent" : "") + (m.WardSpent ? ",ward=spent" : "") + (m.DugInAt is { } dug ? $",dugIn={Point(dug)}" : "") + (m.MartyrdomSpent ? ",martyrdom=spent" : "") + (m.TalismansUsed == 0 ? "" : $",talismansUsed={m.TalismansUsed}") + (m.Hidden ? ",hidden=yes" : ""));
         }
         return sb.ToString();
     }
@@ -271,6 +276,8 @@ public static class StateHash
             + (p.MementoMori ? ",mementoMori=yes" : "")
             // Roster stage R6d: Trample and Overwhelming Horde, only when present.
             + (p.Tramples ? ",tramples=yes" : "")
+            + (p.Hateful ? ",hateful=yes" : "")
+            + (p.Hides ? ",hides=yes" : "")
             + (p.Horde ? ",horde=yes" : "")
             // Roster stage R6e: Enforced Orthodoxy and Laying on of Hands, only when present.
             + (p.EnforcesOrthodoxy ? ",orthodoxy=yes" : "")

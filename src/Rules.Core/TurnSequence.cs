@@ -85,9 +85,14 @@ public static partial class TurnSequence
                 }
                 else if (state.Phase == Phase.Activation)
                 {
-                    if (state.ActiveModel is { } active)
+                    if (state.ActiveModel is { } active && state.MustCharge is { } hated)
                     {
-                        commands.Add(new EndActivation(state.FindModel(active)!.Seat));
+                        // Hateful (U125): its charge comes first.
+                        commands.Add(new ChargeModel(state.FindModel(active)!.Seat, active, hated));
+                    }
+                    else if (state.ActiveModel is { } active2)
+                    {
+                        commands.Add(new EndActivation(state.FindModel(active2)!.Seat));
                     }
                     else if (TurnRules.NextActivator(state) is { } next)
                     {
@@ -242,6 +247,13 @@ public static partial class TurnSequence
             return new(ReasonCode.DecisionPending, $"A decision must be made first ({waiting.Kind}).", RefTurn);
         }
 
+        // Hateful (U125): until it has taken its Charge ACTION, the active model's player can send only that charge.
+        if (state.MustCharge is { } mustCharge && state.ActiveModel is { } hateful && ActingSeat(command) == state.FindModel(hateful)!.Seat
+            && !(command is ChargeModel forced && forced.Model == hateful && forced.Target == mustCharge))
+        {
+            return new(ReasonCode.MustCharge, $"Hateful: {hateful} must first take a Charge ACTION at {mustCharge}, the closest enemy it can charge.", Board.RefHateful);
+        }
+
         return command switch
         {
             DeployModel c when state.Setup!.Scenario is not null => new(ReasonCode.PositionRequired, "This scenario has a battlefield: set a model up with PlaceModel at a point.", RefDeployment),
@@ -332,6 +344,23 @@ public static partial class TurnSequence
             : new(ReasonCode.NotYourTurn, "That is the other player's activation.", RefActivation);
     }
 
+    // The seat sending a command of the activation (null for any other command).
+    private static Seat? ActingSeat(Command command) => command switch
+    {
+        MoveModel c => c.Seat,
+        DashModel c => c.Seat,
+        Shoot c => c.Seat,
+        ShootPoint c => c.Seat,
+        TreatModel c => c.Seat,
+        TriggerMartyrdom c => c.Seat,
+        TakeSelfAction c => c.Seat,
+        ChargeModel c => c.Seat,
+        RetreatModel c => c.Seat,
+        FightModel c => c.Seat,
+        EndActivation c => c.Seat,
+        _ => null,
+    };
+
     // A command type the rules do not know (a newer client, a damaged message) is refused before anything else is
     // looked at, whatever the phase.
     private static bool IsKnown(Command command) => command is StartMatch or ChooseDeploymentZone or DeployModel or ChooseFirstActivation
@@ -409,6 +438,11 @@ public static partial class TurnSequence
                 if (run.State.Setup!.Scenario is not null && run.State.FindModel(c.Model)!.Status == ModelStatus.Down)
                 {
                     run.Emit(new ModelStoodUp(c.Model) { Quick = run.State.Setup.ProfileOf(c.Model)!.QuickToRise });
+                }
+                // Hateful (U125): the rules have named the enemy it must charge first; say so.
+                if (run.State.MustCharge is { } hated)
+                {
+                    run.Emit(new ChargeCompelled(c.Model, hated));
                 }
                 break;
             case PlaceModel or MoveModel or DashModel or Shoot or ShootPoint or TreatModel or TriggerMartyrdom or TakeSelfAction or SpendMarkers or ChargeModel or RetreatModel or FightModel or FreeFight or DeclineFreeFights or ChooseFriendlyTarget or ScatterAttack or UseTalisman or DeclineTalisman or CarryOnCharge or StopCharge:

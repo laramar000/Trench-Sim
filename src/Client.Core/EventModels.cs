@@ -41,6 +41,7 @@ public static class EventModels
             BloodMarkersPlaced b => [b.Source, .. b.Targets],
             MartyrdomTriggered m => [.. m.Hit],
             ChargeDeclared c => [c.Model, c.Target],
+            ChargeCompelled c => [c.Model, c.Target],
             ChargeRolled c => [c.Model, c.Target],
             ChargeMoved c => [c.Model, c.Target],
             ChargeCarriedOn c => [c.Model, c.Target],

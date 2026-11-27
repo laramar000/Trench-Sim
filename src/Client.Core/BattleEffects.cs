@@ -123,6 +123,8 @@ public sealed class BattleEffectsTracker
         {
             SelfActionDeclared { Action: SelfActionKind.Aim } d => new(d.Model, ActionStyle.Aim),
             SelfActionDeclared { Action: SelfActionKind.Fortify } d => new(d.Model, ActionStyle.Fortify),
+            // Hide (U126): it crouches like a model taking aim.
+            SelfActionDeclared { Action: SelfActionKind.Hide } d => new(d.Model, ActionStyle.Aim),
             SelfActionDeclared { Action: SelfActionKind.EnforcedOrthodoxy } d => new(d.Model, ActionStyle.Rally),
             SelfActionDeclared { Action: SelfActionKind.LayingOnHands } d => new(d.Model, ActionStyle.Treat, d.Target),
             TreatDeclared t => new(t.Model, ActionStyle.Treat, t.Target),

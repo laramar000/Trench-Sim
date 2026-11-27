@@ -261,8 +261,10 @@ public static class UnitPanel
     private static string StatusLine(MatchState state, ModelShape unit)
     {
         var markers = state.FindModel(unit.Id)?.BloodMarkers ?? 0;
+        var hidden = state.FindModel(unit.Id)?.Hidden == true;
         return $"{Words.Seat(unit.Seat)} [{unit.SeatLetter}]{(unit.Yours ? " (yours)" : "")} · {(unit.Status == ModelStatus.Down ? $"{ModelShape.DownMark} " : "")}{Words.Status(unit.Status)}" +
-            (markers > 0 ? $" · {ModelShape.MarkerMark}{markers} Blood Marker{(markers == 1 ? "" : "s")}" : "");
+            (markers > 0 ? $" · {ModelShape.MarkerMark}{markers} Blood Marker{(markers == 1 ? "" : "s")}" : "") +
+            (hidden ? " · Hidden (no shots or charges at it)" : "");
     }
 
     // QoL H3: the unit's values as the rules hold them (its profile in the match setup): "Move 6.0" · Range 24.0" ·
@@ -393,6 +395,10 @@ public static class UnitPanel
         if (p.EnforcesOrthodoxy)
         {
             parts.Add("Enforced Orthodoxy ACTION (Y)");
+        }
+        if (p.Hides)
+        {
+            parts.Add("Hide ACTION (W)");
         }
         if (p.LaysOnHands)
         {
@@ -595,6 +601,11 @@ public static class UnitPanel
         if (!unit.Yours)
         {
             return "Opponent's unit: it takes no orders from you.";
+        }
+        // Hateful (U125): until it has charged, the charge is its only order.
+        if (unit.Active && state.MustCharge is { } hated)
+        {
+            return $"Hateful: it must first take a Charge ACTION at {ShortId(hated)}, the closest enemy it can charge.";
         }
         if (unit.Active || interaction.Chosen == unit.Id || interaction.CanChoose(unit.Id))
         {

@@ -70,6 +70,7 @@ public enum ActionsTaken
     Trample = 2048, // roster stage R6d (U120): a Trample ACTION
     Orthodoxy = 4096, // roster stage R6e (U121): an Enforced Orthodoxy ACTION
     LayingOnHands = 8192, // roster stage R6e (U121): a Laying on of Hands ACTION
+    Hide = 16384, // Hide ACTION (U126)
 }
 
 public enum RollStage
@@ -109,6 +110,7 @@ public enum SelfActionKind
     Fortify,
     EnforcedOrthodoxy, // roster stage R6e (U121)
     LayingOnHands,     // roster stage R6e (U121): with a Target
+    Hide,              // U126: against terrain at least 1/2" high
 }
 
 public enum AttackKind
@@ -270,6 +272,10 @@ public sealed record MatchState
     // Roster stage R6c (U119): the active model's first ACTION was a Charge and it has Counter-Charge: +1 DICE to its Melee
     // Attacks for the rest of the activation. Hashed only when set.
     public bool CounterCharging { get; init; }
+
+    // Hateful (U125): the enemy the active model must take a Charge ACTION at before anything else this activation; null
+    // when it need not.
+    public ModelId? MustCharge { get; init; }
 
     public SeatState SeatFor(Seat seat) => seat == Seat.One ? One : Two;
 

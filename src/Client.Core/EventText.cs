@@ -28,6 +28,7 @@ public static class EventText
         SideClimbRolled c => $"  {c.Model} climb roll {c.Check.Dice.Total}: {c.Check.Outcome}.",
         RangedAttackDeclared r => $"  {r.Attacker} shoots {r.Target}{(r.Elevated ? " from an elevated position" : "")}{(r.LongRange ? " at long range" : "")}{(r.InCover ? $" (cover: {r.CoverTerrainId})" : "")}.",
         ChargeDeclared c => $"  {c.Model} declares a charge on {c.Target}.",
+        ChargeCompelled c => $"  {c.Model} is Hateful: it must charge {c.Target}, the closest enemy it can, before anything else.",
         ChargeRolled c => $"  {c.Model} Charge Bonus {c.Die}{(c.Dropped == 0 ? "" : $" (Shock Charge, {c.Dropped} dropped)")}.",
         ChargeMoved c => c.Path.IsEmpty ? $"  {c.Model} cannot move; the charge fails." : $"  {c.Model} charges to {c.Path[^1]} (cost {c.Cost}): {(c.Reached ? "reaches" : "falls short of")} {c.Target}.",
         ChargeCarriedOn c => $"  {c.Model} carries on round {c.Target} to {c.Path[^1]} (cost {c.Cost}), within 1\" of another enemy.",
@@ -107,6 +108,7 @@ public static class EventText
         RangedAttackDeclared r => new(Id(r.Attacker), "SHOOTS", Id(r.Target) + (r.LongRange ? " (long range)" : "") + (r.InCover ? $" (cover: {r.CoverTerrainId})" : "")),
         RangedSuccessRolled r => new(Id(r.Attacker), "ROLLS", $"{r.Check.Dice.Total} to hit {Id(r.Target)}: {r.Check.Outcome}"),
         ChargeDeclared c => new(Id(c.Model), "CHARGES", $"→ {Id(c.Target)}"),
+        ChargeCompelled c => new(Id(c.Model), "HATEFUL", $"must charge {Id(c.Target)}"),
         ChargeRolled c => new(Id(c.Model), "ROLLS", $"Charge Bonus {c.Die}"),
         ChargeMoved c => c.Path.IsEmpty ? new(Id(c.Model), "CANNOT MOVE", "(the charge fails)")
             : c.Reached ? new(Id(c.Model), "REACHES", $"{Id(c.Target)} at {At(c.Path[^1])}") : new(Id(c.Model), "FALLS SHORT", $"of {Id(c.Target)} at {At(c.Path[^1])}"),
@@ -198,7 +200,7 @@ public static class EventText
         ModelMoved or DashDeclared or DashRolled or SideClimbDeclared or SideClimbRolled or RetreatDeclared or RetreatResolved or MineRevealed or MoveResumed => EventKind.Movement,
         RangedAttackDeclared or ShootingTargetRolled or FriendlyTargetChosen or RangedSuccessRolled or BlastHit or AttackScattered or ScatterMissed
             or PointAttackDeclared or PointSuccessRolled or PointBlastHit => EventKind.Shooting,
-        ChargeDeclared or ChargeRolled or ChargeMoved or ChargeCarriedOn or ChargeStopped => EventKind.Charge,
+        ChargeDeclared or ChargeCompelled or ChargeRolled or ChargeMoved or ChargeCarriedOn or ChargeStopped => EventKind.Charge,
         MeleeAttackDeclared or MeleeSuccessRolled or FreeFightsDeclined => EventKind.Fight,
         InjuryRolled or MarkersSpent or MineExploded or BloodMarkersPlaced or MartyrdomTriggered => EventKind.Injury,
         TreatDeclared or TreatRolled or SelfActionDeclared or SelfActionRolled or ModelStoodUp or MoraleCheckRolled or WarbandShaken or WarbandRecovered or WarbandFled => EventKind.Status,

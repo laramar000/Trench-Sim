@@ -148,6 +148,11 @@ internal static class Board
         {
             return Refuse(ReasonCode.TargetNotOnTable, "The target is not on the battlefield.");
         }
+        // Hide ACTION (U126): a hidden model cannot be chosen as the target of a Ranged Attack (a BLAST still catches it).
+        if (target.Hidden)
+        {
+            return Refuse(ReasonCode.TargetHidden, "That model is hidden: it cannot be chosen as the target of a Ranged Attack (a BLAST can still catch it).");
+        }
         if (IsEngaged(state, attacker))
         {
             return Refuse(ReasonCode.AttackerEngaged, "A model within 1\" of an enemy cannot make a Ranged Attack.");
@@ -372,6 +377,40 @@ internal static class Board
             .ToList();
 
     // Declaring a charge: everything that can be decided before the Charge Bonus is rolled.
+    // Hateful (U125, Warbands p. 169): the enemy a Hateful model must charge when its activation begins (standing; a Down
+    // one once it has stood up), or null. It must be more than 1" from every enemy; the target is, of the enemies it can
+    // charge now (in sight, within 12", a legal route: AssessCharge) that have neither CULT nor DEMONIC, the closest (nearest
+    // bases; on a tie the first in the match's order). An enemy it cannot charge is never forced on it.
+    public static ModelId? HatefulTarget(MatchState state, ModelState model)
+    {
+        if (ScenarioOf(state) is null || state.Setup!.ProfileOf(model.Id) is not { Hateful: true } || model.Status != ModelStatus.Standing
+            || BodyOf(state, model) is not { } from || IsEngaged(state, model))
+        {
+            return null;
+        }
+        ModelId? best = null;
+        var bestGap = default(Length);
+        foreach (var enemy in state.Models)
+        {
+            if (enemy.Seat == model.Seat || enemy.Status == ModelStatus.OutOfAction || BodyOf(state, enemy) is not { } to
+                || (state.Setup.ProfileOf(enemy.Id)!.Traits & (ModelTraits.Cult | ModelTraits.Demonic)) != 0
+                || AssessCharge(state, model, enemy) is not null)
+            {
+                continue;
+            }
+            var gap = Measure.Gap(from, to);
+            if (best is null || gap < bestGap)
+            {
+                (best, bestGap) = (enemy.Id, gap);
+            }
+        }
+        return best;
+    }
+
+    public const string RefHateful = "Warbands p. 169 (Hateful)";
+
+    public const string RefHide = "Warbands p. 110 (Hide ACTION)";
+
     public static Rejection? AssessCharge(MatchState state, ModelState charger, ModelState target)
     {
         var from = BodyOf(state, charger);
@@ -391,6 +430,11 @@ internal static class Board
         if (to is null || target.Status == ModelStatus.OutOfAction)
         {
             return new(ReasonCode.TargetNotOnTable, "The target is not on the battlefield.", RefCharge);
+        }
+        // Hide ACTION (U126): nor of a Charge.
+        if (target.Hidden)
+        {
+            return new(ReasonCode.TargetHidden, "That model is hidden: it cannot be chosen as the target of a Charge.", RefHide);
         }
         if (IsEngaged(state, charger))
         {

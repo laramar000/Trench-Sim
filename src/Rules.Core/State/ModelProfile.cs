@@ -241,6 +241,15 @@ public sealed record ModelProfile
     // roster gave it from the ability) get +1 DICE for each other friendly model within 3".
     public bool Horde { get; init; }
 
+    // Hateful (Court of the Seven-Headed Serpent, U125): on its activation, more than 1" from every enemy and with an enemy
+    // it can charge in sight within 12" that has neither CULT nor DEMONIC, it must take a Charge ACTION at the closest one
+    // first (standing up first if Down, as every Down model does).
+    public bool Hateful { get; init; }
+
+    // Hide ACTION (U126): touching terrain at least 1/2" high, a Risky Success Roll at +1 DICE; on a Success it is Hidden
+    // (ModelState.Hidden).
+    public bool Hides { get; init; }
+
     // ---- Roster stage R6e (U121): ACTIONS that help friends ----
 
     // Enforced Orthodoxy ACTION (Warbands p. 55): a Risky Success Roll at +1 DICE; on a Success every Down friendly model
@@ -503,6 +512,8 @@ public sealed record ModelProfile
                 GrindsToDust = GrindsToDust,
                 Tramples = Tramples,
                 Horde = Horde,
+                Hateful = Hateful,
+                Hides = Hides,
                 EnforcesOrthodoxy = EnforcesOrthodoxy,
                 LaysOnHands = LaysOnHands,
                 Martyrdom = Martyrdom,
@@ -560,6 +571,8 @@ public sealed record ModelProfile
                 GrindsToDust = GrindsToDust,
                 Tramples = Tramples,
                 Horde = Horde,
+                Hateful = Hateful,
+                Hides = Hides,
                 EnforcesOrthodoxy = EnforcesOrthodoxy,
                 LaysOnHands = LaysOnHands,
                 Martyrdom = Martyrdom,
@@ -617,6 +630,8 @@ public sealed record ModelProfile
             GrindsToDust = GrindsToDust,
             Tramples = Tramples,
             Horde = Horde,
+                Hateful = Hateful,
+                Hides = Hides,
             EnforcesOrthodoxy = EnforcesOrthodoxy,
             LaysOnHands = LaysOnHands,
             Martyrdom = Martyrdom,

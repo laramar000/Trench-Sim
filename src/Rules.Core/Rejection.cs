@@ -57,6 +57,9 @@ public enum ReasonCode
     // Roster stage R5i: a Grind to Dust target that is not Down, or on a base larger than 32 mm
     TargetNotDown,
     TargetTooLarge,
+    MustCharge, // Hateful (U125): the activation must begin with its Charge ACTION
+    TargetHidden, // Hide ACTION (U126): the target is hidden
+    NotAgainstTerrain, // Hide ACTION (U126): not in contact with terrain at least 1/2" high
 }
 
 // Why a command was refused, in a form a player can read, with the rulebook reference behind it.

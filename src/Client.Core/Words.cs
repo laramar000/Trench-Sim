@@ -92,6 +92,7 @@ public static class Words
         SelfActionKind.Aim => "Aim",
         SelfActionKind.Fortify => "Fortify",
         SelfActionKind.EnforcedOrthodoxy => "Enforced Orthodoxy",
+        SelfActionKind.Hide => "Hide",
         _ => "Laying on of Hands",
     };
 
@@ -107,6 +108,7 @@ public static class Words
         SelfActionKind.Aim => "AIMS",
         SelfActionKind.Fortify => "FORTIFIES",
         SelfActionKind.EnforcedOrthodoxy => "ENFORCES ORTHODOXY",
+        SelfActionKind.Hide => "HIDES",
         _ => "LAYS ON HANDS",
     };
 
@@ -115,14 +117,19 @@ public static class Words
         SelfActionKind.Aim => ("AIMED", "AIM FAILED"),
         SelfActionKind.Fortify => ("FORTIFIED", "FORTIFY FAILED"),
         SelfActionKind.EnforcedOrthodoxy => ("ORTHODOXY ENFORCED", "ORTHODOXY FAILED"),
+        SelfActionKind.Hide => ("HIDDEN", "HIDE FAILED"),
         _ => ("HANDS LAID", "HANDS FAILED"),
     };
+
+    // Hide ACTION (U126): what hiding does.
+    public const string HideResult = "enemies cannot shoot at it or charge it until it moves, charges, retreats or shoots, or an enemy comes within 1.5\" (a BLAST still catches it)";
 
     // What a successful roll did.
     public static string SelfActionResult(Rules.Core.Events.SelfActionRolled rolled) => rolled.Action switch
     {
         SelfActionKind.Aim => "its Ranged Attacks get +2 DICE this activation",
         SelfActionKind.Fortify => "it has COVER until it moves",
+        SelfActionKind.Hide => HideResult,
         SelfActionKind.EnforcedOrthodoxy => rolled.StoodUp.IsEmpty ? "no Down friend within 8\" to stand up" : $"{string.Join(", ", rolled.StoodUp)} stand{(rolled.StoodUp.Length == 1 ? "s" : "")} up",
         _ => rolled.Removed == 0 ? $"{rolled.Target} has no BLOOD MARKER left to remove" : $"{rolled.Removed} BLOOD MARKER{(rolled.Removed == 1 ? "" : "S")} removed from {rolled.Target}",
     };

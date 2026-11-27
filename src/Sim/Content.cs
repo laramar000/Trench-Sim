@@ -88,6 +88,8 @@ public static class Content
                         Tramples = m.TryGetProperty("tramples", out var tramples) && tramples.GetBoolean(),
                         EnforcesOrthodoxy = m.TryGetProperty("enforcesOrthodoxy", out var enforcesOrthodoxy) && enforcesOrthodoxy.GetBoolean(),
                         LaysOnHands = m.TryGetProperty("laysOnHands", out var laysOnHands) && laysOnHands.GetBoolean(),
+                        Hateful = m.TryGetProperty("hateful", out var hateful) && hateful.GetBoolean(),
+                        Hides = m.TryGetProperty("hides", out var hides) && hides.GetBoolean(),
                         HasCover = m.TryGetProperty("hasCover", out var covered) && covered.GetBoolean(),
                         DigsIn = m.TryGetProperty("digsIn", out var digs) && digs.GetBoolean(),
                     }));

@@ -132,6 +132,11 @@ public sealed record ReadyModel(
     public bool EnforcesOrthodoxy { get; init; }
     public bool LaysOnHands { get; init; }
 
+    // Hateful (U125): it must charge the closest enemy it can when it activates.
+    public bool Hateful { get; init; }
+    // Hide ACTION (U126).
+    public bool Hides { get; init; }
+
     // Roster stage R5j (U115): the Trigger Martyrdom Device ACTION.
     public bool Martyrdom { get; init; }
 }
@@ -214,7 +219,7 @@ public sealed record MatchReady(
                             w.WriteNumber(field, dice);
                         }
                     }
-                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands) })
+                    foreach (var (field, on) in new[] { ("keepsGoingAfterRisky", m.KeepsGoingAfterRisky), ("fanfare", m.Fanfare), ("blendsIn", m.BlendsIn), ("sinisterWhispers", m.SinisterWhispers), ("wardedByBlood", m.WardedByBlood), ("hasCover", m.HasCover), ("digsIn", m.DigsIn), ("burnsAtActivationEnd", m.BurnsAtActivationEnd), ("burnsWhenTakenOut", m.BurnsWhenTakenOut), ("treats", m.Treats), ("healingWaters", m.HealingWaters), ("grindsToDust", m.GrindsToDust), ("martyrdom", m.Martyrdom), ("shotsIgnoreMarkers", m.ShotsIgnoreMarkers), ("expertMedic", m.ExpertMedic), ("finishesTheFallen", m.FinishesTheFallen), ("extraChargeDie", m.ExtraChargeDie), ("inspiresFaithful", m.InspiresFaithful), ("aims", m.Aims), ("fortifies", m.Fortifies), ("agile", m.Agile), ("swiftDash", m.SwiftDash), ("quickToRise", m.QuickToRise), ("undeadFortitude", m.UndeadFortitude), ("abioticLife", m.AbioticLife), ("stealthy", m.Stealthy), ("huntsTheTough", m.HuntsTheTough), ("counterCharge", m.CounterCharge), ("mementoMori", m.MementoMori), ("tramples", m.Tramples), ("horde", m.Horde), ("enforcesOrthodoxy", m.EnforcesOrthodoxy), ("laysOnHands", m.LaysOnHands), ("hateful", m.Hateful), ("hides", m.Hides) })
                     {
                         if (on)
                         {
@@ -627,6 +632,8 @@ public static class MatchReadiness
                 Horde = horde,
                 EnforcesOrthodoxy = abilities.Contains(EnforcedOrthodoxy),
                 LaysOnHands = abilities.Contains(LayingOnHands),
+                Hateful = abilities.Contains(HatefulAbility),
+                Hides = abilities.Contains(HideAbility),
             };
             models.Add(Unburdened(ready, abilities, grenade));
         }
@@ -710,6 +717,10 @@ public static class MatchReadiness
     private const string TrampleAction = "Trample ACTION";
     // Roster stage R6e (U121).
     private const string EnforcedOrthodoxy = "Enforced Orthodoxy ACTION";
+    // Hateful (U125).
+    private const string HatefulAbility = "Hateful";
+    // Hide ACTION (U126).
+    private const string HideAbility = "Hide ACTION";
     private const string LayingOnHands = "Laying on of Hands ACTION";
 
     // The attack an ability makes without a weapon: Poison Stingers CLEAVE 2 and SHRAPNEL, Crushing Blows CLEAVE 2,
@@ -737,7 +748,7 @@ public static class MatchReadiness
         AbsoluteFaith, ExpertMedic, FinishTheFallen, ShockCharge, OnwardSoldiers, AssaultDrill, Demolition, AimAction, FortifyAction,
         Agile, FrighteningSpeed, LopingDash, MadDash, UndeadFortitude, AbioticLife, StealthGenerator, Mubarizun, CounterCharge, MementoMori, Corpulent, ArtificialLife, NailedCross,
         TeethAndClaws, TeethAndClawsLion, FeebleFlailing, CrushingBlows, PoisonStingers, OverwhelmingHorde, TrampleAction,
-        EnforcedOrthodoxy, LayingOnHands,
+        EnforcedOrthodoxy, LayingOnHands, HatefulAbility, HideAbility,
         // Roster stage R6f (U122): abilities that only describe an upgrade the roster buys; the upgrade itself is played or
         // named.
         "Zealot Strength", "Janissary Veteran", "Heretic Legionnaires", "Light Skirmishers", "Trench Moles", "Plague Knight Ranks",

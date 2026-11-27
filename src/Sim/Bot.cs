@@ -128,6 +128,12 @@ public sealed class Bot(Random rng)
     private IEnumerable<Command> Act(MatchState state, ModelState model)
     {
         var seat = model.Seat;
+        // Hateful (U125): the rules allow nothing but its charge at that enemy first.
+        if (state.MustCharge is { } hated)
+        {
+            yield return new ChargeModel(seat, model.Id, hated);
+            yield break;
+        }
         // Roster stage R3: a Fight with attacks still to come (an Off-Hand weapon, CLEAVE) goes on with them first. Only
         // a model with a second Melee Weapon or CLEAVE has any, so older setups draw the same random numbers as before.
         if (TurnSequence.NextFightAttack(state, model.Id) is { } next)
@@ -170,6 +176,11 @@ public sealed class Bot(Random rng)
             {
                 yield return new TakeSelfAction(seat, model.Id, SelfActionKind.LayingOnHands) { Target = friend.Id };
             }
+        }
+        // Hide (U126): hide when it can and is not hidden yet (the rules refuse it away from terrain).
+        if (profile.Hides && !model.Hidden && !state.Actions.HasFlag(ActionsTaken.Hide))
+        {
+            yield return new TakeSelfAction(seat, model.Id, SelfActionKind.Hide);
         }
         // Roster stage R5j (U115): a Martyrdom Device is triggered when an enemy is within 3" (no random numbers).
         if (profile.Martyrdom && !model.MartyrdomSpent

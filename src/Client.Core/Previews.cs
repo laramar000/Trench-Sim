@@ -41,6 +41,9 @@ public enum PreviewKind
     // Roster stage R6e (U121): an Enforced Orthodoxy (the model itself) or a Laying on of Hands (itself or a friend).
     Orthodoxy,
     LayHands,
+
+    // Hide ACTION (U126): the model itself, touching terrain at least 1/2" high.
+    Hide,
 }
 
 // A point on the table, in inches.
@@ -119,6 +122,7 @@ public sealed record Preview(
         PreviewKind.Fortify => "Fortify",
         PreviewKind.Orthodoxy => "Enforce Orthodoxy",
         PreviewKind.LayHands => "Lay on Hands",
+        PreviewKind.Hide => "Hide",
         _ => "Fight",
     };
 
@@ -785,11 +789,14 @@ public static class Previews
     public const string OrthodoxyFact = "Enforced Orthodoxy ACTION (Warbands p. 55): a Risky roll at +1 DICE; on a Success every Down friend within 8\" stands up; a Failure ends the activation.";
     public const string HandsFact = "Laying on of Hands ACTION (Warbands p. 53): a Success Roll; on a Success 1 Blood Marker comes off, 3 on a Critical.";
 
+    public const string HideFact = "Hide ACTION (Warbands p. 110): touching terrain at least 1/2\" high, a Risky roll at +1 DICE; on a Success " + Words.HideResult + "; a Failure ends the activation.";
+
     public static PreviewKind KindOf(SelfActionKind action) => action switch
     {
         SelfActionKind.Aim => PreviewKind.Aim,
         SelfActionKind.Fortify => PreviewKind.Fortify,
         SelfActionKind.EnforcedOrthodoxy => PreviewKind.Orthodoxy,
+        SelfActionKind.Hide => PreviewKind.Hide,
         _ => PreviewKind.LayHands,
     };
 
@@ -799,6 +806,7 @@ public static class Previews
         PreviewKind.Fortify => SelfActionKind.Fortify,
         PreviewKind.Orthodoxy => SelfActionKind.EnforcedOrthodoxy,
         PreviewKind.LayHands => SelfActionKind.LayingOnHands,
+        PreviewKind.Hide => SelfActionKind.Hide,
         _ => null,
     };
 
@@ -818,6 +826,7 @@ public static class Previews
                 SelfActionKind.Aim => AimFact,
                 SelfActionKind.Fortify => FortifyFact,
                 SelfActionKind.EnforcedOrthodoxy => OrthodoxyFact,
+                SelfActionKind.Hide => HideFact,
                 _ => HandsFact,
             });
             if (action == SelfActionKind.EnforcedOrthodoxy)
@@ -945,7 +954,7 @@ public static class Previews
                 }
                 return firstHands;
             }
-            case PreviewKind.Aim or PreviewKind.Fortify or PreviewKind.Orthodoxy:
+            case PreviewKind.Aim or PreviewKind.Fortify or PreviewKind.Orthodoxy or PreviewKind.Hide:
                 return SelfAction(state, seat, model, SelfActionOf(kind)!.Value).Refusal;
             case PreviewKind.Detonate:
                 return Detonate(state, seat, model).Refusal;

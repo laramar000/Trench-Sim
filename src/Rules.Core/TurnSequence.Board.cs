@@ -182,6 +182,11 @@ public static partial class TurnSequence
         {
             return new(ReasonCode.ActionAlreadyTaken, $"A {c.Action} ACTION can be taken only once per activation.", RefActions);
         }
+        // Hide ACTION (U126): only in contact with terrain at least 1/2" high.
+        if (c.Action == SelfActionKind.Hide && Reducer.HideRefusal(state, actor!) is { } hideWhy)
+        {
+            return new(ReasonCode.NotAgainstTerrain, hideWhy, Board.RefHide);
+        }
         // Roster stage R6e (U121): a Laying on of Hands is taken on a friend with a BLOOD MARKER; no other ACTION has a target.
         if (c.Action != SelfActionKind.LayingOnHands)
         {
@@ -191,7 +196,7 @@ public static partial class TurnSequence
             : Reducer.HandsRefusal(state, actor!, target) is { } why ? new(ReasonCode.NothingToTreat, why, RefSelfAction) : null;
     }
 
-    public const string RefSelfAction = "Warbands pp. 28, 33, 53, 55, 85";
+    public const string RefSelfAction = "Warbands pp. 28, 33, 53, 55, 85, 110";
 
     // Roster stage R6b: the bonus dice of an Aim or Fortify roll, and what a successful Aim adds to the model's shots now.
     public static int SelfActionDice(SelfActionKind action) => action == SelfActionKind.Aim ? Reducer.AimDice : 0;

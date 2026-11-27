@@ -26,6 +26,7 @@ public static class Narrator
         SideClimbRolled c => $"  {c.Model} climb roll {c.Check.Dice.Total}: {c.Check.Outcome}.",
         RangedAttackDeclared r => $"  {r.Attacker} shoots {r.Target}{(r.Elevated ? " from an elevated position" : "")}{(r.LongRange ? " at long range" : "")}{(r.InCover ? $" (cover: {r.CoverTerrainId})" : "")}.",
         ChargeDeclared c => $"  {c.Model} declares a charge on {c.Target}.",
+        ChargeCompelled c => $"  {c.Model} is Hateful: it must charge {c.Target}, the closest enemy it can, before anything else.",
         ChargeRolled c => $"  {c.Model} Charge Bonus {c.Die}{(c.Dropped == 0 ? "" : $" (Shock Charge, {c.Dropped} dropped)")}.",
         ChargeMoved c => c.Path.IsEmpty ? $"  {c.Model} cannot move; the charge fails." : $"  {c.Model} charges to {c.Path[^1]} (cost {c.Cost}): {(c.Reached ? "reaches" : "falls short of")} {c.Target}.",
         ChargeCarriedOn c => $"  {c.Model} carries on round {c.Target} to {c.Path[^1]} (cost {c.Cost}), within 1\" of another enemy.",
@@ -73,6 +74,7 @@ public static class Narrator
         SelfActionKind.Aim => "Aim",
         SelfActionKind.Fortify => "Fortify",
         SelfActionKind.EnforcedOrthodoxy => "Enforced Orthodoxy",
+        SelfActionKind.Hide => "Hide",
         _ => "Laying on of Hands",
     };
 
@@ -80,6 +82,7 @@ public static class Narrator
     {
         SelfActionKind.Aim => "its Ranged Attacks get +2 DICE this activation",
         SelfActionKind.Fortify => "it has COVER until it moves",
+        SelfActionKind.Hide => "enemies cannot shoot at it or charge it until it moves, charges, retreats or shoots, or an enemy comes within 1.5\" (a BLAST still catches it)",
         SelfActionKind.EnforcedOrthodoxy => rolled.StoodUp.IsEmpty ? "no Down friend within 8\" to stand up" : $"{string.Join(", ", rolled.StoodUp)} stand{(rolled.StoodUp.Length == 1 ? "s" : "")} up",
         _ => rolled.Removed == 0 ? $"{rolled.Target} has no BLOOD MARKER left to remove" : $"{rolled.Removed} BLOOD MARKER{(rolled.Removed == 1 ? "" : "S")} removed from {rolled.Target}",
     };

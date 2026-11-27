@@ -43,6 +43,12 @@ public static class Reducer
         Require(state.Phase != Phase.None, "No match has been created.");
         Require(state.Phase != Phase.Ended, "The match has ended.");
         RequireFollowUp(state, e);
+        // Hateful (U125): its Charge ACTION at that enemy comes before anything else in the activation.
+        if (state.MustCharge is { } mustCharge)
+        {
+            Require(e is ChargeCompelled || (e is ChargeDeclared declared && declared.Model == state.ActiveModel && declared.Target == mustCharge),
+                "A Hateful model must take its Charge ACTION at the closest enemy it can charge before anything else.");
+        }
         state = ForgoAttacks(state, e);
 
         var next = e switch
@@ -80,6 +86,7 @@ public static class Reducer
             InjuryRolled x => OnInjuryRolled(state, x),
             ObjectivesScored x => OnObjectivesScored(state, x),
             ChargeDeclared x => OnChargeDeclared(state, x),
+            ChargeCompelled x => OnChargeCompelled(state, x),
             ChargeRolled x => OnChargeRolled(state, x),
             ChargeMoved x => OnChargeMoved(state, x),
             ChargeCarriedOn x => OnChargeCarriedOn(state, x),
@@ -113,6 +120,7 @@ public static class Reducer
         };
         // Roster stage R5f (U110): a dug-in model that has moved away from where it started is dug in no more.
         next = Undig(next, e);
+        next = Unhide(state, e, next);
         // Roster stage R5g (U112): BLOOD MARKERS this event owes the enemies near a Crown or Damned Pact bearer.
         next = Burns(state, e, next);
         // Glorious Deeds (U96): what the deeds need to know, and any deed this event completed.
@@ -639,7 +647,7 @@ public static class Reducer
         Require(TurnRules.NextActivator(state) == e.Seat, "It is not that seat's turn to activate.");
         var model = state.FindModel(e.Model);
         Require(model is not null && model.Seat == e.Seat && TurnRules.CanActivate(model), "That model cannot activate.");
-        return TurnRules.WithModel(state, model! with { ActivatedThisTurn = true }) with
+        var started = TurnRules.WithModel(state, model! with { ActivatedThisTurn = true }) with
         {
             ActiveModel = e.Model,
             LastActivator = e.Seat,
@@ -648,6 +656,8 @@ public static class Reducer
             CounterCharging = false,
             MovementHalved = false,
         };
+        // Hateful (U125): a standing Hateful model must charge (a Down one once it has stood up: OnModelStoodUp).
+        return started with { MustCharge = Board.HatefulTarget(started, started.FindModel(e.Model)!) };
     }
 
     private static MatchState OnActivationEnded(MatchState state, ActivationEnded e)
@@ -669,7 +679,7 @@ public static class Reducer
         {
             Require(state.ReloadEnds, "An activation ends for RELOAD only after an attack with a RELOAD weapon.");
         }
-        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false };
+        return state with { ActiveModel = null, Actions = ActionsTaken.None, MovementHalved = false, MustEndActivation = false, ReloadEnds = false, ShotWeapon = 0, Pending = null, Aiming = false, CounterCharging = false, MustCharge = null };
     }
 
     private static MatchState OnMoraleOrderSet(MatchState state, MoraleOrderSet e)
@@ -806,7 +816,9 @@ public static class Reducer
         // Roster stage R6c (U119): Frightening Speed keeps its Movement whole.
         var quick = state.Setup!.ProfileOf(e.Model)!.QuickToRise;
         Require(e.Quick == quick, "A model's Movement is halved when it stands up, unless it has Frightening Speed.");
-        return TurnRules.WithModel(state, model with { Status = ModelStatus.Standing }) with { MovementHalved = !quick };
+        var stood = TurnRules.WithModel(state, model with { Status = ModelStatus.Standing }) with { MovementHalved = !quick };
+        // Hateful (U125): standing up, it must then charge.
+        return stood with { MustCharge = Board.HatefulTarget(stood, stood.FindModel(e.Model)!) };
     }
 
     private static MatchState OnDashDeclared(MatchState state, DashDeclared e)
@@ -900,6 +912,7 @@ public static class Reducer
         Require(e.Action == SelfActionKind.LayingOnHands
             ? e.Target is { } target && HandsRefusal(state, model, target) is null
             : e.Target is null, "A Laying on of Hands needs a friend within 6\" with a BLOOD MARKER; no other ACTION has a target.");
+        Require(e.Action != SelfActionKind.Hide || HideRefusal(state, model) is null, "A Hide ACTION needs the model in contact with terrain at least 1/2\" high.");
         return state with
         {
             Actions = state.Actions | SelfActionFlag(e.Action),
@@ -931,6 +944,8 @@ public static class Reducer
                 return TurnRules.WithModel(next, model with { DugInAt = model.Position });
             case SelfActionKind.EnforcedOrthodoxy:
                 return next with { Models = [.. next.Models.Select(m => stood.Contains(m.Id) ? m with { Status = ModelStatus.Standing } : m)] };
+            case SelfActionKind.Hide:
+                return TurnRules.WithModel(next, model with { Hidden = true });
             default:
                 var target = next.FindModel(e.Target!.Value)!;
                 return TurnRules.WithModel(next, target with { BloodMarkers = target.BloodMarkers - removed });
@@ -939,6 +954,7 @@ public static class Reducer
 
     internal static ActionsTaken SelfActionFlag(SelfActionKind action) => action switch
     {
+        SelfActionKind.Hide => ActionsTaken.Hide,
         SelfActionKind.Aim => ActionsTaken.Aim,
         SelfActionKind.Fortify => ActionsTaken.Fortify,
         SelfActionKind.EnforcedOrthodoxy => ActionsTaken.Orthodoxy,
@@ -947,6 +963,7 @@ public static class Reducer
 
     internal static bool HasSelfAction(ModelProfile profile, SelfActionKind action) => action switch
     {
+        SelfActionKind.Hide => profile.Hides,
         SelfActionKind.Aim => profile.Aims,
         SelfActionKind.Fortify => profile.Fortifies,
         SelfActionKind.EnforcedOrthodoxy => profile.EnforcesOrthodoxy,
@@ -960,6 +977,7 @@ public static class Reducer
         SelfActionKind.Aim => AimDice,
         SelfActionKind.EnforcedOrthodoxy => 1,
         SelfActionKind.LayingOnHands => profile.HealingWaters ? 1 : 0,
+        SelfActionKind.Hide => 1,
         _ => 0,
     };
 
@@ -991,6 +1009,75 @@ public static class Reducer
     }
 
     private static readonly Length HandsReach = Length.FromInches(6);
+
+    // Hide ACTION (U126): why the model cannot hide here, or null. It must be in contact with a terrain piece at least 1/2"
+    // high (a trench has nothing above the ground); "in contact" is its base within HideContact of the piece, as bases are
+    // placed by hand to about that.
+    internal static string? HideRefusal(MatchState state, ModelState model)
+    {
+        if (Board.BodyOf(state, model) is not { } body || Board.ScenarioOf(state) is not { } scenario)
+        {
+            return "The model is not on the battlefield.";
+        }
+        return scenario.Battlefield.Terrain.Any(t => SightHeights.TopOf(t) >= HideHeight && t.Footprint.CircleWithin(body.Centre, body.Radius, HideContact))
+            ? null
+            : "A Hide ACTION needs the model in contact with a terrain piece at least 1/2\" high.";
+    }
+
+    internal static readonly Length HideHeight = Length.HalfInch;
+    internal static readonly Length HideContact = Length.Parse("0.1");
+    private static readonly Length HideBreak = Length.Parse("1.5");
+
+    // Hide ACTION (U126): a Hidden model is hidden no more once it moves, charges, retreats or makes a Ranged Attack, or once
+    // an enemy model moves within 1.5" of it (anywhere along that move, base to base).
+    private static MatchState Unhide(MatchState before, GameEvent e, MatchState state)
+    {
+        if (!state.Models.Any(m => m.Hidden))
+        {
+            return state;
+        }
+        ModelId? acted = e switch
+        {
+            ChargeDeclared c => c.Model,
+            RetreatDeclared r => r.Model,
+            RangedAttackDeclared r => r.Attacker,
+            PointAttackDeclared p => p.Attacker,
+            _ => null,
+        };
+        var walked = e switch
+        {
+            ModelMoved m => (m.Model, m.Path),
+            ChargeMoved c => (c.Model, c.Path),
+            ChargeCarriedOn c => (c.Model, c.Path),
+            RetreatResolved r => (r.Model, r.Path),
+            MoveResumed r => (r.Model, r.Path),
+            _ => ((ModelId?)null, ImmutableArray<Point2>.Empty),
+        };
+        var mover = walked.Item1 is { } id ? before.FindModel(id) : null;
+        bool Ends(ModelState hidden)
+        {
+            if (!hidden.Hidden)
+            {
+                return false;
+            }
+            if (acted == hidden.Id || walked.Item1 == hidden.Id)
+            {
+                return true;
+            }
+            if (mover is null || mover.Seat == hidden.Seat || mover.Position is not { } start || walked.Item2.IsDefaultOrEmpty
+                || Board.BodyOf(before, hidden) is not { } body || state.Setup!.ProfileOf(mover.Id) is not { } profile)
+            {
+                return false;
+            }
+            var reach = body.Radius + profile.BaseRadius + HideBreak;
+            var points = new[] { start }.Concat(walked.Item2).ToList();
+            return points.Zip(points.Skip(1)).Any(s => Shapes.PointNearSegment(body.Centre, s.First, s.Second, reach, strict: false))
+                || Shapes.PointNearSegment(body.Centre, start, start, reach, strict: false);
+        }
+        return state.Models.Any(Ends)
+            ? state with { Models = [.. state.Models.Select(m => Ends(m) ? m with { Hidden = false } : m)] }
+            : state;
+    }
 
     // A successful Laying on of Hands removes 1 BLOOD MARKER, 3 on a Critical Success, at most what the target has left.
     internal static int HandsRemove(MatchState state, ModelId target, SuccessRollResult check) =>
@@ -1503,7 +1590,15 @@ public static class Reducer
         var charged = Board.TracksCharges(state.Setup) && !state.ChargedThisTurn.Contains(e.Model) ? state.ChargedThisTurn.Add(e.Model) : state.ChargedThisTurn;
         // Roster stage R6c (U119): Counter-Charge, when the Charge is the activation's first ACTION.
         var counter = profile.CounterCharge && state.Actions == ActionsTaken.None;
-        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(stage, e.Model, e.Target), ChargedThisTurn = charged, CounterCharging = state.CounterCharging || counter };
+        return state with { Actions = state.Actions | ActionsTaken.Charge, InProgress = new RollInProgress(stage, e.Model, e.Target), ChargedThisTurn = charged, CounterCharging = state.CounterCharging || counter, MustCharge = null };
+    }
+
+    // Hateful (U125): says which enemy the activating model must charge; the rules worked it out when the activation began.
+    private static MatchState OnChargeCompelled(MatchState state, ChargeCompelled e)
+    {
+        Require(state.Phase == Phase.Activation && state.ActiveModel == e.Model && state.MustCharge == e.Target && state.Actions == ActionsTaken.None,
+            "Only the enemy a Hateful model must charge is named, at the start of its activation.");
+        return state;
     }
 
     private static MatchState OnChargeRolled(MatchState state, ChargeRolled e)

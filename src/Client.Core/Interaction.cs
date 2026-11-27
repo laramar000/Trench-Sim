@@ -44,6 +44,9 @@ public enum InteractionMode
     // the model itself or a friend within 6"), then Confirm.
     Orthodoxy,
     LayHands,
+
+    // Hide ACTION (U126): click the model itself, then Confirm.
+    Hide,
 }
 
 // Battlefield UI 3, stage U1 (approved by Jason on 2026-10-22): one entry of the Combat menu, which lists the attacks of
@@ -137,7 +140,7 @@ public sealed class Interaction
     public const double BigStep = 2.0;
 
     private static readonly InteractionMode[] ActionModes =
-        [InteractionMode.Move, InteractionMode.Dash, InteractionMode.Retreat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight, InteractionMode.Treat, InteractionMode.Detonate, InteractionMode.Aim, InteractionMode.Fortify, InteractionMode.Orthodoxy, InteractionMode.LayHands];
+        [InteractionMode.Move, InteractionMode.Dash, InteractionMode.Retreat, InteractionMode.Shoot, InteractionMode.Charge, InteractionMode.Fight, InteractionMode.Treat, InteractionMode.Detonate, InteractionMode.Aim, InteractionMode.Fortify, InteractionMode.Orthodoxy, InteractionMode.LayHands, InteractionMode.Hide];
 
     private readonly List<TablePoint> _waypoints = [];
 
@@ -264,7 +267,7 @@ public sealed class Interaction
     public bool IsPath => Mode is InteractionMode.Move or InteractionMode.Dash or InteractionMode.Retreat;
 
     // Stage U1: Combat itself chooses no target (it lists the attacks); Shoot, Charge and Fight do.
-    public bool IsTarget => Mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.LayHands;
+    public bool IsTarget => Mode is InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.LayHands or InteractionMode.Hide;
 
     // Stage U1: the attack being chosen was picked from the Combat menu, so Esc goes back to the menu first.
     public bool FromCombat { get; private set; }
@@ -444,6 +447,7 @@ public sealed class Interaction
                     InteractionMode.Fortify => kit is { Fortifies: true },
                     InteractionMode.Orthodoxy => kit is { EnforcesOrthodoxy: true },
                     InteractionMode.LayHands => kit is { LaysOnHands: true },
+                    InteractionMode.Hide => kit is { Hides: true },
                     _ => true,
                 }), InteractionMode.Combat];
             }
@@ -640,7 +644,7 @@ public sealed class Interaction
     public IReadOnlyList<TargetSight> TargetSights()
     {
         // A Treat (roster stage R5h) and a detonation (R5j) need no sight of the enemies.
-        if (!IsTarget || Mode is InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.LayHands || Actor is not { } actor)
+        if (!IsTarget || Mode is InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.LayHands or InteractionMode.Hide || Actor is not { } actor)
         {
             return [];
         }
@@ -751,7 +755,7 @@ public sealed class Interaction
     // model already chosen. Nothing is chosen or sent.
     public Preview? PreviewOf(ModelId target)
     {
-        if (!IsTarget || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor && Mode is not (InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.LayHands))
+        if (!IsTarget || _seat is not { } seat || Actor is not { } actor || target == Target || target == actor && Mode is not (InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.LayHands or InteractionMode.Hide))
         {
             return null;
         }
@@ -868,6 +872,7 @@ public sealed class Interaction
         InteractionMode.Fortify => "Fortify",
         InteractionMode.Orthodoxy => "Enforce Orthodoxy",
         InteractionMode.LayHands => "Lay on Hands",
+        InteractionMode.Hide => "Hide",
         _ => "Fight target",
     };
 
@@ -888,6 +893,7 @@ public sealed class Interaction
         InteractionMode.Fortify => "Fortify: a Risky roll; on a Success the model has COVER until it moves. Click the model, then Confirm (key V).",
         InteractionMode.Orthodoxy => "Enforced Orthodoxy: a Risky roll at +1 DICE; on a Success every Down friend within 8\" stands up. Click the model, then Confirm (key Y).",
         InteractionMode.LayHands => "Laying on of Hands: a Success Roll removes 1 Blood Marker (3 on a Critical) from the model itself or a friend within 6\"; click the model, then Confirm (key Z).",
+        InteractionMode.Hide => "Hide: touching terrain at least 1/2\" high, a Risky roll at +1 DICE; on a Success enemies cannot shoot at it or charge it until it acts or an enemy comes within 1.5\". Click the model, then Confirm (key W).",
         InteractionMode.Combat => "Shoot, Charge or Fight: choose the attack (1, 2, 3), click an enemy the rules accept (ringed), then Confirm beside it (or Space); an attack the rules refuse is greyed out with the reason (key C).",
         _ => "",
     };
@@ -1302,7 +1308,7 @@ public sealed class Interaction
             return [];
         }
         // Roster stage R5j/R6b: a detonation's, an Aim's and a Fortify's only choice is the model itself.
-        if (Mode is InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy)
+        if (Mode is InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.Hide)
         {
             return [actor];
         }
@@ -1593,6 +1599,7 @@ public sealed class Interaction
         InteractionMode.Fortify => "Fortify",
         InteractionMode.Orthodoxy => "Enforce Orthodoxy",
         InteractionMode.LayHands => "Lay on Hands",
+        InteractionMode.Hide => "Hide",
         _ => "Nothing",
     };
 
@@ -1615,6 +1622,7 @@ public sealed class Interaction
         InteractionMode.Fortify => "V",
         InteractionMode.Orthodoxy => "Y",
         InteractionMode.LayHands => "Z",
+        InteractionMode.Hide => "W",
         _ => "",
     };
 
@@ -1643,7 +1651,7 @@ public sealed class Interaction
                 var points = PathPoints();
                 // Towers proposal, stage T4: a point on another level is reached by a ladder (Previews.Route).
                 return points.Count == 0 ? null : Previews.Path(_state, seat, Kind(Mode), actor, Previews.Route(_state, actor, [.. points.Select(p => Previews.PointAt(p.X, p.Y))], Sides));
-            case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.LayHands:
+            case InteractionMode.Shoot or InteractionMode.Charge or InteractionMode.Fight or InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.LayHands or InteractionMode.Hide:
                 return Target is { } target ? TargetPreview(seat, Kind(Mode), actor, target, Weapon) : null;
             case InteractionMode.Blast:
                 return Previews.Point(_state, seat, actor, Previews.PointAt(Cursor.X, Cursor.Y), Weapon);
@@ -1667,6 +1675,7 @@ public sealed class Interaction
         InteractionMode.Fortify => PreviewKind.Fortify,
         InteractionMode.Orthodoxy => PreviewKind.Orthodoxy,
         InteractionMode.LayHands => PreviewKind.LayHands,
+        InteractionMode.Hide => PreviewKind.Hide,
         _ => PreviewKind.Fight,
     };
 

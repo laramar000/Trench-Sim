@@ -850,3 +850,9 @@ Heretics, The Cult, The Court. Rules version 1.0.2; no paid expansions; a fan co
 - 2026-11-27: third upload (f8ecc8e, option 6 then 8): full PASS on Windows. Unit tests 2,391/0 Debug and Release;
   Windows UI 442 PASS, 0 FAIL, 18 NOT TESTED (12 optional the match gave no chance for, 6 manual); pvp-a board-bodies
   PASS (1 body, redraw alike); host battlefield-readable PASS (seats 0.16 apart). The slumped-body case did not come up.
+- 2026-11-27, Jason chose "1" (rules waiting on book pages) and pasted Hateful (p. 169) and Hide (p. 110); Bodyguard, mines,
+  Infection/Blessing and Court spells still have no text. Done: Hateful (U125: `ModelProfile.Hateful`, `MatchState.MustCharge`,
+  `Board.HatefulTarget`, event `ChargeCompelled`, `ReasonCode.MustCharge`; the bot and LegalCommands take the forced charge)
+  and Hide (U126: `SelfActionKind.Hide`, `ModelProfile.Hides`, `ModelState.Hidden`, `ReasonCode.TargetHidden` on shots and
+  charges, `NotAgainstTerrain`; `Reducer.Unhide`; client key W, unit card "Hidden"). Readiness plays both by name. Tests
+  `HatefulTests`, `HideTests`. Essentials 2,403/0 (Linux). No UI check run for them (key W not in the abilities group).

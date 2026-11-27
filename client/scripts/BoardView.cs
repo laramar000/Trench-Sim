@@ -1265,6 +1265,8 @@ public partial class BoardView : SubViewportContainer
         // Roster stage R6e: Y enforces orthodoxy, Z lays on hands.
         Key.Y => InteractionMode.Orthodoxy,
         Key.Z => InteractionMode.LayHands,
+        // Hide ACTION (U126): W hides.
+        Key.W => InteractionMode.Hide,
         _ => null,
     };
 
@@ -1503,7 +1505,7 @@ public partial class BoardView : SubViewportContainer
         {
             PlaceCombatMenu(actor!);
         }
-        _confirmBox.Visible = (Interaction.IsAttack(Interaction.Mode) || Interaction.Mode is InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.LayHands) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
+        _confirmBox.Visible = (Interaction.IsAttack(Interaction.Mode) || Interaction.Mode is InteractionMode.Treat or InteractionMode.Detonate or InteractionMode.Aim or InteractionMode.Fortify or InteractionMode.Orthodoxy or InteractionMode.LayHands or InteractionMode.Hide) && Interaction.Pending is null && Interaction.Preview is { Legal: true } && target is not null;
         if (_confirmBox.Visible)
         {
             _confirmButton.Text = Interaction.Mode switch
@@ -1516,6 +1518,7 @@ public partial class BoardView : SubViewportContainer
                 InteractionMode.Fortify => "Confirm fortify",
                 InteractionMode.Orthodoxy => "Confirm orthodoxy",
                 InteractionMode.LayHands => "Confirm laying on of hands",
+                InteractionMode.Hide => "Confirm hide",
                 _ => "Confirm charge",
             };
             _confirmBox.ResetSize();
